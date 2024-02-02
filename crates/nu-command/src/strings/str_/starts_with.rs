@@ -6,6 +6,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
     substring: String,
@@ -37,11 +38,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("string", SyntaxShape::String, "the string to match")
+            .required("string", SyntaxShape::String, "The string to match.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)
@@ -68,7 +69,7 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: substring.item,
             cell_paths,
-            case_insensitive: call.has_flag("ignore-case"),
+            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -92,7 +93,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Checks if input string starts with 'cargo', case-insensitive",
-                example: "'Cargo.toml' | str starts-with -i 'cargo'",
+                example: "'Cargo.toml' | str starts-with --ignore-case 'cargo'",
                 result: Some(Value::test_bool(true)),
             },
         ]
@@ -111,21 +112,22 @@ fn action(
     match input {
         Value::String { val: s, .. } => {
             let starts_with = if *case_insensitive {
-                s.to_lowercase().starts_with(&substring.to_lowercase())
+                s.to_folded_case().starts_with(&substring.to_folded_case())
             } else {
                 s.starts_with(substring)
             };
             Value::bool(starts_with, head)
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
+use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct StrLengths;
@@ -33,10 +33,13 @@ impl Command for StrLengths {
             description: "Returns string lengths",
             example: "[a ab abc] | dfr into-df | dfr str-lengths",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -63,17 +66,15 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let chunked = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to string".into(),
-            e.to_string(),
-            Some(call.head),
-            Some("The str-lengths command can only be used with string columns".into()),
-            Vec::new(),
-        )
+    let chunked = series.str().map_err(|e| ShellError::GenericError {
+        error: "Error casting to string".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: Some("The str-lengths command can only be used with string columns".into()),
+        inner: vec![],
     })?;
 
-    let res = chunked.as_ref().str_lengths().into_series();
+    let res = chunked.as_ref().str_len_bytes().into_series();
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

@@ -31,7 +31,9 @@ export-env {
         "DEBUG": "D"
     }
 
-    $env.LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
+    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+
+    $env.NU_LOG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
 def log-types [] {
@@ -139,7 +141,7 @@ def current-log-level [] {
 }
 
 def now [] {
-    date now | format date "%Y-%m-%dT%H:%M:%S%.3f"
+    date now | format date $env.NU_LOG_DATE_FORMAT
 }
 
 def handle-log [
@@ -149,7 +151,7 @@ def handle-log [
     short: bool
 ] {
     let log_format = if ($format_string | is-empty) {
-        $env.LOG_FORMAT
+        $env.NU_LOG_FORMAT
     } else {
         $format_string
     }
@@ -183,6 +185,7 @@ export def critical [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get CRITICAL)  $format $short
 }
 
@@ -192,6 +195,7 @@ export def error [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get ERROR) $format $short
 }
 
@@ -201,6 +205,7 @@ export def warning [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get WARNING) $format $short
 }
 
@@ -210,6 +215,7 @@ export def info [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get INFO) $format $short
 }
 
@@ -219,6 +225,7 @@ export def debug [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get DEBUG) $format $short
 }
 
@@ -235,8 +242,7 @@ def log-level-deduction-error [
                 $"        Available log levels in $env.LOG_LEVEL:"
                  ($env.LOG_LEVEL | to text | lines | each {|it| $"            ($it)" } | to text)
             ] | str join "\n")
-            start: $span.start
-            end: $span.end
+            span: $span
         }
     }
 }

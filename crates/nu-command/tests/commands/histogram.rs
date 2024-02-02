@@ -1,95 +1,61 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+
+const SAMPLE_INPUT: &str = r#"
+                    [[first_name, last_name, rusty_at];
+                     [Andrés, Robalino, Ecuador],
+                     [JT, Turner, "Estados Unidos"],
+                     [Yehuda, Katz, "Estados Unidos"]]
+            "#;
 
 #[test]
 fn summarizes_by_column_given() {
-    Playground::setup("histogram_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                first_name,last_name,rusty_at
-                Andrés,Robalino,Ecuador
-                JT,Turner,Estados Unidos
-                Yehuda,Katz,Estados Unidos
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.csv
+    let actual = nu!(pipeline(&format!(
+        r#"
+                {SAMPLE_INPUT}
                 | histogram rusty_at countries --percentage-type relative
                 | where rusty_at == "Ecuador"
                 | get countries
                 | get 0
             "#
-        ));
+    )));
 
-        assert_eq!(
-            actual.out,
-            "**************************************************"
-        );
-        // 50%
-    })
+    assert_eq!(
+        actual.out,
+        "**************************************************"
+    );
+    // 50%
 }
 
 #[test]
 fn summarizes_by_column_given_with_normalize_percentage() {
-    Playground::setup("histogram_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                first_name,last_name,rusty_at
-                Andrés,Robalino,Ecuador
-                JT,Turner,Estados Unidos
-                Yehuda,Katz,Estados Unidos
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.csv
+    let actual = nu!(pipeline(&format!(
+        r#"
+                {SAMPLE_INPUT}
                 | histogram rusty_at countries
                 | where rusty_at == "Ecuador"
                 | get countries
                 | get 0
             "#
-        ));
+    )));
 
-        assert_eq!(actual.out, "*********************************");
-        // 33%
-    })
+    assert_eq!(actual.out, "*********************************");
+    // 33%
 }
 
 #[test]
 fn summarizes_by_values() {
-    Playground::setup("histogram_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                first_name,last_name,rusty_at
-                Andrés,Robalino,Ecuador
-                JT,Turner,Estados Unidos
-                Yehuda,Katz,Estados Unidos
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.csv
+    let actual = nu!(pipeline(&format!(
+        r#"
+                {SAMPLE_INPUT}
                 | get rusty_at
                 | histogram
                 | where value == "Estados Unidos"
                 | get count
                 | get 0
             "#
-        ));
+    )));
 
-        assert_eq!(actual.out, "2");
-    })
+    assert_eq!(actual.out, "2");
 }
 
 #[test]

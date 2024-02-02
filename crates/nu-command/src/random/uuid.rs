@@ -49,10 +49,7 @@ fn uuid(call: &Call) -> Result<PipelineData, ShellError> {
     let span = call.head;
     let uuid_4 = Uuid::new_v4().hyphenated().to_string();
 
-    Ok(PipelineData::Value(
-        Value::String { val: uuid_4, span },
-        None,
-    ))
+    Ok(PipelineData::Value(Value::string(uuid_4, span), None))
 }
 
 #[cfg(test)]

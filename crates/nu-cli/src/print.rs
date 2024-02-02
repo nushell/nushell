@@ -54,8 +54,8 @@ Since this command has no output, there is no point in piping it with other comm
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let no_newline = call.has_flag("no-newline");
-        let to_stderr = call.has_flag("stderr");
+        let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
+        let to_stderr = call.has_flag(engine_state, stack, "stderr")?;
 
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {

@@ -1,5 +1,4 @@
 use crate::help::highlight_search_string;
-use itertools::Itertools;
 
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
@@ -8,9 +7,10 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
+    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
 pub struct Find;
@@ -30,11 +30,6 @@ impl Command for Find {
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::String, Type::Any),
-                (
-                    // For find -p
-                    Type::Table(vec![]),
-                    Type::Table(vec![]),
-                ),
             ])
             .named(
                 "regex",
@@ -64,7 +59,7 @@ impl Command for Find {
                 Some('c'),
             )
             .switch("invert", "invert the match", Some('v'))
-            .rest("rest", SyntaxShape::Any, "terms to search")
+            .rest("rest", SyntaxShape::Any, "Terms to search.")
             .category(Category::Filters)
     }
 
@@ -80,106 +75,95 @@ impl Command for Find {
                 result: None,
             },
             Example {
-                description: "Search for a term in a string",
+                description: "Search and highlight text for a term in a string",
                 example: r#"'Cargo.toml' | find toml"#,
-                result: Some(Value::test_string("Cargo.toml".to_owned())),
+                result: Some(Value::test_string("\u{1b}[37mCargo.\u{1b}[0m\u{1b}[41;37mtoml\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_owned())),
             },
             Example {
                 description: "Search a number or a file size in a list of numbers",
                 example: r#"[1 5 3kb 4 3Mb] | find 5 3kb"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(5), Value::test_filesize(3000)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(5), Value::test_filesize(3000)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Search a char in a list of string",
                 example: r#"[moe larry curly] | find l"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("larry"), Value::test_string("curly")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"), Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Find using regex",
                 example: r#"[abc bde arc abf] | find --regex "ab""#,
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("abc".to_string()),
                         Value::test_string("abf".to_string()),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Find using regex case insensitive",
                 example: r#"[aBc bde Arc abf] | find --regex "ab" -i"#,
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("aBc".to_string()),
                         Value::test_string("abf".to_string()),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Find value in records using regex",
-                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu""#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(
-                        vec!["version", "name"],
-                        vec![
-                            Value::test_string("0.1.0"),
-                            Value::test_string("nushell".to_string()),
-                        ],
-                    )],
-                    span: Span::test_data(),
-                }),
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                            "version" => Value::test_string("0.1.0"),
+                            "name" => Value::test_string("nushell".to_string()),
+                    })],
+                )),
             },
             Example {
                 description: "Find inverted values in records using regex",
-                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu" --invert"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_record(
-                            vec!["version", "name"],
-                            vec![
-                                Value::test_string("0.1.1"),
-                                Value::test_string("fish".to_string()),
-                            ],
-                        ),
-                        Value::test_record(
-                            vec!["version", "name"],
-                            vec![
-                                Value::test_string("0.2.0"),
-                                Value::test_string("zsh".to_string()),
-                            ],
-                        ),
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record!{
+                                "version" => Value::test_string("0.1.1"),
+                                "name" => Value::test_string("fish".to_string()),
+                        }),
+                        Value::test_record(record! {
+                                "version" => Value::test_string("0.2.0"),
+                                "name" =>Value::test_string("zsh".to_string()),
+                        }),
                     ],
-                    span: Span::test_data(),
-                }),
+                )),
             },
             Example {
                 description: "Find value in list using regex",
-                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find -r "rr""#,
-                result: Some(Value::List {
-                    vals: vec![Value::List {
-                        vals: vec![Value::test_string("Larry"), Value::test_string("Moe")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr""#,
+                result: Some(Value::list(
+                    vec![Value::list(
+                        vec![Value::test_string("Larry"), Value::test_string("Moe")],
+                        Span::test_data(),
+                    )],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Find inverted values in records using regex",
-                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find -r "rr" --invert"#,
-                result: Some(Value::List {
-                    vals: vec![Value::List {
-                        vals: vec![Value::test_string("Victor"), Value::test_string("Marina")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr" --invert"#,
+                result: Some(Value::list(
+                    vec![Value::list(
+                        vec![Value::test_string("Victor"), Value::test_string("Marina")],
+                        Span::test_data(),
+                    )],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Remove ANSI sequences from result",
@@ -189,21 +173,18 @@ impl Command for Find {
             Example {
                 description: "Find and highlight text in specific columns",
                 example:
-                    "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe -c [col1]",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(
-                        vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],
-                        vec![
-                            Value::test_string(
+                    "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
+                result: Some(Value::list(
+                    vec![Value::test_record(record! {
+                            "col1" => Value::test_string(
                                 "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
                                     .to_string(),
                             ),
-                            Value::test_string("larry".to_string()),
-                            Value::test_string("curly".to_string()),
-                        ],
-                    )],
-                    span: Span::test_data(),
-                }),
+                            "col2" => Value::test_string("larry".to_string()),
+                            "col3" => Value::test_string("curly".to_string()),
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -224,7 +205,7 @@ impl Command for Find {
         if let Some(regex) = regex {
             find_with_regex(regex, engine_state, stack, call, input)
         } else {
-            let input = split_string_if_multiline(input);
+            let input = split_string_if_multiline(input, call.head);
             find_with_rest_and_highlight(engine_state, stack, call, input)
         }
     }
@@ -233,7 +214,7 @@ impl Command for Find {
 fn find_with_regex(
     regex: String,
     engine_state: &EngineState,
-    _stack: &mut Stack,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -241,10 +222,10 @@ fn find_with_regex(
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config().clone();
 
-    let insensitive = call.has_flag("ignore-case");
-    let multiline = call.has_flag("multiline");
-    let dotall = call.has_flag("dotall");
-    let invert = call.has_flag("invert");
+    let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
+    let multiline = call.has_flag(engine_state, stack, "multiline")?;
+    let dotall = call.has_flag(engine_state, stack, "dotall")?;
+    let invert = call.has_flag(engine_state, stack, "invert")?;
 
     let flags = match (insensitive, multiline, dotall) {
         (false, false, false) => "",
@@ -267,85 +248,101 @@ fn find_with_regex(
     input.filter(
         move |value| match value {
             Value::String { val, .. } => re.is_match(val.as_str()).unwrap_or(false) != invert,
-            Value::Record { vals, .. } | Value::List { vals, .. } => {
-                values_match_find(vals, &re, &config, invert)
-            }
+            Value::Record { val, .. } => values_match_find(val.values(), &re, &config, invert),
+            Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
             _ => false,
         },
         ctrlc,
     )
 }
 
-fn values_match_find(values: &[Value], re: &Regex, config: &Config, invert: bool) -> bool {
+fn values_match_find<'a, I>(values: I, re: &Regex, config: &Config, invert: bool) -> bool
+where
+    I: IntoIterator<Item = &'a Value>,
+{
     match invert {
         true => !record_matches_regex(values, re, config),
         false => record_matches_regex(values, re, config),
     }
 }
 
-fn record_matches_regex(values: &[Value], re: &Regex, config: &Config) -> bool {
-    values.iter().any(|v| {
+fn record_matches_regex<'a, I>(values: I, re: &Regex, config: &Config) -> bool
+where
+    I: IntoIterator<Item = &'a Value>,
+{
+    values.into_iter().any(|v| {
         re.is_match(v.into_string(" ", config).as_str())
             .unwrap_or(false)
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-fn highlight_terms_in_record_with_search_columns(
-    search_cols: &Vec<String>,
-    cols: &[String],
-    vals: &[Value],
+fn highlight_terms_in_string(
+    val: &Value,
     span: Span,
     config: &Config,
     terms: &[Value],
     string_style: Style,
     highlight_style: Style,
 ) -> Value {
-    let cols_to_search = if search_cols.is_empty() {
-        cols.to_vec()
-    } else {
-        search_cols.to_vec()
-    };
+    let val_str = val.into_string("", config);
+
+    if let Some(term) = terms
+        .iter()
+        .find(|term| contains_ignore_case(&val_str, &term.into_string("", config)))
+    {
+        let term_str = term.into_string("", config);
+        let highlighted_str =
+            highlight_search_string(&val_str, &term_str, &string_style, &highlight_style)
+                .unwrap_or_else(|_| string_style.paint(&term_str).to_string());
+
+        return Value::string(highlighted_str, span);
+    }
+
+    val.clone()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn highlight_terms_in_record_with_search_columns(
+    search_cols: &[String],
+    record: &Record,
+    span: Span,
+    config: &Config,
+    terms: &[Value],
+    string_style: Style,
+    highlight_style: Style,
+) -> Value {
+    let col_select = !search_cols.is_empty();
     let term_strs: Vec<_> = terms.iter().map(|v| v.into_string("", config)).collect();
 
+    // TODO: change API to mutate in place
+    let mut record = record.clone();
     // iterator of Ok((val_str, term_str)) pairs if the value should be highlighted, otherwise Err(val)
-    let try_val_highlight = vals.iter().zip(cols).map(|(val, col)| {
+    for (col, val) in record.iter_mut() {
+        if col_select && !search_cols.contains(col) {
+            continue;
+        }
         let val_str = val.into_string("", config);
-        let predicate = cols_to_search.contains(col);
-        predicate
-            .then_some(val_str)
-            .and_then(|val_str| {
-                term_strs
-                    .iter()
-                    .find(|term_str| contains_ignore_case(&val_str, term_str))
-                    .map(|term_str| (val_str, term_str))
-            })
-            .ok_or_else(|| val.clone())
-    });
+        let Some(term_str) = term_strs
+            .iter()
+            .find(|term_str| contains_ignore_case(&val_str, term_str))
+        else {
+            continue;
+        };
 
-    // turn Ok pairs into vals of highlighted strings, Err vals is original vals
-    let new_vals = try_val_highlight
-        .map_ok(|(val_str, term_str)| {
-            let highlighted_str =
-                highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
-                    .unwrap_or_else(|_| string_style.paint(term_str).to_string());
+        let highlighted_str =
+            highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
+                .unwrap_or_else(|_| string_style.paint(term_str).to_string());
 
-            Value::String {
-                val: highlighted_str,
-                span,
-            }
-        })
-        .map(|v| v.unwrap_or_else(|v| v));
-
-    Value::Record {
-        cols: cols.to_vec(),
-        vals: new_vals.collect(),
-        span,
+        *val = Value::string(highlighted_str, span);
     }
+
+    Value::record(record, span)
 }
 
 fn contains_ignore_case(string: &str, substring: &str) -> bool {
-    string.to_lowercase().contains(&substring.to_lowercase())
+    string
+        .to_folded_case()
+        .contains(&substring.to_folded_case())
 }
 
 fn find_with_rest_and_highlight(
@@ -359,17 +356,11 @@ fn find_with_rest_and_highlight(
     let engine_state = engine_state.clone();
     let config = engine_state.get_config().clone();
     let filter_config = engine_state.get_config().clone();
-    let invert = call.has_flag("invert");
+    let invert = call.has_flag(&engine_state, stack, "invert")?;
     let terms = call.rest::<Value>(&engine_state, stack, 0)?;
     let lower_terms = terms
         .iter()
-        .map(|v| {
-            if let Ok(span) = v.span() {
-                Value::string(v.into_string("", &config).to_lowercase(), span)
-            } else {
-                v.clone()
-            }
-        })
+        .map(|v| Value::string(v.into_string("", &config).to_lowercase(), span))
         .collect::<Vec<Value>>();
 
     let style_computer = StyleComputer::from_config(&engine_state, stack);
@@ -391,20 +382,28 @@ fn find_with_rest_and_highlight(
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(_, _) => input
             .map(
-                move |mut x| match &mut x {
-                    Value::Record { cols, vals, span } => {
-                        highlight_terms_in_record_with_search_columns(
+                move |mut x| {
+                    let span = x.span();
+                    match &mut x {
+                        Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
-                            cols,
-                            vals,
-                            *span,
+                            val,
+                            span,
                             &config,
                             &terms,
                             string_style,
                             highlight_style,
-                        )
+                        ),
+                        Value::String { .. } => highlight_terms_in_string(
+                            &x,
+                            span,
+                            &config,
+                            &terms,
+                            string_style,
+                            highlight_style,
+                        ),
+                        _ => x,
                     }
-                    _ => x,
                 },
                 ctrlc.clone(),
             )?
@@ -421,22 +420,22 @@ fn find_with_rest_and_highlight(
                 },
                 ctrlc,
             ),
-        PipelineData::ListStream(stream, meta) => Ok(ListStream::from_stream(
+        PipelineData::ListStream(stream, metadata) => Ok(ListStream::from_stream(
             stream
-                .map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, span } => {
-                        highlight_terms_in_record_with_search_columns(
+                .map(move |mut x| {
+                    let span = x.span();
+                    match &mut x {
+                        Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
-                            cols,
-                            vals,
-                            *span,
+                            val,
+                            span,
                             &config,
                             &terms,
                             string_style,
                             highlight_style,
-                        )
+                        ),
+                        _ => x,
                     }
-                    _ => x,
                 })
                 .filter(move |value| {
                     value_should_be_printed(
@@ -450,8 +449,7 @@ fn find_with_rest_and_highlight(
                 }),
             ctrlc.clone(),
         )
-        .into_pipeline_data(ctrlc)
-        .set_metadata(meta)),
+        .into_pipeline_data_with_metadata(metadata, ctrlc)),
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
@@ -460,42 +458,44 @@ fn find_with_rest_and_highlight(
             let mut output: Vec<Value> = vec![];
             for filter_val in stream {
                 match filter_val {
-                    Ok(value) => match value {
-                        Value::String { val, span } => {
-                            let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
+                    Ok(value) => {
+                        let span = value.span();
+                        match value {
+                            Value::String { val, .. } => {
+                                let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
 
-                            for line in val.split(split_char) {
-                                for term in lower_terms.iter() {
-                                    let term_str = term.into_string("", &filter_config);
-                                    let lower_val = line.to_lowercase();
-                                    if lower_val
-                                        .contains(&term.into_string("", &config).to_lowercase())
-                                    {
-                                        output.push(Value::String {
-                                            val: highlight_search_string(
-                                                line,
-                                                &term_str,
-                                                &string_style,
-                                                &highlight_style,
-                                            )?,
-                                            span,
-                                        })
+                                for line in val.split(split_char) {
+                                    for term in lower_terms.iter() {
+                                        let term_str = term.into_string("", &filter_config);
+                                        let lower_val = line.to_lowercase();
+                                        if lower_val
+                                            .contains(&term.into_string("", &config).to_lowercase())
+                                        {
+                                            output.push(Value::string(
+                                                highlight_search_string(
+                                                    line,
+                                                    &term_str,
+                                                    &string_style,
+                                                    &highlight_style,
+                                                )?,
+                                                span,
+                                            ))
+                                        }
                                     }
                                 }
                             }
+                            // Propagate errors by explicitly matching them before the final case.
+                            Value::Error { error, .. } => return Err(*error),
+                            other => {
+                                return Err(ShellError::UnsupportedInput {
+                                    msg: "unsupported type from raw stream".into(),
+                                    input: format!("input: {:?}", other.get_type()),
+                                    msg_span: span,
+                                    input_span: other.span(),
+                                });
+                            }
                         }
-                        // Propagate errors by explicitly matching them before the final case.
-                        Value::Error { error } => return Err(*error),
-                        other => {
-                            return Err(ShellError::UnsupportedInput(
-                                "unsupported type from raw stream".into(),
-                                format!("input: {:?}", other.get_type()),
-                                span,
-                                // This line requires the Value::Error match above.
-                                other.expect_span(),
-                            ));
-                        }
-                    },
+                    }
                     // Propagate any errors that were in the stream
                     Err(e) => return Err(e),
                 };
@@ -510,14 +510,10 @@ fn value_should_be_printed(
     filter_config: &Config,
     lower_terms: &[Value],
     span: Span,
-    columns_to_search: &Vec<String>,
+    columns_to_search: &[String],
     invert: bool,
 ) -> bool {
-    let lower_value = if let Ok(span) = value.span() {
-        Value::string(value.into_string("", filter_config).to_lowercase(), span)
-    } else {
-        value.clone()
-    };
+    let lower_value = Value::string(value.into_string("", filter_config).to_lowercase(), span);
 
     let mut match_found = lower_terms.iter().any(|term| match value {
         Value::Bool { .. }
@@ -532,24 +528,24 @@ fn value_should_be_printed(
         | Value::Nothing { .. }
         | Value::Error { .. } => term_equals_value(term, &lower_value, span),
         Value::String { .. }
+        | Value::QuotedString { .. }
         | Value::RawString { .. }
         | Value::List { .. }
         | Value::CellPath { .. }
         | Value::CustomValue { .. } => term_contains_value(term, &lower_value, span),
-        Value::Record { cols, vals, .. } => {
-            record_matches_term(cols, vals, columns_to_search, filter_config, term, span)
+        Value::Record { val, .. } => {
+            record_matches_term(val, columns_to_search, filter_config, term, span)
         }
         Value::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => match val {
-                Value::Record { cols, vals, .. } => {
-                    record_matches_term(&cols, &vals, columns_to_search, filter_config, term, span)
+                Value::Record { val, .. } => {
+                    record_matches_term(&val, columns_to_search, filter_config, term, span)
                 }
                 _ => false,
             },
             Err(_) => false,
         },
         Value::Binary { .. } => false,
-        Value::MatchPattern { .. } => false,
     });
     if invert {
         match_found = !match_found;
@@ -568,23 +564,19 @@ fn term_equals_value(term: &Value, value: &Value, span: Span) -> bool {
 }
 
 fn record_matches_term(
-    cols: &[String],
-    vals: &[Value],
-    columns_to_search: &Vec<String>,
+    record: &Record,
+    columns_to_search: &[String],
     filter_config: &Config,
     term: &Value,
     span: Span,
 ) -> bool {
-    let cols_to_search = if columns_to_search.is_empty() {
-        cols.to_vec()
-    } else {
-        columns_to_search.to_vec()
-    };
-    cols.iter().zip(vals).any(|(col, val)| {
-        if !cols_to_search.contains(col) {
+    // Only perform column selection if given columns.
+    let col_select = !columns_to_search.is_empty();
+    record.iter().any(|(col, val)| {
+        if col_select && !columns_to_search.contains(col) {
             return false;
         }
-        let lower_val = if val.span().is_ok() {
+        let lower_val = if !val.is_error() {
             Value::string(
                 val.into_string("", filter_config).to_lowercase(),
                 Span::test_data(),
@@ -608,23 +600,18 @@ mod tests {
     }
 }
 
-fn split_string_if_multiline(input: PipelineData) -> PipelineData {
+fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
+    let span = input.span().unwrap_or(head_span);
     match input {
-        PipelineData::Value(Value::String { ref val, span }, _) => {
+        PipelineData::Value(Value::String { ref val, .. }, _) => {
             if val.contains('\n') {
-                Value::List {
-                    vals: {
-                        val.lines()
-                            .map(|s| Value::String {
-                                val: s.to_string(),
-                                span,
-                            })
-                            .collect()
-                    },
+                Value::list(
+                    val.lines()
+                        .map(|s| Value::string(s.to_string(), span))
+                        .collect(),
                     span,
-                }
-                .into_pipeline_data()
-                .set_metadata(input.metadata())
+                )
+                .into_pipeline_data_with_metadata(input.metadata())
             } else {
                 input
             }

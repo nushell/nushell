@@ -62,24 +62,27 @@ impl Command for ExprWhen {
      )
    | dfr collect"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(6), Value::test_int(1), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4), Value::test_int(1)],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![Value::test_int(4), Value::test_int(5), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "d".to_string(),
-                            vec![Value::test_int(10), Value::test_int(6), Value::test_int(0)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(6), Value::test_int(1), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4), Value::test_int(1)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(4), Value::test_int(5), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "d".to_string(),
+                                vec![Value::test_int(10), Value::test_int(6), Value::test_int(0)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -110,11 +113,11 @@ impl Command for ExprWhen {
                 .then(then_predicate.into_polars())
                 .into(),
             v => match NuWhen::try_from_value(v)? {
-                NuWhen::WhenThen(when_then) => when_then
+                NuWhen::Then(when_then) => when_then
                     .when(when_predicate.into_polars())
                     .then(then_predicate.into_polars())
                     .into(),
-                NuWhen::WhenThenThen(when_then_then) => when_then_then
+                NuWhen::ChainedThen(when_then_then) => when_then_then
                     .when(when_predicate.into_polars())
                     .then(then_predicate.into_polars())
                     .into(),

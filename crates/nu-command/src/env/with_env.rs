@@ -21,12 +21,12 @@ impl Command for WithEnv {
             .required(
                 "variable",
                 SyntaxShape::Any,
-                "the environment variable to temporarily set",
+                "The environment variable to temporarily set.",
             )
             .required(
                 "block",
                 SyntaxShape::Closure(None),
-                "the block to run once the variable is set",
+                "The block to run once the variable is set.",
             )
             .category(Category::Env)
     }
@@ -85,7 +85,7 @@ fn with_env(
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
+    let mut stack = stack.captures_to_stack(capture_block.captures);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 
@@ -94,8 +94,8 @@ fn with_env(
             if table.len() == 1 {
                 // single row([[X W]; [Y Z]])
                 match &table[0] {
-                    Value::Record { cols, vals, .. } => {
-                        for (k, v) in cols.iter().zip(vals.iter()) {
+                    Value::Record { val, .. } => {
+                        for (k, v) in val {
                             env.insert(k.to_string(), v.clone());
                         }
                     }
@@ -122,8 +122,8 @@ fn with_env(
             }
         }
         // when get object by `open x.json` or `from json`
-        Value::Record { cols, vals, .. } => {
-            for (k, v) in cols.iter().zip(vals) {
+        Value::Record { val, .. } => {
+            for (k, v) in val {
                 env.insert(k.clone(), v.clone());
             }
         }

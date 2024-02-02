@@ -42,20 +42,23 @@ impl Command for WithColumn {
     | dfr into-df
     | dfr with-column ([5 6] | dfr into-df) --name c"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![Value::test_int(5), Value::test_int(6)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(5), Value::test_int(6)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -70,24 +73,27 @@ impl Command for WithColumn {
       ]
     | dfr collect"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![Value::test_int(2), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "d".to_string(),
-                            vec![Value::test_int(3), Value::test_int(9)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(2), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "d".to_string(),
+                                vec![Value::test_int(3), Value::test_int(9)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -114,7 +120,7 @@ impl Command for WithColumn {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
-                span: value.span()?,
+                span: value.span(),
                 help: None,
             })
         }
@@ -128,14 +134,11 @@ fn command_eager(
     mut df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let new_column: Value = call.req(engine_state, stack, 0)?;
-    let column_span = new_column.span()?;
+    let column_span = new_column.span();
 
     if NuExpression::can_downcast(&new_column) {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
         let lazy = NuLazyFrame::new(true, df.lazy().with_columns(&expressions));
 
@@ -154,14 +157,12 @@ fn command_eager(
 
         df.as_mut()
             .with_column(series)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error adding column to dataframe".into(),
-                    e.to_string(),
-                    Some(column_span),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error adding column to dataframe".into(),
+                msg: e.to_string(),
+                span: Some(column_span),
+                help: None,
+                inner: vec![],
             })
             .map(|df| {
                 PipelineData::Value(
@@ -179,10 +180,7 @@ fn command_lazy(
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-    let value = Value::List {
-        vals,
-        span: call.head,
-    };
+    let value = Value::list(vals, call.head);
     let expressions = NuExpression::extract_exprs(value)?;
 
     let lazy: NuLazyFrame = lazy.into_polars().with_columns(&expressions).into();

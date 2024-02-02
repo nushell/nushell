@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::Any,
-                "the value that denotes what separates the list",
+                "The value that denotes what separates the list.",
             )
             .switch(
                 "regex", 
@@ -56,100 +56,97 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of chars into two lists",
                 example: "[a, b, c, d, e, f, g] | split list d",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::List {
-                            vals: vec![
+                result: Some(Value::list(
+                    vec![
+                        Value::list(
+                            vec![
                                 Value::test_string("a"),
                                 Value::test_string("b"),
                                 Value::test_string("c"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![
                                 Value::test_string("e"),
                                 Value::test_string("f"),
                                 Value::test_string("g"),
                             ],
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of lists into two lists of lists",
                 example: "[[1,2], [2,3], [3,4]] | split list [2,3]",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::List {
-                            vals: vec![Value::List {
-                                vals: vec![Value::test_int(1), Value::test_int(2)],
-                                span: Span::test_data(),
-                            }],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::List {
-                                vals: vec![Value::test_int(3), Value::test_int(4)],
-                                span: Span::test_data(),
-                            }],
-                            span: Span::test_data(),
-                        },
+                result: Some(Value::list(
+                    vec![
+                        Value::list(
+                            vec![Value::list(
+                                vec![Value::test_int(1), Value::test_int(2)],
+                                Span::test_data(),
+                            )],
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![Value::list(
+                                vec![Value::test_int(3), Value::test_int(4)],
+                                Span::test_data(),
+                            )],
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of chars into two lists",
                 example: "[a, b, c, d, a, e, f, g] | split list a",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::List {
-                            vals: vec![
+                result: Some(Value::list(
+                    vec![
+                        Value::list(
+                            vec![
                                 Value::test_string("b"),
                                 Value::test_string("c"),
                                 Value::test_string("d"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![
                                 Value::test_string("e"),
                                 Value::test_string("f"),
                                 Value::test_string("g"),
                             ],
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of chars into lists based on multiple characters",
-                example: r"[a, b, c, d, a, e, f, g] | split list -r '(b|e)'",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::List {
-                            vals: vec![Value::test_string("a")],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![
+                example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
+                result: Some(Value::list(
+                    vec![
+                        Value::list(vec![Value::test_string("a")], Span::test_data()),
+                        Value::list(
+                            vec![
                                 Value::test_string("c"),
                                 Value::test_string("d"),
                                 Value::test_string("a"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_string("f"), Value::test_string("g")],
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![Value::test_string("f"), Value::test_string("g")],
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -164,17 +161,15 @@ impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
             Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
-                |err| {
-                    ShellError::GenericError(
-                        "Error with regular expression".into(),
-                        err.to_string(),
-                        match lhs {
-                            Value::Error { error: _ } => None,
-                            _ => Some(lhs.expect_span()),
-                        },
-                        None,
-                        Vec::new(),
-                    )
+                |e| ShellError::GenericError {
+                    error: "Error with regular expression".into(),
+                    msg: e.to_string(),
+                    span: match lhs {
+                        Value::Error { .. } => None,
+                        _ => Some(lhs.span()),
+                    },
+                    help: None,
+                    inner: vec![],
                 },
             )?))
         } else {
@@ -207,14 +202,11 @@ fn split_list(
     let mut returned_list = Vec::new();
 
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
-    let matcher = Matcher::new(call.has_flag("regex"), separator)?;
+    let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
     for val in iter {
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {
-                returned_list.push(Value::List {
-                    vals: temp_list.clone(),
-                    span: call.head,
-                });
+                returned_list.push(Value::list(temp_list.clone(), call.head));
                 temp_list = Vec::new();
             }
         } else {
@@ -222,16 +214,9 @@ fn split_list(
         }
     }
     if !temp_list.is_empty() {
-        returned_list.push(Value::List {
-            vals: temp_list.clone(),
-            span: call.head,
-        });
+        returned_list.push(Value::list(temp_list.clone(), call.head));
     }
-    Ok(Value::List {
-        vals: returned_list,
-        span: call.head,
-    }
-    .into_pipeline_data())
+    Ok(Value::list(returned_list, call.head).into_pipeline_data())
 }
 
 #[cfg(test)]

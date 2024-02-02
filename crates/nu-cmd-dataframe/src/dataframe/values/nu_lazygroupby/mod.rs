@@ -74,10 +74,7 @@ impl From<LazyGroupBy> for NuLazyGroupBy {
 
 impl NuLazyGroupBy {
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+        Value::custom_value(Box::new(self), span)
     }
 
     pub fn into_polars(self) -> LazyGroupBy {
@@ -85,26 +82,25 @@ impl NuLazyGroupBy {
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => {
-                match val.as_any().downcast_ref::<NuLazyGroupBy>() {
-                    Some(group) => Ok(Self {
-                        group_by: group.group_by.clone(),
-                        schema: group.schema.clone(),
-                        from_eager: group.from_eager,
-                    }),
-                    None => Err(ShellError::CantConvert {
-                        to_type: "lazy groupby".into(),
-                        from_type: "custom value".into(),
-                        span,
-                        help: None,
-                    }),
-                }
-            }
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<NuLazyGroupBy>() {
+                Some(group) => Ok(Self {
+                    group_by: group.group_by.clone(),
+                    schema: group.schema.clone(),
+                    from_eager: group.from_eager,
+                }),
+                None => Err(ShellError::CantConvert {
+                    to_type: "lazy groupby".into(),
+                    from_type: "custom value".into(),
+                    span,
+                    help: None,
+                }),
+            },
             x => Err(ShellError::CantConvert {
                 to_type: "lazy groupby".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }

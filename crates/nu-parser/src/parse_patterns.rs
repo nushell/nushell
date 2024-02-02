@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Expr, Expression, MatchPattern, Pattern},
+    ast::{MatchPattern, Pattern},
     engine::StateWorkingSet,
     ParseError, Span, SyntaxShape, Type, VarId,
 };
@@ -15,19 +15,6 @@ pub fn garbage(span: Span) -> MatchPattern {
         pattern: Pattern::Garbage,
         guard: None,
         span,
-    }
-}
-
-pub fn parse_match_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    working_set.enter_scope();
-    let output = parse_pattern(working_set, span);
-    working_set.exit_scope();
-
-    Expression {
-        expr: Expr::MatchPattern(Box::new(output)),
-        span,
-        ty: Type::Any,
-        custom_completion: None,
     }
 }
 

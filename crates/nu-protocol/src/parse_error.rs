@@ -207,14 +207,17 @@ pub enum ParseError {
         code(nu::parser::module_not_found),
         help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
     )]
-    ModuleNotFound(#[label = "module not found"] Span),
+    ModuleNotFound(#[label = "module {1} not found"] Span, String),
 
     #[error("Missing mod.nu file.")]
     #[diagnostic(
         code(nu::parser::module_missing_mod_nu_file),
-        help("When importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
     )]
-    ModuleMissingModNuFile(#[label = "module directory is missing a mod.nu file"] Span),
+    ModuleMissingModNuFile(
+        String,
+        #[label = "module directory is missing a mod.nu file"] Span,
+    ),
 
     #[error("Cyclical module import.")]
     #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
@@ -336,7 +339,10 @@ pub enum ParseError {
     OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
-    #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
+    #[diagnostic(
+        code(nu::parser::missing_positional),
+        help("Usage: {2}. Use `--help` for more information.")
+    )]
     MissingPositional(String, #[label("missing {0}")] Span, String),
 
     #[error("Missing argument to `{1}`.")]
@@ -354,6 +360,10 @@ pub enum ParseError {
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
+
+    #[error("Type mismatch.")]
+    #[diagnostic(code(nu::parser::type_mismatch_help), help("{3}"))]
+    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), // expected, found, span, help
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
@@ -415,7 +425,7 @@ pub enum ParseError {
     MissingImportPattern(#[label = "needs an import pattern"] Span),
 
     #[error("Wrong import pattern structure.")]
-    #[diagnostic(code(nu::parser::missing_import_pattern))]
+    #[diagnostic(code(nu::parser::wrong_import_pattern))]
     WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]
@@ -449,18 +459,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file))]
     ReadingFile(String, #[label("{0}")] Span),
 
-    /// Tried assigning non-constant value to a constant
-    ///
-    /// ## Resolution
-    ///
-    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
-    #[error("Not a constant.")]
-    #[diagnostic(
-        code(nu::parser::not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
-    )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
-
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -478,6 +476,20 @@ pub enum ParseError {
         #[label("{label}")]
         span: Span,
     },
+
+    #[error("Redirection can not be used with let/mut.")]
+    #[diagnostic()]
+    RedirectionInLetMut(
+        #[label("Not allowed here")] Span,
+        #[label("...and here")] Option<Span>,
+    ),
+
+    #[error("This command does not have a ...rest parameter")]
+    #[diagnostic(
+        code(nu::parser::unexpected_spread_arg),
+        help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
+    )]
+    UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 }
 
 impl ParseError {
@@ -508,8 +520,8 @@ impl ParseError {
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
-            ParseError::ModuleNotFound(s) => *s,
-            ParseError::ModuleMissingModNuFile(s) => *s,
+            ParseError::ModuleNotFound(s, _) => *s,
+            ParseError::ModuleMissingModNuFile(_, s) => *s,
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::InvalidModuleFileName(_, _, s) => *s,
@@ -534,6 +546,7 @@ impl ParseError {
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
             ParseError::TypeMismatch(_, _, s) => *s,
+            ParseError::TypeMismatchHelp(_, _, s, _) => *s,
             ParseError::InputMismatch(_, s) => *s,
             ParseError::OutputMismatch(_, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
@@ -561,8 +574,9 @@ impl ParseError {
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
-            ParseError::NotAConstant(s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
+            ParseError::RedirectionInLetMut(s, _) => *s,
+            ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
     }
 }

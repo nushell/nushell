@@ -1,11 +1,28 @@
-use std::time::Duration;
-
+#[cfg(windows)]
+use itertools::Itertools;
+use nu_engine::CallExt;
+#[cfg(all(
+    unix,
+    not(target_os = "macos"),
+    not(target_os = "windows"),
+    not(target_os = "android"),
+))]
+use nu_protocol::Span;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
+    Type, Value,
 };
+#[cfg(all(
+    unix,
+    not(target_os = "macos"),
+    not(target_os = "windows"),
+    not(target_os = "android"),
+))]
+use procfs::WithCurrentSystemInfo;
+
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Ps;
@@ -38,11 +55,11 @@ impl Command for Ps {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_ps(engine_state, call)
+        run_ps(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -76,87 +93,114 @@ impl Command for Ps {
     }
 }
 
-fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
+fn run_ps(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let mut output = vec![];
     let span = call.head;
-    let long = call.has_flag("long");
+    let long = call.has_flag(engine_state, stack, "long")?;
 
     for proc in nu_system::collect_proc(Duration::from_millis(100), false) {
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
 
-        cols.push("pid".to_string());
-        vals.push(Value::Int {
-            val: proc.pid() as i64,
-            span,
-        });
-
-        cols.push("ppid".to_string());
-        vals.push(Value::Int {
-            val: proc.ppid() as i64,
-            span,
-        });
-
-        cols.push("name".to_string());
-        vals.push(Value::String {
-            val: proc.name(),
-            span,
-        });
+        record.push("pid", Value::int(proc.pid() as i64, span));
+        record.push("ppid", Value::int(proc.ppid() as i64, span));
+        record.push("name", Value::string(proc.name(), span));
 
         #[cfg(not(windows))]
         {
             // Hide status on Windows until we can find a good way to support it
-            cols.push("status".to_string());
-            vals.push(Value::String {
-                val: proc.status(),
-                span,
-            });
+            record.push("status", Value::string(proc.status(), span));
         }
 
-        cols.push("cpu".to_string());
-        vals.push(Value::Float {
-            val: proc.cpu_usage(),
-            span,
-        });
-
-        cols.push("mem".to_string());
-        vals.push(Value::Filesize {
-            val: proc.mem_size() as i64,
-            span,
-        });
-
-        cols.push("virtual".to_string());
-        vals.push(Value::Filesize {
-            val: proc.virtual_size() as i64,
-            span,
-        });
+        record.push("cpu", Value::float(proc.cpu_usage(), span));
+        record.push("mem", Value::filesize(proc.mem_size() as i64, span));
+        record.push("virtual", Value::filesize(proc.virtual_size() as i64, span));
 
         if long {
-            cols.push("command".to_string());
-            vals.push(Value::String {
-                val: proc.command(),
-                span,
-            });
+            record.push("command", Value::string(proc.command(), span));
+            #[cfg(all(
+                unix,
+                not(target_os = "macos"),
+                not(target_os = "windows"),
+                not(target_os = "android"),
+            ))]
+            {
+                let proc_stat = proc
+                    .curr_proc
+                    .stat()
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Error getting process stat".into(),
+                        msg: e.to_string(),
+                        span: Some(Span::unknown()),
+                        help: None,
+                        inner: vec![],
+                    })?;
+                // If we can't get the start time, just use the current time
+                let proc_start = proc_stat
+                    .starttime()
+                    .get()
+                    .unwrap_or_else(|_| chrono::Local::now());
+                record.push("start_time", Value::date(proc_start.into(), span));
+                record.push("user_id", Value::int(proc.curr_proc.owner() as i64, span));
+                // These work and may be helpful, but it just seemed crowded
+                // record.push("group_id", Value::int(proc_stat.pgrp as i64, span));
+                // record.push("session_id", Value::int(proc_stat.session as i64, span));
+                // This may be helpful for ctrl+z type of checking, once we get there
+                // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
+                record.push("priority", Value::int(proc_stat.priority, span));
+                record.push("process_threads", Value::int(proc_stat.num_threads, span));
+                record.push("cwd", Value::string(proc.cwd(), span));
+            }
             #[cfg(windows)]
             {
-                cols.push("cwd".to_string());
-                vals.push(Value::String {
-                    val: proc.cwd(),
-                    span,
-                });
-                cols.push("environment".to_string());
-                vals.push(Value::List {
-                    vals: proc
-                        .environ()
-                        .iter()
-                        .map(|x| Value::string(x.to_string(), span))
-                        .collect(),
-                    span,
-                });
+                //TODO: There's still more information we can cram in there if we want to
+                // see the ProcessInfo struct for more information
+                record.push(
+                    "start_time",
+                    Value::date(proc.start_time.fixed_offset(), span),
+                );
+                record.push(
+                    "user",
+                    Value::string(
+                        proc.user.clone().name.unwrap_or("unknown".to_string()),
+                        span,
+                    ),
+                );
+                record.push(
+                    "user_sid",
+                    Value::string(
+                        proc.user
+                            .clone()
+                            .sid
+                            .iter()
+                            .map(|r| r.to_string())
+                            .join("-"),
+                        span,
+                    ),
+                );
+                record.push("priority", Value::int(proc.priority as i64, span));
+                record.push("cwd", Value::string(proc.cwd(), span));
+                record.push(
+                    "environment",
+                    Value::list(
+                        proc.environ()
+                            .iter()
+                            .map(|x| Value::string(x.to_string(), span))
+                            .collect(),
+                        span,
+                    ),
+                );
+            }
+            #[cfg(target_os = "macos")]
+            {
+                record.push("cwd", Value::string(proc.cwd(), span));
             }
         }
 
-        output.push(Value::Record { cols, vals, span });
+        output.push(Value::record(record, span));
     }
 
     Ok(output

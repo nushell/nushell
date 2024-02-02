@@ -44,7 +44,7 @@ enum InputNumType {
     SignedEight,
 }
 
-fn get_number_bytes(number_bytes: &Option<Spanned<String>>) -> NumberBytes {
+fn get_number_bytes(number_bytes: Option<&Spanned<String>>) -> NumberBytes {
     match number_bytes.as_ref() {
         None => NumberBytes::Eight,
         Some(size) => match size.item.as_str() {

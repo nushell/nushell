@@ -8,7 +8,7 @@ Write-Output ""
 
 Write-Output "Install nushell from local..."
 Write-Output "----------------------------------------------"
-cargo install --force --path . --features=dataframe
+cargo install --force --path . --features=dataframe,extra --locked
 
 $NU_PLUGINS = @(
     'nu_plugin_example',

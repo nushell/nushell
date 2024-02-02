@@ -100,8 +100,8 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
     let mut bg = None;
     let mut attr = None;
     let v = value.as_record();
-    if let Ok((cols, inner_vals)) = v {
-        for (k, v) in cols.iter().zip(inner_vals) {
+    if let Ok(record) = v {
+        for (k, v) in record {
             // Because config already type-checked the color_config records, this doesn't bother giving errors
             // if there are unrecognised keys or bad values.
             if let Ok(v) = v.as_string() {
@@ -246,6 +246,24 @@ pub fn lookup_style(s: &str) -> Style {
         "lpr" | "light_purple_reverse" => Color::LightPurple.reverse(),
         "lpbl" | "light_purple_blink" => Color::LightPurple.blink(),
         "lpst" | "light_purple_strike" => Color::LightPurple.strikethrough(),
+
+        "m" | "magenta" => Color::Magenta.normal(),
+        "mb" | "magenta_bold" => Color::Magenta.bold(),
+        "mu" | "magenta_underline" => Color::Magenta.underline(),
+        "mi" | "magenta_italic" => Color::Magenta.italic(),
+        "md" | "magenta_dimmed" => Color::Magenta.dimmed(),
+        "mr" | "magenta_reverse" => Color::Magenta.reverse(),
+        "mbl" | "magenta_blink" => Color::Magenta.blink(),
+        "mst" | "magenta_strike" => Color::Magenta.strikethrough(),
+
+        "lm" | "light_magenta" => Color::LightMagenta.normal(),
+        "lmb" | "light_magenta_bold" => Color::LightMagenta.bold(),
+        "lmu" | "light_magenta_underline" => Color::LightMagenta.underline(),
+        "lmi" | "light_magenta_italic" => Color::LightMagenta.italic(),
+        "lmd" | "light_magenta_dimmed" => Color::LightMagenta.dimmed(),
+        "lmr" | "light_magenta_reverse" => Color::LightMagenta.reverse(),
+        "lmbl" | "light_magenta_blink" => Color::LightMagenta.blink(),
+        "lmst" | "light_magenta_strike" => Color::LightMagenta.strikethrough(),
 
         "c" | "cyan" => Color::Cyan.normal(),
         "cb" | "cyan_bold" => Color::Cyan.bold(),
@@ -560,7 +578,7 @@ fn fill_modifiers(attrs: &str, style: &mut Style) {
     //
     // since we can combine styles like bold-italic, iterate through the chars
     // and set the bools for later use in the nu_ansi_term::Style application
-    for ch in attrs.to_lowercase().chars() {
+    for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
         match ch {
             'l' => style.is_blink = true,
             'b' => style.is_bold = true,

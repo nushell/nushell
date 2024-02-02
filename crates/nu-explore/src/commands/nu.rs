@@ -64,10 +64,6 @@ impl ViewCommand for NuCmd {
         })
     }
 
-    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
-        false
-    }
-
     fn parse(&mut self, args: &str) -> Result<()> {
         self.command = args.trim().to_owned();
 

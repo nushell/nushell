@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
 
@@ -17,13 +17,14 @@ impl Command for SortBy {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort-by")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
+                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
+            .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
@@ -52,29 +53,26 @@ impl Command for SortBy {
             },
             Example {
                 description: "Sort files by name (case-insensitive)",
-                example: "ls | sort-by name -i",
+                example: "ls | sort-by name --ignore-case",
                 result: None,
             },
             Example {
                 description: "Sort a table by a column (reversed order)",
-                example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_record(
-                            vec!["fruit", "count"],
-                            vec![Value::test_string("pear"), Value::test_int(3)],
-                        ),
-                        Value::test_record(
-                            vec!["fruit", "count"],
-                            vec![Value::test_string("orange"), Value::test_int(7)],
-                        ),
-                        Value::test_record(
-                            vec!["fruit", "count"],
-                            vec![Value::test_string("apple"), Value::test_int(9)],
-                        ),
-                    ],
-                    span: Span::test_data(),
-                }),
+                example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit --reverse",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("pear"),
+                        "count" => Value::test_int(3),
+                    }),
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("orange"),
+                        "count" => Value::test_int(7),
+                    }),
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("apple"),
+                        "count" => Value::test_int(9),
+                    }),
+                ])),
             },
         ]
     }
@@ -87,9 +85,9 @@ impl Command for SortBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
-        let reverse = call.has_flag("reverse");
-        let insensitive = call.has_flag("ignore-case");
-        let natural = call.has_flag("natural");
+        let reverse = call.has_flag(engine_state, stack, "reverse")?;
+        let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
+        let natural = call.has_flag(engine_state, stack, "natural")?;
         let metadata = &input.metadata();
         let mut vec: Vec<_> = input.into_iter_strict(call.head)?.collect();
 

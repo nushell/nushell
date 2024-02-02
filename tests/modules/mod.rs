@@ -357,7 +357,7 @@ fn module_cyclical_imports_0() {
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
-        assert!(actual.err.contains("module not found"));
+        assert!(actual.err.contains("Module not found"));
     })
 }
 
@@ -671,13 +671,6 @@ fn module_dir_import_twice_no_panic() {
 }
 
 #[test]
-fn not_allowed_submodule_file() {
-    let inp = &["use samples/not_allowed"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert!(actual.err.contains("invalid_module_file_name"));
-}
-
-#[test]
 fn module_dir_missing_mod_nu() {
     let inp = &["use samples/missing_mod_nu"];
     let actual = nu!(cwd: "tests/modules", &inp.join("; "));
@@ -749,4 +742,21 @@ fn module_main_not_found() {
     let inp = &["module spam {}", "use spam [ main ]"];
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains("export_not_found"));
+}
+
+#[test]
+fn nested_list_export_works() {
+    let module = r#"
+        module spam {
+            export module eggs {
+                export def bacon [] { 'bacon' }
+            }
+
+            export def sausage [] { 'sausage' }
+        }
+    "#;
+
+    let inp = &[module, "use spam [sausage eggs]", "eggs bacon"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "bacon");
 }

@@ -46,7 +46,11 @@ impl WebTable {
     ///
     /// If `headers` is empty, this is the same as
     /// [`find_first`](#method.find_first).
-    pub fn find_by_headers<T>(html: &str, headers: &[T]) -> Option<Vec<WebTable>>
+    pub fn find_by_headers<T>(
+        html: &str,
+        headers: &[T],
+        inspect_mode: bool,
+    ) -> Option<Vec<WebTable>>
     where
         T: AsRef<str>,
     {
@@ -64,6 +68,9 @@ impl WebTable {
             .filter(|table| {
                 table.select(&sel_tr).next().map_or(false, |tr| {
                     let cells = select_cells(tr, &sel_th, true);
+                    if inspect_mode {
+                        eprintln!("Potential HTML Headers = {:?}\n", &cells);
+                    }
                     headers.iter().all(|h| contains_str(&cells, h.as_ref()))
                 })
             })
@@ -696,12 +703,15 @@ mod tests {
     fn test_find_by_headers_empty() {
         let headers: [&str; 0] = [];
 
-        assert_eq!(None, WebTable::find_by_headers("", &headers));
-        assert_eq!(None, WebTable::find_by_headers("foo", &headers));
-        assert_eq!(None, WebTable::find_by_headers(HTML_NO_TABLE, &headers));
+        assert_eq!(None, WebTable::find_by_headers("", &headers, false));
+        assert_eq!(None, WebTable::find_by_headers("foo", &headers, false));
+        assert_eq!(
+            None,
+            WebTable::find_by_headers(HTML_NO_TABLE, &headers, false)
+        );
 
-        assert!(WebTable::find_by_headers(TABLE_EMPTY, &headers).is_some());
-        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers).is_some());
+        assert!(WebTable::find_by_headers(TABLE_EMPTY, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers, false).is_some());
     }
 
     #[test]
@@ -709,33 +719,45 @@ mod tests {
         let headers = ["Name", "Age"];
         let bad_headers = ["Name", "BAD"];
 
-        assert_eq!(None, WebTable::find_by_headers("", &headers));
-        assert_eq!(None, WebTable::find_by_headers("foo", &headers));
-        assert_eq!(None, WebTable::find_by_headers(HTML_NO_TABLE, &headers));
+        assert_eq!(None, WebTable::find_by_headers("", &headers, false));
+        assert_eq!(None, WebTable::find_by_headers("foo", &headers, false));
+        assert_eq!(
+            None,
+            WebTable::find_by_headers(HTML_NO_TABLE, &headers, false)
+        );
 
-        assert_eq!(None, WebTable::find_by_headers(TABLE_EMPTY, &bad_headers));
-        assert_eq!(None, WebTable::find_by_headers(TABLE_TH, &bad_headers));
+        assert_eq!(
+            None,
+            WebTable::find_by_headers(TABLE_EMPTY, &bad_headers, false)
+        );
+        assert_eq!(
+            None,
+            WebTable::find_by_headers(TABLE_TH, &bad_headers, false)
+        );
 
-        assert_eq!(None, WebTable::find_by_headers(TABLE_TD, &headers));
-        assert_eq!(None, WebTable::find_by_headers(TABLE_TD, &bad_headers));
+        assert_eq!(None, WebTable::find_by_headers(TABLE_TD, &headers, false));
+        assert_eq!(
+            None,
+            WebTable::find_by_headers(TABLE_TD, &bad_headers, false)
+        );
     }
 
     #[test]
     fn test_find_by_headers_some() {
         let headers: [&str; 0] = [];
-        assert!(WebTable::find_by_headers(TABLE_TH, &headers).is_some());
-        assert!(WebTable::find_by_headers(TABLE_TH_TD, &headers).is_some());
-        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers).is_some());
+        assert!(WebTable::find_by_headers(TABLE_TH, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(TABLE_TH_TD, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers, false).is_some());
 
         let headers = ["Name"];
-        assert!(WebTable::find_by_headers(TABLE_TH, &headers).is_some());
-        assert!(WebTable::find_by_headers(TABLE_TH_TD, &headers).is_some());
-        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers).is_some());
+        assert!(WebTable::find_by_headers(TABLE_TH, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(TABLE_TH_TD, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers, false).is_some());
 
         let headers = ["Age", "Name"];
-        assert!(WebTable::find_by_headers(TABLE_TH, &headers).is_some());
-        assert!(WebTable::find_by_headers(TABLE_TH_TD, &headers).is_some());
-        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers).is_some());
+        assert!(WebTable::find_by_headers(TABLE_TH, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(TABLE_TH_TD, &headers, false).is_some());
+        assert!(WebTable::find_by_headers(HTML_TWO_TABLES, &headers, false).is_some());
     }
 
     #[test]

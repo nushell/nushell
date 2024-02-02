@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use nu_engine::current_dir;
+use nu_engine::{current_dir, current_dir_const, CallExt};
 use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
@@ -12,6 +12,7 @@ use super::PathSubcommandArguments;
 
 struct Arguments {
     pwd: PathBuf,
+    not_follow_symlink: bool,
 }
 
 impl PathSubcommandArguments for Arguments {}
@@ -33,6 +34,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Bool)),
                 ),
             ])
+            .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
             .category(Category::Path)
     }
 
@@ -45,6 +47,10 @@ impl Command for SubCommand {
 If you need to distinguish dirs and files, please use `path type`."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -55,6 +61,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         let head = call.head;
         let args = Arguments {
             pwd: current_dir(engine_state, stack)?,
+            not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -63,6 +70,27 @@ If you need to distinguish dirs and files, please use `path type`."#
         input.map(
             move |value| super::operate(&exists, &args, value, head),
             engine_state.ctrlc.clone(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments {
+            pwd: current_dir_const(working_set)?,
+            not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
+        };
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&exists, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
         )
     }
 
@@ -106,18 +134,39 @@ If you need to distinguish dirs and files, please use `path type`."#
 }
 
 fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
+    if path.as_os_str().is_empty() {
+        return Value::bool(false, span);
+    }
     let path = expand_path_with(path, &args.pwd);
-    Value::Bool {
-        val: match path.try_exists() {
+    let exists = if args.not_follow_symlink {
+        // symlink_metadata returns true if the file/folder exists
+        // whether it is a symbolic link or not. Sorry, but returns Err
+        // in every other scenario including the NotFound
+        std::fs::symlink_metadata(path).map_or_else(
+            |e| match e.kind() {
+                std::io::ErrorKind::NotFound => Ok(false),
+                _ => Err(e),
+            },
+            |_| Ok(true),
+        )
+    } else {
+        path.try_exists()
+    };
+    Value::bool(
+        match exists {
             Ok(exists) => exists,
             Err(err) => {
-                return Value::Error {
-                    error: Box::new(ShellError::IOErrorSpanned(err.to_string(), span)),
-                }
+                return Value::error(
+                    ShellError::IOErrorSpanned {
+                        msg: err.to_string(),
+                        span,
+                    },
+                    span,
+                )
             }
         },
         span,
-    }
+    )
 }
 
 #[cfg(test)]

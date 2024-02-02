@@ -7,7 +7,8 @@ use crate::{
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
-use nu_protocol::PipelineData;
+use nu_protocol::eval_const::create_nu_constant;
+use nu_protocol::{PipelineData, Span, NU_VARIABLE_ID};
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
@@ -34,6 +35,7 @@ pub(crate) fn run_commands(
             parsed_nu_cli_args.plugin_file,
             NUSHELL_FOLDER,
         );
+
         perf(
             "read plugins",
             start_time,
@@ -44,8 +46,8 @@ pub(crate) fn run_commands(
         );
 
         let start_time = std::time::Instant::now();
-        // only want to load config and env if relative argument is provided.
-        if parsed_nu_cli_args.env_file.is_some() {
+        // If we have a env file parameter *OR* we have a login shell parameter, read the env file
+        if parsed_nu_cli_args.env_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
@@ -55,6 +57,7 @@ pub(crate) fn run_commands(
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
         }
+
         perf(
             "read env.nu",
             start_time,
@@ -65,7 +68,8 @@ pub(crate) fn run_commands(
         );
 
         let start_time = std::time::Instant::now();
-        if parsed_nu_cli_args.config_file.is_some() {
+        // If we have a config file parameter *OR* we have a login shell parameter, read the config file
+        if parsed_nu_cli_args.config_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
@@ -73,6 +77,7 @@ pub(crate) fn run_commands(
                 false,
             );
         }
+
         perf(
             "read config.nu",
             start_time,
@@ -81,9 +86,30 @@ pub(crate) fn run_commands(
             column!(),
             use_color,
         );
+
+        // If we have a login shell parameter, read the login file
+        let start_time = std::time::Instant::now();
+        if parsed_nu_cli_args.login_shell.is_some() {
+            config_files::read_loginshell_file(engine_state, &mut stack);
+        }
+
+        perf(
+            "read login.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
+
     // Before running commands, set up the startup time
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    let nu_const = create_nu_constant(engine_state, commands.span)?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_commands(
         commands,
@@ -168,6 +194,10 @@ pub(crate) fn run_file(
         column!(),
         use_color,
     );
+
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    let nu_const = create_nu_constant(engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_file(

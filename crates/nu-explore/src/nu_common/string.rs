@@ -1,4 +1,6 @@
-use nu_table::{string_truncate, string_width};
+use nu_table::string_truncate;
+
+pub use nu_table::string_width;
 
 pub fn truncate_str(text: &mut String, width: usize) {
     if width == 0 {

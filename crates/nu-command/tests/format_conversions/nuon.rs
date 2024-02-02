@@ -58,6 +58,18 @@ fn to_nuon_table() {
 }
 
 #[test]
+fn from_nuon_illegal_table() {
+    let actual = nu!(pipeline(
+        r#"
+            "[[repeated repeated]; [abc, xyz], [def, ijk]]"
+            | from nuon
+        "#
+    ));
+
+    assert!(actual.err.contains("column_defined_twice"));
+}
+
+#[test]
 fn to_nuon_bool() {
     let actual = nu!(pipeline(
         r#"

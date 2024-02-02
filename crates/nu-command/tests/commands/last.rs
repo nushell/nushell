@@ -33,9 +33,10 @@ fn gets_last_row_when_no_amount_given() {
     Playground::setup("last_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        let actual = nu!(cwd: dirs.test(), "ls | last | length");
+        // FIXME: We should probably change last to return a one row table instead of a record here
+        let actual = nu!(cwd: dirs.test(), "ls | last | values | length");
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual.out, "4");
     })
 }
 

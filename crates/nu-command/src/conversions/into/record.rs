@@ -1,10 +1,11 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
-use nu_protocol::format_duration_as_timeperiod;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    format_duration_as_timeperiod, record, Category, Example, IntoPipelineData, PipelineData,
+    Record, ShellError, Signature, Span, Type, Value,
 };
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -21,7 +22,6 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
                 (Type::Range, Type::Record(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Record(vec![])),
             ])
             .category(Category::Conversions)
     }
@@ -45,103 +45,63 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Convert from one row table to record",
                 example: "[[value]; [false]] | into record",
-                result: Some(Value::Record {
-                    cols: vec!["value".to_string()],
-                    vals: vec![Value::bool(false, span)],
-                    span,
-                }),
+                result: Some(Value::test_record(record! {
+                    "value" => Value::test_bool(false),
+                })),
             },
             Example {
                 description: "Convert from list to record",
                 example: "[1 2 3] | into record",
-                result: Some(Value::Record {
-                    cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
-                    vals: vec![
-                        Value::Int { val: 1, span },
-                        Value::Int { val: 2, span },
-                        Value::Int { val: 3, span },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_record(record! {
+                    "0" => Value::test_int(1),
+                    "1" => Value::test_int(2),
+                    "2" => Value::test_int(3),
+                })),
             },
             Example {
                 description: "Convert from range to record",
                 example: "0..2 | into record",
-                result: Some(Value::Record {
-                    cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
-                    vals: vec![
-                        Value::Int { val: 0, span },
-                        Value::Int { val: 1, span },
-                        Value::Int { val: 2, span },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_record(record! {
+                    "0" => Value::test_int(0),
+                    "1" => Value::test_int(1),
+                    "2" => Value::test_int(2),
+                })),
             },
             Example {
                 description: "convert duration to record (weeks max)",
                 example: "(-500day - 4hr - 5sec) | into record",
-                result: Some(Value::Record {
-                    cols: vec![
-                        "week".into(),
-                        "day".into(),
-                        "hour".into(),
-                        "second".into(),
-                        "sign".into(),
-                    ],
-                    vals: vec![
-                        Value::Int { val: 71, span },
-                        Value::Int { val: 3, span },
-                        Value::Int { val: 4, span },
-                        Value::Int { val: 5, span },
-                        Value::String {
-                            val: "-".into(),
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_record(record! {
+                    "week" =>   Value::test_int(71),
+                    "day" =>    Value::test_int(3),
+                    "hour" =>   Value::test_int(4),
+                    "second" => Value::test_int(5),
+                    "sign" =>   Value::test_string("-"),
+                })),
             },
             Example {
                 description: "convert record to record",
                 example: "{a: 1, b: 2} | into record",
-                result: Some(Value::Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::Int { val: 1, span }, Value::Int { val: 2, span }],
-                    span,
-                }),
+                result: Some(Value::test_record(record! {
+                    "a" =>  Value::test_int(1),
+                    "b" =>  Value::test_int(2),
+                })),
             },
             Example {
                 description: "convert date to record",
                 example: "2020-04-12T22:10:57+02:00 | into record",
-                result: Some(Value::Record {
-                    cols: vec![
-                        "year".into(),
-                        "month".into(),
-                        "day".into(),
-                        "hour".into(),
-                        "minute".into(),
-                        "second".into(),
-                        "timezone".into(),
-                    ],
-                    vals: vec![
-                        Value::Int { val: 2020, span },
-                        Value::Int { val: 4, span },
-                        Value::Int { val: 12, span },
-                        Value::Int { val: 22, span },
-                        Value::Int { val: 10, span },
-                        Value::Int { val: 57, span },
-                        Value::String {
-                            val: "+02:00".to_string(),
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_record(record! {
+                    "year" =>     Value::test_int(2020),
+                    "month" =>    Value::test_int(4),
+                    "day" =>      Value::test_int(12),
+                    "hour" =>     Value::test_int(22),
+                    "minute" =>   Value::test_int(10),
+                    "second" =>   Value::test_int(57),
+                    "timezone" => Value::test_string("+02:00"),
+                })),
             },
         ]
     }
@@ -154,129 +114,84 @@ fn into_record(
 ) -> Result<PipelineData, ShellError> {
     let input = input.into_value(call.head);
     let input_type = input.get_type();
+    let span = input.span();
     let res = match input {
-        Value::Date { val, span } => parse_date_into_record(Ok(val), span),
-        Value::Duration { val, span } => parse_duration_into_record(val, span),
-        Value::List { mut vals, span } => match input_type {
+        Value::Date { val, .. } => parse_date_into_record(val, span),
+        Value::Duration { val, .. } => parse_duration_into_record(val, span),
+        Value::List { mut vals, .. } => match input_type {
             Type::Table(..) if vals.len() == 1 => vals.pop().expect("already checked 1 item"),
-            _ => {
-                let mut cols = vec![];
-                let mut values = vec![];
-                for (idx, val) in vals.into_iter().enumerate() {
-                    cols.push(format!("{idx}"));
-                    values.push(val);
-                }
-                Value::Record {
-                    cols,
-                    vals: values,
-                    span,
-                }
-            }
+            _ => Value::record(
+                vals.into_iter()
+                    .enumerate()
+                    .map(|(idx, val)| (format!("{idx}"), val))
+                    .collect(),
+                span,
+            ),
         },
-        Value::Range { val, span } => {
-            let mut cols = vec![];
-            let mut vals = vec![];
-            for (idx, val) in val.into_range_iter(engine_state.ctrlc.clone())?.enumerate() {
-                cols.push(format!("{idx}"));
-                vals.push(val);
-            }
-            Value::Record { cols, vals, span }
-        }
-        Value::Record { cols, vals, span } => Value::Record { cols, vals, span },
+        Value::Range { val, .. } => Value::record(
+            val.into_range_iter(engine_state.ctrlc.clone())?
+                .enumerate()
+                .map(|(idx, val)| (format!("{idx}"), val))
+                .collect(),
+            span,
+        ),
+        Value::Record { val, .. } => Value::record(val, span),
         Value::Error { .. } => input,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: call.head,
-                src_span: other.expect_span(),
-            }),
-        },
+        other => Value::error(
+            ShellError::TypeMismatch {
+                err_message: format!("Can't convert {} to record", other.get_type()),
+                span: other.span(),
+            },
+            call.head,
+        ),
     };
     Ok(res.into_pipeline_data())
 }
 
-fn parse_date_into_record(date: Result<DateTime<FixedOffset>, Value>, span: Span) -> Value {
-    let cols = vec![
-        "year".into(),
-        "month".into(),
-        "day".into(),
-        "hour".into(),
-        "minute".into(),
-        "second".into(),
-        "timezone".into(),
-    ];
-    match date {
-        Ok(x) => {
-            let vals = vec![
-                Value::Int {
-                    val: x.year() as i64,
-                    span,
-                },
-                Value::Int {
-                    val: x.month() as i64,
-                    span,
-                },
-                Value::Int {
-                    val: x.day() as i64,
-                    span,
-                },
-                Value::Int {
-                    val: x.hour() as i64,
-                    span,
-                },
-                Value::Int {
-                    val: x.minute() as i64,
-                    span,
-                },
-                Value::Int {
-                    val: x.second() as i64,
-                    span,
-                },
-                Value::String {
-                    val: x.offset().to_string(),
-                    span,
-                },
-            ];
-            Value::Record { cols, vals, span }
-        }
-        Err(e) => e,
-    }
+fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
+    Value::record(
+        record! {
+            "year" => Value::int(date.year() as i64, span),
+            "month" => Value::int(date.month() as i64, span),
+            "day" => Value::int(date.day() as i64, span),
+            "hour" => Value::int(date.hour() as i64, span),
+            "minute" => Value::int(date.minute() as i64, span),
+            "second" => Value::int(date.second() as i64, span),
+            "timezone" => Value::string(date.offset().to_string(), span),
+        },
+        span,
+    )
 }
 
 fn parse_duration_into_record(duration: i64, span: Span) -> Value {
     let (sign, periods) = format_duration_as_timeperiod(duration);
 
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
     for p in periods {
         let num_with_unit = p.to_text().to_string();
         let split = num_with_unit.split(' ').collect::<Vec<&str>>();
-        cols.push(match split[1] {
-            "ns" => "nanosecond".into(),
-            "µs" => "microsecond".into(),
-            "ms" => "millisecond".into(),
-            "sec" => "second".into(),
-            "min" => "minute".into(),
-            "hr" => "hour".into(),
-            "day" => "day".into(),
-            "wk" => "week".into(),
-            _ => "unknown".into(),
-        });
-
-        vals.push(Value::Int {
-            val: split[0].parse::<i64>().unwrap_or(0),
-            span,
-        });
+        record.push(
+            match split[1] {
+                "ns" => "nanosecond",
+                "µs" => "microsecond",
+                "ms" => "millisecond",
+                "sec" => "second",
+                "min" => "minute",
+                "hr" => "hour",
+                "day" => "day",
+                "wk" => "week",
+                _ => "unknown",
+            },
+            Value::int(split[0].parse().unwrap_or(0), span),
+        );
     }
 
-    cols.push("sign".into());
-    vals.push(Value::String {
-        val: if sign == -1 { "-".into() } else { "+".into() },
-        span,
-    });
+    record.push(
+        "sign",
+        Value::string(if sign == -1 { "-" } else { "+" }, span),
+    );
 
-    Value::Record { cols, vals, span }
+    Value::record(record, span)
 }
 
 #[cfg(test)]

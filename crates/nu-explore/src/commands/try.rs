@@ -47,7 +47,6 @@ impl ViewCommand for TryCmd {
         #[rustfmt::skip]
         let config_options = vec![
             ConfigOption::boolean(":try options", "In the `:try` REPL, attempt to run the command on every keypress", "try.reactive"),
-            ConfigOption::new(":try options", "Change a border color of the menus", "try.border_color", default_color_list()),
             ConfigOption::new(":try options", "Change a highlighted menu color", "try.highlighted_color", default_color_list()),
         ];
 
@@ -65,10 +64,6 @@ impl ViewCommand for TryCmd {
             input: shortcuts,
             config_options,
         })
-    }
-
-    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
-        false
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {

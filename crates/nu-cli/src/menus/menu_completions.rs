@@ -80,24 +80,18 @@ fn convert_to_suggestions(
     only_buffer_difference: bool,
 ) -> Vec<Suggestion> {
     match value {
-        Value::Record { .. } => {
-            let text = value
-                .get_data_by_key("value")
+        Value::Record { val, .. } => {
+            let text = val
+                .get("value")
                 .and_then(|val| val.as_string().ok())
                 .unwrap_or_else(|| "No value key".to_string());
 
-            let description = value
-                .get_data_by_key("description")
-                .and_then(|val| val.as_string().ok());
+            let description = val.get("description").and_then(|val| val.as_string().ok());
 
-            let span = match value.get_data_by_key("span") {
-                Some(span @ Value::Record { .. }) => {
-                    let start = span
-                        .get_data_by_key("start")
-                        .and_then(|val| val.as_int().ok());
-                    let end = span
-                        .get_data_by_key("end")
-                        .and_then(|val| val.as_int().ok());
+            let span = match val.get("span") {
+                Some(Value::Record { val: span, .. }) => {
+                    let start = span.get("start").and_then(|val| val.as_int().ok());
+                    let end = span.get("end").and_then(|val| val.as_int().ok());
                     match (start, end) {
                         (Some(start), Some(end)) => {
                             let start = start.min(end);
@@ -107,9 +101,13 @@ fn convert_to_suggestions(
                             }
                         }
                         _ => reedline::Span {
-                            start: if only_buffer_difference { pos } else { 0 },
+                            start: if only_buffer_difference {
+                                pos - line.len()
+                            } else {
+                                0
+                            },
                             end: if only_buffer_difference {
-                                pos + line.len()
+                                pos
                             } else {
                                 line.len()
                             },
@@ -117,21 +115,25 @@ fn convert_to_suggestions(
                     }
                 }
                 _ => reedline::Span {
-                    start: if only_buffer_difference { pos } else { 0 },
+                    start: if only_buffer_difference {
+                        pos - line.len()
+                    } else {
+                        0
+                    },
                     end: if only_buffer_difference {
-                        pos + line.len()
+                        pos
                     } else {
                         line.len()
                     },
                 },
             };
 
-            let extra = match value.get_data_by_key("extra") {
+            let extra = match val.get("extra") {
                 Some(Value::List { vals, .. }) => {
                     let extra: Vec<String> = vals
-                        .into_iter()
+                        .iter()
                         .filter_map(|extra| match extra {
-                            Value::String { val, .. } => Some(val),
+                            Value::String { val, .. } => Some(val.clone()),
                             _ => None,
                         })
                         .collect();
@@ -144,6 +146,7 @@ fn convert_to_suggestions(
             vec![Suggestion {
                 value: text,
                 description,
+                style: None,
                 extra,
                 span,
                 append_whitespace: false,
@@ -156,10 +159,19 @@ fn convert_to_suggestions(
         _ => vec![Suggestion {
             value: format!("Not a record: {value:?}"),
             description: None,
+            style: None,
             extra: None,
             span: reedline::Span {
-                start: 0,
-                end: line.len(),
+                start: if only_buffer_difference {
+                    pos - line.len()
+                } else {
+                    0
+                },
+                end: if only_buffer_difference {
+                    pos
+                } else {
+                    line.len()
+                },
             },
             append_whitespace: false,
         }],

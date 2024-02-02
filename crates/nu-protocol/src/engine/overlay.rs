@@ -108,7 +108,11 @@ impl ScopeFrame {
 
         self.active_overlays
             .iter()
-            .filter(|id| !removed_overlays.contains(self.get_overlay_name(**id)))
+            .filter(|id| {
+                !removed_overlays
+                    .iter()
+                    .any(|name| name == self.get_overlay_name(**id))
+            })
             .copied()
             .collect()
     }
@@ -125,14 +129,14 @@ impl ScopeFrame {
             .map(|id| self.get_overlay(id))
     }
 
-    pub fn active_overlay_names(&self, removed_overlays: &mut Vec<Vec<u8>>) -> Vec<&Vec<u8>> {
+    pub fn active_overlay_names(&self, removed_overlays: &mut Vec<Vec<u8>>) -> Vec<&[u8]> {
         self.active_overlay_ids(removed_overlays)
             .iter()
             .map(|id| self.get_overlay_name(*id))
             .collect()
     }
 
-    pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &Vec<u8> {
+    pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &[u8] {
         &self
             .overlays
             .get(overlay_id)

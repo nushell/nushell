@@ -15,7 +15,7 @@ impl Command for ScopeEngineStats {
         Signature::build("scope engine-stats")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .category(Category::Filters)
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {
@@ -31,8 +31,7 @@ impl Command for ScopeEngineStats {
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
-        let mut scope_data = ScopeData::new(engine_state, stack);
-        scope_data.populate_all();
+        let scope_data = ScopeData::new(engine_state, stack);
 
         Ok(scope_data.collect_engine_state(span).into_pipeline_data())
     }

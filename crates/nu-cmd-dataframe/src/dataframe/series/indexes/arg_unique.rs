@@ -37,10 +37,13 @@ impl Command for ArgUnique {
             description: "Returns indexes for unique values",
             example: "[1 2 2 3 3] | dfr into-df | dfr arg-unique",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_unique".to_string(),
-                    vec![Value::test_int(0), Value::test_int(1), Value::test_int(3)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "arg_unique".to_string(),
+                        vec![Value::test_int(0), Value::test_int(1), Value::test_int(3)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -69,14 +72,12 @@ fn command(
     let mut res = df
         .as_series(call.head)?
         .arg_unique()
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error extracting unique values".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error extracting unique values".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
     res.rename("arg_unique");

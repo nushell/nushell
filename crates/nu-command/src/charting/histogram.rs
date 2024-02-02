@@ -4,11 +4,10 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
-use std::iter;
 
 #[derive(Clone)]
 pub struct Histogram;
@@ -26,8 +25,8 @@ impl Command for Histogram {
     fn signature(&self) -> Signature {
         Signature::build("histogram")
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![])),])
-            .optional("column-name", SyntaxShape::String, "column name to calc frequency, no need to provide if input is just a list")
-            .optional("frequency-column-name", SyntaxShape::String, "histogram's frequency column, default to be frequency column output")
+            .optional("column-name", SyntaxShape::String, "Column name to calc frequency, no need to provide if input is a list.")
+            .optional("frequency-column-name", SyntaxShape::String, "Histogram's frequency column, default to be frequency column output.")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
             .category(Category::Chart)
     }
@@ -52,31 +51,22 @@ impl Command for Histogram {
             Example {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
-                result: Some(Value::List {
-                        vals: vec![Value::Record {
-                            cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
-                            vals: vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_float(0.6666666666666666),
-                                Value::test_string("66.67%"),
-                                Value::test_string("******************************************************************"),
-                            ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
-                            vals: vec![
-                                Value::test_int(2),
-                                Value::test_int(1),
-                                Value::test_float(0.3333333333333333),
-                                Value::test_string("33.33%"),
-                                Value::test_string("*********************************"),
-                            ],
-                            span: Span::test_data(),
-                        }],
-                        span: Span::test_data(),
-                    }
+                result: Some(Value::test_list (
+                        vec![Value::test_record(record! {
+                            "value" =>      Value::test_int(1),
+                            "count" =>      Value::test_int(2),
+                            "quantile" =>   Value::test_float(0.6666666666666666),
+                            "percentage" => Value::test_string("66.67%"),
+                            "frequency" =>  Value::test_string("******************************************************************"),
+                        }),
+                        Value::test_record(record! {
+                            "value" =>      Value::test_int(2),
+                            "count" =>      Value::test_int(1),
+                            "quantile" =>   Value::test_float(0.3333333333333333),
+                            "percentage" => Value::test_string("33.33%"),
+                            "frequency" =>  Value::test_string("*********************************"),
+                        })],
+                    )
                  ),
             },
             Example {
@@ -145,7 +135,7 @@ impl Command for Histogram {
             calc_method,
             span,
             // Note that as_list() filters out Value::Error here.
-            data_as_value.expect_span(),
+            data_as_value.span(),
         )
     }
 }
@@ -167,19 +157,14 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     _ => {
                         let t = v.get_type();
-                        let span = v.expect_span();
+                        let span = v.span();
                         inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
-                        ShellError::UnsupportedInput(
-                            "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),
-                            format!(
+                        ShellError::UnsupportedInput { msg: "Since --column-name was not provided, only lists of hashable values are supported.".to_string(), input: format!(
                                 "input type: {t:?}"
-                            ),
-                            head_span,
-                            span,
-                        )
+                            ), msg_span: head_span, input_span: span }
                     })?)
                     }
                 }
@@ -195,8 +180,8 @@ fn run_histogram(
             for v in values {
                 match v {
                     // parse record, and fill valid value to actual input.
-                    Value::Record { cols, vals, .. } => {
-                        for (c, v) in iter::zip(cols, vals) {
+                    Value::Record { val, .. } => {
+                        for (c, v) in val {
                             if &c == col_name {
                                 if let Ok(v) = HashableValue::from_value(v, head_span) {
                                     inputs.push(v);
@@ -205,7 +190,7 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     _ => continue,
                 }
             }
@@ -272,31 +257,23 @@ fn histogram_impl(
 
         result.push((
             count, // attach count first for easily sorting.
-            Value::Record {
-                cols: result_cols.clone(),
-                vals: vec![
-                    val.into_value(),
-                    Value::Int { val: count, span },
-                    Value::Float {
-                        val: quantile,
-                        span,
-                    },
-                    Value::String {
-                        val: percentage,
-                        span,
-                    },
-                    Value::String { val: freq, span },
-                ],
+            Value::record(
+                Record::from_raw_cols_vals(
+                    result_cols.clone(),
+                    vec![
+                        val.into_value(),
+                        Value::int(count, span),
+                        Value::float(quantile, span),
+                        Value::string(percentage, span),
+                        Value::string(freq, span),
+                    ],
+                ),
                 span,
-            },
+            ),
         ));
     }
     result.sort_by(|a, b| b.0.cmp(&a.0));
-    Value::List {
-        vals: result.into_iter().map(|x| x.1).collect(),
-        span,
-    }
-    .into_pipeline_data()
+    Value::list(result.into_iter().map(|x| x.1).collect(), span).into_pipeline_data()
 }
 
 #[cfg(test)]

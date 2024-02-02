@@ -20,7 +20,7 @@ impl Command for Empty {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "the names of the columns to check emptiness",
+                "The names of the columns to check emptiness.",
             )
             .category(Category::Filters)
     }

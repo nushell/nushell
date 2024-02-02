@@ -30,51 +30,51 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required("other", SyntaxShape::Any, "the other input")
+            .required("other", SyntaxShape::Any, "The other input.")
             .category(Category::Filters)
     }
 
     fn examples(&self) -> Vec<Example> {
-        let test_row_1 = Value::List {
-            vals: vec![Value::test_int(1), Value::test_int(4)],
-            span: Span::test_data(),
-        };
+        let test_row_1 = Value::list(
+            vec![Value::test_int(1), Value::test_int(4)],
+            Span::test_data(),
+        );
 
-        let test_row_2 = Value::List {
-            vals: vec![Value::test_int(2), Value::test_int(5)],
-            span: Span::test_data(),
-        };
+        let test_row_2 = Value::list(
+            vec![Value::test_int(2), Value::test_int(5)],
+            Span::test_data(),
+        );
 
-        let test_row_3 = Value::List {
-            vals: vec![Value::test_int(3), Value::test_int(6)],
-            span: Span::test_data(),
-        };
+        let test_row_3 = Value::list(
+            vec![Value::test_int(3), Value::test_int(6)],
+            Span::test_data(),
+        );
 
         vec![
             Example {
                 example: "[1 2] | zip [3 4]",
                 description: "Zip two lists",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(3)],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_int(2), Value::test_int(4)],
-                            span: Span::test_data(),
-                        },
+                result: Some(Value::list(
+                    vec![
+                        Value::list(
+                            vec![Value::test_int(1), Value::test_int(3)],
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![Value::test_int(2), Value::test_int(4)],
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "1..3 | zip 4..6",
                 description: "Zip two ranges",
-                result: Some(Value::List {
-                    vals: vec![test_row_1, test_row_2, test_row_3],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![test_row_1, test_row_2, test_row_3],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each {|| mv $in.0 $in.1 }",
@@ -99,12 +99,8 @@ impl Command for Zip {
         Ok(input
             .into_iter()
             .zip(other.into_pipeline_data())
-            .map(move |(x, y)| Value::List {
-                vals: vec![x, y],
-                span: head,
-            })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .map(move |(x, y)| Value::list(vec![x, y], head))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

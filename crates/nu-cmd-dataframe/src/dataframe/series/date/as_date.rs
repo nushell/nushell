@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
-use polars::prelude::{IntoSeries, Utf8Methods};
+use polars::prelude::{IntoSeries, StringMethods};
 
 #[derive(Clone)]
 pub struct AsDate;
@@ -64,18 +64,16 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let format: String = call.req(engine_state, stack, 0)?;
-    let not_exact = call.has_flag("not-exact");
+    let not_exact = call.has_flag(engine_state, stack, "not-exact")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
-    let casted = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to string".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let casted = series.str().map_err(|e| ShellError::GenericError {
+        error: "Error casting to string".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let res = if not_exact {
@@ -85,14 +83,12 @@ fn command(
     };
 
     let mut res = res
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error creating datetime".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error creating datetime".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
 

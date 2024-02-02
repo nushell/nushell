@@ -1,4 +1,3 @@
-mod bson;
 mod csv;
 #[cfg(feature = "extra")]
 mod html;

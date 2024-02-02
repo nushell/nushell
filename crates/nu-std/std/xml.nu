@@ -7,14 +7,18 @@ export def xaccess [
                # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
                # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
-               # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+               # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true.
 ] {
     let input = $in
     if ($path | is-empty) {
         let path_span = (metadata $path).span
-        error make {msg: 'Empty path provided'
-                    label: {text: 'Use a non-empty  list of path steps'
-                            start: $path_span.start end: $path_span.end}}
+        error make {
+            msg: 'Empty path provided'
+            label: {
+                text: 'Use a non-empty  list of path steps'
+                span: $path_span
+            }
+        }
     }
     # In xpath first element in path is applied to root element
     # this way it is possible to apply first step to root element
@@ -38,9 +42,13 @@ export def xaccess [
             },
             $type => {
                 let step_span = (metadata $step).span
-                error make {msg: $'Incorrect path step type ($type)'
-                        label: {text: 'Use a string or int as a step'
-                                start: $step_span.start end: $step_span.end}}
+                error make {
+                    msg: $'Incorrect path step type ($type)'
+                    label: {
+                        text: 'Use a string or int as a step'
+                        span: $step_span
+                    }
+                }
             }
         }
 
@@ -131,9 +139,13 @@ def xupdate-internal [ path: list updater: closure ] {
             },
             $type => {
                 let step_span = (metadata $step).span
-                error make {msg: $'Incorrect path step type ($type)'
-                        label: {text: 'Use a string or int as a step'
-                                start: $step_span.start end: $step_span.end}}
+                error make {
+                    msg: $'Incorrect path step type ($type)'
+                    label: {
+                        text: 'Use a string or int as a step'
+                        span: $step_span
+                    }
+                }
             }
         }
     }
@@ -146,7 +158,7 @@ export def xupdate [
                 # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
                 # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
                 # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
-                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true.
     updater: closure # A closure used to transform entries matching path.
 ] {
     {tag:? attributes:? content: [$in]} | xupdate-internal $path $updater | get content.0
@@ -157,7 +169,7 @@ export def xupdate [
 # Possible types are 'tag', 'text', 'pi' and 'comment'
 export def xtype [] {
     let input = $in
-    if (($input | describe) == 'string' or 
+    if (($input | describe) == 'string' or
         ($input.tag? == null and $input.attributes? == null and ($input.content? | describe) == 'string')) {
         'text'
     } else if $input.tag? == '!' {
@@ -177,10 +189,10 @@ export def xinsert [
                 # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
                 # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
                 # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
-                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true.
     new_entry: record # A new entry to insert into `content` field of record at specified position
     position?: int  # Position to insert `new_entry` into. If specified inserts entry at given position (or end if
-                    # position is greater than number of elements) in content of all entries of input matched by 
+                    # position is greater than number of elements) in content of all entries of input matched by
                     # path. If not specified inserts at the end.
 ] {
     $in | xupdate $path {|entry|
@@ -197,7 +209,7 @@ export def xinsert [
                     $entry.content | insert $position $new_entry
                 }
 
-                
+
                 {tag: $entry.tag attributes: $entry.attributes content: $new_content}
             },
             _ => (error make {msg: 'Can insert entry only into content of a tag node'})

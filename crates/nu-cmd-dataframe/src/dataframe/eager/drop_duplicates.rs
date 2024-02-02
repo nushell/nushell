@@ -46,16 +46,19 @@ impl Command for DropDuplicates {
             description: "drop duplicates",
             example: "[[a b]; [1 2] [3 4] [1 2]] | dfr into-df | dfr drop-duplicates",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_int(3), Value::test_int(1)],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(4), Value::test_int(2)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(3), Value::test_int(1)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(4), Value::test_int(2)],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -92,7 +95,7 @@ fn command(
 
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
-    let keep_strategy = if call.has_flag("last") {
+    let keep_strategy = if call.has_flag(engine_state, stack, "last")? {
         UniqueKeepStrategy::Last
     } else {
         UniqueKeepStrategy::First
@@ -100,14 +103,12 @@ fn command(
 
     df.as_ref()
         .unique(subset_slice, keep_strategy, None)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error dropping duplicates".into(),
-                e.to_string(),
-                Some(col_span),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error dropping duplicates".into(),
+            msg: e.to_string(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

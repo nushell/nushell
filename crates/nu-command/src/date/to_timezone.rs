@@ -22,7 +22,7 @@ impl Command for SubCommand {
         Signature::build("date to-timezone")
             .input_output_types(vec![(Type::Date, Type::Date), (Type::String, Type::Date)])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .required("time zone", SyntaxShape::String, "time zone description")
+            .required("time zone", SyntaxShape::String, "Time zone description.")
             .category(Category::Date)
     }
 
@@ -71,10 +71,7 @@ impl Command for SubCommand {
             .expect("to timezone: help example is invalid")
             .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
         {
-            LocalResult::Single(dt) => Some(Value::Date {
-                val: dt,
-                span: Span::test_data(),
-            }),
+            LocalResult::Single(dt) => Some(Value::date(dt, Span::test_data())),
             _ => panic!("to timezone: help example is invalid"),
         };
 
@@ -99,23 +96,20 @@ impl Command for SubCommand {
                 example: r#""2020-10-10 10:00:00 +02:00" | date to-timezone "+0500""#,
                 result: example_result_1(),
             },
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "Get the current date in Hawaii, from a datetime object",
-            //     example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
-            //     result: example_result_1(),
-            // },
+            Example {
+                description: "Get the current date in Hawaii, from a datetime object",
+                example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
+                result: example_result_1(),
+            },
         ]
     }
 }
 
 fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
+    let val_span = value.span();
     match value {
-        Value::Date { val, span: _ } => _to_timezone(val, timezone, head),
-        Value::String {
-            val,
-            span: val_span,
-        } => {
+        Value::Date { val, .. } => _to_timezone(val, timezone, head),
+        Value::String { val, .. } => {
             let time = parse_date_from_string(&val, val_span);
             match time {
                 Ok(dt) => _to_timezone(dt, timezone, head),
@@ -123,25 +117,30 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             }
         }
 
-        Value::Nothing { span: _ } => {
+        Value::Nothing { .. } => {
             let dt = Local::now();
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
-        _ => Value::Error {
-            error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
-        },
+        _ => Value::error(
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span: head,
+            },
+            head,
+        ),
     }
 }
 
 fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
     match datetime_in_timezone(&dt, timezone.item.as_str()) {
-        Ok(dt) => Value::Date { val: dt, span },
-        Err(_) => Value::Error {
-            error: Box::new(ShellError::TypeMismatch {
+        Ok(dt) => Value::date(dt, span),
+        Err(_) => Value::error(
+            ShellError::TypeMismatch {
                 err_message: String::from("invalid time zone"),
                 span: timezone.span,
-            }),
-        },
+            },
+            timezone.span,
+        ),
     }
 }
 

@@ -10,6 +10,7 @@ use nu_protocol::{
     span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 #[derive(Clone)]
 pub struct Help;
 
@@ -20,11 +21,11 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command, alias or module to get help on",
+                "The name of command, alias or module to get help on.",
             )
             .named(
                 "find",
@@ -85,13 +86,13 @@ You can also learn more at https://www.nushell.sh/book/"#;
         } else {
             let result = help_aliases(engine_state, stack, call);
 
-            let result = if let Err(ShellError::AliasNotFound(_)) = result {
+            let result = if let Err(ShellError::AliasNotFound { .. }) = result {
                 help_commands(engine_state, stack, call)
             } else {
                 result
             };
 
-            let result = if let Err(ShellError::CommandNotFound(_)) = result {
+            let result = if let Err(ShellError::CommandNotFound { .. }) = result {
                 help_modules(engine_state, stack, call)
             } else {
                 result
@@ -141,38 +142,40 @@ pub fn highlight_search_in_table(
     highlight_style: &Style,
 ) -> Result<Vec<Value>, ShellError> {
     let orig_search_string = search_string;
-    let search_string = search_string.to_lowercase();
+    let search_string = search_string.to_folded_case();
     let mut matches = vec![];
 
     for record in table {
-        let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
-            (cols, vals, span)
+        let span = record.span();
+        let (mut record, record_span) = if let Value::Record { val, .. } = record {
+            (val, span)
         } else {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
                 label: format!("got {}", record.get_type()),
-                span: record.span()?,
+                span: record.span(),
             });
         };
 
-        let has_match = cols.iter().zip(vals.iter_mut()).try_fold(
+        let has_match = record.iter_mut().try_fold(
             false,
             |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if !searched_cols.contains(&col.as_str()) {
                     // don't search this column
                     return Ok(acc);
                 }
-                if let Value::String { val: s, span } = val {
-                    if s.to_lowercase().contains(&search_string) {
-                        *val = Value::String {
-                            val: highlight_search_string(
+                let span = val.span();
+                if let Value::String { val: s, .. } = val {
+                    if s.to_folded_case().contains(&search_string) {
+                        *val = Value::string(
+                            highlight_search_string(
                                 s,
                                 orig_search_string,
                                 string_style,
                                 highlight_style,
                             )?,
-                            span: *span,
-                        };
+                            span,
+                        );
                         return Ok(true);
                     }
                 }
@@ -183,11 +186,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::Record {
-                cols,
-                vals,
-                span: record_span,
-            });
+            matches.push(Value::record(record, record_span));
         }
     }
 
@@ -205,13 +204,13 @@ pub fn highlight_search_string(
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {
-            return Err(ShellError::GenericError(
-                "Could not compile regex".into(),
-                err.to_string(),
-                Some(Span::test_data()),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Could not compile regex".into(),
+                msg: err.to_string(),
+                span: Some(Span::test_data()),
+                help: None,
+                inner: vec![],
+            });
         }
     };
     // strip haystack to remove existing ansi style
@@ -243,13 +242,13 @@ pub fn highlight_search_string(
                 last_match_end = end;
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "Error with regular expression capture".into(),
-                    e.to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Error with regular expression capture".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     }

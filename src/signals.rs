@@ -16,14 +16,3 @@ pub(crate) fn ctrlc_protection(engine_state: &mut EngineState, ctrlc: &Arc<Atomi
 
     engine_state.ctrlc = Some(engine_state_ctrlc);
 }
-
-#[cfg(not(windows))]
-pub(crate) fn sigquit_protection(engine_state: &mut EngineState) {
-    use signal_hook::consts::SIGQUIT;
-    let sig_quit = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(SIGQUIT, sig_quit.clone()).expect("Error setting SIGQUIT flag");
-    engine_state.set_sig_quit(sig_quit);
-}
-
-#[cfg(windows)]
-pub(crate) fn sigquit_protection(_engine_state: &mut EngineState) {}

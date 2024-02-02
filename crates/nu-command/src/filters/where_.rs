@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -37,7 +37,7 @@ not supported."#
             .required(
                 "row_condition",
                 SyntaxShape::RowCondition,
-                "Filter condition",
+                "Filter condition.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -59,7 +59,7 @@ not supported."#
         let span = call.head;
 
         let metadata = input.metadata();
-        let mut stack = stack.captures_to_stack(&closure.captures);
+        let mut stack = stack.captures_to_stack(closure.captures);
         let block = engine_state.get_block(closure.block_id).clone();
 
         let orig_env_vars = stack.env_vars.clone();
@@ -99,13 +99,10 @@ not supported."#
                             None
                         }
                     }
-                    Err(err) => Some(Value::Error {
-                        error: Box::new(err),
-                    }),
+                    Err(err) => Some(Value::error(err, span)),
                 }
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -113,22 +110,18 @@ not supported."#
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" => Value::test_int(2),
+                    })],
+                )),
             },
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(
+                    vec![Value::test_int(2)],
+                )),
             },
             Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
@@ -152,9 +145,21 @@ not supported."#
             },
             Example {
                 description: "Find files whose filenames don't begin with the correct sequential number",
-                example: "ls | where type == file | sort-by name -n | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
+                example: "ls | where type == file | sort-by name --natural | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
                 result: None,
             },
+            Example {
+                description: r#"Find case-insensitively files called "readme", without an explicit closure"#,
+                example: "ls | where ($it.name | str downcase) =~ readme",
+                result: None,
+            },
+            Example {
+                description: "same as above but with regex only",
+                example: "ls | where name =~ '(?i)readme'",
+                result: None,
+            }
+
+
         ]
     }
 }

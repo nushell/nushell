@@ -30,7 +30,10 @@ fn port_with_already_usage() {
         handler.join().unwrap();
 
         // check for error kind str.
-        if actual.err.contains("AddrInUse") {
+        if actual
+            .err
+            .contains("Every port has been tried, but no valid one was found")
+        {
             return;
         }
     }
@@ -43,4 +46,11 @@ fn port_from_system_given() {
 
     // check that we can get an integer port from system.
     assert!(actual.out.parse::<u16>().unwrap() > 0)
+}
+
+#[test]
+fn port_out_of_range() {
+    let actual = nu!("port 65536 99999");
+
+    assert!(actual.err.contains("can't convert usize to u16"));
 }

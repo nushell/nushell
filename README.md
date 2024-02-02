@@ -7,7 +7,6 @@
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
 [![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
-[![codecov](https://codecov.io/gh/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/gh/nushell/nushell)
 
 A new type of shell.
 
@@ -55,6 +54,7 @@ Detailed installation instructions can be found in the [installation chapter of 
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
 
+For details about which platforms the Nushell team actively supports, see [our platform support policy](devdocs/PLATFORM_SUPPORT.md).
 
 ## Configuration
 
@@ -199,7 +199,7 @@ topics that have been presented.
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
--   First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has first-class support for Windows, macOS, and Linux.
+-   First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has [first-class support for Windows, macOS, and Linux](devdocs/PLATFORM_SUPPORT.md).
 
 -   Nu ensures compatibility with existing platform-specific executables.
 
@@ -220,13 +220,15 @@ Please submit an issue or PR to be added to this list.
 -   [virtualenv](https://github.com/pypa/virtualenv)
 -   [atuin](https://github.com/ellie/atuin)
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
+-   [Dorothy](http://github.com/bevry/dorothy)
+-   [Direnv](https://github.com/direnv/direnv/blob/master/docs/hook.md#nushell)
 
 ## Contributing
 
 See [Contributing](CONTRIBUTING.md) for details. Thanks to all the people who already contributed!
 
 <a href="https://github.com/nushell/nushell/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=500" />
+  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=600" />
 </a>
 
 ## License

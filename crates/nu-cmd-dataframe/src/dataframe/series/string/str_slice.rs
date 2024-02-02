@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
+use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct StrSlice;
@@ -34,16 +34,19 @@ impl Command for StrSlice {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates slices from the strings",
-            example: "[abcded abc321 abc123] | dfr into-df | dfr str-slice 1 -l 2",
+            example: "[abcded abc321 abc123] | dfr into-df | dfr str-slice 1 --length 2",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("bc"),
-                        Value::test_string("bc"),
-                        Value::test_string("bc"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("bc"),
+                            Value::test_string("bc"),
+                            Value::test_string("bc"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -75,25 +78,15 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let chunked = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to string".into(),
-            e.to_string(),
-            Some(call.head),
-            Some("The str-slice command can only be used with string columns".into()),
-            Vec::new(),
-        )
+    let chunked = series.str().map_err(|e| ShellError::GenericError {
+        error: "Error casting to string".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: Some("The str-slice command can only be used with string columns".into()),
+        inner: vec![],
     })?;
 
-    let mut res = chunked.str_slice(start, length).map_err(|e| {
-        ShellError::GenericError(
-            "Error slicing series".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let mut res = chunked.str_slice(start, length);
     res.rename(series.name());
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)

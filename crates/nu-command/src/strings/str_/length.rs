@@ -1,9 +1,10 @@
 use crate::grapheme_flags;
+use crate::grapheme_flags_const;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use unicode_segmentation::UnicodeSegmentation;
@@ -49,7 +50,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, replace strings at the given cell paths with their length",
+                "For a data structure input, replace strings at the given cell paths with their length.",
             )
             .category(Category::Strings)
     }
@@ -62,6 +63,10 @@ impl Command for SubCommand {
         vec!["size", "count"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -70,11 +75,29 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let args = Arguments {
-            cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
-            graphemes: grapheme_flags(call)?,
-        };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        run(
+            cell_paths,
+            engine_state,
+            call,
+            input,
+            grapheme_flags(engine_state, stack, call)?,
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        run(
+            cell_paths,
+            working_set.permanent(),
+            call,
+            input,
+            grapheme_flags_const(working_set, call)?,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,19 +109,33 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count length using grapheme clusters",
-                example: "'🇯🇵ほげ ふが ぴよ' | str length -g",
+                example: "'🇯🇵ほげ ふが ぴよ' | str length  --grapheme-clusters",
                 result: Some(Value::test_int(9)),
             },
             Example {
                 description: "Return the lengths of multiple strings",
                 example: "['hi' 'there'] | str length",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
+}
+
+fn run(
+    cell_paths: Vec<CellPath>,
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+    graphemes: bool,
+) -> Result<PipelineData, ShellError> {
+    let args = Arguments {
+        cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
+        graphemes,
+    };
+    operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
 fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
@@ -112,14 +149,15 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             head,
         ),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 
@@ -129,10 +167,7 @@ mod test {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             cell_paths: None,

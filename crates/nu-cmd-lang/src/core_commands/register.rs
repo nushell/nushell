@@ -20,12 +20,12 @@ impl Command for Register {
             .required(
                 "plugin",
                 SyntaxShape::Filepath,
-                "path of executable for plugin",
+                "Path of executable for plugin.",
             )
             .optional(
                 "signature",
                 SyntaxShape::Any,
-                "Block with signature description as json object",
+                "Block with signature description as json object.",
             )
             .named(
                 "shell",

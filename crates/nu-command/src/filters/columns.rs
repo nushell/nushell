@@ -36,22 +36,22 @@ impl Command for Columns {
             Example {
                 example: "{ acronym:PWD, meaning:'Print Working Directory' } | columns",
                 description: "Get the columns from the record",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("acronym"), Value::test_string("meaning")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("acronym"), Value::test_string("meaning")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[[name,age,grade]; [bill,20,a]] | columns",
                 description: "Get the columns from the table",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("name"),
                         Value::test_string("age"),
                         Value::test_string("grade"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[[name,age,grade]; [bill,20,a]] | columns | first",
@@ -87,30 +87,56 @@ fn getcol(
     let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(
-            Value::List {
-                vals: input_vals,
-                span,
-            },
-            ..,
-        ) => {
-            let input_cols = get_columns(&input_vals);
-            Ok(input_cols
-                .into_iter()
-                .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata))
-        }
-        PipelineData::Value(Value::CustomValue { val, span }, ..) => {
-            // TODO: should we get CustomValue to expose columns in a more efficient way?
-            // Would be nice to be able to get columns without generating the whole value
-            let input_as_base_value = val.to_base_value(span)?;
-            let input_cols = get_columns(&[input_as_base_value]);
-            Ok(input_cols
-                .into_iter()
-                .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata))
+        PipelineData::Value(v, ..) => {
+            let span = v.span();
+            match v {
+                Value::List {
+                    vals: input_vals, ..
+                } => {
+                    let input_cols = get_columns(&input_vals);
+                    Ok(input_cols
+                        .into_iter()
+                        .map(move |x| Value::string(x, span))
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
+                }
+                Value::CustomValue { val, .. } => {
+                    // TODO: should we get CustomValue to expose columns in a more efficient way?
+                    // Would be nice to be able to get columns without generating the whole value
+                    let input_as_base_value = val.to_base_value(span)?;
+                    let input_cols = get_columns(&[input_as_base_value]);
+                    Ok(input_cols
+                        .into_iter()
+                        .map(move |x| Value::string(x, span))
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
+                }
+                Value::LazyRecord { val, .. } => {
+                    Ok({
+                        // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
+                        let cols: Vec<_> =
+                            val.column_names().iter().map(|s| s.to_string()).collect();
+
+                        cols.into_iter()
+                            .map(move |x| Value::string(x, head))
+                            .into_pipeline_data(ctrlc)
+                            .set_metadata(metadata)
+                    })
+                }
+                Value::Record { val, .. } => Ok(val
+                    .into_iter()
+                    .map(move |(x, _)| Value::string(x, head))
+                    .into_pipeline_data(ctrlc)
+                    .set_metadata(metadata)),
+                // Propagate errors
+                Value::Error { error, .. } => Err(*error),
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record or table".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                }),
+            }
         }
         PipelineData::ListStream(stream, ..) => {
             let v: Vec<_> = stream.into_iter().collect();
@@ -118,32 +144,9 @@ fn getcol(
 
             Ok(input_cols
                 .into_iter()
-                .map(move |x| Value::String { val: x, span: head })
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata))
+                .map(move |x| Value::string(x, head))
+                .into_pipeline_data_with_metadata(metadata, ctrlc))
         }
-        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => Ok({
-            // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
-            let cols: Vec<_> = val.column_names().iter().map(|s| s.to_string()).collect();
-
-            cols.into_iter()
-                .map(move |x| Value::String { val: x, span: head })
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)
-        }),
-        PipelineData::Value(Value::Record { cols, .. }, ..) => Ok(cols
-            .into_iter()
-            .map(move |x| Value::String { val: x, span: head })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata)),
-        // Propagate errors
-        PipelineData::Value(Value::Error { error }, ..) => Err(*error),
-        PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "record or table".into(),
-            wrong_type: other.get_type().to_string(),
-            dst_span: head,
-            src_span: other.expect_span(),
-        }),
         PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
             wrong_type: "raw data".into(),

@@ -1,8 +1,8 @@
-use inflector::cases::screamingsnakecase::to_screaming_snake_case;
+use heck::ToShoutySnakeCase;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 use super::operate;
@@ -50,7 +50,13 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &to_screaming_snake_case)
+        operate(
+            engine_state,
+            stack,
+            call,
+            input,
+            &ToShoutySnakeCase::to_shouty_snake_case,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,14 +79,10 @@ impl Command for SubCommand {
             Example {
                 description: "convert a column from a table to SCREAMING_SNAKE_CASE",
                 example: r#"[[lang, gems]; [nu_test, 100]] | str screaming-snake-case lang"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        span: Span::test_data(),
-                        cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![Value::test_string("NU_TEST"), Value::test_int(100)],
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "lang" =>  Value::test_string("NU_TEST"),
+                    "gems" =>  Value::test_int(100),
+                })])),
             },
         ]
     }

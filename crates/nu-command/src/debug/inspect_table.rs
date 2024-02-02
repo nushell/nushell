@@ -30,7 +30,8 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     }
 
     if val_table_width > desc_table_width {
-        increase_string_width(&mut desc, val_table_width);
+        desc_width += val_table_width - desc_table_width;
+        increase_string_width(&mut desc, desc_width);
     }
 
     if desc_table_width > termsize {
@@ -193,18 +194,22 @@ fn push_empty_column(data: &mut Vec<Vec<String>>) {
 mod util {
     use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
-    use nu_protocol::{ast::PathMember, Span, Value};
+    use nu_protocol::Value;
 
     /// Try to build column names and a table grid.
     pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
+        let span = value.span();
         match value {
-            Value::Record { cols, vals, .. } => (
-                cols,
-                vec![vals
-                    .into_iter()
-                    .map(|s| debug_string_without_formatting(&s))
-                    .collect()],
-            ),
+            Value::Record { val: record, .. } => {
+                let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                (
+                    cols,
+                    vec![vals
+                        .into_iter()
+                        .map(|s| debug_string_without_formatting(&s))
+                        .collect()],
+                )
+            }
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
                 let data = convert_records_to_dataset(&columns, vals);
@@ -215,13 +220,10 @@ mod util {
 
                 (columns, data)
             }
-            Value::String { val, span } => {
+            Value::String { val, .. } => {
                 let lines = val
                     .lines()
-                    .map(|line| Value::String {
-                        val: line.to_string(),
-                        span,
-                    })
+                    .map(|line| Value::string(line.to_string(), span))
                     .map(|val| vec![debug_string_without_formatting(&val)])
                     .collect();
 
@@ -235,7 +237,7 @@ mod util {
         }
     }
 
-    fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<String>> {
+    fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<String>> {
         if !cols.is_empty() {
             create_table_for_record(cols, &records)
         } else if cols.is_empty() && records.is_empty() {
@@ -265,30 +267,19 @@ mod util {
     }
 
     fn record_create_row(headers: &[String], item: &Value) -> Vec<String> {
-        let mut rows = vec![String::default(); headers.len()];
-
-        for (i, header) in headers.iter().enumerate() {
-            let value = record_lookup_value(item, header);
-            rows[i] = debug_string_without_formatting(&value);
-        }
-
-        rows
-    }
-
-    fn record_lookup_value(item: &Value, header: &str) -> Value {
-        match item {
-            Value::Record { .. } => {
-                let path = PathMember::String {
-                    val: header.to_owned(),
-                    span: Span::unknown(),
-                    optional: false,
-                };
-
-                item.clone()
-                    .follow_cell_path(&[path], false)
-                    .unwrap_or_else(|_| item.clone())
-            }
-            item => item.clone(),
+        if let Value::Record { val, .. } = item {
+            headers
+                .iter()
+                .map(|col| {
+                    val.get(col)
+                        .map(debug_string_without_formatting)
+                        .unwrap_or_else(String::new)
+                })
+                .collect()
+        } else {
+            // should never reach here due to `get_columns` above which will return
+            // empty columns if any value in the list is not a record
+            vec![String::new(); headers.len()]
         }
     }
 }

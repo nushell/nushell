@@ -22,9 +22,9 @@ impl Command for QueryDb {
             .required(
                 "SQL",
                 SyntaxShape::String,
-                "SQL to execute against the database",
+                "SQL to execute against the database.",
             )
-            .category(Category::Custom("database".into()))
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {

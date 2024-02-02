@@ -90,15 +90,9 @@ impl NuLazyFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
-            Ok(Value::CustomValue {
-                val: Box::new(df),
-                span,
-            })
+            Ok(Value::custom_value(Box::new(df), span))
         } else {
-            Ok(Value::CustomValue {
-                val: Box::new(self),
-                span,
-            })
+            Ok(Value::custom_value(Box::new(self), span))
         }
     }
 
@@ -110,14 +104,12 @@ impl NuLazyFrame {
         self.lazy
             .expect("No empty lazy for collect")
             .collect()
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error collecting lazy frame".to_string(),
-                    e.to_string(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error collecting lazy frame".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })
             .map(|df| NuDataFrame {
                 df,
@@ -135,7 +127,7 @@ impl NuLazyFrame {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
-                span: value.span()?,
+                span: value.span(),
                 help: None,
             })
         }
@@ -147,8 +139,9 @@ impl NuLazyFrame {
     }
 
     pub fn get_lazy_df(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self {
                     lazy: expr.lazy.clone(),
                     from_eager: false,
@@ -164,7 +157,7 @@ impl NuLazyFrame {
             x => Err(ShellError::CantConvert {
                 to_type: "lazy frame".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }

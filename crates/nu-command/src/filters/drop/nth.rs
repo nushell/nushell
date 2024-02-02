@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, PipelineIterator,
-    Range, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, PipelineIterator, Range,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -25,9 +25,9 @@ impl Command for DropNth {
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
                 SyntaxShape::Any,
-                "the number of the row to drop or a range to drop consecutive rows",
+                "The number of the row to drop or a range to drop consecutive rows.",
             )
-            .rest("rest", SyntaxShape::Any, "the number of the row to drop")
+            .rest("rest", SyntaxShape::Any, "The number of the row to drop.")
             .category(Category::Filters)
     }
 
@@ -44,58 +44,55 @@ impl Command for DropNth {
             Example {
                 example: "[sam,sarah,2,3,4,5] | drop nth 0 1 2",
                 description: "Drop the first, second, and third row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 0 1 2",
                 description: "Drop the first, second, and third row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 0 2 4",
                 description: "Drop rows 0 2 4",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 2 0 4",
                 description: "Drop rows 2 0 4",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Drop range rows from second to fourth",
                 example: "[first second third fourth fifth] | drop nth (1..3)",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("first"), Value::test_string("fifth")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("first"), Value::test_string("fifth")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 1..",
                 description: "Drop all rows except first row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(vec![Value::test_int(0)], Span::test_data())),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 3..",
                 description: "Drop rows 3,4,5",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -107,6 +104,7 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let number_or_range = extract_int_or_range(engine_state, stack, call)?;
         let mut lower_bound = None;
         let rows = match number_or_range {
@@ -125,7 +123,7 @@ impl Command for DropNth {
                 if from.is_negative() || to.is_negative() {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
                     return Err(ShellError::TypeMismatch {
-                        err_message: "drop nth accepts only positive integers".to_string(),
+                        err_message: "drop nth accepts only positive ints".to_string(),
                         span: span.span,
                     });
                 }
@@ -145,7 +143,7 @@ impl Command for DropNth {
                 let mut to = to as usize;
                 let from = from as usize;
 
-                if let PipelineData::Value(Value::List { ref vals, span: _ }, _) = input {
+                if let PipelineData::Value(Value::List { ref vals, .. }, _) = input {
                     let max = from + vals.len() - 1;
                     if to > max {
                         to = max;
@@ -168,14 +166,14 @@ impl Command for DropNth {
                 .into_iter()
                 .take(lower_bound)
                 .collect::<Vec<_>>()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         } else {
             Ok(DropNthIterator {
                 input: input.into_iter(),
                 rows,
                 current: 0,
             }
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         }
     }
 }
@@ -188,15 +186,13 @@ fn extract_int_or_range(
     let value = call.req::<Value>(engine_state, stack, 0)?;
 
     let int_opt = value.as_int().map(Either::Left).ok();
-    let range_opt: Result<nu_protocol::Range, ShellError> = FromValue::from_value(&value);
-
-    let range_opt = range_opt.map(Either::Right).ok();
+    let range_opt = value.as_range().map(|r| Either::Right(r.clone())).ok();
 
     int_opt
         .or(range_opt)
         .ok_or_else(|| ShellError::TypeMismatch {
             err_message: "int or range".into(),
-            span: value.span().unwrap_or_else(|_| Span::new(0, 0)),
+            span: value.span(),
         })
 }
 

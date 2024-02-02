@@ -1,4 +1,7 @@
-use is_terminal::IsTerminal;
+// todo: (refactoring) limit get_config() usage to 1 call
+//        overall reduce the redundant calls to StyleComputer etc.
+//        the goal is to configure it once...
+
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
@@ -7,14 +10,17 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_protocol::{record, TableMode};
 use nu_table::common::create_nu_table_config;
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
     TableOutput,
 };
 use nu_utils::get_ls_colors;
+use std::io::IsTerminal;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{path::PathBuf, sync::atomic::AtomicBool};
@@ -59,12 +65,17 @@ impl Command for Table {
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
             .named(
-                "start-number",
-                SyntaxShape::Int,
-                "row number to start viewing from",
-                Some('n'),
+                "theme",
+                SyntaxShape::String,
+                "set a table mode/theme",
+                Some('t'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
+            .named(
+                "index",
+                SyntaxShape::Any,
+                "enable (true) or disable (false) the #/index column or set the starting index",
+                Some('i'),
+            )
             .named(
                 "width",
                 SyntaxShape::Int,
@@ -79,7 +90,7 @@ impl Command for Table {
             .named(
                 "expand-deep",
                 SyntaxShape::Int,
-                "an expand limit of recursion which will take place",
+                "an expand limit of recursion which will take place, must be used with --expand",
                 Some('d'),
             )
             .switch("flatten", "Flatten simple arrays", None)
@@ -94,6 +105,13 @@ impl Command for Table {
                 "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
+            .named(
+                "abbreviated",
+                SyntaxShape::Int,
+                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
+                Some('a'),
+            )
+            .switch("list", "list available table modes/themes", Some('l'))
             .category(Category::Viewers)
     }
 
@@ -104,38 +122,15 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
-        let row_offset = start_num.unwrap_or_default() as usize;
-        let list: bool = call.has_flag("list");
-
-        let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-
-        let expand: bool = call.has_flag("expand");
-        let expand_limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
-        let collapse: bool = call.has_flag("collapse");
-        let flatten: bool = call.has_flag("flatten");
-        let flatten_separator: Option<String> =
-            call.get_flag(engine_state, stack, "flatten-separator")?;
-
-        let table_view = match (expand, collapse) {
-            (false, false) => TableView::General,
-            (_, true) => TableView::Collapsed,
-            (true, _) => TableView::Expanded {
-                limit: expand_limit,
-                flatten,
-                flatten_separator,
-            },
-        };
-
+        let list_themes: bool = call.has_flag(engine_state, stack, "list")?;
         // if list argument is present we just need to return a list of supported table themes
-        if list {
-            let val = Value::List {
-                vals: supported_table_modes(),
-                span: Span::test_data(),
-            };
-
+        if list_themes {
+            let val = Value::list(supported_table_modes(), Span::test_data());
             return Ok(val.into_pipeline_data());
         }
+
+        let cfg = parse_table_config(call, engine_state, stack)?;
+        let input = CmdInput::new(engine_state, stack, call, input);
 
         // reset vt processing, aka ansi because illbehaved externals can break it
         #[cfg(windows)]
@@ -143,237 +138,347 @@ impl Command for Table {
             let _ = nu_utils::enable_vt_processing();
         }
 
-        handle_table_command(
-            engine_state,
-            stack,
-            call,
-            input,
-            row_offset,
-            table_view,
-            width_param,
-        )
+        handle_table_command(input, cfg)
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
-                description: "List the files in current directory, with indexes starting from 1.",
-                example: r#"ls | table -n 1"#,
+                description: "List the files in current directory, with indexes starting from 1",
+                example: r#"ls | table --index 1"#,
                 result: None,
             },
             Example {
                 description: "Render data in table view",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(3),
+                        "b" =>  Value::test_int(4),
+                    }),
+                ])),
             },
             Example {
                 description: "Render data in table view (expanded)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(3),
+                        "b" =>  Value::test_int(4),
+                    }),
+                ])),
             },
             Example {
                 description: "Render data in table view (collapsed)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(3),
+                        "b" =>  Value::test_int(4),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Change the table theme to the specified theme for a single run",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --theme basic"#,
+                result: None,
+            },
+            Example {
+                description: "Force showing of the #/index column for a single run",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i true"#,
+                result: None,
+            },
+            Example {
+                description:
+                    "Set the starting number of the #/index column to 100 for a single run",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
+                result: None,
+            },
+            Example {
+                description: "Force hiding of the #/index column for a single run",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i false"#,
+                result: None,
             },
         ]
     }
 }
 
-fn handle_table_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-    row_offset: usize,
+#[derive(Debug, Clone)]
+struct TableConfig {
+    index: Option<usize>,
     table_view: TableView,
-    term_width: Option<i64>,
-) -> Result<PipelineData, ShellError> {
-    let ctrlc = engine_state.ctrlc.clone();
-    let config = get_config(engine_state, stack);
+    term_width: usize,
+    theme: TableMode,
+    abbreviation: Option<usize>,
+}
 
-    match input {
-        PipelineData::ExternalStream { .. } => Ok(input),
-        PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(
-                Box::new(if call.redirect_stdout {
-                    vec![Ok(val)].into_iter()
-                } else {
-                    vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                        .as_bytes()
-                        .to_vec())]
-                    .into_iter()
-                }),
-                ctrlc,
-                call.head,
-                None,
-            )),
-            stderr: None,
-            exit_code: None,
-            span: call.head,
-            metadata: None,
-            trim_end_newline: false,
+impl TableConfig {
+    fn new(
+        table_view: TableView,
+        term_width: usize,
+        theme: TableMode,
+        abbreviation: Option<usize>,
+        index: Option<usize>,
+    ) -> Self {
+        Self {
+            index,
+            table_view,
+            term_width,
+            abbreviation,
+            theme,
+        }
+    }
+}
+
+fn parse_table_config(
+    call: &Call,
+    state: &EngineState,
+    stack: &mut Stack,
+) -> Result<TableConfig, ShellError> {
+    let width_param: Option<i64> = call.get_flag(state, stack, "width")?;
+    let expand: bool = call.has_flag(state, stack, "expand")?;
+    let expand_limit: Option<usize> = call.get_flag(state, stack, "expand-deep")?;
+    let collapse: bool = call.has_flag(state, stack, "collapse")?;
+    let flatten: bool = call.has_flag(state, stack, "flatten")?;
+    let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
+    let abbrivation: Option<usize> = call
+        .get_flag(state, stack, "abbreviated")?
+        .or_else(|| get_config(state, stack).table_abbreviation_threshold);
+    let table_view = match (expand, collapse) {
+        (false, false) => TableView::General,
+        (_, true) => TableView::Collapsed,
+        (true, _) => TableView::Expanded {
+            limit: expand_limit,
+            flatten,
+            flatten_separator,
+        },
+    };
+    let theme =
+        get_theme_flag(call, state, stack)?.unwrap_or_else(|| get_config(state, stack).table_mode);
+    let index = get_index_flag(call, state, stack)?;
+
+    let term_width = get_width_param(width_param);
+    let cfg = TableConfig::new(table_view, term_width, theme, abbrivation, index);
+
+    Ok(cfg)
+}
+
+fn get_index_flag(
+    call: &Call,
+    state: &EngineState,
+    stack: &mut Stack,
+) -> Result<Option<usize>, ShellError> {
+    let index: Option<Value> = call.get_flag(state, stack, "index")?;
+    let value = match index {
+        Some(value) => value,
+        None => return Ok(Some(0)),
+    };
+
+    match value {
+        Value::Bool { val, .. } => {
+            if val {
+                Ok(Some(0))
+            } else {
+                Ok(None)
+            }
+        }
+        Value::Int { val, internal_span } => {
+            if val < 0 {
+                Err(ShellError::UnsupportedInput {
+                    msg: String::from("got a negative integer"),
+                    input: val.to_string(),
+                    msg_span: call.span(),
+                    input_span: internal_span,
+                })
+            } else {
+                Ok(Some(val as usize))
+            }
+        }
+        Value::Nothing { .. } => Ok(Some(0)),
+        _ => Err(ShellError::CantConvert {
+            to_type: String::from("index"),
+            from_type: String::new(),
+            span: call.span(),
+            help: Some(String::from("supported values: [bool, int, nothing]")),
         }),
-        // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
-        PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
-            engine_state,
-            stack,
-            ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
-            call,
-            row_offset,
-            ctrlc,
-            metadata,
-        ),
-        PipelineData::ListStream(stream, metadata) => handle_row_stream(
-            engine_state,
-            stack,
-            stream,
-            call,
-            row_offset,
-            ctrlc,
-            metadata,
-        ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
-            let term_width = get_width_param(term_width);
+    }
+}
 
-            handle_record(
-                cols,
-                vals,
-                span,
-                engine_state,
-                stack,
-                call,
-                table_view,
-                term_width,
+fn get_theme_flag(
+    call: &Call,
+    state: &EngineState,
+    stack: &mut Stack,
+) -> Result<Option<TableMode>, ShellError> {
+    call.get_flag(state, stack, "theme")?
+        .map(|theme: String| {
+            TableMode::from_str(&theme).map_err(|err| ShellError::CantConvert {
+                to_type: String::from("theme"),
+                from_type: String::from("string"),
+                span: call.span(),
+                help: Some(format!("{}, but found '{}'.", err, theme)),
+            })
+        })
+        .transpose()
+}
+
+struct CmdInput<'a> {
+    engine_state: &'a EngineState,
+    stack: &'a mut Stack,
+    call: &'a Call,
+    data: PipelineData,
+}
+
+impl<'a> CmdInput<'a> {
+    fn new(
+        engine_state: &'a EngineState,
+        stack: &'a mut Stack,
+        call: &'a Call,
+        data: PipelineData,
+    ) -> Self {
+        Self {
+            engine_state,
+            stack,
+            call,
+            data,
+        }
+    }
+}
+
+fn handle_table_command(
+    mut input: CmdInput<'_>,
+    cfg: TableConfig,
+) -> Result<PipelineData, ShellError> {
+    let span = input.data.span().unwrap_or(input.call.head);
+    match input.data {
+        PipelineData::ExternalStream { .. } => Ok(input.data),
+        PipelineData::Value(Value::Binary { val, .. }, ..) => {
+            let stream_list = if input.call.redirect_stdout {
+                vec![Ok(val)]
+            } else {
+                let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                    .as_bytes()
+                    .to_vec();
+                vec![Ok(hex)]
+            };
+
+            let ctrlc = input.engine_state.ctrlc.clone();
+            let stream = RawStream::new(
+                Box::new(stream_list.into_iter()),
                 ctrlc,
-                &config,
-            )
+                input.call.head,
+                None,
+            );
+
+            Ok(PipelineData::ExternalStream {
+                stdout: Some(stream),
+                stderr: None,
+                exit_code: None,
+                span: input.call.head,
+                metadata: None,
+                trim_end_newline: false,
+            })
+        }
+        // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
+        PipelineData::Value(Value::List { vals, .. }, metadata) => {
+            let ctrlc = input.engine_state.ctrlc.clone();
+            let stream = ListStream::from_stream(vals.into_iter(), ctrlc);
+            input.data = PipelineData::Empty;
+
+            handle_row_stream(input, cfg, stream, metadata)
+        }
+        PipelineData::ListStream(stream, metadata) => {
+            input.data = PipelineData::Empty;
+            handle_row_stream(input, cfg, stream, metadata)
+        }
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
+            input.data = PipelineData::Empty;
+            handle_record(input, cfg, val)
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            let collected = val.collect()?.into_pipeline_data();
-            handle_table_command(
-                engine_state,
-                stack,
-                call,
-                collected,
-                row_offset,
-                table_view,
-                term_width,
-            )
+            input.data = val.collect()?.into_pipeline_data();
+            handle_table_command(input, cfg)
         }
-        PipelineData::Value(Value::Error { error }, ..) => {
+        PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::CustomValue { val, span }, ..) => {
+        PipelineData::Value(Value::CustomValue { val, .. }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
-            Table.run(engine_state, stack, call, base_pipeline)
+            Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
-        PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
-            engine_state,
-            stack,
-            ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
-            call,
-            row_offset,
-            ctrlc,
-            metadata,
-        ),
+        PipelineData::Value(Value::Range { val, .. }, metadata) => {
+            let ctrlc = input.engine_state.ctrlc.clone();
+            let stream = ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc);
+            input.data = PipelineData::Empty;
+            handle_row_stream(input, cfg, stream, metadata)
+        }
         x => Ok(x),
     }
 }
 
-fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-    ]
-}
-
-#[allow(clippy::too_many_arguments)]
 fn handle_record(
-    cols: Vec<String>,
-    vals: Vec<Value>,
-    span: Span,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    table_view: TableView,
-    term_width: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
-    config: &Config,
+    input: CmdInput,
+    cfg: TableConfig,
+    mut record: Record,
 ) -> Result<PipelineData, ShellError> {
-    // Create a StyleComputer to compute styles for each value in the table.
-    let style_computer = &StyleComputer::from_config(engine_state, stack);
+    let config = get_config(input.engine_state, input.stack);
+    let span = input.data.span().unwrap_or(input.call.head);
+    let styles = &StyleComputer::from_config(input.engine_state, input.stack);
+    let ctrlc = input.engine_state.ctrlc.clone();
     let ctrlc1 = ctrlc.clone();
 
-    let result = if cols.is_empty() {
-        create_empty_placeholder("record", term_width, engine_state, stack)
-    } else {
-        let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width);
-        let result = build_table_kv(cols, vals, table_view, opts, span)?;
-        match result {
-            Some(output) => maybe_strip_color(output, config),
-            None => report_unsuccessful_output(ctrlc1, term_width),
-        }
+    if record.is_empty() {
+        let value =
+            create_empty_placeholder("record", cfg.term_width, input.engine_state, input.stack);
+        let value = Value::string(value, span);
+        return Ok(value.into_pipeline_data());
     };
 
-    let val = Value::String {
-        val: result,
-        span: call.head,
+    if let Some(limit) = cfg.abbreviation {
+        let prev_len = record.len();
+        if record.len() > limit * 2 + 1 {
+            // TODO: see if the following table builders would be happy with a simple iterator
+            let mut record_iter = record.into_iter();
+            record = Record::with_capacity(limit * 2 + 1);
+            record.extend(record_iter.by_ref().take(limit));
+            record.push(String::from("..."), Value::string("...", Span::unknown()));
+            record.extend(record_iter.skip(prev_len - 2 * limit));
+        }
+    }
+
+    let indent = (config.table_indent.left, config.table_indent.right);
+    let opts = TableOpts::new(
+        &config,
+        styles,
+        ctrlc,
+        span,
+        cfg.term_width,
+        indent,
+        cfg.theme,
+        cfg.index.unwrap_or(0),
+        cfg.index.is_none(),
+    );
+    let result = build_table_kv(record, cfg.table_view, opts, span)?;
+
+    let result = match result {
+        Some(output) => maybe_strip_color(output, &config),
+        None => report_unsuccessful_output(ctrlc1, cfg.term_width),
     };
+
+    let val = Value::string(result, span);
 
     Ok(val.into_pipeline_data())
 }
@@ -389,24 +494,23 @@ fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize
 }
 
 fn build_table_kv(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     table_view: TableView,
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(&cols, &vals, opts),
+        TableView::General => JustTable::kv_table(&record, opts),
         TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
+            ExpandedTable::new(limit, flatten, sep).build_map(&record, opts)
         }
         TableView::Collapsed => {
-            let value = Value::Record { cols, vals, span };
+            let value = Value::record(record, span);
             CollapsedTable::build(value, opts)
         }
     }
@@ -429,51 +533,50 @@ fn build_table_batch(
             ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
         }
         TableView::Collapsed => {
-            let value = Value::List { vals, span };
+            let value = Value::list(vals, span);
             CollapsedTable::build(value, opts)
         }
     }
 }
 
 fn handle_row_stream(
-    engine_state: &EngineState,
-    stack: &mut Stack,
+    input: CmdInput<'_>,
+    cfg: TableConfig,
     stream: ListStream,
-    call: &Call,
-    row_offset: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
-    metadata: Option<Box<PipelineMetadata>>,
+    metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let stream = match metadata.as_deref() {
+    let ctrlc = input.engine_state.ctrlc.clone();
+
+    let stream = match metadata.as_ref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
         }) => {
-            let config = get_config(engine_state, stack);
+            let config = get_config(input.engine_state, input.stack);
             let ctrlc = ctrlc.clone();
-            let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-                Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+            let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
+                Some(v) => Some(env_to_string(
+                    "LS_COLORS",
+                    &v,
+                    input.engine_state,
+                    input.stack,
+                )?),
                 None => None,
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
-                        let mut idx = 0;
-
-                        while idx < cols.len() {
-                            // Only the name column gets special colors, for now
-                            if cols[idx] == "name" {
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let val = render_path_name(val, &config, &ls_colors, *span);
-                                    if let Some(val) = val {
-                                        vals[idx] = val;
-                                    }
+                    Value::Record { val: record, .. } => {
+                        // Only the name column gets special colors, for now
+                        if let Some(value) = record.get_mut("name") {
+                            let span = value.span();
+                            if let Value::String { val, .. } = value {
+                                if let Some(val) = render_path_name(val, &config, &ls_colors, span)
+                                {
+                                    *value = val;
                                 }
                             }
-
-                            idx += 1;
                         }
 
                         x
@@ -491,30 +594,31 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
-                        let mut idx = 0;
-                        // Every column in the HTML theme table except 'name' is colored
-                        while idx < cols.len() {
-                            if cols[idx] != "name" {
-                                // Simple routine to grab the hex code, convert to a style,
-                                // then place it in a new Value::String.
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let s = match color_from_hex(val) {
-                                        Ok(c) => match c {
-                                            // .normal() just sets the text foreground color.
-                                            Some(c) => c.normal(),
-                                            None => nu_ansi_term::Style::default(),
-                                        },
-                                        Err(_) => nu_ansi_term::Style::default(),
-                                    };
-                                    vals[idx] = Value::String {
-                                        // Apply the style (ANSI codes) to the string
-                                        val: s.paint(val).to_string(),
-                                        span: *span,
-                                    };
-                                }
+                    Value::Record { val: record, .. } => {
+                        for (rec_col, rec_val) in record.iter_mut() {
+                            // Every column in the HTML theme table except 'name' is colored
+                            if rec_col != "name" {
+                                continue;
                             }
-                            idx += 1;
+                            // Simple routine to grab the hex code, convert to a style,
+                            // then place it in a new Value::String.
+
+                            let span = rec_val.span();
+                            if let Value::String { val, .. } = rec_val {
+                                let s = match color_from_hex(val) {
+                                    Ok(c) => match c {
+                                        // .normal() just sets the text foreground color.
+                                        Some(c) => c.normal(),
+                                        None => nu_ansi_term::Style::default(),
+                                    },
+                                    Err(_) => nu_ansi_term::Style::default(),
+                                };
+                                *rec_val = Value::string(
+                                    // Apply the style (ANSI codes) to the string
+                                    s.paint(&*val).to_string(),
+                                    span,
+                                );
+                            }
                         }
                         x
                     }
@@ -526,48 +630,23 @@ fn handle_row_stream(
         _ => stream,
     };
 
-    let head = call.head;
-    let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-
-    let collapse: bool = call.has_flag("collapse");
-
-    let expand: bool = call.has_flag("expand");
-    let limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
-    let flatten: bool = call.has_flag("flatten");
-    let flatten_separator: Option<String> =
-        call.get_flag(engine_state, stack, "flatten-separator")?;
-
-    let table_view = match (expand, collapse) {
-        (_, true) => TableView::Collapsed,
-        (true, _) => TableView::Expanded {
-            flatten,
-            flatten_separator,
-            limit,
-        },
-        _ => TableView::General,
-    };
+    let paginator = PagingTableCreator::new(
+        input.call.head,
+        stream,
+        // These are passed in as a way to have PagingTable create StyleComputers
+        // for the values it outputs. Because engine_state is passed in, config doesn't need to.
+        input.engine_state.clone(),
+        input.stack.clone(),
+        ctrlc.clone(),
+        cfg,
+    );
+    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, None);
 
     Ok(PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(PagingTableCreator::new(
-                head,
-                stream,
-                // These are passed in as a way to have PagingTable create StyleComputers
-                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
-                engine_state.clone(),
-                stack.clone(),
-                ctrlc.clone(),
-                row_offset,
-                width_param,
-                table_view,
-            )),
-            ctrlc,
-            head,
-            None,
-        )),
+        stdout: Some(stream),
         stderr: None,
         exit_code: None,
-        span: head,
+        span: input.call.head,
         metadata: None,
         trim_end_newline: false,
     })
@@ -603,24 +682,20 @@ struct PagingTableCreator {
     engine_state: EngineState,
     stack: Stack,
     ctrlc: Option<Arc<AtomicBool>>,
-    row_offset: usize,
-    width_param: Option<i64>,
-    view: TableView,
     elements_displayed: usize,
     reached_end: bool,
+    cfg: TableConfig,
+    row_offset: usize,
 }
 
 impl PagingTableCreator {
-    #[allow(clippy::too_many_arguments)]
     fn new(
         head: Span,
         stream: ListStream,
         engine_state: EngineState,
         stack: Stack,
         ctrlc: Option<Arc<AtomicBool>>,
-        row_offset: usize,
-        width_param: Option<i64>,
-        view: TableView,
+        cfg: TableConfig,
     ) -> Self {
         PagingTableCreator {
             head,
@@ -628,11 +703,10 @@ impl PagingTableCreator {
             engine_state,
             stack,
             ctrlc,
-            row_offset,
-            width_param,
-            view,
+            cfg,
             elements_displayed: 0,
             reached_end: false,
+            row_offset: 0,
         }
     }
 
@@ -689,9 +763,24 @@ impl PagingTableCreator {
             style_comp,
             self.ctrlc.clone(),
             self.head,
-            self.row_offset,
-            get_width_param(self.width_param),
+            self.cfg.term_width,
+            (cfg.table_indent.left, cfg.table_indent.right),
+            self.cfg.theme,
+            self.cfg.index.unwrap_or(0) + self.row_offset,
+            self.cfg.index.is_none(),
         )
+    }
+
+    fn build_table(&mut self, batch: Vec<Value>) -> Result<Option<String>, ShellError> {
+        match &self.cfg.table_view {
+            TableView::General => self.build_general(batch),
+            TableView::Collapsed => self.build_collapsed(batch),
+            TableView::Expanded {
+                limit,
+                flatten,
+                flatten_separator,
+            } => self.build_extended(batch, *limit, *flatten, flatten_separator.clone()),
+        }
     }
 }
 
@@ -738,49 +827,61 @@ impl Iterator for PagingTableCreator {
                 // Increase elements_displayed by one so on next iteration next branch of this
                 // if else triggers and terminates stream
                 self.elements_displayed = 1;
-                let term_width = get_width_param(self.width_param);
-                let result =
-                    create_empty_placeholder("list", term_width, &self.engine_state, &self.stack);
+                let result = create_empty_placeholder(
+                    "list",
+                    self.cfg.term_width,
+                    &self.engine_state,
+                    &self.stack,
+                );
                 Some(Ok(result.into_bytes()))
             } else {
                 None
             };
         }
 
-        let table = match &self.view {
-            TableView::General => self.build_general(batch),
-            TableView::Collapsed => self.build_collapsed(batch),
-            TableView::Expanded {
-                limit,
-                flatten,
-                flatten_separator,
-            } => self.build_extended(batch, *limit, *flatten, flatten_separator.clone()),
-        };
+        if let Some(limit) = self.cfg.abbreviation {
+            // todo: could be optimized cause we already consumed the list there's no point in goint back to pagination;
+
+            if batch.len() > limit * 2 + 1 {
+                batch = abbreviate_list(
+                    &batch,
+                    limit,
+                    Value::string(String::from("..."), Span::unknown()),
+                );
+
+                let is_record_list = batch[..limit]
+                    .iter()
+                    .all(|value| matches!(value, Value::Record { .. }))
+                    && batch[limit + 1..]
+                        .iter()
+                        .all(|value| matches!(value, Value::Record { .. }));
+
+                if limit > 0 && is_record_list {
+                    // in case it's a record list we set a default text to each column instead of a single value.
+
+                    let dummy: Record = batch[0]
+                        .as_record()
+                        .expect("ok")
+                        .columns()
+                        .map(|k| {
+                            (
+                                k.to_owned(),
+                                Value::string(String::from("..."), Span::unknown()),
+                            )
+                        })
+                        .collect();
+
+                    batch[limit] = Value::record(dummy, Span::unknown());
+                }
+            }
+        }
+
+        let table = self.build_table(batch);
 
         self.row_offset += idx;
 
-        match table {
-            Ok(Some(table)) => {
-                let table = maybe_strip_color(table, &get_config(&self.engine_state, &self.stack));
-
-                let mut bytes = table.as_bytes().to_vec();
-                bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
-
-                Some(Ok(bytes))
-            }
-            Ok(None) => {
-                let msg = if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                    "".into()
-                } else {
-                    // assume this failed because the table was too wide
-                    // TODO: more robust error classification
-                    let term_width = get_width_param(self.width_param);
-                    format!("Couldn't fit table into {term_width} columns!")
-                };
-                Some(Ok(msg.as_bytes().to_vec()))
-            }
-            Err(err) => Some(Err(err)),
-        }
+        let config = get_config(&self.engine_state, &self.stack);
+        convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
     }
 }
 
@@ -821,10 +922,10 @@ fn render_path_name(
     );
 
     let val = ansi_style.paint(full_path_link).to_string();
-    Some(Value::String { val, span })
+    Some(Value::string(val, span))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum TableView {
     General,
     Collapsed,
@@ -865,9 +966,76 @@ fn create_empty_placeholder(
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_nu_table_config(&config, style_computer, &out, false);
+    let config = create_nu_table_config(&config, style_computer, &out, false, TableMode::default());
 
     out.table
         .draw(config, termwidth)
         .expect("Could not create empty table placeholder")
+}
+
+fn convert_table_to_output(
+    table: Result<Option<String>, ShellError>,
+    config: &Config,
+    ctrlc: &Option<Arc<AtomicBool>>,
+    term_width: usize,
+) -> Option<Result<Vec<u8>, ShellError>> {
+    match table {
+        Ok(Some(table)) => {
+            let table = maybe_strip_color(table, config);
+
+            let mut bytes = table.as_bytes().to_vec();
+            bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
+
+            Some(Ok(bytes))
+        }
+        Ok(None) => {
+            let msg = if nu_utils::ctrl_c::was_pressed(ctrlc) {
+                String::from("")
+            } else {
+                // assume this failed because the table was too wide
+                // TODO: more robust error classification
+                format!("Couldn't fit table into {} columns!", term_width)
+            };
+
+            Some(Ok(msg.as_bytes().to_vec()))
+        }
+        Err(err) => Some(Err(err)),
+    }
+}
+
+fn abbreviate_list<T>(list: &[T], limit: usize, text: T) -> Vec<T>
+where
+    T: Clone,
+{
+    let head = &list[..limit];
+    let tail = &list[list.len() - limit..];
+
+    let mut out = Vec::with_capacity(limit * 2 + 1);
+    out.extend(head.iter().cloned());
+    out.push(text);
+    out.extend(tail.iter().cloned());
+
+    out
+}
+
+fn supported_table_modes() -> Vec<Value> {
+    vec![
+        Value::test_string("basic"),
+        Value::test_string("compact"),
+        Value::test_string("compact_double"),
+        Value::test_string("default"),
+        Value::test_string("heavy"),
+        Value::test_string("light"),
+        Value::test_string("none"),
+        Value::test_string("reinforced"),
+        Value::test_string("rounded"),
+        Value::test_string("thin"),
+        Value::test_string("with_love"),
+        Value::test_string("psql"),
+        Value::test_string("markdown"),
+        Value::test_string("dots"),
+        Value::test_string("restructured"),
+        Value::test_string("ascii_rounded"),
+        Value::test_string("basic_compact"),
+    ]
 }

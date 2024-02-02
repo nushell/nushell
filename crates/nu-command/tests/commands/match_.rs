@@ -133,6 +133,12 @@ fn match_constant_7() {
 }
 
 #[test]
+fn match_null() {
+    let actual = nu!(r#"match null { null => { print "success"}, _ => { print "failure" }}"#);
+    assert_eq!(actual.out, "success");
+}
+
+#[test]
 fn match_or_pattern() {
     let actual = nu!(
         r#"match {b: 7} { {a: $a} | {b: $b} => { print $"success: ($b)" }, _ => { print "failure" }}"#

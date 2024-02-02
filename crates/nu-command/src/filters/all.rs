@@ -16,14 +16,11 @@ impl Command for All {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Bool),
-                (Type::Table(vec![]), Type::Bool),
-            ])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Bool)])
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "a closure that must evaluate to a boolean",
+                "A closure that must evaluate to a boolean.",
             )
             .category(Category::Filters)
     }

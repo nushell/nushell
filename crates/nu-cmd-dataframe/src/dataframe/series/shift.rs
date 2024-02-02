@@ -9,6 +9,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
+use polars_plan::prelude::lit;
+
 #[derive(Clone)]
 pub struct Shift;
 
@@ -42,10 +44,13 @@ impl Command for Shift {
             description: "Shifts the values by a given period",
             example: "[1 2 2 3 3] | dfr into-df | dfr shift 2 | dfr drop-nulls",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(1), Value::test_int(2), Value::test_int(2)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -98,7 +103,7 @@ fn command_lazy(
     let lazy: NuLazyFrame = match fill {
         Some(fill) => {
             let expr = NuExpression::try_from_value(fill)?.into_polars();
-            lazy.shift_and_fill(shift, expr).into()
+            lazy.shift_and_fill(lit(shift), expr).into()
         }
         None => lazy.shift(shift).into(),
     };

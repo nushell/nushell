@@ -10,8 +10,8 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.60"
-version = "0.83.2"
+rust-version = "1.72.1"
+version = "0.89.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -33,6 +33,11 @@ members = [
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
+	"crates/nu-color-config",
+	"crates/nu-explore",
+	"crates/nu-json",
+	"crates/nu-lsp",
+	"crates/nu-pretty-hex",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
 	"crates/nu_plugin_inc",
@@ -42,38 +47,44 @@ members = [
 	"crates/nu_plugin_custom_values",
 	"crates/nu_plugin_formats",
 	"crates/nu-std",
+	"crates/nu-table",
+	"crates/nu-term-grid",
 	"crates/nu-utils",
 ]
 
 [dependencies]
-nu-cli = { path = "./crates/nu-cli", version = "0.83.2" }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.83.2" }
-nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.83.2" }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.83.2" }
-nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.83.2", optional = true }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.83.2", optional = true }
-nu-command = { path = "./crates/nu-command", version = "0.83.2" }
-nu-engine = { path = "./crates/nu-engine", version = "0.83.2" }
-nu-explore = { path = "./crates/nu-explore", version = "0.83.2" }
-nu-json = { path = "./crates/nu-json", version = "0.83.2" }
-nu-parser = { path = "./crates/nu-parser", version = "0.83.2" }
-nu-path = { path = "./crates/nu-path", version = "0.83.2" }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.83.2" }
-nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.83.2" }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.83.2" }
-nu-system = { path = "./crates/nu-system", version = "0.83.2" }
-nu-table = { path = "./crates/nu-table", version = "0.83.2" }
-nu-term-grid = { path = "./crates/nu-term-grid", version = "0.83.2" }
-nu-std = { path = "./crates/nu-std", version = "0.83.2" }
-nu-utils = { path = "./crates/nu-utils", version = "0.83.2" }
-nu-ansi-term = "0.49.0"
-reedline = { version = "0.22.0", features = ["bashisms", "sqlite"]}
+nu-cli = { path = "./crates/nu-cli", version = "0.89.1" }
+nu-color-config = { path = "./crates/nu-color-config", version = "0.89.1" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.89.1" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.89.1" }
+nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.89.1", features = [
+	"dataframe",
+], optional = true }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.89.1", optional = true }
+nu-command = { path = "./crates/nu-command", version = "0.89.1" }
+nu-engine = { path = "./crates/nu-engine", version = "0.89.1" }
+nu-explore = { path = "./crates/nu-explore", version = "0.89.1" }
+nu-json = { path = "./crates/nu-json", version = "0.89.1" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.89.1" }
+nu-parser = { path = "./crates/nu-parser", version = "0.89.1" }
+nu-path = { path = "./crates/nu-path", version = "0.89.1" }
+nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.89.1" }
+nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.89.1" }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.89.1" }
+nu-system = { path = "./crates/nu-system", version = "0.89.1" }
+nu-table = { path = "./crates/nu-table", version = "0.89.1" }
+nu-term-grid = { path = "./crates/nu-term-grid", version = "0.89.1" }
+nu-std = { path = "./crates/nu-std", version = "0.89.1" }
+nu-utils = { path = "./crates/nu-utils", version = "0.89.1" }
 
-crossterm = "0.26"
+nu-ansi-term = "0.50.0"
+reedline = { version = "0.28.0", features = ["bashisms", "sqlite"] }
+
+crossterm = "0.27"
 ctrlc = "3.4"
 log = "0.4"
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }
-mimalloc = { version = "0.1.37", default-features = false, optional = true}
+mimalloc = { version = "0.1.37", default-features = false, optional = true }
 serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"
@@ -81,28 +92,26 @@ time = "0.3"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
 openssl = { version = "0.10", features = ["vendored"], optional = true }
-signal-hook = { version = "0.3", default-features = false }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
-nix = { version = "0.26", default-features = false, features = [
+nix = { version = "0.27", default-features = false, features = [
 	"signal",
 	"process",
 	"fs",
 	"term",
 ] }
-is-terminal = "0.4.8"
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.83.2" }
+nu-test-support = { path = "./crates/nu-test-support", version = "0.89.1" }
 assert_cmd = "2.0"
 criterion = "0.5"
 pretty_assertions = "1.4"
-rstest = { version = "0.17", default-features = false }
+rstest = { version = "0.18", default-features = false }
 serial_test = "2.0"
-tempfile = "3.7"
+tempfile = "3.8"
 
 [features]
 plugin = [
@@ -113,15 +122,26 @@ plugin = [
 	"nu-protocol/plugin",
 	"nu-engine/plugin",
 ]
-default = ["plugin", "which-support", "trash-support", "sqlite"]
+default = ["default-no-clipboard", "system-clipboard"]
+# Enables convenient omitting of the system-clipboard feature, as it leads to problems in ci on linux
+# See https://github.com/nushell/nushell/pull/11535
+default-no-clipboard = [
+	"plugin",
+	"which-support",
+	"trash-support",
+	"sqlite",
+	"mimalloc",
+]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
 
-# Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
+# Enable to statically link OpenSSL (perl is required, to build OpenSSL https://docs.rs/openssl/latest/openssl/);
+# otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
+system-clipboard = ["reedline/system_clipboard"]
 
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
@@ -164,8 +184,9 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
+# uu_cp = { git = "https://github.com/uutils/coreutils.git", branch = "main" }
 
 # Criterion benchmarking setup
 # Run all benchmarks with `cargo bench`

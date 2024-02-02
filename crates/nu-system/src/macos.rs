@@ -9,7 +9,6 @@ use libproc::libproc::thread_info::ThreadInfo;
 use libproc::processes::{pids_by_type, ProcFilter};
 use mach2::mach_time;
 use std::cmp;
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -28,7 +27,7 @@ pub struct ProcessInfo {
     pub interval: Duration,
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg_attr(tarpaulin, ignore)]
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
     let mut base_procs = Vec::new();
     let mut ret = Vec::new();
@@ -117,7 +116,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     ret
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg_attr(tarpaulin, ignore)]
 fn get_arg_max() -> size_t {
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_ARGMAX];
     let mut arg_max = 0i32;
@@ -142,9 +141,10 @@ pub struct PathInfo {
     pub root: PathBuf,
     pub cmd: Vec<String>,
     pub env: Vec<String>,
+    pub cwd: PathBuf,
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg_attr(tarpaulin, ignore)]
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     let len = cp as usize - start as usize;
     let part = Vec::from_raw_parts(start, len, len);
@@ -153,7 +153,7 @@ unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     tmp
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg_attr(tarpaulin, ignore)]
 fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
     let mut proc_args = Vec::with_capacity(size);
     let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
@@ -185,7 +185,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
                 let name = exe
                     .file_name()
-                    .unwrap_or_else(|| OsStr::new(""))
+                    .unwrap_or_default()
                     .to_str()
                     .unwrap_or("")
                     .to_owned();
@@ -213,12 +213,17 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 }
                 start = cp;
                 let mut env = Vec::new();
+                let mut cwd = PathBuf::default();
                 while cp < ptr.add(size) {
                     if *cp == 0 {
                         if cp == start {
                             break;
                         }
-                        env.push(get_unchecked_str(cp, start));
+                        let env_str = get_unchecked_str(cp, start);
+                        if let Some(pwd) = env_str.strip_prefix("PWD=") {
+                            cwd = PathBuf::from(pwd)
+                        }
+                        env.push(env_str);
                         start = cp.offset(1);
                     }
                     cp = cp.offset(1);
@@ -238,6 +243,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                     root,
                     cmd,
                     env,
+                    cwd,
                 })
             } else {
                 None
@@ -248,7 +254,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
     }
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg_attr(tarpaulin, ignore)]
 fn clone_task_all_info(src: &TaskAllInfo) -> TaskAllInfo {
     let pbsd = BSDInfo {
         pbi_flags: src.pbsd.pbi_flags,
@@ -393,6 +399,13 @@ impl ProcessInfo {
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.curr_task.ptinfo.pti_virtual_size
+    }
+
+    pub fn cwd(&self) -> String {
+        self.curr_path
+            .as_ref()
+            .map(|cur_path| cur_path.cwd.display().to_string())
+            .unwrap_or_default()
     }
 }
 

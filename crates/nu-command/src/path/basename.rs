@@ -3,7 +3,7 @@ use std::path::Path;
 use super::PathSubcommandArguments;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
@@ -45,6 +45,10 @@ impl Command for SubCommand {
         "Get the final component of a path."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -67,6 +71,27 @@ impl Command for SubCommand {
         )
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments {
+            replace: call.get_flag_const(working_set, "replace")?,
+        };
+
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&get_basename, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
+        )
+    }
+
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![
@@ -85,7 +110,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Replace basename of a path",
-                example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
+                example: "'C:\\Users\\joe\\test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("C:\\Users\\joe\\spam.png")),
             },
         ]
@@ -109,7 +134,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Replace basename of a path",
-                example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
+                example: "'/home/joe/test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("/home/joe/spam.png")),
             },
         ]

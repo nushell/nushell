@@ -60,10 +60,6 @@ impl ViewCommand for ExpandCmd {
         })
     }
 
-    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
-        false
-    }
-
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())
     }

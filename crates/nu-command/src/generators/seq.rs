@@ -17,7 +17,7 @@ impl Command for Seq {
     fn signature(&self) -> Signature {
         Signature::build("seq")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Number)))])
-            .rest("rest", SyntaxShape::Number, "sequence values")
+            .rest("rest", SyntaxShape::Number, "Sequence values.")
             .category(Category::Generators)
     }
 
@@ -40,8 +40,8 @@ impl Command for Seq {
             Example {
                 description: "sequence 1 to 10",
                 example: "seq 1 10",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(3),
@@ -53,14 +53,14 @@ impl Command for Seq {
                         Value::test_int(9),
                         Value::test_int(10),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "sequence 1.0 to 2.0 by 0.1s",
                 example: "seq 1.0 0.1 2.0",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_float(1.0000),
                         Value::test_float(1.1000),
                         Value::test_float(1.2000),
@@ -73,8 +73,8 @@ impl Command for Seq {
                         Value::test_float(1.9000),
                         Value::test_float(2.0000),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "sequence 1 to 5, then convert to a string with a pipe separator",
@@ -101,13 +101,13 @@ fn seq(
     let contains_decimals = rest_nums_check.is_err();
 
     if rest_nums.is_empty() {
-        return Err(ShellError::GenericError(
-            "seq requires some parameters".into(),
-            "needs parameter".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "seq requires some parameters".into(),
+            msg: "needs parameter".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();
@@ -140,30 +140,30 @@ pub fn run_seq(
     if !contains_decimals {
         // integers only
         Ok(PipelineData::ListStream(
-            nu_protocol::ListStream {
-                stream: Box::new(IntSeq {
+            nu_protocol::ListStream::from_stream(
+                IntSeq {
                     count: first as i64,
                     step: step as i64,
                     last: last as i64,
                     span,
-                }),
-                ctrlc: engine_state.ctrlc.clone(),
-            },
+                },
+                engine_state.ctrlc.clone(),
+            ),
             None,
         ))
     } else {
         // floats
         Ok(PipelineData::ListStream(
-            nu_protocol::ListStream {
-                stream: Box::new(FloatSeq {
+            nu_protocol::ListStream::from_stream(
+                FloatSeq {
                     first,
                     step,
                     last,
                     index: 0,
                     span,
-                }),
-                ctrlc: engine_state.ctrlc.clone(),
-            },
+                },
+                engine_state.ctrlc.clone(),
+            ),
             None,
         ))
     }

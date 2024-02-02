@@ -64,9 +64,9 @@ impl Command for Explore {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let show_head: bool = call.get_flag(engine_state, stack, "head")?.unwrap_or(true);
-        let show_index: bool = call.has_flag("index");
-        let is_reverse: bool = call.has_flag("reverse");
-        let peek_value: bool = call.has_flag("peek");
+        let show_index: bool = call.has_flag(engine_state, stack, "index")?;
+        let is_reverse: bool = call.has_flag(engine_state, stack, "reverse")?;
+        let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let nu_config = engine_state.get_config();
@@ -77,9 +77,6 @@ impl Command for Explore {
         update_config(&mut config, show_index, show_head);
         prepare_default_config(&mut config);
 
-        let show_banner = is_need_banner(&config).unwrap_or(true);
-        let exit_esc = is_need_esc_exit(&config).unwrap_or(true);
-
         let style = style_from_config(&config);
 
         let lscolors = create_lscolors(engine_state, stack);
@@ -89,8 +86,6 @@ impl Command for Explore {
         config.reverse = is_reverse;
         config.peek_value = peek_value;
         config.reverse = is_reverse;
-        config.exit_esc = exit_esc;
-        config.show_banner = show_banner;
 
         let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
@@ -98,9 +93,7 @@ impl Command for Explore {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
             Err(err) => Ok(PipelineData::Value(
-                Value::Error {
-                    error: Box::new(err.into()),
-                },
+                Value::error(err.into(), call.head),
                 None,
             )),
         }
@@ -120,27 +113,17 @@ impl Command for Explore {
             },
             Example {
                 description: "Explore a list of Markdown files' contents, with row indexes",
-                example: r#"glob *.md | each {|| open } | explore -i"#,
+                example: r#"glob *.md | each {|| open } | explore --index"#,
                 result: None,
             },
             Example {
                 description:
                     "Explore a JSON file, then save the last visited sub-structure to a file",
-                example: r#"open file.json | explore -p | to json | save part.json"#,
+                example: r#"open file.json | explore --peek | to json | save part.json"#,
                 result: None,
             },
         ]
     }
-}
-
-// For now, this doesn't use StyleComputer.
-// As such, closures can't be given as styles for Explore.
-fn is_need_banner(config: &HashMap<String, Value>) -> Option<bool> {
-    config.get("help_banner").and_then(|v| v.as_bool().ok())
-}
-
-fn is_need_esc_exit(config: &HashMap<String, Value>) -> Option<bool> {
-    config.get("exit_esc").and_then(|v| v.as_bool().ok())
 }
 
 fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_head: bool) {
@@ -184,6 +167,10 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
             style.status_info = *s;
         }
 
+        if let Some(s) = colors.get("success") {
+            style.status_success = *s;
+        }
+
         if let Some(s) = colors.get("warn") {
             style.status_warn = *s;
         }
@@ -210,29 +197,17 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const STATUS_INFO: Style = color(None, None);
 
+    const STATUS_SUCCESS: Style = color(Some(Color::Black), Some(Color::Green));
+
     const STATUS_WARN: Style = color(None, None);
 
     const TABLE_SPLIT_LINE: Style = color(Some(Color::Rgb(64, 64, 64)), None);
-
-    const TABLE_LINE_HEADER_TOP: bool = true;
-
-    const TABLE_LINE_HEADER_BOTTOM: bool = true;
-
-    const TABLE_LINE_INDEX: bool = true;
-
-    const TABLE_LINE_SHIFT: bool = true;
-
-    const TABLE_SELECT_CURSOR: bool = true;
 
     const TABLE_SELECT_CELL: Style = color(None, None);
 
     const TABLE_SELECT_ROW: Style = color(None, None);
 
     const TABLE_SELECT_COLUMN: Style = color(None, None);
-
-    const TRY_BORDER_COLOR: Style = color(None, None);
-
-    const CONFIG_CURSOR_COLOR: Style = color(Some(Color::Black), Some(Color::LightYellow));
 
     insert_style(config, "status_bar_background", STATUS_BAR);
     insert_style(config, "command_bar_text", INPUT_BAR);
@@ -247,6 +222,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
             .unwrap_or_default();
 
         insert_style(&mut hm, "info", STATUS_INFO);
+        insert_style(&mut hm, "success", STATUS_SUCCESS);
         insert_style(&mut hm, "warn", STATUS_WARN);
         insert_style(&mut hm, "error", STATUS_ERROR);
 
@@ -263,43 +239,14 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
         insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
         insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
-        insert_bool(&mut hm, "cursor", TABLE_SELECT_CURSOR);
-        insert_bool(&mut hm, "line_head_top", TABLE_LINE_HEADER_TOP);
-        insert_bool(&mut hm, "line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
-        insert_bool(&mut hm, "line_shift", TABLE_LINE_SHIFT);
-        insert_bool(&mut hm, "line_index", TABLE_LINE_INDEX);
 
         config.insert(String::from("table"), map_into_value(hm));
-    }
-
-    {
-        let mut hm = config
-            .get("try")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
-
-        insert_style(&mut hm, "border_color", TRY_BORDER_COLOR);
-
-        config.insert(String::from("try"), map_into_value(hm));
-    }
-
-    {
-        let mut hm = config
-            .get("config")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
-
-        insert_style(&mut hm, "cursor_color", CONFIG_CURSOR_COLOR);
-
-        config.insert(String::from("config"), map_into_value(hm));
     }
 }
 
 fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
-    value.as_record().ok().map(|(cols, vals)| {
-        cols.iter()
-            .take(vals.len())
-            .zip(vals)
+    value.as_record().ok().map(|val| {
+        val.iter()
             .map(|(col, val)| (col.clone(), val.clone()))
             .collect::<HashMap<_, _>>()
     })
@@ -347,34 +294,12 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
     let line_color = lookup_color(style_computer, "separator");
     if line_color != nu_ansi_term::Style::default() {
-        {
-            let mut map = config
-                .get("table")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
-            insert_style(&mut map, "split_line", line_color);
-            config.insert(String::from("table"), map_into_value(map));
-        }
-
-        {
-            let mut map = config
-                .get("try")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
-            insert_style(&mut map, "border_color", line_color);
-            config.insert(String::from("try"), map_into_value(map));
-        }
-
-        {
-            let mut map = config
-                .get("config")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
-
-            insert_style(&mut map, "border_color", line_color);
-
-            config.insert(String::from("config"), map_into_value(map));
-        }
+        let mut map = config
+            .get("table")
+            .and_then(parse_hash_map)
+            .unwrap_or_default();
+        insert_style(&mut map, "split_line", line_color);
+        config.insert(String::from("table"), map_into_value(map));
     }
 }
 

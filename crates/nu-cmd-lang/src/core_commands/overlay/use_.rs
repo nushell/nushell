@@ -27,12 +27,12 @@ impl Command for OverlayUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "Module name to use overlay for",
+                "Module name to use overlay for.",
             )
             .optional(
                 "as",
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),
-                "as keyword followed by a new name",
+                "`as` keyword followed by a new name.",
             )
             .switch(
                 "prefix",
@@ -68,7 +68,7 @@ impl Command for OverlayUse {
 
         let maybe_origin_module_id =
             if let Some(overlay_expr) = call.get_parser_info("overlay_expr") {
-                if let Expr::Overlay(module_id) = overlay_expr.expr {
+                if let Expr::Overlay(module_id) = &overlay_expr.expr {
                     module_id
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
@@ -96,7 +96,9 @@ impl Command for OverlayUse {
             if let Some(name) = os_str.to_str() {
                 name.to_string()
             } else {
-                return Err(ShellError::NonUtf8(name_arg.span));
+                return Err(ShellError::NonUtf8 {
+                    span: name_arg.span,
+                });
             }
         } else {
             return Err(ShellError::OverlayNotFoundAtRuntime {
@@ -106,11 +108,11 @@ impl Command for OverlayUse {
         };
 
         if let Some(module_id) = maybe_origin_module_id {
-            // Add environment variables only if:
+            // Add environment variables only if (determined by parser):
             // a) adding a new overlay
             // b) refreshing an active overlay (the origin module changed)
 
-            let module = engine_state.get_module(module_id);
+            let module = engine_state.get_module(*module_id);
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
@@ -122,7 +124,7 @@ impl Command for OverlayUse {
                 )?;
 
                 let block = engine_state.get_block(block_id);
-                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
                 if let Some(path) = &maybe_path {
                     // Set the currently evaluated directory, if the argument is a valid path

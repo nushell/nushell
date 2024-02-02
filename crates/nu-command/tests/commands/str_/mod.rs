@@ -29,7 +29,7 @@ fn trims() {
 fn error_trim_multiple_chars() {
     let actual = nu!(pipeline(
         r#"
-        echo "does it work now?!" | str trim -c "?!"
+        echo "does it work now?!" | str trim --char "?!"
         "#
     ));
 
@@ -77,6 +77,13 @@ fn downcases() {
 }
 
 #[test]
+fn non_ascii_downcase() {
+    let actual = nu!("'ὈΔΥΣΣΕΎΣ' | str downcase");
+
+    assert_eq!(actual.out, "ὀδυσσεύς");
+}
+
+#[test]
 fn upcases() {
     Playground::setup("str_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -94,6 +101,13 @@ fn upcases() {
 
         assert_eq!(actual.out, "NUSHELL");
     })
+}
+
+#[test]
+fn non_ascii_upcase() {
+    let actual = nu!("'ὀδυσσεύς' | str upcase");
+
+    assert_eq!(actual.out, "ὈΔΥΣΣΕΎΣ");
 }
 
 #[test]
@@ -135,12 +149,12 @@ fn converts_to_int() {
 }
 
 #[test]
-fn converts_to_decimal() {
+fn converts_to_float() {
     let actual = nu!(pipeline(
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | into decimal
+            | into float
             | math sum
         "#
     ));
@@ -203,7 +217,7 @@ fn regex_error_in_pattern() {
             cwd: dirs.test(), pipeline(
             r#"
                  'source string'
-                 | str replace 'source \Ufoo' "destination"
+                 | str replace -r 'source \Ufoo' "destination"
              "#
         ));
 

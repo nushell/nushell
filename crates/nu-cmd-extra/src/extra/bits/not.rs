@@ -54,18 +54,18 @@ impl Command for BitsNot {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let signed = call.has_flag("signed");
+        let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(&number_bytes);
+        let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    "value originates from here".to_string(),
-                    head,
-                    val.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    input: "value originates from here".to_string(),
+                    msg_span: head,
+                    input_span: val.span,
+                });
             }
         }
 
@@ -84,50 +84,51 @@ impl Command for BitsNot {
             Example {
                 description: "Apply logical negation to a list of numbers",
                 example: "[4 3 2] | bits not",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(140737488355323),
                         Value::test_int(140737488355324),
                         Value::test_int(140737488355325),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
-                example: "[4 3 2] | bits not -n '2'",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "[4 3 2] | bits not --number-bytes '2'",
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(65531),
                         Value::test_int(65532),
                         Value::test_int(65533),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as signed number",
-                example: "[4 3 2] | bits not -s",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "[4 3 2] | bits not --signed",
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(-5),
                         Value::test_int(-4),
                         Value::test_int(-3),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => {
+        Value::Int { val, .. } => {
             if signed || val < 0 {
-                Value::Int { val: !val, span }
+                Value::int(!val, span)
             } else {
                 use NumberBytes::*;
                 let out_val = match number_size {
@@ -149,20 +150,21 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                     // This case shouldn't happen here, as it's handled before
                     Invalid => 0,
                 };
-                Value::Int { val: out_val, span }
+                Value::int(out_val, span)
             }
         }
         other => match other {
             // Propagate errors inside the value
             Value::Error { .. } => other,
-            _ => Value::Error {
-                error: Box::new(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "integer".into(),
+            _ => Value::error(
+                ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
-                }),
-            },
+                    src_span: other.span(),
+                },
+                head,
+            ),
         },
     }
 }

@@ -24,7 +24,7 @@ impl<D: HashDigest> Default for GenericDigest<D> {
     fn default() -> Self {
         Self {
             name: format!("hash {}", D::name()),
-            usage: format!("Hash a value using the {} hash algorithm", D::name()),
+            usage: format!("Hash a value using the {} hash algorithm.", D::name()),
             phantom: PhantomData,
         }
     }
@@ -54,8 +54,7 @@ where
         Signature::build(self.name())
             .category(Category::Hash)
             .input_output_types(vec![
-                (Type::String, Type::String),
-                (Type::String, Type::Binary),
+                (Type::String, Type::Any),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
@@ -68,7 +67,7 @@ where
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                format!("optionally {} hash data by cell path", D::name()),
+                format!("Optionally {} hash data by cell path.", D::name()),
             )
     }
 
@@ -87,7 +86,7 @@ where
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let binary = call.has_flag("binary");
+        let binary = call.has_flag(engine_state, stack, "binary")?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments { binary, cell_paths };
@@ -107,14 +106,15 @@ where
                         Ok(v @ Value::Error { .. }) => return Ok(v.into_pipeline_data()),
                         // Unsupported data
                         Ok(other) => {
-                            return Ok(Value::Error {
-                                error: Box::new(ShellError::OnlySupportsThisInputType {
+                            return Ok(Value::error(
+                                ShellError::OnlySupportsThisInputType {
                                     exp_input_type: "string and binary".into(),
                                     wrong_type: other.get_type().to_string(),
                                     dst_span: span,
-                                    src_span: other.expect_span(),
-                                }),
-                            }
+                                    src_span: other.span(),
+                                },
+                                span,
+                            )
                             .into_pipeline_data());
                         }
                         Err(err) => return Err(err),
@@ -122,17 +122,9 @@ where
                 }
                 let digest = hasher.finalize();
                 if args.binary {
-                    Ok(Value::Binary {
-                        val: digest.to_vec(),
-                        span,
-                    }
-                    .into_pipeline_data())
+                    Ok(Value::binary(digest.to_vec(), span).into_pipeline_data())
                 } else {
-                    Ok(Value::String {
-                        val: format!("{digest:x}"),
-                        span,
-                    }
-                    .into_pipeline_data())
+                    Ok(Value::string(format!("{digest:x}"), span).into_pipeline_data())
                 }
             }
             _ => operate(
@@ -151,43 +143,32 @@ where
     D: HashDigest,
     digest::Output<D>: core::fmt::LowerHex,
 {
+    let span = input.span();
     let (bytes, span) = match input {
-        Value::String { val, span } => (val.as_bytes(), *span),
-        Value::Binary { val, span } => (val.as_slice(), *span),
+        Value::String { val, .. } => (val.as_bytes(), span),
+        Value::Binary { val, .. } => (val.as_slice(), span),
         // Propagate existing errors
         Value::Error { .. } => return input.clone(),
         other => {
-            let span = match input.span() {
-                Ok(span) => span,
-                Err(error) => {
-                    return Value::Error {
-                        error: Box::new(error),
-                    }
-                }
-            };
+            let span = input.span();
 
-            return Value::Error {
-                error: Box::new(ShellError::OnlySupportsThisInputType {
+            return Value::error(
+                ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string or binary".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: span,
-                    src_span: other.expect_span(),
-                }),
-            };
+                    src_span: other.span(),
+                },
+                span,
+            );
         }
     };
 
     let digest = D::digest(bytes);
 
     if args.binary {
-        Value::Binary {
-            val: digest.to_vec(),
-            span,
-        }
+        Value::binary(digest.to_vec(), span)
     } else {
-        Value::String {
-            val: format!("{digest:x}"),
-            span,
-        }
+        Value::string(format!("{digest:x}"), span)
     }
 }

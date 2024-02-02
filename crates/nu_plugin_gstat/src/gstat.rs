@@ -1,6 +1,6 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
 use nu_plugin::LabeledError;
-use nu_protocol::{Span, Spanned, Value};
+use nu_protocol::{record, Span, Spanned, Value};
 use std::fmt::Write;
 use std::ops::BitAnd;
 use std::path::PathBuf;
@@ -73,7 +73,7 @@ impl GStat {
                 label: "error with path".to_string(),
                 msg: format!("path does not exist [{}]", &a_path.item),
                 span: if using_input_value {
-                    Some(value.span().expect("unable to get value span"))
+                    Some(value.span())
                 } else {
                     Some(a_path.span)
                 },
@@ -86,7 +86,7 @@ impl GStat {
                 &a_path.item, e
             ),
             span: if using_input_value {
-                Some(value.span().expect("unable to get value span"))
+                Some(value.span())
             } else {
                 Some(a_path.span)
             },
@@ -98,7 +98,7 @@ impl GStat {
                 label: "error with directory".to_string(),
                 msg: format!("path is not a directory [{}]", &a_path.item),
                 span: if using_input_value {
-                    Some(value.span().expect("unable to get value span"))
+                    Some(value.span())
                 } else {
                     Some(a_path.span)
                 },
@@ -112,7 +112,7 @@ impl GStat {
                     label: format!("error canonicalizing [{}]", a_path.item),
                     msg: e.to_string(),
                     span: if using_input_value {
-                        Some(value.span().expect("unable to get value span"))
+                        Some(value.span())
                     } else {
                         Some(a_path.span)
                     },
@@ -142,57 +142,6 @@ impl GStat {
             "no_tag".to_string()
         };
 
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        cols.push("idx_added_staged".into());
-        vals.push(Value::int(stats.idx_added_staged as i64, span));
-        cols.push("idx_modified_staged".into());
-        vals.push(Value::int(stats.idx_modified_staged as i64, span));
-        cols.push("idx_deleted_staged".into());
-        vals.push(Value::int(stats.idx_deleted_staged as i64, span));
-        cols.push("idx_renamed".into());
-        vals.push(Value::int(stats.idx_renamed as i64, span));
-        cols.push("idx_type_changed".into());
-        vals.push(Value::int(stats.idx_type_changed as i64, span));
-        cols.push("wt_untracked".into());
-        vals.push(Value::int(stats.wt_untracked as i64, span));
-        cols.push("wt_modified".into());
-        vals.push(Value::int(stats.wt_modified as i64, span));
-        cols.push("wt_deleted".into());
-        vals.push(Value::int(stats.wt_deleted as i64, span));
-        cols.push("wt_type_changed".into());
-        vals.push(Value::int(stats.wt_type_changed as i64, span));
-        cols.push("wt_renamed".into());
-        vals.push(Value::int(stats.wt_renamed as i64, span));
-        cols.push("ignored".into());
-        vals.push(Value::int(stats.ignored as i64, span));
-        cols.push("conflicts".into());
-        vals.push(Value::int(stats.conflicts as i64, span));
-        cols.push("ahead".into());
-        vals.push(Value::int(stats.ahead as i64, span));
-        cols.push("behind".into());
-        vals.push(Value::int(stats.behind as i64, span));
-        cols.push("stashes".into());
-        vals.push(Value::int(stats.stashes as i64, span));
-        cols.push("repo_name".into());
-        vals.push(Value::String {
-            val: repo_name,
-            span,
-        });
-        cols.push("tag".into());
-        vals.push(Value::String { val: tag, span });
-        cols.push("branch".into());
-        vals.push(Value::String {
-            val: stats.branch,
-            span,
-        });
-        cols.push("remote".into());
-        vals.push(Value::String {
-            val: stats.remote,
-            span,
-        });
-
         // Leave this in case we want to turn it into a table instead of a list
         // Ok(Value::List {
         //     vals: vec![Value::Record {
@@ -203,53 +152,57 @@ impl GStat {
         //     span: *span,
         // })
 
-        Ok(Value::Record { cols, vals, span })
+        Ok(Value::record(
+            record! {
+                "idx_added_staged" => Value::int(stats.idx_added_staged as i64, span),
+                "idx_modified_staged" => Value::int(stats.idx_modified_staged as i64, span),
+                "idx_deleted_staged" => Value::int(stats.idx_deleted_staged as i64, span),
+                "idx_renamed" => Value::int(stats.idx_renamed as i64, span),
+                "idx_type_changed" => Value::int(stats.idx_type_changed as i64, span),
+                "wt_untracked" => Value::int(stats.wt_untracked as i64, span),
+                "wt_modified" => Value::int(stats.wt_modified as i64, span),
+                "wt_deleted" => Value::int(stats.wt_deleted as i64, span),
+                "wt_type_changed" => Value::int(stats.wt_type_changed as i64, span),
+                "wt_renamed" => Value::int(stats.wt_renamed as i64, span),
+                "ignored" => Value::int(stats.ignored as i64, span),
+                "conflicts" => Value::int(stats.conflicts as i64, span),
+                "ahead" => Value::int(stats.ahead as i64, span),
+                "behind" => Value::int(stats.behind as i64, span),
+                "stashes" => Value::int(stats.stashes as i64, span),
+                "repo_name" => Value::string(repo_name, span),
+                "tag" => Value::string(tag, span),
+                "branch" => Value::string(stats.branch, span),
+                "remote" => Value::string(stats.remote, span),
+            },
+            span,
+        ))
     }
 
     fn create_empty_git_status(&self, span: Span) -> Value {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        cols.push("idx_added_staged".into());
-        vals.push(Value::int(-1, span));
-        cols.push("idx_modified_staged".into());
-        vals.push(Value::int(-1, span));
-        cols.push("idx_deleted_staged".into());
-        vals.push(Value::int(-1, span));
-        cols.push("idx_renamed".into());
-        vals.push(Value::int(-1, span));
-        cols.push("idx_type_changed".into());
-        vals.push(Value::int(-1, span));
-        cols.push("wt_untracked".into());
-        vals.push(Value::int(-1, span));
-        cols.push("wt_modified".into());
-        vals.push(Value::int(-1, span));
-        cols.push("wt_deleted".into());
-        vals.push(Value::int(-1, span));
-        cols.push("wt_type_changed".into());
-        vals.push(Value::int(-1, span));
-        cols.push("wt_renamed".into());
-        vals.push(Value::int(-1, span));
-        cols.push("ignored".into());
-        vals.push(Value::int(-1, span));
-        cols.push("conflicts".into());
-        vals.push(Value::int(-1, span));
-        cols.push("ahead".into());
-        vals.push(Value::int(-1, span));
-        cols.push("behind".into());
-        vals.push(Value::int(-1, span));
-        cols.push("stashes".into());
-        vals.push(Value::int(-1, span));
-        cols.push("repo_name".into());
-        vals.push(Value::string("no_repository", span));
-        cols.push("tag".into());
-        vals.push(Value::string("no_tag", span));
-        cols.push("branch".into());
-        vals.push(Value::string("no_branch", span));
-        cols.push("remote".into());
-        vals.push(Value::string("no_remote", span));
-
-        Value::Record { cols, vals, span }
+        Value::record(
+            record! {
+                "idx_added_staged" => Value::int(-1, span),
+                "idx_modified_staged" => Value::int(-1, span),
+                "idx_deleted_staged" => Value::int(-1, span),
+                "idx_renamed" => Value::int(-1, span),
+                "idx_type_changed" => Value::int(-1, span),
+                "wt_untracked" => Value::int(-1, span),
+                "wt_modified" => Value::int(-1, span),
+                "wt_deleted" => Value::int(-1, span),
+                "wt_type_changed" => Value::int(-1, span),
+                "wt_renamed" => Value::int(-1, span),
+                "ignored" => Value::int(-1, span),
+                "conflicts" => Value::int(-1, span),
+                "ahead" => Value::int(-1, span),
+                "behind" => Value::int(-1, span),
+                "stashes" => Value::int(-1, span),
+                "repo_name" => Value::string("no_repository", span),
+                "tag" => Value::string("no_tag", span),
+                "branch" => Value::string("no_branch", span),
+                "remote" => Value::string("no_remote", span),
+            },
+            span,
+        )
     }
 }
 

@@ -17,7 +17,7 @@ impl Command for ScopeCommands {
         Signature::build("scope commands")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .category(Category::Filters)
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {
@@ -35,7 +35,7 @@ impl Command for ScopeCommands {
         let ctrlc = engine_state.ctrlc.clone();
 
         let mut scope_data = ScopeData::new(engine_state, stack);
-        scope_data.populate_all();
+        scope_data.populate_decls();
 
         Ok(scope_data.collect_commands(span).into_pipeline_data(ctrlc))
     }

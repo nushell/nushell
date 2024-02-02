@@ -45,7 +45,7 @@ impl Command for FromXlsx {
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
         {
-            convert_columns(columns.as_slice(), call.head)?
+            convert_columns(columns.as_slice())?
         } else {
             vec![]
         };
@@ -62,21 +62,21 @@ impl Command for FromXlsx {
             },
             Example {
                 description: "Convert binary .xlsx data to a table, specifying the tables",
-                example: "open --raw test.xlsx | from xlsx -s [Spreadsheet1]",
+                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1]",
                 result: None,
             },
         ]
     }
 }
 
-fn convert_columns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
             Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
-                span: value.span().unwrap_or(span),
+                span: value.span(),
             }),
         })
         .collect::<Result<Vec<String>, _>>()?;
@@ -94,12 +94,12 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
                 bytes.extend_from_slice(&b);
             }
             Some(x) => {
-                return Err(ShellError::UnsupportedInput(
-                    "Expected binary from pipeline".to_string(),
-                    "value originates from here".into(),
-                    span,
-                    x.expect_span(),
-                ))
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Expected binary from pipeline".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: x.span(),
+                })
             }
             None => break,
         }
@@ -116,89 +116,60 @@ fn from_xlsx(
     let span = input.span();
     let bytes = collect_binary(input, head)?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
-    let mut xlsx = Xlsx::<_>::new(buf).map_err(|_| {
-        ShellError::UnsupportedInput(
-            "Could not load XLSX file".to_string(),
-            "value originates from here".into(),
-            head,
-            span.unwrap_or(head),
-        )
+    let mut xlsx = Xlsx::<_>::new(buf).map_err(|_| ShellError::UnsupportedInput {
+        msg: "Could not load XLSX file".to_string(),
+        input: "value originates from here".into(),
+        msg_span: head,
+        input_span: span.unwrap_or(head),
     })?;
 
     let mut dict = IndexMap::new();
 
-    let mut sheet_names = xlsx.sheet_names().to_owned();
+    let mut sheet_names = xlsx.sheet_names();
     if !sel_sheets.is_empty() {
         sheet_names.retain(|e| sel_sheets.contains(e));
     }
 
-    for sheet_name in &sheet_names {
+    for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
-        if let Some(Ok(current_sheet)) = xlsx.worksheet_range(sheet_name) {
+        if let Ok(current_sheet) = xlsx.worksheet_range(&sheet_name) {
             for row in current_sheet.rows() {
-                let mut row_output = IndexMap::new();
-                for (i, cell) in row.iter().enumerate() {
-                    let value = match cell {
-                        DataType::Empty => Value::nothing(head),
-                        DataType::String(s) => Value::string(s, head),
-                        DataType::Float(f) => Value::float(*f, head),
-                        DataType::Int(i) => Value::int(*i, head),
-                        DataType::Bool(b) => Value::bool(*b, head),
-                        _ => Value::nothing(head),
-                    };
+                let record = row
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cell)| {
+                        let value = match cell {
+                            DataType::Empty => Value::nothing(head),
+                            DataType::String(s) => Value::string(s, head),
+                            DataType::Float(f) => Value::float(*f, head),
+                            DataType::Int(i) => Value::int(*i, head),
+                            DataType::Bool(b) => Value::bool(*b, head),
+                            _ => Value::nothing(head),
+                        };
 
-                    row_output.insert(format!("column{i}"), value);
-                }
+                        (format!("column{i}"), value)
+                    })
+                    .collect();
 
-                let (cols, vals) =
-                    row_output
-                        .into_iter()
-                        .fold((vec![], vec![]), |mut acc, (k, v)| {
-                            acc.0.push(k);
-                            acc.1.push(v);
-                            acc
-                        });
-
-                let record = Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                };
-
-                sheet_output.push(record);
+                sheet_output.push(Value::record(record, head));
             }
 
-            dict.insert(
-                sheet_name,
-                Value::List {
-                    vals: sheet_output,
-                    span: head,
-                },
-            );
+            dict.insert(sheet_name, Value::list(sheet_output, head));
         } else {
-            return Err(ShellError::UnsupportedInput(
-                "Could not load sheet".to_string(),
-                "value originates from here".into(),
-                head,
-                span.unwrap_or(head),
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Could not load sheet".to_string(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: span.unwrap_or(head),
+            });
         }
     }
 
-    let (cols, vals) = dict.into_iter().fold((vec![], vec![]), |mut acc, (k, v)| {
-        acc.0.push(k.clone());
-        acc.1.push(v);
-        acc
-    });
-
-    let record = Value::Record {
-        cols,
-        vals,
-        span: head,
-    };
-
-    Ok(PipelineData::Value(record, None))
+    Ok(PipelineData::Value(
+        Value::record(dict.into_iter().collect(), head),
+        None,
+    ))
 }
 
 #[cfg(test)]

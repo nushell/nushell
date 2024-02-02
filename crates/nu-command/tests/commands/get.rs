@@ -200,3 +200,10 @@ fn ignore_errors_works() {
 
     assert_eq!(actual.out, "null");
 }
+
+#[test]
+fn ignore_multiple() {
+    let actual = nu!(r#"[[a];[b]] | get -i c d | to nuon"#);
+
+    assert_eq!(actual.out, "[[null], [null]]");
+}

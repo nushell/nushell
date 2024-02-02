@@ -25,8 +25,8 @@ impl Command for ViewSpan {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view span")
             .input_output_types(vec![(Type::Nothing, Type::String)])
-            .required("start", SyntaxShape::Int, "start of the span")
-            .required("end", SyntaxShape::Int, "end of the span")
+            .required("start", SyntaxShape::Int, "Start of the span.")
+            .required("end", SyntaxShape::Int, "End of the span.")
             .category(Category::Debug)
     }
 
@@ -48,20 +48,20 @@ impl Command for ViewSpan {
                     .into_pipeline_data(),
             )
         } else {
-            Err(ShellError::GenericError(
-                "Cannot view span".to_string(),
-                "this start and end does not correspond to a viewable value".to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            ))
+            Err(ShellError::GenericError {
+                error: "Cannot view span".to_string(),
+                msg: "this start and end does not correspond to a viewable value".to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })
         }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "View the source of a span. 1 and 2 are just example values. Use the return of debug -r to get the actual values",
-            example: r#"some | pipeline | or | variable | debug -r; view span 1 2"#,
+            description: "View the source of a span. 1 and 2 are just example values. Use the return of debug --raw to get the actual values",
+            example: r#"some | pipeline | or | variable | debug --raw; view span 1 2"#,
             result: None,
         }]
     }

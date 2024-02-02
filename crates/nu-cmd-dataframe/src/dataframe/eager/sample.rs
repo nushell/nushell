@@ -4,6 +4,8 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
+use polars::prelude::NamedFrom;
+use polars::series::Series;
 
 use super::super::values::NuDataFrame;
 
@@ -52,12 +54,13 @@ impl Command for SampleDF {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr sample -n 1",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr sample --n-rows 1",
                 result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | dfr into-df | dfr sample -f 0.5 -e",
+                example:
+                    "[[a b]; [1 2] [3 4] [5 6]] | dfr into-df | dfr sample --fraction 0.5 --replace",
                 result: None, // No expected value because sampling is random
             },
         ]
@@ -80,55 +83,51 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<Spanned<usize>> = call.get_flag(engine_state, stack, "n-rows")?;
+    let rows: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "n-rows")?;
     let fraction: Option<Spanned<f64>> = call.get_flag(engine_state, stack, "fraction")?;
     let seed: Option<u64> = call
         .get_flag::<i64>(engine_state, stack, "seed")?
         .map(|val| val as u64);
-    let replace: bool = call.has_flag("replace");
-    let shuffle: bool = call.has_flag("shuffle");
+    let replace: bool = call.has_flag(engine_state, stack, "replace")?;
+    let shuffle: bool = call.has_flag(engine_state, stack, "shuffle")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     match (rows, fraction) {
         (Some(rows), None) => df
             .as_ref()
-            .sample_n(rows.item, replace, shuffle, seed)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error creating sample".into(),
-                    e.to_string(),
-                    Some(rows.span),
-                    None,
-                    Vec::new(),
-                )
+            .sample_n(&Series::new("s", &[rows.item]), replace, shuffle, seed)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error creating sample".into(),
+                msg: e.to_string(),
+                span: Some(rows.span),
+                help: None,
+                inner: vec![],
             }),
         (None, Some(frac)) => df
             .as_ref()
-            .sample_frac(frac.item, replace, shuffle, seed)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error creating sample".into(),
-                    e.to_string(),
-                    Some(frac.span),
-                    None,
-                    Vec::new(),
-                )
+            .sample_frac(&Series::new("frac", &[frac.item]), replace, shuffle, seed)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error creating sample".into(),
+                msg: e.to_string(),
+                span: Some(frac.span),
+                help: None,
+                inner: vec![],
             }),
-        (Some(_), Some(_)) => Err(ShellError::GenericError(
-            "Incompatible flags".into(),
-            "Only one selection criterion allowed".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )),
-        (None, None) => Err(ShellError::GenericError(
-            "No selection".into(),
-            "No selection criterion was found".into(),
-            Some(call.head),
-            Some("Perhaps you want to use the flag -n or -f".into()),
-            Vec::new(),
-        )),
+        (Some(_), Some(_)) => Err(ShellError::GenericError {
+            error: "Incompatible flags".into(),
+            msg: "Only one selection criterion allowed".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        }),
+        (None, None) => Err(ShellError::GenericError {
+            error: "No selection".into(),
+            msg: "No selection criterion was found".into(),
+            span: Some(call.head),
+            help: Some("Perhaps you want to use the flag -n or -f".into()),
+            inner: vec![],
+        }),
     }
     .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

@@ -1,6 +1,6 @@
 use crate::web_tables::WebTable;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Value};
+use nu_protocol::{Record, Span, Value};
 use scraper::{Html, Selector as ScraperSelector};
 
 pub struct Selector {
@@ -35,13 +35,13 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         Some(q2) => q2,
         None => "".to_string(),
     };
-    let as_html = call.has_flag("as-html");
+    let as_html = call.has_flag("as-html")?;
     let attribute = call.get_flag("attribute")?.unwrap_or_default();
     let as_table: Value = call
         .get_flag("as-table")?
         .unwrap_or_else(|| Value::nothing(head));
 
-    let inspect = call.has_flag("inspect");
+    let inspect = call.has_flag("inspect")?;
 
     if !&query.is_empty() && ScraperSelector::parse(&query).is_err() {
         return Err(LabeledError {
@@ -59,12 +59,13 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         inspect,
     };
 
+    let span = input.span();
     match input {
-        Value::String { val, span } => Ok(begin_selector_query(val.to_string(), selector, *span)),
+        Value::String { val, .. } => Ok(begin_selector_query(val.to_string(), selector, span)),
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
-            span: Some(input.span()?),
+            span: Some(span),
         }),
     }
 }
@@ -106,7 +107,6 @@ pub fn retrieve_tables(
     let mut cols: Vec<String> = Vec::new();
     if let Value::List { vals, .. } = &columns {
         for x in vals {
-            // TODO Find a way to get the Config object here
             if let Value::String { val, .. } = x {
                 cols.push(val.to_string())
             }
@@ -114,10 +114,11 @@ pub fn retrieve_tables(
     }
 
     if inspect_mode {
-        eprintln!("Passed in Column Headers = {:#?}", &cols,);
+        eprintln!("Passed in Column Headers = {:?}\n", &cols);
+        eprintln!("First 2048 HTML chars = {}\n", &html[0..2047]);
     }
 
-    let tables = match WebTable::find_by_headers(html, &cols) {
+    let tables = match WebTable::find_by_headers(html, &cols, inspect_mode) {
         Some(t) => {
             if inspect_mode {
                 eprintln!("Table Found = {:#?}", &t);
@@ -140,7 +141,7 @@ pub fn retrieve_tables(
         .map(move |table| retrieve_table(table, columns, span))
         .collect();
 
-    Value::List { vals, span }
+    Value::list(vals, span)
 }
 
 fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
@@ -160,6 +161,18 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         }
     }
 
+    // We provided columns but the table has no headers, so we'll just make a single column table
+    if !cols.is_empty() && table.headers().is_empty() {
+        let mut record = Record::new();
+        for col in &cols {
+            record.push(
+                col.clone(),
+                Value::string("error: no data found (column name may be incorrect)", span),
+            );
+        }
+        return Value::record(record, span);
+    }
+
     let mut table_out = Vec::new();
     // sometimes there are tables where the first column is the headers, kind of like
     // a table has ben rotated ccw 90 degrees, in these cases all columns will be missing
@@ -170,35 +183,30 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         at_least_one_row_filled = true;
         let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
 
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
-                cols.push(format!("column{counter}"));
-                vals.push(Value::string(cell.to_string(), span))
+                record.push(format!("column{counter}"), Value::string(cell, span));
             }
         }
-        table_out.push(Value::Record { cols, vals, span })
+        table_out.push(Value::record(record, span))
     } else {
         for row in &table {
-            let mut vals = vec![];
-            let record_cols = &cols;
-            for col in &cols {
-                let val = row
-                    .get(col)
-                    .unwrap_or(&format!("Missing column: '{}'", &col))
-                    .to_string();
+            let record = cols
+                .iter()
+                .map(|col| {
+                    let val = row
+                        .get(col)
+                        .unwrap_or(&format!("Missing column: '{}'", &col))
+                        .to_string();
 
-                if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
-                    at_least_one_row_filled = true;
-                }
-                vals.push(Value::string(val, span));
-            }
-            table_out.push(Value::Record {
-                cols: record_cols.to_vec(),
-                vals,
-                span,
-            })
+                    if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
+                        at_least_one_row_filled = true;
+                    }
+                    (col.clone(), Value::string(val, span))
+                })
+                .collect();
+            table_out.push(Value::record(record, span))
         }
     }
     if !at_least_one_row_filled {
@@ -211,10 +219,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     }
     // table_out
 
-    Value::List {
-        vals: table_out,
-        span,
-    }
+    Value::list(table_out, span)
 }
 
 fn execute_selector_query_with_attribute(
@@ -235,7 +240,7 @@ fn execute_selector_query_with_attribute(
             )
         })
         .collect();
-    Value::List { vals, span }
+    Value::list(vals, span)
 }
 
 fn execute_selector_query(
@@ -265,7 +270,7 @@ fn execute_selector_query(
             .collect(),
     };
 
-    Value::List { vals, span }
+    Value::list(vals, span)
 }
 
 pub fn css(selector: &str, inspect: bool) -> ScraperSelector {

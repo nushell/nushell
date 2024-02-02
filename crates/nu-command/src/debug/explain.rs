@@ -2,8 +2,8 @@ use nu_engine::{eval_expression, CallExt};
 use nu_protocol::ast::{Argument, Block, Call, Expr, Expression};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ impl Command for Explain {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .input_output_types(vec![(Type::Any, Type::Any), (Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
@@ -41,7 +41,7 @@ impl Command for Explain {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
 
@@ -51,7 +51,8 @@ impl Command for Explain {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Explain a command within a closure",
-            example: "explain {|| ls | sort-by name type -i | get name } | table -e",
+            example:
+                "explain {|| ls | sort-by name type --ignore-case | get name } | table --expand",
             result: None,
         }]
     }
@@ -86,34 +87,19 @@ pub fn get_pipeline_elements(
             };
             let index = format!("{pipeline_idx}_{i}");
             let value_type = value.get_type();
-            let value_span = value.span()?;
+            let value_span = value.span();
             let value_span_start = value_span.start as i64;
             let value_span_end = value_span.end as i64;
-            let command_name = command_name;
 
-            let rec = Value::Record {
-                cols: vec![
-                    "cmd_index".to_string(),
-                    "cmd_name".to_string(),
-                    "type".to_string(),
-                    "cmd_args".to_string(),
-                    "span_start".to_string(),
-                    "span_end".to_string(),
-                ],
-                vals: vec![
-                    Value::string(index, span),
-                    Value::string(command_name, value_span),
-                    Value::string(value_type.to_string(), span),
-                    Value::List {
-                        vals: command_args_value,
-                        span: value_span,
-                    },
-                    Value::int(value_span_start, span),
-                    Value::int(value_span_end, span),
-                ],
-                span: value_span,
+            let record = record! {
+                    "cmd_index" => Value::string(index, span),
+                    "cmd_name" => Value::string(command_name, value_span),
+                    "type" => Value::string(value_type.to_string(), span),
+                    "cmd_args" => Value::list(command_args_value, value_span),
+                    "span_start" => Value::int(value_span_start, span),
+                    "span_end" => Value::int(value_span_end, span),
             };
-            element_values.push(rec);
+            element_values.push(Value::record(record, value_span));
             i += 1;
         }
     }
@@ -133,24 +119,14 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_start = name.span.start as i64;
                 let arg_value_name_span_end = name.span.end as i64;
 
-                let rec = Value::Record {
-                    cols: vec![
-                        "arg_type".to_string(),
-                        "name".to_string(),
-                        "type".to_string(),
-                        "span_start".to_string(),
-                        "span_end".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(arg_type, span),
-                        Value::string(arg_value_name, name.span),
-                        Value::string("string".to_string(), span),
-                        Value::int(arg_value_name_span_start, span),
-                        Value::int(arg_value_name_span_end, span),
-                    ],
-                    span: name.span,
+                let record = record! {
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, name.span),
+                    "type" => Value::string("string", span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(rec);
+                arg_value.push(Value::record(record, name.span));
 
                 if let Some(shortcut) = short {
                     let arg_type = "short";
@@ -158,24 +134,14 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_value_name_span_start = shortcut.span.start as i64;
                     let arg_value_name_span_end = shortcut.span.end as i64;
 
-                    let rec = Value::Record {
-                        cols: vec![
-                            "arg_type".to_string(),
-                            "name".to_string(),
-                            "type".to_string(),
-                            "span_start".to_string(),
-                            "span_end".to_string(),
-                        ],
-                        vals: vec![
-                            Value::string(arg_type, span),
-                            Value::string(arg_value_name, shortcut.span),
-                            Value::string("string".to_string(), span),
-                            Value::int(arg_value_name_span_start, span),
-                            Value::int(arg_value_name_span_end, span),
-                        ],
-                        span: name.span,
+                    let record = record! {
+                        "arg_type" => Value::string(arg_type, span),
+                        "name" => Value::string(arg_value_name, shortcut.span),
+                        "type" => Value::string("string", span),
+                        "span_start" => Value::int(arg_value_name_span_start, span),
+                        "span_end" => Value::int(arg_value_name_span_end, span),
                     };
-                    arg_value.push(rec);
+                    arg_value.push(Value::record(record, name.span));
                 };
 
                 if let Some(expression) = opt_expr {
@@ -184,28 +150,18 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_type = "expr";
                     let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                     let arg_value_type = &evaluated_expression.get_type().to_string();
-                    let evaled_span = evaluated_expression.expect_span();
+                    let evaled_span = evaluated_expression.span();
                     let arg_value_name_span_start = evaled_span.start as i64;
                     let arg_value_name_span_end = evaled_span.end as i64;
 
-                    let rec = Value::Record {
-                        cols: vec![
-                            "arg_type".to_string(),
-                            "name".to_string(),
-                            "type".to_string(),
-                            "span_start".to_string(),
-                            "span_end".to_string(),
-                        ],
-                        vals: vec![
-                            Value::string(arg_type, span),
-                            Value::string(arg_value_name, expression.span),
-                            Value::string(arg_value_type, span),
-                            Value::int(arg_value_name_span_start, span),
-                            Value::int(arg_value_name_span_end, span),
-                        ],
-                        span: expression.span,
+                    let record = record! {
+                        "arg_type" => Value::string(arg_type, span),
+                        "name" => Value::string(arg_value_name, expression.span),
+                        "type" => Value::string(arg_value_type, span),
+                        "span_start" => Value::int(arg_value_name_span_start, span),
+                        "span_end" => Value::int(arg_value_name_span_end, span),
                     };
-                    arg_value.push(rec);
+                    arg_value.push(Value::record(record, expression.span));
                 };
             }
             Argument::Positional(inner_expr) => {
@@ -213,56 +169,54 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.expect_span();
+                let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
 
-                let rec = Value::Record {
-                    cols: vec![
-                        "arg_type".to_string(),
-                        "name".to_string(),
-                        "type".to_string(),
-                        "span_start".to_string(),
-                        "span_end".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(arg_type, span),
-                        Value::string(arg_value_name, inner_expr.span),
-                        Value::string(arg_value_type, span),
-                        Value::int(arg_value_name_span_start, span),
-                        Value::int(arg_value_name_span_end, span),
-                    ],
-                    span: inner_expr.span,
+                let record = record! {
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(rec);
+                arg_value.push(Value::record(record, inner_expr.span));
             }
             Argument::Unknown(inner_expr) => {
                 let arg_type = "unknown";
                 let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.expect_span();
+                let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
 
-                let rec = Value::Record {
-                    cols: vec![
-                        "arg_type".to_string(),
-                        "name".to_string(),
-                        "type".to_string(),
-                        "span_start".to_string(),
-                        "span_end".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(arg_type, span),
-                        Value::string(arg_value_name, inner_expr.span),
-                        Value::string(arg_value_type, span),
-                        Value::int(arg_value_name_span_start, span),
-                        Value::int(arg_value_name_span_end, span),
-                    ],
-                    span: inner_expr.span,
+                let record = record! {
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(rec);
+                arg_value.push(Value::record(record, inner_expr.span));
+            }
+            Argument::Spread(inner_expr) => {
+                let arg_type = "spread";
+                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
+                let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                let arg_value_type = &evaluated_expression.get_type().to_string();
+                let evaled_span = evaluated_expression.span();
+                let arg_value_name_span_start = evaled_span.start as i64;
+                let arg_value_name_span_end = evaled_span.end as i64;
+
+                let record = record! {
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
+                };
+                arg_value.push(Value::record(record, inner_expr.span));
             }
         };
     }
@@ -277,9 +231,7 @@ fn get_expression_as_value(
 ) -> Value {
     match eval_expression(engine_state, stack, inner_expr) {
         Ok(v) => v,
-        Err(error) => Value::Error {
-            error: Box::new(error),
-        },
+        Err(error) => Value::error(error, inner_expr.span),
     }
 }
 
@@ -299,6 +251,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
             )
         }
         Value::String { val, .. } => val.clone(),
+        Value::QuotedString { val, .. } => val.clone(),
         Value::RawString { val, .. } => val.clone(),
         Value::List { vals: val, .. } => format!(
             "[{}]",
@@ -307,10 +260,9 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
-        Value::Record { cols, vals, .. } => format!(
+        Value::Record { val, .. } => format!(
             "{{{}}}",
-            cols.iter()
-                .zip(vals.iter())
+            val.iter()
                 .map(|(x, y)| format!("{}: {}", x, debug_string_without_formatting(y)))
                 .collect::<Vec<_>>()
                 .join(" ")
@@ -321,12 +273,11 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         },
         //TODO: It would be good to drill in deeper to blocks and closures.
         Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{error:?}"),
+        Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
+        Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }

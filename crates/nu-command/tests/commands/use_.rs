@@ -259,7 +259,7 @@ fn use_main_4() {
 #[test]
 fn use_main_def_env() {
     let inp = &[
-        r#"module spam { export def-env main [] { $env.SPAM = "spam" } }"#,
+        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
         r#"use spam"#,
         r#"spam"#,
         r#"$env.SPAM"#,
@@ -295,4 +295,19 @@ fn use_main_not_exported() {
     let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("external_command"));
+}
+
+#[test]
+fn use_sub_subname_error_if_not_from_submodule() {
+    let inp = r#"module spam { export def foo [] {}; export def bar [] {} }; use spam foo bar"#;
+    let actual = nu!(inp);
+    assert!(actual.err.contains("try `use <module> [<name1>, <name2>]`"))
+}
+
+#[test]
+fn can_use_sub_subname_from_submodule() {
+    let inp =
+        r#"module spam { export module foo { export def bar [] {"bar"} } }; use spam foo bar; bar"#;
+    let actual = nu!(inp);
+    assert_eq!(actual.out, "bar")
 }

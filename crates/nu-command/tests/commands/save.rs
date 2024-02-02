@@ -1,6 +1,6 @@
 use nu_test_support::fs::{file_contents, Stub};
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 use std::io::Write;
 
 #[test]
@@ -295,5 +295,75 @@ fn writes_out_range() {
         let actual = file_contents(expected_file);
         println!("{actual}");
         assert_eq!(actual, "[\n  1,\n  2,\n  3\n]")
+    })
+}
+
+// https://github.com/nushell/nushell/issues/10044
+#[test]
+fn save_file_correct_relative_path() {
+    Playground::setup("save_test_15", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::FileWithContent(
+            "test.nu",
+            r#"
+                export def main [] {
+                    let foo = "foo"
+                    mkdir bar
+                    cd bar
+                    'foo!' | save $foo
+                }
+            "#,
+        )]);
+
+        let expected_file = dirs.test().join("bar/foo");
+
+        nu!(
+            cwd: dirs.test(),
+            r#"use test.nu; test"#
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "foo!");
+    })
+}
+
+#[test]
+fn save_same_file_with_extension() {
+    Playground::setup("save_test_16", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                echo 'world'
+                | save --raw hello.md;
+                open --raw hello.md
+                | prepend 'hello'
+                | save --raw --force hello.md
+            "
+            )
+        );
+
+        assert!(actual
+            .err
+            .contains("pipeline input and output are same file"));
+    })
+}
+
+#[test]
+fn save_same_file_without_extension() {
+    Playground::setup("save_test_17", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | save --force hello
+            "
+            )
+        );
+
+        assert!(actual
+            .err
+            .contains("pipeline input and output are same file"));
     })
 }

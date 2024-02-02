@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -21,7 +21,7 @@ impl Command for Try {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("try")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("try_block", SyntaxShape::Block, "block to run")
+            .required("try_block", SyntaxShape::Block, "Block to run.")
             .optional(
                 "catch_block",
                 SyntaxShape::Keyword(
@@ -31,7 +31,7 @@ impl Command for Try {
                         SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                     ])),
                 ),
-                "block to run if try block fails",
+                "Block to run if try block fails.",
             )
             .category(Category::Core)
     }
@@ -56,7 +56,7 @@ impl Command for Try {
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
             }
-            Ok(PipelineData::Value(Value::Error { error }, ..)) => {
+            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
                 let error = intercept_block_control(*error)?;
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
@@ -86,7 +86,7 @@ impl Command for Try {
             },
             Example {
                 description: "Try to run a missing command",
-                example: "try { asdfasdf } catch { echo 'missing' } ",
+                example: "try { asdfasdf } catch { 'missing' } ",
                 result: Some(Value::test_string("missing")),
             },
         ]
@@ -128,24 +128,23 @@ fn handle_catch(
 /// `Err` when flow control to bubble up with `?`
 fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> {
     match error {
-        nu_protocol::ShellError::Break(_) => Err(error),
-        nu_protocol::ShellError::Continue(_) => Err(error),
-        nu_protocol::ShellError::Return(_, _) => Err(error),
+        nu_protocol::ShellError::Break { .. } => Err(error),
+        nu_protocol::ShellError::Continue { .. } => Err(error),
+        nu_protocol::ShellError::Return { .. } => Err(error),
         _ => Ok(error),
     }
 }
 
 /// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
 fn err_to_record(error: ShellError, head: Span) -> Value {
-    let cols = vec!["msg".to_string(), "debug".to_string(), "raw".to_string()];
-    let vals = vec![
-        Value::string(error.to_string(), head),
-        Value::string(format!("{error:?}"), head),
-        Value::Error {
-            error: Box::new(error),
+    Value::record(
+        record! {
+            "msg" => Value::string(error.to_string(), head),
+            "debug" => Value::string(format!("{error:?}"), head),
+            "raw" => Value::error(error, head),
         },
-    ];
-    Value::record(cols, vals, head)
+        head,
+    )
 }
 
 #[cfg(test)]

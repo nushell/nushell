@@ -11,10 +11,7 @@ pub use explore::Explore;
 
 use std::io;
 
-use commands::{
-    config::ConfigCmd, default_color_list, ConfigOption, ConfigShowCmd, ExpandCmd, HelpCmd,
-    HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd, TweakCmd,
-};
+use commands::{ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd};
 use nu_common::{collect_pipeline, has_simple_value, CtrlC};
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -50,9 +47,7 @@ fn run_pager(
         return p.run(engine_state, stack, ctrlc, information_view(), commands);
     }
 
-    if config.show_banner {
-        p.show_message("For help type :help");
-    }
+    p.show_message("For help type :help");
 
     if let Some(value) = has_simple_value(&data) {
         let text = value.into_abbreviated_string(config.nu_config);
@@ -98,10 +93,8 @@ fn create_command_registry() -> CommandRegistry {
     let aliases = registry.get_aliases().collect::<Vec<_>>();
 
     let help_cmd = create_help_command(&commands, &aliases);
-    let config_cmd = create_config_command(&commands);
 
     registry.register_command_view(help_cmd, true);
-    registry.register_command_view(config_cmd, true);
 
     registry
 }
@@ -112,12 +105,9 @@ fn create_commands(registry: &mut CommandRegistry) {
 
     registry.register_command_view(ExpandCmd::new(), true);
     registry.register_command_view(TryCmd::new(), true);
-    registry.register_command_view(ConfigShowCmd::new(), true);
-    registry.register_command_view(ConfigCmd::default(), true);
     registry.register_command_view(HelpCmd::default(), true);
 
     registry.register_command_reactive(QuitCmd);
-    registry.register_command_reactive(TweakCmd::default());
 }
 
 fn create_aliases(registry: &mut CommandRegistry) {
@@ -125,30 +115,6 @@ fn create_aliases(registry: &mut CommandRegistry) {
     registry.create_aliases("e", ExpandCmd::NAME);
     registry.create_aliases("q", QuitCmd::NAME);
     registry.create_aliases("q!", QuitCmd::NAME);
-}
-
-#[rustfmt::skip]
-fn create_config_command(commands: &[Command]) -> ConfigCmd {
-    const GROUP: &str = "Explore configuration";
-
-    let mut config = ConfigCmd::from_commands(commands.to_vec());
-
-    config.register_group(ConfigOption::new(GROUP, "Status bar information color", "status.info", default_color_list()));
-    config.register_group(ConfigOption::new(GROUP, "Status bar warning color", "status.warn", default_color_list()));
-    config.register_group(ConfigOption::new(GROUP, "Status bar error color", "status.error", default_color_list()));
-
-    config.register_group(ConfigOption::new(GROUP, "Status bar default text color", "status_bar_text", default_color_list()));
-    config.register_group(ConfigOption::new(GROUP, "Status bar background", "status_bar_background", default_color_list()));
-
-    config.register_group(ConfigOption::new(GROUP, "Command bar text color", "command_bar_text", default_color_list()));
-    config.register_group(ConfigOption::new(GROUP, "Command bar background", "command_bar_background", default_color_list()));
-
-    config.register_group(ConfigOption::new(GROUP, "Highlight color in search", "highlight", default_color_list()));
-
-    config.register_group(ConfigOption::boolean(GROUP, "Show help banner on open", "help_banner"));
-    config.register_group(ConfigOption::boolean(GROUP, "Pressing ESC causes a program exit", "exit_esc"));
-
-    config
 }
 
 fn create_help_command(commands: &[Command], aliases: &[(&str, &str)]) -> HelpCmd {

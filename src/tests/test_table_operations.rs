@@ -1,6 +1,11 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
+fn illegal_column_duplication() -> TestResult {
+    fail_test("[[lang, lang]; [nu, 100]]", "column_defined_twice")
+}
+
+#[test]
 fn cell_path_subexpr1() -> TestResult {
     run_test("([[lang, gems]; [nu, 100]]).lang | get 0", "nu")
 }
@@ -181,9 +186,9 @@ fn missing_column_errors() -> TestResult {
 
 #[test]
 fn missing_optional_column_fills_in_nothing() -> TestResult {
-    // The empty value will be replaced with $nothing because of the ?
+    // The empty value will be replaced with null because of the ?
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size?.1 == $nothing"#,
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size?.1 == null"#,
         "true",
     )
 }
@@ -199,9 +204,9 @@ fn missing_required_row_fails() -> TestResult {
 
 #[test]
 fn missing_optional_row_fills_in_nothing() -> TestResult {
-    // ?.3 will return $nothing if there is no 3rd row
+    // ?.3 will return null if there is no 3rd row
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3? == $nothing"#,
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3? == null"#,
         "true",
     )
 }
@@ -264,7 +269,7 @@ fn update_will_insert() -> TestResult {
 #[test]
 fn length_for_columns() -> TestResult {
     run_test(
-        r#"[[name,age,grade]; [bill,20,a] [a b c]] | length -c"#,
+        r#"[[name,age,grade]; [bill,20,a] [a b c]] | columns | length"#,
         "3",
     )
 }

@@ -38,10 +38,13 @@ impl Command for NUnique {
                 description: "Counts unique values",
                 example: "[1 1 2 2 3 3 4] | dfr into-df | dfr n-unique",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "count_unique".to_string(),
-                        vec![Value::test_int(4)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "count_unique".to_string(),
+                            vec![Value::test_int(4)],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -83,20 +86,24 @@ fn command(
     call: &Call,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let res = df.as_series(call.head)?.n_unique().map_err(|e| {
-        ShellError::GenericError(
-            "Error counting unique values".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let res = df
+        .as_series(call.head)?
+        .n_unique()
+        .map_err(|e| ShellError::GenericError {
+            error: "Error counting unique values".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
 
     let value = Value::int(res as i64, call.head);
 
-    NuDataFrame::try_from_columns(vec![Column::new("count_unique".to_string(), vec![value])])
-        .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+    NuDataFrame::try_from_columns(
+        vec![Column::new("count_unique".to_string(), vec![value])],
+        None,
+    )
+    .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
 #[cfg(test)]

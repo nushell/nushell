@@ -21,7 +21,7 @@ fn from_excel_file_to_table_select_sheet() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample_data.xlsx --raw
-            | from xlsx -s ["SalesOrders"]
+            | from xlsx --sheets ["SalesOrders"]
             | columns
             | get 0
         "#

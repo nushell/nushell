@@ -16,7 +16,7 @@ impl Command for LazyFetch {
     }
 
     fn usage(&self) -> &str {
-        "collects the lazyframe to the selected rows."
+        "Collects the lazyframe to the selected rows."
     }
 
     fn signature(&self) -> Signature {
@@ -38,16 +38,19 @@ impl Command for LazyFetch {
             description: "Fetch a rows from the dataframe",
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr fetch 2",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_int(6), Value::test_int(4)],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(2)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(6), Value::test_int(4)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(2)],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -67,14 +70,12 @@ impl Command for LazyFetch {
         let eager: NuDataFrame = lazy
             .into_polars()
             .fetch(rows as usize)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error fetching rows".into(),
-                    e.to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error fetching rows".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 

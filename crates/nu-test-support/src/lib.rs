@@ -3,12 +3,15 @@ pub mod fs;
 pub mod locale_override;
 pub mod macros;
 pub mod playground;
+use std::process::ExitStatus;
+
 // Needs to be reexported for `nu!` macro
 pub use nu_path;
 
 pub struct Outcome {
     pub out: String,
     pub err: String,
+    pub status: ExitStatus,
 }
 
 #[cfg(windows)]
@@ -22,8 +25,8 @@ pub const NATIVE_PATH_ENV_SEPARATOR: char = ';';
 pub const NATIVE_PATH_ENV_SEPARATOR: char = ':';
 
 impl Outcome {
-    pub fn new(out: String, err: String) -> Outcome {
-        Outcome { out, err }
+    pub fn new(out: String, err: String, status: ExitStatus) -> Outcome {
+        Outcome { out, err, status }
     }
 }
 
@@ -42,7 +45,7 @@ pub fn pipeline(commands: &str) -> String {
 }
 
 pub fn nu_repl_code(source_lines: &[&str]) -> String {
-    let mut out = String::from("nu --testbin=nu_repl [ ");
+    let mut out = String::from("nu --testbin=nu_repl ...[ ");
 
     for line in source_lines.iter() {
         // convert each "line" to really be a single line to prevent nu! macro joining the newlines

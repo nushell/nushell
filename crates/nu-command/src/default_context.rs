@@ -1,7 +1,7 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 use crate::{
-    help::{HelpAliases, HelpCommands, HelpExterns, HelpModules, HelpOperators},
+    help::{HelpAliases, HelpCommands, HelpEscapes, HelpExterns, HelpModules, HelpOperators},
     *,
 };
 pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
@@ -115,6 +115,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Complete,
             External,
+            Exec,
             NuCheck,
             Sys,
         };
@@ -127,25 +128,23 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HelpCommands,
             HelpModules,
             HelpOperators,
+            HelpEscapes,
         };
 
         // Debug
         bind_command! {
             Ast,
             Debug,
+            DebugInfo,
             Explain,
             Inspect,
             Metadata,
-            Profile,
             TimeIt,
             View,
             ViewFiles,
             ViewSource,
             ViewSpan,
         };
-
-        #[cfg(unix)]
-        bind_command! { Exec }
 
         #[cfg(windows)]
         bind_command! { RegistryQuery }
@@ -170,12 +169,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             EncodeBase64,
             DetectColumns,
             Parse,
-            Size,
             Split,
             SplitChars,
             SplitColumn,
             SplitRow,
             SplitWords,
+            StrEscapeGlob,
             Str,
             StrCapitalize,
             StrContains,
@@ -188,20 +187,27 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrIndexOf,
             StrLength,
             StrReverse,
+            StrStats,
             StrStartsWith,
             StrSubstring,
             StrTrim,
             StrUpcase,
-            FormatDate
+            Format,
+            FormatDate,
+            FormatDuration,
+            FormatFilesize,
         };
 
         // FileSystem
         bind_command! {
             Cd,
-            Cp,
             Ls,
             Mkdir,
+            UMkdir,
+            Mktemp,
             Mv,
+            UMv,
+            UCp,
             Open,
             Start,
             Rm,
@@ -214,16 +220,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         bind_command! {
             Ansi,
+            AnsiLink,
             AnsiStrip,
             Clear,
             Du,
             Input,
             InputList,
             InputListen,
+            IsTerminal,
             Kill,
             Sleep,
             TermSize,
+            Whoami,
         };
+
+        #[cfg(unix)]
+        bind_command! { ULimit };
 
         // Date
         bind_command! {
@@ -282,13 +294,15 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Into,
             IntoBool,
             IntoBinary,
+            IntoCellPath,
             IntoDatetime,
-            IntoDecimal,
             IntoDuration,
+            IntoFloat,
             IntoFilesize,
             IntoInt,
             IntoRecord,
             IntoString,
+            IntoValue,
         };
 
         // Env
@@ -323,6 +337,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MathLog,
         };
 
+        // Bytes
+        bind_command! {
+            Bytes,
+            BytesLen,
+            BytesStartsWith,
+            BytesEndsWith,
+            BytesReverse,
+            BytesReplace,
+            BytesAdd,
+            BytesAt,
+            BytesIndexOf,
+            BytesCollect,
+            BytesRemove,
+            BytesBuild
+        }
+
         // Network
         bind_command! {
             Http,
@@ -335,6 +365,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpOptions,
             Url,
             UrlBuildQuery,
+            UrlDecode,
             UrlEncode,
             UrlJoin,
             UrlParse,
@@ -346,9 +377,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Random,
             RandomBool,
             RandomChars,
-            RandomDecimal,
             RandomDice,
-            RandomInteger,
+            RandomFloat,
+            RandomInt,
             RandomUuid,
         };
 
@@ -358,6 +389,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Seq,
             SeqDate,
             SeqChar,
+            Generate,
         };
 
         // Hash
@@ -372,10 +404,24 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IsAdmin,
         };
 
-        // Deprecated
+        // Removed
         bind_command! {
             LetEnv,
             DateFormat,
+        };
+
+        // Stor
+        #[cfg(feature = "sqlite")]
+        bind_command! {
+            Stor,
+            StorCreate,
+            StorDelete,
+            StorExport,
+            StorImport,
+            StorInsert,
+            StorOpen,
+            StorReset,
+            StorUpdate,
         };
 
         working_set.render()

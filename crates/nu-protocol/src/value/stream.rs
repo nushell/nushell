@@ -76,7 +76,7 @@ impl RawStream {
         for next in self {
             match next {
                 Ok(val) => {
-                    if let Value::Error { error } = val {
+                    if let Value::Error { error, .. } = val {
                         return Err(*error);
                     }
                 }
@@ -108,10 +108,7 @@ impl Iterator for RawStream {
                             v.insert(0, b);
                         }
                     }
-                    Value::Binary {
-                        val: v,
-                        span: self.span,
-                    }
+                    Value::binary(v, self.span)
                 })
             })
         } else {
@@ -129,10 +126,7 @@ impl Iterator for RawStream {
                         match String::from_utf8(v.clone()) {
                             Ok(s) => {
                                 // Great, we have a complete string, let's output it
-                                Some(Ok(Value::String {
-                                    val: s,
-                                    span: self.span,
-                                }))
+                                Some(Ok(Value::string(s, self.span)))
                             }
                             Err(err) => {
                                 // Okay, we *might* have a string but we've also got some errors
@@ -146,10 +140,7 @@ impl Iterator for RawStream {
                                     // that it's not just a character spanning two frames.
                                     // We now know we are definitely binary, so switch to binary and stay there.
                                     self.is_binary = true;
-                                    Some(Ok(Value::Binary {
-                                        val: v,
-                                        span: self.span,
-                                    }))
+                                    Some(Ok(Value::binary(v, self.span)))
                                 } else {
                                     // Okay, we have a tiny bit of error at the end of the buffer. This could very well be
                                     // a character that spans two frames. Since this is the case, remove the error from
@@ -159,17 +150,11 @@ impl Iterator for RawStream {
                                     let buf = v[0..err.utf8_error().valid_up_to()].to_vec();
 
                                     match String::from_utf8(buf) {
-                                        Ok(s) => Some(Ok(Value::String {
-                                            val: s,
-                                            span: self.span,
-                                        })),
+                                        Ok(s) => Some(Ok(Value::string(s, self.span))),
                                         Err(_) => {
                                             // Something is definitely wrong. Switch to binary, and stay there
                                             self.is_binary = true;
-                                            Some(Ok(Value::Binary {
-                                                val: v,
-                                                span: self.span,
-                                            }))
+                                            Some(Ok(Value::binary(v, self.span)))
                                         }
                                     }
                                 }
@@ -179,10 +164,7 @@ impl Iterator for RawStream {
                     Err(e) => Some(Err(e)),
                 }
             } else if !self.leftover.is_empty() {
-                let output = Ok(Value::Binary {
-                    val: self.leftover.clone(),
-                    span: self.span,
-                });
+                let output = Ok(Value::binary(self.leftover.clone(), self.span));
                 self.leftover.clear();
 
                 Some(output)
@@ -202,6 +184,7 @@ impl Iterator for RawStream {
 pub struct ListStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    first_guard: bool,
 }
 
 impl ListStream {
@@ -213,7 +196,7 @@ impl ListStream {
 
     pub fn drain(self) -> Result<(), ShellError> {
         for next in self {
-            if let Value::Error { error } = next {
+            if let Value::Error { error, .. } = next {
                 return Err(*error);
             }
         }
@@ -227,6 +210,7 @@ impl ListStream {
         ListStream {
             stream: Box::new(input),
             ctrlc,
+            first_guard: true,
         }
     }
 }
@@ -241,6 +225,17 @@ impl Iterator for ListStream {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // We need to check `first_guard` to guarantee that it always have something to return in
+        // underlying stream.
+        //
+        // A realworld example is running an external commands, which have an `exit_code`
+        // ListStream.
+        // When we press ctrl-c, the external command receives the signal too, if we don't have
+        // `first_guard`, the `exit_code` ListStream will return Nothing, which is not expected
+        if self.first_guard {
+            self.first_guard = false;
+            return self.stream.next();
+        }
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {

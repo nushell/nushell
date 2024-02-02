@@ -1,13 +1,14 @@
 use crate::{generate_strftime_list, parse_date_from_string};
+use chrono::NaiveTime;
 use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
+use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -46,7 +47,7 @@ impl Zone {
         }
     }
     fn from_string(s: String) -> Self {
-        match s.to_lowercase().as_str() {
+        match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
             _ => Self::Error,
@@ -87,7 +88,7 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of string input to parse to datetime. Use --list to see options",
+                "Specify expected format of INPUT string to parse to datetime. Use --list to see options",
                 Some('f'),
             )
             .switch(
@@ -95,10 +96,15 @@ impl Command for SubCommand {
                 "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
+            .switch(
+                "list-human",
+                "Show human-readable datetime parsing examples",
+                Some('n'),
+                )
             .rest(
             "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, convert data at the given cell paths",
+                "For a data structure input, convert data at the given cell paths.",
             )
             .category(Category::Conversions)
     }
@@ -110,8 +116,10 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if call.has_flag("list") {
+        if call.has_flag(engine_state, stack, "list")? {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
+        } else if call.has_flag(engine_state, stack, "list-human")? {
+            Ok(list_human_readable_examples(call.head).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
             let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -154,10 +162,10 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         let example_result_1 = |nanos: i64| {
-            Some(Value::Date {
-                val: Utc.timestamp_nanos(nanos).into(),
-                span: Span::test_data(),
-            })
+            Some(Value::date(
+                Utc.timestamp_nanos(nanos).into(),
+                Span::test_data(),
+            ))
         };
         vec![
             Example {
@@ -175,7 +183,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Convert non-standard timestamp string to datetime using a custom format",
-                example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
+                example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
@@ -195,35 +203,50 @@ impl Command for SubCommand {
             Example {
                 description: "Convert list of timestamps to datetimes",
                 example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Date {
-                            val: DateTime::parse_from_str(
+                result: Some(Value::list(
+                    vec![
+                        Value::date(
+                            DateTime::parse_from_str(
                                 "2023-03-30 10:10:07 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),
-                            span: Span::test_data(),
-                        },
-                        Value::Date {
-                            val: DateTime::parse_from_str(
+                            Span::test_data(),
+                        ),
+                        Value::date(
+                            DateTime::parse_from_str(
                                 "2023-05-05 13:43:49 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),
-                            span: Span::test_data(),
-                        },
-                        Value::Date {
-                            val: DateTime::parse_from_str(
+                            Span::test_data(),
+                        ),
+                        Value::date(
+                            DateTime::parse_from_str(
                                 "2023-06-05 01:37:42 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Parsing human readable datetimes",
+                example: "'Today at 18:30' | into datetime",
+                result: None,
+            },
+            Example {
+                description: "Parsing human readable datetimes",
+                example: "'Last Friday at 19:45' | into datetime",
+                result: None,
+            },
+            Example {
+                description: "Parsing human readable datetimes",
+                example: "'In 5 minutes and 30 seconds' | into datetime",
+                result: None,
             },
         ]
     }
@@ -236,6 +259,41 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
+    // Let's try dtparse first
+    if matches!(input, Value::String { .. }) && dateformat.is_none() {
+        if let Ok(input_val) = input.as_spanned_string() {
+            match parse_date_from_string(&input_val.item, input_val.span) {
+                Ok(date) => return Value::date(date, input_val.span),
+                Err(_) => {
+                    if let Ok(date) = from_human_time(&input_val.item) {
+                        match date {
+                            ParseResult::Date(date) => {
+                                let time = NaiveTime::from_hms_opt(0, 0, 0).expect("valid time");
+                                let combined = date.and_time(time);
+                                let dt_fixed = DateTime::from_naive_utc_and_offset(
+                                    combined,
+                                    *Local::now().offset(),
+                                );
+                                return Value::date(dt_fixed, input_val.span);
+                            }
+                            ParseResult::DateTime(date) => {
+                                return Value::date(date.fixed_offset(), input_val.span)
+                            }
+                            ParseResult::Time(time) => {
+                                let date = Local::now().date_naive();
+                                let combined = date.and_time(time);
+                                let dt_fixed = DateTime::from_naive_utc_and_offset(
+                                    combined,
+                                    *Local::now().offset(),
+                                );
+                                return Value::date(dt_fixed, input_val.span);
+                            }
+                        }
+                    }
+                }
+            };
+        }
+    }
     const HOUR: i32 = 60 * 60;
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
@@ -245,98 +303,150 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => return input.clone(),
         other => {
-            return Value::Error {
-                error: Box::new(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string and integer".into(),
+            return Value::error(
+                ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string and int".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
-                }),
-            };
+                    src_span: other.span(),
+                },
+                head,
+            );
         }
     };
 
-    if let Ok(ts) = timestamp {
-        macro_rules! match_datetime {
-            ($expr:expr) => {
-                match $expr {
-                    dt => Value::Date {
-                        val: dt.into(),
-                        span: head,
+    if dateformat.is_none() {
+        if let Ok(ts) = timestamp {
+            return match timezone {
+                // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
+
+                // default to UTC
+                None => Value::date(Utc.timestamp_nanos(ts).into(), head),
+                Some(Spanned { item, span }) => match item {
+                    Zone::Utc => {
+                        let dt = Utc.timestamp_nanos(ts);
+                        Value::date(dt.into(), *span)
+                    }
+                    Zone::Local => {
+                        let dt = Local.timestamp_nanos(ts);
+                        Value::date(dt.into(), *span)
+                    }
+                    Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
+                        Some(eastoffset) => {
+                            let dt = eastoffset.timestamp_nanos(ts);
+                            Value::date(dt, *span)
+                        }
+                        None => Value::error(
+                            ShellError::DatetimeParseError {
+                                msg: input.debug_value(),
+                                span: *span,
+                            },
+                            *span,
+                        ),
                     },
-                }
+                    Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
+                        Some(westoffset) => {
+                            let dt = westoffset.timestamp_nanos(ts);
+                            Value::date(dt, *span)
+                        }
+                        None => Value::error(
+                            ShellError::DatetimeParseError {
+                                msg: input.debug_value(),
+                                span: *span,
+                            },
+                            *span,
+                        ),
+                    },
+                    Zone::Error => Value::error(
+                        // This is an argument error, not an input error
+                        ShellError::TypeMismatch {
+                            err_message: "Invalid timezone or offset".to_string(),
+                            span: *span,
+                        },
+                        *span,
+                    ),
+                },
             };
-        }
-
-        return match timezone {
-            // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
-
-            // default to UTC
-            None => Value::Date {
-                val: Utc.timestamp_nanos(ts).into(),
-                span: head,
-            },
-            Some(Spanned { item, span }) => match item {
-                Zone::Utc => match_datetime!(Utc.timestamp_nanos(ts)),
-                Zone::Local => match_datetime!(Local.timestamp_nanos(ts)),
-                Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                    Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
-                    None => Value::Error {
-                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
-                    },
-                },
-                Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                    Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
-                    None => Value::Error {
-                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
-                    },
-                },
-                Zone::Error => Value::Error {
-                    // This is an argument error, not an input error
-                    error: Box::new(ShellError::TypeMismatch {
-                        err_message: "Invalid timezone or offset".to_string(),
-                        span: *span,
-                    }),
-                },
-            },
         };
-    };
+    }
 
     // If input is not a timestamp, try parsing it as a string
+    let span = input.span();
     match input {
-        Value::String { val, span } => {
+        Value::String { val, .. } => {
             match dateformat {
                 Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
-                    Ok(d) => Value::Date { val: d, span: head },
+                    Ok(d) => Value::date ( d, head ),
                     Err(reason) => {
-                        Value::Error {
-                            error: Box::new(ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) }),
-                        }
+                        Value::error (
+                            ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                            head,
+                        )
                     }
                 },
+
                 // Tries to automatically parse the date
                 // (i.e. without a format string)
                 // and assumes the system's local timezone if none is specified
-                None => match parse_date_from_string(val, *span) {
-                    Ok(date) => Value::Date {
-                        val: date,
-                        span: *span,
-                    },
+                None => match parse_date_from_string(val, span) {
+                    Ok(date) => Value::date (
+                        date,
+                        span,
+                    ),
                     Err(err) => err,
                 },
             }
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
+}
+
+fn list_human_readable_examples(span: Span) -> Value {
+    let examples: Vec<String> = vec![
+        "Today 18:30".into(),
+        "2022-11-07 13:25:30".into(),
+        "15:20 Friday".into(),
+        "This Friday 17:00".into(),
+        "13:25, Next Tuesday".into(),
+        "Last Friday at 19:45".into(),
+        "In 3 days".into(),
+        "In 2 hours".into(),
+        "10 hours and 5 minutes ago".into(),
+        "1 years ago".into(),
+        "A year ago".into(),
+        "A month ago".into(),
+        "A week ago".into(),
+        "A day ago".into(),
+        "An hour ago".into(),
+        "A minute ago".into(),
+        "A second ago".into(),
+        "Now".into(),
+    ];
+
+    let records = examples
+        .iter()
+        .map(|s| {
+            Value::record(
+                record! {
+                    "parseable human datetime examples" => Value::test_string(s.to_string()),
+                    "result" => action(&Value::test_string(s.to_string()), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
+                },
+                span,
+            )
+        })
+        .collect::<Vec<Value>>();
+
+    Value::list(records, span)
 }
 
 #[cfg(test)]
@@ -362,11 +472,10 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = Value::Date {
-            val: DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z")
-                .unwrap(),
-            span: Span::test_data(),
-        };
+        let expected = Value::date(
+            DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z").unwrap(),
+            Span::test_data(),
+        );
         assert_eq!(actual, expected)
     }
 
@@ -379,11 +488,10 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = Value::Date {
-            val: DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z")
-                .unwrap(),
-            span: Span::test_data(),
-        };
+        let expected = Value::date(
+            DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
+            Span::test_data(),
+        );
         assert_eq!(actual, expected)
     }
 
@@ -400,11 +508,10 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = Value::Date {
-            val: DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z")
-                .unwrap(),
-            span: Span::test_data(),
-        };
+        let expected = Value::date(
+            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected)
     }
@@ -422,11 +529,10 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_int, &args, Span::test_data());
-        let expected = Value::Date {
-            val: DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z")
-                .unwrap(),
-            span: Span::test_data(),
-        };
+        let expected = Value::date(
+            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected)
     }
@@ -444,10 +550,10 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = Value::Date {
-            val: Local.timestamp_opt(1614434140, 0).unwrap().into(),
-            span: Span::test_data(),
-        };
+        let expected = Value::date(
+            Local.timestamp_opt(1614434140, 0).unwrap().into(),
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected)
     }
@@ -462,10 +568,10 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
 
-        let expected = Value::Date {
-            val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
-            span: Span::test_data(),
-        };
+        let expected = Value::date(
+            Utc.timestamp_opt(1614434140, 0).unwrap().into(),
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected)
     }

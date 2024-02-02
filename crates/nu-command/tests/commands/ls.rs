@@ -45,6 +45,99 @@ fn lists_regular_files_using_asterisk_wildcard() {
     })
 }
 
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn lists_regular_files_in_special_folder() {
+    Playground::setup("ls_test_3", |dirs, sandbox| {
+        sandbox
+            .mkdir("[abcd]")
+            .mkdir("[bbcd]")
+            .mkdir("abcd]")
+            .mkdir("abcd")
+            .mkdir("abcd/*")
+            .mkdir("abcd/?")
+            .with_files(vec![EmptyFile("[abcd]/test.txt")])
+            .with_files(vec![EmptyFile("abcd]/test.txt")])
+            .with_files(vec![EmptyFile("abcd/*/test.txt")])
+            .with_files(vec![EmptyFile("abcd/?/test.txt")])
+            .with_files(vec![EmptyFile("abcd/?/test2.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join("abcd]"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test(), format!(r#"ls abcd] | length"#));
+        assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test().join("[bbcd]"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "0");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/*"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/?"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "2");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/*"), format!(r#"ls -D ../* | length"#));
+        assert_eq!(actual.out, "2");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/*"), format!(r#"ls ../* | length"#));
+        assert_eq!(actual.out, "3");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/?"), format!(r#"ls -D ../* | length"#));
+        assert_eq!(actual.out, "2");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[rstest::rstest]
+#[case("j?.??.txt", 1)]
+#[case("j????.txt", 2)]
+#[case("?????.txt", 3)]
+#[case("????c.txt", 1)]
+#[case("ye??da.10.txt", 1)]
+#[case("yehuda.?0.txt", 1)]
+#[case("??????.10.txt", 2)]
+#[case("[abcd]????.txt", 1)]
+#[case("??[ac.]??.txt", 3)]
+#[case("[ab]bcd/??.txt", 2)]
+#[case("?bcd/[xy]y.txt", 2)]
+#[case("?bcd/[xy]y.t?t", 2)]
+#[case("[[]abcd[]].txt", 1)]
+#[case("[[]?bcd[]].txt", 2)]
+#[case("??bcd[]].txt", 2)]
+#[case("??bcd].txt", 2)]
+#[case("[[]?bcd].txt", 2)]
+#[case("[[]abcd].txt", 1)]
+#[case("[[][abcd]bcd[]].txt", 2)]
+#[case("'[abcd].txt'", 1)]
+#[case("'[bbcd].txt'", 1)]
+fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
+    Playground::setup("ls_test_3", |dirs, sandbox| {
+        sandbox.mkdir("abcd").mkdir("bbcd").with_files(vec![
+            EmptyFile("abcd/xy.txt"),
+            EmptyFile("bbcd/yy.txt"),
+            EmptyFile("[abcd].txt"),
+            EmptyFile("[bbcd].txt"),
+            EmptyFile("yehuda.10.txt"),
+            EmptyFile("jt.10.txt"),
+            EmptyFile("jtabc.txt"),
+            EmptyFile("abcde.txt"),
+            EmptyFile("andres.10.txt"),
+            EmptyFile("chicken_not_to_be_picked_up.100.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), format!(r#"ls {command} | length"#));
+        assert_eq!(actual.out, expected.to_string());
+    })
+}
+
 #[test]
 fn lists_regular_files_using_question_mark_wildcard() {
     Playground::setup("ls_test_3", |dirs, sandbox| {
@@ -563,4 +656,48 @@ fn list_unknown_flag() {
     assert!(actual
         .err
         .contains("Available flags: --help(-h), --all(-a),"));
+}
+
+#[test]
+fn list_flag_false() {
+    // Check that ls flags respect explicit values
+    Playground::setup("ls_test_false_flag", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile(".hidden"),
+            EmptyFile("normal"),
+            EmptyFile("another_normal"),
+        ]);
+
+        // TODO Remove this cfg value when we have an OS-agnostic way
+        // of creating hidden files using the playground.
+        #[cfg(unix)]
+        {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                "
+                ls --all=false | length
+            "
+            ));
+
+            assert_eq!(actual.out, "2");
+        }
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls --long=false | columns | length
+            "
+        ));
+
+        assert_eq!(actual.out, "4");
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls --full-paths=false | get name | any { $in =~ / }
+            "
+        ));
+
+        assert_eq!(actual.out, "false");
+    })
 }

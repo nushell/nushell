@@ -107,57 +107,48 @@ fn action(
         Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match hex_config.action_type {
             ActionType::Encode => Value::string(hex_encode(val.as_ref()), command_span),
-            ActionType::Decode => Value::Error {
-                error: Box::new(ShellError::UnsupportedInput(
-                    "Binary data can only be encoded".to_string(),
-                    "value originates from here".into(),
-                    command_span,
-                    // This line requires the Value::Error {} match above.
-                    input.expect_span(),
-                )),
-            },
+            ActionType::Decode => Value::error(
+                ShellError::UnsupportedInput { msg: "Binary data can only be encoded".to_string(), input: "value originates from here".into(), msg_span: command_span, input_span: input.span() },
+                command_span,
+            ),
         },
         Value::String { val, .. } => {
             match hex_config.action_type {
-                ActionType::Encode => Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        "String value can only be decoded".to_string(),
-                        "value originates from here".into(),
-                        command_span,
-                        // This line requires the Value::Error {} match above.
-                        input.expect_span(),
-                    )),
-                },
+                ActionType::Encode => Value::error(
+                    ShellError::UnsupportedInput { msg: "String value can only be decoded".to_string(), input: "value originates from here".into(), msg_span: command_span, input_span: input.span() },
+                    command_span,
+                ),
 
                 ActionType::Decode => match hex_decode(val.as_ref()) {
                     Ok(decoded_value) => Value::binary(decoded_value, command_span),
-                    Err(HexDecodingError::InvalidLength(len)) => Value::Error {
-                        error: Box::new(ShellError::GenericError(
-                            "value could not be hex decoded".to_string(),
-                            format!("invalid hex input length: {len}. The length should be even"),
-                            Some(command_span),
-                            None,
-                            Vec::new(),
-                        )),
-                    },
-                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::Error {
-                        error: Box::new(ShellError::GenericError(
-                            "value could not be hex decoded".to_string(),
-                            format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
-                            Some(command_span),
-                            None,
-                            Vec::new(),
-                        )),
-                    },
+                    Err(HexDecodingError::InvalidLength(len)) => Value::error(ShellError::GenericError {
+                            error: "value could not be hex decoded".into(),
+                            msg: format!("invalid hex input length: {len}. The length should be even"),
+                            span: Some(command_span),
+                            help: None,
+                            inner: vec![],
+                        },
+                        command_span,
+                    ),
+                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::error(ShellError::GenericError {
+                            error: "value could not be hex decoded".into(),
+                            msg: format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
+                            span: Some(command_span),
+                            help: None,
+                            inner: vec![],
+                        },
+                        command_span,
+                    ),
                 },
             }
         }
-        other => Value::Error {
-            error: Box::new(ShellError::TypeMismatch {
+        other => Value::error(
+            ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
-                span: other.span().unwrap_or(command_span),
-            }),
-        },
+                span: other.span(),
+            },
+            other.span(),
+        ),
     }
 }
 

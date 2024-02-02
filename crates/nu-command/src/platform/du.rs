@@ -1,28 +1,20 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
-use nu_engine::CallExt;
-use nu_glob::{GlobError, MatchOptions, Pattern};
+use nu_engine::{current_dir, CallExt};
+use nu_glob::Pattern;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
-use std::path::PathBuf;
-
-const GLOB_PARAMS: MatchOptions = MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: true,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
 
 #[derive(Clone)]
 pub struct Du;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
-    path: Option<Spanned<PathBuf>>,
+    path: Option<Spanned<NuPath>>,
     all: bool,
     deref: bool,
     exclude: Option<Spanned<String>>,
@@ -45,7 +37,7 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional("path", SyntaxShape::GlobPattern, "starting directory")
+            .optional("path", SyntaxShape::GlobPattern, "Starting directory.")
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
@@ -89,69 +81,60 @@ impl Command for Du {
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
         if let Some(ref max_depth) = max_depth {
             if max_depth.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(max_depth.span));
+                return Err(ShellError::NeedsPositiveValue {
+                    span: max_depth.span,
+                });
             }
         }
         if let Some(ref min_size) = min_size {
             if min_size.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(min_size.span));
+                return Err(ShellError::NeedsPositiveValue {
+                    span: min_size.span,
+                });
             }
         }
+        let current_dir = current_dir(engine_state, stack)?;
+
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
-            all: call.has_flag("all"),
-            deref: call.has_flag("deref"),
+            all: call.has_flag(engine_state, stack, "all")?,
+            deref: call.has_flag(engine_state, stack, "deref")?,
             exclude: call.get_flag(engine_state, stack, "exclude")?,
             max_depth,
             min_size,
         };
 
         let exclude = args.exclude.map_or(Ok(None), move |x| {
-            Pattern::new(&x.item).map(Some).map_err(|e| {
-                ShellError::GenericError(
-                    "glob error".to_string(),
-                    e.msg.to_string(),
-                    Some(x.span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            Pattern::new(&x.item)
+                .map(Some)
+                .map_err(|e| ShellError::InvalidGlobPattern {
+                    msg: e.msg.into(),
+                    span: x.span,
+                })
         })?;
 
         let include_files = args.all;
         let mut paths = match args.path {
-            Some(p) => {
-                let item = p.item.to_str().expect("Why isn't this encoded properly?");
-                match nu_glob::glob_with(item, GLOB_PARAMS) {
-                    // Convert the PatternError to a ShellError, preserving the span
-                    // of the inputted glob.
-                    Err(e) => {
-                        return Err(ShellError::GenericError(
-                            "glob error".to_string(),
-                            e.msg.to_string(),
-                            Some(p.span),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
-                    Ok(path) => path,
-                }
-            }
+            Some(p) => nu_engine::glob_from(&p, &current_dir, call.head, None),
             // The * pattern should never fail.
-            None => nu_glob::glob_with("*", GLOB_PARAMS).expect("du: * pattern failed to glob"),
+            None => nu_engine::glob_from(
+                &Spanned {
+                    item: NuPath::UnQuoted("*".into()),
+                    span: Span::unknown(),
+                },
+                &current_dir,
+                call.head,
+                None,
+            ),
         }
+        .map(|f| f.1)?
         .filter(move |p| {
             if include_files {
                 true
             } else {
-                match p {
-                    Ok(f) if f.is_dir() => true,
-                    Err(e) if e.path().is_dir() => true,
-                    _ => false,
-                }
+                matches!(p, Ok(f) if f.is_dir())
             }
-        })
-        .map(|v| v.map_err(glob_err_into));
+        });
 
         let all = args.all;
         let deref = args.deref;
@@ -179,7 +162,7 @@ impl Command for Du {
                     }
                 }
                 Err(e) => {
-                    output.push(Value::Error { error: Box::new(e) });
+                    output.push(Value::error(e, tag));
                 }
             }
         }
@@ -194,11 +177,6 @@ impl Command for Du {
             result: None,
         }]
     }
-}
-
-fn glob_err_into(e: GlobError) -> ShellError {
-    let e = e.into_error();
-    ShellError::from(e)
 }
 
 #[cfg(test)]

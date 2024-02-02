@@ -1,7 +1,6 @@
 use std::io::Result;
 
 use nu_ansi_term::Style;
-use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -26,15 +25,10 @@ pub struct TableCmd {
 #[derive(Debug, Default, Clone)]
 struct TableSettings {
     orientation: Option<Orientation>,
-    line_head_top: Option<bool>,
-    line_head_bottom: Option<bool>,
-    line_shift: Option<bool>,
-    line_index: Option<bool>,
     split_line_s: Option<Style>,
     selected_cell_s: Option<Style>,
     selected_row_s: Option<Style>,
     selected_column_s: Option<Style>,
-    show_cursor: Option<bool>,
     padding_column_left: Option<usize>,
     padding_column_right: Option<usize>,
     padding_index_left: Option<usize>,
@@ -93,13 +87,6 @@ impl ViewCommand for TableCmd {
             ConfigOption::boolean(":table group", "Show index", "table.show_index"),
             ConfigOption::boolean(":table group", "Show header", "table.show_head"),
 
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_top"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_bottom"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_shift"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
-
-            ConfigOption::boolean(":table group", "Show cursor", "table.show_cursor"),
-
             ConfigOption::new(":table group", "Color of selected cell", "table.selected_cell", default_color_list()),
             ConfigOption::new(":table group", "Color of selected row", "table.selected_row", default_color_list()),
             ConfigOption::new(":table group", "Color of selected column", "table.selected_column", default_color_list()),
@@ -120,51 +107,6 @@ impl ViewCommand for TableCmd {
             config_options,
             input: shortcuts,
         })
-    }
-
-    fn display_config_option(&mut self, _group: String, key: String, value: String) -> bool {
-        match key.as_str() {
-            "table.orientation" => self.settings.orientation = orientation_from_str(&value),
-            "table.line_head_top" => self.settings.line_head_top = bool_from_str(&value),
-            "table.line_head_bottom" => self.settings.line_head_bottom = bool_from_str(&value),
-            "table.line_shift" => self.settings.line_shift = bool_from_str(&value),
-            "table.line_index" => self.settings.line_index = bool_from_str(&value),
-            "table.show_cursor" => {
-                self.settings.show_cursor = bool_from_str(&value);
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.split_line" => {
-                self.settings.split_line_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.selected_cell" => {
-                self.settings.selected_cell_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.selected_row" => {
-                self.settings.selected_row_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.selected_column" => {
-                self.settings.selected_column_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.padding_column_left" => {
-                self.settings.padding_column_left = usize_from_str(&value);
-            }
-            "table.padding_column_right" => {
-                self.settings.padding_column_right = usize_from_str(&value);
-            }
-            "table.padding_index_left" => {
-                self.settings.padding_index_left = usize_from_str(&value);
-            }
-            "table.padding_index_right" => {
-                self.settings.padding_index_right = usize_from_str(&value);
-            }
-            _ => return false,
-        }
-
-        true
     }
 
     fn parse(&mut self, _: &str) -> Result<()> {
@@ -192,26 +134,6 @@ impl ViewCommand for TableCmd {
 
         if let Some(o) = self.settings.orientation {
             view.set_orientation_current(o);
-        }
-
-        if self.settings.line_head_bottom.unwrap_or(false) {
-            view.set_line_head_bottom(true);
-        }
-
-        if self.settings.line_head_top.unwrap_or(false) {
-            view.set_line_head_top(true);
-        }
-
-        if self.settings.line_index.unwrap_or(false) {
-            view.set_line_index(true);
-        }
-
-        if self.settings.line_shift.unwrap_or(false) {
-            view.set_line_trailing(true);
-        }
-
-        if self.settings.show_cursor.unwrap_or(false) {
-            view.show_cursor(true);
         }
 
         if let Some(style) = self.settings.selected_cell_s {
@@ -255,27 +177,5 @@ impl ViewCommand for TableCmd {
         }
 
         Ok(view)
-    }
-}
-
-fn bool_from_str(s: &str) -> Option<bool> {
-    match s {
-        "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn usize_from_str(s: &str) -> Option<usize> {
-    s.parse::<usize>().ok()
-}
-
-fn orientation_from_str(s: &str) -> Option<Orientation> {
-    match s {
-        "left" => Some(Orientation::Left),
-        "right" => Some(Orientation::Right),
-        "top" => Some(Orientation::Top),
-        "bottom" => Some(Orientation::Bottom),
-        _ => None,
     }
 }

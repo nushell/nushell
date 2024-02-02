@@ -8,11 +8,11 @@
 
 # check standard code formatting and apply the changes
 export def fmt [
-    --check: bool  # do not apply the format changes, only check the syntax
-    --verbose: bool # print extra information about the command's progress
+    --check # do not apply the format changes, only check the syntax
+    --verbose  # print extra information about the command's progress
 ] {
     if $verbose {
-        print $"running ('toolkit fmt' | pretty-print-command)"
+        print $"running ('toolkit fmt' | pretty-format-command)"
     }
 
     if $check {
@@ -20,7 +20,7 @@ export def fmt [
             cargo fmt --all -- --check
         } catch {
             error make --unspanned {
-                msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!"
+                msg: $"\nplease run ('toolkit fmt' | pretty-format-command) to fix formatting!"
             }
         }
     } else {
@@ -32,44 +32,61 @@ export def fmt [
 #
 # > it is important to make `clippy` happy :relieved:
 export def clippy [
-    --verbose: bool # print extra information about the command's progress
+    --verbose # print extra information about the command's progress
     --features: list<string> # the list of features to run *Clippy* on
-    --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
-        print $"running ('toolkit clippy' | pretty-print-command)"
+        print $"running ('toolkit clippy' | pretty-format-command)"
     }
 
-    try {
-        if $workspace {(
-            cargo clippy
-                --workspace
-            --
-                -D warnings
-                -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
-        )} else {(
-            cargo clippy
-                --features ($features | str join ",")
-            --
-                -D warnings
-                -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
-        )}
+    # If changing these settings also change CI settings in .github/workflows/ci.yml
+    try {(
+        cargo clippy
+            --workspace
+            --exclude nu_plugin_*
+            --features ($features | str join ",")
+        --
+            -D warnings
+            -D clippy::unwrap_used
+    )
+
+    if $verbose {
+        print $"running ('toolkit clippy' | pretty-format-command) on tests"
+    }
+    # In tests we don't have to deny unwrap
+    (
+        cargo clippy
+            --tests
+            --workspace
+            --exclude nu_plugin_*
+            --features ($features | str join ",")
+        --
+            -D warnings
+    )
+
+    if $verbose {
+        print $"running ('toolkit clippy' | pretty-format-command) on plugins"
+    }
+    (
+        cargo clippy
+            --package nu_plugin_*
+        --
+            -D warnings
+            -D clippy::unwrap_used
+    )
+
     } catch {
         error make --unspanned {
-            msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!"
+            msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
         }
     }
 }
 
 # check that all the tests pass
 export def test [
-    --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+    --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to run the tests on
-    --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
+    --workspace # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $fast {
         if $workspace {
@@ -90,11 +107,14 @@ export def test [
 export def "test stdlib" [
     --extra-args: string = ''
 ] {
-    cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
+    cargo run -- -c $"
+        use crates/nu-std/testing.nu
+        testing run-tests --path crates/nu-std ($extra_args)
+    "
 }
 
-# print the pipe input inside backticks, dimmed and italic, as a pretty command
-def pretty-print-command [] {
+# formats the pipe input inside backticks, dimmed and italic, as a pretty command
+def pretty-format-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
@@ -108,25 +128,25 @@ def pretty-print-command [] {
 # otherwise, the truth values will be incremental, following
 # the order above.
 def report [
-    --fail-fmt: bool
-    --fail-clippy: bool
-    --fail-test: bool
-    --fail-test-stdlib: bool
-    --no-fail: bool
+    --fail-fmt
+    --fail-clippy
+    --fail-test
+    --fail-test-stdlib
+    --no-fail
 ] {
     [fmt clippy test "test stdlib"]
     | wrap stage
     | merge (
         if $no_fail               { [true     true     true     true] }
-        else if $fail_fmt         { [false    $nothing $nothing $nothing] }
-        else if $fail_clippy      { [true     false    $nothing $nothing] }
-        else if $fail_test        { [true     true     false    $nothing] }
+        else if $fail_fmt         { [false    null null null] }
+        else if $fail_clippy      { [true     false    null null] }
+        else if $fail_test        { [true     true     false    null] }
         else if $fail_test_stdlib { [true     true     true     false] }
-        else                      { [$nothing $nothing $nothing $nothing] }
+        else                      { [null null null null] }
         | wrap success
     )
     | upsert emoji {|it|
-        if ($it.success == $nothing) {
+        if ($it.success == null) {
             ":black_circle:"
         } else if $it.success {
             ":green_circle:"
@@ -207,7 +227,7 @@ def report [
 #
 # error: could not compile `nu-command` due to previous error
 # ```
-# - we remove the useless `.to_string()`, and in that cases, the whole format is useless, only `"x "` is usefull!
+# - we remove the useless `.to_string()`, and in that cases, the whole format is useless, only `"x "` is useful!
 # but now the tests do not pass :sob:
 # ```nushell
 # running `toolkit fmt`
@@ -231,10 +251,13 @@ def report [
 #
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
-    --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+    --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to check the current PR on
 ] {
-    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
+    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8'
+    $env.LANG = 'en_US.UTF-8'
+    $env.LANGUAGE = 'en'
+
     try {
         fmt --check --verbose
     } catch {
@@ -247,18 +270,26 @@ export def "check pr" [
         return (report --fail-clippy)
     }
 
-    print $"running ('toolkit test' | pretty-print-command)"
+    print $"running ('toolkit test' | pretty-format-command)"
     try {
         if $fast {
-            test --features $features --fast
+            if ($features | is-empty) {
+                test --workspace --fast
+            } else {
+                test --features $features --fast
+            }
         } else {
-            test --features $features
+            if ($features | is-empty) {
+                test --workspace
+            } else {
+                test --features $features
+            }
         }
     } catch {
         return (report --fail-test)
     }
 
-    print $"running ('toolkit test stdlib' | pretty-print-command)"
+    print $"running ('toolkit test stdlib' | pretty-format-command)"
     try {
         test stdlib
     } catch {
@@ -268,16 +299,23 @@ export def "check pr" [
     report --no-fail
 }
 
+# run Nushell from source with a right indicator
+export def run [] {
+    cargo run -- ...[
+        -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
+    ]
+}
+
 # set up git hooks to run:
 # - `toolkit fmt --check --verbose` on `git commit`
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
 export def setup-git-hooks [] {
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
     if (input) == "y" {
-        print $"running ('toolkit setup-git-hooks' | pretty-print-command)"
+        print $"running ('toolkit setup-git-hooks' | pretty-format-command)"
         git config --local core.hooksPath .githooks
     } else {
-        print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
+        print $"aborting ('toolkit setup-git-hooks' | pretty-format-command)"
     }
 }
 
@@ -285,7 +323,7 @@ def build-nushell [features: string] {
     print $'(char nl)Building nushell'
     print '----------------------------'
 
-    cargo build --features $features
+    cargo build --features $features --locked
 }
 
 def build-plugin [] {
@@ -301,7 +339,7 @@ def build-plugin [] {
 # build Nushell and plugins with some features
 export def build [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
-    --all: bool  # build all plugins with Nushell
+    --all # build all plugins with Nushell
 ] {
     build-nushell ($features | str join ",")
 
@@ -339,10 +377,10 @@ def install-plugin [] {
 # install Nushell and features you want
 export def install [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
-    --all: bool  # install all plugins with Nushell
+    --all # install all plugins with Nushell
 ] {
     touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
-    cargo install --path . --features ($features | str join ",")
+    cargo install --path . --features ($features | str join ",") --locked --force
     if not $all {
         return
     }
@@ -355,6 +393,7 @@ export def install [
         nu_plugin_custom_values,
         nu_plugin_formats,
     ]
+
     for plugin in $plugins {
         $plugin | install-plugin
     }
@@ -439,7 +478,7 @@ def compute-coverage [] {
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
 export def cov [] {
     let start = (date now)
-    $env.NUSHELL_CARGO_TARGET = "ci"
+    $env.NUSHELL_CARGO_PROFILE = "ci"
 
     compute-coverage
 

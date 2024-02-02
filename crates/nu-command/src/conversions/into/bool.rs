@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -29,7 +29,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, convert data at the given cell paths",
+                "For a data structure input, convert data at the given cell paths.",
             )
             .category(Category::Conversions)
     }
@@ -53,66 +53,52 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Convert value to boolean in table",
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(true),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(true),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(true),
+                    }),
+                ])),
             },
             Example {
                 description: "Convert bool to boolean",
                 example: "true | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "convert integer to boolean",
+                description: "convert int to boolean",
                 example: "1 | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "convert decimal to boolean",
+                description: "convert float to boolean",
                 example: "0.3 | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "convert decimal string to boolean",
+                description: "convert float string to boolean",
                 example: "'0.0' | into bool",
-                result: Some(Value::bool(false, span)),
+                result: Some(Value::test_bool(false)),
             },
             Example {
                 description: "convert string to boolean",
                 example: "'true' | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
         ]
     }
@@ -130,13 +116,13 @@ fn into_bool(
 }
 
 fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
-    match s.trim().to_lowercase().as_str() {
+    match s.trim().to_ascii_lowercase().as_str() {
         "true" => Ok(true),
         "false" => Ok(false),
         o => {
             let val = o.parse::<f64>();
             match val {
-                Ok(f) => Ok(f.abs() >= f64::EPSILON),
+                Ok(f) => Ok(f != 0.0),
                 Err(_) => Err(ShellError::CantConvert {
                     to_type: "boolean".to_string(),
                     from_type: "string".to_string(),
@@ -154,30 +140,23 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
 fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Bool { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Bool {
-            val: *val != 0,
-            span,
-        },
-        Value::Float { val, .. } => Value::Bool {
-            val: val.abs() >= f64::EPSILON,
-            span,
-        },
+        Value::Int { val, .. } => Value::bool(*val != 0, span),
+        Value::Float { val, .. } => Value::bool(val.abs() >= f64::EPSILON, span),
         Value::String { val, .. } => match string_to_boolean(val, span) {
-            Ok(val) => Value::Bool { val, span },
-            Err(error) => Value::Error {
-                error: Box::new(error),
-            },
+            Ok(val) => Value::bool(val, span),
+            Err(error) => Value::error(error, span),
         },
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "bool, integer, float or string".into(),
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "bool, int, float or string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 

@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
+    engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
 
@@ -33,7 +32,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
-            .rest("append", SyntaxShape::String, "Path to append to the input")
+            .rest(
+                "append",
+                SyntaxShape::String,
+                "Path to append to the input.",
+            )
             .category(Category::Path)
     }
 
@@ -46,6 +49,10 @@ impl Command for SubCommand {
 the output of 'path parse' and 'path split' subcommands."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -53,31 +60,24 @@ the output of 'path parse' and 'path split' subcommands."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let args = Arguments {
             append: call.rest(engine_state, stack, 0)?,
         };
 
-        let metadata = input.metadata();
+        run(call, &args, input)
+    }
 
-        match input {
-            PipelineData::Value(val, md) => {
-                Ok(PipelineData::Value(handle_value(val, &args, head), md))
-            }
-            PipelineData::ListStream(..) => Ok(PipelineData::Value(
-                handle_value(input.into_value(head), &args, head),
-                metadata,
-            )),
-            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
-            _ => Err(ShellError::UnsupportedInput(
-                "Input value cannot be joined".to_string(),
-                "value originates from here".into(),
-                head,
-                input
-                    .span()
-                    .expect("non-Empty non-ListStream PipelineData had no span"),
-            )),
-        }
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let args = Arguments {
+            append: call.rest_const(working_set, 0)?,
+        };
+
+        run(call, &args, input)
     }
 
     #[cfg(windows)]
@@ -94,6 +94,17 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"C:\Users\viking\spams\this_spam.txt")),
             },
             Example {
+                description: "Use relative paths, e.g. '..' will go up one directory",
+                example: r"'C:\Users\viking' | path join .. folder",
+                result: Some(Value::test_string(r"C:\Users\viking\..\folder")),
+            },
+            Example {
+                description:
+                    "Use absolute paths, e.g. '/' will bring you to the top level directory",
+                example: r"'C:\Users\viking' | path join / folder",
+                result: Some(Value::test_string(r"C:/folder")),
+            },
+            Example {
                 description: "Join a list of parts into a path",
                 example: r"[ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
                 result: Some(Value::test_string(r"C:\Users\viking\spam.txt")),
@@ -106,10 +117,10 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string(r"C:\Users\viking\spam.txt")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string(r"C:\Users\viking\spam.txt")],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -128,6 +139,17 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
             },
             Example {
+                description: "Use relative paths, e.g. '..' will go up one directory",
+                example: r"'/home/viking' | path join .. folder",
+                result: Some(Value::test_string(r"/home/viking/../folder")),
+            },
+            Example {
+                description:
+                    "Use absolute paths, e.g. '/' will bring you to the top level directory",
+                example: r"'/home/viking' | path join / folder",
+                result: Some(Value::test_string(r"/folder")),
+            },
+            Example {
                 description: "Join a list of parts into a path",
                 example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
                 result: Some(Value::test_string(r"/home/viking/spam.txt")),
@@ -140,20 +162,42 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string(r"/home/viking/spam.txt")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string(r"/home/viking/spam.txt")],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
+fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+
+    let metadata = input.metadata();
+
+    match input {
+        PipelineData::Value(val, md) => Ok(PipelineData::Value(handle_value(val, args, head), md)),
+        PipelineData::ListStream(..) => Ok(PipelineData::Value(
+            handle_value(input.into_value(head), args, head),
+            metadata,
+        )),
+        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "Input value cannot be joined".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: input.span().unwrap_or(call.head),
+        }),
+    }
+}
+
 fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
+    let span = v.span();
     match v {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
-        Value::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
-        Value::List { vals, span } => join_list(&vals, head, span, args),
+        Value::Record { val, .. } => join_record(&val, head, span, args),
+        Value::List { vals, .. } => join_list(&vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
     }
@@ -179,64 +223,52 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                 Ok(vals) => {
                     let vals = vals
                         .iter()
-                        .map(|(k, v)| join_record(k, v, head, span, args))
+                        .map(|r| join_record(r, head, span, args))
                         .collect();
 
-                    Value::List { vals, span }
+                    Value::list(vals, span)
                 }
-                Err(_) => Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                Err(_) => Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string or record".into(),
                         dst_span: head,
                         src_span: span,
-                    }),
-                },
+                    },
+                    span,
+                ),
             }
         }
     }
 }
 
-fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
-    match merge_record(cols, vals, head, span) {
+fn join_record(record: &Record, head: Span, span: Span, args: &Arguments) -> Value {
+    match merge_record(record, head, span) {
         Ok(p) => join_single(p.as_path(), head, args),
-        Err(error) => Value::Error {
-            error: Box::new(error),
-        },
+        Err(error) => Value::error(error, span),
     }
 }
 
-fn merge_record(
-    cols: &[String],
-    vals: &[Value],
-    head: Span,
-    span: Span,
-) -> Result<PathBuf, ShellError> {
-    for key in cols {
+fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, ShellError> {
+    for key in record.columns() {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
-            return Err(ShellError::UnsupportedInput(
-                format!(
+            return Err(ShellError::UnsupportedInput { msg: format!(
                     "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
-                ),
-                "value originates from here".into(),
-                head,
-                span
-            ));
+                ), input: "value originates from here".into(), msg_span: head, input_span: span });
         }
     }
 
-    let entries: HashMap<&str, &Value> = cols.iter().map(String::as_str).zip(vals).collect();
     let mut result = PathBuf::new();
 
     #[cfg(windows)]
-    if let Some(val) = entries.get("prefix") {
+    if let Some(val) = record.get("prefix") {
         let p = val.as_string()?;
         if !p.is_empty() {
             result.push(p);
         }
     }
 
-    if let Some(val) = entries.get("parent") {
+    if let Some(val) = record.get("parent") {
         let p = val.as_string()?;
         if !p.is_empty() {
             result.push(p);
@@ -244,14 +276,14 @@ fn merge_record(
     }
 
     let mut basename = String::new();
-    if let Some(val) = entries.get("stem") {
+    if let Some(val) = record.get("stem") {
         let p = val.as_string()?;
         if !p.is_empty() {
             basename.push_str(&p);
         }
     }
 
-    if let Some(val) = entries.get("extension") {
+    if let Some(val) = record.get("extension") {
         let p = val.as_string()?;
         if !p.is_empty() {
             basename.push('.');

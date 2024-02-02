@@ -13,19 +13,13 @@ mod nu;
 mod quit;
 mod table;
 mod r#try;
-mod tweak;
 
-pub mod config;
-mod config_show;
-
-pub use config_show::ConfigShowCmd;
 pub use expand::ExpandCmd;
 pub use help::HelpCmd;
 pub use nu::NuCmd;
 pub use quit::QuitCmd;
 pub use r#try::TryCmd;
 pub use table::TableCmd;
-pub use tweak::TweakCmd;
 
 pub trait SimpleCommand {
     fn name(&self) -> &'static str;
@@ -55,8 +49,6 @@ pub trait ViewCommand {
     fn help(&self) -> Option<HelpManual>;
 
     fn parse(&mut self, args: &str) -> Result<()>;
-
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool;
 
     fn spawn(
         &mut self,

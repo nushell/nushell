@@ -4,9 +4,10 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
-    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
+    PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -164,7 +165,7 @@ impl Command for ToHtml {
 
 fn get_theme_from_asset_file(
     is_dark: bool,
-    theme: &Option<Spanned<String>>,
+    theme: Option<&Spanned<String>>,
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
@@ -180,7 +181,7 @@ fn get_theme_from_asset_file(
     let th = asset
         .themes
         .into_iter()
-        .find(|n| n.name.to_lowercase() == theme_name.to_lowercase()) // case insensitive search
+        .find(|n| n.name.eq_ignore_case(theme_name)) // case insensitive search
         .unwrap_or_default();
 
     Ok(convert_html_theme_to_hash_map(is_dark, &th))
@@ -238,11 +239,11 @@ fn to_html(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let html_color = call.has_flag("html-color");
-    let no_color = call.has_flag("no-color");
-    let dark = call.has_flag("dark");
-    let partial = call.has_flag("partial");
-    let list = call.has_flag("list");
+    let html_color = call.has_flag(engine_state, stack, "html-color")?;
+    let no_color = call.has_flag(engine_state, stack, "no-color")?;
+    let dark = call.has_flag(engine_state, stack, "dark")?;
+    let partial = call.has_flag(engine_state, stack, "partial")?;
+    let list = call.has_flag(engine_state, stack, "list")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = engine_state.get_config();
 
@@ -258,88 +259,58 @@ fn to_html(
         // If asset doesn't work, make sure to return the default theme
         let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
 
-        let cols = vec![
-            "name".into(),
-            "black".into(),
-            "red".into(),
-            "green".into(),
-            "yellow".into(),
-            "blue".into(),
-            "purple".into(),
-            "cyan".into(),
-            "white".into(),
-            "brightBlack".into(),
-            "brightRed".into(),
-            "brightGreen".into(),
-            "brightYellow".into(),
-            "brightBlue".into(),
-            "brightPurple".into(),
-            "brightCyan".into(),
-            "brightWhite".into(),
-            "background".into(),
-            "foreground".into(),
-        ];
-
         let result: Vec<Value> = html_themes
             .themes
             .into_iter()
             .map(|n| {
-                let vals = vec![
-                    n.name,
-                    n.black,
-                    n.red,
-                    n.green,
-                    n.yellow,
-                    n.blue,
-                    n.purple,
-                    n.cyan,
-                    n.white,
-                    n.brightBlack,
-                    n.brightRed,
-                    n.brightGreen,
-                    n.brightYellow,
-                    n.brightBlue,
-                    n.brightPurple,
-                    n.brightCyan,
-                    n.brightWhite,
-                    n.background,
-                    n.foreground,
-                ]
-                .into_iter()
-                .map(|val| Value::String { val, span: head })
-                .collect();
-
-                Value::Record {
-                    cols: cols.clone(),
-                    vals,
-                    span: head,
-                }
+                Value::record(
+                    record! {
+                        "name" => Value::string(n.name, head),
+                        "black" => Value::string(n.black, head),
+                        "red" => Value::string(n.red, head),
+                        "green" => Value::string(n.green, head),
+                        "yellow" => Value::string(n.yellow, head),
+                        "blue" => Value::string(n.blue, head),
+                        "purple" => Value::string(n.purple, head),
+                        "cyan" => Value::string(n.cyan, head),
+                        "white" => Value::string(n.white, head),
+                        "brightBlack" => Value::string(n.brightBlack, head),
+                        "brightRed" => Value::string(n.brightRed, head),
+                        "brightGreen" => Value::string(n.brightGreen, head),
+                        "brightYellow" => Value::string(n.brightYellow, head),
+                        "brightBlue" => Value::string(n.brightBlue, head),
+                        "brightPurple" => Value::string(n.brightPurple, head),
+                        "brightCyan" => Value::string(n.brightCyan, head),
+                        "brightWhite" => Value::string(n.brightWhite, head),
+                        "background" => Value::string(n.background, head),
+                        "foreground" => Value::string(n.foreground, head),
+                    },
+                    head,
+                )
             })
             .collect();
-        return Ok(Value::List {
-            vals: result,
-            span: head,
-        }
-        .into_pipeline_data_with_metadata(Box::new(PipelineMetadata {
-            data_source: DataSource::HtmlThemes,
-        })));
+        return Ok(
+            Value::list(result, head).into_pipeline_data_with_metadata(PipelineMetadata {
+                data_source: DataSource::HtmlThemes,
+            }),
+        );
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,
             None => head,
         };
 
-        let color_hm = get_theme_from_asset_file(dark, &theme);
+        let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
-                return Err(ShellError::GenericError(
-                    "Error finding theme name".to_string(),
-                    "Error finding theme name".to_string(),
-                    Some(theme_span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "Error finding theme name".into(),
+                    msg: "Error finding theme name".into(),
+                    span: Some(theme_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -425,21 +396,22 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("<thead><tr>");
     for header in &headers {
         output_string.push_str("<th>");
-        output_string.push_str(&htmlescape::encode_minimal(header));
+        output_string.push_str(&v_htmlescape::escape(header).to_string());
         output_string.push_str("</th>");
     }
     output_string.push_str("</tr></thead><tbody>");
 
     for row in table {
-        if let Value::Record { span, .. } = row {
+        let span = row.span();
+        if let Value::Record { val: row, .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
-                let data = row.get_data_by_key(header);
+                let data = row
+                    .get(header)
+                    .cloned()
+                    .unwrap_or_else(|| Value::nothing(span));
                 output_string.push_str("<td>");
-                output_string.push_str(&html_value(
-                    data.unwrap_or_else(|| Value::nothing(span)),
-                    config,
-                ));
+                output_string.push_str(&html_value(data, config));
                 output_string.push_str("</td>");
             }
             output_string.push_str("</tr>");
@@ -460,7 +432,8 @@ fn html_value(value: Value, config: &Config) -> String {
             output_string.push_str("</pre>");
         }
         other => output_string.push_str(
-            &htmlescape::encode_minimal(&other.into_abbreviated_string(config))
+            &v_htmlescape::escape(&other.into_abbreviated_string(config))
+                .to_string()
                 .replace('\n', "<br>"),
         ),
     }

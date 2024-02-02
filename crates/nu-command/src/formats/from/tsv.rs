@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -75,17 +75,12 @@ impl Command for FromTsv {
             Example {
                 description: "Convert tab-separated data to a table",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![
-                            Value::test_int(1),
-                            Value::test_int(2),
-                        ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                })
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" =>  Value::test_int(1),
+                        "ColB" =>  Value::test_int(2),
+                    })],
+                ))
             },
             Example {
                 description: "Create a tsv file with header columns and open it",
@@ -94,7 +89,7 @@ impl Command for FromTsv {
             },
             Example {
                 description: "Create a tsv file without header columns and open it",
-                example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv -n"#,
+                example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --noheaders"#,
                 result: None,
             },
             Example {
@@ -137,9 +132,9 @@ fn from_tsv(
         .get_flag(engine_state, stack, "escape")?
         .map(|v: Value| v.as_char())
         .transpose()?;
-    let no_infer = call.has_flag("no-infer");
-    let noheaders = call.has_flag("noheaders");
-    let flexible = call.has_flag("flexible");
+    let no_infer = call.has_flag(engine_state, stack, "no-infer")?;
+    let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
+    let flexible = call.has_flag(engine_state, stack, "flexible")?;
     let trim = trim_from_str(call.get_flag(engine_state, stack, "trim")?)?;
 
     let config = DelimitedReaderConfig {

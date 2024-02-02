@@ -1,6 +1,7 @@
 use alphanumeric_sort::compare_str;
 use nu_engine::column::nonexistent_column;
 use nu_protocol::{ShellError, Span, Value};
+use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
 // This module includes sorting functionality that is useful in sort-by and elsewhere.
@@ -17,19 +18,20 @@ pub fn sort_value(
     insensitive: bool,
     natural: bool,
 ) -> Result<Value, ShellError> {
+    let span = val.span();
     match val {
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             let mut vals = vals.clone();
-            sort(&mut vals, sort_columns, *span, insensitive, natural)?;
+            sort(&mut vals, sort_columns, span, insensitive, natural)?;
 
             if !ascending {
                 vals.reverse();
             }
 
-            Ok(Value::List { vals, span: *span })
+            Ok(Value::list(vals, span))
         }
-        Value::CustomValue { val, span } => {
-            let base_val = val.to_base_value(*span)?;
+        Value::CustomValue { val, .. } => {
+            let base_val = val.to_base_value(span)?;
             sort_value(&base_val, sort_columns, ascending, insensitive, natural)
         }
         _ => Ok(val.to_owned()),
@@ -45,8 +47,9 @@ pub fn sort_value_in_place(
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
-    if let Value::List { vals, span } = val {
-        sort(vals, sort_columns, *span, insensitive, natural)?;
+    let span = val.span();
+    if let Value::List { vals, .. } = val {
+        sort(vals, sort_columns, span, insensitive, natural)?;
         if !ascending {
             vals.reverse();
         }
@@ -61,28 +64,25 @@ pub fn sort(
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
+    let val_span = vec.first().map(|v| v.span()).unwrap_or(span);
     match vec.first() {
-        Some(Value::Record {
-            cols,
-            vals: _input_vals,
-            span: val_span,
-        }) => {
+        Some(Value::Record { val: record, .. }) => {
             if sort_columns.is_empty() {
                 // This uses the same format as the 'requires a column name' error in split_by.rs
-                return Err(ShellError::GenericError(
-                    "expected name".into(),
-                    "requires a column name to sort table data".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "expected name".into(),
+                    msg: "requires a column name to sort table data".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                });
             }
 
-            if let Some(nonexistent) = nonexistent_column(sort_columns.clone(), cols.to_vec()) {
+            if let Some(nonexistent) = nonexistent_column(&sort_columns, record.columns()) {
                 return Err(ShellError::CantFindColumn {
                     col_name: nonexistent,
                     span,
-                    src_span: *val_span,
+                    src_span: val_span,
                 });
             }
 
@@ -124,30 +124,26 @@ pub fn sort(
         _ => {
             vec.sort_by(|a, b| {
                 if insensitive {
-                    let lowercase_left = match a {
-                        Value::String { val, span } => Value::String {
-                            val: val.to_ascii_lowercase(),
-                            span: *span,
-                        },
+                    let span_a = a.span();
+                    let span_b = b.span();
+                    let folded_left = match a {
+                        Value::String { val, .. } => Value::string(val.to_folded_case(), span_a),
                         _ => a.clone(),
                     };
 
-                    let lowercase_right = match b {
-                        Value::String { val, span } => Value::String {
-                            val: val.to_ascii_lowercase(),
-                            span: *span,
-                        },
+                    let folded_right = match b {
+                        Value::String { val, .. } => Value::string(val.to_folded_case(), span_b),
                         _ => b.clone(),
                     };
 
                     if natural {
-                        match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                        match (folded_left.as_string(), folded_right.as_string()) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
                     } else {
-                        lowercase_left
-                            .partial_cmp(&lowercase_right)
+                        folded_left
+                            .partial_cmp(&folded_right)
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
@@ -177,40 +173,36 @@ pub fn compare(
 
         let left_res = match left_value {
             Some(left_res) => left_res,
-            None => Value::Nothing { span },
+            None => Value::nothing(span),
         };
 
         let right_value = right.get_data_by_key(column);
 
         let right_res = match right_value {
             Some(right_res) => right_res,
-            None => Value::Nothing { span },
+            None => Value::nothing(span),
         };
 
         let result = if insensitive {
-            let lowercase_left = match left_res {
-                Value::String { val, span } => Value::String {
-                    val: val.to_ascii_lowercase(),
-                    span,
-                },
+            let span_left = left_res.span();
+            let span_right = right_res.span();
+            let folded_left = match left_res {
+                Value::String { val, .. } => Value::string(val.to_folded_case(), span_left),
                 _ => left_res,
             };
 
-            let lowercase_right = match right_res {
-                Value::String { val, span } => Value::String {
-                    val: val.to_ascii_lowercase(),
-                    span,
-                },
+            let folded_right = match right_res {
+                Value::String { val, .. } => Value::string(val.to_folded_case(), span_right),
                 _ => right_res,
             };
             if natural {
-                match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                match (folded_left.as_string(), folded_right.as_string()) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }
             } else {
-                lowercase_left
-                    .partial_cmp(&lowercase_right)
+                folded_left
+                    .partial_cmp(&folded_right)
                     .unwrap_or(Ordering::Equal)
             }
         } else if natural {
@@ -229,134 +221,122 @@ pub fn compare(
     Ordering::Equal
 }
 
-#[test]
-fn test_sort_value() {
-    let val = Value::List {
-        vals: vec![
-            Value::test_record(
-                vec!["fruit", "count"],
-                vec![Value::test_string("pear"), Value::test_int(3)],
-            ),
-            Value::test_record(
-                vec!["fruit", "count"],
-                vec![Value::test_string("orange"), Value::test_int(7)],
-            ),
-            Value::test_record(
-                vec!["fruit", "count"],
-                vec![Value::test_string("apple"), Value::test_int(9)],
-            ),
-        ],
-        span: Span::test_data(),
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{record, Value};
 
-    let sorted_alphabetically =
-        sort_value(&val, vec!["fruit".to_string()], true, false, false).unwrap();
-    assert_eq!(
-        sorted_alphabetically,
-        Value::List {
-            vals: vec![
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
-                ),
-            ],
-            span: Span::test_data(),
-        }
-    );
+    #[test]
+    fn test_sort_value() {
+        let val = Value::test_list(vec![
+            Value::test_record(record! {
+            "fruit" => Value::test_string("pear"),
+            "count" => Value::test_int(3),
+            }),
+            Value::test_record(record! {
+            "fruit" => Value::test_string("orange"),
+            "count" => Value::test_int(7),
+            }),
+            Value::test_record(record! {
+            "fruit" => Value::test_string("apple"),
+            "count" => Value::test_int(9),
+            }),
+        ]);
 
-    let sorted_by_count_desc =
-        sort_value(&val, vec!["count".to_string()], false, false, false).unwrap();
-    assert_eq!(
-        sorted_by_count_desc,
-        Value::List {
-            vals: vec![
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
-                ),
-            ],
-            span: Span::test_data(),
-        }
-    );
-}
+        let sorted_alphabetically =
+            sort_value(&val, vec!["fruit".to_string()], true, false, false).unwrap();
+        assert_eq!(
+            sorted_alphabetically,
+            Value::test_list(vec![
+                Value::test_record(record! {
+                "fruit" => Value::test_string("apple"),
+                "count" => Value::test_int(9),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("orange"),
+                "count" => Value::test_int(7),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("pear"),
+                "count" => Value::test_int(3),
+                            }),
+            ],)
+        );
 
-#[test]
-fn test_sort_value_in_place() {
-    let mut val = Value::List {
-        vals: vec![
-            Value::test_record(
-                vec!["fruit", "count"],
-                vec![Value::test_string("pear"), Value::test_int(3)],
-            ),
-            Value::test_record(
-                vec!["fruit", "count"],
-                vec![Value::test_string("orange"), Value::test_int(7)],
-            ),
-            Value::test_record(
-                vec!["fruit", "count"],
-                vec![Value::test_string("apple"), Value::test_int(9)],
-            ),
-        ],
-        span: Span::test_data(),
-    };
+        let sorted_by_count_desc =
+            sort_value(&val, vec!["count".to_string()], false, false, false).unwrap();
+        assert_eq!(
+            sorted_by_count_desc,
+            Value::test_list(vec![
+                Value::test_record(record! {
+                "fruit" => Value::test_string("apple"),
+                "count" => Value::test_int(9),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("orange"),
+                "count" => Value::test_int(7),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("pear"),
+                "count" => Value::test_int(3),
+                            }),
+            ],)
+        );
+    }
 
-    sort_value_in_place(&mut val, vec!["fruit".to_string()], true, false, false).unwrap();
-    assert_eq!(
-        val,
-        Value::List {
-            vals: vec![
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
-                ),
-            ],
-            span: Span::test_data(),
-        }
-    );
+    #[test]
+    fn test_sort_value_in_place() {
+        let mut val = Value::test_list(vec![
+            Value::test_record(record! {
+            "fruit" => Value::test_string("pear"),
+            "count" => Value::test_int(3),
+            }),
+            Value::test_record(record! {
+            "fruit" => Value::test_string("orange"),
+            "count" => Value::test_int(7),
+            }),
+            Value::test_record(record! {
+            "fruit" => Value::test_string("apple"),
+            "count" => Value::test_int(9),
+            }),
+        ]);
 
-    sort_value_in_place(&mut val, vec!["count".to_string()], false, false, false).unwrap();
-    assert_eq!(
-        val,
-        Value::List {
-            vals: vec![
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
-                ),
-                Value::test_record(
-                    vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
-                ),
-            ],
-            span: Span::test_data(),
-        }
-    );
+        sort_value_in_place(&mut val, vec!["fruit".to_string()], true, false, false).unwrap();
+        assert_eq!(
+            val,
+            Value::test_list(vec![
+                Value::test_record(record! {
+                "fruit" => Value::test_string("apple"),
+                "count" => Value::test_int(9),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("orange"),
+                "count" => Value::test_int(7),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("pear"),
+                "count" => Value::test_int(3),
+                            }),
+            ],)
+        );
+
+        sort_value_in_place(&mut val, vec!["count".to_string()], false, false, false).unwrap();
+        assert_eq!(
+            val,
+            Value::test_list(vec![
+                Value::test_record(record! {
+                "fruit" => Value::test_string("apple"),
+                "count" => Value::test_int(9),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("orange"),
+                "count" => Value::test_int(7),
+                            }),
+                Value::test_record(record! {
+                "fruit" => Value::test_string("pear"),
+                "count" => Value::test_int(3),
+                            }),
+            ],)
+        );
+    }
 }

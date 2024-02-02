@@ -38,9 +38,7 @@ impl Command for Shuffle {
         let mut v: Vec<_> = input.into_iter_strict(call.head)?.collect();
         v.shuffle(&mut thread_rng());
         let iter = v.into_iter();
-        Ok(iter
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata))
+        Ok(iter.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {

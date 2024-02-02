@@ -233,18 +233,21 @@ pub fn root() -> PathBuf {
 }
 
 pub fn binaries() -> PathBuf {
-    let mut build_type = "debug".to_string();
-    if !cfg!(debug_assertions) {
-        build_type = "release".to_string()
-    }
-    if let Ok(target) = std::env::var("NUSHELL_CARGO_TARGET") {
-        build_type = target;
-    }
+    let build_target = std::env::var("CARGO_BUILD_TARGET").unwrap_or_default();
+
+    let profile = if let Ok(env_profile) = std::env::var("NUSHELL_CARGO_PROFILE") {
+        env_profile
+    } else if cfg!(debug_assertions) {
+        "debug".into()
+    } else {
+        "release".into()
+    };
 
     std::env::var("CARGO_TARGET_DIR")
-        .ok()
-        .map(|target_dir| PathBuf::from(target_dir).join(&build_type))
-        .unwrap_or_else(|| root().join(format!("target/{}", &build_type)))
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| root().join("target"))
+        .join(build_target)
+        .join(profile)
 }
 
 pub fn fixtures() -> PathBuf {

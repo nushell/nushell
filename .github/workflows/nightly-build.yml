@@ -13,7 +13,7 @@ on:
       - nightly   # Just for test purpose only with the nightly repo
   # This schedule will run only from the default branch
   schedule:
-    - cron: '15 1 * * *' # run at 01:15 AM UTC
+    - cron: '15 0 * * *' # run at 00:15 AM UTC
 
 defaults:
   run:
@@ -27,7 +27,7 @@ jobs:
     # if: github.repository == 'nushell/nightly'
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -36,10 +36,10 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3
+        uses: hustcer/setup-nu@v3.8
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.81.0
+          version: 0.86.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -53,22 +53,21 @@ jobs:
           # We can't push if no user name and email are configured
           git config user.name 'hustcer'
           git config user.email 'hustcer@outlook.com'
-          git fetch origin main
+          git pull origin main
           git remote add src https://github.com/nushell/nushell.git
           git fetch src main
-          # git pull --rebase src main
           # All the changes will be overwritten by the upstream main branch
           git reset --hard src/main
           git push origin main -f
-          let sha_short = (git rev-parse --short src/main | str trim | str substring 0..7)
+          let sha_short = (git rev-parse --short origin/main | str trim | str substring 0..7)
           let tag_name = $'nightly-($sha_short)'
           if (git ls-remote --tags origin $tag_name | is-empty) {
             git tag -a $tag_name -m $'Nightly build from ($sha_short)'
             git push origin --tags
           }
 
-  release:
-    name: Release
+  standard:
+    name: Std
     needs: prepare
     strategy:
       fail-fast: false
@@ -82,7 +81,7 @@ jobs:
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
         - armv7-unknown-linux-gnueabihf
-        - riscv64gc-unknown-linux-gnu
+        # - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
         - target: aarch64-apple-darwin
@@ -118,31 +117,33 @@ jobs:
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: '--exclude=nu-cmd-dataframe'
-        - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: '--exclude=nu-cmd-dataframe'
+          target_rustflags: ''
+        # - target: riscv64gc-unknown-linux-gnu
+        #   os: ubuntu-latest
+        #   target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         ref: main
+        fetch-depth: 0
 
     - name: Update Rust Toolchain Target
       run: |
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3
+      uses: hustcer/setup-nu@v3.8
       with:
-        version: 0.81.0
+        version: 0.86.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -150,6 +151,7 @@ jobs:
       id: nu
       run: nu .github/workflows/release-pkg.nu
       env:
+        RELEASE_TYPE: standard
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
@@ -176,7 +178,121 @@ jobs:
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
     - name: Publish Archive
-      uses: softprops/action-gh-release@v0.1.13
+      uses: softprops/action-gh-release@v0.1.15
+      if: ${{ startsWith(github.repository, 'nushell/nightly') }}
+      with:
+        prerelease: true
+        files: ${{ steps.nu.outputs.archive }}
+        tag_name: nightly-${{ steps.vars.outputs.sha_short }}
+        name: Nu-nightly-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.sha_short }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  full:
+    name: Full
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+        - aarch64-apple-darwin
+        - x86_64-apple-darwin
+        - x86_64-pc-windows-msvc
+        - aarch64-pc-windows-msvc
+        - x86_64-unknown-linux-gnu
+        - x86_64-unknown-linux-musl
+        - aarch64-unknown-linux-gnu
+        extra: ['bin']
+        include:
+        - target: aarch64-apple-darwin
+          os: macos-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-apple-darwin
+          os: macos-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: aarch64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: aarch64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-unknown-linux-gnu
+          os: ubuntu-20.04
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-20.04
+          target_rustflags: '--features=dataframe,extra'
+        - target: aarch64-unknown-linux-gnu
+          os: ubuntu-20.04
+          target_rustflags: '--features=dataframe,extra'
+
+    runs-on: ${{matrix.os}}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 0
+
+    - name: Update Rust Toolchain Target
+      run: |
+        echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
+
+    - name: Setup Rust toolchain and cache
+      uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
+      with:
+        rustflags: ''
+
+    - name: Setup Nushell
+      uses: hustcer/setup-nu@v3.8
+      with:
+        version: 0.86.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Release Nu Binary
+      id: nu
+      run: nu .github/workflows/release-pkg.nu
+      env:
+        RELEASE_TYPE: full
+        OS: ${{ matrix.os }}
+        REF: ${{ github.ref }}
+        TARGET: ${{ matrix.target }}
+        _EXTRA_: ${{ matrix.extra }}
+        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
+
+    - name: Create an Issue for Release Failure
+      if: ${{ failure() }}
+      uses: JasonEtco/create-an-issue@v2.9.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        update_existing: true
+        search_existing: open
+        filename: .github/AUTO_ISSUE_TEMPLATE/nightly-build-fail.md
+
+    - name: Set Outputs of Short SHA
+      id: vars
+      run: |
+        echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        sha_short=$(git rev-parse --short HEAD)
+        echo "sha_short=${sha_short:0:7}" >> $GITHUB_OUTPUT
+
+    # REF: https://github.com/marketplace/actions/gh-release
+    # Create a release only in nushell/nightly repo
+    - name: Publish Archive
+      uses: softprops/action-gh-release@v0.1.15
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         draft: false
@@ -200,14 +316,14 @@ jobs:
       - name: Waiting for Release
         run: sleep 1800
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3
+        uses: hustcer/setup-nu@v3.8
         with:
-          version: 0.81.0
+          version: 0.86.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

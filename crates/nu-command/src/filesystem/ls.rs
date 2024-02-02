@@ -3,13 +3,14 @@ use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_glob::MatchOptions;
+use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::NuPath;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
@@ -38,8 +39,9 @@ impl Command for Ls {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
-            // Using a string instead of a glob pattern shape so it won't auto-expand
-            .optional("pattern", SyntaxShape::String, "the glob pattern to use")
+            // LsGlobPattern is similar to string, it won't auto-expand
+            // and we use it to track if the user input is quoted.
+            .optional("pattern", SyntaxShape::GlobPattern, "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -73,34 +75,43 @@ impl Command for Ls {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let all = call.has_flag("all");
-        let long = call.has_flag("long");
-        let short_names = call.has_flag("short-names");
-        let full_paths = call.has_flag("full-paths");
-        let du = call.has_flag("du");
-        let directory = call.has_flag("directory");
-        let use_mime_type = call.has_flag("mime-type");
+        let all = call.has_flag(engine_state, stack, "all")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
+        let short_names = call.has_flag(engine_state, stack, "short-names")?;
+        let full_paths = call.has_flag(engine_state, stack, "full-paths")?;
+        let du = call.has_flag(engine_state, stack, "du")?;
+        let directory = call.has_flag(engine_state, stack, "directory")?;
+        let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        let pattern_arg: Option<Spanned<NuPath>> = call.opt(engine_state, stack, 0)?;
 
         let pattern_arg = {
             if let Some(path) = pattern_arg {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
-                    span: path.span,
-                })
+                match path.item {
+                    NuPath::Quoted(p) => Some(Spanned {
+                        item: NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(p)),
+                        span: path.span,
+                    }),
+                    NuPath::UnQuoted(p) => Some(Spanned {
+                        item: NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(p)),
+                        span: path.span,
+                    }),
+                }
             } else {
                 pattern_arg
             }
         };
 
-        let (path, p_tag, absolute_path) = match pattern_arg {
-            Some(p) => {
-                let p_tag = p.span;
-                let mut p = expand_to_real_path(p.item);
+        // it indicates we need to append an extra '*' after pattern for listing given directory
+        // Example: 'ls directory' -> 'ls directory/*'
+        let mut extra_star_under_given_directory = false;
+        let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+            Some(pat) => {
+                let p_tag = pat.span;
+                let p = expand_to_real_path(pat.item.as_ref());
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
@@ -120,59 +131,86 @@ impl Command for Ls {
                         );
                         #[cfg(not(unix))]
                         let error_msg = String::from("Permission denied");
-                        return Err(ShellError::GenericError(
-                            "Permission denied".to_string(),
-                            error_msg,
-                            Some(p_tag),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "Permission denied".into(),
+                            msg: error_msg,
+                            span: Some(p_tag),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                     if is_empty_dir(&expanded) {
                         return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
-                    p.push("*");
+                    extra_star_under_given_directory = true;
                 }
                 let absolute_path = p.is_absolute();
-                (p, p_tag, absolute_path)
+                (
+                    p,
+                    p_tag,
+                    absolute_path,
+                    matches!(pat.item, NuPath::Quoted(_)),
+                )
             }
             None => {
                 // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
                 if directory {
-                    (PathBuf::from("."), call_span, false)
+                    (PathBuf::from("."), call_span, false, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("*"), call_span, false)
+                    (PathBuf::from("*"), call_span, false, false)
                 }
             }
         };
 
         let hidden_dir_specified = is_hidden_dir(&path);
+        // when it's quoted, we need to escape our glob pattern(but without the last extra
+        // start which may be added under given directory)
+        // so we can do ls for a file or directory like `a[123]b`
+        let path = if quoted {
+            let p = path.display().to_string();
+            let mut glob_escaped = Pattern::escape(&p);
+            if extra_star_under_given_directory {
+                glob_escaped.push(std::path::MAIN_SEPARATOR);
+                glob_escaped.push('*');
+            }
+            glob_escaped
+        } else {
+            let mut p = path.display().to_string();
+            if extra_star_under_given_directory {
+                p.push(std::path::MAIN_SEPARATOR);
+                p.push('*');
+            }
+            p
+        };
 
         let glob_path = Spanned {
-            item: path.display().to_string(),
+            // It needs to be un-quoted, the relative logic is handled previously
+            item: NuPath::UnQuoted(path.clone()),
             span: p_tag,
         };
 
         let glob_options = if all {
             None
         } else {
-            let mut glob_options = MatchOptions::new();
-            glob_options.recursive_match_hidden_dir = false;
+            let glob_options = MatchOptions {
+                recursive_match_hidden_dir: false,
+                ..Default::default()
+            };
             Some(glob_options)
         };
         let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)?;
 
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
-            return Err(ShellError::GenericError(
-                format!("No matches found for {}", &path.display().to_string()),
-                "Pattern, file or folder not found".to_string(),
-                Some(p_tag),
-                Some("no matches found".to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("No matches found for {}", &path),
+                msg: "Pattern, file or folder not found".into(),
+                span: Some(p_tag),
+                help: Some("no matches found".into()),
+                inner: vec![],
+            });
         }
 
         let mut hidden_dirs = vec![];
@@ -231,14 +269,12 @@ impl Command for Ls {
                     } else {
                         Some(path.to_string_lossy().to_string())
                     }
-                    .ok_or_else(|| {
-                        ShellError::GenericError(
-                            format!("Invalid file name: {:}", path.to_string_lossy()),
-                            "invalid file name".into(),
-                            Some(call_span),
-                            None,
-                            Vec::new(),
-                        )
+                    .ok_or_else(|| ShellError::GenericError {
+                        error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                        msg: "invalid file name".into(),
+                        span: Some(call_span),
+                        help: None,
+                        inner: vec![],
                     });
 
                     match display_name {
@@ -255,22 +291,18 @@ impl Command for Ls {
                             );
                             match entry {
                                 Ok(value) => Some(value),
-                                Err(err) => Some(Value::Error {
-                                    error: Box::new(err),
-                                }),
+                                Err(err) => Some(Value::error(err, call_span)),
                             }
                         }
-                        Err(err) => Some(Value::Error {
-                            error: Box::new(err),
-                        }),
+                        Err(err) => Some(Value::error(err, call_span)),
                     }
                 }
-                _ => Some(Value::Nothing { span: call_span }),
+                _ => Some(Value::nothing(call_span)),
             })
             .into_pipeline_data_with_metadata(
-                Box::new(PipelineMetadata {
+                PipelineMetadata {
                     data_source: DataSource::Ls,
-                }),
+                },
                 engine_state.ctrlc.clone(),
             ))
     }
@@ -431,219 +463,155 @@ pub(crate) fn dir_entry_dict(
         ));
     }
 
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
     let mut file_type = "unknown".to_string();
 
-    cols.push("name".into());
-    vals.push(Value::String {
-        val: display_name.to_string(),
-        span,
-    });
+    record.push("name", Value::string(display_name, span));
 
     if let Some(md) = metadata {
         file_type = get_file_type(md, display_name, use_mime_type);
-        cols.push("type".into());
-        vals.push(Value::String {
-            val: file_type.clone(),
-            span,
-        });
+        record.push("type", Value::string(file_type.clone(), span));
     } else {
-        cols.push("type".into());
-        vals.push(Value::nothing(span));
+        record.push("type", Value::nothing(span));
     }
 
     if long {
-        cols.push("target".into());
         if let Some(md) = metadata {
-            if md.file_type().is_symlink() {
-                if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(Value::String {
-                        val: path_to_link.to_string_lossy().to_string(),
-                        span,
-                    });
+            record.push(
+                "target",
+                if md.file_type().is_symlink() {
+                    if let Ok(path_to_link) = filename.read_link() {
+                        Value::string(path_to_link.to_string_lossy(), span)
+                    } else {
+                        Value::string("Could not obtain target file's path", span)
+                    }
                 } else {
-                    vals.push(Value::String {
-                        val: "Could not obtain target file's path".to_string(),
-                        span,
-                    });
-                }
-            } else {
-                vals.push(Value::nothing(span));
-            }
+                    Value::nothing(span)
+                },
+            )
         }
     }
 
     if long {
         if let Some(md) = metadata {
-            cols.push("readonly".into());
-            vals.push(Value::Bool {
-                val: md.permissions().readonly(),
-                span,
-            });
+            record.push("readonly", Value::bool(md.permissions().readonly(), span));
 
             #[cfg(unix)]
             {
                 use crate::filesystem::util::users;
                 use std::os::unix::fs::MetadataExt;
                 let mode = md.permissions().mode();
-                cols.push("mode".into());
-                vals.push(Value::String {
-                    val: umask::Mode::from(mode).to_string(),
-                    span,
-                });
+                record.push(
+                    "mode",
+                    Value::string(umask::Mode::from(mode).to_string(), span),
+                );
 
                 let nlinks = md.nlink();
-                cols.push("num_links".into());
-                vals.push(Value::Int {
-                    val: nlinks as i64,
-                    span,
-                });
+                record.push("num_links", Value::int(nlinks as i64, span));
 
                 let inode = md.ino();
-                cols.push("inode".into());
-                vals.push(Value::Int {
-                    val: inode as i64,
-                    span,
-                });
+                record.push("inode", Value::int(inode as i64, span));
 
-                cols.push("user".into());
-                if let Some(user) = users::get_user_by_uid(md.uid()) {
-                    vals.push(Value::String {
-                        val: user.name,
-                        span,
-                    });
-                } else {
-                    vals.push(Value::Int {
-                        val: md.uid() as i64,
-                        span,
-                    })
-                }
+                record.push(
+                    "user",
+                    if let Some(user) = users::get_user_by_uid(md.uid()) {
+                        Value::string(user.name, span)
+                    } else {
+                        Value::int(md.uid() as i64, span)
+                    },
+                );
 
-                cols.push("group".into());
-                if let Some(group) = users::get_group_by_gid(md.gid()) {
-                    vals.push(Value::String {
-                        val: group.name,
-                        span,
-                    });
-                } else {
-                    vals.push(Value::Int {
-                        val: md.gid() as i64,
-                        span,
-                    })
-                }
+                record.push(
+                    "group",
+                    if let Some(group) = users::get_group_by_gid(md.gid()) {
+                        Value::string(group.name, span)
+                    } else {
+                        Value::int(md.gid() as i64, span)
+                    },
+                );
             }
         }
     }
 
-    cols.push("size".to_string());
-    if let Some(md) = metadata {
-        let zero_sized = file_type == "pipe"
-            || file_type == "socket"
-            || file_type == "char device"
-            || file_type == "block device";
+    record.push(
+        "size",
+        if let Some(md) = metadata {
+            let zero_sized = file_type == "pipe"
+                || file_type == "socket"
+                || file_type == "char device"
+                || file_type == "block device";
 
-        if md.is_dir() {
-            if du {
-                let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
-                let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
+            if md.is_dir() {
+                if du {
+                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
+                    let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
 
-                vals.push(Value::Filesize {
-                    val: dir_size as i64,
-                    span,
-                });
-            } else {
-                let dir_size: u64 = md.len();
+                    Value::filesize(dir_size as i64, span)
+                } else {
+                    let dir_size: u64 = md.len();
 
-                vals.push(Value::Filesize {
-                    val: dir_size as i64,
-                    span,
-                });
-            };
-        } else if md.is_file() {
-            vals.push(Value::Filesize {
-                val: md.len() as i64,
-                span,
-            });
-        } else if md.file_type().is_symlink() {
-            if let Ok(symlink_md) = filename.symlink_metadata() {
-                vals.push(Value::Filesize {
-                    val: symlink_md.len() as i64,
-                    span,
-                });
-            } else {
-                vals.push(Value::nothing(span));
-            }
-        } else {
-            let value = if zero_sized {
-                Value::Filesize { val: 0, span }
+                    Value::filesize(dir_size as i64, span)
+                }
+            } else if md.is_file() {
+                Value::filesize(md.len() as i64, span)
+            } else if md.file_type().is_symlink() {
+                if let Ok(symlink_md) = filename.symlink_metadata() {
+                    Value::filesize(symlink_md.len() as i64, span)
+                } else {
+                    Value::nothing(span)
+                }
+            } else if zero_sized {
+                Value::filesize(0, span)
             } else {
                 Value::nothing(span)
-            };
-            vals.push(value);
-        }
-    } else {
-        vals.push(Value::nothing(span));
-    }
+            }
+        } else {
+            Value::nothing(span)
+        },
+    );
 
     if let Some(md) = metadata {
         if long {
-            cols.push("created".to_string());
-            {
+            record.push("created", {
                 let mut val = Value::nothing(span);
                 if let Ok(c) = md.created() {
                     if let Some(local) = try_convert_to_local_date_time(c) {
-                        val = Value::Date {
-                            val: local.with_timezone(local.offset()),
-                            span,
-                        };
+                        val = Value::date(local.with_timezone(local.offset()), span);
                     }
                 }
-                vals.push(val);
-            }
+                val
+            });
 
-            cols.push("accessed".to_string());
-            {
+            record.push("accessed", {
                 let mut val = Value::nothing(span);
                 if let Ok(a) = md.accessed() {
                     if let Some(local) = try_convert_to_local_date_time(a) {
-                        val = Value::Date {
-                            val: local.with_timezone(local.offset()),
-                            span,
-                        };
+                        val = Value::date(local.with_timezone(local.offset()), span)
                     }
                 }
-                vals.push(val);
-            }
+                val
+            });
         }
 
-        cols.push("modified".to_string());
-        {
+        record.push("modified", {
             let mut val = Value::nothing(span);
             if let Ok(m) = md.modified() {
                 if let Some(local) = try_convert_to_local_date_time(m) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
             }
-            vals.push(val);
-        }
+            val
+        })
     } else {
         if long {
-            cols.push("created".to_string());
-            vals.push(Value::nothing(span));
-
-            cols.push("accessed".to_string());
-            vals.push(Value::nothing(span));
+            record.push("created", Value::nothing(span));
+            record.push("accessed", Value::nothing(span));
         }
 
-        cols.push("modified".to_string());
-        vals.push(Value::nothing(span));
+        record.push("modified", Value::nothing(span));
     }
 
-    Ok(Value::Record { cols, vals, span })
+    Ok(Value::record(record, span))
 }
 
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
@@ -664,6 +632,11 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
         }
     };
 
+    const NEG_UNIX_EPOCH: i64 = -11644473600; // t was invalid 0, UNIX_EPOCH subtracted above.
+    if sec == NEG_UNIX_EPOCH {
+        // do not tz lookup invalid SystemTime
+        return None;
+    }
     match Utc.timestamp_opt(sec, nsec) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
@@ -702,110 +675,82 @@ mod windows_helper {
         span: Span,
         long: bool,
     ) -> Value {
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
 
-        cols.push("name".into());
-        vals.push(Value::String {
-            val: display_name.to_string(),
-            span,
-        });
+        record.push("name", Value::string(display_name, span));
 
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
             Err(e) => {
-                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
+                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.', pipes)
                 // For now, we just log it and give up on returning metadata columns
                 // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
-                eprintln!(
-                    "Failed to read metadata for '{}'. It may have an illegal filename",
-                    filename.to_string_lossy()
-                );
-                log::error!("{e}");
-                return Value::Record { cols, vals, span };
+                log::error!("ls: '{}' {}", filename.to_string_lossy(), e);
+                return Value::record(record, span);
             }
         };
 
-        cols.push("type".into());
-        vals.push(Value::String {
-            val: get_file_type_windows_fallback(&find_data),
-            span,
-        });
+        record.push(
+            "type",
+            Value::string(get_file_type_windows_fallback(&find_data), span),
+        );
 
         if long {
-            cols.push("target".into());
-            if is_symlink(&find_data) {
-                if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(Value::String {
-                        val: path_to_link.to_string_lossy().to_string(),
-                        span,
-                    });
+            record.push(
+                "target",
+                if is_symlink(&find_data) {
+                    if let Ok(path_to_link) = filename.read_link() {
+                        Value::string(path_to_link.to_string_lossy(), span)
+                    } else {
+                        Value::string("Could not obtain target file's path", span)
+                    }
                 } else {
-                    vals.push(Value::String {
-                        val: "Could not obtain target file's path".to_string(),
-                        span,
-                    });
-                }
-            } else {
-                vals.push(Value::nothing(span));
-            }
+                    Value::nothing(span)
+                },
+            );
 
-            cols.push("readonly".into());
-            vals.push(Value::Bool {
-                val: (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0),
-                span,
-            });
+            record.push(
+                "readonly",
+                Value::bool(
+                    find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0,
+                    span,
+                ),
+            );
         }
 
-        cols.push("size".to_string());
         let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
-        vals.push(Value::Filesize {
-            val: file_size as i64,
-            span,
-        });
+        record.push("size", Value::filesize(file_size as i64, span));
 
         if long {
-            cols.push("created".to_string());
-            {
+            record.push("created", {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
-                vals.push(val);
-            }
+                val
+            });
 
-            cols.push("accessed".to_string());
-            {
+            record.push("accessed", {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
-                vals.push(val);
-            }
+                val
+            });
         }
 
-        cols.push("modified".to_string());
-        {
+        record.push("modified", {
             let mut val = Value::nothing(span);
             let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
             if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                val = Value::Date {
-                    val: local.with_timezone(local.offset()),
-                    span,
-                };
+                val = Value::date(local.with_timezone(local.offset()), span);
             }
-            vals.push(val);
-        }
+            val
+        });
 
-        Value::Record { cols, vals, span }
+        Value::record(record, span)
     }
 
     fn unix_time_from_filetime(ft: &FILETIME) -> i64 {
@@ -814,10 +759,12 @@ mod windows_helper {
         const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
 
         let time_u64 = ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64);
-        let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
-        let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
-
-        seconds_since_unix_epoch as i64
+        if time_u64 > 0 {
+            let rel_to_linux_epoch = time_u64.saturating_sub(EPOCH_AS_FILETIME);
+            let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
+            return seconds_since_unix_epoch as i64;
+        }
+        0
     }
 
     // wrapper around the FindFirstFileW Win32 API
@@ -836,14 +783,14 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => Err(ShellError::ReadingFile(
-                    format!(
+                Err(e) => Err(ShellError::ReadingFile {
+                    msg: format!(
                         "Could not read metadata for '{}':\n  '{}'",
                         filename.to_string_lossy(),
                         e
                     ),
                     span,
-                )),
+                }),
             }
         }
     }

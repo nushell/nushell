@@ -67,19 +67,19 @@ impl Command for SeqDate {
             },
             Example {
                 description: "print the previous 10 days in YYYY-MM-DD format with newline separator",
-                example: "seq date --days 10 -r",
+                example: "seq date --days 10 --reverse",
                 result: None,
             },
             Example {
                 description: "print the previous 10 days starting today in MM/DD/YYYY format with newline separator",
-                example: "seq date --days 10 -o '%m/%d/%Y' -r",
+                example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
             Example {
                 description: "print the first 10 days in January, 2020",
-                example: "seq date -b '2020-01-01' -e '2020-01-10'",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10'",
+                result: Some(Value::list(
+                     vec![
                         Value::test_string("2020-01-01"),
                         Value::test_string("2020-01-02"),
                         Value::test_string("2020-01-03"),
@@ -91,14 +91,14 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-09"),
                         Value::test_string("2020-01-10"),
                     ],
-                    span: Span::test_data(),
-                }),
+                     Span::test_data(),
+                )),
             },
             Example {
                 description: "print every fifth day between January 1st 2020 and January 31st 2020",
-                example: "seq date -b '2020-01-01' -e '2020-01-31' -n 5",
-                result: Some(Value::List {
-                   vals: vec![
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
+                result: Some(Value::list(
+                    vec![
                     Value::test_string("2020-01-01"),
                     Value::test_string("2020-01-06"),
                     Value::test_string("2020-01-11"),
@@ -107,8 +107,8 @@ impl Command for SeqDate {
                     Value::test_string("2020-01-26"),
                     Value::test_string("2020-01-31"),
                     ],
-                    span: Span::test_data(),
-                }),
+                     Span::test_data(),
+                )),
             },
         ]
     }
@@ -129,7 +129,7 @@ impl Command for SeqDate {
         let end_date: Option<Spanned<String>> = call.get_flag(engine_state, stack, "end-date")?;
         let increment: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "increment")?;
         let days: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "days")?;
-        let reverse = call.has_flag("reverse");
+        let reverse = call.has_flag(engine_state, stack, "reverse")?;
 
         let outformat = match output_format {
             Some(s) => Some(Value::string(s.item, s.span)),
@@ -194,26 +194,26 @@ pub fn run_seq_dates(
     let mut step_size: i64 = increment.as_i64()?;
 
     if step_size == 0 {
-        return Err(ShellError::GenericError(
-            "increment cannot be 0".to_string(),
-            "increment cannot be 0".to_string(),
-            Some(increment.span()?),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "increment cannot be 0".into(),
+            msg: "increment cannot be 0".into(),
+            span: Some(increment.span()),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let in_format = match input_format {
         Some(i) => match i.as_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "".to_string(),
-                    None,
-                    Some("error with input_format as_string".to_string()),
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("error with input_format as_string".into()),
+                    inner: vec![],
+                });
             }
         },
         _ => "%Y-%m-%d".to_string(),
@@ -223,13 +223,13 @@ pub fn run_seq_dates(
         Some(i) => match i.as_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "".to_string(),
-                    None,
-                    Some("error with output_format as_string".to_string()),
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("error with output_format as_string".into()),
+                    inner: vec![],
+                });
             }
         },
         _ => "%Y-%m-%d".to_string(),
@@ -239,13 +239,13 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "Failed to parse date".to_string(),
-                    Some(call_span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "Failed to parse date".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         },
         _ => today,
@@ -255,13 +255,13 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "Failed to parse date".to_string(),
-                    Some(call_span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "Failed to parse date".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         },
         _ => today,
@@ -282,13 +282,13 @@ pub fn run_seq_dates(
         end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
             Some(date) => date,
             None => {
-                return Err(ShellError::GenericError(
-                    "integer value too large".to_string(),
-                    "integer value too large".to_string(),
-                    Some(call_span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "int value too large".into(),
+                    msg: "int value too large".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     }
@@ -304,13 +304,13 @@ pub fn run_seq_dates(
 
     let mut next = start_date;
     if is_out_of_range(next) {
-        return Err(ShellError::GenericError(
-            "date is out of range".to_string(),
-            "date is out of range".to_string(),
-            Some(call_span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "date is out of range".into(),
+            msg: "date is out of range".into(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let mut ret = vec![];
@@ -324,10 +324,7 @@ pub fn run_seq_dates(
         }
     }
 
-    Ok(Value::List {
-        vals: ret,
-        span: call_span,
-    })
+    Ok(Value::list(ret, call_span))
 }
 
 #[cfg(test)]

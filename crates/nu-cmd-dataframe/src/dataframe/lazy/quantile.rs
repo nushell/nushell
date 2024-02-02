@@ -38,10 +38,13 @@ impl Command for LazyQuantile {
             description: "quantile value from columns in a dataframe",
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr quantile 0.5",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)]),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)]),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_float(4.0)]),
+                        Column::new("b".to_string(), vec![Value::test_float(2.0)]),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -62,7 +65,14 @@ impl Command for LazyQuantile {
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
             lazy.into_polars()
-                .quantile(lit(quantile), QuantileInterpolOptions::default()),
+                .quantile(lit(quantile), QuantileInterpolOptions::default())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Dataframe Error".into(),
+                    msg: e.to_string(),
+                    help: None,
+                    span: None,
+                    inner: vec![],
+                })?,
         );
 
         Ok(PipelineData::Value(lazy.into_value(call.head)?, None))

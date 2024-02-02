@@ -214,14 +214,14 @@ mod regex {
 
     #[test]
     fn parse_handles_external_stream_chunking() {
-        Playground::setup("parse_test_streaming_1", |dirs, _sandbox| {
+        Playground::setup("parse_test_streaming_1", |dirs, sandbox| {
+            let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
+            sandbox.with_files(vec![Stub::FileWithContent("data.txt", &data)]);
+
             let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    "abcdefghijklmnopqrstuvwxyz" * 1000 | save --force data.txt;
-                    open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length
-                "#
-            ));
+                cwd: dirs.test(),
+                r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#
+            );
 
             assert_eq!(actual.out, "1000");
         })

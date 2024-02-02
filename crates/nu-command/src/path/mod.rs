@@ -36,36 +36,35 @@ where
     F: Fn(&StdPath, Span, &A) -> Value + Send + Sync + 'static,
     A: PathSubcommandArguments + Send + Sync + 'static,
 {
+    let span = v.span();
     match v {
-        Value::String { val, span } => cmd(StdPath::new(&val), span, args),
+        Value::String { val, .. } => cmd(StdPath::new(&val), span, args),
         _ => handle_invalid_values(v, name),
     }
 }
 
 fn handle_invalid_values(rest: Value, name: Span) -> Value {
-    Value::Error {
-        error: Box::new(err_from_value(&rest, name)),
-    }
+    Value::error(err_from_value(&rest, name), name)
 }
 
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
-    match rest.span() {
-        Ok(span) => {
+    match rest {
+        Value::Error { error, .. } => *error.clone(),
+        _ => {
             if rest.is_nothing() {
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string, record or list".into(),
                     wrong_type: "nothing".into(),
                     dst_span: name,
-                    src_span: span,
+                    src_span: rest.span(),
                 }
             } else {
                 ShellError::PipelineMismatch {
                     exp_input_type: "string, row or list".into(),
                     dst_span: name,
-                    src_span: span,
+                    src_span: rest.span(),
                 }
             }
         }
-        Err(error) => error,
     }
 }

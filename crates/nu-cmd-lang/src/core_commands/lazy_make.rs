@@ -65,8 +65,8 @@ impl Command for LazyMake {
             .get_flag(engine_state, stack, "get-value")?
             .expect("required flag");
 
-        Ok(Value::LazyRecord {
-            val: Box::new(NuLazyRecord {
+        Ok(Value::lazy_record(
+            Box::new(NuLazyRecord {
                 engine_state: engine_state.clone(),
                 stack: Arc::new(Mutex::new(stack.clone())),
                 columns,
@@ -74,7 +74,7 @@ impl Command for LazyMake {
                 span,
             }),
             span,
-        }
+        )
         .into_pipeline_data())
     }
 
@@ -88,7 +88,7 @@ impl Command for LazyMake {
             },
             Example {
                 description: "Test the laziness of lazy records",
-                example: r#"lazy make -c ["hello"] -g { |key| print $"getting ($key)!"; $key | str upcase }"#,
+                example: r#"lazy make --columns ["hello"] --get-value { |key| print $"getting ($key)!"; $key | str upcase }"#,
                 result: None,
             },
         ]
@@ -118,10 +118,7 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
         let block = self.engine_state.get_block(self.get_value.block_id);
         let mut stack = self.stack.lock().expect("lock must not be poisoned");
-        let column_value = Value::String {
-            val: column.into(),
-            span: self.span,
-        };
+        let column_value = Value::string(column, self.span);
 
         if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
@@ -141,7 +138,7 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
         pipeline_result.map(|data| match data {
             PipelineData::Value(value, ..) => value,
             // TODO: Proper error handling.
-            _ => Value::Nothing { span: self.span },
+            _ => Value::nothing(self.span),
         })
     }
 
@@ -150,9 +147,6 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
     }
 
     fn clone_value(&self, span: Span) -> Value {
-        Value::LazyRecord {
-            val: Box::new((*self).clone()),
-            span,
-        }
+        Value::lazy_record(Box::new((*self).clone()), span)
     }
 }

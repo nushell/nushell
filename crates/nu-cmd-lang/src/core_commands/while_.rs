@@ -21,13 +21,17 @@ impl Command for While {
         Signature::build("while")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("cond", SyntaxShape::MathExpression, "condition to check")
+            .required("cond", SyntaxShape::MathExpression, "Condition to check.")
             .required(
                 "block",
                 SyntaxShape::Block,
-                "block to loop if check succeeds",
+                "Block to loop if check succeeds.",
             )
             .category(Category::Core)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["loop"]
     }
 
     fn run(
@@ -58,10 +62,10 @@ impl Command for While {
                             call.redirect_stdout,
                             call.redirect_stderr,
                         ) {
-                            Err(ShellError::Break(_)) => {
+                            Err(ShellError::Break { .. }) => {
                                 break;
                             }
-                            Err(ShellError::Continue(_)) => {
+                            Err(ShellError::Continue { .. }) => {
                                 continue;
                             }
                             Err(err) => {
@@ -86,7 +90,7 @@ impl Command for While {
                     return Err(ShellError::CantConvert {
                         to_type: "bool".into(),
                         from_type: x.get_type().to_string(),
-                        span: result.span()?,
+                        span: result.span(),
                         help: None,
                     })
                 }

@@ -63,12 +63,12 @@ impl Command for SubCommand {
             .required(
                 "range",
                 SyntaxShape::Any,
-                "the indexes to substring [start end]",
+                "The indexes to substring [start end].",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, turn strings at the given cell paths into substrings",
+                "For a data structure input, turn strings at the given cell paths into substrings.",
             )
             .category(Category::Strings)
     }
@@ -102,7 +102,7 @@ impl Command for SubCommand {
         let args = Arguments {
             indexes,
             cell_paths,
-            graphemes: grapheme_flags(call)?,
+            graphemes: grapheme_flags(engine_state, stack, call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -117,7 +117,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
                 result: Some(Value::test_string("ふが")),
             },
         ]
@@ -144,14 +144,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             if start < len && end >= 0 {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
-                    Ordering::Greater => Value::Error {
-                        error: Box::new(ShellError::TypeMismatch {
+                    Ordering::Greater => Value::error(
+                        ShellError::TypeMismatch {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
-                        }),
-                    },
-                    Ordering::Less => Value::String {
-                        val: {
+                        },
+                        head,
+                    ),
+                    Ordering::Less => Value::string(
+                        {
                             if end == isize::max_value() {
                                 if args.graphemes {
                                     s.graphemes(true)
@@ -180,8 +181,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 .to_string()
                             }
                         },
-                        span: head,
-                    },
+                        head,
+                    ),
                 }
             } else {
                 Value::string("", head)
@@ -189,15 +190,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::UnsupportedInput(
-                "Only string values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            )),
-        },
+        other => Value::error(
+            ShellError::UnsupportedInput {
+                msg: "Only string values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 
@@ -277,10 +278,7 @@ mod tests {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             cell_paths: None,

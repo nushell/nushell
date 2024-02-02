@@ -22,7 +22,7 @@ impl Command for Tutor {
             .optional(
                 "search",
                 SyntaxShape::String,
-                "item to search for, or 'list' to list available tutorials",
+                "Item to search for, or 'list' to list available tutorials.",
             )
             .named(
                 "find",
@@ -60,7 +60,7 @@ impl Command for Tutor {
             },
             Example {
                 description: "Search a tutorial by phrase",
-                example: "tutor -f \"$in\"",
+                example: "tutor --find \"$in\"",
                 result: None,
             },
         ]

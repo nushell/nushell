@@ -28,24 +28,25 @@ impl Plugin for Inc {
     fn run(
         &mut self,
         name: &str,
+        _config: &Option<Value>,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
         if name != "inc" {
-            return Ok(Value::Nothing { span: call.head });
+            return Ok(Value::nothing(call.head));
         }
 
         let cell_path: Option<CellPath> = call.opt(0)?;
 
         self.cell_path = cell_path;
 
-        if call.has_flag("major") {
+        if call.has_flag("major")? {
             self.for_semver(SemVerAction::Major);
         }
-        if call.has_flag("minor") {
+        if call.has_flag("minor")? {
             self.for_semver(SemVerAction::Minor);
         }
-        if call.has_flag("patch") {
+        if call.has_flag("patch")? {
             self.for_semver(SemVerAction::Patch);
         }
 

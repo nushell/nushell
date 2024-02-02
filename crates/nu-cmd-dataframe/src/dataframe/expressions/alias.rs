@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -38,23 +38,13 @@ impl Command for ExprAlias {
             description: "Creates and alias expression",
             example: "dfr col a | dfr as new_a | dfr into-nu",
             result: {
-                let cols = vec!["expr".into(), "value".into()];
-                let expr = Value::test_string("column");
-                let value = Value::test_string("a");
-                let expr = Value::Record {
-                    cols,
-                    vals: vec![expr, value],
-                    span: Span::test_data(),
-                };
-
-                let cols = vec!["expr".into(), "alias".into()];
-                let value = Value::test_string("new_a");
-
-                let record = Value::Record {
-                    cols,
-                    vals: vec![expr, value],
-                    span: Span::test_data(),
-                };
+                let record = Value::test_record(record! {
+                    "expr" =>  Value::test_record(record! {
+                        "expr" =>  Value::test_string("column"),
+                        "value" => Value::test_string("a"),
+                    }),
+                    "alias" => Value::test_string("new_a"),
+                });
 
                 Some(record)
             },

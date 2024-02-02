@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::IntoPipelineData;
+use nu_protocol::{IntoPipelineData, Span, Spanned};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
 use nu_protocol::{
@@ -22,9 +22,9 @@ impl Command for SubCommand {
             .optional(
                 "start",
                 SyntaxShape::Int,
-                "The start port to scan (inclusive)",
+                "The start port to scan (inclusive).",
             )
-            .optional("end", SyntaxShape::Int, "The end port to scan (inclusive)")
+            .optional("end", SyntaxShape::Int, "The end port to scan (inclusive).")
             .category(Category::Network)
     }
 
@@ -67,35 +67,75 @@ fn get_free_port(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let start_port: Option<usize> = call.opt(engine_state, stack, 0)?;
-    let end_port: Option<usize> = call.opt(engine_state, stack, 1)?;
+    let start_port: Option<Spanned<usize>> = call.opt(engine_state, stack, 0)?;
+    let end_port: Option<Spanned<usize>> = call.opt(engine_state, stack, 1)?;
 
     let listener = if start_port.is_none() && end_port.is_none() {
         // get free port from system.
         TcpListener::bind("127.0.0.1:0")?
     } else {
-        let start_port = start_port.unwrap_or(1024);
-        let end_port = end_port.unwrap_or(65535);
+        let (start_port, start_span) = match start_port {
+            Some(p) => (p.item, Some(p.span)),
+            None => (1024, None),
+        };
+
+        let start_port = match u16::try_from(start_port) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ShellError::CantConvert {
+                    to_type: "u16".into(),
+                    from_type: "usize".into(),
+                    span: start_span.unwrap_or(call.head),
+                    help: Some(format!("{e} (min: {}, max: {})", u16::MIN, u16::MAX)),
+                });
+            }
+        };
+
+        let (end_port, end_span) = match end_port {
+            Some(p) => (p.item, Some(p.span)),
+            None => (65535, None),
+        };
+
+        let end_port = match u16::try_from(end_port) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ShellError::CantConvert {
+                    to_type: "u16".into(),
+                    from_type: "usize".into(),
+                    span: end_span.unwrap_or(call.head),
+                    help: Some(format!("{e} (min: {}, max: {})", u16::MIN, u16::MAX)),
+                });
+            }
+        };
+
+        let range_span = match (start_span, end_span) {
+            (Some(start), Some(end)) => Span::new(start.start, end.end),
+            (Some(start), None) => start,
+            (None, Some(end)) => end,
+            (None, None) => call.head,
+        };
 
         // check input range valid.
         if start_port > end_port {
             return Err(ShellError::InvalidRange {
                 left_flank: start_port.to_string(),
                 right_flank: end_port.to_string(),
-                span: call.head,
+                span: range_span,
             });
         }
 
         // try given port one by one.
-        let addrs: Vec<SocketAddr> = (start_port..=end_port)
-            .map(|current| {
-                SocketAddr::V4(SocketAddrV4::new(
-                    Ipv4Addr::new(127, 0, 0, 1),
-                    current as u16,
-                ))
-            })
-            .collect();
-        TcpListener::bind(addrs.as_slice())?
+        match (start_port..=end_port)
+            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)))
+            .find_map(|addr| TcpListener::bind(addr).ok())
+        {
+            Some(listener) => listener,
+            None => {
+                return Err(ShellError::IOError {
+                    msg: "Every port has been tried, but no valid one was found".to_string(),
+                })
+            }
+        }
     };
 
     let free_port = listener.local_addr()?.port();

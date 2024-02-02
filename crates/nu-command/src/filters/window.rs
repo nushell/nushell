@@ -20,7 +20,7 @@ impl Command for Window {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required("window_size", SyntaxShape::Int, "the size of each window")
+            .required("window_size", SyntaxShape::Int, "The size of each window.")
             .named(
                 "stride",
                 SyntaxShape::Int,
@@ -41,70 +41,70 @@ impl Command for Window {
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2)],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::test_int(2), Value::test_int(3)],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(4)],
-                span: Span::test_data(),
-            },
+            Value::list(
+                vec![Value::test_int(1), Value::test_int(2)],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::test_int(2), Value::test_int(3)],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::test_int(3), Value::test_int(4)],
+                Span::test_data(),
+            ),
         ];
 
         let stream_test_2 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2)],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::test_int(4), Value::test_int(5)],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::test_int(7), Value::test_int(8)],
-                span: Span::test_data(),
-            },
+            Value::list(
+                vec![Value::test_int(1), Value::test_int(2)],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::test_int(4), Value::test_int(5)],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::test_int(7), Value::test_int(8)],
+                Span::test_data(),
+            ),
         ];
 
         let stream_test_3 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::test_int(4), Value::test_int(5)],
-                span: Span::test_data(),
-            },
+            Value::list(
+                vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::test_int(4), Value::test_int(5)],
+                Span::test_data(),
+            ),
         ];
 
         vec![
             Example {
                 example: "[1 2 3 4] | window 2",
                 description: "A sliding window of two elements",
-                result: Some(Value::List {
-                    vals: stream_test_1,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    stream_test_1,
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[1, 2, 3, 4, 5, 6, 7, 8] | window 2 --stride 3",
                 description: "A sliding window of two elements, with a stride of 3",
-                result: Some(Value::List {
-                    vals: stream_test_2,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    stream_test_2,
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[1, 2, 3, 4, 5] | window 3 --stride 3 --remainder",
                 description: "A sliding window of equal stride that includes remainder. Equivalent to chunking",
-                result: Some(Value::List {
-                    vals: stream_test_3,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    stream_test_3,
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -120,7 +120,7 @@ impl Command for Window {
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
         let stride: Option<usize> = call.get_flag(engine_state, stack, "stride")?;
-        let remainder = call.has_flag("remainder");
+        let remainder = call.has_flag(engine_state, stack, "remainder")?;
 
         let stride = stride.unwrap_or(1);
 
@@ -135,9 +135,7 @@ impl Command for Window {
             remainder,
         };
 
-        Ok(each_group_iterator
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 
@@ -224,10 +222,7 @@ impl Iterator for EachWindowIterator {
         let return_group = group.clone();
         self.previous = Some(group);
 
-        Some(Value::List {
-            vals: return_group,
-            span: self.span,
-        })
+        Some(Value::list(return_group, self.span))
     }
 }
 

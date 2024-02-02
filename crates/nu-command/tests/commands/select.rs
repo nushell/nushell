@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
@@ -24,10 +24,7 @@ fn regular_columns() {
 
 #[test]
 fn complex_nested_columns() {
-    Playground::setup("select_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.json",
-            r#"
+    let sample = r#"
                 {
                     "nu": {
                         "committers": [
@@ -47,22 +44,19 @@ fn complex_nested_columns() {
                         ]
                     }
                 }
-            "#,
-        )]);
+            "#;
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.json
+    let actual = nu!(pipeline(&format!(
+        r#"
+                {sample}
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
                 | get nu_releases_version
                 | where $it > "0.8"
                 | get 0
             "#
-        ));
+    )));
 
-        assert_eq!(actual.out, "0.9999999");
-    })
+    assert_eq!(actual.out, "0.9999999");
 }
 
 #[test]
@@ -186,8 +180,9 @@ fn select_ignores_errors_successfully3() {
 
 #[test]
 fn select_ignores_errors_successfully4() {
-    let actual =
-        nu!(r#""key val\na 1\nb 2\n" | lines | split column -c " " | select foo? | to nuon"#);
+    let actual = nu!(
+        r#""key val\na 1\nb 2\n" | lines | split column --collapse-empty " " | select foo? | to nuon"#
+    );
 
     assert_eq!(actual.out, r#"[[foo]; [null], [null], [null]]"#.to_string());
     assert!(actual.err.is_empty());
@@ -211,17 +206,25 @@ fn select_failed2() {
 
 #[test]
 fn select_failed3() {
-    let actual = nu!(r#""key val\na 1\nb 2\n" | lines | split column -c " " | select "100""#);
+    let actual =
+        nu!(r#""key val\na 1\nb 2\n" | lines | split column --collapse-empty " " | select "100""#);
 
     assert!(actual.out.is_empty());
     assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
-fn select_failed4() {
-    let actual = nu!("[{a: 1 b: 10}, {a:2, b:11}] | select 0 0");
+fn select_repeated_rows() {
+    let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select 0 0 | to nuon");
 
-    assert!(actual.err.contains("Select can't get the same row twice"));
+    assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3]]");
+}
+
+#[test]
+fn select_repeated_column() {
+    let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select a a | to nuon");
+
+    assert_eq!(actual.out, "[[a]; [1], [4], [7]]");
 }
 
 #[test]
@@ -243,4 +246,32 @@ fn select_on_empty_list_returns_empty_list() {
     // and again with a ListStream
     let actual = nu!("[] | each {|i| $i} | select foo | to nuon");
     assert_eq!(actual.out, "[]");
+}
+
+#[test]
+fn select_columns_with_variable_list() {
+    let actual = nu!(r#"
+        let columns = [a c];
+        echo [[a b c]; [1 2 3]] | select $columns | to nuon
+        "#);
+
+    assert_eq!(actual.out, "[[a, c]; [1, 3]]");
+}
+
+#[test]
+fn select_rows_with_variable_list() {
+    let actual = nu!(r#"
+        let rows = [0 2];
+        echo [[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select $rows | to nuon
+        "#);
+
+    assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [7, 8, 9]]");
+}
+
+#[test]
+fn select_single_row_with_variable() {
+    let actual = nu!("let idx = 2;[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select $idx | to nuon");
+
+    assert_eq!(actual.out, "[[a]; [3]]".to_string());
+    assert!(actual.err.is_empty());
 }

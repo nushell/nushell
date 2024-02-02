@@ -1,8 +1,8 @@
-use inflector::cases::titlecase::to_title_case;
+use heck::ToTitleCase;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 use super::operate;
@@ -50,7 +50,13 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &to_title_case)
+        operate(
+            engine_state,
+            stack,
+            call,
+            input,
+            &ToTitleCase::to_title_case,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,14 +74,10 @@ impl Command for SubCommand {
             Example {
                 description: "convert a column from a table to Title Case",
                 example: r#"[[title, count]; ['nu test', 100]] | str title-case title"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        span: Span::test_data(),
-                        cols: vec!["title".to_string(), "count".to_string()],
-                        vals: vec![Value::test_string("Nu Test"), Value::test_int(100)],
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "title" =>  Value::test_string("Nu Test"),
+                    "count" =>  Value::test_int(100),
+                })])),
             },
         ]
     }

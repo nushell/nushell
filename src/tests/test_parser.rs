@@ -136,6 +136,41 @@ fn comment_skipping_2() -> TestResult {
 }
 
 #[test]
+fn comment_skipping_in_pipeline_1() -> TestResult {
+    run_test(
+        r#"[1,2,3] | #comment
+        each { |$it| $it + 2 } | # foo
+        math sum #bar"#,
+        "12",
+    )
+}
+
+#[test]
+fn comment_skipping_in_pipeline_2() -> TestResult {
+    run_test(
+        r#"[1,2,3] #comment
+        | #comment2
+        each { |$it| $it + 2 } #foo
+        | # bar
+        math sum #baz"#,
+        "12",
+    )
+}
+
+#[test]
+fn comment_skipping_in_pipeline_3() -> TestResult {
+    run_test(
+        r#"[1,2,3] | #comment
+        #comment2
+        each { |$it| $it + 2 } #foo
+        | # bar
+        #baz
+        math sum #foobar"#,
+        "12",
+    )
+}
+
+#[test]
 fn bad_var_name() -> TestResult {
     fail_test(r#"let $"foo bar" = 4"#, "can't contain")
 }
@@ -405,7 +440,7 @@ fn string_escape_interpolation2() -> TestResult {
 #[test]
 fn proper_rest_types() -> TestResult {
     run_test(
-        r#"def foo [--verbose(-v): bool, # my test flag
+        r#"def foo [--verbose(-v), # my test flag
                    ...rest: int # my rest comment
                 ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
         "not verbose!",
@@ -418,6 +453,13 @@ fn single_value_row_condition() -> TestResult {
         r#"[[a, b]; [true, false], [true, true]] | where a | length"#,
         "2",
     )
+}
+
+#[test]
+fn performance_nested_lists() -> TestResult {
+    // Parser used to be exponential on deeply nested lists
+    // TODO: Add a timeout
+    fail_test(r#"[[[[[[[[[[[[[[[[[[[[[[[[[[[["#, "Unexpected end of code")
 }
 
 #[test]
@@ -597,6 +639,14 @@ fn let_variable_type_mismatch() -> TestResult {
 }
 
 #[test]
+fn let_variable_disallows_completer() -> TestResult {
+    fail_test(
+        r#"let x: int@completer = 42"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
 fn def_with_input_output_1() -> TestResult {
     run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
 }
@@ -641,6 +691,22 @@ fn def_with_input_output_broken_1() -> TestResult {
 #[test]
 fn def_with_input_output_broken_2() -> TestResult {
     fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
+}
+
+#[test]
+fn def_with_input_output_broken_3() -> TestResult {
+    fail_test(
+        r#"def foo []: int -> int@completer {}"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
+fn def_with_input_output_broken_4() -> TestResult {
+    fail_test(
+        r#"def foo []: int -> list<int@completer> {}"#,
+        "Unexpected custom completer",
+    )
 }
 
 #[test]
@@ -696,4 +762,15 @@ fn properly_typecheck_rest_param() -> TestResult {
 #[test]
 fn implied_collect_has_compatible_type() -> TestResult {
     run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
+}
+
+#[test]
+fn record_expected_colon() -> TestResult {
+    fail_test(r#"{ a: 2 b }"#, "expected ':'")?;
+    fail_test(r#"{ a: 2 b 3 }"#, "expected ':'")
+}
+
+#[test]
+fn record_missing_value() -> TestResult {
+    fail_test(r#"{ a: 2 b: }"#, "expected value for record field")
 }

@@ -58,39 +58,29 @@ fn command(
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let file = File::create(&file_name.item).map_err(|e| {
-        ShellError::GenericError(
-            "Error with file name".into(),
-            e.to_string(),
-            Some(file_name.span),
-            None,
-            Vec::new(),
-        )
+    let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
+        error: "Error with file name".into(),
+        msg: e.to_string(),
+        span: Some(file_name.span),
+        help: None,
+        inner: vec![],
     })?;
     let buf_writer = BufWriter::new(file);
 
     JsonWriter::new(buf_writer)
         .finish(df.as_mut())
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error saving file".into(),
-                e.to_string(),
-                Some(file_name.span),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error saving file".into(),
+            msg: e.to_string(),
+            span: Some(file_name.span),
+            help: None,
+            inner: vec![],
         })?;
 
-    let file_value = Value::String {
-        val: format!("saved {:?}", &file_name.item),
-        span: file_name.span,
-    };
+    let file_value = Value::string(format!("saved {:?}", &file_name.item), file_name.span);
 
     Ok(PipelineData::Value(
-        Value::List {
-            vals: vec![file_value],
-            span: call.head,
-        },
+        Value::list(vec![file_value], call.head),
         None,
     ))
 }

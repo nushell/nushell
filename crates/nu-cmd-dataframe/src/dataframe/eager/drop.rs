@@ -35,10 +35,13 @@ impl Command for DropDF {
             description: "drop column a",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr drop a",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "b".to_string(),
-                    vec![Value::test_int(2), Value::test_int(4)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(4)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -68,26 +71,24 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let new_df = col_string
-        .get(0)
-        .ok_or_else(|| {
-            ShellError::GenericError(
-                "Empty names list".into(),
-                "No column names were found".into(),
-                Some(col_span),
-                None,
-                Vec::new(),
-            )
+        .first()
+        .ok_or_else(|| ShellError::GenericError {
+            error: "Empty names list".into(),
+            msg: "No column names were found".into(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
         })
         .and_then(|col| {
-            df.as_ref().drop(&col.item).map_err(|e| {
-                ShellError::GenericError(
-                    "Error dropping column".into(),
-                    e.to_string(),
-                    Some(col.span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            df.as_ref()
+                .drop(&col.item)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error dropping column".into(),
+                    msg: e.to_string(),
+                    span: Some(col.span),
+                    help: None,
+                    inner: vec![],
+                })
         })?;
 
     // If there are more columns in the drop selection list, these
@@ -96,15 +97,15 @@ fn command(
         .iter()
         .skip(1)
         .try_fold(new_df, |new_df, col| {
-            new_df.drop(&col.item).map_err(|e| {
-                ShellError::GenericError(
-                    "Error dropping column".into(),
-                    e.to_string(),
-                    Some(col.span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            new_df
+                .drop(&col.item)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error dropping column".into(),
+                    msg: e.to_string(),
+                    span: Some(col.span),
+                    help: None,
+                    inner: vec![],
+                })
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

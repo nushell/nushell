@@ -3,47 +3,10 @@ use std::collections::{HashMap, HashSet};
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
 use crate::{ShellError, Span, Value, VarId};
+use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
-
-#[derive(Debug, Clone)]
-pub struct ProfilingConfig {
-    pub max_depth: i64,
-    pub depth: i64,
-    pub collect_source: bool,
-    pub collect_values: bool,
-}
-
-impl ProfilingConfig {
-    pub fn new(max_depth: i64, collect_source: bool, collect_values: bool) -> Self {
-        ProfilingConfig {
-            max_depth,
-            depth: 0,
-            collect_source,
-            collect_values,
-        }
-    }
-
-    pub fn enter_block(&mut self) {
-        self.depth += 1;
-    }
-
-    pub fn leave_block(&mut self) {
-        self.depth -= 1;
-    }
-
-    pub fn should_debug(&self) -> bool {
-        self.depth <= self.max_depth
-    }
-
-    pub fn reset(&mut self) {
-        self.max_depth = 0;
-        self.depth = 0;
-        self.collect_source = false;
-        self.collect_values = false;
-    }
-}
 
 /// A runtime value stack used during evaluation
 ///
@@ -72,8 +35,7 @@ pub struct Stack {
     pub env_hidden: HashMap<String, HashSet<String>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
-    pub recursion_count: Box<u64>,
-    pub profiling_config: ProfilingConfig,
+    pub recursion_count: u64,
 }
 
 impl Stack {
@@ -83,8 +45,7 @@ impl Stack {
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
-            recursion_count: Box::new(0),
-            profiling_config: ProfilingConfig::new(0, false, false),
+            recursion_count: 0,
         }
     }
 
@@ -118,6 +79,16 @@ impl Stack {
             if var_id == *id {
                 return Ok(val.clone());
             }
+        }
+
+        if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
+            return Err(ShellError::GenericError {
+                error: "Built-in variables `$env` and `$nu` have no metadata".into(),
+                msg: "no metadata available".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         Err(ShellError::VariableNotFoundAtRuntime { span })
@@ -178,28 +149,21 @@ impl Stack {
             })
     }
 
-    pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
+    pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
         // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
         env_vars.push(HashMap::new());
 
-        // FIXME make this more efficient
-        let mut vars = vec![];
-        for (id, val) in captures {
-            vars.push((*id, val.clone()));
-        }
-
         Stack {
-            vars,
+            vars: captures,
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
-            recursion_count: self.recursion_count.to_owned(),
-            profiling_config: self.profiling_config.clone(),
+            recursion_count: self.recursion_count,
         }
     }
 
-    pub fn gather_captures(&self, captures: &[VarId]) -> Stack {
+    pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
         let mut vars = vec![];
 
         let fake_span = Span::new(0, 0);
@@ -209,6 +173,8 @@ impl Stack {
             // that take in a var decl will manually set this into scope when running the blocks
             if let Ok(value) = self.get_var(*capture, fake_span) {
                 vars.push((*capture, value));
+            } else if let Some(const_val) = &engine_state.get_var(*capture).const_val {
+                vars.push((*capture, const_val.clone()));
             }
         }
 
@@ -220,8 +186,7 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
-            recursion_count: self.recursion_count.to_owned(),
-            profiling_config: self.profiling_config.clone(),
+            recursion_count: self.recursion_count,
         }
     }
 
@@ -416,8 +381,8 @@ impl Stack {
         engine_state.env_vars.contains_key(name)
     }
 
-    pub fn is_overlay_active(&self, name: &String) -> bool {
-        self.active_overlays.contains(name)
+    pub fn is_overlay_active(&self, name: &str) -> bool {
+        self.active_overlays.iter().any(|n| n == name)
     }
 
     pub fn add_overlay(&mut self, name: String) {
@@ -425,7 +390,7 @@ impl Stack {
         self.active_overlays.push(name);
     }
 
-    pub fn remove_overlay(&mut self, name: &String) {
+    pub fn remove_overlay(&mut self, name: &str) {
         self.active_overlays.retain(|o| o != name);
     }
 }

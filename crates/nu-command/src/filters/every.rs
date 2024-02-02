@@ -24,7 +24,7 @@ impl Command for Every {
             .required(
                 "stride",
                 SyntaxShape::Int,
-                "how many rows to skip between (and including) each row returned",
+                "How many rows to skip between (and including) each row returned.",
             )
             .switch(
                 "skip",
@@ -43,18 +43,18 @@ impl Command for Every {
             Example {
                 example: "[1 2 3 4 5] | every 2",
                 description: "Get every second row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[1 2 3 4 5] | every 2 --skip",
                 description: "Skip every second row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(4)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(4)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -71,7 +71,7 @@ impl Command for Every {
             stride => stride,
         };
 
-        let skip = call.has_flag("skip");
+        let skip = call.has_flag(engine_state, stack, "skip")?;
 
         let metadata = input.metadata();
 
@@ -85,8 +85,7 @@ impl Command for Every {
                     None
                 }
             })
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 }
 

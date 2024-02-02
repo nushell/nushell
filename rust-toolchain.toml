@@ -9,11 +9,11 @@
 # The default profile includes rustc, rust-std, cargo, rust-docs, rustfmt and clippy.
 # https://rust-lang.github.io/rustup/concepts/profiles.html
 profile = "default"
-# The current plan is to be 1 release behind the latest stable release. So, if the
-# latest stable release is 1.62.0, the channel should be 1.61.0. We want to do this
+# The current plan is to be 2 releases behind the latest stable release. So, if the
+# latest stable release is 1.72.0, the channel should be 1.70.0. We want to do this
 # so that we give repo maintainers and package managers a chance to update to a more
 # recent version of rust. However, if there is a "cool new feature" that we want to
 # use in nushell, we may opt to use the bleeding edge stable version of rust.
-# I believe rust is on a 6 week release cycle and nushell is on a 3 week release cycle.
+# I believe rust is on a 6 week release cycle and nushell is on a 4 week release cycle.
 # So, every two nushell releases, this version number should be bumped by one.
-channel = "1.69.0"
+channel = "1.73.0"

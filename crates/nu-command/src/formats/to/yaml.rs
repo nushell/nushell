@@ -52,11 +52,13 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yaml::Value::Null,
         Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        Value::String { val, .. } => serde_yaml::Value::String(val.clone()),
+        Value::String { val, .. } | Value::QuotedString { val, .. } => {
+            serde_yaml::Value::String(val.clone())
+        }
         Value::RawString { val, .. } => serde_yaml::Value::String(val.clone()),
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in cols.iter().zip(vals.iter()) {
+            for (k, v) in val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(v)?,
@@ -80,7 +82,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
-        Value::Error { error } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(*error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
@@ -98,7 +100,6 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => serde_yaml::Value::Null,
-        Value::MatchPattern { .. } => serde_yaml::Value::Null,
     })
 }
 
@@ -107,19 +108,16 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
 
     let yaml_value = value_to_yaml_value(&value)?;
     match serde_yaml::to_string(&yaml_value) {
-        Ok(serde_yaml_string) => Ok(Value::String {
-            val: serde_yaml_string,
-            span: head,
-        }
-        .into_pipeline_data()),
-        _ => Ok(Value::Error {
-            error: Box::new(ShellError::CantConvert {
+        Ok(serde_yaml_string) => Ok(Value::string(serde_yaml_string, head).into_pipeline_data()),
+        _ => Ok(Value::error(
+            ShellError::CantConvert {
                 to_type: "YAML".into(),
                 from_type: value.get_type().to_string(),
                 span: head,
                 help: None,
-            }),
-        }
+            },
+            head,
+        )
         .into_pipeline_data()),
     }
 }

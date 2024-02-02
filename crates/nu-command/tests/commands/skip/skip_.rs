@@ -8,7 +8,7 @@ fn binary_skip() {
             open sample_data.ods --raw |
             skip 2 |
             take 2 |
-            into int
+            into int --endian big
         "#
     ));
 

@@ -40,9 +40,10 @@ fn gets_first_row_when_no_amount_given() {
     Playground::setup("first_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        let actual = nu!(cwd: dirs.test(), "ls | first | length");
+        // FIXME: We should probably change first to return a one row table instead of a record here
+        let actual = nu!(cwd: dirs.test(), "ls | first | values | length");
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual.out, "4");
     })
 }
 

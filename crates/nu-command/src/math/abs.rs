@@ -54,38 +54,34 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute absolute value of each number in a list of numbers",
             example: "[-50 -100.0 25] | math abs",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_int(50),
                     Value::test_float(100.0),
                     Value::test_int(25),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 }
 
 fn abs_helper(val: Value, head: Span) -> Value {
+    let span = val.span();
     match val {
-        Value::Int { val, span } => Value::int(val.abs(), span),
-        Value::Float { val, span } => Value::Float {
-            val: val.abs(),
-            span,
-        },
-        Value::Duration { val, span } => Value::Duration {
-            val: val.abs(),
-            span,
-        },
+        Value::Int { val, .. } => Value::int(val.abs(), span),
+        Value::Float { val, .. } => Value::float(val.abs(), span),
+        Value::Duration { val, .. } => Value::duration(val.abs(), span),
         Value::Error { .. } => val,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

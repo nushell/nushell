@@ -1,9 +1,11 @@
 pub mod aggregate;
 mod collect;
+mod explode;
 mod fetch;
 mod fill_nan;
 mod fill_null;
 mod filter;
+mod flatten;
 pub mod groupby;
 mod join;
 mod macro_commands;
@@ -27,6 +29,8 @@ use crate::dataframe::lazy::quantile::LazyQuantile;
 pub(crate) use crate::dataframe::lazy::select::LazySelect;
 use crate::dataframe::lazy::sort_by_expr::LazySortBy;
 pub use crate::dataframe::lazy::to_lazy::ToLazyFrame;
+pub use explode::LazyExplode;
+pub use flatten::LazyFlatten;
 
 pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -54,6 +58,8 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         LazySelect,
         LazySortBy,
         ToLazyFrame,
-        ToLazyGroupBy
+        ToLazyGroupBy,
+        LazyExplode,
+        LazyFlatten
     );
 }

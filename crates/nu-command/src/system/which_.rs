@@ -1,6 +1,7 @@
 use log::trace;
 use nu_engine::env;
 use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -23,8 +24,8 @@ impl Command for Which {
         Signature::build("which")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .required("application", SyntaxShape::String, "application")
-            .rest("rest", SyntaxShape::String, "additional applications")
+            .required("application", SyntaxShape::String, "Application.")
+            .rest("rest", SyntaxShape::String, "Additional applications.")
             .switch("all", "list all executables", Some('a'))
             .category(Category::System)
     }
@@ -63,19 +64,14 @@ fn entry(
     cmd_type: impl Into<String>,
     span: Span,
 ) -> Value {
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("command".to_string());
-    vals.push(Value::string(arg.into(), span));
-
-    cols.push("path".to_string());
-    vals.push(Value::string(path.into(), span));
-
-    cols.push("type".to_string());
-    vals.push(Value::string(cmd_type.into(), span));
-
-    Value::Record { cols, vals, span }
+    Value::record(
+        record! {
+            "command" => Value::string(arg.into(), span),
+            "path" => Value::string(path.into(), span),
+            "type" => Value::string(cmd_type.into(), span),
+        },
+        span,
+    )
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
@@ -230,7 +226,7 @@ fn which(
 ) -> Result<PipelineData, ShellError> {
     let which_args = WhichArgs {
         applications: call.rest(engine_state, stack, 0)?,
-        all: call.has_flag("all"),
+        all: call.has_flag(engine_state, stack, "all")?,
     };
     let ctrlc = engine_state.ctrlc.clone();
 

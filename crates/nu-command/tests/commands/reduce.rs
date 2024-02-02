@@ -7,7 +7,7 @@ fn reduce_table_column() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | get total
-        | reduce -f 20 { |it, acc| $it + $acc ** 1.05}
+        | reduce --fold 20 { |it, acc| $it + $acc ** 1.05}
         | into string -d 1
         "#
     ));
@@ -20,7 +20,7 @@ fn reduce_table_column_with_path() {
     let actual = nu!(pipeline(
         "
         [{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]
-        | reduce -f 20 { |it, acc| $it.total + $acc ** 1.05}
+        | reduce --fold 20 { |it, acc| $it.total + $acc ** 1.05}
         | into string -d 1
         "
     ));
@@ -33,7 +33,7 @@ fn reduce_rows_example() {
     let actual = nu!(pipeline(
         "
         [[a,b]; [1,2] [3,4]]
-        | reduce -f 1.6 { |it, acc| $acc * ($it.a | into int) + ($it.b | into int) }
+        | reduce --fold 1.6 { |it, acc| $acc * ($it.a | into int) + ($it.b | into int) }
         "
     ));
 
@@ -89,7 +89,7 @@ fn folding_with_tables() {
     let actual = nu!(pipeline(
         "
         echo [10 20 30 40]
-        | reduce -f [] { |it, acc|
+        | reduce --fold [] { |it, acc|
             with-env [value $it] {
               echo $acc | append (10 * ($env.value | into int))
             }
@@ -104,7 +104,7 @@ fn folding_with_tables() {
 #[test]
 fn error_reduce_fold_type_mismatch() {
     let actual = nu!(pipeline(
-        "echo a b c | reduce -f 0 { |it, acc| $acc + $it }"
+        "echo a b c | reduce --fold 0 { |it, acc| $acc + $it }"
     ));
 
     assert!(actual.err.contains("mismatch"));

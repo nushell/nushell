@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use crate::dataframe::values::NuExpression;
@@ -39,48 +39,40 @@ impl Command for ToNu {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let cols = vec!["index".into(), "a".into(), "b".into()];
-        let rec_1 = Value::Record {
-            cols: cols.clone(),
-            vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-            span: Span::test_data(),
-        };
-        let rec_2 = Value::Record {
-            cols: cols.clone(),
-            vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
-            span: Span::test_data(),
-        };
-        let rec_3 = Value::Record {
-            cols,
-            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
-            span: Span::test_data(),
-        };
+        let rec_1 = Value::test_record(record! {
+            "index" => Value::test_int(0),
+            "a" =>     Value::test_int(1),
+            "b" =>     Value::test_int(2),
+        });
+        let rec_2 = Value::test_record(record! {
+            "index" => Value::test_int(1),
+            "a" =>     Value::test_int(3),
+            "b" =>     Value::test_int(4),
+        });
+        let rec_3 = Value::test_record(record! {
+            "index" => Value::test_int(2),
+            "a" =>     Value::test_int(3),
+            "b" =>     Value::test_int(4),
+        });
 
         vec![
             Example {
                 description: "Shows head rows from dataframe",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr into-nu",
-                result: Some(Value::List {
-                    vals: vec![rec_1, rec_2],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(vec![rec_1, rec_2], Span::test_data())),
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [5 6] [3 4]] | dfr into-df | dfr into-nu -t -n 1",
-                result: Some(Value::List {
-                    vals: vec![rec_3],
-                    span: Span::test_data(),
-                }),
+                example: "[[a b]; [1 2] [5 6] [3 4]] | dfr into-df | dfr into-nu --tail --rows 1",
+                result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {
                 description: "Convert a col expression into a nushell value",
                 example: "dfr col a | dfr into-nu",
-                result: Some(Value::Record {
-                    cols: vec!["expr".into(), "value".into()],
-                    vals: vec![Value::test_string("column"), Value::test_string("a")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_record(record! {
+                    "expr" =>  Value::test_string("column"),
+                    "value" => Value::test_string("a"),
+                })),
             },
         ]
     }
@@ -108,7 +100,7 @@ fn dataframe_command(
     input: Value,
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.get_flag(engine_state, stack, "rows")?;
-    let tail: bool = call.has_flag("tail");
+    let tail: bool = call.has_flag(engine_state, stack, "tail")?;
 
     let df = NuDataFrame::try_from_value(input)?;
 
@@ -123,16 +115,13 @@ fn dataframe_command(
         }
     };
 
-    let value = Value::List {
-        vals: values,
-        span: call.head,
-    };
+    let value = Value::list(values, call.head);
 
     Ok(PipelineData::Value(value, None))
 }
 fn expression_command(call: &Call, input: Value) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(input)?;
-    let value = expr.to_value(call.head);
+    let value = expr.to_value(call.head)?;
 
     Ok(PipelineData::Value(value, None))
 }

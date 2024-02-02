@@ -18,7 +18,7 @@ impl Command for SubCommand {
             .required(
                 "base",
                 SyntaxShape::Number,
-                "Base for which the logarithm should be computed",
+                "Base for which the logarithm should be computed.",
             )
             .input_output_types(vec![
                 (Type::Number, Type::Float),
@@ -50,12 +50,12 @@ impl Command for SubCommand {
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
 
         if base.item <= 0.0f64 {
-            return Err(ShellError::UnsupportedInput(
-                "Base has to be greater 0".into(),
-                "value originates from here".into(),
-                head,
-                base.span,
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Base has to be greater 0".into(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: base.span,
+            });
         }
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -78,38 +78,40 @@ impl Command for SubCommand {
             Example {
                 example: "[16 8 4] | math log 2",
                 description: "Get the log2 of a list of values",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_float(4.0),
                         Value::test_float(3.0),
                         Value::test_float(2.0),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn operate(value: Value, head: Span, base: f64) -> Value {
+    let span = value.span();
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                Value::Int { val, .. } => (val as f64, span),
+                Value::Float { val, .. } => (val, span),
                 _ => unreachable!(),
             };
 
             if val <= 0.0 {
-                return Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        "'math log' undefined for values outside the open interval (0, Inf)."
+                return Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "'math log' undefined for values outside the open interval (0, Inf)."
                             .into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )),
-                };
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
+                    span,
+                );
             }
             // Specialize for better precision/performance
             let val = if base == 10.0 {
@@ -120,17 +122,18 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                 val.log(base)
             };
 
-            Value::Float { val, span }
+            Value::float(val, span)
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

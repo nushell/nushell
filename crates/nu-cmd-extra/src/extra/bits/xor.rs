@@ -22,16 +22,12 @@ impl Command for BitsXor {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .required(
-                "target",
-                SyntaxShape::Int,
-                "target integer to perform bit xor",
-            )
+            .required("target", SyntaxShape::Int, "target int to perform bit xor")
             .category(Category::Bits)
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise xor for integers."
+        "Performs bitwise xor for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -67,31 +63,30 @@ impl Command for BitsXor {
             Example {
                 description: "Apply logical xor to a list of numbers",
                 example: "[8 3 2] | bits xor 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(10), Value::test_int(1), Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(10), Value::test_int(1), Value::test_int(0)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn operate(value: Value, target: i64, head: Span) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => Value::Int {
-            val: val ^ target,
-            span,
-        },
+        Value::Int { val, .. } => Value::int(val ^ target, span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

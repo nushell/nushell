@@ -1,4 +1,3 @@
-use crate::filesystem::cd_query::query;
 #[cfg(unix)]
 use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
@@ -44,7 +43,7 @@ impl Command for Cd {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .optional("path", SyntaxShape::Directory, "the path to change to")
+            .optional("path", SyntaxShape::Directory, "The path to change to.")
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::String, Type::Nothing),
@@ -62,8 +61,6 @@ impl Command for Cd {
     ) -> Result<PipelineData, ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
-        let config = engine_state.get_config();
-        let use_abbrev = config.cd_with_abbreviations;
 
         let path_val = {
             if let Some(path) = path_val {
@@ -85,23 +82,11 @@ impl Command for Cd {
                         let path = oldpwd.as_path()?;
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(e1) => {
-                                if use_abbrev {
-                                    match query(&path, None, v.span) {
-                                        Ok(p) => p,
-                                        Err(e) => {
-                                            return Err(ShellError::DirectoryNotFound(
-                                                v.span,
-                                                Some(format!("IO Error: {e:?}")),
-                                            ))
-                                        }
-                                    }
-                                } else {
-                                    return Err(ShellError::DirectoryNotFound(
-                                        v.span,
-                                        Some(format!("IO Error: {e1:?}")),
-                                    ));
-                                }
+                            Err(_) => {
+                                return Err(ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: v.span,
+                                });
                             }
                         };
                         (path.to_string_lossy().to_string(), v.span)
@@ -115,39 +100,17 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                if use_abbrev {
-                                    // if it's not a dir, let's check to see if it's something abbreviated
-                                    match query(&p, None, v.span) {
-                                        Ok(path) => path,
-                                        Err(e) => {
-                                            return Err(ShellError::DirectoryNotFound(
-                                                v.span,
-                                                Some(format!("IO Error: {e:?}")),
-                                            ))
-                                        }
-                                    };
-                                } else {
-                                    return Err(ShellError::NotADirectory(v.span));
-                                }
+                                return Err(ShellError::NotADirectory { span: v.span });
                             };
                             p
                         }
 
                         // if canonicalize failed, let's check to see if it's abbreviated
                         Err(_) => {
-                            if use_abbrev {
-                                match query(&path_no_whitespace, None, v.span) {
-                                    Ok(path) => path,
-                                    Err(e) => {
-                                        return Err(ShellError::DirectoryNotFound(
-                                            v.span,
-                                            Some(format!("IO Error: {e:?}")),
-                                        ))
-                                    }
-                                }
-                            } else {
-                                return Err(ShellError::DirectoryNotFound(v.span, None));
-                            }
+                            return Err(ShellError::DirectoryNotFound {
+                                dir: path_no_whitespace.to_string(),
+                                span: v.span,
+                            });
                         }
                     };
                     (path.to_string_lossy().to_string(), v.span)
@@ -159,10 +122,7 @@ impl Command for Cd {
             }
         };
 
-        let path_value = Value::String {
-            val: path.clone(),
-            span,
-        };
+        let path_value = Value::string(path.clone(), span);
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
             stack.add_env_var("OLDPWD".into(), oldpwd)
@@ -175,9 +135,9 @@ impl Command for Cd {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {path}: {reason}"
-            ))),
+            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {
+                msg: format!("Cannot change directory to {path}: {reason}"),
+            }),
         }
     }
 
@@ -186,11 +146,6 @@ impl Command for Cd {
             Example {
                 description: "Change to your home directory",
                 example: r#"cd ~"#,
-                result: None,
-            },
-            Example {
-                description: "Change to a directory via abbreviations",
-                example: r#"cd d/s/9"#,
                 result: None,
             },
             Example {
@@ -274,7 +229,16 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn any_group(_current_user_gid: gid_t, owner_group: u32) -> bool {
+    use crate::filesystem::util::users;
+    let Some(user_groups) = users::current_user_groups() else {
+        return false;
+    };
+    user_groups.iter().any(|gid| gid.as_raw() == owner_group)
+}
+
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
 fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
     use crate::filesystem::util::users;
 

@@ -1,8 +1,24 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::Value;
+use nu_protocol::{Record, Value};
 pub struct Example;
 
 impl Example {
+    pub fn config(
+        &self,
+        config: &Option<Value>,
+        call: &EvaluatedCall,
+    ) -> Result<Value, LabeledError> {
+        match config {
+            Some(config) => Ok(config.clone()),
+            None => Err(LabeledError {
+                label: "No config sent".into(),
+                msg: "Configuration for this plugin was not found in `$env.config.plugins.example`"
+                    .into(),
+                span: Some(call.head),
+            }),
+        }
+    }
+
     fn print_values(
         &self,
         index: u32,
@@ -24,7 +40,7 @@ impl Example {
         // Keep this in mind when designing your plugin signatures
         let a: i64 = call.req(0)?;
         let b: String = call.req(1)?;
-        let flag = call.has_flag("flag");
+        let flag = call.has_flag("flag")?;
         let opt: Option<i64> = call.opt(2)?;
         let named: Option<String> = call.get_flag("named")?;
         let rest: Vec<String> = call.rest(3)?;
@@ -53,7 +69,7 @@ impl Example {
     pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
         self.print_values(1, call, input)?;
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(Value::nothing(call.head))
     }
 
     pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
@@ -67,18 +83,11 @@ impl Example {
                     .map(|v| Value::int(v * i, call.head))
                     .collect::<Vec<Value>>();
 
-                Value::Record {
-                    cols: cols.clone(),
-                    vals,
-                    span: call.head,
-                }
+                Value::record(Record::from_raw_cols_vals(cols.clone(), vals), call.head)
             })
             .collect::<Vec<Value>>();
 
-        Ok(Value::List {
-            vals,
-            span: call.head,
-        })
+        Ok(Value::list(vals, call.head))
     }
 
     pub fn test3(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {

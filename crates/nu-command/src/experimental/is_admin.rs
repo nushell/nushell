@@ -66,16 +66,17 @@ fn is_root_impl() -> bool {
         System::Threading::{GetCurrentProcess, OpenProcessToken},
     };
 
-    let mut handle = HANDLE::default();
     let mut elevated = false;
 
     // Checks whether the access token associated with the current process has elevated privileges.
     // SAFETY: `elevated` only touched by safe code.
-    // `handle` lives long enough, initialized, mutated as out param, used, closed with validity check.
+    // `handle` lives long enough, initialized, mutated, used and closed with validity check.
     // `elevation` only read on success and passed with correct `size`.
     unsafe {
+        let mut handle = HANDLE::default();
+
         // Opens the access token associated with the current process.
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle).as_bool() {
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle).is_ok() {
             let mut elevation = TOKEN_ELEVATION::default();
             let mut size = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
 
@@ -89,7 +90,7 @@ fn is_root_impl() -> bool {
                 size,
                 &mut size,
             )
-            .as_bool()
+            .is_ok()
             {
                 // Whether the token has elevated privileges.
                 // Safe to read as `GetTokenInformation` will not write outside `elevation` and it succeeded
@@ -100,7 +101,7 @@ fn is_root_impl() -> bool {
 
         if !handle.is_invalid() {
             // Closes the object handle.
-            CloseHandle(handle);
+            let _ = CloseHandle(handle);
         }
     }
 

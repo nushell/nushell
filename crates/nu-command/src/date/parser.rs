@@ -26,7 +26,7 @@ pub fn datetime_in_timezone(
             None => Err(ParseErrorKind::OutOfRange),
         },
         Err(ParseErrorKind::Invalid) => {
-            if s.to_lowercase() == "local" {
+            if s.eq_ignore_ascii_case("local") {
                 Ok(dt.with_timezone(Local::now().offset()))
             } else {
                 let tz: Tz = parse_timezone_internal(s)?;
@@ -98,7 +98,7 @@ fn timezone_offset_internal(
     };
     match s.len() {
         len if len >= 2 => &s[2..],
-        len if len == 0 => s,
+        0 => s,
         _ => return Err(ParseErrorKind::TooShort),
     };
 

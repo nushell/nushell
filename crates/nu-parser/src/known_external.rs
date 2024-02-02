@@ -11,6 +11,7 @@ pub struct KnownExternal {
     pub name: String,
     pub signature: Box<Signature>,
     pub usage: String,
+    pub extra_usage: String,
 }
 
 impl Command for KnownExternal {
@@ -105,6 +106,7 @@ impl Command for KnownExternal {
                     }
                 }
                 Argument::Unknown(unknown) => extern_call.add_unknown(unknown.clone()),
+                Argument::Spread(args) => extern_call.add_spread(args.clone()),
             }
         }
 

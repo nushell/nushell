@@ -20,11 +20,11 @@ impl Command for Module {
         Signature::build("module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("module", SyntaxShape::String, "module name or module path")
+            .required("module", SyntaxShape::String, "Module name or module path.")
             .optional(
                 "block",
                 SyntaxShape::Block,
-                "body of the module if 'module' parameter is not a module path",
+                "Body of the module if 'module' parameter is not a module path.",
             )
             .category(Category::Core)
     }
@@ -62,7 +62,7 @@ impl Command for Module {
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
-                example: r#"module foo { export def-env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
+                example: r#"module foo { export def --env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
             },
         ]

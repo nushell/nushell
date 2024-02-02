@@ -21,7 +21,7 @@ fn from_number() {
 }
 
 #[test]
-fn from_decimal() {
+fn from_float() {
     let actual = nu!(r#"
         echo 1.5 | into string
         "#);
@@ -90,7 +90,7 @@ fn from_filesize() {
 }
 
 #[test]
-fn from_decimal_correct_trailing_zeros() {
+fn from_float_correct_trailing_zeros() {
     let actual = nu!(r#"
         1.23000 | into string -d 3
         "#);
@@ -99,7 +99,7 @@ fn from_decimal_correct_trailing_zeros() {
 }
 
 #[test]
-fn from_int_decimal_correct_trailing_zeros() {
+fn from_int_float_correct_trailing_zeros() {
     let actual = nu!(r#"
         1.00000 | into string -d 3
         "#);
@@ -108,7 +108,7 @@ fn from_int_decimal_correct_trailing_zeros() {
 }
 
 #[test]
-fn from_int_decimal_trim_trailing_zeros() {
+fn from_int_float_trim_trailing_zeros() {
     let actual = nu!(r#"
         1.00000 | into string | $"($in) flat"
         "#);

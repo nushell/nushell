@@ -2,7 +2,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
 
@@ -26,7 +26,7 @@ impl Command for TakeUntil {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the predicate that element(s) must not match",
+                "The predicate that element(s) must not match.",
             )
             .category(Category::Filters)
     }
@@ -40,29 +40,30 @@ impl Command for TakeUntil {
             Example {
                 description: "Take until the element is positive",
                 example: "[-1 -2 9 1] | take until {|x| $x > 0 }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(-1), Value::test_int(-2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(-1),
+                    Value::test_int(-2),
+                ])),
             },
             Example {
                 description: "Take until the element is positive using stored condition",
                 example: "let cond = {|x| $x > 0 }; [-1 -2 9 1] | take until $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(-1), Value::test_int(-2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(-1),
+                    Value::test_int(-2),
+                ])),
             },
             Example {
                 description: "Take until the field value is positive",
                 example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until {|x| $x.a > 0 }",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(-1)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(-2)]),
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(-1),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(-2),
+                    }),
+                ])),
             },
         ]
     }
@@ -74,6 +75,7 @@ impl Command for TakeUntil {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let span = call.head;
 
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
@@ -81,7 +83,7 @@ impl Command for TakeUntil {
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
@@ -108,7 +110,7 @@ impl Command for TakeUntil {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

@@ -30,7 +30,7 @@ pub fn says() -> Play {
 
 trait CheckerMatchers {
     fn output(&self, actual: &Outcome) -> MatchResult;
-    fn std(&self, actual: &[u8], expected: Option<&String>, description: &str) -> MatchResult;
+    fn std(&self, actual: &[u8], expected: Option<&str>, description: &str) -> MatchResult;
     fn stdout(&self, actual: &Outcome) -> MatchResult;
 }
 
@@ -40,10 +40,10 @@ impl CheckerMatchers for Play {
     }
 
     fn stdout(&self, actual: &Outcome) -> MatchResult {
-        self.std(&actual.out, self.stdout_expectation.as_ref(), "stdout")
+        self.std(&actual.out, self.stdout_expectation.as_deref(), "stdout")
     }
 
-    fn std(&self, actual: &[u8], expected: Option<&String>, description: &str) -> MatchResult {
+    fn std(&self, actual: &[u8], expected: Option<&str>, description: &str) -> MatchResult {
         let out = match expected {
             Some(out) => out,
             None => return Ok(()),
@@ -51,7 +51,7 @@ impl CheckerMatchers for Play {
         let actual =
             str::from_utf8(actual).map_err(|_| format!("{description} was not utf8 encoded"))?;
 
-        if actual != *out {
+        if actual != out {
             return Err(format!(
                 "not equal:\n    actual: {actual}\n  expected: {out}\n\n"
             ));

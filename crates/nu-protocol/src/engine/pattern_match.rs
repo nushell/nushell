@@ -21,12 +21,12 @@ impl Matcher for Pattern {
             Pattern::IgnoreRest => false, // `..` and `..$foo` only match in specific contexts
             Pattern::Rest(_) => false,    // so we return false here and handle them elsewhere
             Pattern::Record(field_patterns) => match value {
-                Value::Record { cols, vals, .. } => {
+                Value::Record { val, .. } => {
                     'top: for field_pattern in field_patterns {
-                        for (col_idx, col) in cols.iter().enumerate() {
+                        for (col, val) in val {
                             if col == &field_pattern.0 {
                                 // We have found the field
-                                let result = field_pattern.1.match_value(&vals[col_idx], matches);
+                                let result = field_pattern.1.match_value(val, matches);
                                 if !result {
                                     return false;
                                 } else {
@@ -75,13 +75,7 @@ impl Matcher for Pattern {
                                 }
                                 Pattern::Rest(var_id) => {
                                     let rest_vals = vals[val_idx..].to_vec();
-                                    matches.push((
-                                        *var_id,
-                                        Value::List {
-                                            vals: rest_vals,
-                                            span: pattern.span,
-                                        },
-                                    ));
+                                    matches.push((*var_id, Value::list(rest_vals, pattern.span)));
                                     break;
                                 }
                                 _ => {
@@ -102,6 +96,9 @@ impl Matcher for Pattern {
             Pattern::Value(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {
+                    Expr::Nothing => {
+                        matches!(value, Value::Nothing { .. })
+                    }
                     Expr::Int(x) => {
                         if let Value::Int { val, .. } = &value {
                             x == val
@@ -148,7 +145,10 @@ impl Matcher for Pattern {
                         let span = unit.span;
 
                         if let Expr::Int(size) = amount.expr {
-                            &unit.item.to_value(size, span) == value
+                            match &unit.item.to_value(size, span) {
+                                Ok(v) => v == value,
+                                _ => false,
+                            }
                         } else {
                             false
                         }

@@ -3,10 +3,11 @@ mod foreground;
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+pub mod os_info;
 #[cfg(target_os = "windows")]
 mod windows;
 
-pub use self::foreground::{ForegroundChild, ForegroundProcess};
+pub use self::foreground::ForegroundChild;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub use self::linux::*;
 #[cfg(target_os = "macos")]

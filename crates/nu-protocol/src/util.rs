@@ -30,7 +30,7 @@ impl<R: Read> Iterator for BufferedReader<R> {
                     Some(Ok(result))
                 }
             }
-            Err(e) => Some(Err(ShellError::IOError(e.to_string()))),
+            Err(e) => Some(Err(ShellError::IOError { msg: e.to_string() })),
         }
     }
 }

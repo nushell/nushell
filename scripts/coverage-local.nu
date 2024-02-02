@@ -4,7 +4,7 @@ use std log warning
 warning "./scripts/coverage-local.nu will be deprecated, please use the `toolkit cov` command instead"
 
 def compute-coverage [] {
-    cd ($env.CURRENT_FILE | path dirname -n 2)
+    cd ($env.CURRENT_FILE | path dirname --num-levels 2)
 
     print "Setting up environment variables for coverage"
     # Enable LLVM coverage tracking through environment variables
@@ -45,7 +45,7 @@ let start = (date now)
 # Some of the internal tests rely on the exact cargo profile
 # (This is somewhat criminal itself)
 # but we have to signal to the tests that we use the `ci` `--profile`
-$env.NUSHELL_CARGO_TARGET = "ci"
+$env.NUSHELL_CARGO_PROFILE = "ci"
 
 # Manual gathering of coverage to catch invocation of the `nu` binary.
 # This is relevant for tests using the `nu!` macro from `nu-test-support`

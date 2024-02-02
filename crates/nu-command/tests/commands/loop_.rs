@@ -10,7 +10,7 @@ fn loop_doesnt_auto_print_in_each_iteration() {
             } else {
                 $total += 1;
             }
-            echo 1
+            1
         }");
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore

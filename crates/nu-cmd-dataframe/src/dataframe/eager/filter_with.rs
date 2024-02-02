@@ -43,10 +43,13 @@ impl Command for FilterWith {
                 example: r#"let mask = ([true false] | dfr into-df);
     [[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with $mask"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(1)]),
-                        Column::new("b".to_string(), vec![Value::test_int(2)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(1)]),
+                            Column::new("b".to_string(), vec![Value::test_int(2)]),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -55,10 +58,13 @@ impl Command for FilterWith {
                 description: "Filter dataframe using an expression",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with ((dfr col a) > 1)",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(3)]),
-                        Column::new("b".to_string(), vec![Value::test_int(4)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(3)]),
+                            Column::new("b".to_string(), vec![Value::test_int(4)]),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -92,7 +98,7 @@ fn command_eager(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let mask_value: Value = call.req(engine_state, stack, 0)?;
-    let mask_span = mask_value.span()?;
+    let mask_span = mask_value.span();
 
     if NuExpression::can_downcast(&mask_value) {
         let expression = NuExpression::try_from_value(mask_value)?;
@@ -105,26 +111,22 @@ fn command_eager(
         ))
     } else {
         let mask = NuDataFrame::try_from_value(mask_value)?.as_series(mask_span)?;
-        let mask = mask.bool().map_err(|e| {
-            ShellError::GenericError(
-                "Error casting to bool".into(),
-                e.to_string(),
-                Some(mask_span),
-                Some("Perhaps you want to use a series with booleans as mask".into()),
-                Vec::new(),
-            )
+        let mask = mask.bool().map_err(|e| ShellError::GenericError {
+            error: "Error casting to bool".into(),
+            msg: e.to_string(),
+            span: Some(mask_span),
+            help: Some("Perhaps you want to use a series with booleans as mask".into()),
+            inner: vec![],
         })?;
 
         df.as_ref()
             .filter(mask)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error filtering dataframe".into(),
-                    e.to_string(),
-                    Some(call.head),
-                    Some("The only allowed column types for dummies are String or Int".into()),
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error filtering dataframe".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: Some("The only allowed column types for dummies are String or Int".into()),
+                inner: vec![],
             })
             .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
     }

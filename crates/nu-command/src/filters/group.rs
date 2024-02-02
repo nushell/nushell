@@ -24,7 +24,7 @@ impl Command for Group {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required("group_size", SyntaxShape::Int, "the size of each group")
+            .required("group_size", SyntaxShape::Int, "The size of each group.")
             .category(Category::Filters)
     }
 
@@ -34,23 +34,20 @@ impl Command for Group {
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2)],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(4)],
-                span: Span::test_data(),
-            },
+            Value::list(
+                vec![Value::test_int(1), Value::test_int(2)],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::test_int(3), Value::test_int(4)],
+                Span::test_data(),
+            ),
         ];
 
         vec![Example {
             example: "[1 2 3 4] | group 2",
             description: "Group the a list by pairs",
-            result: Some(Value::List {
-                vals: stream_test_1,
-                span: Span::test_data(),
-            }),
+            result: Some(Value::list(stream_test_1, Span::test_data())),
         }]
     }
 
@@ -73,9 +70,7 @@ impl Command for Group {
             span: call.head,
         };
 
-        Ok(each_group_iterator
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 
@@ -112,10 +107,7 @@ impl Iterator for EachGroupIterator {
             return None;
         }
 
-        Some(Value::List {
-            vals: group,
-            span: self.span,
-        })
+        Some(Value::list(group, self.span))
     }
 }
 

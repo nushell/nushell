@@ -10,7 +10,7 @@ use crate::network::http::client::{
     request_handle_response, request_set_timeout, send_request,
 };
 
-use super::client::RequestFlags;
+use super::client::{RedirectMode, RequestFlags};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "URL",
                 SyntaxShape::String,
-                "the URL to fetch the options from",
+                "The URL to fetch the options from.",
             )
             .named(
                 "user",
@@ -98,22 +98,22 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get options from example.com, with username and password",
-                example: "http options -u myuser -p mypass https://www.example.com",
+                example: "http options --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get options from example.com, with custom header",
-                example: "http options -H [my-header-key my-header-value] https://www.example.com",
+                example: "http options --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get options from example.com, with custom headers",
-                example: "http options -H [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                example: "http options --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Simulate a browser cross-origin preflight request from www.example.com to media.example.com",
-                example: "http options https://media.example.com/api/ -H [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
+                example: "http options https://media.example.com/api/ --headers [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
                 result: None,
             },
         ]
@@ -139,11 +139,11 @@ fn run_get(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        insecure: call.has_flag("insecure"),
+        insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
-        allow_errors: call.has_flag("allow-errors"),
+        allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -156,18 +156,18 @@ fn helper(
     call: &Call,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
-    let span = args.url.span()?;
+    let span = args.url.span();
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
     let mut request = client.request("OPTIONS", &requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, None, None, ctrl_c);
+    let response = send_request(request.clone(), None, None, ctrl_c);
 
     // http options' response always showed in header, so we set full to true.
     // And `raw` is useless too because options method doesn't return body, here we set to true
@@ -185,6 +185,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
+        request,
     )
 }
 

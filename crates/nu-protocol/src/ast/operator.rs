@@ -1,7 +1,9 @@
-use crate::Span;
+use crate::{ShellError, Span};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+
+use super::{Expr, Expression};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Comparison {
@@ -126,5 +128,18 @@ impl Display for RangeOperator {
             RangeInclusion::Inclusive => write!(f, ".."),
             RangeInclusion::RightExclusive => write!(f, "..<"),
         }
+    }
+}
+
+pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
+    match op {
+        Expression {
+            expr: Expr::Operator(operator),
+            ..
+        } => Ok(operator.clone()),
+        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
+            op_token: format!("{expr:?}"),
+            span: *span,
+        }),
     }
 }

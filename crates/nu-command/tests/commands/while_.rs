@@ -11,7 +11,7 @@ fn while_sum() {
 
 #[test]
 fn while_doesnt_auto_print_in_each_iteration() {
-    let actual = nu!("mut total = 0; while $total < 2 { $total = $total + 1; echo 1 }");
+    let actual = nu!("mut total = 0; while $total < 2 { $total = $total + 1; 1 }");
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore
     assert!(!actual.out.contains('1'));

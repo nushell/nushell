@@ -6,6 +6,7 @@ mod status_bar;
 use std::{
     cmp::min,
     io::{self, Result, Stdout},
+    result,
     sync::atomic::Ordering,
 };
 
@@ -23,7 +24,7 @@ use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    Record, Value,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
@@ -80,6 +81,7 @@ struct CommandBuf {
 #[derive(Debug, Default, Clone)]
 pub struct StyleConfig {
     pub status_info: NuStyle,
+    pub status_success: NuStyle,
     pub status_warn: NuStyle,
     pub status_error: NuStyle,
     pub status_bar_background: NuStyle,
@@ -107,14 +109,6 @@ impl<'a> Pager<'a> {
         let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
 
         match &path[..] {
-            ["exit_esc"] => {
-                if matches!(value, Value::Bool { .. }) {
-                    self.config.exit_esc = value.is_true();
-                    true
-                } else {
-                    false
-                }
-            }
             ["status_bar_text"] => value_as_style(&mut self.config.style.status_bar_text, &value),
             ["status_bar_background"] => {
                 value_as_style(&mut self.config.style.status_bar_background, &value)
@@ -125,6 +119,7 @@ impl<'a> Pager<'a> {
             }
             ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
             ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
+            ["status", "success"] => value_as_style(&mut self.config.style.status_success, &value),
             ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
             ["status", "error"] => value_as_style(&mut self.config.style.status_error, &value),
             path => set_config(&mut self.config.config, path, value),
@@ -168,9 +163,7 @@ pub struct PagerConfig<'a> {
     pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
-    pub exit_esc: bool,
     pub reverse: bool,
-    pub show_banner: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -186,9 +179,7 @@ impl<'a> PagerConfig<'a> {
             config,
             lscolors,
             peek_value: false,
-            exit_esc: true,
             reverse: false,
-            show_banner: false,
             style: StyleConfig::default(),
         }
     }
@@ -245,13 +236,12 @@ fn render_ui(
     ctrlc: CtrlC,
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
-    mut view: Option<Page>,
+    view: Option<Page>,
     commands: CommandRegistry,
 ) -> Result<Option<Value>> {
     let events = UIEvents::new();
-    let mut view_stack = Vec::new();
+    let mut view_stack = ViewStack::new(view, Vec::new());
 
-    // let mut command_view = None;
     loop {
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
@@ -264,39 +254,11 @@ fn render_ui(
         {
             let info = info.clone();
             term.draw(|f| {
-                let area = f.size();
-                let available_area =
-                    Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
-
-                if let Some(page) = &mut view {
-                    let cfg = ViewConfig::new(
-                        pager.config.nu_config,
-                        pager.config.style_computer,
-                        &pager.config.config,
-                        pager.config.lscolors,
-                    );
-
-                    page.view.draw(f, available_area, cfg, &mut layout);
-                }
-
-                if let Some(report) = info.status {
-                    let last_2nd_line = area.bottom().saturating_sub(2);
-                    let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
-                    render_status_bar(f, area, report, &pager.config.style);
-                }
-
-                {
-                    let last_line = area.bottom().saturating_sub(1);
-                    let area = Rect::new(area.left(), last_line, area.width, 1);
-                    render_cmd_bar(f, area, pager, info.report, &pager.config.style);
-                }
-
-                highlight_search_results(f, pager, &layout, pager.config.style.highlight);
-                set_cursor_cmd_bar(f, area, pager);
+                draw_frame(f, &mut view_stack.view, pager, &mut layout, info);
             })?;
         }
 
-        let status = handle_events(
+        let transition = handle_events(
             engine_state,
             stack,
             &events,
@@ -304,42 +266,36 @@ fn render_ui(
             info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            view.as_mut().map(|p| &mut p.view),
+            view_stack.view.as_mut().map(|p| &mut p.view),
         );
 
-        if let Some(status) = status {
-            match status {
-                Transition::Exit => {
-                    break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
-                }
-                Transition::Ok => {
-                    if view_stack.is_empty() && pager.config.exit_esc {
-                        break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
-                    }
+        if let Some(transition) = transition {
+            let (exit, cmd_name) = react_to_event_result(
+                transition,
+                engine_state,
+                &commands,
+                pager,
+                &mut view_stack,
+                stack,
+                info,
+            );
 
-                    // try to pop the view stack
-                    if let Some(v) = view_stack.pop() {
-                        view = Some(v);
-                    }
+            if let Some(value) = exit {
+                break Ok(value);
+            }
+
+            if !cmd_name.is_empty() {
+                if let Some(r) = info.report.as_mut() {
+                    r.message = cmd_name;
+                    r.level = Severity::Success;
+                } else {
+                    info.report = Some(Report::success(cmd_name));
                 }
-                Transition::Cmd(command) => {
-                    let out = pager_run_command(
-                        engine_state,
-                        stack,
-                        pager,
-                        &mut view,
-                        &mut view_stack,
-                        &commands,
-                        command,
-                    );
-                    match out {
-                        Ok(false) => {}
-                        Ok(true) => {
-                            break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)))
-                        }
-                        Err(err) => info.report = Some(Report::error(err)),
-                    }
-                }
+
+                let info = info.clone();
+                term.draw(|f| {
+                    draw_info(f, pager, info);
+                })?;
             }
         }
 
@@ -348,50 +304,144 @@ fn render_ui(
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            let out = pager_run_command(
-                engine_state,
-                stack,
-                pager,
-                &mut view,
-                &mut view_stack,
-                &commands,
-                args,
-            );
+            let out =
+                pager_run_command(engine_state, stack, pager, &mut view_stack, &commands, args);
             match out {
-                Ok(false) => {}
-                Ok(true) => break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view))),
+                Ok(result) => {
+                    if result.exit {
+                        break Ok(peak_value_from_view(&mut view_stack.view, pager));
+                    }
+
+                    if result.view_change && !result.cmd_name.is_empty() {
+                        if let Some(r) = info.report.as_mut() {
+                            r.message = result.cmd_name;
+                            r.level = Severity::Success;
+                        } else {
+                            info.report = Some(Report::success(result.cmd_name));
+                        }
+
+                        let info = info.clone();
+                        term.draw(|f| {
+                            draw_info(f, pager, info);
+                        })?;
+                    }
+                }
                 Err(err) => info.report = Some(Report::error(err)),
             }
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+fn react_to_event_result(
+    status: Transition,
+    engine_state: &EngineState,
+    commands: &CommandRegistry,
+    pager: &mut Pager<'_>,
+    view_stack: &mut ViewStack,
+    stack: &mut Stack,
+    info: &mut ViewInfo,
+) -> (Option<Option<Value>>, String) {
+    match status {
+        Transition::Exit => (
+            Some(peak_value_from_view(&mut view_stack.view, pager)),
+            String::default(),
+        ),
+        Transition::Ok => {
+            let exit = view_stack.stack.is_empty();
+            if exit {
+                return (
+                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    String::default(),
+                );
+            }
+
+            // try to pop the view stack
+            if let Some(v) = view_stack.stack.pop() {
+                view_stack.view = Some(v);
+            }
+
+            (None, String::default())
+        }
+        Transition::Cmd(cmd) => {
+            let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
+            match out {
+                Ok(result) if result.exit => (
+                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    String::default(),
+                ),
+                Ok(result) => (None, result.cmd_name),
+                Err(err) => {
+                    info.report = Some(Report::error(err));
+                    (None, String::default())
+                }
+            }
+        }
+    }
+}
+
+fn peak_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Option<Value> {
+    let view = view.as_mut().map(|p| &mut p.view);
+    try_to_peek_value(pager, view)
+}
+
+fn draw_frame(
+    f: &mut Frame,
+    view: &mut Option<Page>,
+    pager: &mut Pager<'_>,
+    layout: &mut Layout,
+    info: ViewInfo,
+) {
+    let area = f.size();
+    let available_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+
+    if let Some(page) = view {
+        let cfg = create_view_config(pager);
+        page.view.draw(f, available_area, cfg, layout);
+    }
+
+    draw_info(f, pager, info);
+
+    highlight_search_results(f, pager, layout, pager.config.style.highlight);
+    set_cursor_cmd_bar(f, area, pager);
+}
+
+fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
+    let area = f.size();
+
+    if let Some(report) = info.status {
+        let last_2nd_line = area.bottom().saturating_sub(2);
+        let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
+        render_status_bar(f, area, report, &pager.config.style);
+    }
+
+    {
+        let last_line = area.bottom().saturating_sub(1);
+        let area = Rect::new(area.left(), last_line, area.width, 1);
+        render_cmd_bar(f, area, pager, info.report, &pager.config.style);
+    }
+}
+
+fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
+    let cfg = &pager.config;
+    ViewConfig::new(cfg.nu_config, cfg.style_computer, &cfg.config, cfg.lscolors)
+}
+
 fn pager_run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
+    view_stack: &mut ViewStack,
     commands: &CommandRegistry,
     args: String,
-) -> std::result::Result<bool, String> {
+) -> result::Result<CmdResult, String> {
     let command = commands.find(&args);
-    handle_command(engine_state, stack, pager, view, view_stack, command, &args)
-}
-
-fn handle_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    pager: &mut Pager,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
-    command: Option<Result<Command>>,
-    args: &str,
-) -> std::result::Result<bool, String> {
     match command {
         Some(Ok(command)) => {
-            run_command(engine_state, stack, pager, view, view_stack, command, args)
+            let result = run_command(engine_state, stack, pager, view_stack, command);
+            match result {
+                Ok(value) => Ok(value),
+                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
+            }
         }
         Some(Err(err)) => Err(format!(
             "Error: command {args:?} was not provided with correct arguments: {err}"
@@ -404,78 +454,60 @@ fn run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
+    view_stack: &mut ViewStack,
     command: Command,
-    args: &str,
-) -> std::result::Result<bool, String> {
+) -> Result<CmdResult> {
     match command {
         Command::Reactive(mut command) => {
             // what we do we just replace the view.
-            let value = view.as_mut().and_then(|p| p.view.exit());
-            let result = command.react(engine_state, stack, pager, value);
-            match result {
-                Ok(transition) => match transition {
-                    Transition::Ok => {
-                        // so we basically allow a change of a config inside a command,
-                        // and cause of this we wanna update all of our views.
-                        //
-                        // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
+            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
+            let transition = command.react(engine_state, stack, pager, value)?;
+            match transition {
+                Transition::Ok => {
+                    // so we basically allow a change of a config inside a command,
+                    // and cause of this we wanna update all of our views.
+                    //
+                    // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
 
-                        {
-                            if let Some(page) = view.as_mut() {
-                                page.view.setup(ViewConfig::new(
-                                    pager.config.nu_config,
-                                    pager.config.style_computer,
-                                    &pager.config.config,
-                                    pager.config.lscolors,
-                                ));
-                            }
+                    update_view_stack_setup(view_stack, &pager.config);
 
-                            for page in view_stack {
-                                page.view.setup(ViewConfig::new(
-                                    pager.config.nu_config,
-                                    pager.config.style_computer,
-                                    &pager.config.config,
-                                    pager.config.lscolors,
-                                ));
-                            }
-                        }
-
-                        Ok(false)
-                    }
-                    Transition::Exit => Ok(true),
-                    Transition::Cmd { .. } => todo!("not used so far"),
-                },
-                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
+                    Ok(CmdResult::new(false, false, String::new()))
+                }
+                Transition::Exit => Ok(CmdResult::new(true, false, String::new())),
+                Transition::Cmd { .. } => todo!("not used so far"),
             }
         }
         Command::View { mut cmd, is_light } => {
             // what we do we just replace the view.
-            let value = view.as_mut().and_then(|p| p.view.exit());
-            let result = cmd.spawn(engine_state, stack, value);
-            match result {
-                Ok(mut new_view) => {
-                    if let Some(view) = view.take() {
-                        if !view.is_light {
-                            view_stack.push(view);
-                        }
-                    }
-
-                    new_view.setup(ViewConfig::new(
-                        pager.config.nu_config,
-                        pager.config.style_computer,
-                        &pager.config.config,
-                        pager.config.lscolors,
-                    ));
-
-                    *view = Some(Page::raw(new_view, is_light));
-                    Ok(false)
+            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
+            let mut new_view = cmd.spawn(engine_state, stack, value)?;
+            if let Some(view) = view_stack.view.take() {
+                if !view.is_light {
+                    view_stack.stack.push(view);
                 }
-                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
             }
+
+            update_view_setup(&mut new_view, &pager.config);
+            view_stack.view = Some(Page::raw(new_view, is_light));
+
+            Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
     }
+}
+
+fn update_view_stack_setup(view_stack: &mut ViewStack, cfg: &PagerConfig<'_>) {
+    if let Some(page) = view_stack.view.as_mut() {
+        update_view_setup(&mut page.view, cfg);
+    }
+
+    for page in &mut view_stack.stack {
+        update_view_setup(&mut page.view, cfg);
+    }
+}
+
+fn update_view_setup(view: &mut Box<dyn View>, cfg: &PagerConfig<'_>) {
+    let cfg = ViewConfig::new(cfg.nu_config, cfg.style_computer, &cfg.config, cfg.lscolors);
+    view.setup(cfg);
 }
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
@@ -509,13 +541,23 @@ where
 
 fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleConfig) {
     let msg_style = report_msg_style(&report, theme, theme.status_bar_text);
-    let mut status_bar = StatusBar::new(report.message, report.context, report.context2);
+    let mut status_bar = create_status_bar(report);
     status_bar.set_background_style(theme.status_bar_background);
     status_bar.set_message_style(msg_style);
-    status_bar.set_ctx_style(theme.status_bar_text);
+    status_bar.set_ctx1_style(theme.status_bar_text);
     status_bar.set_ctx2_style(theme.status_bar_text);
+    status_bar.set_ctx3_style(theme.status_bar_text);
 
     f.render_widget(status_bar, area);
+}
+
+fn create_status_bar(report: Report) -> StatusBar {
+    StatusBar::new(
+        report.message,
+        report.context1,
+        report.context2,
+        report.context3,
+    )
 }
 
 fn report_msg_style(report: &Report, theme: &StyleConfig, style: NuStyle) -> NuStyle {
@@ -537,7 +579,7 @@ fn render_cmd_bar(
         let style = report_msg_style(&report, theme, theme.cmd_bar_text);
         let bar = CommandBar::new(
             &report.message,
-            &report.context,
+            &report.context1,
             style,
             theme.cmd_bar_background,
         );
@@ -739,18 +781,13 @@ fn handle_event<V: View>(
 }
 
 fn handle_exit_key_event(key: &KeyEvent) -> bool {
-    matches!(
-        key,
-        KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        } | KeyEvent {
-            code: KeyCode::Char('z'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
+    if key.modifiers == KeyModifiers::CONTROL {
+        // these are all common things people might try, might as well handle them all
+        if let KeyCode::Char('c') | KeyCode::Char('d') | KeyCode::Char('q') = key.code {
+            return true;
         }
-    )
+    }
+    false
 }
 
 fn handle_general_key_events1<V>(
@@ -990,11 +1027,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     if !hm.contains_key(key) {
         hm.insert(
             key.to_string(),
-            Value::Record {
-                cols: vec![],
-                vals: vec![],
-                span: NuSpan::unknown(),
-            },
+            Value::record(Record::new(), NuSpan::unknown()),
         );
     }
 
@@ -1006,27 +1039,14 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     }
 
     match val {
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val: record, .. } => {
             if path.len() == 2 {
-                if cols.len() != vals.len() {
-                    return false;
-                }
+                let key = path[1];
 
-                let key = &path[1];
-
-                let pos = cols.iter().position(|v| v == key);
-                match pos {
-                    Some(i) => {
-                        vals[i] = value;
-                    }
-                    None => {
-                        cols.push(key.to_string());
-                        vals.push(value);
-                    }
-                }
+                record.insert(key, value);
             } else {
                 let mut hm2: HashMap<String, Value> = HashMap::new();
-                for (k, v) in cols.iter().zip(vals) {
+                for (k, v) in record.iter() {
                     hm2.insert(k.to_string(), v.clone());
                 }
 
@@ -1050,6 +1070,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
 fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
     match level {
         Severity::Info => theme.status_info,
+        Severity::Success => theme.status_success,
         Severity::Warn => theme.status_warn,
         Severity::Err => theme.status_error,
     }
@@ -1089,5 +1110,32 @@ impl Page {
         V: View + 'static,
     {
         Self::raw(Box::new(view), is_light)
+    }
+}
+
+struct ViewStack {
+    view: Option<Page>,
+    stack: Vec<Page>,
+}
+
+impl ViewStack {
+    fn new(view: Option<Page>, stack: Vec<Page>) -> Self {
+        Self { view, stack }
+    }
+}
+
+struct CmdResult {
+    exit: bool,
+    view_change: bool,
+    cmd_name: String,
+}
+
+impl CmdResult {
+    fn new(exit: bool, view_change: bool, cmd_name: String) -> Self {
+        Self {
+            exit,
+            view_change,
+            cmd_name,
+        }
     }
 }

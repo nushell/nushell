@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.83.2"
+version = "0.89.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,52 +13,51 @@ version = "0.83.2"
 bench = false
 
 [dependencies]
-nu-ansi-term = "0.49.0"
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.83.2" }
-nu-color-config = { path = "../nu-color-config", version = "0.83.2" }
-nu-engine = { path = "../nu-engine", version = "0.83.2" }
-nu-glob = { path = "../nu-glob", version = "0.83.2" }
-nu-json = { path = "../nu-json", version = "0.83.2" }
-nu-parser = { path = "../nu-parser", version = "0.83.2" }
-nu-path = { path = "../nu-path", version = "0.83.2" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.83.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.83.2" }
-nu-system = { path = "../nu-system", version = "0.83.2" }
-nu-table = { path = "../nu-table", version = "0.83.2" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.83.2" }
-nu-utils = { path = "../nu-utils", version = "0.83.2" }
+nu-ansi-term = "0.50.0"
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.89.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.89.1" }
+nu-engine = { path = "../nu-engine", version = "0.89.1" }
+nu-glob = { path = "../nu-glob", version = "0.89.1" }
+nu-json = { path = "../nu-json", version = "0.89.1" }
+nu-parser = { path = "../nu-parser", version = "0.89.1" }
+nu-path = { path = "../nu-path", version = "0.89.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.89.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.89.1" }
+nu-system = { path = "../nu-system", version = "0.89.1" }
+nu-table = { path = "../nu-table", version = "0.89.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.89.1" }
+nu-utils = { path = "../nu-utils", version = "0.89.1" }
 
 alphanumeric-sort = "1.5"
 base64 = "0.21"
-byteorder = "1.4"
-bytesize = "1.2"
-calamine = "0.21"
+byteorder = "1.5"
+bytesize = "1.3"
+calamine = "0.23.1"
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
-chrono-humanize = "0.2"
+chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
-crossterm = "0.26"
-csv = "1.2"
-dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10" }
+crossterm = "0.27"
+csv = "1.3"
+dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.11" }
 digest = { default-features = false, version = "0.10" }
-dtparse = "1.5"
+dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.11"
+fancy-regex = "0.12"
 filesize = "0.2"
 filetime = "0.2"
 fs_extra = "1.3"
-htmlescape = "0.3"
-indexmap = "2.0"
+human-date-parser = "0.1.1"
+indexmap = "2.1"
 indicatif = "0.17"
-is-terminal = "0.4.8"
-itertools = "0.10"
+itertools = "0.12"
 log = "0.4"
-lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
+lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
-notify-debouncer-full = { version = "0.2", default-features = false }
+notify-debouncer-full = { version = "0.3", default-features = false }
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
@@ -67,55 +66,64 @@ open = "5.0"
 os_pipe = "1.1"
 pathdiff = "0.2"
 percent-encoding = "2.3"
-powierza-coefficient = "1.0"
 print-positions = "0.6"
-quick-xml = "0.29"
+quick-xml = "0.31.0"
 rand = "0.8"
-rayon = "1.7"
-regex = "1.7"
+rayon = "1.8"
+regex = "1.9.5"
 roxmltree = "0.18"
-rusqlite = { version = "0.29", features = ["bundled"], optional = true }
+rusqlite = { version = "0.29", features = ["bundled", "backup", "chrono"], optional = true }
 same-file = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 sha2 = "0.10"
-sqlparser = { version = "0.34", features = ["serde"], optional = true }
-sysinfo = "0.29"
+sysinfo = "0.30"
 tabled = { version = "0.14.0", features = ["color"], default-features = false }
-terminal_size = "0.2"
+terminal_size = "0.3"
 titlecase = "2.0"
-toml = "0.7"
+toml = "0.8"
 unicode-segmentation = "1.10"
-ureq = { version = "2.7", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+ureq = { version = "2.9", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
-uuid = { version = "1.3", features = ["v4"] }
-wax = { version = "0.5" }
-which = { version = "4.4", optional = true }
+uu_mv = "0.0.23"
+uu_cp = "0.0.23"
+uu_whoami = "0.0.23"
+uu_mkdir = "0.0.23"
+uu_mktemp = "0.0.23"
+uuid = { version = "1.6", features = ["v4"] }
+v_htmlescape = "0.15.0"
+wax = { version = "0.6" }
+which = { version = "5.0", optional = true }
 bracoxide = "0.1.2"
+chardetng = "0.1.17"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.50"
+winreg = "0.52"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-nix = { version = "0.26", default-features = false, features = ["user"] }
+nix = { version = "0.27", default-features = false, features = ["user", "resource"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+procfs = "0.16.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true
-version = "3.0"
+version = "3.1"
 
 [target.'cfg(windows)'.dependencies.windows]
 features = [
 	"Win32_Foundation",
 	"Win32_Storage_FileSystem",
+	"Win32_System_Environment",
 	"Win32_System_SystemServices",
 	"Win32_Security",
-	"Win32_System_Threading"
+	"Win32_System_Threading",
 ]
-version = "0.48"
+version = "0.52"
 
 [features]
 plugin = ["nu-parser/plugin"]
@@ -124,11 +132,11 @@ trash-support = ["trash"]
 which-support = ["which"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.83.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.83.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.89.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.89.1" }
 
 dirs-next = "2.0"
-mockito = { version = "1.1", default-features = false }
+mockito = { version = "1.2", default-features = false }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
-rstest = { version = "0.17", default-features = false }
+rstest = { version = "0.18", default-features = false }

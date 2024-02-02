@@ -33,6 +33,11 @@ pub fn set_span(
     text_width as u16
 }
 
+pub fn lookup_tui_color(style_computer: &StyleComputer, key: &str) -> Style {
+    let nu_style = style_computer.compute(key, &Value::nothing(nu_protocol::Span::unknown()));
+    nu_style_to_tui(nu_style)
+}
+
 pub fn nu_style_to_tui(style: NuStyle) -> ratatui::style::Style {
     let mut out = ratatui::style::Style::default();
     if let Some(clr) = style.background {
@@ -152,13 +157,13 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
     let val_float = match val.trim().parse::<f64>() {
         Ok(f) => f,
         Err(e) => {
-            return Err(ShellError::GenericError(
-                format!("error converting string [{}] to f64", &val),
-                "".to_string(),
-                None,
-                Some(e.to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("error converting string [{}] to f64", &val),
+                msg: "".into(),
+                span: None,
+                help: Some(e.to_string()),
+                inner: vec![],
+            });
         }
     };
     Ok(format!("{val_float:.precision$}"))

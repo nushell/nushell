@@ -101,10 +101,10 @@ pub fn cal(
     let (current_year, current_month, current_day) = get_current_date();
 
     let arguments = Arguments {
-        year: call.has_flag("year"),
-        month: call.has_flag("month"),
-        month_names: call.has_flag("month-names"),
-        quarter: call.has_flag("quarter"),
+        year: call.has_flag(engine_state, stack, "year")?,
+        month: call.has_flag(engine_state, stack, "month")?,
+        month_names: call.has_flag(engine_state, stack, "month-names")?,
+        quarter: call.has_flag(engine_state, stack, "quarter")?,
         full_year: call.get_flag(engine_state, stack, "full-year")?,
         week_start: call.get_flag(engine_state, stack, "week-start")?,
     };
@@ -134,11 +134,7 @@ pub fn cal(
         current_day_option,
     )?;
 
-    Ok(Value::List {
-        vals: calendar_vec_deque.into_iter().collect(),
-        span: tag,
-    }
-    .into_pipeline_data())
+    Ok(Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data())
 }
 
 fn get_invalid_year_shell_error(head: Span) -> ShellError {
@@ -324,10 +320,7 @@ fn add_month_to_table(
 
         if should_show_month_column || should_show_month_names {
             let month_value = if should_show_month_names {
-                Value::String {
-                    val: month_helper.month_name.clone(),
-                    span: tag,
-                }
+                Value::string(month_helper.month_name.clone(), tag)
             } else {
                 Value::int(month_helper.selected_month as i64, tag)
             };
@@ -339,7 +332,7 @@ fn add_month_to_table(
             let should_add_day_number_to_table =
                 (day_number > total_start_offset) && (day_number <= day_limit);
 
-            let mut value = Value::Nothing { span: tag };
+            let mut value = Value::nothing(tag);
 
             if should_add_day_number_to_table {
                 let adjusted_day_number = day_number - total_start_offset;
@@ -359,18 +352,7 @@ fn add_month_to_table(
             day_number += 1;
         }
 
-        let cols: Vec<String> = indexmap.keys().map(|f| f.to_string()).collect();
-        let mut vals: Vec<Value> = Vec::new();
-        for c in &cols {
-            if let Some(x) = indexmap.get(c) {
-                vals.push(x.to_owned())
-            }
-        }
-        calendar_vec_deque.push_back(Value::Record {
-            cols,
-            vals,
-            span: tag,
-        })
+        calendar_vec_deque.push_back(Value::record(indexmap.into_iter().collect(), tag))
     }
 
     Ok(())

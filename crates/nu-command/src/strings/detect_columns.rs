@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -58,41 +58,32 @@ impl Command for DetectColumns {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Splits string across multiple columns",
-                example: "'a b c' | detect columns -n",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "column0".to_string(),
-                            "column1".to_string(),
-                            "column2".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
+                example: "'a b c' | detect columns --no-headers",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("c"),
+                })])),
             },
             Example {
                 description: "",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 0..1",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c -2..-1",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 2..",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2..",
                 result: None,
             },
             Example {
@@ -112,7 +103,7 @@ fn detect_columns(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
-    let noheader = call.has_flag("no-headers");
+    let noheader = call.has_flag(engine_state, stack, "no-headers")?;
     let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();
@@ -151,10 +142,7 @@ fn detect_columns(
             if headers.len() == row.len() {
                 for (header, val) in headers.iter().zip(row.iter()) {
                     cols.push(header.item.clone());
-                    vals.push(Value::String {
-                        val: val.item.clone(),
-                        span: name_span,
-                    });
+                    vals.push(Value::string(val.item.clone(), name_span));
                 }
             } else {
                 let mut pre_output = vec![];
@@ -211,28 +199,21 @@ fn detect_columns(
                         };
 
                         if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
-                            return Value::Record {
-                                cols,
-                                vals,
-                                span: name_span,
-                            };
+                            return Value::record(
+                                Record::from_raw_cols_vals(cols, vals),
+                                name_span,
+                            );
                         }
 
                         (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find range index", name_span);
-                        return Value::Error {
-                            error: Box::new(err),
-                        };
+                        return Value::error(err, name_span);
                     }
                 }
             } else {
-                return Value::Record {
-                    cols,
-                    vals,
-                    span: name_span,
-                };
+                return Value::record(Record::from_raw_cols_vals(cols, vals), name_span);
             };
 
             // Merge Columns
@@ -246,7 +227,7 @@ fn detect_columns(
                 .iter()
                 .take(end_index)
                 .skip(start_index)
-                .map(|v| v.as_string().unwrap_or(String::default()))
+                .map(|v| v.as_string().unwrap_or_default())
                 .join(" ");
             let binding = Value::string(combined, Span::unknown());
             let last_seg = vals.split_off(end_index);
@@ -254,11 +235,7 @@ fn detect_columns(
             vals.push(binding);
             last_seg.into_iter().for_each(|v| vals.push(v));
 
-            Value::Record {
-                cols,
-                vals,
-                span: name_span,
-            }
+            Value::record(Record::from_raw_cols_vals(cols, vals), name_span)
         })
         .into_pipeline_data(ctrlc))
     } else {

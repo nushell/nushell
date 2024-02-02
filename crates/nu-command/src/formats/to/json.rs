@@ -44,8 +44,8 @@ impl Command for ToJson {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let use_tabs = call.has_flag("tabs");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let use_tabs = call.has_flag(engine_state, stack, "tabs")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array
@@ -64,19 +64,18 @@ impl Command for ToJson {
         };
 
         match json_result {
-            Ok(serde_json_string) => Ok(Value::String {
-                val: serde_json_string,
-                span,
+            Ok(serde_json_string) => {
+                Ok(Value::string(serde_json_string, span).into_pipeline_data())
             }
-            .into_pipeline_data()),
-            _ => Ok(Value::Error {
-                error: Box::new(ShellError::CantConvert {
+            _ => Ok(Value::error(
+                ShellError::CantConvert {
                     to_type: "JSON".into(),
                     from_type: value.get_type().to_string(),
                     span,
                     help: None,
-                }),
-            }
+                },
+                span,
+            )
             .into_pipeline_data()),
         }
     }
@@ -92,7 +91,7 @@ impl Command for ToJson {
             Example {
                 description:
                     "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
-                example: "[Joe Bob Sam] | to json -i 4",
+                example: "[Joe Bob Sam] | to json --indent 4",
                 result: Some(Value::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
             },
             Example {
@@ -106,6 +105,7 @@ impl Command for ToJson {
 }
 
 pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
+    let span = v.span();
     Ok(match v {
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
         Value::Filesize { val, .. } => nu_json::Value::I64(*val),
@@ -115,6 +115,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::Int { val, .. } => nu_json::Value::I64(*val),
         Value::Nothing { .. } => nu_json::Value::Null,
         Value::String { val, .. } => nu_json::Value::String(val.to_string()),
+        Value::QuotedString { val, .. } => nu_json::Value::String(val.to_string()),
         Value::RawString { val, .. } => nu_json::Value::String(val.to_string()),
         Value::CellPath { val, .. } => nu_json::Value::Array(
             val.members
@@ -127,17 +128,14 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         ),
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
-        Value::Error { error } => return Err(*error.clone()),
-        Value::Closure { .. }
-        | Value::Block { .. }
-        | Value::Range { .. }
-        | Value::MatchPattern { .. } => nu_json::Value::Null,
+        Value::Error { error, .. } => return Err(*error.clone()),
+        Value::Closure { .. } | Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in cols.iter().zip(vals) {
+            for (k, v) in val {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)
@@ -146,8 +144,8 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             let collected = val.collect()?;
             value_to_json_value(&collected)?
         }
-        Value::CustomValue { val, span } => {
-            let collected = val.to_base_value(*span)?;
+        Value::CustomValue { val, .. } => {
+            let collected = val.to_base_value(span)?;
             value_to_json_value(&collected)?
         }
     })

@@ -31,14 +31,17 @@ impl Command for GetDay {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns day from a date",
-            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
+            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime --timezone 'UTC');
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr get-day"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(4), Value::test_int(4)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(4), Value::test_int(4)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -65,14 +68,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let casted = series.datetime().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to datetime type".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let casted = series.datetime().map_err(|e| ShellError::GenericError {
+        error: "Error casting to datetime type".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let res = casted.day().into_series();

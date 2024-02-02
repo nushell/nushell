@@ -14,8 +14,7 @@ mod test_examples {
         check_example_input_and_output_types_match_command_signature,
     };
     use crate::{
-        Break, Collect, Def, DefEnv, Describe, Echo, ExportCommand, ExportDef, ExportDefEnv, If,
-        Let, Module, Mut, Use,
+        Break, Collect, Def, Describe, Echo, ExportCommand, ExportDef, If, Let, Module, Mut, Use,
     };
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
@@ -69,12 +68,10 @@ mod test_examples {
             working_set.add_decl(Box::new(Break));
             working_set.add_decl(Box::new(Collect));
             working_set.add_decl(Box::new(Def));
-            working_set.add_decl(Box::new(DefEnv));
             working_set.add_decl(Box::new(Describe));
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(ExportCommand));
             working_set.add_decl(Box::new(ExportDef));
-            working_set.add_decl(Box::new(ExportDefEnv));
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Module));

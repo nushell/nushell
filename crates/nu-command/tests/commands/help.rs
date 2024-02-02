@@ -2,6 +2,8 @@ use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
 
+// Note: These tests might slightly overlap with tests/scope/mod.rs
+
 #[test]
 fn help_commands_length() {
     let actual = nu!("help commands | length");
@@ -22,7 +24,6 @@ fn help_shows_signature() {
     assert!(!actual.out.contains("Input/output types"));
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_aliases() {
     let code = &[
@@ -34,7 +35,6 @@ fn help_aliases() {
     assert_eq!(actual.out, "1");
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_alias_usage_1() {
     Playground::setup("help_alias_usage_1", |dirs, sandbox| {
@@ -56,7 +56,6 @@ fn help_alias_usage_1() {
     })
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_alias_usage_2() {
     let code = &[
@@ -68,7 +67,6 @@ fn help_alias_usage_2() {
     assert_eq!(actual.out, "line2");
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_alias_usage_3() {
     Playground::setup("help_alias_usage_3", |dirs, sandbox| {
@@ -91,7 +89,6 @@ fn help_alias_usage_3() {
     })
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_alias_name() {
     Playground::setup("help_alias_name", |dirs, sandbox| {
@@ -113,7 +110,6 @@ fn help_alias_name() {
     })
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_alias_name_f() {
     Playground::setup("help_alias_name_f", |dirs, sandbox| {
@@ -133,7 +129,6 @@ fn help_alias_name_f() {
     })
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_export_alias_name_single_word() {
     Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
@@ -155,7 +150,6 @@ fn help_export_alias_name_single_word() {
     })
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_export_alias_name_multi_word() {
     Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
@@ -302,7 +296,6 @@ fn help_usage_extra_usage_command() {
     })
 }
 
-#[ignore = "TODO: Need to decide how to do help messages of new aliases"]
 #[test]
 fn help_usage_extra_usage_alias() {
     Playground::setup("help_usage_extra_usage_alias", |dirs, sandbox| {
@@ -320,21 +313,21 @@ fn help_usage_extra_usage_alias() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help modules spam"));
+        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
         assert!(actual.out.contains("module_line1"));
         assert!(actual.out.contains("module_line2"));
 
         let actual = nu!(cwd: dirs.test(),
-            pipeline("use spam.nu *; help modules | where name == spam | get 0.usage"));
+            "use spam.nu *; help modules | where name == spam | get 0.usage");
         assert!(actual.out.contains("module_line1"));
         assert!(!actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help aliases bar"));
+        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help aliases bar");
         assert!(actual.out.contains("alias_line1"));
         assert!(actual.out.contains("alias_line2"));
 
         let actual = nu!(cwd: dirs.test(),
-            pipeline("use spam.nu *; help aliases | where name == bar | get 0.usage"));
+            "use spam.nu *; help aliases | where name == bar | get 0.usage");
         assert!(actual.out.contains("alias_line1"));
         assert!(!actual.out.contains("alias_line2"));
     })
@@ -360,23 +353,21 @@ fn help_modules_main_2() {
         r#"module spam {
             export def main [] { 'foo' };
         }"#,
-        "help modules | where name == spam | get 0.commands.0",
+        "help modules | where name == spam | get 0.commands.0.name",
     ];
 
-    let actual = nu!(pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }
 
-#[ignore = "TODO: Can't have alias with the same name as command"]
 #[test]
-fn help_alias_before_command() {
-    let code = &[
-        "alias SPAM = echo 'spam'",
-        "def SPAM [] { 'spam' }",
-        "help SPAM",
-    ];
-    let actual = nu!(nu_repl_code(code));
-
-    assert!(actual.out.contains("Alias"));
+fn nothing_type_annotation() {
+    let actual = nu!(pipeline(
+        "
+        def foo []: nothing -> nothing {};
+        help commands | where name == foo | get input_output.0.output.0
+    "
+    ));
+    assert_eq!(actual.out, "nothing");
 }

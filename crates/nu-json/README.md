@@ -63,7 +63,7 @@ fn main() {
 
         // Extract the array
         let array : &mut Vec<Value> = sample.get_mut("array").unwrap().as_array_mut().unwrap();
-        println!("first: {}", array.get(0).unwrap());
+        println!("first: {}", array.first().unwrap());
 
         // Add a value
         array.push(Value::String("tak".to_string()));

@@ -5,7 +5,8 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-path"
 edition = "2021"
 license = "MIT"
 name = "nu-path"
-version = "0.83.2"
+version = "0.89.1"
+exclude = ["/fuzz"]
 
 [lib]
 bench = false
@@ -16,5 +17,5 @@ dirs-next = "2.0"
 [target.'cfg(windows)'.dependencies]
 omnipath = "0.1"
 
-[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+[target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
 pwd = "1.3"

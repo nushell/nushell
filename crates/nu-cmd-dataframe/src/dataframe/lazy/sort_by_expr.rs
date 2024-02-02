@@ -16,7 +16,7 @@ impl Command for LazySortBy {
     }
 
     fn usage(&self) -> &str {
-        "sorts a lazy dataframe based on expression(s)."
+        "Sorts a lazy dataframe based on expression(s)."
     }
 
     fn signature(&self) -> Signature {
@@ -37,6 +37,7 @@ impl Command for LazySortBy {
                 "nulls are shown last in the dataframe",
                 Some('n'),
             )
+            .switch("maintain-order", "Maintains order during sort", Some('m'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -59,7 +60,7 @@ impl Command for LazySortBy {
                             "b".to_string(),
                             vec![Value::test_int(4), Value::test_int(1), Value::test_int(2)],
                         ),
-                    ])
+                    ], None)
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -88,7 +89,7 @@ impl Command for LazySortBy {
                                 Value::test_int(2),
                             ],
                         ),
-                    ])
+                    ], None)
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -104,12 +105,10 @@ impl Command for LazySortBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
-        let nulls_last = call.has_flag("nulls-last");
+        let nulls_last = call.has_flag(engine_state, stack, "nulls-last")?;
+        let maintain_order = call.has_flag(engine_state, stack, "maintain-order")?;
 
         let reverse: Option<Vec<bool>> = call.get_flag(engine_state, stack, "reverse")?;
         let reverse = match reverse {
@@ -118,14 +117,14 @@ impl Command for LazySortBy {
                     let span = call
                         .get_flag::<Value>(engine_state, stack, "reverse")?
                         .expect("already checked and it exists")
-                        .span()?;
-                    return Err(ShellError::GenericError(
-                        "Incorrect list size".into(),
-                        "Size doesn't match expression list".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ));
+                        .span();
+                    return Err(ShellError::GenericError {
+                        error: "Incorrect list size".into(),
+                        msg: "Size doesn't match expression list".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     list
                 }
@@ -137,7 +136,7 @@ impl Command for LazySortBy {
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
             lazy.into_polars()
-                .sort_by_exprs(&expressions, reverse, nulls_last),
+                .sort_by_exprs(&expressions, reverse, nulls_last, maintain_order),
         );
 
         Ok(PipelineData::Value(

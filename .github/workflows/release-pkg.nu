@@ -9,34 +9,36 @@
 # Instructions for manually creating an MSI for Winget Releases when they fail
 # Added 2022-11-29 when Windows packaging wouldn't work
 # Updated again on 2023-02-23 because msis are still failing validation
+# Update on 2023-10-18 to use RELEASE_TYPE env var to determine if full or not
 # To run this manual for windows here are the steps I take
 # checkout the release you want to publish
-# 1. git checkout 0.76.0
+# 1. git checkout 0.86.0
 # unset CARGO_TARGET_DIR if set (I have to do this in the parent shell to get it to work)
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
 # 3. $env.TARGET = 'x86_64-pc-windows-msvc'
 # 4. $env.TARGET_RUSTFLAGS = ''
-# 5. $env.GITHUB_WORKSPACE = 'C:\Users\dschroeder\source\repos\forks\nushell'
-# 6. $env.GITHUB_OUTPUT = 'C:\Users\dschroeder\source\repos\forks\nushell\output\out.txt'
+# 5. $env.GITHUB_WORKSPACE = 'D:\nushell'
+# 6. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
 # 7. $env.OS = 'windows-latest'
+# 8. $env.RELEASE_TYPE = '' # There is full and '' for normal releases
 # make sure 7z.exe is in your path https://www.7-zip.org/download.html
-# 8. $env.Path = ($env.Path | append 'c:\apps\7-zip')
+# 9. $env.Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
-# 9. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
+# 10. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
 # make sure you have the wixtools installed https://wixtoolset.org/
-# 10. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
+# 11. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
 # You need to run the release-pkg twice. The first pass, with _EXTRA_ as 'bin', makes the output
 # folder and builds everything. The second pass, that generates the msi file, with _EXTRA_ as 'msi'
-# 11. $env._EXTRA_ = 'bin'
-# 12. source .github\workflows\release-pkg.nu
-# 13. cd ..
-# 14. $env._EXTRA_ = 'msi'
-# 15. source .github\workflows\release-pkg.nu
+# 12. $env._EXTRA_ = 'bin'
+# 13. source .github\workflows\release-pkg.nu
+# 14. cd ..
+# 15. $env._EXTRA_ = 'msi'
+# 16. source .github\workflows\release-pkg.nu
 # After msi is generated, you have to update winget-pkgs repo, you'll need to patch the release
 # by deleting the existing msi and uploading this new msi. Then you'll need to update the hash
 # on the winget-pkgs PR. To generate the hash, run this command
-# 16. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
+# 17. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
 # Then, just take the output and put it in the winget-pkgs PR for the hash on the msi
 
 
@@ -51,11 +53,26 @@ let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
 print $'Debugging info:'
-print { version: $version, bin: $bin, os: $os, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+print { version: $version, bin: $bin, os: $os, releaseType: $env.RELEASE_TYPE, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+
+# Rename the full release name so that we won't break the existing scripts for standard release downloading, such as:
+# curl -s https://api.github.com/repos/chmln/sd/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep x86_64-unknown-linux-musl
+const FULL_RLS_NAMING = {
+    x86_64-apple-darwin: 'x86_64-darwin-full',
+    aarch64-apple-darwin: 'aarch64-darwin-full',
+    x86_64-unknown-linux-gnu: 'x86_64-linux-gnu-full',
+    x86_64-pc-windows-msvc: 'x86_64-windows-msvc-full',
+    x86_64-unknown-linux-musl: 'x86_64-linux-musl-full',
+    aarch64-unknown-linux-gnu: 'aarch64-linux-gnu-full',
+    aarch64-pc-windows-msvc: 'aarch64-windows-msvc-full',
+    riscv64gc-unknown-linux-gnu: 'riscv64-linux-gnu-full',
+    armv7-unknown-linux-gnueabihf: 'armv7-linux-gnueabihf-full',
+}
 
 # $env
 
 let USE_UBUNTU = 'ubuntu-20.04'
+let FULL_NAME = $FULL_RLS_NAMING | get -i $target | default 'unknown-target-full'
 
 print $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
 if not ('Cargo.lock' | path exists) { cargo generate-lockfile }
@@ -65,8 +82,8 @@ print $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
 # ----------------------------------------------------------------------------
-if $os in [$USE_UBUNTU, 'macos-latest'] {
-    if $os == $USE_UBUNTU {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
+    if $os starts-with ubuntu {
         sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
@@ -89,7 +106,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
-            if $os == $USE_UBUNTU { sudo apt install musl-tools -y }
+            if $os starts-with ubuntu { sudo apt install musl-tools -y }
             cargo-build-nu $flags
         }
     }
@@ -119,10 +136,8 @@ print (ls -f $executable); sleep 1sec
 print $'(char nl)Copying release files...'; hr-line
 "To use Nu plugins, use the register command to tell Nu where to find the plugin. For example:
 
-> register ./nu_plugin_query" | save $'($dist)/README.txt'
+> register ./nu_plugin_query" | save $'($dist)/README.txt' -f
 [LICENSE $executable] | each {|it| cp -rv $it $dist } | flatten
-# Sleep a few seconds to make sure the cp process finished successfully
-sleep 3sec
 
 print $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
@@ -131,17 +146,17 @@ let ver = if $os == 'windows-latest' {
     (do -i { ./output/nu -c 'version' }) | str join
 }
 if ($ver | str trim | is-empty) {
-    print $'(ansi r)Incompatible nu binary...(ansi reset)'
+    print $'(ansi r)Incompatible Nu binary: The binary cross compiled is not runnable on current arch...(ansi reset)'
 } else { print $ver }
 
 # ----------------------------------------------------------------------------
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
 cd $dist; print $'(char nl)Creating release archive...'; hr-line
-if $os in [$USE_UBUNTU, 'macos-latest'] {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
 
     let files = (ls | get name)
-    let dest = $'($bin)-($version)-($target)'
+    let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
     let archive = $'($dist)/($dest).tar.gz'
 
     mkdir $dest
@@ -156,7 +171,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 
 } else if $os == 'windows-latest' {
 
-    let releaseStem = $'($bin)-($version)-($target)'
+    let releaseStem = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
 
     print $'(char nl)Download less related stuffs...'; hr-line
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
@@ -172,18 +187,22 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         cp -r $'($dist)/*' target/release/
         cargo install cargo-wix --version 0.3.4
         cargo wix --no-build --nocapture --package nu --output $wixRelease
-        print $'archive: ---> ($wixRelease)';
-        echo $"archive=($wixRelease)" | save --append $env.GITHUB_OUTPUT
+        # Workaround for https://github.com/softprops/action-gh-release/issues/280
+        let archive = ($wixRelease | str replace --all '\' '/')
+        print $'archive: ---> ($archive)';
+        echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
 
     } else {
 
         print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
         let archive = $'($dist)/($releaseStem).zip'
         7z a $archive *
-        print $'archive: ---> ($archive)';
         let pkg = (ls -f $archive | get name)
         if not ($pkg | is-empty) {
-            echo $"archive=($pkg | get 0)" | save --append $env.GITHUB_OUTPUT
+            # Workaround for https://github.com/softprops/action-gh-release/issues/280
+            let archive = ($pkg | get 0 | str replace --all '\' '/')
+            print $'archive: ---> ($archive)'
+            echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
         }
     }
 }
@@ -206,7 +225,7 @@ def 'cargo-build-nu' [ options: string ] {
 
 # Print a horizontal line marker
 def 'hr-line' [
-    --blank-line(-b): bool
+    --blank-line(-b)
 ] {
     print $'(ansi g)---------------------------------------------------------------------------->(ansi reset)'
     if $blank_line { char nl }

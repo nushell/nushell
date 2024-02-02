@@ -7,10 +7,14 @@ use nu_protocol::{
 
 pub fn chain_error_with_input(
     error_source: ShellError,
-    input_span: Result<Span, ShellError>,
+    input_is_error: bool,
+    span: Span,
 ) -> ShellError {
-    if let Ok(span) = input_span {
-        return ShellError::EvalBlockWithInput(span, vec![error_source]);
+    if !input_is_error {
+        return ShellError::EvalBlockWithInput {
+            span,
+            sources: vec![error_source],
+        };
     }
     error_source
 }
@@ -29,7 +33,7 @@ pub fn boolean_fold(
 
     let block = engine_state.get_block(block_id);
     let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
+    let mut stack = stack.captures_to_stack(capture_block.captures);
 
     let orig_env_vars = stack.env_vars.clone();
     let orig_env_hidden = stack.env_hidden.clone();
@@ -61,19 +65,11 @@ pub fn boolean_fold(
             }
             Ok(pipeline_data) => {
                 if pipeline_data.into_value(span).is_true() == accumulator {
-                    return Ok(Value::Bool {
-                        val: accumulator,
-                        span,
-                    }
-                    .into_pipeline_data());
+                    return Ok(Value::bool(accumulator, span).into_pipeline_data());
                 }
             }
         }
     }
 
-    Ok(Value::Bool {
-        val: !accumulator,
-        span,
-    }
-    .into_pipeline_data())
+    Ok(Value::bool(!accumulator, span).into_pipeline_data())
 }

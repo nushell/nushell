@@ -39,12 +39,12 @@ fn expand_path_no_change() {
 #[test]
 fn expand_unicode_path_no_change() {
     Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut spam = dirs.test().clone();
+        let mut spam = dirs.test().to_owned();
         spam.push("🚒.txt");
 
         let cwd = std::env::current_dir().expect("Could not get current directory");
         let actual = expand_path_with(spam, cwd);
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("🚒.txt");
 
         assert_eq!(actual, expected);
@@ -61,7 +61,7 @@ fn expand_non_utf8_path() {
 fn expand_path_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -71,11 +71,11 @@ fn expand_path_relative_to() {
 #[test]
 fn expand_unicode_path_relative_to_unicode_path_with_spaces() {
     Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().clone();
+        let mut relative_to = dirs.test().to_owned();
         relative_to.push("e-$ èрт🚒♞中片-j");
 
         let actual = expand_path_with("🚒.txt", relative_to);
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
         assert_eq!(actual, expected);
@@ -91,7 +91,7 @@ fn expand_non_utf8_path_relative_to_non_utf8_path_with_spaces() {
 #[test]
 fn expand_absolute_path_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut absolute_path = dirs.test().clone();
+        let mut absolute_path = dirs.test().to_owned();
         absolute_path.push("spam.txt");
 
         let actual = expand_path_with(&absolute_path, "non/existent/directory");
@@ -105,7 +105,7 @@ fn expand_absolute_path_relative_to() {
 fn expand_path_with_dot_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("./spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -116,7 +116,7 @@ fn expand_path_with_dot_relative_to() {
 fn expand_path_with_many_dots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("././/.//////./././//.////spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -127,7 +127,7 @@ fn expand_path_with_many_dots_relative_to() {
 fn expand_path_with_double_dot_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("foo/../spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -138,7 +138,7 @@ fn expand_path_with_double_dot_relative_to() {
 fn expand_path_with_many_double_dots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("foo/bar/baz/../../../spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -149,7 +149,7 @@ fn expand_path_with_many_double_dots_relative_to() {
 fn expand_path_with_3_ndots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("foo/bar/.../spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -163,7 +163,7 @@ fn expand_path_with_many_3_ndots_relative_to() {
             "foo/bar/baz/eggs/sausage/bacon/.../.../.../spam.txt",
             dirs.test(),
         );
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -174,7 +174,7 @@ fn expand_path_with_many_3_ndots_relative_to() {
 fn expand_path_with_4_ndots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("foo/bar/baz/..../spam.txt", dirs.test());
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -188,7 +188,7 @@ fn expand_path_with_many_4_ndots_relative_to() {
             "foo/bar/baz/eggs/sausage/bacon/..../..../spam.txt",
             dirs.test(),
         );
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -198,11 +198,11 @@ fn expand_path_with_many_4_ndots_relative_to() {
 #[test]
 fn expand_path_with_way_too_many_dots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().clone();
+        let mut relative_to = dirs.test().to_owned();
         relative_to.push("foo/bar/baz/eggs/sausage/bacon/vikings");
 
         let actual = expand_path_with("././..////././...///././.....///spam.txt", relative_to);
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("spam.txt");
 
         assert_eq!(actual, expected);
@@ -212,11 +212,11 @@ fn expand_path_with_way_too_many_dots_relative_to() {
 #[test]
 fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces() {
     Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().clone();
+        let mut relative_to = dirs.test().to_owned();
         relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
 
         let actual = expand_path_with("././..////././...///././.....///🚒.txt", relative_to);
-        let mut expected = dirs.test().clone();
+        let mut expected = dirs.test().to_owned();
         expected.push("🚒.txt");
 
         assert_eq!(actual, expected);

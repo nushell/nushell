@@ -13,11 +13,12 @@ impl Plugin for GStat {
     fn run(
         &mut self,
         name: &str,
+        _config: &Option<Value>,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
         if name != "gstat" {
-            return Ok(Value::Nothing { span: call.head });
+            return Ok(Value::nothing(call.head));
         }
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;

@@ -1,10 +1,10 @@
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, ShellError, Span, Value, VarId,
+    eval_const::create_nu_constant,
+    report_error, DeclId, ShellError, Span, Value, VarId, NU_VARIABLE_ID,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -51,7 +51,7 @@ fn find_id(
 
 fn read_in_file<'a>(
     engine_state: &'a mut EngineState,
-    file_path: &String,
+    file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
     let file = std::fs::read(file_path)
         .into_diagnostic()
@@ -59,10 +59,10 @@ fn read_in_file<'a>(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
-                &ShellError::FileNotFoundCustom(
-                    format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    Span::unknown(),
-                ),
+                &ShellError::FileNotFoundCustom {
+                    msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
+                    span: Span::unknown(),
+                },
             );
             std::process::exit(1);
         });
@@ -74,9 +74,19 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
+pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    let working_set = StateWorkingSet::new(engine_state);
+
+    let nu_const = match create_nu_constant(engine_state, Span::unknown()) {
+        Ok(nu_const) => nu_const,
+        Err(err) => {
+            report_error(&working_set, &err);
+            std::process::exit(1);
+        }
+    };
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
@@ -137,7 +147,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Va
     }
 }
 
-pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -191,7 +201,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
     println!("{{}}");
 }
 
-pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -201,8 +211,19 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
         Some((Id::Declaration(decl_id), offset, span)) => {
             let decl = working_set.get_decl(decl_id);
 
-            let mut description = "```\n### Signature\n```\n".to_string();
+            //let mut description = "```\n### Signature\n```\n".to_string();
+            let mut description = "```\n".to_string();
 
+            // first description
+            description.push_str(&format!("{}\n", decl.usage()));
+
+            // additional description
+            if !decl.extra_usage().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_usage()));
+            }
+
+            // Usage
+            description.push_str("### Usage\n```\n");
             let signature = decl.signature();
             description.push_str(&format!("  {}", signature.name));
             if !signature.named.is_empty() {
@@ -220,6 +241,41 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
 
             description.push_str("\n```\n");
 
+            // Flags
+            if !signature.named.is_empty() {
+                description.push_str("\n### Flags\n\n");
+
+                let mut first = true;
+                for named in &signature.named {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
+                    description.push_str("  ");
+                    if let Some(short_flag) = &named.short {
+                        description.push_str(&format!("`-{}`", short_flag));
+                    }
+
+                    if !named.long.is_empty() {
+                        if named.short.is_some() {
+                            description.push_str(", ")
+                        }
+                        description.push_str(&format!("`--{}`", named.long));
+                    }
+
+                    if let Some(arg) = &named.arg {
+                        description.push_str(&format!(" `<{}>`", arg.to_type()))
+                    }
+
+                    if !named.desc.is_empty() {
+                        description.push_str(&format!(" - {}", named.desc));
+                    }
+                }
+                description.push('\n');
+            }
+
+            // Parameters
             if !signature.required_positional.is_empty()
                 || !signature.optional_positional.is_empty()
                 || signature.rest_positional.is_some()
@@ -275,41 +331,9 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                 description.push('\n');
             }
 
-            if !signature.named.is_empty() {
-                description.push_str("\n### Flags\n\n");
-
-                let mut first = true;
-                for named in &signature.named {
-                    if !first {
-                        description.push_str("\\\n");
-                    } else {
-                        first = false;
-                    }
-                    description.push_str("  ");
-                    if let Some(short_flag) = &named.short {
-                        description.push_str(&format!("`-{}`", short_flag));
-                    }
-
-                    if !named.long.is_empty() {
-                        if named.short.is_some() {
-                            description.push_str(", ")
-                        }
-                        description.push_str(&format!("`--{}`", named.long));
-                    }
-
-                    if let Some(arg) = &named.arg {
-                        description.push_str(&format!(" `<{}>`", arg.to_type()))
-                    }
-
-                    if !named.desc.is_empty() {
-                        description.push_str(&format!(" - {}", named.desc));
-                    }
-                }
-                description.push('\n');
-            }
-
+            // Input/output types
             if !signature.input_output_types.is_empty() {
-                description.push_str("\n### Input/output\n");
+                description.push_str("\n### Input/output types\n");
 
                 description.push_str("\n```\n");
                 for input_output in &signature.input_output_types {
@@ -318,12 +342,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                 description.push_str("\n```\n");
             }
 
-            description.push_str(&format!("### Usage\n  {}\n", decl.usage()));
-
-            if !decl.extra_usage().is_empty() {
-                description.push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
-            }
-
+            // Examples
             if !decl.examples().is_empty() {
                 description.push_str("### Example(s)\n```\n");
 
@@ -504,7 +523,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             FlatShape::MatchPattern => println!(
                 "{}",
                 json!({
-                    "hover": "match pattern",
+                    "hover": "match-pattern",
                     "span": {
                         "start": span.start - offset,
                         "end": span.end - offset
@@ -587,7 +606,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
     }
 }
 
-pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &Value) {
+pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &Value) {
     let stack = Stack::new();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
@@ -598,7 +617,10 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location
         });
 
     if let Ok(location) = location.as_i64() {
-        let results = completer.complete(&String::from_utf8_lossy(&file), location as usize);
+        let results = completer.complete(
+            &String::from_utf8_lossy(&file)[..location as usize],
+            location as usize,
+        );
         print!("{{\"completions\": [");
         let mut first = true;
         for result in results {
@@ -613,7 +635,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location
     }
 }
 
-pub fn ast(engine_state: &mut EngineState, file_path: &String) {
+pub fn ast(engine_state: &mut EngineState, file_path: &str) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 

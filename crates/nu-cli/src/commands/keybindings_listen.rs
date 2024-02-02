@@ -1,9 +1,11 @@
+use crossterm::execute;
 use crossterm::QueueableCommand;
 use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 use std::io::{stdout, Write};
 
@@ -17,6 +19,10 @@ impl Command for KeybindingsListen {
 
     fn usage(&self) -> &str {
         "Get input from the user."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "This is an internal debugging tool. For better output, try `input listen --types [key]`"
     }
 
     fn signature(&self) -> Signature {
@@ -39,13 +45,13 @@ impl Command for KeybindingsListen {
             Ok(v) => Ok(v.into_pipeline_data()),
             Err(e) => {
                 terminal::disable_raw_mode()?;
-                Err(ShellError::GenericError(
-                    "Error with input".to_string(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                ))
+                Err(ShellError::GenericError {
+                    error: "Error with input".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })
             }
         }
     }
@@ -64,6 +70,32 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 
     stdout().flush()?;
     terminal::enable_raw_mode()?;
+
+    if config.use_kitty_protocol {
+        if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
+            println!("WARN: The terminal doesn't support use_kitty_protocol config.\r");
+        }
+
+        // enable kitty protocol
+        //
+        // Note that, currently, only the following support this protocol:
+        // * [kitty terminal](https://sw.kovidgoyal.net/kitty/)
+        // * [foot terminal](https://codeberg.org/dnkl/foot/issues/319)
+        // * [WezTerm terminal](https://wezfurlong.org/wezterm/config/lua/config/enable_kitty_keyboard.html)
+        // * [notcurses library](https://github.com/dankamongmen/notcurses/issues/2131)
+        // * [neovim text editor](https://github.com/neovim/neovim/pull/18181)
+        // * [kakoune text editor](https://github.com/mawww/kakoune/issues/4103)
+        // * [dte text editor](https://gitlab.com/craigbarnes/dte/-/issues/138)
+        //
+        // Refer to https://sw.kovidgoyal.net/kitty/keyboard-protocol/ if you're curious.
+        let _ = execute!(
+            stdout(),
+            crossterm::event::PushKeyboardEnhancementFlags(
+                crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+            )
+        );
+    }
+
     let mut stdout = std::io::BufWriter::new(std::io::stderr());
 
     loop {
@@ -78,9 +110,8 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         let v = print_events_helper(event)?;
         // Print out the record
         let o = match v {
-            Value::Record { cols, vals, .. } => cols
+            Value::Record { val, .. } => val
                 .iter()
-                .zip(vals.iter())
                 .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
                 .collect::<Vec<String>>()
                 .join(", "),
@@ -91,6 +122,14 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         stdout.queue(crossterm::style::Print("\r\n"))?;
         stdout.flush()?;
     }
+
+    if config.use_kitty_protocol {
+        let _ = execute!(
+            std::io::stdout(),
+            crossterm::event::PopKeyboardEnhancementFlags
+        );
+    }
+
     terminal::disable_raw_mode()?;
 
     Ok(Value::nothing(Span::unknown()))
@@ -111,54 +150,29 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
     {
         match code {
             KeyCode::Char(c) => {
-                let record = Value::Record {
-                    cols: vec![
-                        "char".into(),
-                        "code".into(),
-                        "modifier".into(),
-                        "flags".into(),
-                        "kind".into(),
-                        "state".into(),
-                    ],
-                    vals: vec![
-                        Value::string(format!("{c}"), Span::unknown()),
-                        Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
-                    ],
-                    span: Span::unknown(),
+                let record = record! {
+                    "char" => Value::string(format!("{c}"), Span::unknown()),
+                    "code" => Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
+                    "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
+                    "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                    "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
+                    "state" => Value::string(format!("{state:?}"), Span::unknown()),
                 };
-                Ok(record)
+                Ok(Value::record(record, Span::unknown()))
             }
             _ => {
-                let record = Value::Record {
-                    cols: vec![
-                        "code".into(),
-                        "modifier".into(),
-                        "flags".into(),
-                        "kind".into(),
-                        "state".into(),
-                    ],
-                    vals: vec![
-                        Value::string(format!("{code:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
-                    ],
-                    span: Span::unknown(),
+                let record = record! {
+                    "code" => Value::string(format!("{code:?}"), Span::unknown()),
+                    "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
+                    "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                    "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
+                    "state" => Value::string(format!("{state:?}"), Span::unknown()),
                 };
-                Ok(record)
+                Ok(Value::record(record, Span::unknown()))
             }
         }
     } else {
-        let record = Value::Record {
-            cols: vec!["event".into()],
-            vals: vec![Value::string(format!("{event:?}"), Span::unknown())],
-            span: Span::unknown(),
-        };
-        Ok(record)
+        let record = record! { "event" => Value::string(format!("{event:?}"), Span::unknown()) };
+        Ok(Value::record(record, Span::unknown()))
     }
 }

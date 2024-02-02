@@ -32,10 +32,13 @@ impl Command for ExprArgWhere {
             example: "let df = ([[a b]; [one 1] [two 2] [three 3]] | dfr into-df);
     $df | dfr select (dfr arg-where ((dfr col b) >= 2) | dfr as b_arg)",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "b_arg".to_string(),
-                    vec![Value::test_int(1), Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "b_arg".to_string(),
+                        vec![Value::test_int(1), Value::test_int(2)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

@@ -31,7 +31,7 @@ fn url_join_with_only_user() {
             "#
     ));
 
-    assert_eq!(actual.out, "http://localhost");
+    assert_eq!(actual.out, "http://usr@localhost");
 }
 
 #[test]
@@ -245,7 +245,7 @@ fn url_join_with_invalid_port() {
 
     assert!(actual
         .err
-        .contains("Port parameter should represent an unsigned integer"));
+        .contains("Port parameter should represent an unsigned int"));
 
     let actual = nu!(pipeline(
         r#"
@@ -259,7 +259,7 @@ fn url_join_with_invalid_port() {
 
     assert!(actual
         .err
-        .contains("Port parameter should be an unsigned integer or a string representing it"));
+        .contains("Port parameter should be an unsigned int or a string representing it"));
 }
 
 #[test]

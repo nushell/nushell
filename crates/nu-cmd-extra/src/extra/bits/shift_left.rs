@@ -41,7 +41,7 @@ impl Command for BitsShl {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift left for integers."
+        "Bitwise shift left for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -57,18 +57,18 @@ impl Command for BitsShl {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let bits: usize = call.req(engine_state, stack, 0)?;
-        let signed = call.has_flag("signed");
+        let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(&number_bytes);
+        let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    "value originates from here".to_string(),
-                    head,
-                    val.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    input: "value originates from here".to_string(),
+                    msg_span: head,
+                    input_span: val.span,
+                });
             }
         }
         // This doesn't match explicit nulls
@@ -90,21 +90,21 @@ impl Command for BitsShl {
             },
             Example {
                 description: "Shift left a number with 1 byte by 7 bits",
-                example: "2 | bits shl 7 -n '1'",
+                example: "2 | bits shl 7 --number-bytes '1'",
                 result: Some(Value::test_int(0)),
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
-                example: "0x7F | bits shl 1 -s",
+                example: "0x7F | bits shl 1 --signed",
                 result: Some(Value::test_int(254)),
             },
             Example {
                 description: "Shift left a list of numbers",
                 example: "[5 3 2] | bits shl 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -118,35 +118,38 @@ where
         Some(val) => {
             let shift_result = i64::try_from(val);
             match shift_result {
-                Ok(val) => Value::Int { val, span },
-                Err(_) => Value::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "Shift left result beyond the range of 64 bit signed number".to_string(),
-                        format!(
+                Ok(val) => Value::int( val, span ),
+                Err(_) => Value::error(
+                    ShellError::GenericError {
+                        error:"Shift left result beyond the range of 64 bit signed number".into(),
+                        msg: format!(
                             "{val} of the specified number of bytes shift left {bits} bits exceed limit"
                         ),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
-                },
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
+                    span,
+                ),
             }
         }
-        None => Value::Error {
-            error: Box::new(ShellError::GenericError(
-                "Shift left failed".to_string(),
-                format!("{val} shift left {bits} bits failed, you may shift too many bits"),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
-        },
+        None => Value::error(
+            ShellError::GenericError {
+                error: "Shift left failed".into(),
+                msg: format!("{val} shift left {bits} bits failed, you may shift too many bits"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
+            span,
+        ),
     }
 }
 
 fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => {
+        Value::Int { val, .. } => {
             use InputNumType::*;
             // let bits = (((bits % 64) + 64) % 64) as u32;
             let bits = bits as u32;
@@ -164,14 +167,15 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

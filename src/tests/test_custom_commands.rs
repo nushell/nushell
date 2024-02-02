@@ -68,15 +68,23 @@ fn do_rest_args() -> TestResult {
 #[test]
 fn custom_switch1() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run: bool ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
+        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
         "foo",
+    )
+}
+
+#[test]
+fn custom_flag_with_type_checking() -> TestResult {
+    fail_test(
+        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb --dry-run=$y"#,
+        "type_mismatch",
     )
 }
 
 #[test]
 fn custom_switch2() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run: bool ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
+        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
         "bar",
     )
 }
@@ -84,17 +92,64 @@ fn custom_switch2() -> TestResult {
 #[test]
 fn custom_switch3() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
-        "foo",
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=false"#,
+        "false",
     )
 }
 
 #[test]
 fn custom_switch4() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
-        "bar",
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=true"#,
+        "true",
     )
+}
+
+#[test]
+fn custom_switch5() -> TestResult {
+    run_test(r#"def florb [ --dry-run ] { $dry_run }; florb"#, "false")
+}
+
+#[test]
+fn custom_switch6() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run"#,
+        "true",
+    )
+}
+
+#[test]
+fn custom_flag1() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int = 0
+            --name = "foobar"
+        ] {
+            ($age | into string) + $name
+        }
+        florb"#,
+        "0foobar",
+    )
+}
+
+#[test]
+fn custom_flag2() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int
+            --name = "foobar"
+        ] {
+            ($age | into string) + $name
+        }
+        florb --age 3"#,
+        "3foobar",
+    )
+}
+
+#[test]
+fn deprecated_boolean_flag() {
+    let actual = nu!(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#);
+    assert!(actual.err.contains("not allowed"));
 }
 
 #[test]
@@ -157,4 +212,41 @@ fn infinite_recursion_does_not_panic() {
             def bang [] { bang }; bang
         "#);
     assert!(actual.err.contains("Recursion limit (50) reached"));
+}
+
+#[test]
+fn type_check_for_during_eval() -> TestResult {
+    fail_test(
+        r#"def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer"#,
+        "can't convert nothing to string",
+    )
+}
+#[test]
+fn type_check_for_during_eval2() -> TestResult {
+    fail_test(
+        r#"def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer"#,
+        "can't convert nothing to string",
+    )
+}
+
+#[test]
+fn empty_list_matches_list_type() -> TestResult {
+    let _ = run_test(
+        r#"def spam [foo: list<int>] { echo $foo }; spam [] | length"#,
+        "0",
+    );
+    run_test(
+        r#"def spam [foo: list<string>] { echo $foo }; spam [] | length"#,
+        "0",
+    )
+}
+
+#[test]
+fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
+    run_test("def spam [foo: path] { echo $foo }; spam '~/aa'", "~/aa")
+}
+
+#[test]
+fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
+    run_test(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#, "~/aa")
 }

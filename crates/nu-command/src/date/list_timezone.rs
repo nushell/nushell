@@ -2,7 +2,7 @@ use chrono_tz::TZ_VARIANTS;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     Type, Value,
 };
 
@@ -40,12 +40,10 @@ impl Command for SubCommand {
         Ok(TZ_VARIANTS
             .iter()
             .map(move |x| {
-                let cols = vec!["timezone".into()];
-                let vals = vec![Value::String {
-                    val: x.name().to_string(),
+                Value::record(
+                    record! { "timezone" => Value::string(x.name(), span) },
                     span,
-                }];
-                Value::Record { cols, vals, span }
+                )
             })
             .into_pipeline_data(engine_state.ctrlc.clone()))
     }
@@ -54,14 +52,9 @@ impl Command for SubCommand {
         vec![Example {
             example: "date list-timezone | where timezone =~ Shanghai",
             description: "Show timezone(s) that contains 'Shanghai'",
-            result: Some(Value::List {
-                vals: vec![Value::Record {
-                    cols: vec!["timezone".into()],
-                    vals: vec![Value::test_string("Asia/Shanghai")],
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_list(vec![Value::test_record(record! {
+                "timezone" => Value::test_string("Asia/Shanghai"),
+            })])),
         }]
     }
 }

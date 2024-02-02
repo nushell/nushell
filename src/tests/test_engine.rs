@@ -75,7 +75,7 @@ fn scope_variable() -> TestResult {
 fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
     run_test(
         &format!(
-            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }}; 
+            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }};
             let rslt = (scope commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
             $"<($rslt)> ($rslt | describe)""#
         ),
@@ -189,7 +189,7 @@ fn let_sees_in_variable2() -> TestResult {
 #[test]
 fn def_env() -> TestResult {
     run_test(
-        r#"def-env bob [] { $env.BAR = "BAZ" }; bob; $env.BAR"#,
+        r#"def --env bob [] { $env.BAR = "BAZ" }; bob; $env.BAR"#,
         "BAZ",
     )
 }
@@ -202,7 +202,7 @@ fn not_def_env() -> TestResult {
 #[test]
 fn def_env_hiding_something() -> TestResult {
     fail_test(
-        r#"$env.FOO = "foo"; def-env bob [] { hide-env FOO }; bob; $env.FOO"#,
+        r#"$env.FOO = "foo"; def --env bob [] { hide-env FOO }; bob; $env.FOO"#,
         "",
     )
 }
@@ -210,7 +210,7 @@ fn def_env_hiding_something() -> TestResult {
 #[test]
 fn def_env_then_hide() -> TestResult {
     fail_test(
-        r#"def-env bob [] { $env.BOB = "bob" }; def-env un-bob [] { hide-env BOB }; bob; un-bob; $env.BOB"#,
+        r#"def --env bob [] { $env.BOB = "bob" }; def --env un-bob [] { hide-env BOB }; bob; un-bob; $env.BOB"#,
         "",
     )
 }
@@ -218,7 +218,7 @@ fn def_env_then_hide() -> TestResult {
 #[test]
 fn export_def_env() -> TestResult {
     run_test(
-        r#"module foo { export def-env bob [] { $env.BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
+        r#"module foo { export def --env bob [] { $env.BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
         "BAZ",
     )
 }
@@ -231,7 +231,7 @@ fn dynamic_load_env() -> TestResult {
 #[test]
 fn reduce_spans() -> TestResult {
     fail_test(
-        r#"let x = ([1, 2, 3] | reduce -f 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
+        r#"let x = ([1, 2, 3] | reduce --fold 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
         "right here",
     )
 }
@@ -352,17 +352,14 @@ fn default_value_constant2() -> TestResult {
 }
 
 #[test]
-fn default_value_not_constant1() -> TestResult {
-    fail_test(
-        r#"def foo [x = ("foo" | str length)] { $x }; foo"#,
-        "expected a constant",
-    )
+fn default_value_constant3() -> TestResult {
+    run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
 }
 
 #[test]
 fn default_value_not_constant2() -> TestResult {
     fail_test(
-        r#"def foo [--x = ("foo" | str length)] { $x }; foo"#,
+        r#"def foo [x = (loop { break })] { $x }; foo"#,
         "expected a constant",
     )
 }

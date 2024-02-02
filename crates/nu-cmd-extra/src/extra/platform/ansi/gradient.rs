@@ -138,9 +138,7 @@ fn operate(
                         Box::new(move |old| action(old, fgs_hex, fge_hex, bgs_hex, bge_hex, head)),
                     );
                     if let Err(error) = r {
-                        return Value::Error {
-                            error: Box::new(error),
-                        };
+                        return Value::error(error, head);
                     }
                 }
                 ret
@@ -158,19 +156,20 @@ fn action(
     bg_end: Option<Rgb>,
     command_span: Span,
 ) -> Value {
+    let span = input.span();
     match input {
-        Value::String { val, span } => {
-            let span = *span;
+        Value::String { val, .. } => {
             match (fg_start, fg_end, bg_start, bg_end) {
                 (None, None, None, None) => {
                     // Error - no colors
-                    Value::Error {
-                        error: Box::new(ShellError::MissingParameter {
+                    Value::error(
+                        ShellError::MissingParameter {
                             param_name:
                                 "please supply foreground and/or background color parameters".into(),
                             span: command_span,
-                        }),
-                    }
+                        },
+                        span,
+                    )
                 }
                 (None, None, None, Some(bg_end)) => {
                     // Error - missing bg_start, so assume black
@@ -292,12 +291,13 @@ fn action(
         other => {
             let got = format!("value is {}, not string", other.get_type());
 
-            Value::Error {
-                error: Box::new(ShellError::TypeMismatch {
+            Value::error(
+                ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(command_span),
-                }),
-            }
+                    span: other.span(),
+                },
+                other.span(),
+            )
         }
     }
 }

@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -34,12 +35,12 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let use_degrees = call.has_flag("degrees");
+        let use_degrees = call.has_flag(engine_state, stack, "degrees")?;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
@@ -54,22 +55,22 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Apply the cosine to π",
-                example: "math pi | math cos",
+                example: "3.141592 | math cos | math round --precision 4",
                 result: Some(Value::test_float(-1f64)),
             },
             Example {
                 description: "Apply the cosine to a list of angles in degrees",
-                example: "[0 90 180 270 360] | math cos -d",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "[0 90 180 270 360] | math cos --degrees",
+                result: Some(Value::list(
+                    vec![
                         Value::test_float(1f64),
                         Value::test_float(0f64),
                         Value::test_float(-1f64),
                         Value::test_float(0f64),
                         Value::test_float(1f64),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -78,28 +79,27 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+            let span = numeric.span();
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                Value::Int { val, .. } => (val as f64, span),
+                Value::Float { val, .. } => (val, span),
                 _ => unreachable!(),
             };
 
             let val = if use_degrees { val.to_radians() } else { val };
 
-            Value::Float {
-                val: val.cos(),
-                span,
-            }
+            Value::float(val.cos(), span)
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

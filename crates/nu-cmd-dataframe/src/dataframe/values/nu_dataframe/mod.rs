@@ -7,12 +7,13 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
+use polars_utils::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
-use super::{utils::DEFAULT_ROWS, NuLazyFrame};
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -38,9 +39,7 @@ impl Display for DataFrameValue {
 
 impl Default for DataFrameValue {
     fn default() -> Self {
-        Self(Value::Nothing {
-            span: Span::unknown(),
-        })
+        Self(Value::nothing(Span::unknown()))
     }
 }
 
@@ -60,6 +59,12 @@ impl std::hash::Hash for DataFrameValue {
             // TODO. Define hash for the rest of types
             _ => {}
         }
+    }
+}
+
+impl TotalEq for DataFrameValue {
+    fn tot_eq(&self, other: &Self) -> bool {
+        self == other
     }
 }
 
@@ -111,41 +116,32 @@ impl NuDataFrame {
     }
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(Self::new(false, dataframe)),
-            span,
-        }
+        Value::custom_value(Box::new(Self::new(false, dataframe)), span)
     }
 
     pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Value::CustomValue {
-                val: Box::new(lazy),
-                span,
-            }
+            Value::custom_value(Box::new(lazy), span)
         } else {
-            Value::CustomValue {
-                val: Box::new(self),
-                span,
-            }
+            Value::custom_value(Box::new(self), span)
         }
     }
 
     pub fn series_to_value(series: Series, span: Span) -> Result<Value, ShellError> {
         match DataFrame::new(vec![series]) {
             Ok(dataframe) => Ok(NuDataFrame::dataframe_into_value(dataframe, span)),
-            Err(e) => Err(ShellError::GenericError(
-                "Error creating dataframe".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
+            Err(e) => Err(ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }),
         }
     }
 
-    pub fn try_from_iter<T>(iter: T) -> Result<Self, ShellError>
+    pub fn try_from_iter<T>(iter: T, maybe_schema: Option<NuSchema>) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
     {
@@ -162,14 +158,18 @@ impl NuDataFrame {
                         .map(|i| format!("{i}"))
                         .collect::<Vec<String>>();
 
-                    conversion::insert_record(&mut column_values, &cols, &vals)?
+                    conversion::insert_record(
+                        &mut column_values,
+                        Record::from_raw_cols_vals(cols, vals),
+                        &maybe_schema,
+                    )?
                 }
-                Value::Record { cols, vals, .. } => {
-                    conversion::insert_record(&mut column_values, &cols, &vals)?
+                Value::Record { val: record, .. } => {
+                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
                 _ => {
                     let key = "0".to_string();
-                    conversion::insert_value(value, key, &mut column_values)?
+                    conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
                 }
             }
         }
@@ -178,26 +178,27 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
-        let dataframe = DataFrame::new(columns).map_err(|e| {
-            ShellError::GenericError(
-                "Error creating dataframe".into(),
-                format!("Unable to create DataFrame: {e}"),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
+            error: "Error creating dataframe".into(),
+            msg: format!("Unable to create DataFrame: {e}"),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
 
         Ok(Self::new(false, dataframe))
     }
 
-    pub fn try_from_columns(columns: Vec<Column>) -> Result<Self, ShellError> {
+    pub fn try_from_columns(
+        columns: Vec<Column>,
+        maybe_schema: Option<NuSchema>,
+    ) -> Result<Self, ShellError> {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
             let name = column.name().to_string();
             for value in column {
-                conversion::insert_value(value, name.clone(), &mut column_values)?;
+                conversion::insert_value(value, name.clone(), &mut column_values, &maybe_schema)?;
             }
         }
 
@@ -207,16 +208,19 @@ impl NuDataFrame {
     pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
         let newlist = list
             .into_iter()
-            .map(|value| match value {
-                Value::Float { val, .. } => {
-                    if val.is_nan() {
-                        fill.clone()
-                    } else {
-                        value
+            .map(|value| {
+                let span = value.span();
+                match value {
+                    Value::Float { val, .. } => {
+                        if val.is_nan() {
+                            fill.clone()
+                        } else {
+                            value
+                        }
                     }
+                    Value::List { vals, .. } => Self::fill_list_nan(vals, span, fill.clone()),
+                    _ => value,
                 }
-                Value::List { vals, span } => Self::fill_list_nan(vals, span, fill.clone()),
-                _ => value,
             })
             .collect::<Vec<Value>>();
         Value::list(newlist, list_span)
@@ -235,7 +239,7 @@ impl NuDataFrame {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)
         } else if NuLazyFrame::can_downcast(&value) {
-            let span = value.span()?;
+            let span = value.span();
             let lazy = NuLazyFrame::try_from_value(value)?;
             let df = lazy.collect(span)?;
             Ok(df)
@@ -243,15 +247,16 @@ impl NuDataFrame {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
-                span: value.span()?,
+                span: value.span(),
                 help: None,
             })
         }
     }
 
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
@@ -266,7 +271,7 @@ impl NuDataFrame {
             x => Err(ShellError::CantConvert {
                 to_type: "dataframe".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }
@@ -295,17 +300,18 @@ impl NuDataFrame {
                 .collect::<Vec<String>>();
 
             let option = did_you_mean(&possibilities, column).unwrap_or_else(|| column.to_string());
-            ShellError::DidYouMean(option, span)
+            ShellError::DidYouMean {
+                suggestion: option,
+                span,
+            }
         })?;
 
-        let df = DataFrame::new(vec![s.clone()]).map_err(|e| {
-            ShellError::GenericError(
-                "Error creating dataframe".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let df = DataFrame::new(vec![s.clone()]).map_err(|e| ShellError::GenericError {
+            error: "Error creating dataframe".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
 
         Ok(Self {
@@ -320,19 +326,19 @@ impl NuDataFrame {
 
     pub fn as_series(&self, span: Span) -> Result<Series, ShellError> {
         if !self.is_series() {
-            return Err(ShellError::GenericError(
-                "Error using as series".into(),
-                "dataframe has more than one column".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Error using as series".into(),
+                msg: "dataframe has more than one column".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         let series = self
             .df
             .get_columns()
-            .get(0)
+            .first()
             .expect("We have already checked that the width is 1");
 
         Ok(series.clone())
@@ -427,25 +433,15 @@ impl NuDataFrame {
 
         let values = (0..size)
             .map(|i| {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
 
-                cols.push("index".into());
-                vals.push(Value::Int {
-                    val: (i + from_row) as i64,
-                    span,
-                });
+                record.push("index", Value::int((i + from_row) as i64, span));
 
                 for (name, col) in &mut iterators {
-                    cols.push(name.clone());
-
-                    match col.next() {
-                        Some(v) => vals.push(v),
-                        None => vals.push(Value::Nothing { span }),
-                    };
+                    record.push(name.clone(), col.next().unwrap_or(Value::nothing(span)));
                 }
 
-                Value::Record { cols, vals, span }
+                Value::record(record, span)
             })
             .collect::<Vec<Value>>();
 
@@ -476,12 +472,12 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false) {
+        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false) {
+        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };
@@ -504,11 +500,15 @@ impl NuDataFrame {
                 _ => self_series.clone(),
             };
 
-            if !self_series.series_equal(other_series) {
+            if !self_series.equals(other_series) {
                 return None;
             }
         }
 
         Some(Ordering::Equal)
+    }
+
+    pub fn schema(&self) -> NuSchema {
+        NuSchema::new(self.df.schema())
     }
 }

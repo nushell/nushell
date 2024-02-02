@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError,
+    Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -59,7 +59,7 @@ impl Command for Transpose {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the names to give columns once transposed",
+                "The names to give columns once transposed.",
             )
             .category(Category::Filters)
     }
@@ -83,74 +83,55 @@ impl Command for Transpose {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Transposes the table contents with default column names",
                 example: "[[c1 c2]; [1 2]] | transpose",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column0" => Value::test_string("c1"),
+                        "column1" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "column0" =>  Value::test_string("c2"),
+                        "column1" =>  Value::test_int(2),
+                    }),
+                ])),
             },
             Example {
                 description: "Transposes the table contents with specified column names",
                 example: "[[c1 c2]; [1 2]] | transpose key val",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "key" =>  Value::test_string("c1"),
+                        "val" =>  Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "key" =>  Value::test_string("c2"),
+                        "val" =>  Value::test_int(2),
+                    }),
+                ])),
             },
             Example {
                 description:
                     "Transposes the table without column names and specify a new column name",
-                example: "[[c1 c2]; [1 2]] | transpose -i val",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(1)],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(2)],
-                            span,
-                        },
-                    ],
-                    span,
-                }),
+                example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "val" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "val" => Value::test_int(2),
+                    }),
+                ])),
             },
             Example {
                 description: "Transfer back to record with -d flag",
-                example: "{c1: 1, c2: 2} | transpose | transpose -i -r -d",
-                result: Some(Value::Record {
-                    cols: vec!["c1".to_string(), "c2".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span,
-                }),
+                example: "{c1: 1, c2: 2} | transpose | transpose --ignore-titles -r -d",
+                result: Some(Value::test_record(record! {
+                    "c1" =>  Value::test_int(1),
+                    "c2" =>  Value::test_int(2),
+                })),
             },
         ]
     }
@@ -163,69 +144,85 @@ pub fn transpose(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
-    let transpose_args = TransposeArgs {
-        header_row: call.has_flag("header-row"),
-        ignore_titles: call.has_flag("ignore-titles"),
-        as_record: call.has_flag("as-record"),
-        keep_last: call.has_flag("keep-last"),
-        keep_all: call.has_flag("keep-all"),
+    let args = TransposeArgs {
+        header_row: call.has_flag(engine_state, stack, "header-row")?,
+        ignore_titles: call.has_flag(engine_state, stack, "ignore-titles")?,
+        as_record: call.has_flag(engine_state, stack, "as-record")?,
+        keep_last: call.has_flag(engine_state, stack, "keep-last")?,
+        keep_all: call.has_flag(engine_state, stack, "keep-all")?,
         rest: call.rest(engine_state, stack, 0)?,
     };
+
+    if !args.rest.is_empty() && args.header_row {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "Can not provide header names and use `--header-row`".into(),
+            span: call.get_named_arg("header-row").expect("has flag").span,
+        });
+    }
+    if !args.header_row && args.keep_all {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "Can only be used with `--header-row`(`-r`)".into(),
+            span: call.get_named_arg("keep-all").expect("has flag").span,
+        });
+    }
+    if !args.header_row && args.keep_last {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "Can only be used with `--header-row`(`-r`)".into(),
+            span: call.get_named_arg("keep-last").expect("has flag").span,
+        });
+    }
+    if args.keep_all && args.keep_last {
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "can't use `--keep-last` at the same time".into(),
+            left_span: call.get_named_arg("keep-last").expect("has flag").span,
+            right_message: "because of `--keep-all`".into(),
+            right_span: call.get_named_arg("keep-all").expect("has flag").span,
+        });
+    }
 
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
-    let args = transpose_args;
 
     let descs = get_columns(&input);
 
-    let mut headers: Vec<String> = vec![];
-
-    if !args.rest.is_empty() && args.header_row {
-        return Err(ShellError::GenericError(
-            "Can not provide header names and use header row".into(),
-            "using header row".into(),
-            Some(name),
-            None,
-            Vec::new(),
-        ));
-    }
+    let mut headers: Vec<String> = Vec::with_capacity(input.len());
 
     if args.header_row {
-        for i in input.clone() {
-            if let Some(desc) = descs.get(0) {
+        for i in input.iter() {
+            if let Some(desc) = descs.first() {
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
                         if let Ok(s) = x.as_string() {
                             headers.push(s.to_string());
                         } else {
-                            return Err(ShellError::GenericError(
-                                "Header row needs string headers".into(),
-                                "used non-string headers".into(),
-                                Some(name),
-                                None,
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "Header row needs string headers".into(),
+                                msg: "used non-string headers".into(),
+                                span: Some(name),
+                                help: None,
+                                inner: vec![],
+                            });
                         }
                     }
                     _ => {
-                        return Err(ShellError::GenericError(
-                            "Header row is incomplete and can't be used".into(),
-                            "using incomplete header row".into(),
-                            Some(name),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "Header row is incomplete and can't be used".into(),
+                            msg: "using incomplete header row".into(),
+                            span: Some(name),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                 }
             } else {
-                return Err(ShellError::GenericError(
-                    "Header row is incomplete and can't be used".into(),
-                    "using incomplete header row".into(),
-                    Some(name),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Header row is incomplete and can't be used".into(),
+                    msg: "using incomplete header row".into(),
+                    span: Some(name),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     } else {
@@ -238,114 +235,52 @@ pub fn transpose(
         }
     }
 
-    let descs: Vec<_> = if args.header_row {
-        descs.into_iter().skip(1).collect()
-    } else {
-        descs
-    };
-
+    let mut descs = descs.into_iter();
+    if args.header_row {
+        descs.next();
+    }
     let mut result_data = descs
-        .into_iter()
-        .map(move |desc| {
+        .map(|desc| {
             let mut column_num: usize = 0;
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
 
             if !args.ignore_titles && !args.header_row {
-                cols.push(headers[column_num].clone());
-                vals.push(Value::string(desc.clone(), name));
+                record.push(
+                    headers[column_num].clone(),
+                    Value::string(desc.clone(), name),
+                );
                 column_num += 1
             }
 
-            for i in input.clone() {
-                match &i.get_data_by_key(&desc) {
-                    Some(x) => {
-                        if args.keep_all && cols.contains(&headers[column_num]) {
-                            let index = cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            let new_val = match &vals[index] {
-                                Value::List { vals, span } => {
-                                    let mut vals = vals.clone();
-                                    vals.push(x.clone());
-                                    Value::List {
-                                        vals: vals.to_vec(),
-                                        span: *span,
-                                    }
-                                }
-                                v => Value::List {
-                                    vals: vec![v.clone(), x.clone()],
-                                    span: v.expect_span(),
-                                },
-                            };
-                            cols.remove(index);
-                            vals.remove(index);
-
-                            cols.push(headers[column_num].clone());
-                            vals.push(new_val);
-                        } else if args.keep_last && cols.contains(&headers[column_num]) {
-                            let index = cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            cols.remove(index);
-                            vals.remove(index);
-                            cols.push(headers[column_num].clone());
-                            vals.push(x.clone());
-                        } else if !cols.contains(&headers[column_num]) {
-                            cols.push(headers[column_num].clone());
-                            vals.push(x.clone());
-                        }
+            for i in input.iter() {
+                let x = i
+                    .get_data_by_key(&desc)
+                    .unwrap_or_else(|| Value::nothing(name));
+                match record.get_mut(&headers[column_num]) {
+                    None => {
+                        record.push(headers[column_num].clone(), x);
                     }
-                    _ => {
-                        if args.keep_all && cols.contains(&headers[column_num]) {
-                            let index = cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            let new_val = match &vals[index] {
-                                Value::List { vals, span } => {
-                                    let mut vals = vals.clone();
-                                    vals.push(Value::nothing(name));
-                                    Value::List {
-                                        vals: vals.to_vec(),
-                                        span: *span,
-                                    }
+                    Some(val) => {
+                        if args.keep_all {
+                            let current_span = val.span();
+                            match val {
+                                Value::List { vals, .. } => {
+                                    vals.push(x);
                                 }
-                                v => Value::List {
-                                    vals: vec![v.clone(), Value::nothing(name)],
-                                    span: v.expect_span(),
-                                },
+                                v => {
+                                    *v = Value::list(vec![std::mem::take(v), x], current_span);
+                                }
                             };
-                            cols.remove(index);
-                            vals.remove(index);
-
-                            cols.push(headers[column_num].clone());
-                            vals.push(new_val);
-                        } else if args.keep_last && cols.contains(&headers[column_num]) {
-                            let index = cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            cols.remove(index);
-                            vals.remove(index);
-                            cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
-                        } else if !cols.contains(&headers[column_num]) {
-                            cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
+                        } else if args.keep_last {
+                            *val = x;
                         }
                     }
                 }
+
                 column_num += 1;
             }
 
-            Value::Record {
-                cols,
-                vals,
-                span: name,
-            }
+            Value::record(record, name)
         })
         .collect::<Vec<Value>>();
     if result_data.len() == 1 && args.as_record {
@@ -356,7 +291,7 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data(ctrlc).set_metadata(metadata))
+        Ok(result_data.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

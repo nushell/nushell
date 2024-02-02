@@ -44,16 +44,19 @@ impl Command for TakeDF {
     let indices = ([0 2] | dfr into-df);
     $df | dfr take $indices"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(4), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(4), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -64,10 +67,13 @@ impl Command for TakeDF {
     let indices = ([0 2] | dfr into-df);
     $series | dfr take $indices"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "0".to_string(),
-                        vec![Value::test_int(4), Value::test_int(5)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0".to_string(),
+                            vec![Value::test_int(4), Value::test_int(5)],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -93,51 +99,45 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let index_value: Value = call.req(engine_state, stack, 0)?;
-    let index_span = index_value.span()?;
+    let index_span = index_value.span();
     let index = NuDataFrame::try_from_value(index_value)?.as_series(index_span)?;
 
     let casted = match index.dtype() {
-        DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => {
-            index.cast(&DataType::UInt32).map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting index list".into(),
-                    e.to_string(),
-                    Some(index_span),
-                    None,
-                    Vec::new(),
-                )
-            })
-        }
-        _ => Err(ShellError::GenericError(
-            "Incorrect type".into(),
-            "Series with incorrect type".into(),
-            Some(call.head),
-            Some("Consider using a Series with type int type".into()),
-            Vec::new(),
-        )),
+        DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => index
+            .cast(&DataType::UInt32)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error casting index list".into(),
+                msg: e.to_string(),
+                span: Some(index_span),
+                help: None,
+                inner: vec![],
+            }),
+        _ => Err(ShellError::GenericError {
+            error: "Incorrect type".into(),
+            msg: "Series with incorrect type".into(),
+            span: Some(call.head),
+            help: Some("Consider using a Series with type int type".into()),
+            inner: vec![],
+        }),
     }?;
 
-    let indices = casted.u32().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting index list".into(),
-            e.to_string(),
-            Some(index_span),
-            None,
-            Vec::new(),
-        )
+    let indices = casted.u32().map_err(|e| ShellError::GenericError {
+        error: "Error casting index list".into(),
+        msg: e.to_string(),
+        span: Some(index_span),
+        help: None,
+        inner: vec![],
     })?;
 
     NuDataFrame::try_from_pipeline(input, call.head).and_then(|df| {
         df.as_ref()
             .take(indices)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error taking values".into(),
-                    e.to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error taking values".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })
             .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
     })

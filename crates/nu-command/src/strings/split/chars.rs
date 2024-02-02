@@ -46,28 +46,28 @@ impl Command for SubCommand {
             Example {
                 description: "Split the string into a list of characters",
                 example: "'hello' | split chars",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("h"),
                         Value::test_string("e"),
                         Value::test_string("l"),
                         Value::test_string("l"),
                         Value::test_string("o"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split on grapheme clusters",
-                example: "'🇯🇵ほげ' | split chars -g",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "'🇯🇵ほげ' | split chars --grapheme-clusters",
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("🇯🇵"),
                         Value::test_string("ほ"),
                         Value::test_string("げ"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split multiple strings into lists of characters",
@@ -95,22 +95,23 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        split_chars(engine_state, call, input)
+        split_chars(engine_state, stack, call, input)
     }
 }
 
 fn split_chars(
     engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
 
-    let graphemes = grapheme_flags(call)?;
+    let graphemes = grapheme_flags(engine_state, stack, call)?;
     input.map(
         move |x| split_chars_helper(&x, span, graphemes),
         engine_state.ctrlc.clone(),
@@ -118,11 +119,14 @@ fn split_chars(
 }
 
 fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
-    match v.span() {
-        Ok(v_span) => {
+    let span = v.span();
+    match v {
+        Value::Error { error, .. } => Value::error(*error.clone(), span),
+        v => {
+            let v_span = v.span();
             if let Ok(s) = v.as_string() {
-                Value::List {
-                    vals: if graphemes {
+                Value::list(
+                    if graphemes {
                         s.graphemes(true)
                             .collect::<Vec<_>>()
                             .into_iter()
@@ -135,21 +139,19 @@ fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
                             .map(move |x| Value::string(x, v_span))
                             .collect()
                     },
-                    span: v_span,
-                }
+                    v_span,
+                )
             } else {
-                Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: name,
                         src_span: v_span,
-                    }),
-                }
+                    },
+                    name,
+                )
             }
         }
-        Err(error) => Value::Error {
-            error: Box::new(error),
-        },
     }
 }
 

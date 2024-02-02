@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -35,21 +37,12 @@ impl Command for FromUrl {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
             description: "Convert url encoded string into a record",
-            result: Some(Value::Record {
-                cols: vec![
-                    "bread".to_string(),
-                    "cheese".to_string(),
-                    "meat".to_string(),
-                    "fat".to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("baguette"),
-                    Value::test_string("comté"),
-                    Value::test_string("ham"),
-                    Value::test_string("butter"),
-                ],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_record(record! {
+                "bread" =>  Value::test_string("baguette"),
+                "cheese" => Value::test_string("comté"),
+                "meat" =>   Value::test_string("ham"),
+                "fat" =>    Value::test_string("butter"),
+            })),
         }]
     }
 }
@@ -61,28 +54,19 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
 
     match result {
         Ok(result) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
-            for (k, v) in result {
-                cols.push(k);
-                vals.push(Value::String { val: v, span: head })
-            }
+            let record = result
+                .into_iter()
+                .map(|(k, v)| (k, Value::string(v, head)))
+                .collect();
 
-            Ok(PipelineData::Value(
-                Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                },
-                metadata,
-            ))
+            Ok(PipelineData::Value(Value::record(record, head), metadata))
         }
-        _ => Err(ShellError::UnsupportedInput(
-            "String not compatible with URL encoding".to_string(),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "String not compatible with URL encoding".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }),
     }
 }
 

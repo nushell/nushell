@@ -1,9 +1,7 @@
-use nu_engine::column::get_columns;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,16 +13,12 @@ impl Command for Length {
     }
 
     fn usage(&self) -> &str {
-        "Count the number of elements in the input."
+        "Count the number of items in an input list or rows in a table."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("length")
-            .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Int),
-                (Type::Table(vec![]), Type::Int),
-            ])
-            .switch("column", "Show the number of columns in a table", Some('c'))
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Int)])
             .category(Category::Filters)
     }
 
@@ -34,17 +28,12 @@ impl Command for Length {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let col = call.has_flag("column");
-        if col {
-            length_col(engine_state, call, input)
-        } else {
-            length_row(call, input)
-        }
+        length_row(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,79 +44,40 @@ impl Command for Length {
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Count the number of columns in a table",
-                example: "[{columnA: A0 columnB: B0}] | length -c",
+                description: "Count the number of rows in a table",
+                example: "[{a:1 b:2}, {a:2 b:3}] | length",
                 result: Some(Value::test_int(2)),
             },
         ]
     }
 }
 
-// this simulates calling input | columns | length
-fn length_col(
-    engine_state: &EngineState,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    length_row(
-        call,
-        getcol(engine_state, call.head, input)
-            .expect("getcol() should not fail used in column command"),
-    )
-}
-
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let span = input.span().unwrap_or(call.head);
     match input {
         PipelineData::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
+        }
+        // I added this here because input_output_type() wasn't catching a record
+        // being sent in as input from echo. e.g. "echo {a:1 b:2} | length"
+        PipelineData::Value(Value::Record { .. }, ..) => {
+            Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, and table".into(),
+                wrong_type: "record".into(),
+                dst_span: call.head,
+                src_span: span,
+            })
         }
         _ => {
             let mut count: i64 = 0;
             // Check for and propagate errors
             for value in input.into_iter() {
-                if let Value::Error { error } = value {
+                if let Value::Error { error, .. } = value {
                     return Err(*error);
                 }
                 count += 1
             }
             Ok(Value::int(count, call.head).into_pipeline_data())
-        }
-    }
-}
-
-fn getcol(
-    engine_state: &EngineState,
-    span: Span,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(
-            Value::List {
-                vals: input_vals,
-                span,
-            },
-            ..,
-        ) => {
-            let input_cols = get_columns(&input_vals);
-            Ok(input_cols
-                .into_iter()
-                .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(engine_state.ctrlc.clone()))
-        }
-        PipelineData::ListStream(stream, ..) => {
-            let v: Vec<_> = stream.into_iter().collect();
-            let input_cols = get_columns(&v);
-
-            Ok(input_cols
-                .into_iter()
-                .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(engine_state.ctrlc.clone()))
-        }
-        PipelineData::Value(..) | PipelineData::ExternalStream { .. } => {
-            let cols = vec![];
-            let vals = vec![];
-            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
     }
 }

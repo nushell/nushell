@@ -29,7 +29,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, reverse strings at the given cell paths",
+                "For a data structure input, reverse strings at the given cell paths.",
             )
             .category(Category::Strings)
     }
@@ -64,14 +64,14 @@ impl Command for SubCommand {
             Example {
                 description: "Reverse multiple strings in a list",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("llehsuN"),
                         Value::test_string("si"),
                         Value::test_string("looc"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -79,19 +79,17 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::String {
-            val: val.chars().rev().collect::<String>(),
-            span: head,
-        },
+        Value::String { val, .. } => Value::string(val.chars().rev().collect::<String>(), head),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

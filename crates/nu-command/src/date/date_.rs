@@ -58,15 +58,15 @@ fn date(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
 
-    Ok(Value::String {
-        val: get_full_help(
+    Ok(Value::string(
+        get_full_help(
             &Date.signature(),
             &Date.examples(),
             engine_state,
             stack,
             false,
         ),
-        span: head,
-    }
+        head,
+    )
     .into_pipeline_data())
 }

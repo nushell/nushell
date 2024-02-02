@@ -45,6 +45,7 @@ impl Command for ToToml {
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
 // This shouldn't be called at the top-level
 fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellError> {
+    let span = v.span();
     Ok(match &v {
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
         Value::Int { val, .. } => toml::Value::Integer(*val),
@@ -53,11 +54,13 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Date { val, .. } => toml::Value::String(val.to_string()),
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
-        Value::String { val, .. } => toml::Value::String(val.clone()),
+        Value::String { val, .. } | Value::QuotedString { val, .. } => {
+            toml::Value::String(val.clone())
+        }
         Value::RawString { val, .. } => toml::Value::String(val.clone()),
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
-            for (k, v) in cols.iter().zip(vals.iter()) {
+            for (k, v) in val {
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
@@ -67,18 +70,18 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             helper(engine_state, &collected)?
         }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
-        Value::Block { span, .. } => {
-            let code = engine_state.get_span_contents(*span);
+        Value::Block { .. } => {
+            let code = engine_state.get_span_contents(span);
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }
-        Value::Closure { span, .. } => {
-            let code = engine_state.get_span_contents(*span);
+        Value::Closure { .. } => {
+            let code = engine_state.get_span_contents(span);
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
-        Value::Error { error } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(*error.clone()),
         Value::Binary { val, .. } => toml::Value::Array(
             val.iter()
                 .map(|x| toml::Value::Integer(*x as i64))
@@ -94,7 +97,6 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
-        Value::MatchPattern { .. } => toml::Value::String("<Match Pattern>".to_string()),
     })
 }
 
@@ -114,19 +116,16 @@ fn toml_into_pipeline_data(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     match toml::to_string(&toml_value) {
-        Ok(serde_toml_string) => Ok(Value::String {
-            val: serde_toml_string,
-            span,
-        }
-        .into_pipeline_data()),
-        _ => Ok(Value::Error {
-            error: Box::new(ShellError::CantConvert {
+        Ok(serde_toml_string) => Ok(Value::string(serde_toml_string, span).into_pipeline_data()),
+        _ => Ok(Value::error(
+            ShellError::CantConvert {
                 to_type: "TOML".into(),
                 from_type: value_type.to_string(),
                 span,
                 help: None,
-            }),
-        }
+            },
+            span,
+        )
         .into_pipeline_data()),
     }
 }
@@ -139,13 +138,13 @@ fn value_to_toml_value(
     match v {
         Value::Record { .. } => helper(engine_state, v),
         // Propagate existing errors
-        Value::Error { error } => Err(*error.clone()),
-        _ => Err(ShellError::UnsupportedInput(
-            format!("{:?} is not valid top-level TOML", v.get_type()),
-            "value originates from here".into(),
-            head,
-            v.expect_span(),
-        )),
+        Value::Error { error, .. } => Err(*error.clone()),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: format!("{:?} is not valid top-level TOML", v.get_type()),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: v.span(),
+        }),
     }
 }
 
@@ -173,7 +172,6 @@ fn to_toml(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::Spanned;
 
     #[test]
     fn test_examples() {
@@ -195,17 +193,14 @@ mod tests {
         m.insert("is".to_owned(), Value::nothing(Span::test_data()));
         m.insert(
             "features".to_owned(),
-            Value::List {
-                vals: vec![Value::test_string("hello"), Value::test_string("array")],
-                span: Span::test_data(),
-            },
+            Value::list(
+                vec![Value::test_string("hello"), Value::test_string("array")],
+                Span::test_data(),
+            ),
         );
         let tv = value_to_toml_value(
             &engine_state,
-            &Value::from(Spanned {
-                item: m,
-                span: Span::test_data(),
-            }),
+            &Value::record(m.into_iter().collect(), Span::test_data()),
             Span::test_data(),
         )
         .expect("Expected Ok from valid TOML dictionary");
@@ -227,10 +222,7 @@ mod tests {
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
             &engine_state,
-            &Value::List {
-                vals: vec![Value::test_string("1")],
-                span: Span::test_data(),
-            },
+            &Value::list(vec![Value::test_string("1")], Span::test_data()),
             Span::test_data(),
         )
         .expect_err("Expected non-valid toml (Table) to cause error!");

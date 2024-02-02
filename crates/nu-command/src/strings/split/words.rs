@@ -73,28 +73,28 @@ impl Command for SubCommand {
             Example {
                 description: "Split the string's words into separate rows",
                 example: "'hello world' | split words",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("hello"), Value::test_string("world")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("hello"), Value::test_string("world")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "Split the string's words, of at least 3 characters, into separate rows",
-                example: "'hello to the world' | split words -l 3",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "'hello to the world' | split words --min-word-length 3",
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("hello"),
                         Value::test_string("the"),
                         Value::test_string("world"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "A real-world example of splitting words",
-                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq -c | sort-by count --reverse | first 10",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words --min-word-length 2 | uniq --count | sort-by count --reverse | first 10",
                 result: None,
             },
         ]
@@ -118,26 +118,26 @@ fn split_words(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    // let ignore_hyphenated = call.has_flag("ignore-hyphenated");
-    // let ignore_apostrophes = call.has_flag("ignore-apostrophes");
-    // let ignore_punctuation = call.has_flag("ignore-punctuation");
+    // let ignore_hyphenated = call.has_flag(engine_state, stack, "ignore-hyphenated")?;
+    // let ignore_apostrophes = call.has_flag(engine_state, stack, "ignore-apostrophes")?;
+    // let ignore_punctuation = call.has_flag(engine_state, stack, "ignore-punctuation")?;
     let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
     if word_length.is_none() {
-        if call.has_flag("grapheme-clusters") {
+        if call.has_flag(engine_state, stack, "grapheme-clusters")? {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
                 span,
             });
         }
-        if call.has_flag("utf-8-bytes") {
+        if call.has_flag(engine_state, stack, "utf-8-bytes")? {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
                 span,
             });
         }
     }
-    let graphemes = grapheme_flags(call)?;
+    let graphemes = grapheme_flags(engine_state, stack, call)?;
 
     input.map(
         move |x| split_words_helper(&x, word_length, span, graphemes),
@@ -152,9 +152,12 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
     // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
     // Let's go with the unicode one in hopes that it works on more than just ascii characters
     let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
+    let v_span = v.span();
 
-    match v.span() {
-        Ok(v_span) => {
+    match v {
+        Value::Error { error, .. } => Value::error(*error.clone(), v_span),
+        v => {
+            let v_span = v.span();
             if let Ok(s) = v.as_string() {
                 // let splits = s.unicode_words();
                 // let words = trim_to_words(s);
@@ -184,23 +187,18 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
                         }
                     })
                     .collect::<Vec<Value>>();
-                Value::List {
-                    vals: words,
-                    span: v_span,
-                }
+                Value::list(words, v_span)
             } else {
-                Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
                         src_span: v_span,
-                    }),
-                }
+                    },
+                    v_span,
+                )
             }
         }
-        Err(error) => Value::Error {
-            error: Box::new(error),
-        },
     }
 }
 

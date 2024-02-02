@@ -15,6 +15,7 @@ mod open;
 mod query_df;
 mod rename;
 mod sample;
+mod schema;
 mod shape;
 mod slice;
 mod sql_context;
@@ -22,6 +23,7 @@ mod sql_expr;
 mod summary;
 mod take;
 mod to_arrow;
+mod to_avro;
 mod to_csv;
 mod to_df;
 mod to_json_lines;
@@ -48,13 +50,14 @@ pub use melt::MeltDF;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
+pub use schema::SchemaDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use sql_context::SQLContext;
-pub use sql_expr::parse_sql_expr;
 pub use summary::Summary;
 pub use take::TakeDF;
 pub use to_arrow::ToArrow;
+pub use to_avro::ToAvro;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
 pub use to_json_lines::ToJsonLines;
@@ -92,10 +95,12 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         QueryDf,
         RenameDF,
         SampleDF,
+        SchemaDF,
         ShapeDF,
         SliceDF,
         TakeDF,
         ToArrow,
+        ToAvro,
         ToCSV,
         ToDataFrame,
         ToNu,

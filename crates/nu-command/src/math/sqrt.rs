@@ -13,10 +13,10 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math sqrt")
             .input_output_types(vec![
-                (Type::Number, Type::Number),
+                (Type::Number, Type::Float),
                 (
                     Type::List(Box::new(Type::Number)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
                 ),
             ])
             .allow_variants_without_examples(true)
@@ -53,51 +53,54 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute the square root of each number in a list",
             example: "[9 16] | math sqrt",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(4)],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::list(
+                vec![Value::test_float(3.0), Value::test_float(4.0)],
+                Span::test_data(),
+            )),
         }]
     }
 }
 
 fn operate(value: Value, head: Span) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => {
+        Value::Int { val, .. } => {
             let squared = (val as f64).sqrt();
             if squared.is_nan() {
                 return error_negative_sqrt(head, span);
             }
-            Value::Float { val: squared, span }
+            Value::float(squared, span)
         }
-        Value::Float { val, span } => {
+        Value::Float { val, .. } => {
             let squared = val.sqrt();
             if squared.is_nan() {
                 return error_negative_sqrt(head, span);
             }
-            Value::Float { val: squared, span }
+            Value::float(squared, span)
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 
 fn error_negative_sqrt(head: Span, span: Span) -> Value {
-    Value::Error {
-        error: Box::new(ShellError::UnsupportedInput(
-            String::from("Can't square root a negative number"),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
-    }
+    Value::error(
+        ShellError::UnsupportedInput {
+            msg: String::from("Can't square root a negative number"),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        },
+        span,
+    )
 }
 
 #[cfg(test)]

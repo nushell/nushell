@@ -64,11 +64,7 @@ impl Command for ToText {
             // Even if the data is collected when it arrives at `to text`, we should be able to stream it out
             let collected_input = local_into_string(input.into_value(span), line_ending, config);
 
-            Ok(Value::String {
-                val: collected_input,
-                span,
-            }
-            .into_pipeline_data())
+            Ok(Value::string(collected_input, span).into_pipeline_data())
         }
     }
 
@@ -131,16 +127,16 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             )
         }
         Value::String { val, .. } => val,
+        Value::QuotedString { val, .. } => val,
         Value::RawString { val, .. } => val,
         Value::List { vals: val, .. } => val
-            .iter()
-            .map(|x| local_into_string(x.clone(), ", ", config))
+            .into_iter()
+            .map(|x| local_into_string(x, ", ", config))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Record { cols, vals, .. } => cols
-            .iter()
-            .zip(vals.iter())
-            .map(|(x, y)| format!("{}: {}", x, local_into_string(y.clone(), ", ", config)))
+        Value::Record { val, .. } => val
+            .into_iter()
+            .map(|(x, y)| format!("{}: {}", x, local_into_string(y, ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
         Value::LazyRecord { val, .. } => match val.collect() {
@@ -148,13 +144,12 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             Err(error) => format!("{error:?}"),
         },
         Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{error:?}"),
+        Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
+        Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 

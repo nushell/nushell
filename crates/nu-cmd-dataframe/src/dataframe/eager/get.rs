@@ -36,10 +36,13 @@ impl Command for GetDF {
             description: "Returns the selected column",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr get a",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(1), Value::test_int(3)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(1), Value::test_int(3)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -70,14 +73,12 @@ fn command(
 
     df.as_ref()
         .select(col_string)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error selecting columns".into(),
-                e.to_string(),
-                Some(col_span),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error selecting columns".into(),
+            msg: e.to_string(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

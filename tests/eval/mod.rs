@@ -6,3 +6,13 @@ fn source_file_relative_to_file() {
 
     assert!(actual.err.contains("redefined"));
 }
+
+#[test]
+fn run_file_parse_error() {
+    let actual = nu!(
+        cwd: "tests/fixtures/eval",
+        "nu script.nu"
+    );
+
+    assert!(actual.err.contains("unknown type"));
+}

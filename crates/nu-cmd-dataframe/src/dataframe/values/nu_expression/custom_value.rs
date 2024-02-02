@@ -20,10 +20,7 @@ impl CustomValue for NuExpression {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         let cloned = NuExpression(self.0.clone());
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::custom_value(Box::new(cloned), span)
     }
 
     fn value_string(&self) -> String {
@@ -31,7 +28,7 @@ impl CustomValue for NuExpression {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        Ok(self.to_value(span))
+        self.to_value(span)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -56,31 +53,29 @@ fn compute_with_value(
     op: Span,
     right: &Value,
 ) -> Result<Value, ShellError> {
+    let rhs_span = right.span();
     match right {
-        Value::CustomValue {
-            val: rhs,
-            span: rhs_span,
-        } => {
+        Value::CustomValue { val: rhs, .. } => {
             let rhs = rhs.as_any().downcast_ref::<NuExpression>().ok_or_else(|| {
-                ShellError::DowncastNotPossible(
-                    "Unable to create expression".to_string(),
-                    *rhs_span,
-                )
+                ShellError::DowncastNotPossible {
+                    msg: "Unable to create expression".into(),
+                    span: rhs_span,
+                }
             })?;
 
             match rhs.as_ref() {
                 polars::prelude::Expr::Literal(..) => {
-                    with_operator(operator, left, rhs, lhs_span, right.span()?, op)
+                    with_operator(operator, left, rhs, lhs_span, right.span(), op)
                 }
                 _ => Err(ShellError::TypeMismatch {
                     err_message: "Only literal expressions or number".into(),
-                    span: right.span()?,
+                    span: right.span(),
                 }),
             }
         }
         _ => {
             let rhs = NuExpression::try_from_value(right.clone())?;
-            with_operator(operator, left, &rhs, lhs_span, right.span()?, op)
+            with_operator(operator, left, &rhs, lhs_span, right.span(), op)
         }
     }
 }

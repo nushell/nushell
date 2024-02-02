@@ -1,11 +1,16 @@
 pub mod support;
 
+use std::path::PathBuf;
+
 use nu_cli::NuCompleter;
 use nu_parser::parse;
 use nu_protocol::engine::StateWorkingSet;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
-use support::{completions_helpers::new_quote_engine, file, folder, match_suggestions, new_engine};
+use support::{
+    completions_helpers::{new_partial_engine, new_quote_engine},
+    file, folder, match_suggestions, new_engine,
+};
 
 #[fixture]
 fn completer() -> NuCompleter {
@@ -54,6 +59,29 @@ fn extern_completer() -> NuCompleter {
     NuCompleter::new(std::sync::Arc::new(engine), stack)
 }
 
+#[fixture]
+fn custom_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Add record value as example
+    let record = r#"
+        let external_completer = {|spans|
+            $spans
+        }
+
+        $env.config.completions.external = {
+            enable: true
+            max_results: 100
+            completer: $external_completer
+        }
+    "#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(std::sync::Arc::new(engine), stack)
+}
+
 #[test]
 fn variables_dollar_sign_with_varialblecompletion() {
     let (_, _, engine, stack) = new_engine();
@@ -63,7 +91,7 @@ fn variables_dollar_sign_with_varialblecompletion() {
     let target_dir = "$ ";
     let suggestions = completer.complete(target_dir, target_dir.len());
 
-    assert_eq!(7, suggestions.len());
+    assert_eq!(8, suggestions.len());
 }
 
 #[rstest]
@@ -116,15 +144,34 @@ fn dotnu_completions() {
     let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(1, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
+    assert_eq!(2, suggestions.len());
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    #[cfg(windows)]
+    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
+    #[cfg(not(windows))]
+    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(1, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
+    assert_eq!(2, suggestions.len());
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    #[cfg(windows)]
+    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
+    #[cfg(not(windows))]
+    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+
+    // Test overlay use completion
+    let completion_str = "overlay use ".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    assert_eq!(2, suggestions.len());
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    #[cfg(windows)]
+    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
+    #[cfg(not(windows))]
+    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 }
 
 #[test]
@@ -136,7 +183,7 @@ fn external_completer_trailing_space() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
     assert_eq!("", suggestions.get(2).unwrap().value);
 }
@@ -148,7 +195,7 @@ fn external_completer_no_trailing_space() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(2, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
 }
 
@@ -159,7 +206,7 @@ fn external_completer_pass_flags() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("api", suggestions.get(1).unwrap().value);
     assert_eq!("--", suggestions.get(2).unwrap().value);
 }
@@ -180,6 +227,7 @@ fn file_completions() {
     let expected_paths: Vec<String> = vec![
         folder(dir.join("another")),
         file(dir.join("custom_completion.nu")),
+        folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
@@ -202,6 +250,87 @@ fn file_completions() {
 }
 
 #[test]
+fn partial_completions() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Test completions for a folder's name
+    let target_dir = format!("cd {}", file(dir.join("pa")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("partial_a")),
+        folder(dir.join("partial_b")),
+        folder(dir.join("partial_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completions for the files whose name begin with "h"
+    // and are present under directories whose names begin with "pa"
+    let dir_str = file(dir.join("pa").join("h"));
+    let target_dir = format!("cp {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("partial_a").join("hello")),
+        file(dir.join("partial_a").join("hola")),
+        file(dir.join("partial_b").join("hello_b")),
+        file(dir.join("partial_b").join("hi_b")),
+        file(dir.join("partial_c").join("hello_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion for all files under directories whose names begin with "pa"
+    let dir_str = folder(dir.join("pa"));
+    let target_dir = format!("ls {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("partial_a").join("anotherfile")),
+        file(dir.join("partial_a").join("hello")),
+        file(dir.join("partial_a").join("hola")),
+        file(dir.join("partial_b").join("hello_b")),
+        file(dir.join("partial_b").join("hi_b")),
+        file(dir.join("partial_c").join("hello_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion for a single file
+    let dir_str = file(dir.join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion where there is a sneaky `..` in the path
+    let dir_str = file(dir.join("par").join("..").join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+}
+
+#[test]
 fn command_ls_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
 
@@ -214,6 +343,7 @@ fn command_ls_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -224,6 +354,7 @@ fn command_ls_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -246,6 +377,7 @@ fn command_open_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -256,6 +388,7 @@ fn command_open_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -279,6 +412,7 @@ fn command_rm_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -289,6 +423,7 @@ fn command_rm_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -312,6 +447,7 @@ fn command_cp_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -322,6 +458,7 @@ fn command_cp_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -345,6 +482,7 @@ fn command_save_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -355,6 +493,7 @@ fn command_save_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -378,6 +517,7 @@ fn command_touch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -388,6 +528,7 @@ fn command_touch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -411,6 +552,7 @@ fn command_watch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -421,6 +563,7 @@ fn command_watch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -441,10 +584,26 @@ fn file_completion_quoted() {
     let suggestions = completer.complete(target_dir, target_dir.len());
 
     let expected_paths: Vec<String> = vec![
+        "`--help`".to_string(),
+        "`-42`".to_string(),
+        "`-inf`".to_string(),
+        "`4.2`".to_string(),
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
         "`te(st).txt`".to_string(),
+        format!("`{}`", folder("test dir".into())),
+    ];
+
+    match_suggestions(expected_paths, suggestions);
+
+    let dir: PathBuf = "test dir".into();
+    let target_dir = format!("open '{}'", folder(dir.clone()));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> = vec![
+        format!("`{}`", file(dir.join("double quote"))),
+        format!("`{}`", file(dir.join("single quote"))),
     ];
 
     match_suggestions(expected_paths, suggestions)
@@ -500,6 +659,7 @@ fn folder_with_directorycompletions() {
     // Create the expected values
     let expected_paths: Vec<String> = vec![
         folder(dir.join("another")),
+        folder(dir.join("directory_completion")),
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
@@ -524,13 +684,14 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(14, suggestions.len());
+    assert_eq!(15, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
         "current-exe".into(),
         "default-config-dir".into(),
         "env-path".into(),
+        "history-enabled".into(),
         "history-path".into(),
         "home-path".into(),
         "is-interactive".into(),
@@ -549,9 +710,13 @@ fn variables_completions() {
     // Test completions for $nu.h (filter)
     let suggestions = completer.complete("$nu.h", 5);
 
-    assert_eq!(2, suggestions.len());
+    assert_eq!(3, suggestions.len());
 
-    let expected: Vec<String> = vec!["history-path".into(), "home-path".into()];
+    let expected: Vec<String> = vec![
+        "history-enabled".into(),
+        "history-path".into(),
+        "home-path".into(),
+    ];
 
     // Match results
     match_suggestions(expected, suggestions);
@@ -693,7 +858,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     // Change config adding the external completer
     let mut config = engine_state.get_config().clone();
     config.external_completer = Some(latest_block_id);
-    engine_state.set_config(&config);
+    engine_state.set_config(config);
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
@@ -714,6 +879,7 @@ fn unknown_command_completion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -724,6 +890,7 @@ fn unknown_command_completion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -774,6 +941,7 @@ fn filecompletions_triggers_after_cursor() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -784,6 +952,7 @@ fn filecompletions_triggers_after_cursor() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -833,6 +1002,34 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
 fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam -", 6);
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_before_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo  bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_on_word_left_boundary(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_next_to_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 11);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_after_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar ", 12);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into(), "".into()];
     match_suggestions(expected, suggestions);
 }
 

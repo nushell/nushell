@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, Value};
+use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -114,7 +114,9 @@ pub enum ShellError {
     IncorrectValue {
         msg: String,
         #[label = "{msg}"]
-        span: Span,
+        val_span: Span,
+        #[label = "encountered here"]
+        call_span: Span,
     },
 
     /// This value cannot be used with this operator.
@@ -431,7 +433,7 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot not be set manually."#
+            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
         )
     )]
     AutomaticEnvVarSetManually {
@@ -595,9 +597,10 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the record to ensure you aren't reusing the same field name
-    #[error("Record field used twice")]
-    #[diagnostic(code(nu::shell::not_a_list))]
+    #[error("Record field or table column used twice: {col_name}")]
+    #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
+        col_name: String,
         #[label = "field redefined here"]
         second_use: Span,
         #[label = "field first defined here"]
@@ -625,12 +628,14 @@ pub enum ShellError {
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input))]
-    UnsupportedInput(
-        String,
-        String,
-        #[label("{0}")] Span, // call head (the name of the command itself)
-        #[label("input type: {1}")] Span,
-    ),
+    UnsupportedInput {
+        msg: String,
+        input: String,
+        #[label("{msg}")]
+        msg_span: Span,
+        #[label("{input}")]
+        input_span: Span,
+    },
 
     /// Failed to parse an input into a datetime value.
     ///
@@ -646,7 +651,7 @@ pub enum ShellError {
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime: [{0}].")]
+    #[error("Unable to parse datetime: [{msg}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         help(
@@ -659,7 +664,11 @@ pub enum ShellError {
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
+    DatetimeParseError {
+        msg: String,
+        #[label("datetime parsing failed")]
+        span: Span,
+    },
 
     /// A network operation failed.
     ///
@@ -668,7 +677,11 @@ pub enum ShellError {
     /// It's always DNS.
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure))]
-    NetworkFailure(String, #[label("{0}")] Span),
+    NetworkFailure {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Help text for this command could not be found.
     ///
@@ -677,7 +690,10 @@ pub enum ShellError {
     /// Check the spelling for the requested command and try again. Are you sure it's defined and your configurations are loading correctly? Can you execute it?
     #[error("Command not found")]
     #[diagnostic(code(nu::shell::command_not_found))]
-    CommandNotFound(#[label("command not found")] Span),
+    CommandNotFound {
+        #[label("command not found")]
+        span: Span,
+    },
 
     /// This alias could not be found
     ///
@@ -686,13 +702,10 @@ pub enum ShellError {
     /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
     #[error("Alias not found")]
     #[diagnostic(code(nu::shell::alias_not_found))]
-    AliasNotFound(#[label("alias not found")] Span),
-
-    /// A flag was not found.
-    #[error("Flag not found")]
-    #[diagnostic(code(nu::shell::flag_not_found))]
-    // NOTE: Seems to be unused. Removable?
-    FlagNotFound(String, #[label("{0} not found")] Span),
+    AliasNotFound {
+        #[label("alias not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///
@@ -701,7 +714,10 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFound(#[label("file not found")] Span),
+    FileNotFound {
+        #[label("file not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///
@@ -710,34 +726,38 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFoundCustom(String, #[label("{0}")] Span),
+    FileNotFoundCustom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A plugin failed to load.
     ///
     /// ## Resolution
     ///
     /// This is a fairly generic error. Refer to the specific error message for further details.
-    #[error("Plugin failed to load: {0}")]
+    #[error("Plugin failed to load: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load))]
-    PluginFailedToLoad(String),
+    PluginFailedToLoad { msg: String },
 
     /// A message from a plugin failed to encode.
     ///
     /// ## Resolution
     ///
     /// This is likely a bug with the plugin itself.
-    #[error("Plugin failed to encode: {0}")]
+    #[error("Plugin failed to encode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_encode))]
-    PluginFailedToEncode(String),
+    PluginFailedToEncode { msg: String },
 
     /// A message to a plugin failed to decode.
     ///
     /// ## Resolution
     ///
     /// This is either an issue with the inputs to a plugin (bad JSON?) or a bug in the plugin itself. Fix or report as appropriate.
-    #[error("Plugin failed to decode: {0}")]
+    #[error("Plugin failed to decode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_decode))]
-    PluginFailedToDecode(String),
+    PluginFailedToDecode { msg: String },
 
     /// I/O operation interrupted.
     ///
@@ -746,7 +766,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O interrupted")]
     #[diagnostic(code(nu::shell::io_interrupted))]
-    IOInterrupted(String, #[label("{0}")] Span),
+    IOInterrupted {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// An I/O operation failed.
     ///
@@ -754,8 +778,8 @@ pub enum ShellError {
     ///
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
-    #[diagnostic(code(nu::shell::io_error), help("{0}"))]
-    IOError(String),
+    #[diagnostic(code(nu::shell::io_error), help("{msg}"))]
+    IOError { msg: String },
 
     /// An I/O operation failed.
     ///
@@ -764,7 +788,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error))]
-    IOErrorSpanned(String, #[label("{0}")] Span),
+    IOErrorSpanned {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Permission for an operation was denied.
     ///
@@ -773,7 +801,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("Permission Denied")]
     #[diagnostic(code(nu::shell::permission_denied))]
-    PermissionDeniedError(String, #[label("{0}")] Span),
+    PermissionDeniedError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Out of memory.
     ///
@@ -782,7 +814,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("Out of memory")]
     #[diagnostic(code(nu::shell::out_of_memory))]
-    OutOfMemoryError(String, #[label("{0}")] Span),
+    OutOfMemoryError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Tried to `cd` to a path that isn't a directory.
     ///
@@ -791,7 +827,10 @@ pub enum ShellError {
     /// Make sure the path is a directory. It currently exists, but is of some other type, like a file.
     #[error("Cannot change to directory")]
     #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
-    NotADirectory(#[label("is not a directory")] Span),
+    NotADirectory {
+        #[label("is not a directory")]
+        span: Span,
+    },
 
     /// Attempted to perform an operation on a directory that doesn't exist.
     ///
@@ -799,8 +838,12 @@ pub enum ShellError {
     ///
     /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
-    #[diagnostic(code(nu::shell::directory_not_found))]
-    DirectoryNotFound(#[label("directory not found")] Span, #[help] Option<String>),
+    #[diagnostic(code(nu::shell::directory_not_found), help("{dir} does not exist"))]
+    DirectoryNotFound {
+        dir: String,
+        #[label("directory not found")]
+        span: Span,
+    },
 
     /// Attempted to perform an operation on a directory that doesn't exist.
     ///
@@ -809,7 +852,11 @@ pub enum ShellError {
     /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found_custom))]
-    DirectoryNotFoundCustom(String, #[label("{0}")] Span),
+    DirectoryNotFoundCustom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// The requested move operation cannot be completed. This is typically because both paths exist,
     /// but are of different types. For example, you might be trying to overwrite an existing file with
@@ -839,7 +886,11 @@ pub enum ShellError {
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible_single))]
     // NOTE: Currently not actively used.
-    MoveNotPossibleSingle(String, #[label("{0}")] Span),
+    MoveNotPossibleSingle {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Failed to create either a file or directory.
     ///
@@ -848,7 +899,11 @@ pub enum ShellError {
     /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Create not possible")]
     #[diagnostic(code(nu::shell::create_not_possible))]
-    CreateNotPossible(String, #[label("{0}")] Span),
+    CreateNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Changing the access time ("atime") of this file is not possible.
     ///
@@ -857,7 +912,11 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the access time")]
     #[diagnostic(code(nu::shell::change_access_time_not_possible))]
-    ChangeAccessTimeNotPossible(String, #[label("{0}")] Span),
+    ChangeAccessTimeNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Changing the modification time ("mtime") of this file is not possible.
     ///
@@ -866,7 +925,11 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the modified time")]
     #[diagnostic(code(nu::shell::change_modified_time_not_possible))]
-    ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
+    ChangeModifiedTimeNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Unable to remove this item.
     ///
@@ -875,15 +938,11 @@ pub enum ShellError {
     /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
-    RemoveNotPossible(String, #[label("{0}")] Span),
-
-    // These three are unused. Remove?
-    #[error("No file to be removed")]
-    NoFileToBeRemoved(),
-    #[error("No file to be moved")]
-    NoFileToBeMoved(),
-    #[error("No file to be copied")]
-    NoFileToBeCopied(),
+    RemoveNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Error while trying to read a file
     ///
@@ -892,7 +951,11 @@ pub enum ShellError {
     /// The error will show the result from a file operation
     #[error("Error trying to read file")]
     #[diagnostic(code(nu::shell::error_reading_file))]
-    ReadingFile(String, #[label("{0}")] Span),
+    ReadingFile {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A name was not found. Did you mean a different name?
     ///
@@ -901,16 +964,25 @@ pub enum ShellError {
     /// The error message will suggest a possible match for what you meant.
     #[error("Name not found")]
     #[diagnostic(code(nu::shell::name_not_found))]
-    DidYouMean(String, #[label("did you mean '{0}'?")] Span),
+    DidYouMean {
+        suggestion: String,
+        #[label("did you mean '{suggestion}'?")]
+        span: Span,
+    },
 
     /// A name was not found. Did you mean a different name?
     ///
     /// ## Resolution
     ///
     /// The error message will suggest a possible match for what you meant.
-    #[error("{0}")]
+    #[error("{msg}")]
     #[diagnostic(code(nu::shell::did_you_mean_custom))]
-    DidYouMeanCustom(String, String, #[label("did you mean '{1}'?")] Span),
+    DidYouMeanCustom {
+        msg: String,
+        suggestion: String,
+        #[label("did you mean '{suggestion}'?")]
+        span: Span,
+    },
 
     /// The given input must be valid UTF-8 for further processing.
     ///
@@ -919,7 +991,10 @@ pub enum ShellError {
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8))]
-    NonUtf8(#[label = "non-UTF8 string"] Span),
+    NonUtf8 {
+        #[label("non-UTF8 string")]
+        span: Span,
+    },
 
     /// The given input must be valid UTF-8 for further processing.
     ///
@@ -928,7 +1003,11 @@ pub enum ShellError {
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8_custom))]
-    NonUtf8Custom(String, #[label = "{0}"] Span),
+    NonUtf8Custom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A custom value could not be converted to a Dataframe.
     ///
@@ -937,7 +1016,11 @@ pub enum ShellError {
     /// Make sure conversion to a Dataframe is possible for this value or convert it to a type that does, first.
     #[error("Casting error")]
     #[diagnostic(code(nu::shell::downcast_not_possible))]
-    DowncastNotPossible(String, #[label("{0}")] Span),
+    DowncastNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// The value given for this configuration is not supported.
     ///
@@ -946,7 +1029,12 @@ pub enum ShellError {
     /// Refer to the specific error message for details and convert values as needed.
     #[error("Unsupported config value")]
     #[diagnostic(code(nu::shell::unsupported_config_value))]
-    UnsupportedConfigValue(String, String, #[label = "expected {0}, got {1}"] Span),
+    UnsupportedConfigValue {
+        expected: String,
+        value: String,
+        #[label("expected {expected}, got {value}")]
+        span: Span,
+    },
 
     /// An expected configuration value is not present.
     ///
@@ -955,7 +1043,11 @@ pub enum ShellError {
     /// Refer to the specific error message and add the configuration value to your config file as needed.
     #[error("Missing config value")]
     #[diagnostic(code(nu::shell::missing_config_value))]
-    MissingConfigValue(String, #[label = "missing {0}"] Span),
+    MissingConfigValue {
+        missing_value: String,
+        #[label("missing {missing_value}")]
+        span: Span,
+    },
 
     /// Negative value passed when positive one is required.
     ///
@@ -964,49 +1056,50 @@ pub enum ShellError {
     /// Guard against negative values or check your inputs.
     #[error("Negative value passed when positive one is required")]
     #[diagnostic(code(nu::shell::needs_positive_value))]
-    NeedsPositiveValue(#[label = "use a positive value"] Span),
+    NeedsPositiveValue {
+        #[label("use a positive value")]
+        span: Span,
+    },
 
     /// This is a generic error type used for different situations.
-    #[error("{0}")]
+    #[error("{error}")]
     #[diagnostic()]
-    GenericError(
-        String,
-        String,
-        #[label("{1}")] Option<Span>,
-        #[help] Option<String>,
-        #[related] Vec<ShellError>,
-    ),
+    GenericError {
+        error: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Option<Span>,
+        #[help]
+        help: Option<String>,
+        #[related]
+        inner: Vec<ShellError>,
+    },
 
     /// This is a generic error type used for different situations.
-    #[error("{1}")]
+    #[error("{error}")]
     #[diagnostic()]
-    OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
+    OutsideSpannedLabeledError {
+        #[source_code]
+        src: String,
+        error: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
-    /// Attempted to use a deprecated command.
+    /// Attempted to use a command that has been removed from Nushell.
     ///
     /// ## Resolution
     ///
     /// Check the help for the new suggested command and update your script accordingly.
-    #[error("Deprecated command {0}")]
-    #[diagnostic(code(nu::shell::deprecated_command))]
-    DeprecatedCommand(
-        String,
-        String,
-        #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
-    ),
-
-    /// Attempted to use a deprecated parameter.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the help for the command and update your script accordingly.
-    #[error("Deprecated parameter {0}")]
-    #[diagnostic(code(nu::shell::deprecated_command))]
-    DeprecatedParameter(
-        String,
-        String,
-        #[label = "Parameter '{0}' is deprecated. Please use '{1}' instead."] Span,
-    ),
+    #[error("Removed command: {removed}")]
+    #[diagnostic(code(nu::shell::removed_command))]
+    RemovedCommand {
+        removed: String,
+        replacement: String,
+        #[label("'{removed}' has been removed from Nushell. Please use '{replacement}' instead.")]
+        span: Span,
+    },
 
     /// Non-Unicode input received.
     ///
@@ -1017,32 +1110,38 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::non_unicode_input))]
     NonUnicodeInput,
 
-    /// Unexpected abbr component.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the path abbreviation to ensure that it is valid.
-    #[error("Unexpected abbr component `{0}`.")]
-    #[diagnostic(code(nu::shell::unexpected_path_abbreviateion))]
-    UnexpectedAbbrComponent(String),
-
     // It should be only used by commands accepts block, and accept inputs from pipeline.
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
     #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput(#[label("source value")] Span, #[related] Vec<ShellError>),
+    EvalBlockWithInput {
+        #[label("source value")]
+        span: Span,
+        #[related]
+        sources: Vec<ShellError>,
+    },
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
-    Break(#[label = "used outside of loop"] Span),
+    Break {
+        #[label("used outside of loop")]
+        span: Span,
+    },
 
     /// Continue event, which may become an error if used outside of a loop
     #[error("Continue used outside of loop")]
-    Continue(#[label = "used outside of loop"] Span),
+    Continue {
+        #[label("used outside of loop")]
+        span: Span,
+    },
 
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
-    Return(#[label = "used outside of function"] Span, Box<Value>),
+    Return {
+        #[label("used outside of function")]
+        span: Span,
+        value: Box<Value>,
+    },
 
     /// The code being executed called itself too many times.
     ///
@@ -1085,23 +1184,166 @@ pub enum ShellError {
         #[label("not a boolean expression")]
         span: Span,
     },
+
+    /// An attempt to run a command marked for constant evaluation lacking the const. eval.
+    /// implementation.
+    ///
+    /// This is an internal Nushell error, please file an issue.
+    #[error("Missing const eval implementation")]
+    #[diagnostic(
+        code(nu::shell::missing_const_eval_implementation),
+        help(
+            "The command lacks an implementation for constant evaluation. \
+This is an internal Nushell error, please file an issue https://github.com/nushell/nushell/issues."
+        )
+    )]
+    MissingConstEvalImpl {
+        #[label("command lacks constant implementation")]
+        span: Span,
+    },
+
+    /// Tried assigning non-constant value to a constant
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
+    #[error("Not a constant.")]
+    #[diagnostic(
+        code(nu::shell::not_a_constant),
+        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
+    )]
+    NotAConstant {
+        #[label("Value is not a parse-time constant")]
+        span: Span,
+    },
+
+    /// Tried running a command that is not const-compatible
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of builtin commands, and custom commands built only from those commands, can
+    /// run at parse time.
+    #[error("Not a const command.")]
+    #[diagnostic(
+        code(nu::shell::not_a_const_command),
+        help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
+    )]
+    NotAConstCommand {
+        #[label("This command cannot run at parse time.")]
+        span: Span,
+    },
+
+    /// Tried getting a help message at parse time.
+    ///
+    /// ## Resolution
+    ///
+    /// Help messages are not supported at parse time.
+    #[error("Help message not a constant.")]
+    #[diagnostic(
+        code(nu::shell::not_a_const_help),
+        help("Help messages are currently not supported to be constants.")
+    )]
+    NotAConstHelp {
+        #[label("This command cannot run at parse time.")]
+        span: Span,
+    },
+
+    /// Invalid glob pattern
+    ///
+    /// ## Resolution
+    ///
+    /// Correct glob pattern
+    #[error("Invalid glob pattern")]
+    #[diagnostic(
+        code(nu::shell::invalid_glob_pattern),
+        help("Refer to xxx for help on nushell glob patterns.")
+    )]
+    InvalidGlobPattern {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
+    /// Tried spreading a non-list inside a list or command call.
+    ///
+    /// ## Resolution
+    ///
+    /// Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading.
+    #[error("Not a list")]
+    #[diagnostic(
+        code(nu::shell::cannot_spread_as_list),
+        help("Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading.")
+    )]
+    CannotSpreadAsList {
+        #[label = "cannot spread value"]
+        span: Span,
+    },
+
+    /// Tried spreading a non-record inside a record.
+    ///
+    /// ## Resolution
+    ///
+    /// Only records can be spread inside records. Try converting the value to a record before spreading.
+    #[error("Not a record")]
+    #[diagnostic(
+        code(nu::shell::cannot_spread_as_record),
+        help("Only records can be spread inside records. Try converting the value to a record before spreading.")
+    )]
+    CannotSpreadAsRecord {
+        #[label = "cannot spread value"]
+        span: Span,
+    },
+
+    /// Out of bounds.
+    ///
+    /// ## Resolution
+    ///
+    /// Make sure the range is within the bounds of the input.
+    #[error(
+        "The selected range {left_flank}..{right_flank} is out of the bounds of the provided input"
+    )]
+    #[diagnostic(code(nu::shell::out_of_bounds))]
+    OutOfBounds {
+        left_flank: String,
+        right_flank: String,
+        #[label = "byte index is not a char boundary or is out of bounds of the input"]
+        span: Span,
+    },
+}
+
+// TODO: Implement as From trait
+impl ShellError {
+    pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
+        let msg = format_error(working_set, &self);
+        ParseError::LabeledError(
+            msg,
+            "Encountered error during parse-time evaluation".into(),
+            span,
+        )
+    }
 }
 
 impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError(format!("{input:?}"))
+        ShellError::IOError {
+            msg: format!("{input:?}"),
+        }
     }
 }
 
 impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
     fn from(input: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::IOError(input.to_string())
+        ShellError::IOError {
+            msg: input.to_string(),
+        }
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError(format!("{input:?}"))
+        ShellError::IOError {
+            msg: format!("{input:?}"),
+        }
     }
 }
 

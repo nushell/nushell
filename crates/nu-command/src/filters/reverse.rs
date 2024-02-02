@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     Type, Value,
 };
 
@@ -15,13 +15,10 @@ impl Command for Reverse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("reverse")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .category(Category::Filters)
     }
 
@@ -38,26 +35,24 @@ impl Command for Reverse {
             Example {
                 example: "[0,1,2,3] | reverse",
                 description: "Reverse a list",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_int(3),
-                        Value::test_int(2),
-                        Value::test_int(1),
-                        Value::test_int(0),
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(3),
+                    Value::test_int(2),
+                    Value::test_int(1),
+                    Value::test_int(0),
+                ])),
             },
             Example {
                 example: "[{a: 1} {a: 2}] | reverse",
                 description: "Reverse a table",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(2)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(1)]),
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                    }),
+                ])),
             },
         ]
     }
@@ -74,9 +69,7 @@ impl Command for Reverse {
         #[allow(clippy::needless_collect)]
         let v: Vec<_> = input.into_iter_strict(call.head)?.collect();
         let iter = v.into_iter().rev();
-        Ok(iter
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata))
+        Ok(iter.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 }
 

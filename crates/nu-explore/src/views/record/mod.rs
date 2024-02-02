@@ -4,11 +4,11 @@ use std::borrow::Cow;
 
 use std::collections::HashMap;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 
@@ -73,26 +73,6 @@ impl<'a> RecordView<'a> {
 
     pub fn set_style_selected_column(&mut self, style: NuStyle) {
         self.theme.cursor.selected_column = Some(style)
-    }
-
-    pub fn show_cursor(&mut self, b: bool) {
-        self.theme.cursor.show_cursor = b;
-    }
-
-    pub fn set_line_head_top(&mut self, b: bool) {
-        self.theme.table.header_top = b;
-    }
-
-    pub fn set_line_head_bottom(&mut self, b: bool) {
-        self.theme.table.header_bottom = b;
-    }
-
-    pub fn set_line_trailing(&mut self, b: bool) {
-        self.theme.table.shift_line = b;
-    }
-
-    pub fn set_line_index(&mut self, b: bool) {
-        self.theme.table.index_line = b;
     }
 
     pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
@@ -201,8 +181,8 @@ impl<'a> RecordView<'a> {
         let layer = self.get_layer_last();
 
         let (row, column) = match layer.orientation {
-            Orientation::Top | Orientation::Bottom => (row, column),
-            Orientation::Left | Orientation::Right => (column, row),
+            Orientation::Top => (row, column),
+            Orientation::Left => (column, row),
         };
 
         layer.records[row][column].clone()
@@ -231,11 +211,11 @@ impl<'a> RecordView<'a> {
 
     fn update_cursors(&mut self, rows: usize, columns: usize) {
         match self.get_layer_last().orientation {
-            Orientation::Top | Orientation::Bottom => {
+            Orientation::Top => {
                 self.get_layer_last_mut().cursor.set_window(rows, columns);
             }
 
-            Orientation::Left | Orientation::Right => {
+            Orientation::Left => {
                 self.get_layer_last_mut().cursor.set_window(rows, columns);
             }
         }
@@ -246,13 +226,13 @@ impl<'a> RecordView<'a> {
         let covered_percent = report_row_position(layer.cursor);
         let cursor = report_cursor_position(self.mode, layer.cursor);
         let message = layer.name.clone().unwrap_or_default();
+        // note: maybe came up with a better short names? E/V/N?
+        let mode = match self.mode {
+            UIMode::Cursor => String::from("EDIT"),
+            UIMode::View => String::from("VIEW"),
+        };
 
-        Report {
-            message,
-            context: covered_percent,
-            context2: cursor,
-            level: Severity::Info,
-        }
+        Report::new(message, Severity::Info, mode, cursor, covered_percent)
     }
 }
 
@@ -354,9 +334,7 @@ impl View for RecordView<'_> {
             if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
                 let orientation = match orientation.as_str() {
                     "left" => Some(Orientation::Left),
-                    "right" => Some(Orientation::Right),
                     "top" => Some(Orientation::Top),
-                    "bottom" => Some(Orientation::Bottom),
                     _ => None,
                 };
 
@@ -379,9 +357,8 @@ fn get_element_info(
 ) -> Option<&ElementInfo> {
     let with_head = with_head as usize;
     let index = match orientation {
-        Orientation::Top | Orientation::Bottom => column * (count_rows + with_head) + row + 1,
+        Orientation::Top => column * (count_rows + with_head) + row + 1,
         Orientation::Left => (column + with_head) * count_rows + row,
-        Orientation::Right => column * count_rows + row,
     };
 
     layout.data.get(index)
@@ -428,15 +405,15 @@ impl<'a> RecordLayer<'a> {
 
     fn count_rows(&self) -> usize {
         match self.orientation {
-            Orientation::Top | Orientation::Bottom => self.records.len(),
-            Orientation::Left | Orientation::Right => self.columns.len(),
+            Orientation::Top => self.records.len(),
+            Orientation::Left => self.columns.len(),
         }
     }
 
     fn count_columns(&self) -> usize {
         match self.orientation {
-            Orientation::Top | Orientation::Bottom => self.columns.len(),
-            Orientation::Left | Orientation::Right => self.records.len(),
+            Orientation::Top => self.columns.len(),
+            Orientation::Left => self.records.len(),
         }
     }
 
@@ -451,6 +428,36 @@ impl<'a> RecordLayer<'a> {
 }
 
 fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
+    match key {
+        KeyEvent {
+            code: KeyCode::Char('u'),
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }
+        | KeyEvent {
+            code: KeyCode::PageUp,
+            ..
+        } => {
+            view.get_layer_last_mut().cursor.prev_row_page();
+
+            return Some(Transition::Ok);
+        }
+        KeyEvent {
+            code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }
+        | KeyEvent {
+            code: KeyCode::PageDown,
+            ..
+        } => {
+            view.get_layer_last_mut().cursor.next_row_page();
+
+            return Some(Transition::Ok);
+        }
+        _ => {}
+    }
+
     match key.code {
         KeyCode::Esc => {
             if view.layer_stack.len() > 1 {
@@ -473,42 +480,32 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             Some(Transition::Ok)
         }
         KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             view.get_layer_last_mut().cursor.prev_row_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::Down => {
+        KeyCode::Down | KeyCode::Char('j') => {
             view.get_layer_last_mut().cursor.next_row_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::Left => {
+        KeyCode::Left | KeyCode::Char('h') => {
             view.get_layer_last_mut().cursor.prev_column_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::Right => {
+        KeyCode::Right | KeyCode::Char('l') => {
             view.get_layer_last_mut().cursor.next_column_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::PageUp => {
-            view.get_layer_last_mut().cursor.prev_row_page();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::PageDown => {
-            view.get_layer_last_mut().cursor.next_row_page();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Home => {
+        KeyCode::Home | KeyCode::Char('g') => {
             view.get_layer_last_mut().cursor.row_move_to_start();
 
             Some(Transition::Ok)
         }
-        KeyCode::End => {
+        KeyCode::End | KeyCode::Char('G') => {
             view.get_layer_last_mut().cursor.row_move_to_end();
 
             Some(Transition::Ok)
@@ -518,48 +515,68 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
 }
 
 fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
+    match key {
+        KeyEvent {
+            code: KeyCode::Char('u'),
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }
+        | KeyEvent {
+            code: KeyCode::PageUp,
+            ..
+        } => {
+            view.get_layer_last_mut().cursor.prev_row_page();
+
+            return Some(Transition::Ok);
+        }
+        KeyEvent {
+            code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }
+        | KeyEvent {
+            code: KeyCode::PageDown,
+            ..
+        } => {
+            view.get_layer_last_mut().cursor.next_row_page();
+
+            return Some(Transition::Ok);
+        }
+        _ => {}
+    }
+
     match key.code {
         KeyCode::Esc => {
             view.set_view_mode();
 
             Some(Transition::Ok)
         }
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             view.get_layer_last_mut().cursor.prev_row();
 
             Some(Transition::Ok)
         }
-        KeyCode::Down => {
+        KeyCode::Down | KeyCode::Char('j') => {
             view.get_layer_last_mut().cursor.next_row();
 
             Some(Transition::Ok)
         }
-        KeyCode::Left => {
+        KeyCode::Left | KeyCode::Char('h') => {
             view.get_layer_last_mut().cursor.prev_column();
 
             Some(Transition::Ok)
         }
-        KeyCode::Right => {
+        KeyCode::Right | KeyCode::Char('l') => {
             view.get_layer_last_mut().cursor.next_column();
 
             Some(Transition::Ok)
         }
-        KeyCode::PageUp => {
-            view.get_layer_last_mut().cursor.prev_row_page();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::PageDown => {
-            view.get_layer_last_mut().cursor.next_row_page();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Home => {
+        KeyCode::Home | KeyCode::Char('g') => {
             view.get_layer_last_mut().cursor.row_move_to_start();
 
             Some(Transition::Ok)
         }
-        KeyCode::End => {
+        KeyCode::End | KeyCode::Char('G') => {
             view.get_layer_last_mut().cursor.row_move_to_end();
 
             Some(Transition::Ok)
@@ -642,27 +659,33 @@ fn convert_records_to_string(
 }
 
 fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
+    // highlight selected column
     if let Some(style) = theme.selected_column {
         let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
         f.render_widget(highlight_block.clone(), area);
     }
 
+    // highlight selected row
     if let Some(style) = theme.selected_row {
         let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(area.x, info.area.y, area.width, 1);
         f.render_widget(highlight_block.clone(), area);
     }
 
-    if let Some(style) = theme.selected_cell {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    if theme.show_cursor {
-        f.set_cursor(info.area.x, info.area.y);
-    }
+    // highlight selected cell
+    let cell_style = match theme.selected_cell {
+        Some(s) => s,
+        None => {
+            let mut style = nu_ansi_term::Style::new();
+            // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
+            style.background = Some(nu_ansi_term::Color::LightBlue);
+            style
+        }
+    };
+    let highlight_block = Block::default().style(nu_style_to_tui(cell_style));
+    let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
+    f.render_widget(highlight_block.clone(), area)
 }
 
 fn build_last_value(v: &RecordView) -> Value {
@@ -683,30 +706,24 @@ fn build_table_as_list(v: &RecordView) -> Value {
         .records
         .iter()
         .cloned()
-        .map(|vals| Value::Record {
-            cols: headers.clone(),
-            vals,
-            span: NuSpan::unknown(),
+        .map(|vals| {
+            Value::record(
+                Record::from_raw_cols_vals(headers.clone(), vals),
+                NuSpan::unknown(),
+            )
         })
         .collect();
 
-    Value::List {
-        vals,
-        span: NuSpan::unknown(),
-    }
+    Value::list(vals, NuSpan::unknown())
 }
 
 fn build_table_as_record(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
     let cols = layer.columns.to_vec();
-    let vals = layer.records.get(0).map_or(Vec::new(), |row| row.clone());
+    let vals = layer.records.first().map_or(Vec::new(), |row| row.clone());
 
-    Value::Record {
-        cols,
-        vals,
-        span: NuSpan::unknown(),
-    }
+    Value::record(Record::from_raw_cols_vals(cols, vals), NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
@@ -815,12 +832,6 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.cursor.selected_cell = colors.get("selected_cell").cloned();
     theme.cursor.selected_row = colors.get("selected_row").cloned();
     theme.cursor.selected_column = colors.get("selected_column").cloned();
-    theme.cursor.show_cursor = config_get_bool(config, "show_cursor", true);
-
-    theme.table.header_top = config_get_bool(config, "line_head_top", true);
-    theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
-    theme.table.shift_line = config_get_bool(config, "line_shift", true);
-    theme.table.index_line = config_get_bool(config, "line_index", true);
 
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", false);
@@ -859,5 +870,4 @@ struct CursorStyle {
     selected_cell: Option<NuStyle>,
     selected_column: Option<NuStyle>,
     selected_row: Option<NuStyle>,
-    show_cursor: bool,
 }

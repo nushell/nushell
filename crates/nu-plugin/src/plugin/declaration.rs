@@ -6,6 +6,7 @@ use crate::protocol::{
 };
 use std::path::{Path, PathBuf};
 
+use nu_engine::eval_block;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
@@ -43,6 +44,19 @@ impl Command for PluginDeclaration {
         self.signature.sig.usage.as_str()
     }
 
+    fn extra_usage(&self) -> &str {
+        self.signature.sig.extra_usage.as_str()
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        self.signature
+            .sig
+            .search_terms
+            .iter()
+            .map(|term| term.as_str())
+            .collect()
+    }
+
     fn examples(&self) -> Vec<Example> {
         let mut res = vec![];
         for e in self.signature.examples.iter() {
@@ -66,7 +80,7 @@ impl Command for PluginDeclaration {
         // Decode information from plugin
         // Create PipelineData
         let source_file = Path::new(&self.filename);
-        let mut plugin_cmd = create_command(source_file, &self.shell);
+        let mut plugin_cmd = create_command(source_file, self.shell.as_deref());
         // We need the current environment variables for `python` based plugins
         // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         let current_envs = nu_engine::env::env_to_strings(engine_state, stack).unwrap_or_default();
@@ -74,18 +88,19 @@ impl Command for PluginDeclaration {
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
-            ShellError::GenericError(
-                format!("Unable to spawn plugin for {}", decl.name()),
-                format!("{err}"),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+            ShellError::GenericError {
+                error: format!("Unable to spawn plugin for {}", decl.name()),
+                msg: format!("{err}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }
         })?;
 
         let input = input.into_value(call.head);
+        let span = input.span();
         let input = match input {
-            Value::CustomValue { val, span } => {
+            Value::CustomValue { val, .. } => {
                 match val.as_any().downcast_ref::<PluginCustomValue>() {
                     Some(plugin_data) if plugin_data.filename == self.filename => {
                         CallInput::Data(PluginData {
@@ -95,16 +110,16 @@ impl Command for PluginDeclaration {
                     }
                     _ => {
                         let custom_value_name = val.value_string();
-                        return Err(ShellError::GenericError(
-                            format!(
+                        return Err(ShellError::GenericError {
+                            error: format!(
                                 "Plugin {} can not handle the custom value {}",
                                 self.name, custom_value_name
                             ),
-                            format!("custom value {custom_value_name}"),
-                            Some(span),
-                            None,
-                            Vec::new(),
-                        ));
+                            msg: format!("custom value {custom_value_name}"),
+                            span: Some(span),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                 }
             }
@@ -112,32 +127,70 @@ impl Command for PluginDeclaration {
             value => CallInput::Value(value),
         };
 
+        // Fetch the configuration for a plugin
+        //
+        // The `plugin` must match the registered name of a plugin.  For
+        // `register nu_plugin_example` the plugin config lookup uses `"example"`
+        let config = self
+            .filename
+            .file_stem()
+            .and_then(|file| {
+                file.to_string_lossy()
+                    .clone()
+                    .strip_prefix("nu_plugin_")
+                    .map(|name| {
+                        nu_engine::get_config(engine_state, stack)
+                            .plugins
+                            .get(name)
+                            .cloned()
+                    })
+            })
+            .flatten()
+            .map(|value| {
+                let span = value.span();
+                match value {
+                    Value::Closure { val, .. } => {
+                        let input = PipelineData::Empty;
+
+                        let block = engine_state.get_block(val.block_id).clone();
+                        let mut stack = stack.captures_to_stack(val.captures);
+
+                        match eval_block(engine_state, &mut stack, &block, input, false, false) {
+                            Ok(v) => v.into_value(span),
+                            Err(e) => Value::error(e, call.head),
+                        }
+                    }
+                    _ => value.clone(),
+                }
+            });
+
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
             call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
             input,
+            config,
         });
 
         let encoding = {
             let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
-                    return Err(ShellError::PluginFailedToLoad(
-                        "Plugin missing stdout reader".into(),
-                    ))
+                    return Err(ShellError::PluginFailedToLoad {
+                        msg: "Plugin missing stdout reader".into(),
+                    })
                 }
             };
             get_plugin_encoding(stdout_reader)?
         };
         let response = call_plugin(&mut child, plugin_call, &encoding, call.head).map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
-            ShellError::GenericError(
-                format!("Unable to decode call for {}", decl.name()),
-                err.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+            ShellError::GenericError {
+                error: format!("Unable to decode call for {}", decl.name()),
+                msg: err.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }
         });
 
         let pipeline_data = match response {
@@ -145,26 +198,26 @@ impl Command for PluginDeclaration {
                 Ok(PipelineData::Value(value.as_ref().clone(), None))
             }
             Ok(PluginResponse::PluginData(name, plugin_data)) => Ok(PipelineData::Value(
-                Value::CustomValue {
-                    val: Box::new(PluginCustomValue {
+                Value::custom_value(
+                    Box::new(PluginCustomValue {
                         name,
                         data: plugin_data.data,
                         filename: self.filename.clone(),
                         shell: self.shell.clone(),
                         source: engine_state.get_decl(call.decl_id).name().to_owned(),
                     }),
-                    span: plugin_data.span,
-                },
+                    plugin_data.span,
+                ),
                 None,
             )),
             Ok(PluginResponse::Error(err)) => Err(err.into()),
-            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
-                "Plugin missing value".into(),
-                "Received a signature from plugin instead of value".into(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )),
+            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError {
+                error: "Plugin missing value".into(),
+                msg: "Received a signature from plugin instead of value".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }),
             Err(err) => Err(err),
         };
 
@@ -174,7 +227,7 @@ impl Command for PluginDeclaration {
         pipeline_data
     }
 
-    fn is_plugin(&self) -> Option<(&PathBuf, &Option<PathBuf>)> {
-        Some((&self.filename, &self.shell))
+    fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
+        Some((&self.filename, self.shell.as_deref()))
     }
 }

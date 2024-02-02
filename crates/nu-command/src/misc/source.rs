@@ -18,7 +18,7 @@ impl Command for Source {
             .required(
                 "filename",
                 SyntaxShape::Filepath,
-                "the filepath to the script file to source",
+                "The filepath to the script file to source.",
             )
             .category(Category::Core)
     }

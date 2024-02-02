@@ -18,15 +18,6 @@ impl Command for First {
         Signature::build("first")
             .input_output_types(vec![
                 (
-                    // TODO: This variant duplicates the functionality of
-                    // `take`. See #6611, #6611, #6893
-                    // TODO: This is too permissive; if we could express this
-                    // using a type parameter style it would be List<T> ->
-                    // List<T>.
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
                     // TODO: This is too permissive; if we could express this
                     // using a type parameter it would be List<T> -> T.
                     Type::List(Box::new(Type::Any)),
@@ -38,7 +29,7 @@ impl Command for First {
             .optional(
                 "rows",
                 SyntaxShape::Int,
-                "starting from the front, the number of rows to return",
+                "Starting from the front, the number of rows to return.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -68,18 +59,15 @@ impl Command for First {
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | first 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(1), Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | first 2",
-                result: Some(Value::Binary {
-                    val: vec![0x01, 0x23],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
             },
         ]
     }
@@ -99,7 +87,7 @@ fn first_helper(
     // the first N elements is covered by `take`
     let return_single_element = rows.is_none();
     let rows_desired: usize = match rows {
-        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue(head)),
+        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
         Some(x) => x as usize,
         None => 1,
     };
@@ -109,69 +97,62 @@ fn first_helper(
 
     // early exit for `first 0`
     if rows_desired == 0 {
-        return Ok(Vec::<Value>::new()
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata));
+        return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
     }
 
     match input {
-        PipelineData::Value(val, _) => match val {
-            Value::List { vals, .. } => {
-                if return_single_element {
-                    if vals.is_empty() {
-                        Err(ShellError::AccessEmptyContent { span: head })
+        PipelineData::Value(val, _) => {
+            let span = val.span();
+            match val {
+                Value::List { vals, .. } => {
+                    if return_single_element {
+                        if vals.is_empty() {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            Ok(vals[0].clone().into_pipeline_data())
+                        }
                     } else {
-                        Ok(vals[0].clone().into_pipeline_data())
+                        Ok(vals
+                            .into_iter()
+                            .take(rows_desired)
+                            .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }
-                } else {
-                    Ok(vals
-                        .into_iter()
-                        .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
                 }
-            }
-            Value::Binary { val, span } => {
-                if return_single_element {
-                    if val.is_empty() {
-                        Err(ShellError::AccessEmptyContent { span: head })
+                Value::Binary { val, .. } => {
+                    if return_single_element {
+                        if val.is_empty() {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            Ok(PipelineData::Value(
+                                Value::int(val[0] as i64, span),
+                                metadata,
+                            ))
+                        }
                     } else {
-                        Ok(PipelineData::Value(
-                            Value::Int {
-                                val: val[0] as i64,
-                                span,
-                            },
-                            metadata,
-                        ))
+                        let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
+                        Ok(PipelineData::Value(Value::binary(slice, span), metadata))
                     }
-                } else {
-                    let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                    Ok(PipelineData::Value(
-                        Value::Binary { val: slice, span },
-                        metadata,
-                    ))
                 }
-            }
-            Value::Range { val, .. } => {
-                if return_single_element {
-                    Ok(val.from.into_pipeline_data())
-                } else {
-                    Ok(val
-                        .into_range_iter(ctrlc.clone())?
-                        .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
+                Value::Range { val, .. } => {
+                    if return_single_element {
+                        Ok(val.from.into_pipeline_data())
+                    } else {
+                        Ok(val
+                            .into_range_iter(ctrlc.clone())?
+                            .take(rows_desired)
+                            .into_pipeline_data_with_metadata(metadata, ctrlc))
+                    }
                 }
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error, .. } => Err(*error),
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                }),
             }
-            // Propagate errors by explicitly matching them before the final case.
-            Value::Error { error } => Err(*error),
-            other => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+        }
         PipelineData::ListStream(mut ls, metadata) => {
             if return_single_element {
                 if let Some(v) = ls.next() {
@@ -182,8 +163,7 @@ fn first_helper(
             } else {
                 Ok(ls
                     .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata))
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
             }
         }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {

@@ -2,8 +2,8 @@ use polars::error::PolarsError;
 use polars::prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit};
 
 use sqlparser::ast::{
-    BinaryOperator as SQLBinaryOperator, DataType as SQLDataType, Expr as SqlExpr,
-    Function as SQLFunction, Value as SqlValue, WindowType,
+    ArrayElemTypeDef, BinaryOperator as SQLBinaryOperator, DataType as SQLDataType,
+    Expr as SqlExpr, Function as SQLFunction, Value as SqlValue, WindowType,
 };
 
 fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
@@ -13,7 +13,7 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         | SQLDataType::Uuid
         | SQLDataType::Clob(_)
         | SQLDataType::Text
-        | SQLDataType::String => DataType::Utf8,
+        | SQLDataType::String(_) => DataType::String,
         SQLDataType::Float(_) => DataType::Float32,
         SQLDataType::Real => DataType::Float32,
         SQLDataType::Double => DataType::Float64,
@@ -31,9 +31,12 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         SQLDataType::Time(_, _) => DataType::Time,
         SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Microseconds, None),
         SQLDataType::Interval => DataType::Duration(TimeUnit::Microseconds),
-        SQLDataType::Array(inner_type) => match inner_type {
-            Some(inner_type) => DataType::List(Box::new(map_sql_polars_datatype(inner_type)?)),
-            None => {
+        SQLDataType::Array(array_type_def) => match array_type_def {
+            ArrayElemTypeDef::AngleBracket(inner_type)
+            | ArrayElemTypeDef::SquareBracket(inner_type) => {
+                DataType::List(Box::new(map_sql_polars_datatype(inner_type)?))
+            }
+            _ => {
                 return Err(PolarsError::ComputeError(
                     "SQL Datatype Array(None) was not supported in polars-sql yet!".into(),
                 ))
@@ -59,7 +62,9 @@ fn binary_op_(left: Expr, right: Expr, op: &SQLBinaryOperator) -> Result<Expr> {
         SQLBinaryOperator::Multiply => left * right,
         SQLBinaryOperator::Divide => left / right,
         SQLBinaryOperator::Modulo => left % right,
-        SQLBinaryOperator::StringConcat => left.cast(DataType::Utf8) + right.cast(DataType::Utf8),
+        SQLBinaryOperator::StringConcat => {
+            left.cast(DataType::String) + right.cast(DataType::String)
+        }
         SQLBinaryOperator::Gt => left.gt(right),
         SQLBinaryOperator::Lt => left.lt(right),
         SQLBinaryOperator::GtEq => left.gt_eq(right),
@@ -114,7 +119,11 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
             binary_op_(left, right, op)?
         }
         SqlExpr::Function(sql_function) => parse_sql_function(sql_function)?,
-        SqlExpr::Cast { expr, data_type } => cast_(parse_sql_expr(expr)?, data_type)?,
+        SqlExpr::Cast {
+            expr,
+            data_type,
+            format: _,
+        } => cast_(parse_sql_expr(expr)?, data_type)?,
         SqlExpr::Nested(expr) => parse_sql_expr(expr)?,
         SqlExpr::Value(value) => literal_expr(value)?,
         _ => {
@@ -125,7 +134,7 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
     })
 }
 
-fn apply_window_spec(expr: Expr, window_type: &Option<WindowType>) -> Result<Expr> {
+fn apply_window_spec(expr: Expr, window_type: Option<&WindowType>) -> Result<Expr> {
     Ok(match &window_type {
         Some(wtype) => match wtype {
             WindowType::WindowSpec(window_spec) => {
@@ -152,7 +161,7 @@ fn apply_window_spec(expr: Expr, window_type: &Option<WindowType>) -> Result<Exp
 fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
     use sqlparser::ast::{FunctionArg, FunctionArgExpr};
     // Function name mostly do not have name space, so it mostly take the first args
-    let function_name = sql_function.name.0[0].value.to_lowercase();
+    let function_name = sql_function.name.0[0].value.to_ascii_lowercase();
     let args = sql_function
         .args
         .iter()
@@ -168,13 +177,13 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
             sql_function.distinct,
         ) {
             ("sum", [FunctionArgExpr::Expr(expr)], false) => {
-                apply_window_spec(parse_sql_expr(expr)?, &sql_function.over)?.sum()
+                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.sum()
             }
             ("count", [FunctionArgExpr::Expr(expr)], false) => {
-                apply_window_spec(parse_sql_expr(expr)?, &sql_function.over)?.count()
+                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.count()
             }
             ("count", [FunctionArgExpr::Expr(expr)], true) => {
-                apply_window_spec(parse_sql_expr(expr)?, &sql_function.over)?.n_unique()
+                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.n_unique()
             }
             // Special case for wildcard args to count function.
             ("count", [FunctionArgExpr::Wildcard], false) => lit(1i32).count(),

@@ -106,6 +106,7 @@ fn from_tsv_text_to_table() {
 }
 
 #[test]
+#[allow(clippy::needless_raw_string_hashes)]
 fn from_tsv_text_with_comments_to_table() {
     Playground::setup("filter_from_tsv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
@@ -177,12 +178,12 @@ fn from_tsv_text_with_custom_escapes_to_table() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            r"
                 open los_tres_caballeros.txt
                 | from tsv --escape '\'
                 | first
                 | get first_name
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "And\"rés");

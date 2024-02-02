@@ -1,9 +1,5 @@
 use std::collections::HashMap;
-#[cfg(all(
-    feature = "trash-support",
-    not(target_os = "android"),
-    not(target_os = "ios")
-))]
+use std::io::Error;
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
@@ -13,19 +9,19 @@ use super::util::try_interaction;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_glob::MatchOptions;
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
+const TRASH_SUPPORTED: bool = cfg!(all(
+    feature = "trash-support",
+    not(any(target_os = "android", target_os = "ios"))
+));
 
 #[derive(Clone)]
 pub struct Rm;
@@ -48,8 +44,8 @@ impl Command for Rm {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
-                SyntaxShape::Filepath,
-                "the path of the file you want to remove",
+                SyntaxShape::GlobPattern,
+                "The file or files you want to remove.",
             )
             .switch(
                 "trash",
@@ -73,7 +69,7 @@ impl Command for Rm {
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
-                "additional file path(s) to remove",
+                "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)
     }
@@ -95,24 +91,21 @@ impl Command for Rm {
             example: "rm file.txt",
             result: None,
         }];
-        #[cfg(all(
-            feature = "trash-support",
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
-        examples.append(&mut vec![
-            Example {
-                description: "Move a file to the trash",
-                example: "rm --trash file.txt",
-                result: None,
-            },
-            Example {
-                description:
-                    "Delete a file permanently, even if the 'always_trash' config option is true",
-                example: "rm --permanent file.txt",
-                result: None,
-            },
-        ]);
+        if TRASH_SUPPORTED {
+            examples.append(&mut vec![
+                Example {
+                    description: "Move a file to the trash",
+                    example: "rm --trash file.txt",
+                    result: None,
+                },
+                Example {
+                    description:
+                        "Delete a file permanently, even if the 'always_trash' config option is true",
+                    example: "rm --permanent file.txt",
+                    result: None,
+                },
+            ]);
+        }
         examples.push(Example {
             description: "Delete a file, ignoring 'file not found' errors",
             example: "rm --force file.txt",
@@ -132,22 +125,17 @@ fn rm(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let trash = call.has_flag("trash");
-    #[cfg(all(
-        feature = "trash-support",
-        not(target_os = "android"),
-        not(target_os = "ios")
-    ))]
-    let permanent = call.has_flag("permanent");
-    let recursive = call.has_flag("recursive");
-    let force = call.has_flag("force");
-    let verbose = call.has_flag("verbose");
-    let interactive = call.has_flag("interactive");
-    let interactive_once = call.has_flag("interactive-once") && !interactive;
+    let trash = call.has_flag(engine_state, stack, "trash")?;
+    let permanent = call.has_flag(engine_state, stack, "permanent")?;
+    let recursive = call.has_flag(engine_state, stack, "recursive")?;
+    let force = call.has_flag(engine_state, stack, "force")?;
+    let verbose = call.has_flag(engine_state, stack, "verbose")?;
+    let interactive = call.has_flag(engine_state, stack, "interactive")?;
+    let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+    let mut targets: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
 
     let mut unique_argument_check = None;
 
@@ -170,67 +158,70 @@ fn rm(
 
     for (idx, path) in targets.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
-            if &path.item == home {
+            if expand_path_with(path.item.as_ref(), &currentdir_path)
+                .to_string_lossy()
+                .as_ref()
+                == home.as_str()
+            {
                 unique_argument_check = Some(path.span);
             }
         }
         let corrected_path = Spanned {
-            item: nu_utils::strip_ansi_string_unlikely(path.item),
+            item: match path.item {
+                NuPath::Quoted(s) => NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuPath::UnQuoted(s) => NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+            },
             span: path.span,
         };
         let _ = std::mem::replace(&mut targets[idx], corrected_path);
     }
 
     let span = call.head;
+    let rm_always_trash = engine_state.get_config().rm_always_trash;
 
-    let config = engine_state.get_config();
-
-    let rm_always_trash = config.rm_always_trash;
-
-    #[cfg(not(feature = "trash-support"))]
-    {
+    if !TRASH_SUPPORTED {
         if rm_always_trash {
-            return Err(ShellError::GenericError(
-                "Cannot execute `rm`; the current configuration specifies \
+            return Err(ShellError::GenericError {
+                error: "Cannot execute `rm`; the current configuration specifies \
                     `always_trash = true`, but the current nu executable was not \
                     built with feature `trash_support`."
                     .into(),
-                "trash required to be true but not supported".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
+                msg: "trash required to be true but not supported".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         } else if trash {
-            return Err(ShellError::GenericError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled"
+            return Err(ShellError::GenericError{
+                error: "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled or on an unsupported platform"
                     .into(),
-                "this option is only available if nu is built with the `trash-support` feature"
+                msg: "this option is only available if nu is built with the `trash-support` feature and the platform supports trash"
                     .into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
     }
 
     if targets.is_empty() {
-        return Err(ShellError::GenericError(
-            "rm requires target paths".into(),
-            "needs parameter".into(),
-            Some(span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "rm requires target paths".into(),
+            msg: "needs parameter".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     if unique_argument_check.is_some() && !(interactive_once || interactive) {
-        return Err(ShellError::GenericError(
-            "You are trying to remove your home dir".into(),
-            "If you really want to remove your home dir, please use -I or -i".into(),
-            unique_argument_check,
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "You are trying to remove your home dir".into(),
+            msg: "If you really want to remove your home dir, please use -I or -i".into(),
+            span: unique_argument_check,
+            help: None,
+            inner: vec![],
+        });
     }
 
     let targets_span = Span::new(
@@ -250,30 +241,32 @@ fn rm(
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
     for target in targets {
-        if currentdir_path.to_string_lossy() == target.item
+        let path = expand_path_with(target.item.as_ref(), &currentdir_path);
+        if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
-            return Err(ShellError::GenericError(
-                "Cannot remove any parent directory".into(),
-                "cannot remove any parent directory".into(),
-                Some(target.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Cannot remove any parent directory".into(),
+                msg: "cannot remove any parent directory".into(),
+                span: Some(target.span),
+                help: None,
+                inner: vec![],
+            });
         }
 
-        let path = currentdir_path.join(&target.item);
-        match nu_glob::glob_with(
-            &path.to_string_lossy(),
-            nu_glob::MatchOptions {
+        match nu_engine::glob_from(
+            &target,
+            &currentdir_path,
+            call.head,
+            Some(MatchOptions {
                 require_literal_leading_dot: true,
-                ..GLOB_PARAMS
-            },
+                ..Default::default()
+            }),
         ) {
             Ok(files) => {
-                for file in files {
+                for file in files.1 {
                     match file {
-                        Ok(ref f) => {
+                        Ok(f) => {
                             if !target_exists {
                                 target_exists = true;
                             }
@@ -286,16 +279,18 @@ fn rm(
                                 continue;
                             }
 
-                            all_targets.entry(f.clone()).or_insert_with(|| target.span);
+                            all_targets
+                                .entry(nu_path::expand_path_with(f, &currentdir_path))
+                                .or_insert_with(|| target.span);
                         }
                         Err(e) => {
-                            return Err(ShellError::GenericError(
-                                format!("Could not remove {:}", path.to_string_lossy()),
-                                e.to_string(),
-                                Some(target.span),
-                                None,
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: format!("Could not remove {:}", path.to_string_lossy()),
+                                msg: e.to_string(),
+                                span: Some(target.span),
+                                help: None,
+                                inner: vec![],
+                            });
                         }
                     }
                 }
@@ -306,25 +301,23 @@ fn rm(
                 }
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    e.to_string(),
-                    Some(target.span),
-                    None,
-                    Vec::new(),
-                ))
+                // glob_from may canonicalize path and return `DirectoryNotFound`
+                // nushell should suppress the error if `--force` is used.
+                if !(force && matches!(e, ShellError::DirectoryNotFound { .. })) {
+                    return Err(e);
+                }
             }
         };
     }
 
     if all_targets.is_empty() && !force {
-        return Err(ShellError::GenericError(
-            "File(s) not found".into(),
-            "File(s) not found".into(),
-            Some(targets_span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "File(s) not found".into(),
+            msg: "File(s) not found".into(),
+            span: Some(targets_span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     if interactive_once {
@@ -333,13 +326,13 @@ fn rm(
             format!("rm: remove {} files? ", all_targets.len()),
         );
         if let Err(e) = interaction {
-            return Err(ShellError::GenericError(
-                format!("Error during interaction: {e:}"),
-                "could not move".into(),
-                None,
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("Error during interaction: {e:}"),
+                msg: "could not move".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            });
         } else if !confirmed {
             return Ok(PipelineData::Empty);
         }
@@ -376,61 +369,57 @@ fn rm(
                         format!("rm: remove '{}'? ", f.to_string_lossy()),
                     );
 
-                    let result;
-                    #[cfg(all(
-                        feature = "trash-support",
-                        not(target_os = "android"),
-                        not(target_os = "ios")
-                    ))]
-                    {
-                        use std::io::Error;
-                        result = if let Err(e) = interaction {
-                            let e = Error::new(ErrorKind::Other, &*e.to_string());
-                            Err(e)
-                        } else if interactive && !confirmed {
-                            Ok(())
-                        } else if trash || (rm_always_trash && !permanent) {
+                    let result = if let Err(e) = interaction {
+                        let e = Error::new(ErrorKind::Other, &*e.to_string());
+                        Err(e)
+                    } else if interactive && !confirmed {
+                        Ok(())
+                    } else if TRASH_SUPPORTED && (trash || (rm_always_trash && !permanent)) {
+                        #[cfg(all(
+                            feature = "trash-support",
+                            not(any(target_os = "android", target_os = "ios"))
+                        ))]
+                        {
                             trash::delete(&f).map_err(|e: trash::Error| {
                                 Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
                             })
-                        } else if metadata.is_file()
-                            || is_socket
-                            || is_fifo
-                            || metadata.file_type().is_symlink()
+                        }
+
+                        // Should not be reachable since we error earlier if
+                        // these options are given on an unsupported platform
+                        #[cfg(any(
+                            not(feature = "trash-support"),
+                            target_os = "android",
+                            target_os = "ios"
+                        ))]
                         {
-                            std::fs::remove_file(&f)
-                        } else {
-                            std::fs::remove_dir_all(&f)
-                        };
-                    }
-                    #[cfg(any(
-                        not(feature = "trash-support"),
-                        target_os = "android",
-                        target_os = "ios"
-                    ))]
-                    {
-                        use std::io::{Error, ErrorKind};
-                        result = if let Err(e) = interaction {
-                            let e = Error::new(ErrorKind::Other, &*e.to_string());
-                            Err(e)
-                        } else if interactive && !confirmed {
-                            Ok(())
-                        } else if metadata.is_file()
-                            || is_socket
-                            || is_fifo
-                            || metadata.file_type().is_symlink()
+                            unreachable!()
+                        }
+                    } else if metadata.is_symlink() {
+                        // In Windows, symlink pointing to a directory can be removed using
+                        // std::fs::remove_dir instead of std::fs::remove_file.
+                        #[cfg(windows)]
                         {
-                            std::fs::remove_file(&f)
-                        } else {
-                            std::fs::remove_dir_all(&f)
-                        };
-                    }
+                            f.metadata().and_then(|metadata| {
+                                if metadata.is_dir() {
+                                    std::fs::remove_dir(&f)
+                                } else {
+                                    std::fs::remove_file(&f)
+                                }
+                            })
+                        }
+
+                        #[cfg(not(windows))]
+                        std::fs::remove_file(&f)
+                    } else if metadata.is_file() || is_socket || is_fifo {
+                        std::fs::remove_file(&f)
+                    } else {
+                        std::fs::remove_dir_all(&f)
+                    };
 
                     if let Err(e) = result {
                         let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                        Value::Error {
-                            error: Box::new(ShellError::RemoveNotPossible(msg, span)),
-                        }
+                        Value::error(ShellError::RemoveNotPossible { msg, span }, span)
                     } else if verbose {
                         let msg = if interactive && !confirmed {
                             "not deleted"
@@ -438,33 +427,35 @@ fn rm(
                             "deleted"
                         };
                         let val = format!("{} {:}", msg, f.to_string_lossy());
-                        Value::String { val, span }
+                        Value::string(val, span)
                     } else {
-                        Value::Nothing { span }
+                        Value::nothing(span)
                     }
                 } else {
-                    let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                    Value::Error {
-                        error: Box::new(ShellError::GenericError(
-                            msg,
-                            "cannot remove non-empty directory".into(),
-                            Some(span),
-                            None,
-                            Vec::new(),
-                        )),
-                    }
+                    let error = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
+                    Value::error(
+                        ShellError::GenericError {
+                            error,
+                            msg: "cannot remove non-empty directory".into(),
+                            span: Some(span),
+                            help: None,
+                            inner: vec![],
+                        },
+                        span,
+                    )
                 }
             } else {
-                let msg = format!("no such file or directory: {:}", f.to_string_lossy());
-                Value::Error {
-                    error: Box::new(ShellError::GenericError(
-                        msg,
-                        "no such file or directory".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
-                }
+                let error = format!("no such file or directory: {:}", f.to_string_lossy());
+                Value::error(
+                    ShellError::GenericError {
+                        error,
+                        msg: "no such file or directory".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
+                    span,
+                )
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))

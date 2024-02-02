@@ -23,12 +23,12 @@ impl Command for SeqChar {
             .required(
                 "start",
                 SyntaxShape::String,
-                "start of character sequence (inclusive)",
+                "Start of character sequence (inclusive).",
             )
             .required(
                 "end",
                 SyntaxShape::String,
-                "end of character sequence (inclusive)",
+                "End of character sequence (inclusive).",
             )
             .category(Category::Generators)
     }
@@ -38,16 +38,16 @@ impl Command for SeqChar {
             Example {
                 description: "sequence a to e",
                 example: "seq char a e",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string('a'),
                         Value::test_string('b'),
                         Value::test_string('c'),
                         Value::test_string('d'),
                         Value::test_string('e'),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "sequence a to e, and put the characters in a pipe-separated string",
@@ -82,23 +82,23 @@ fn seq_char(
     let end: Spanned<String> = call.req(engine_state, stack, 1)?;
 
     if !is_single_character(&start.item) {
-        return Err(ShellError::GenericError(
-            "seq char only accepts individual ASCII characters as parameters".into(),
-            "should be 1 character long".into(),
-            Some(start.span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "seq char only accepts individual ASCII characters as parameters".into(),
+            msg: "should be 1 character long".into(),
+            span: Some(start.span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     if !is_single_character(&end.item) {
-        return Err(ShellError::GenericError(
-            "seq char only accepts individual ASCII characters as parameters".into(),
-            "should be 1 character long".into(),
-            Some(end.span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "seq char only accepts individual ASCII characters as parameters".into(),
+            msg: "should be 1 character long".into(),
+            span: Some(end.span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let start = start
@@ -127,9 +127,9 @@ fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData
 
     let result = result_vec
         .into_iter()
-        .map(|x| Value::String { val: x, span })
+        .map(|x| Value::string(x, span))
         .collect::<Vec<Value>>();
-    Ok(Value::List { vals: result, span }.into_pipeline_data())
+    Ok(Value::list(result, span).into_pipeline_data())
 }
 
 #[cfg(test)]

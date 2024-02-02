@@ -179,7 +179,18 @@ macro_rules! lazy_expr_command {
                 let value = input.into_value(call.head);
                 if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
-                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func());
+                    let lazy = NuLazyFrame::new(
+                        lazy.from_eager,
+                        lazy.into_polars()
+                            .$func()
+                            .map_err(|e| ShellError::GenericError {
+                                error: "Dataframe Error".into(),
+                                msg: e.to_string(),
+                                help: None,
+                                span: None,
+                                inner: vec![],
+                            })?,
+                    );
 
                     Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
                 } else {
@@ -267,7 +278,18 @@ macro_rules! lazy_expr_command {
                 let value = input.into_value(call.head);
                 if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
-                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddof));
+                    let lazy = NuLazyFrame::new(
+                        lazy.from_eager,
+                        lazy.into_polars()
+                            .$func($ddof)
+                            .map_err(|e| ShellError::GenericError {
+                                error: "Dataframe Error".into(),
+                                msg: e.to_string(),
+                                help: None,
+                                span: None,
+                                inner: vec![],
+                            })?,
+                    );
 
                     Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
                 } else {
@@ -319,7 +341,7 @@ macro_rules! lazy_expr_command {
 expr_command!(
     ExprList,
     "dfr implode",
-    "Aggregates a group to a Series",
+    "Aggregates a group to a Series.",
     vec![Example {
         description: "",
         example: "",
@@ -334,7 +356,7 @@ expr_command!(
 expr_command!(
     ExprAggGroups,
     "dfr agg-groups",
-    "creates an agg_groups expression",
+    "Creates an agg_groups expression.",
     vec![Example {
         description: "",
         example: "",
@@ -344,42 +366,12 @@ expr_command!(
     test_groups
 );
 
-// ExprFlatten command
-// Expands to a command definition for a flatten expression
-expr_command!(
-    ExprFlatten,
-    "dfr flatten",
-    "creates a flatten expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    flatten,
-    test_flatten
-);
-
-// ExprExplode command
-// Expands to a command definition for a explode expression
-expr_command!(
-    ExprExplode,
-    "dfr explode",
-    "creates an explode expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    explode,
-    test_explode
-);
-
 // ExprCount command
 // Expands to a command definition for a count expression
 expr_command!(
     ExprCount,
     "dfr count",
-    "creates a count expression",
+    "Creates a count expression.",
     vec![Example {
         description: "",
         example: "",
@@ -394,7 +386,7 @@ expr_command!(
 expr_command!(
     ExprNot,
     "dfr expr-not",
-    "creates a not expression",
+    "Creates a not expression.",
     vec![Example {
         description: "Creates a not expression",
         example: "(dfr col a) > 2) | dfr expr-not",
@@ -409,16 +401,19 @@ expr_command!(
 lazy_expr_command!(
     ExprMax,
     "dfr max",
-    "Creates a max expression or aggregates columns to their max value",
+    "Creates a max expression or aggregates columns to their max value.",
     vec![
         Example {
             description: "Max value from columns in a dataframe",
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr max",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(6)],),
-                    Column::new("b".to_string(), vec![Value::test_int(4)],),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_int(6)],),
+                        Column::new("b".to_string(), vec![Value::test_int(4)],),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -430,16 +425,19 @@ lazy_expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr max)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(4), Value::test_int(1)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(4), Value::test_int(1)],
+                        ),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -454,16 +452,19 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprMin,
     "dfr min",
-    "Creates a min expression or aggregates columns to their min value",
+    "Creates a min expression or aggregates columns to their min value.",
     vec![
         Example {
             description: "Min value from columns in a dataframe",
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr min",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(1)],),
-                    Column::new("b".to_string(), vec![Value::test_int(1)],),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_int(1)],),
+                        Column::new("b".to_string(), vec![Value::test_int(1)],),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -475,16 +476,19 @@ lazy_expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr min)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(1)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(1)],
+                        ),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -499,16 +503,19 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprSum,
     "dfr sum",
-    "Creates a sum expression for an aggregation or aggregates columns to their sum value",
+    "Creates a sum expression for an aggregation or aggregates columns to their sum value.",
     vec![
         Example {
             description: "Sums all columns in a dataframe",
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr sum",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(11)],),
-                    Column::new("b".to_string(), vec![Value::test_int(7)],),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_int(11)],),
+                        Column::new("b".to_string(), vec![Value::test_int(7)],),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -520,16 +527,19 @@ lazy_expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr sum)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(6), Value::test_int(1)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(6), Value::test_int(1)],
+                        ),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -544,16 +554,19 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprMean,
     "dfr mean",
-    "Creates a mean expression for an aggregation or aggregates columns to their mean value",
+    "Creates a mean expression for an aggregation or aggregates columns to their mean value.",
     vec![
         Example {
             description: "Mean value from columns in a dataframe",
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr mean",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)],),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_float(4.0)],),
+                        Column::new("b".to_string(), vec![Value::test_float(2.0)],),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -565,16 +578,19 @@ lazy_expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr mean)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(3.0), Value::test_float(1.0)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_float(3.0), Value::test_float(1.0)],
+                        ),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -589,7 +605,7 @@ lazy_expr_command!(
 expr_command!(
     ExprMedian,
     "dfr median",
-    "Creates a median expression for an aggregation",
+    "Creates a median expression for an aggregation.",
     vec![Example {
         description: "Median aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
@@ -597,16 +613,19 @@ expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr median)"#,
         result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new(
-                    "a".to_string(),
-                    vec![Value::test_string("one"), Value::test_string("two")],
-                ),
-                Column::new(
-                    "b".to_string(),
-                    vec![Value::test_float(3.0), Value::test_float(1.0)],
-                ),
-            ])
+            NuDataFrame::try_from_columns(
+                vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_string("one"), Value::test_string("two")],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_float(3.0), Value::test_float(1.0)],
+                    ),
+                ],
+                None
+            )
             .expect("simple df for test should not fail")
             .into_value(Span::test_data()),
         ),
@@ -620,16 +639,19 @@ expr_command!(
 lazy_expr_command!(
     ExprStd,
     "dfr std",
-    "Creates a std expression for an aggregation of std value from columns in a dataframe",
+    "Creates a std expression for an aggregation of std value from columns in a dataframe.",
     vec![
         Example {
             description: "Std value from columns in a dataframe",
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr std",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(2.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(0.0)],),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_float(2.0)],),
+                        Column::new("b".to_string(), vec![Value::test_float(0.0)],),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -641,16 +663,19 @@ lazy_expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr std)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(0.0), Value::test_float(0.0)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_float(0.0), Value::test_float(0.0)],
+                        ),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -666,17 +691,20 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprVar,
     "dfr var",
-    "Create a var expression for an aggregation",
+    "Create a var expression for an aggregation.",
     vec![
         Example {
             description:
                 "Var value from columns in a dataframe or aggregates columns to their var value",
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr var",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(0.0)],),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_float(4.0)],),
+                        Column::new("b".to_string(), vec![Value::test_float(0.0)],),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -688,16 +716,19 @@ lazy_expr_command!(
     | dfr group-by a
     | dfr agg (dfr col b | dfr var)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(0.0), Value::test_float(0.0)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_float(0.0), Value::test_float(0.0)],
+                        ),
+                    ],
+                    None
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

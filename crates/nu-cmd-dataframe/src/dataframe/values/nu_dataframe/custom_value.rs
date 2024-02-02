@@ -17,10 +17,7 @@ impl CustomValue for NuDataFrame {
             from_lazy: false,
         };
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::custom_value(Box::new(cloned), span)
     }
 
     fn value_string(&self) -> String {
@@ -30,7 +27,7 @@ impl CustomValue for NuDataFrame {
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let vals = self.print(span)?;
 
-        Ok(Value::List { vals, span })
+        Ok(Value::list(vals, span))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

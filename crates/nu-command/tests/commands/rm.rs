@@ -2,7 +2,7 @@ use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 #[test]
 fn removes_a_file() {
@@ -42,7 +42,7 @@ fn removes_files_with_wildcard() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm "src/*/*/*.rs""#
+            r#"rm src/*/*/*.rs"#
         );
 
         assert!(!files_exist_at(
@@ -375,11 +375,39 @@ fn removes_symlink() {
     });
 }
 
-struct Cleanup<'a> {
-    dir_to_clean: &'a PathBuf,
+#[test]
+fn removes_symlink_pointing_to_directory() {
+    Playground::setup("rm_symlink_to_directory", |dirs, sandbox| {
+        sandbox.mkdir("test").symlink("test", "test_link");
+
+        nu!(cwd: sandbox.cwd(), "rm test_link");
+
+        assert!(!dirs.test().join("test_link").exists());
+        // The pointed directory should not be deleted.
+        assert!(dirs.test().join("test").exists());
+    });
 }
 
-fn set_dir_read_only(directory: &PathBuf, read_only: bool) {
+#[test]
+fn removes_file_after_cd() {
+    Playground::setup("rm_after_cd", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("delete.txt")]);
+
+        nu!(
+            cwd: dirs.root(),
+            "let file = 'delete.txt'; cd rm_after_cd; rm $file",
+        );
+
+        let path = dirs.test().join("delete.txt");
+        assert!(!path.exists());
+    })
+}
+
+struct Cleanup<'a> {
+    dir_to_clean: &'a Path,
+}
+
+fn set_dir_read_only(directory: &Path, read_only: bool) {
     let mut permissions = fs::metadata(directory).unwrap().permissions();
     permissions.set_readonly(read_only);
     fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
@@ -429,5 +457,41 @@ fn rm_prints_filenames_on_error() {
                 actual.err
             );
         }
+    });
+}
+
+#[test]
+fn rm_files_inside_glob_metachars_dir() {
+    Playground::setup("rm_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "rm test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+    });
+}
+
+#[test]
+fn force_rm_suppress_error() {
+    Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+
+        // the second rm should suppress error.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm test_file.txt; rm -f test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
     });
 }

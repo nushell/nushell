@@ -5,6 +5,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
     substring: String,
@@ -35,11 +36,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("string", SyntaxShape::String, "the string to match")
+            .required("string", SyntaxShape::String, "The string to match.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)
@@ -65,7 +66,7 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
-            case_insensitive: call.has_flag("ignore-case"),
+            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -87,7 +88,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Checks if string ends with '.RB', case-insensitive",
-                example: "'my_library.rb' | str ends-with -i '.RB'",
+                example: "'my_library.rb' | str ends-with --ignore-case '.RB'",
                 result: Some(Value::test_bool(true)),
             },
         ]
@@ -98,21 +99,23 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val: s, .. } => {
             let ends_with = if args.case_insensitive {
-                s.to_lowercase().ends_with(&args.substring.to_lowercase())
+                s.to_folded_case()
+                    .ends_with(&args.substring.to_folded_case())
             } else {
                 s.ends_with(&args.substring)
             };
             Value::bool(ends_with, head)
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

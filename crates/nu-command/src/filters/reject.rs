@@ -1,10 +1,12 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
+use std::cmp::Reverse;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Reject;
@@ -20,10 +22,18 @@ impl Command for Reject {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .switch(
+                "ignore-errors",
+                "ignore missing data (make all cell path members optional)",
+                Some('i'),
+            )
             .rest(
                 "rest",
-                SyntaxShape::CellPath,
-                "the names of columns to remove from the table",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
+                ]),
+                "The names of columns to remove from the table.",
             )
             .category(Category::Filters)
     }
@@ -36,6 +46,10 @@ impl Command for Reject {
         "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["drop", "key"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -43,9 +57,90 @@ impl Command for Reject {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let mut new_columns: Vec<CellPath> = vec![];
+        for col_val in columns {
+            let col_span = &col_val.span();
+            match col_val {
+                Value::CellPath { val, .. } => {
+                    new_columns.push(val);
+                }
+                Value::List { vals, .. } => {
+                    for value in vals {
+                        let val_span = &value.span();
+                        match value {
+                            Value::String { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::String {
+                                        val: val.clone(),
+                                        span: *val_span,
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            Value::Int { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::Int {
+                                        val: val as usize,
+                                        span: *val_span,
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            Value::CellPath { val, .. } => new_columns.push(val),
+                            y => {
+                                return Err(ShellError::CantConvert {
+                                    to_type: "cell path".into(),
+                                    from_type: y.get_type().to_string(),
+                                    span: y.span(),
+                                    help: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                Value::String { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::String {
+                            val: val.clone(),
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                Value::Int { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::Int {
+                            val: val as usize,
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                x => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: x.get_type().to_string(),
+                        span: x.span(),
+                        help: None,
+                    });
+                }
+            }
+        }
         let span = call.head;
-        reject(engine_state, span, input, columns)
+
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        if ignore_errors {
+            for cell_path in &mut new_columns {
+                cell_path.make_optional();
+            }
+        }
+
+        reject(engine_state, span, input, new_columns)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,36 +153,56 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["b".to_string()],
-                        vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "b" => Value::test_int(2),
+                    })],
+                )),
+            },
+            Example {
+                description: "Reject a row in a table",
+                example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    })],
+                )),
             },
             Example {
                 description: "Reject the specified field in a record",
                 example: "{a: 1, b: 2} | reject a",
-                result: Some(Value::Record {
-                    cols: vec!["b".into()],
-                    vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_record(record! {
+                    "b" => Value::test_int(2),
+                })),
             },
             Example {
                 description: "Reject a nested field in a record",
                 example: "{a: {b: 3, c: 5}} | reject a.b",
-                result: Some(Value::Record {
-                    cols: vec!["a".into()],
-                    vals: vec![Value::Record {
-                        cols: vec!["c".into()],
-                        vals: vec![Value::test_int(5)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_record(record! {
+                        "c" => Value::test_int(5),
+                    }),
+                })),
+            },
+            Example {
+                description: "Reject columns by a provided list of columns",
+                example: "let cols = [size type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject $cols",
+                result: None
+            },
+            Example {
+                description: "Reject columns by a list of columns directly",
+                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ["size", "type"]"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" =>  Value::test_string("Cargo.toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock")})],
+                )),
+            },
+            Example {
+                description: "Reject rows by a provided list of rows",
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject $rows",
+                result: None
             },
         ]
     }
@@ -99,18 +214,51 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
+    let mut unique_rows: HashSet<usize> = HashSet::new();
+    let metadata = input.metadata();
     let val = input.into_value(span);
     let mut val = val;
-    let mut columns = vec![];
-    for c in cell_paths {
-        if !columns.contains(&c) {
-            columns.push(c);
-        }
+    let mut new_columns = vec![];
+    let mut new_rows = vec![];
+    for column in cell_paths {
+        let CellPath { ref members } = column;
+        match members.first() {
+            Some(PathMember::Int { val, span, .. }) => {
+                if members.len() > 1 {
+                    return Err(ShellError::GenericError {
+                        error: "Reject only allows row numbers for rows".into(),
+                        msg: "extra after row number".into(),
+                        span: Some(*span),
+                        help: None,
+                        inner: vec![],
+                    });
+                }
+                if !unique_rows.contains(val) {
+                    unique_rows.insert(*val);
+                    new_rows.push(column);
+                }
+            }
+            _ => {
+                if !new_columns.contains(&column) {
+                    new_columns.push(column)
+                }
+            }
+        };
     }
-    for cell_path in columns {
+    new_rows.sort_unstable_by_key(|k| {
+        Reverse({
+            match k.members[0] {
+                PathMember::Int { val, .. } => val,
+                PathMember::String { .. } => usize::MIN,
+            }
+        })
+    });
+
+    new_columns.append(&mut new_rows);
+    for cell_path in new_columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }
-    Ok(val.into_pipeline_data())
+    Ok(val.into_pipeline_data_with_metadata(metadata))
 }
 
 #[cfg(test)]

@@ -60,7 +60,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Roll 10 dice with 12 sides each",
-                example: "random dice -d 10 -s 12",
+                example: "random dice --dice 10 --sides 12",
                 result: None,
             },
         ]
@@ -79,10 +79,7 @@ fn dice(
 
     let iter = (0..dice).map(move |_| {
         let mut thread_rng = thread_rng();
-        Value::Int {
-            val: thread_rng.gen_range(1..sides + 1) as i64,
-            span,
-        }
+        Value::int(thread_rng.gen_range(1..sides + 1) as i64, span)
     });
 
     Ok(PipelineData::ListStream(

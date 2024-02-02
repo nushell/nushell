@@ -8,7 +8,7 @@ use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
 use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
@@ -48,7 +48,7 @@ pub trait PluginEncoder: Clone {
     ) -> Result<PluginResponse, ShellError>;
 }
 
-pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
+pub(crate) fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     let mut process = match (path.extension(), shell) {
         (_, Some(shell)) => {
             let mut process = std::process::Command::new(shell);
@@ -111,20 +111,20 @@ pub(crate) fn call_plugin(
 
         encoding.decode_response(&mut buf_read)
     } else {
-        Err(ShellError::GenericError(
-            "Error with stdout reader".into(),
-            "no stdout reader".into(),
-            Some(span),
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Error with stdout reader".into(),
+            msg: "no stdout reader".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
     }
 }
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 pub fn get_signature(
     path: &Path,
-    shell: &Option<PathBuf>,
+    shell: Option<&Path>,
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<PluginSignature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
@@ -146,17 +146,21 @@ pub fn get_signature(
             }
         };
 
-        ShellError::PluginFailedToLoad(error_msg)
+        ShellError::PluginFailedToLoad { msg: error_msg }
     })?;
 
     let mut stdin_writer = child
         .stdin
         .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad("plugin missing stdin writer".into()))?;
+        .ok_or_else(|| ShellError::PluginFailedToLoad {
+            msg: "plugin missing stdin writer".into(),
+        })?;
     let mut stdout_reader = child
         .stdout
         .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
+        .ok_or_else(|| ShellError::PluginFailedToLoad {
+            msg: "Plugin missing stdout reader".into(),
+        })?;
     let encoding = get_plugin_encoding(&mut stdout_reader)?;
 
     // Create message to plugin to indicate that signature is required and
@@ -177,14 +181,16 @@ pub fn get_signature(
     let signatures = match response {
         PluginResponse::Signature(sign) => Ok(sign),
         PluginResponse::Error(err) => Err(err.into()),
-        _ => Err(ShellError::PluginFailedToLoad(
-            "Plugin missing signature".into(),
-        )),
+        _ => Err(ShellError::PluginFailedToLoad {
+            msg: "Plugin missing signature".into(),
+        }),
     }?;
 
     match child.wait() {
         Ok(_) => Ok(signatures),
-        Err(err) => Err(ShellError::PluginFailedToLoad(format!("{err}"))),
+        Err(err) => Err(ShellError::PluginFailedToLoad {
+            msg: format!("{err}"),
+        }),
     }
 }
 
@@ -211,13 +217,11 @@ pub fn get_signature(
 ///     fn run(
 ///         &mut self,
 ///         name: &str,
+///         config: &Option<Value>,
 ///         call: &EvaluatedCall,
 ///         input: &Value,
 ///     ) -> Result<Value, LabeledError> {
-///         Ok(Value::String {
-///             val: "Hello, World!".to_owned(),
-///             span: call.head,
-///         })
+///         Ok(Value::string("Hello, World!".to_owned(), call.head))
 ///     }
 /// }
 /// ```
@@ -243,6 +247,7 @@ pub trait Plugin {
     fn run(
         &mut self,
         name: &str,
+        config: &Option<Value>,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
@@ -261,7 +266,7 @@ pub trait Plugin {
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
 /// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
-/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
+/// #     fn run(&mut self, name: &str, config: &Option<Value>, call: &EvaluatedCall, input: &Value)
 /// #         -> Result<Value, LabeledError> {todo!();}
 /// # }
 /// fn main() {
@@ -320,30 +325,41 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         CallInput::Value(value) => Ok(value),
                         CallInput::Data(plugin_data) => {
                             bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                                .map(|custom_value| Value::CustomValue {
-                                    val: custom_value,
-                                    span: plugin_data.span,
+                                .map(|custom_value| {
+                                    Value::custom_value(custom_value, plugin_data.span)
                                 })
-                                .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                                .map_err(|err| ShellError::PluginFailedToDecode {
+                                    msg: err.to_string(),
+                                })
                         }
                     };
 
                     let value = match input {
-                        Ok(input) => plugin.run(&call_info.name, &call_info.call, &input),
+                        Ok(input) => {
+                            plugin.run(&call_info.name, &call_info.config, &call_info.call, &input)
+                        }
                         Err(err) => Err(err.into()),
                     };
 
                     let response = match value {
-                        Ok(Value::CustomValue { val, span }) => match bincode::serialize(&val) {
-                            Ok(data) => {
-                                let name = val.value_string();
-                                PluginResponse::PluginData(name, PluginData { data, span })
+                        Ok(value) => {
+                            let span = value.span();
+                            match value {
+                                Value::CustomValue { val, .. } => match bincode::serialize(&val) {
+                                    Ok(data) => {
+                                        let name = val.value_string();
+                                        PluginResponse::PluginData(name, PluginData { data, span })
+                                    }
+                                    Err(err) => PluginResponse::Error(
+                                        ShellError::PluginFailedToEncode {
+                                            msg: err.to_string(),
+                                        }
+                                        .into(),
+                                    ),
+                                },
+                                value => PluginResponse::Value(Box::new(value)),
                             }
-                            Err(err) => PluginResponse::Error(
-                                ShellError::PluginFailedToEncode(err.to_string()).into(),
-                            ),
-                        },
-                        Ok(value) => PluginResponse::Value(Box::new(value)),
+                        }
                         Err(err) => PluginResponse::Error(err),
                     };
                     encoder
@@ -352,7 +368,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
                 PluginCall::CollapseCustomValue(plugin_data) => {
                     let response = bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                        .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                        .map_err(|err| ShellError::PluginFailedToDecode {
+                            msg: err.to_string(),
+                        })
                         .and_then(|val| val.to_base_value(plugin_data.span))
                         .map(Box::new)
                         .map_err(LabeledError::from)
@@ -384,7 +402,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(&signature.sig, |v| format!("{:#?}", v));
+                let flags = get_flags_section(None, &signature.sig, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
@@ -437,19 +455,23 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
 
 pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {
     let mut length_buf = [0u8; 1];
-    child_stdout.read_exact(&mut length_buf).map_err(|e| {
-        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
-    })?;
+    child_stdout
+        .read_exact(&mut length_buf)
+        .map_err(|e| ShellError::PluginFailedToLoad {
+            msg: format!("unable to get encoding from plugin: {e}"),
+        })?;
 
     let mut buf = vec![0u8; length_buf[0] as usize];
-    child_stdout.read_exact(&mut buf).map_err(|e| {
-        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
-    })?;
+    child_stdout
+        .read_exact(&mut buf)
+        .map_err(|e| ShellError::PluginFailedToLoad {
+            msg: format!("unable to get encoding from plugin: {e}"),
+        })?;
 
     EncodingType::try_from_bytes(&buf).ok_or_else(|| {
         let encoding_for_debug = String::from_utf8_lossy(&buf);
-        ShellError::PluginFailedToLoad(format!(
-            "get unsupported plugin encoding: {encoding_for_debug}"
-        ))
+        ShellError::PluginFailedToLoad {
+            msg: format!("get unsupported plugin encoding: {encoding_for_debug}"),
+        }
     })
 }

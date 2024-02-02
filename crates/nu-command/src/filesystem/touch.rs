@@ -29,7 +29,7 @@ impl Command for Touch {
             .required(
                 "filename",
                 SyntaxShape::Filepath,
-                "the path of the file you want to create",
+                "The path of the file you want to create.",
             )
             .named(
                 "reference",
@@ -52,7 +52,7 @@ impl Command for Touch {
                 "do not create the file if it does not exist",
                 Some('c'),
             )
-            .rest("rest", SyntaxShape::Filepath, "additional files to create")
+            .rest("rest", SyntaxShape::Filepath, "Additional files to create.")
             .category(Category::FileSystem)
     }
 
@@ -67,10 +67,10 @@ impl Command for Touch {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut change_mtime: bool = call.has_flag("modified");
-        let mut change_atime: bool = call.has_flag("access");
-        let use_reference: bool = call.has_flag("reference");
-        let no_create: bool = call.has_flag("no-create");
+        let mut change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
+        let mut change_atime: bool = call.has_flag(engine_state, stack, "access")?;
+        let use_reference: bool = call.has_flag(engine_state, stack, "reference")?;
+        let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
@@ -136,12 +136,13 @@ impl Command for Touch {
             }
 
             if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
-                return Err(ShellError::CreateNotPossible(
-                    format!("Failed to create file: {err}"),
-                    call.positional_nth(index)
+                return Err(ShellError::CreateNotPossible {
+                    msg: format!("Failed to create file: {err}"),
+                    span: call
+                        .positional_nth(index)
                         .expect("already checked positional")
                         .span,
-                ));
+                });
             };
 
             if change_mtime {
@@ -150,12 +151,13 @@ impl Command for Touch {
                     &item,
                     FileTime::from_system_time(date.expect("should be a valid date").into()),
                 ) {
-                    return Err(ShellError::ChangeModifiedTimeNotPossible(
-                        format!("Failed to change the modified time: {err}"),
-                        call.positional_nth(index)
+                    return Err(ShellError::ChangeModifiedTimeNotPossible {
+                        msg: format!("Failed to change the modified time: {err}"),
+                        span: call
+                            .positional_nth(index)
                             .expect("already checked positional")
                             .span,
-                    ));
+                    });
                 };
             }
 
@@ -169,12 +171,13 @@ impl Command for Touch {
                             ref_date_atime.expect("should be a valid date").into(),
                         ),
                     ) {
-                        return Err(ShellError::ChangeAccessTimeNotPossible(
-                            format!("Failed to change the access time: {err}"),
-                            call.positional_nth(index)
+                        return Err(ShellError::ChangeAccessTimeNotPossible {
+                            msg: format!("Failed to change the access time: {err}"),
+                            span: call
+                                .positional_nth(index)
                                 .expect("already checked positional")
                                 .span,
-                        ));
+                        });
                     };
                 } else {
                     // Should not panic as we return an error above if we can't parse the date
@@ -182,12 +185,13 @@ impl Command for Touch {
                         &item,
                         FileTime::from_system_time(date.expect("should be a valid date").into()),
                     ) {
-                        return Err(ShellError::ChangeAccessTimeNotPossible(
-                            format!("Failed to change the access time: {err}"),
-                            call.positional_nth(index)
+                        return Err(ShellError::ChangeAccessTimeNotPossible {
+                            msg: format!("Failed to change the access time: {err}"),
+                            span: call
+                                .positional_nth(index)
                                 .expect("already checked positional")
                                 .span,
-                        ));
+                        });
                     };
                 }
             }

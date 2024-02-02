@@ -1,12 +1,12 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, Record, Span, Value};
 use tabled::{
     grid::{
         color::{AnsiColor, StaticColor},
         config::{AlignmentHorizontal, Borders, CompactMultilineConfig},
         dimension::{DimensionPriority, PoolTableDimension},
     },
-    settings::{style::RawStyle, Color, TableOption},
+    settings::{style::RawStyle, Color, Padding, TableOption},
     tables::{PoolTable, TableValue},
 };
 
@@ -35,17 +35,28 @@ impl UnstructuredTable {
         truncate_table_value(&mut self.value, has_vertical, available).is_none()
     }
 
-    pub fn draw(self, style_computer: &StyleComputer, theme: &TableTheme) -> String {
-        build_table(self.value, style_computer, theme)
+    pub fn draw(
+        self,
+        style_computer: &StyleComputer,
+        theme: &TableTheme,
+        indent: (usize, usize),
+    ) -> String {
+        build_table(self.value, style_computer, theme, indent)
     }
 }
 
-fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableTheme) -> String {
+fn build_table(
+    val: TableValue,
+    style_computer: &StyleComputer,
+    theme: &TableTheme,
+    indent: (usize, usize),
+) -> String {
     let mut table = PoolTable::from(val);
 
     let mut theme = theme.get_theme_full();
     theme.set_horizontals(std::collections::HashMap::default());
 
+    table.with(Padding::new(indent.0, indent.1, 0, 0));
     table.with(SetRawStyle(theme));
     table.with(SetAlignment(AlignmentHorizontal::Left));
     table.with(PoolTableDimension::new(
@@ -79,7 +90,7 @@ fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableThe
 
 fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue {
     match value {
-        Value::Record { cols, vals, .. } => build_vertical_map(cols, vals, config),
+        Value::Record { val, .. } => build_vertical_map(val, config),
         Value::List { vals, .. } => {
             let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
             if rebuild_array_as_map {
@@ -99,9 +110,9 @@ fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue 
     }
 }
 
-fn build_vertical_map(cols: Vec<String>, vals: Vec<Value>, config: &Config) -> TableValue {
-    let mut rows = Vec::with_capacity(cols.len());
-    for (key, value) in cols.into_iter().zip(vals) {
+fn build_vertical_map(record: Record, config: &Config) -> TableValue {
+    let mut rows = Vec::with_capacity(record.len());
+    for (key, value) in record {
         let val = convert_nu_value_to_table_value(value, config);
         let row = TableValue::Row(vec![TableValue::Cell(key), val]);
         rows.push(row);
@@ -146,17 +157,18 @@ fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {
 }
 
 fn is_valid_record(vals: &[Value]) -> bool {
-    let mut used_cols: Option<&[String]> = None;
+    let mut first_record: Option<&Record> = None;
     for val in vals {
         match val {
-            Value::Record { cols, .. } => {
-                let cols_are_not_equal =
-                    used_cols.is_some() && !matches!(used_cols, Some(used) if cols == used);
-                if cols_are_not_equal {
-                    return false;
-                }
-
-                used_cols = Some(cols);
+            Value::Record { val, .. } => {
+                if let Some(known) = first_record {
+                    let equal = known.columns().eq(val.columns());
+                    if !equal {
+                        return false;
+                    }
+                } else {
+                    first_record = Some(val)
+                };
             }
             _ => return false,
         }
@@ -167,7 +179,7 @@ fn is_valid_record(vals: &[Value]) -> bool {
 
 fn count_columns_in_record(vals: &[Value]) -> usize {
     match vals.iter().next() {
-        Some(Value::Record { cols, .. }) => cols.len(),
+        Some(Value::Record { val, .. }) => val.len(),
         _ => 0,
     }
 }
@@ -183,9 +195,9 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
 
     for val in vals {
         match val {
-            Value::Record { vals, .. } => {
-                for (i, cell) in vals.into_iter().take(count_columns).enumerate() {
-                    let cell = convert_nu_value_to_table_value(cell, config);
+            Value::Record { val, .. } => {
+                for (i, (_key, val)) in val.into_iter().take(count_columns).enumerate() {
+                    let cell = convert_nu_value_to_table_value(val, config);
                     list[i].push(cell);
                 }
             }
@@ -200,7 +212,7 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
 
 fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
     match vals.iter().next() {
-        Some(Value::Record { cols, .. }) => cols.clone(),
+        Some(Value::Record { val, .. }) => val.columns().cloned().collect(),
         _ => vec![],
     }
 }

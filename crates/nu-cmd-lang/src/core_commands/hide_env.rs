@@ -20,7 +20,7 @@ impl Command for HideEnv {
             .rest(
                 "name",
                 SyntaxShape::String,
-                "environment variable names to hide",
+                "Environment variable names to hide.",
             )
             .switch(
                 "ignore-errors",
@@ -42,7 +42,7 @@ impl Command for HideEnv {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let env_var_names: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         for name in env_var_names {
             if !stack.remove_env_var(engine_state, &name.item) && !ignore_errors {
@@ -52,11 +52,11 @@ impl Command for HideEnv {
                     .cloned()
                     .collect();
                 if let Some(closest_match) = did_you_mean(&all_names, &name.item) {
-                    return Err(ShellError::DidYouMeanCustom(
-                        format!("Environment variable '{}' not found", name.item),
-                        closest_match,
-                        name.span,
-                    ));
+                    return Err(ShellError::DidYouMeanCustom {
+                        msg: format!("Environment variable '{}' not found", name.item),
+                        suggestion: closest_match,
+                        span: name.span,
+                    });
                 } else {
                     return Err(ShellError::EnvVarNotFoundAtRuntime {
                         envvar_name: name.item,

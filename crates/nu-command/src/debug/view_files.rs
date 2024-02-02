@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -22,7 +22,15 @@ impl Command for ViewFiles {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view files")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Table(vec![
+                    ("filename".into(), Type::String),
+                    ("start".into(), Type::Int),
+                    ("end".into(), Type::Int),
+                    ("size".into(), Type::Int),
+                ]),
+            )])
             .category(Category::Debug)
     }
 
@@ -36,35 +44,32 @@ impl Command for ViewFiles {
         let mut records = vec![];
 
         for (file, start, end) in engine_state.files() {
-            records.push(Value::Record {
-                cols: vec![
-                    "filename".to_string(),
-                    "start".to_string(),
-                    "end".to_string(),
-                    "size".to_string(),
-                ],
-                vals: vec![
-                    Value::string(file, call.head),
-                    Value::int(*start as i64, call.head),
-                    Value::int(*end as i64, call.head),
-                    Value::int(*end as i64 - *start as i64, call.head),
-                ],
-                span: call.head,
-            });
+            records.push(Value::record(
+                record! {
+                    "filename" => Value::string(file, call.head),
+                    "start" => Value::int(*start as i64, call.head),
+                    "end" => Value::int(*end as i64, call.head),
+                    "size" => Value::int(*end as i64 - *start as i64, call.head),
+                },
+                call.head,
+            ));
         }
 
-        Ok(Value::List {
-            vals: records,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::list(records, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "View the files registered in nushell's EngineState memory",
-            example: r#"view files"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "View the files registered in Nushell's EngineState memory",
+                example: r#"view files"#,
+                result: None,
+            },
+            Example {
+                description: "View how Nushell was originally invoked",
+                example: r#"view files | get 0"#,
+                result: None,
+            },
+        ]
     }
 }

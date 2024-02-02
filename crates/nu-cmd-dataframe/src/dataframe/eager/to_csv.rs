@@ -45,7 +45,7 @@ impl Command for ToCSV {
             },
             Example {
                 description: "Saves dataframe to CSV file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv -d '|'",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv --delimiter '|'",
                 result: None,
             },
         ]
@@ -70,70 +70,62 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
-    let no_header: bool = call.has_flag("no-header");
+    let no_header: bool = call.has_flag(engine_state, stack, "no-header")?;
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let mut file = File::create(&file_name.item).map_err(|e| {
-        ShellError::GenericError(
-            "Error with file name".into(),
-            e.to_string(),
-            Some(file_name.span),
-            None,
-            Vec::new(),
-        )
+    let mut file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
+        error: "Error with file name".into(),
+        msg: e.to_string(),
+        span: Some(file_name.span),
+        help: None,
+        inner: vec![],
     })?;
 
     let writer = CsvWriter::new(&mut file);
 
     let writer = if no_header {
-        writer.has_header(false)
+        writer.include_header(false)
     } else {
-        writer.has_header(true)
+        writer.include_header(true)
     };
 
     let mut writer = match delimiter {
         None => writer,
         Some(d) => {
             if d.item.len() != 1 {
-                return Err(ShellError::GenericError(
-                    "Incorrect delimiter".into(),
-                    "Delimiter has to be one char".into(),
-                    Some(d.span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Incorrect delimiter".into(),
+                    msg: "Delimiter has to be one char".into(),
+                    span: Some(d.span),
+                    help: None,
+                    inner: vec![],
+                });
             } else {
                 let delimiter = match d.item.chars().next() {
                     Some(d) => d as u8,
                     None => unreachable!(),
                 };
 
-                writer.with_delimiter(delimiter)
+                writer.with_separator(delimiter)
             }
         }
     };
 
-    writer.finish(df.as_mut()).map_err(|e| {
-        ShellError::GenericError(
-            "Error writing to file".into(),
-            e.to_string(),
-            Some(file_name.span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    writer
+        .finish(df.as_mut())
+        .map_err(|e| ShellError::GenericError {
+            error: "Error writing to file".into(),
+            msg: e.to_string(),
+            span: Some(file_name.span),
+            help: None,
+            inner: vec![],
+        })?;
 
-    let file_value = Value::String {
-        val: format!("saved {:?}", &file_name.item),
-        span: file_name.span,
-    };
+    let file_value = Value::string(format!("saved {:?}", &file_name.item), file_name.span);
 
     Ok(PipelineData::Value(
-        Value::List {
-            vals: vec![file_value],
-            span: call.head,
-        },
+        Value::list(vec![file_value], call.head),
         None,
     ))
 }

@@ -15,10 +15,19 @@ pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
+pub(crate) const TRANSIENT_PROMPT_COMMAND: &str = "TRANSIENT_PROMPT_COMMAND";
+pub(crate) const TRANSIENT_PROMPT_COMMAND_RIGHT: &str = "TRANSIENT_PROMPT_COMMAND_RIGHT";
+pub(crate) const TRANSIENT_PROMPT_INDICATOR: &str = "TRANSIENT_PROMPT_INDICATOR";
+pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_INSERT: &str =
+    "TRANSIENT_PROMPT_INDICATOR_VI_INSERT";
+pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str =
+    "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL";
+pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
+    "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
-const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
-const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 
 fn get_prompt_string(
     prompt: &str,
@@ -29,13 +38,9 @@ fn get_prompt_string(
     stack
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
-            Value::Closure {
-                val: block_id,
-                captures,
-                ..
-            } => {
-                let block = engine_state.get_block(block_id);
-                let mut stack = stack.captures_to_stack(&captures);
+            Value::Closure { val, .. } => {
+                let block = engine_state.get_block(val.block_id);
+                let mut stack = stack.captures_to_stack(val.captures);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val =
                     eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());
@@ -91,12 +96,12 @@ fn get_prompt_string(
         })
 }
 
-pub(crate) fn update_prompt<'prompt>(
+pub(crate) fn update_prompt(
     config: &Config,
     engine_state: &EngineState,
     stack: &Stack,
-    nu_prompt: &'prompt mut NushellPrompt,
-) -> &'prompt dyn Prompt {
+    nu_prompt: &mut NushellPrompt,
+) {
     let mut stack = stack.clone();
 
     let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack);
@@ -139,9 +144,55 @@ pub(crate) fn update_prompt<'prompt>(
         (prompt_vi_insert_string, prompt_vi_normal_string),
         config.render_right_prompt_on_last_line,
     );
-
-    let ret_val = nu_prompt as &dyn Prompt;
     trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
+}
 
-    ret_val
+/// Construct the transient prompt based on the normal nu_prompt
+pub(crate) fn make_transient_prompt(
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    nu_prompt: &NushellPrompt,
+) -> Box<dyn Prompt> {
+    let mut nu_prompt = nu_prompt.clone();
+
+    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND, config, engine_state, stack) {
+        nu_prompt.update_prompt_left(Some(s))
+    }
+
+    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND_RIGHT, config, engine_state, stack)
+    {
+        nu_prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
+    }
+
+    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_INDICATOR, config, engine_state, stack) {
+        nu_prompt.update_prompt_indicator(Some(s))
+    }
+    if let Some(s) = get_prompt_string(
+        TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
+        config,
+        engine_state,
+        stack,
+    ) {
+        nu_prompt.update_prompt_vi_insert(Some(s))
+    }
+    if let Some(s) = get_prompt_string(
+        TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
+        config,
+        engine_state,
+        stack,
+    ) {
+        nu_prompt.update_prompt_vi_normal(Some(s))
+    }
+
+    if let Some(s) = get_prompt_string(
+        TRANSIENT_PROMPT_MULTILINE_INDICATOR,
+        config,
+        engine_state,
+        stack,
+    ) {
+        nu_prompt.update_prompt_multiline(Some(s))
+    }
+
+    Box::new(nu_prompt)
 }

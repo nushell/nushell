@@ -26,7 +26,7 @@ impl Command for HelpAliases {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of alias to get help on",
+                "The name of alias to get help on.",
             )
             .named(
                 "find",
@@ -119,15 +119,15 @@ pub fn help_aliases(
         }
 
         let Some(alias) = engine_state.find_decl(name.as_bytes(), &[]) else {
-            return Err(ShellError::AliasNotFound(span(
-                &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
-            )));
+            return Err(ShellError::AliasNotFound {
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+            });
         };
 
         let Some(alias) = engine_state.get_decl(alias).as_alias() else {
-            return Err(ShellError::AliasNotFound(span(
-                &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
-            )));
+            return Err(ShellError::AliasNotFound {
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+            });
         };
 
         let alias_expansion =
@@ -159,17 +159,13 @@ pub fn help_aliases(
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }
 
-        Ok(Value::String {
-            val: long_desc,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(long_desc, call.head).into_pipeline_data())
     }
 }
 
 fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope_data = ScopeData::new(engine_state, stack);
-    scope_data.populate_all();
+    scope_data.populate_decls();
 
     scope_data.collect_aliases(span)
 }

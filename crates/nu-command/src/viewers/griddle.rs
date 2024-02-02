@@ -4,10 +4,10 @@ use lscolors::Style;
 use nu_engine::env_to_string;
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::{Call, PathMember},
+    ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Type, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
@@ -29,7 +29,6 @@ impl Command for Griddle {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::String),
                 (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::String),
             ])
             .named(
                 "width",
@@ -64,7 +63,7 @@ prints out the list properly."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-        let color_param: bool = call.has_flag("color");
+        let color_param: bool = call.has_flag(engine_state, stack, "color")?;
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
         let config = engine_state.get_config();
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
@@ -77,7 +76,7 @@ prints out the list properly."#
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, config, call.head)?;
+                let data = convert_to_list(vals, config)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -94,7 +93,7 @@ prints out the list properly."#
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, config, call.head)?;
+                let data = convert_to_list(stream, config)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -110,11 +109,11 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 
-                for (i, (c, v)) in cols.into_iter().zip(vals).enumerate() {
+                for (i, (c, v)) in val.into_iter().enumerate() {
                     items.push((i, c, v.into_string(", ", config)))
                 }
 
@@ -243,10 +242,7 @@ fn create_grid_output(
         if let Some(grid_display) = grid.fit_into_width(cols as usize) {
             Value::string(grid_display.to_string(), call.head)
         } else {
-            Value::String {
-                val: format!("Couldn't fit grid into {cols} columns!"),
-                span: call.head,
-            }
+            Value::string(format!("Couldn't fit grid into {cols} columns!"), call.head)
         }
         .into_pipeline_data(),
     )
@@ -256,12 +252,11 @@ fn create_grid_output(
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
-    head: Span,
 ) -> Result<Option<Vec<(usize, String, String)>>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
-        let mut headers = first.columns().to_vec();
+        let mut headers: Vec<String> = first.columns().cloned().collect();
 
         if !headers.is_empty() {
             headers.insert(0, "#".into());
@@ -276,21 +271,14 @@ fn convert_to_list(
                 row.push(item.nonerror_into_string(", ", config)?)
             } else {
                 for header in headers.iter().skip(1) {
-                    let result = match item {
-                        Value::Record { .. } => item.clone().follow_cell_path(
-                            &[PathMember::String {
-                                val: header.into(),
-                                span: head,
-                                optional: false,
-                            }],
-                            false,
-                        ),
-                        _ => Ok(item.clone()),
+                    let result = match &item {
+                        Value::Record { val, .. } => val.get(header),
+                        item => Some(item),
                     };
 
                     match result {
-                        Ok(value) => row.push(value.nonerror_into_string(", ", config)?),
-                        Err(_) => row.push(String::new()),
+                        Some(value) => row.push(value.nonerror_into_string(", ", config)?),
+                        None => row.push(String::new()),
                     }
                 }
             }

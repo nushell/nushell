@@ -64,34 +64,27 @@ impl Command for SubCommand {
 }
 
 fn helper(value: Value, head: Span) -> Value {
+    let span = value.span();
     match value {
-        Value::Nothing { span: _ } => {
+        Value::Nothing { .. } => {
             let dt = Local::now();
-            Value::String {
-                val: humanize_date(dt.with_timezone(dt.offset())),
-                span: head,
-            }
+            Value::string(humanize_date(dt.with_timezone(dt.offset())), head)
         }
-        Value::String {
-            val,
-            span: val_span,
-        } => {
-            let dt = parse_date_from_string(&val, val_span);
+        Value::String { val, .. } => {
+            let dt = parse_date_from_string(&val, span);
             match dt {
-                Ok(x) => Value::String {
-                    val: humanize_date(x),
-                    span: head,
-                },
+                Ok(x) => Value::string(humanize_date(x), head),
                 Err(e) => e,
             }
         }
-        Value::Date { val, span: _ } => Value::String {
-            val: humanize_date(val),
-            span: head,
-        },
-        _ => Value::Error {
-            error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
-        },
+        Value::Date { val, .. } => Value::string(humanize_date(val), head),
+        _ => Value::error(
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span: head,
+            },
+            head,
+        ),
     }
 }
 

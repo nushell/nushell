@@ -4,6 +4,7 @@ mod ide;
 mod logger;
 mod run;
 mod signals;
+#[cfg(unix)]
 mod terminal;
 mod test_bins;
 #[cfg(test)]
@@ -17,19 +18,21 @@ use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
-    terminal::acquire_terminal,
 };
 use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
-use nu_protocol::{engine::EngineState, report_error_new, Value};
-use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_lsp::LanguageServer;
+use nu_protocol::{
+    engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
+    PipelineData, RawStream, Span, Value, NU_VARIABLE_ID,
+};
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
-use signals::{ctrlc_protection, sigquit_protection};
+use signals::ctrlc_protection;
 use std::{
     io::BufReader,
     str::FromStr,
@@ -75,7 +78,43 @@ fn main() -> Result<()> {
     let ctrlc = Arc::new(AtomicBool::new(false));
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state, &ctrlc);
-    sigquit_protection(&mut engine_state);
+
+    // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
+    // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
+    // the env.nu file exists, these values will be overwritten, if it does not exist, or
+    // there is an error reading it, these values will be used.
+    let nushell_config_path = if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path
+    } else {
+        // Not really sure what to default this to if nu_path::config_dir() returns None
+        std::path::PathBuf::new()
+    };
+
+    let mut default_nu_lib_dirs_path = nushell_config_path.clone();
+    default_nu_lib_dirs_path.push("scripts");
+    engine_state.add_env_var(
+        "NU_LIB_DIRS".to_string(),
+        Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
+    );
+
+    let mut default_nu_plugin_dirs_path = nushell_config_path;
+    default_nu_plugin_dirs_path.push("plugins");
+    engine_state.add_env_var(
+        "NU_PLUGIN_DIRS".to_string(),
+        Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+    );
+    // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
+
+    // This is the real secret sauce to having an in-memory sqlite db. You must
+    // start a connection to the memory database in main so it will exist for the
+    // lifetime of the program. If it's created with how MEMORY_DB is defined
+    // you'll be able to access this open connection from anywhere in the program
+    // by using the identical connection string.
+    #[cfg(feature = "sqlite")]
+    let db = nu_command::open_connection_in_memory_custom()?;
+    #[cfg(feature = "sqlite")]
+    db.last_insert_rowid();
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
@@ -88,6 +127,8 @@ fn main() -> Result<()> {
             && script_name.is_empty());
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
+
+    engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args
@@ -127,7 +168,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "config.nu",
         "config-path",
-        &parsed_nu_cli_args.config_file,
+        parsed_nu_cli_args.config_file.as_ref(),
     );
 
     set_config_path(
@@ -135,7 +176,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "env.nu",
         "env-path",
-        &parsed_nu_cli_args.env_file,
+        parsed_nu_cli_args.env_file.as_ref(),
     );
     perf(
         "set_config_path",
@@ -146,29 +187,29 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    start_time = std::time::Instant::now();
-    acquire_terminal(engine_state.is_interactive);
-    perf(
-        "acquire_terminal",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    #[cfg(unix)]
+    {
+        start_time = std::time::Instant::now();
+        terminal::acquire(engine_state.is_interactive);
+        perf(
+            "acquire_terminal",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
 
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
             .item
             .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
-            .map(|x| Value::String {
-                val: x.trim().to_string(),
-                span,
-            })
+            .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
 
     start_time = std::time::Instant::now();
@@ -183,8 +224,17 @@ fn main() -> Result<()> {
         use_color,
     );
 
+    engine_state.add_env_var(
+        "NU_VERSION".to_string(),
+        Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
+    );
+
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
+    }
+
+    if parsed_nu_cli_args.lsp {
+        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
     }
 
     // IDE commands
@@ -219,6 +269,7 @@ fn main() -> Result<()> {
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
             "echo_env_stderr" => test_bins::echo_env(false),
+            "echo_env_mixed" => test_bins::echo_env_mixed(),
             "cococo" => test_bins::cococo(),
             "meow" => test_bins::meow(),
             "meowb" => test_bins::meowb(),
@@ -273,6 +324,10 @@ fn main() -> Result<()> {
         column!(),
         use_color,
     );
+
+    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
+    let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

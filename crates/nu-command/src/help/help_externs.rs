@@ -26,7 +26,7 @@ impl Command for HelpExterns {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of extern to get help on",
+                "The name of extern to get help on.",
             )
             .named(
                 "find",
@@ -128,23 +128,21 @@ pub fn help_externs(
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
-            Ok(Value::String {
-                val: output.join("======================\n\n"),
-                span: call.head,
-            }
-            .into_pipeline_data())
+            Ok(
+                Value::string(output.join("======================\n\n"), call.head)
+                    .into_pipeline_data(),
+            )
         } else {
-            Err(ShellError::CommandNotFound(span(&[
-                rest[0].span,
-                rest[rest.len() - 1].span,
-            ])))
+            Err(ShellError::CommandNotFound {
+                span: span(&[rest[0].span, rest[rest.len() - 1].span]),
+            })
         }
     }
 }
 
 fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope = ScopeData::new(engine_state, stack);
-    scope.populate_all();
+    scope.populate_decls();
     scope.collect_externs(span)
 }
 

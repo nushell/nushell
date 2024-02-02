@@ -46,10 +46,11 @@ pub enum Category {
     Conversions,
     Core,
     Custom(String),
+    Database,
     Date,
     Debug,
     Default,
-    Deprecated,
+    Removed,
     Env,
     Experimental,
     FileSystem,
@@ -57,6 +58,7 @@ pub enum Category {
     Formats,
     Generators,
     Hash,
+    History,
     Math,
     Misc,
     Network,
@@ -78,10 +80,11 @@ impl std::fmt::Display for Category {
             Category::Conversions => "conversions",
             Category::Core => "core",
             Category::Custom(name) => name,
+            Category::Database => "database",
             Category::Date => "date",
             Category::Debug => "debug",
             Category::Default => "default",
-            Category::Deprecated => "deprecated",
+            Category::Removed => "removed",
             Category::Env => "env",
             Category::Experimental => "experimental",
             Category::FileSystem => "filesystem",
@@ -89,6 +92,7 @@ impl std::fmt::Display for Category {
             Category::Formats => "formats",
             Category::Generators => "generators",
             Category::Hash => "hash",
+            Category::History => "history",
             Category::Math => "math",
             Category::Misc => "misc",
             Category::Network => "network",
@@ -237,8 +241,7 @@ impl Signature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> Signature {
-        self.name = name;
+    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
         self.search_terms = command
             .search_terms()
             .into_iter()
@@ -470,7 +473,8 @@ impl Signature {
         let s = short.map(|c| {
             debug_assert!(
                 !self.get_shorts().contains(&c),
-                "There may be duplicate short flags, such as -h"
+                "There may be duplicate short flags for '-{}'",
+                c
             );
             c
         });
@@ -479,7 +483,8 @@ impl Signature {
             let name: String = name.into();
             debug_assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags, such as --help"
+                "There may be duplicate name flags for '--{}'",
+                name
             );
             name
         };
@@ -695,13 +700,13 @@ impl Command for BlockCommand {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {
-        Err(ShellError::GenericError(
-            "Internal error: can't run custom command with 'run', use block_id".to_string(),
-            "".to_string(),
-            None,
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Internal error: can't run custom command with 'run', use block_id".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
     }
 
     fn get_block_id(&self) -> Option<BlockId> {

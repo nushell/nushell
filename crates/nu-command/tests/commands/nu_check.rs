@@ -44,7 +44,7 @@ fn parse_script_with_wrong_type() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                nu-check -d --as-module script.nu
+                nu-check --debug --as-module script.nu
             "
         ));
 
@@ -68,7 +68,7 @@ fn parse_script_failure() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                nu-check -d script.nu
+                nu-check --debug script.nu
             "
         ));
 
@@ -126,7 +126,7 @@ fn parse_module_with_wrong_type() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                nu-check -d foo.nu
+                nu-check --debug foo.nu
             "
         ));
 
@@ -154,7 +154,7 @@ fn parse_module_failure() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                nu-check -d --as-module foo.nu
+                nu-check --debug --as-module foo.nu
             "
         ));
 
@@ -319,7 +319,7 @@ fn parse_string_as_script() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo $'two(char nl)lines' | nu-check -d --as-module
+                echo $'two(char nl)lines' | nu-check --debug --as-module
             "#
         ));
 
@@ -545,7 +545,7 @@ fn parse_module_success_with_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | nu-check -d --as-module
+                open grep.nu | nu-check --debug --as-module
             "
         ));
 
@@ -594,7 +594,7 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | nu-check -ad
+                open grep.nu | nu-check --all --debug
             "
         ));
 
@@ -643,7 +643,7 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | nu-check -ad
+                open grep.nu | nu-check --all --debug
             "
         ));
 
@@ -692,7 +692,7 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | lines | nu-check -ad
+                open grep.nu | lines | nu-check --all --debug
             "
         ));
 

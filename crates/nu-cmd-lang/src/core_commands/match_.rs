@@ -20,11 +20,11 @@ impl Command for Match {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("match")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("value", SyntaxShape::Any, "value to check")
+            .required("value", SyntaxShape::Any, "Value to check.")
             .required(
                 "match_block",
                 SyntaxShape::MatchBlock,
-                "block to run if check succeeds",
+                "Block to run if check succeeds.",
             )
             .category(Category::Core)
     }
@@ -53,8 +53,9 @@ impl Command for Match {
                     }
 
                     let guard_matches = if let Some(guard) = &match_.0.guard {
-                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)? else {
-                            return Err(ShellError::MatchGuardNotBool { span: guard.span});
+                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
+                        else {
+                            return Err(ShellError::MatchGuardNotBool { span: guard.span });
                         };
 
                         val
@@ -121,12 +122,11 @@ impl Command for Match {
             },
             Example {
                 description: "Match with a guard",
-                example: "
-                    match [1 2 3] {
-                        [$x, ..$y] if $x == 1 => { 'good list' },
-                        _ => { 'not a very good list' }
-                    }
-                    ",
+                example: "match [1 2 3] {
+        [$x, ..$y] if $x == 1 => { 'good list' },
+        _ => { 'not a very good list' }
+    }
+    ",
                 result: Some(Value::test_string("good list")),
             },
         ]

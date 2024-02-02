@@ -46,24 +46,27 @@ impl Command for ToLazyGroupBy {
         (dfr col b | dfr sum | dfr as "b_sum")
      ]"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "b_min".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b_max".to_string(),
-                            vec![Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b_sum".to_string(),
-                            vec![Value::test_int(6), Value::test_int(10)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "b_min".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b_max".to_string(),
+                                vec![Value::test_int(4), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b_sum".to_string(),
+                                vec![Value::test_int(6), Value::test_int(10)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -80,24 +83,27 @@ impl Command for ToLazyGroupBy {
      ]
     | dfr collect"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "b_min".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b_max".to_string(),
-                            vec![Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b_sum".to_string(),
-                            vec![Value::test_int(6), Value::test_int(10)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "b_min".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b_max".to_string(),
+                                vec![Value::test_int(4), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b_sum".to_string(),
+                                vec![Value::test_int(6), Value::test_int(10)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -113,10 +119,7 @@ impl Command for ToLazyGroupBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
 
         if expressions
@@ -126,7 +129,7 @@ impl Command for ToLazyGroupBy {
             let value: Value = call.req(engine_state, stack, 0)?;
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Expected only Col expressions".into(),
-                span: value.span()?,
+                span: value.span(),
             });
         }
 
@@ -134,7 +137,7 @@ impl Command for ToLazyGroupBy {
         let group_by = NuLazyGroupBy {
             schema: lazy.schema.clone(),
             from_eager: lazy.from_eager,
-            group_by: Some(lazy.into_polars().groupby(&expressions)),
+            group_by: Some(lazy.into_polars().group_by(&expressions)),
         };
 
         Ok(PipelineData::Value(group_by.into_value(call.head), None))

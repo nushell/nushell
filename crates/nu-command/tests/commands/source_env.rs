@@ -169,7 +169,7 @@ fn source_env_eval_export_env() {
 
         let inp = &[r#"source-env spam.nu"#, r#"$env.FOO"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -191,7 +191,7 @@ fn source_env_eval_export_env_hide() {
             r#"$env.FOO"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("not_found"));
     })
@@ -214,7 +214,7 @@ fn source_env_do_cd() {
             r#"$env.PWD | path basename"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "test2");
     })
@@ -237,7 +237,7 @@ fn source_env_do_cd_file_relative() {
             r#"$env.PWD | path basename"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "test1");
     })
@@ -262,7 +262,7 @@ fn source_env_dont_cd_overlay() {
             r#"$env.PWD | path basename"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "source_env_dont_cd_overlay");
     })
@@ -281,13 +281,13 @@ fn source_env_is_scoped() {
 
         let inp = &[r#"source-env spam.nu"#, r#"no-name-similar-to-this"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("executable was not found"));
 
         let inp = &[r#"source-env spam.nu"#, r#"nor-similar-to-this"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("executable was not found"));
     })
@@ -309,7 +309,7 @@ fn source_env_const_file() {
             r#"$env.FOO"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })

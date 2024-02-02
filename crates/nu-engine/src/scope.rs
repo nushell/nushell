@@ -1,52 +1,10 @@
 use nu_protocol::{
+    ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, ModuleId, Record, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-
-pub fn create_scope(
-    engine_state: &EngineState,
-    stack: &Stack,
-    span: Span,
-) -> Result<Value, ShellError> {
-    let mut scope_data = ScopeData::new(engine_state, stack);
-
-    scope_data.populate_all();
-
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("vars".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_vars(span),
-        span,
-    });
-
-    cols.push("commands".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_commands(span),
-        span,
-    });
-
-    cols.push("aliases".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_aliases(span),
-        span,
-    });
-
-    cols.push("modules".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_modules(span),
-        span,
-    });
-
-    cols.push("engine_state".to_string());
-    vals.push(scope_data.collect_engine_state(span));
-
-    Ok(Value::Record { cols, vals, span })
-}
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
@@ -69,11 +27,16 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn populate_all(&mut self) {
+    pub fn populate_vars(&mut self) {
         for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.vars_map.extend(&overlay_frame.vars);
+        }
+    }
+
+    // decls include all commands, i.e., normal commands, aliases, and externals
+    pub fn populate_decls(&mut self) {
+        for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.decls_map.extend(&overlay_frame.decls);
-            self.modules_map.extend(&overlay_frame.modules);
             self.visibility.merge_with(overlay_frame.visibility.clone());
         }
     }
@@ -86,179 +49,88 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_vars(&self, span: Span) -> Vec<Value> {
         let mut vars = vec![];
-        for var in &self.vars_map {
-            let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-            let var_type = Value::string(self.engine_state.get_var(**var.1).ty.to_string(), span);
+        for (var_name, var_id) in &self.vars_map {
+            let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
 
-            let var_value = if let Ok(val) = self.stack.get_var(**var.1, span) {
+            let var = self.engine_state.get_var(**var_id);
+            let var_type = Value::string(var.ty.to_string(), span);
+            let is_const = Value::bool(var.const_val.is_some(), span);
+
+            let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
                 val
             } else {
                 Value::nothing(span)
             };
 
-            vars.push(Value::Record {
-                cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
-                vals: vec![var_name, var_type, var_value],
+            let var_id_val = Value::int(**var_id as i64, span);
+
+            vars.push(Value::record(
+                record! {
+                    "name" => var_name,
+                    "type" => var_type,
+                    "value" => var_value,
+                    "is_const" => is_const,
+                    "var_id" => var_id_val,
+                },
                 span,
-            })
+            ));
         }
+
+        sort_rows(&mut vars);
         vars
     }
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
+
         for (command_name, decl_id) in &self.decls_map {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(**decl_id).is_alias()
             {
-                let mut cols = vec![];
-                let mut vals = vec![];
-
-                let mut module_commands = vec![];
-                for module in &self.modules_map {
-                    let module_name = String::from_utf8_lossy(module.0).to_string();
-                    let module_id = self.engine_state.find_module(module.0, &[]);
-                    if let Some(module_id) = module_id {
-                        let module = self.engine_state.get_module(module_id);
-                        if module.has_decl(command_name) {
-                            module_commands.push(module_name);
-                        }
-                    }
-                }
-
-                cols.push("name".into());
-                vals.push(Value::String {
-                    val: String::from_utf8_lossy(command_name).to_string(),
-                    span,
-                });
-
-                cols.push("module_name".into());
-                vals.push(Value::string(module_commands.join(", "), span));
-
                 let decl = self.engine_state.get_decl(**decl_id);
                 let signature = decl.signature();
 
-                cols.push("category".to_string());
-                vals.push(Value::String {
-                    val: signature.category.to_string(),
-                    span,
-                });
-
-                cols.push("signatures".to_string());
-                vals.push(self.collect_signatures(&signature, span));
-
-                cols.push("usage".to_string());
-                vals.push(Value::String {
-                    val: decl.usage().into(),
-                    span,
-                });
-
-                cols.push("examples".to_string());
-                vals.push(Value::List {
-                    vals: decl
-                        .examples()
-                        .into_iter()
-                        .map(|x| Value::Record {
-                            cols: vec!["description".into(), "example".into(), "result".into()],
-                            vals: vec![
-                                Value::String {
-                                    val: x.description.to_string(),
-                                    span,
-                                },
-                                Value::String {
-                                    val: x.example.to_string(),
-                                    span,
-                                },
-                                if let Some(result) = x.result {
-                                    result
-                                } else {
-                                    Value::Nothing { span }
-                                },
-                            ],
+                let examples = decl
+                    .examples()
+                    .into_iter()
+                    .map(|x| {
+                        Value::record(
+                            record! {
+                                "description" => Value::string(x.description, span),
+                                "example" => Value::string(x.example, span),
+                                "result" => x.result.unwrap_or(Value::nothing(span)),
+                            },
                             span,
-                        })
-                        .collect(),
-                    span,
-                });
+                        )
+                    })
+                    .collect();
 
-                cols.push("is_builtin".to_string());
-                // we can only be a is_builtin or is_custom, not both
-                vals.push(Value::Bool {
-                    val: !decl.is_custom_command(),
-                    span,
-                });
+                let record = record! {
+                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
+                    "category" => Value::string(signature.category.to_string(), span),
+                    "signatures" => self.collect_signatures(&signature, span),
+                    "usage" => Value::string(decl.usage(), span),
+                    "examples" => Value::list(examples, span),
+                    // we can only be a is_builtin or is_custom, not both
+                    "is_builtin" => Value::bool(!decl.is_custom_command(), span),
+                    "is_sub" => Value::bool(decl.is_sub(), span),
+                    "is_plugin" => Value::bool(decl.is_plugin().is_some(), span),
+                    "is_custom" => Value::bool(decl.is_custom_command(), span),
+                    "is_keyword" => Value::bool(decl.is_parser_keyword(), span),
+                    "is_extern" => Value::bool(decl.is_known_external(), span),
+                    "creates_scope" => Value::bool(signature.creates_scope, span),
+                    "extra_usage" => Value::string(decl.extra_usage(), span),
+                    "search_terms" => Value::string(decl.search_terms().join(", "), span),
+                    "decl_id" => Value::int(**decl_id as i64, span),
+                };
 
-                cols.push("is_sub".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_sub(),
-                    span,
-                });
-
-                cols.push("is_plugin".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span,
-                });
-
-                cols.push("is_custom".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_custom_command(),
-                    span,
-                });
-
-                cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
-                    span,
-                });
-
-                cols.push("is_extern".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_known_external(),
-                    span,
-                });
-
-                cols.push("creates_scope".to_string());
-                vals.push(Value::Bool {
-                    val: signature.creates_scope,
-                    span,
-                });
-
-                cols.push("extra_usage".to_string());
-                vals.push(Value::String {
-                    val: decl.extra_usage().into(),
-                    span,
-                });
-
-                let search_terms = decl.search_terms();
-                cols.push("search_terms".to_string());
-                vals.push(Value::String {
-                    val: search_terms.join(", "),
-                    span,
-                });
-
-                commands.push(Value::Record { cols, vals, span })
+                commands.push(Value::record(record, span))
             }
         }
 
-        commands.sort_by(|a, b| match (a, b) {
-            (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
-                // Comparing the first value from the record
-                // It is expected that the first value is the name of the column
-                // The names of the commands should be a value string
-                match (rec_a.get(0), rec_b.get(0)) {
-                    (Some(val_a), Some(val_b)) => match (val_a, val_b) {
-                        (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
-                            str_a.cmp(str_b)
-                        }
-                        _ => Ordering::Equal,
-                    },
-                    _ => Ordering::Equal,
-                }
-            }
-            _ => Ordering::Equal,
-        });
+        sort_rows(&mut commands);
+
         commands
     }
 
@@ -269,15 +141,10 @@ impl<'e, 's> ScopeData<'e, 's> {
             .map(|(input_type, output_type)| {
                 (
                     input_type.to_shape().to_string(),
-                    Value::List {
-                        vals: self.collect_signature_entries(
-                            input_type,
-                            output_type,
-                            signature,
-                            span,
-                        ),
+                    Value::list(
+                        self.collect_signature_entries(input_type, output_type, signature, span),
                         span,
-                    },
+                    ),
                 )
             })
             .collect::<Vec<(String, Value)>>();
@@ -290,10 +157,10 @@ impl<'e, 's> ScopeData<'e, 's> {
             let any_type = &Type::Any;
             sigs.push((
                 any_type.to_shape().to_string(),
-                Value::List {
-                    vals: self.collect_signature_entries(any_type, any_type, signature, span),
+                Value::list(
+                    self.collect_signature_entries(any_type, any_type, signature, span),
                     span,
-                },
+                ),
             ));
         }
         sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
@@ -306,8 +173,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         // signature usually comes later in the input_output_types, so this will
         // remove them from the record.
         sigs.dedup_by(|(k1, _), (k2, _)| k1 == k2);
-        let (cols, vals) = sigs.into_iter().unzip();
-        Value::Record { cols, vals, span }
+        Value::record(sigs.into_iter().collect(), span)
     }
 
     fn collect_signature_entries(
@@ -331,20 +197,22 @@ impl<'e, 's> ScopeData<'e, 's> {
         ];
 
         // input
-        sig_records.push(Value::Record {
-            cols: sig_cols.clone(),
-            vals: vec![
-                Value::nothing(span),
-                Value::string("input", span),
-                Value::string(input_type.to_shape().to_string(), span),
-                Value::bool(false, span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-            ],
+        sig_records.push(Value::record(
+            Record::from_raw_cols_vals(
+                sig_cols.clone(),
+                vec![
+                    Value::nothing(span),
+                    Value::string("input", span),
+                    Value::string(input_type.to_shape().to_string(), span),
+                    Value::bool(false, span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                ],
+            ),
             span,
-        });
+        ));
 
         // required_positional
         for req in &signature.required_positional {
@@ -362,11 +230,10 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span),
             ];
 
-            sig_records.push(Value::Record {
-                cols: sig_cols.clone(),
-                vals: sig_vals,
+            sig_records.push(Value::record(
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
-            });
+            ));
         }
 
         // optional_positional
@@ -389,11 +256,10 @@ impl<'e, 's> ScopeData<'e, 's> {
                 },
             ];
 
-            sig_records.push(Value::Record {
-                cols: sig_cols.clone(),
-                vals: sig_vals,
+            sig_records.push(Value::record(
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
-            });
+            ));
         }
 
         // rest_positional
@@ -412,11 +278,10 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
             ];
 
-            sig_records.push(Value::Record {
-                cols: sig_cols.clone(),
-                vals: sig_vals,
+            sig_records.push(Value::record(
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
-            });
+            ));
         }
 
         // named flags
@@ -460,222 +325,266 @@ impl<'e, 's> ScopeData<'e, 's> {
                 },
             ];
 
-            sig_records.push(Value::Record {
-                cols: sig_cols.clone(),
-                vals: sig_vals,
+            sig_records.push(Value::record(
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
-            });
+            ));
         }
 
         // output
-        sig_records.push(Value::Record {
-            cols: sig_cols,
-            vals: vec![
-                Value::nothing(span),
-                Value::string("output", span),
-                Value::string(output_type.to_shape().to_string(), span),
-                Value::bool(false, span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-            ],
+        sig_records.push(Value::record(
+            Record::from_raw_cols_vals(
+                sig_cols,
+                vec![
+                    Value::nothing(span),
+                    Value::string("output", span),
+                    Value::string(output_type.to_shape().to_string(), span),
+                    Value::bool(false, span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                ],
+            ),
             span,
-        });
+        ));
 
         sig_records
     }
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
+
         for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
             if decl.is_known_external() {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let record = record! {
+                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
+                    "usage" => Value::string(decl.usage(), span),
+                    "decl_id" => Value::int(**decl_id as i64, span),
+                };
 
-                let mut module_commands = vec![];
-                for module in &self.modules_map {
-                    let module_name = String::from_utf8_lossy(module.0).to_string();
-                    let module_id = self.engine_state.find_module(module.0, &[]);
-                    if let Some(module_id) = module_id {
-                        let module = self.engine_state.get_module(module_id);
-                        if module.has_decl(command_name) {
-                            module_commands.push(module_name);
-                        }
-                    }
-                }
-
-                cols.push("name".into());
-                vals.push(Value::String {
-                    val: String::from_utf8_lossy(command_name).to_string(),
-                    span,
-                });
-
-                cols.push("module_name".into());
-                vals.push(Value::String {
-                    val: module_commands.join(", "),
-                    span,
-                });
-
-                cols.push("usage".to_string());
-                vals.push(Value::String {
-                    val: decl.usage().into(),
-                    span,
-                });
-
-                externals.push(Value::Record { cols, vals, span })
+                externals.push(Value::record(record, span))
             }
         }
 
+        sort_rows(&mut externals);
         externals
     }
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
-        for (name_bytes, decl_id) in self.engine_state.get_decls_sorted(false) {
+
+        for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    let name = String::from_utf8_lossy(&name_bytes).to_string();
-                    let sig = decl.signature().update_from_command(name, decl.borrow());
-                    let key = sig.name;
+                    let aliased_decl_id = if let Expr::Call(wrapped_call) = &alias.wrapped_call.expr
+                    {
+                        Value::int(wrapped_call.decl_id as i64, span)
+                    } else {
+                        Value::nothing(span)
+                    };
 
-                    aliases.push(Value::Record {
-                        cols: vec!["name".into(), "expansion".into(), "usage".into()],
-                        vals: vec![
-                            Value::String { val: key, span },
-                            Value::String {
-                                val: String::from_utf8_lossy(
-                                    self.engine_state.get_span_contents(alias.wrapped_call.span),
-                                )
-                                .to_string(),
-                                span,
-                            },
-                            Value::String {
-                                val: alias.signature().usage,
-                                span,
-                            },
-                        ],
+                    let expansion = String::from_utf8_lossy(
+                        self.engine_state.get_span_contents(alias.wrapped_call.span),
+                    );
+
+                    aliases.push(Value::record(
+                        record! {
+                            "name" => Value::string(String::from_utf8_lossy(&decl_name), span),
+                            "expansion" => Value::string(expansion, span),
+                            "usage" => Value::string(alias.usage(), span),
+                            "decl_id" => Value::int(decl_id as i64, span),
+                            "aliased_decl_id" => aliased_decl_id,
+                        },
                         span,
-                    });
+                    ));
                 }
             }
         }
 
-        aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+        sort_rows(&mut aliases);
+        // aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         aliases
+    }
+
+    fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> Value {
+        let module = self.engine_state.get_module(*module_id);
+
+        let all_decls = module.decls();
+
+        let mut export_commands: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if !decl.is_alias() && !decl.is_known_external() {
+                    Some(Value::record(
+                        record! {
+                            "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
+                            "decl_id" => Value::int(*decl_id as i64, span),
+                        },
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut export_aliases: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if decl.is_alias() {
+                    Some(Value::record(
+                        record! {
+                            "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
+                            "decl_id" => Value::int(*decl_id as i64, span),
+                        },
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut export_externs: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if decl.is_known_external() {
+                    Some(Value::record(
+                        record! {
+                            "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
+                            "decl_id" => Value::int(*decl_id as i64, span),
+                        },
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut export_submodules: Vec<Value> = module
+            .submodules()
+            .iter()
+            .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
+            .collect();
+
+        let mut export_consts: Vec<Value> = module
+            .consts()
+            .iter()
+            .map(|(name_bytes, var_id)| {
+                Value::record(
+                    record! {
+                        "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
+                        "type" => Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
+                        "var_id" => Value::int(*var_id as i64, span),
+                    },
+                    span,
+                )
+            })
+            .collect();
+
+        sort_rows(&mut export_commands);
+        sort_rows(&mut export_aliases);
+        sort_rows(&mut export_externs);
+        sort_rows(&mut export_submodules);
+        sort_rows(&mut export_consts);
+
+        let export_env_block = module.env_block.map_or_else(
+            || Value::nothing(span),
+            |block_id| Value::block(block_id, span),
+        );
+
+        let (module_usage, module_extra_usage) = self
+            .engine_state
+            .build_module_usage(*module_id)
+            .unwrap_or_default();
+
+        Value::record(
+            record! {
+                "name" => Value::string(String::from_utf8_lossy(module_name), span),
+                "commands" => Value::list(export_commands, span),
+                "aliases" => Value::list(export_aliases, span),
+                "externs" => Value::list(export_externs, span),
+                "submodules" => Value::list(export_submodules, span),
+                "constants" => Value::list(export_consts, span),
+                "env_block" => export_env_block,
+                "usage" => Value::string(module_usage, span),
+                "extra_usage" => Value::string(module_extra_usage, span),
+                "module_id" => Value::int(*module_id as i64, span),
+            },
+            span,
+        )
     }
 
     pub fn collect_modules(&self, span: Span) -> Vec<Value> {
         let mut modules = vec![];
 
         for (module_name, module_id) in &self.modules_map {
-            let module = self.engine_state.get_module(**module_id);
-
-            let export_commands: Vec<Value> = module
-                .decls()
-                .iter()
-                .filter(|(_, id)| {
-                    self.visibility.is_decl_id_visible(id)
-                        && !self.engine_state.get_decl(*id).is_alias()
-                })
-                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
-                .collect();
-
-            let export_aliases: Vec<Value> = module
-                .decls()
-                .iter()
-                .filter(|(_, id)| {
-                    self.visibility.is_decl_id_visible(id)
-                        && self.engine_state.get_decl(*id).is_alias()
-                })
-                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
-                .collect();
-
-            let export_env_block = module.env_block.map_or_else(
-                || Value::nothing(span),
-                |block_id| Value::Block {
-                    val: block_id,
-                    span,
-                },
-            );
-
-            let module_usage = self
-                .engine_state
-                .build_module_usage(**module_id)
-                .map(|(usage, _)| usage)
-                .unwrap_or_default();
-
-            modules.push(Value::Record {
-                cols: vec![
-                    "name".into(),
-                    "commands".into(),
-                    "aliases".into(),
-                    "env_block".into(),
-                    "usage".into(),
-                ],
-                vals: vec![
-                    Value::string(String::from_utf8_lossy(module_name), span),
-                    Value::List {
-                        vals: export_commands,
-                        span,
-                    },
-                    Value::List {
-                        vals: export_aliases,
-                        span,
-                    },
-                    export_env_block,
-                    Value::string(module_usage, span),
-                ],
-                span,
-            });
+            modules.push(self.collect_module(module_name, module_id, span));
         }
+
         modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         modules
     }
 
     pub fn collect_engine_state(&self, span: Span) -> Value {
-        let engine_state_cols = vec![
-            "source_bytes".to_string(),
-            "num_vars".to_string(),
-            "num_decls".to_string(),
-            "num_blocks".to_string(),
-            "num_modules".to_string(),
-            "num_env_vars".to_string(),
-        ];
+        let num_env_vars = self
+            .engine_state
+            .env_vars
+            .values()
+            .map(|overlay| overlay.len() as i64)
+            .sum();
 
-        let engine_state_vals = vec![
-            Value::int(self.engine_state.next_span_start() as i64, span),
-            Value::int(self.engine_state.num_vars() as i64, span),
-            Value::int(self.engine_state.num_decls() as i64, span),
-            Value::int(self.engine_state.num_blocks() as i64, span),
-            Value::int(self.engine_state.num_modules() as i64, span),
-            Value::int(
-                self.engine_state
-                    .env_vars
-                    .values()
-                    .map(|overlay| overlay.len() as i64)
-                    .sum(),
-                span,
-            ),
-        ];
-        Value::Record {
-            cols: engine_state_cols,
-            vals: engine_state_vals,
+        Value::record(
+            record! {
+                "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
+                "num_vars" => Value::int(self.engine_state.num_vars() as i64, span),
+                "num_decls" => Value::int(self.engine_state.num_decls() as i64, span),
+                "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
+                "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
+                "num_env_vars" => Value::int(num_env_vars, span),
+            },
             span,
-        }
+        )
     }
 }
 
 fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &SyntaxShape) -> String {
     return match shape {
-        SyntaxShape::Custom(_, custom_completion_decl_id) => {
+        SyntaxShape::CompleterWrapper(_, custom_completion_decl_id) => {
             let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
             let custom_completion_command_name: &str = custom_completion_command.name();
             custom_completion_command_name.to_string()
         }
         _ => "".to_string(),
     };
+}
+
+fn sort_rows(decls: &mut [Value]) {
+    decls.sort_by(|a, b| match (a, b) {
+        (Value::Record { val: rec_a, .. }, Value::Record { val: rec_b, .. }) => {
+            // Comparing the first value from the record
+            // It is expected that the first value is the name of the entry (command, module, alias, etc.)
+            match (rec_a.values().next(), rec_b.values().next()) {
+                (Some(val_a), Some(val_b)) => match (val_a, val_b) {
+                    (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
+                        str_a.cmp(str_b)
+                    }
+                    _ => Ordering::Equal,
+                },
+                _ => Ordering::Equal,
+            }
+        }
+        _ => Ordering::Equal,
+    });
 }

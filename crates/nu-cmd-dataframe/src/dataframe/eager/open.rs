@@ -1,3 +1,5 @@
+use crate::dataframe::values::NuSchema;
+
 use super::super::values::{NuDataFrame, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -13,6 +15,8 @@ use polars::prelude::{
     LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
+use polars_io::avro::AvroReader;
+
 #[derive(Clone)]
 pub struct OpenDataFrame;
 
@@ -22,7 +26,7 @@ impl Command for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens CSV, JSON, JSON lines, arrow, or parquet file to create dataframe."
+        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe."
     }
 
     fn signature(&self) -> Signature {
@@ -36,7 +40,7 @@ impl Command for OpenDataFrame {
             .named(
                 "type",
                 SyntaxShape::String,
-                "File type: csv, tsv, json, parquet, arrow. If omitted, derive from file extension",
+                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension",
                 Some('t'),
             )
             .named(
@@ -67,6 +71,12 @@ impl Command for OpenDataFrame {
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Columns to be selected from csv file. CSV and Parquet file",
                 None,
+            )
+            .named(
+                "schema",
+                SyntaxShape::Record(vec![]),
+                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                Some('s')
             )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
@@ -114,19 +124,20 @@ fn command(
     match type_id {
         Some((e, msg, blamed)) => match e.as_str() {
             "csv" | "tsv" => from_csv(engine_state, stack, call),
-            "parquet" => from_parquet(engine_state, stack, call),
+            "parquet" | "parq" => from_parquet(engine_state, stack, call),
             "ipc" | "arrow" => from_ipc(engine_state, stack, call),
             "json" => from_json(engine_state, stack, call),
             "jsonl" => from_jsonl(engine_state, stack, call),
-            _ => Err(ShellError::FileNotFoundCustom(
-                format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
-                blamed,
-            )),
+            "avro" => from_avro(engine_state, stack, call),
+            _ => Err(ShellError::FileNotFoundCustom {
+                msg: format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
+                span: blamed,
+            }),
         },
-        None => Err(ShellError::FileNotFoundCustom(
-            "File without extension".into(),
-            file.span,
-        )),
+        None => Err(ShellError::FileNotFoundCustom {
+            msg: "File without extension".into(),
+            span: file.span,
+        }),
     }
     .map(|value| PipelineData::Value(value, None))
 }
@@ -136,7 +147,7 @@ fn from_parquet(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy") {
+    if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
         let args = ScanArgsParquet {
             n_rows: None,
@@ -147,17 +158,16 @@ fn from_parquet(
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
+            hive_partitioning: false,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Parquet reader error".into(),
-                    format!("{e:?}"),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Parquet reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 
@@ -166,14 +176,12 @@ fn from_parquet(
         let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
         let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
-        let r = File::open(&file.item).map_err(|e| {
-            ShellError::GenericError(
-                "Error opening file".into(),
-                e.to_string(),
-                Some(file.span),
-                None,
-                Vec::new(),
-            )
+        let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
+            error: "Error opening file".into(),
+            msg: e.to_string(),
+            span: Some(file.span),
+            help: None,
+            inner: vec![],
         })?;
         let reader = ParquetReader::new(r);
 
@@ -184,14 +192,12 @@ fn from_parquet(
 
         let df: NuDataFrame = reader
             .finish()
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Parquet reader error".into(),
-                    format!("{e:?}"),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Parquet reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 
@@ -199,12 +205,48 @@ fn from_parquet(
     }
 }
 
+fn from_avro(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Value, ShellError> {
+    let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+    let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
+
+    let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
+        error: "Error opening file".into(),
+        msg: e.to_string(),
+        span: Some(file.span),
+        help: None,
+        inner: vec![],
+    })?;
+    let reader = AvroReader::new(r);
+
+    let reader = match columns {
+        None => reader,
+        Some(columns) => reader.with_columns(Some(columns)),
+    };
+
+    let df: NuDataFrame = reader
+        .finish()
+        .map_err(|e| ShellError::GenericError {
+            error: "Avro reader error".into(),
+            msg: format!("{e:?}"),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?
+        .into();
+
+    Ok(df.into_value(call.head))
+}
+
 fn from_ipc(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy") {
+    if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
         let args = ScanArgsIpc {
             n_rows: None,
@@ -215,14 +257,12 @@ fn from_ipc(
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "IPC reader error".into(),
-                    format!("{e:?}"),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "IPC reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 
@@ -231,14 +271,12 @@ fn from_ipc(
         let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
         let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
-        let r = File::open(&file.item).map_err(|e| {
-            ShellError::GenericError(
-                "Error opening file".into(),
-                e.to_string(),
-                Some(file.span),
-                None,
-                Vec::new(),
-            )
+        let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
+            error: "Error opening file".into(),
+            msg: e.to_string(),
+            span: Some(file.span),
+            help: None,
+            inner: vec![],
         })?;
         let reader = IpcReader::new(r);
 
@@ -249,14 +287,12 @@ fn from_ipc(
 
         let df: NuDataFrame = reader
             .finish()
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "IPC reader error".into(),
-                    format!("{e:?}"),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "IPC reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 
@@ -270,29 +306,34 @@ fn from_json(
     call: &Call,
 ) -> Result<Value, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let file = File::open(&file.item).map_err(|e| {
-        ShellError::GenericError(
-            "Error opening file".into(),
-            e.to_string(),
-            Some(file.span),
-            None,
-            Vec::new(),
-        )
+    let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
+        error: "Error opening file".into(),
+        msg: e.to_string(),
+        span: Some(file.span),
+        help: None,
+        inner: vec![],
     })?;
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
 
     let buf_reader = BufReader::new(file);
     let reader = JsonReader::new(buf_reader);
 
+    let reader = match maybe_schema {
+        Some(schema) => reader.with_schema(schema.into()),
+        None => reader,
+    };
+
     let df: NuDataFrame = reader
         .finish()
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Json reader error".into(),
-                format!("{e:?}"),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Json reader error".into(),
+            msg: format!("{e:?}"),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into();
 
@@ -305,15 +346,17 @@ fn from_jsonl(
     call: &Call,
 ) -> Result<Value, ShellError> {
     let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let file = File::open(&file.item).map_err(|e| {
-        ShellError::GenericError(
-            "Error opening file".into(),
-            e.to_string(),
-            Some(file.span),
-            None,
-            Vec::new(),
-        )
+    let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
+        error: "Error opening file".into(),
+        msg: e.to_string(),
+        span: Some(file.span),
+        help: None,
+        inner: vec![],
     })?;
 
     let buf_reader = BufReader::new(file);
@@ -321,16 +364,19 @@ fn from_jsonl(
         .with_json_format(JsonFormat::JsonLines)
         .infer_schema_len(infer_schema);
 
+    let reader = match maybe_schema {
+        Some(schema) => reader.with_schema(schema.into()),
+        None => reader,
+    };
+
     let df: NuDataFrame = reader
         .finish()
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Json lines reader error".into(),
-                format!("{e:?}"),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Json lines reader error".into(),
+            msg: format!("{e:?}"),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into();
 
@@ -343,12 +389,17 @@ fn from_csv(
     call: &Call,
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
-    let no_header: bool = call.has_flag("no-header");
+    let no_header: bool = call.has_flag(engine_state, stack, "no-header")?;
     let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
     let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
-    if call.has_flag("lazy") {
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
+
+    if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
         let csv_reader = LazyCsvReader::new(file);
 
@@ -356,24 +407,29 @@ fn from_csv(
             None => csv_reader,
             Some(d) => {
                 if d.item.len() != 1 {
-                    return Err(ShellError::GenericError(
-                        "Incorrect delimiter".into(),
-                        "Delimiter has to be one character".into(),
-                        Some(d.span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Incorrect delimiter".into(),
+                        msg: "Delimiter has to be one character".into(),
+                        span: Some(d.span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     let delimiter = match d.item.chars().next() {
                         Some(d) => d as u8,
                         None => unreachable!(),
                     };
-                    csv_reader.with_delimiter(delimiter)
+                    csv_reader.with_separator(delimiter)
                 }
             }
         };
 
         let csv_reader = csv_reader.has_header(!no_header);
+
+        let csv_reader = match maybe_schema {
+            Some(schema) => csv_reader.with_schema(Some(schema.into())),
+            None => csv_reader,
+        };
 
         let csv_reader = match infer_schema {
             None => csv_reader,
@@ -387,14 +443,12 @@ fn from_csv(
 
         let df: NuLazyFrame = csv_reader
             .finish()
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Parquet reader error".into(),
-                    format!("{e:?}"),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Parquet reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 
@@ -402,14 +456,12 @@ fn from_csv(
     } else {
         let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
         let csv_reader = CsvReader::from_path(&file.item)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error creating CSV reader".into(),
-                    e.to_string(),
-                    Some(file.span),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error creating CSV reader".into(),
+                msg: e.to_string(),
+                span: Some(file.span),
+                help: None,
+                inner: vec![],
             })?
             .with_encoding(CsvEncoding::LossyUtf8);
 
@@ -417,24 +469,29 @@ fn from_csv(
             None => csv_reader,
             Some(d) => {
                 if d.item.len() != 1 {
-                    return Err(ShellError::GenericError(
-                        "Incorrect delimiter".into(),
-                        "Delimiter has to be one character".into(),
-                        Some(d.span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Incorrect delimiter".into(),
+                        msg: "Delimiter has to be one character".into(),
+                        span: Some(d.span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     let delimiter = match d.item.chars().next() {
                         Some(d) => d as u8,
                         None => unreachable!(),
                     };
-                    csv_reader.with_delimiter(delimiter)
+                    csv_reader.with_separator(delimiter)
                 }
             }
         };
 
         let csv_reader = csv_reader.has_header(!no_header);
+
+        let csv_reader = match maybe_schema {
+            Some(schema) => csv_reader.with_schema(Some(schema.into())),
+            None => csv_reader,
+        };
 
         let csv_reader = match infer_schema {
             None => csv_reader,
@@ -453,14 +510,12 @@ fn from_csv(
 
         let df: NuDataFrame = csv_reader
             .finish()
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Parquet reader error".into(),
-                    format!("{e:?}"),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Parquet reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 

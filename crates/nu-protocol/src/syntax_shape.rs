@@ -1,10 +1,14 @@
+use crate::{DeclId, Type};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
-
-use crate::{DeclId, Type};
-
-/// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
+/// The syntactic shapes that describe how a sequence should be parsed.
+///
+/// This extends beyond [`Type`] which describes how [`Value`](crate::Value)s are represented.
+/// `SyntaxShape`s can describe the parsing rules for arguments to a command.
+/// e.g. [`SyntaxShape::GlobPattern`]/[`SyntaxShape::Filepath`] serve the completer,
+/// but don't have an associated [`Value`](crate::Value)
+/// There are additional `SyntaxShape`s that only make sense in particular expressions or keywords
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxShape {
     /// Any syntactic form is allowed
@@ -25,14 +29,11 @@ pub enum SyntaxShape {
     /// A closure is allowed, eg `{|| start this thing}`
     Closure(Option<Vec<SyntaxShape>>),
 
-    /// A custom shape with custom completion logic
-    Custom(Box<SyntaxShape>, DeclId),
+    /// A [`SyntaxShape`] with custom completion logic
+    CompleterWrapper(Box<SyntaxShape>, DeclId),
 
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
-
-    /// A decimal value, eg `1.0`
-    Decimal,
 
     /// A directory is allowed
     Directory,
@@ -52,7 +53,12 @@ pub enum SyntaxShape {
     /// A filesize value is allowed, eg `10kb`
     Filesize,
 
-    /// A dotted path to navigate the table (including variable)
+    /// A floating point value, eg `1.0`
+    Float,
+
+    /// A dotted path including the variable to access items
+    ///
+    /// Fully qualified
     FullCellPath,
 
     /// A glob pattern is allowed, eg `foo*`
@@ -76,13 +82,10 @@ pub enum SyntaxShape {
     /// A block of matches, used by `match`
     MatchBlock,
 
-    /// A match pattern, eg `{a: $foo}`
-    MatchPattern,
-
     /// Nothing
     Nothing,
 
-    /// Only a numeric (integer or decimal) value is allowed
+    /// Only a numeric (integer or float) value is allowed
     Number,
 
     /// One of a list of possible items, checked in order
@@ -113,14 +116,21 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table(Vec<(String, SyntaxShape)>),
 
-    /// A variable name, eg `$foo`
-    Variable,
-
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
 }
 
 impl SyntaxShape {
+    /// If possible provide the associated concrete [`Type`]
+    ///
+    /// Note: Some [`SyntaxShape`]s don't have a corresponding [`Value`](crate::Value)
+    /// Here we currently return [`Type::Any`]
+    ///
+    /// ```rust
+    /// use nu_protocol::{SyntaxShape, Type};
+    /// let non_value = SyntaxShape::ImportPattern;
+    /// assert_eq!(non_value.to_type(), Type::Any);
+    /// ```
     pub fn to_type(&self) -> Type {
         let mk_ty = |tys: &[(String, SyntaxShape)]| {
             tys.iter()
@@ -134,13 +144,13 @@ impl SyntaxShape {
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
-            SyntaxShape::Custom(custom, _) => custom.to_type(),
+            SyntaxShape::CompleterWrapper(inner, _) => inner.to_type(),
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
             SyntaxShape::Filepath => Type::String,
             SyntaxShape::Directory => Type::String,
-            SyntaxShape::Decimal => Type::Float,
+            SyntaxShape::Float => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
@@ -153,7 +163,6 @@ impl SyntaxShape {
             }
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
             SyntaxShape::MatchBlock => Type::Any,
-            SyntaxShape::MatchPattern => Type::Any,
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Nothing => Type::Nothing,
             SyntaxShape::Number => Type::Number,
@@ -168,7 +177,6 @@ impl SyntaxShape {
             SyntaxShape::RawString => Type::RawString,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
-            SyntaxShape::Variable => Type::Any,
         }
     }
 }
@@ -189,12 +197,12 @@ impl Display for SyntaxShape {
             SyntaxShape::Any => write!(f, "any"),
             SyntaxShape::String => write!(f, "string"),
             SyntaxShape::RawString => write!(f, "rawstring"),
-            SyntaxShape::CellPath => write!(f, "cellpath"),
-            SyntaxShape::FullCellPath => write!(f, "cellpath"),
+            SyntaxShape::CellPath => write!(f, "cell-path"),
+            SyntaxShape::FullCellPath => write!(f, "cell-path"),
             SyntaxShape::Number => write!(f, "number"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
-            SyntaxShape::Decimal => write!(f, "decimal"),
+            SyntaxShape::Float => write!(f, "float"),
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
@@ -231,15 +239,13 @@ impl Display for SyntaxShape {
             SyntaxShape::Operator => write!(f, "operator"),
             SyntaxShape::RowCondition => write!(f, "condition"),
             SyntaxShape::MathExpression => write!(f, "variable"),
-            SyntaxShape::Variable => write!(f, "var"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
-            SyntaxShape::MatchPattern => write!(f, "matchpattern"),
-            SyntaxShape::MatchBlock => write!(f, "matchblock"),
+            SyntaxShape::MatchBlock => write!(f, "match-block"),
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::Custom(x, _) => write!(f, "custom<{x}>"),
+            SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
             SyntaxShape::OneOf(list) => {
                 let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
                 let arg_string = arg_vec.join(", ");

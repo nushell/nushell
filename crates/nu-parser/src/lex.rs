@@ -8,8 +8,11 @@ pub enum TokenContents {
     PipePipe,
     Semicolon,
     OutGreaterThan,
+    OutGreaterGreaterThan,
     ErrGreaterThan,
+    ErrGreaterGreaterThan,
     OutErrGreaterThan,
+    OutErrGreaterGreaterThan,
     Eol,
 }
 
@@ -254,57 +257,59 @@ pub fn lex_item(
         );
     }
 
-    match &input[(span.start - span_offset)..(span.end - span_offset)] {
-        b"out>" | b"o>" => (
-            Token {
-                contents: TokenContents::OutGreaterThan,
-                span,
-            },
-            None,
-        ),
-        b"err>" | b"e>" => (
-            Token {
-                contents: TokenContents::ErrGreaterThan,
-                span,
-            },
-            None,
-        ),
-        b"out+err>" | b"err+out>" | b"o+e>" | b"e+o>" => (
-            Token {
-                contents: TokenContents::OutErrGreaterThan,
-                span,
-            },
-            None,
-        ),
-        b"&&" => (
-            Token {
-                contents: TokenContents::Item,
-                span,
-            },
-            Some(ParseError::ShellAndAnd(span)),
-        ),
-        b"2>" => (
+    let mut err = None;
+    let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
+        b"out>" | b"o>" => Token {
+            contents: TokenContents::OutGreaterThan,
+            span,
+        },
+        b"out>>" | b"o>>" => Token {
+            contents: TokenContents::OutGreaterGreaterThan,
+            span,
+        },
+        b"err>" | b"e>" => Token {
+            contents: TokenContents::ErrGreaterThan,
+            span,
+        },
+        b"err>>" | b"e>>" => Token {
+            contents: TokenContents::ErrGreaterGreaterThan,
+            span,
+        },
+        b"out+err>" | b"err+out>" | b"o+e>" | b"e+o>" => Token {
+            contents: TokenContents::OutErrGreaterThan,
+            span,
+        },
+        b"out+err>>" | b"err+out>>" | b"o+e>>" | b"e+o>>" => Token {
+            contents: TokenContents::OutErrGreaterGreaterThan,
+            span,
+        },
+        b"&&" => {
+            err = Some(ParseError::ShellAndAnd(span));
             Token {
                 contents: TokenContents::Item,
                 span,
-            },
-            Some(ParseError::ShellErrRedirect(span)),
-        ),
-        b"2>&1" => (
+            }
+        }
+        b"2>" => {
+            err = Some(ParseError::ShellErrRedirect(span));
             Token {
                 contents: TokenContents::Item,
                 span,
-            },
-            Some(ParseError::ShellOutErrRedirect(span)),
-        ),
-        _ => (
+            }
+        }
+        b"2>&1" => {
+            err = Some(ParseError::ShellOutErrRedirect(span));
             Token {
                 contents: TokenContents::Item,
                 span,
-            },
-            None,
-        ),
-    }
+            }
+        }
+        _ => Token {
+            contents: TokenContents::Item,
+            span,
+        },
+    };
+    (output, err)
 }
 
 pub fn lex_signature(

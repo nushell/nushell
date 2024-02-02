@@ -4,12 +4,15 @@ pub mod cli_error;
 pub mod config;
 mod did_you_mean;
 pub mod engine;
+pub mod eval_base;
+pub mod eval_const;
 mod example;
 mod exportable;
 mod id;
 mod lev_distance;
 mod module;
 mod parse_error;
+mod parse_warning;
 mod pipeline_data;
 #[cfg(feature = "plugin")]
 mod plugin_signature;
@@ -33,6 +36,7 @@ pub use id::*;
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
 pub use parse_error::{DidYouMean, ParseError};
+pub use parse_warning::ParseWarning;
 pub use pipeline_data::*;
 #[cfg(feature = "plugin")]
 pub use plugin_signature::*;

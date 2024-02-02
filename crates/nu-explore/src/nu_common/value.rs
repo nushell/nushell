@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_protocol::{ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
+use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
 
 use super::NuSpan;
 
@@ -17,7 +17,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
             metadata,
             span,
             ..
-        } => collect_external_stream(stdout, stderr, exit_code, metadata.map(|m| *m), span),
+        } => collect_external_stream(stdout, stderr, exit_code, metadata, span),
     }
 }
 
@@ -52,9 +52,7 @@ fn collect_external_stream(
     let mut data = vec![];
     if let Some(stdout) = stdout {
         let value = stdout.into_string().map_or_else(
-            |error| Value::Error {
-                error: Box::new(error),
-            },
+            |error| Value::error(error, span),
             |string| Value::string(string.item, span),
         );
 
@@ -63,9 +61,7 @@ fn collect_external_stream(
     }
     if let Some(stderr) = stderr {
         let value = stderr.into_string().map_or_else(
-            |error| Value::Error {
-                error: Box::new(error),
-            },
+            |error| Value::error(error, span),
             |string| Value::string(string.item, span),
         );
 
@@ -74,20 +70,13 @@ fn collect_external_stream(
     }
     if let Some(exit_code) = exit_code {
         let list = exit_code.collect::<Vec<_>>();
-        let val = Value::List { vals: list, span };
+        let val = Value::list(list, span);
 
         columns.push(String::from("exit_code"));
         data.push(val);
     }
     if metadata.is_some() {
-        let val = Value::Record {
-            cols: vec![String::from("data_source")],
-            vals: vec![Value::String {
-                val: String::from("ls"),
-                span,
-            }],
-            span,
-        };
+        let val = Value::record(record! { "data_source" => Value::string("ls", span) }, span);
 
         columns.push(String::from("metadata"));
         data.push(val);
@@ -97,8 +86,12 @@ fn collect_external_stream(
 
 /// Try to build column names and a table grid.
 pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
+    let span = value.span();
     match value {
-        Value::Record { cols, vals, .. } => (cols, vec![vals]),
+        Value::Record { val: record, .. } => {
+            let (key, val) = record.into_iter().unzip();
+            (key, vec![val])
+        }
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
@@ -109,23 +102,20 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (columns, data)
         }
-        Value::String { val, span } => {
+        Value::String { val, .. } => {
             let lines = val
                 .lines()
-                .map(|line| Value::String {
-                    val: line.to_string(),
-                    span,
-                })
+                .map(|line| Value::string(line, span))
                 .map(|val| vec![val])
                 .collect();
 
             (vec![String::from("")], lines)
         }
-        Value::LazyRecord { val, span } => match val.collect() {
+        Value::LazyRecord { val, .. } => match val.collect() {
             Ok(value) => collect_input(value),
             Err(_) => (
                 vec![String::from("")],
-                vec![vec![Value::LazyRecord { val, span }]],
+                vec![vec![Value::lazy_record(val, span)]],
             ),
         },
         Value::Nothing { .. } => (vec![], vec![]),
@@ -133,7 +123,7 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     }
 }
 
-fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<Value>> {
+fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<Value>> {
     if !cols.is_empty() {
         create_table_for_record(cols, &records)
     } else if cols.is_empty() && records.is_empty() {
@@ -163,62 +153,31 @@ fn create_table_for_record(headers: &[String], items: &[Value]) -> Vec<Vec<Value
 }
 
 fn record_create_row(headers: &[String], item: &Value) -> Vec<Value> {
-    let mut rows = vec![Value::default(); headers.len()];
-
-    for (i, header) in headers.iter().enumerate() {
-        let value = record_lookup_value(item, header);
-        rows[i] = value;
-    }
-
-    rows
-}
-
-fn record_lookup_value(item: &Value, header: &str) -> Value {
-    match item {
-        Value::Record { .. } => {
-            let path = PathMember::String {
-                val: header.to_owned(),
-                span: NuSpan::unknown(),
-                optional: false,
-            };
-
-            item.clone()
-                .follow_cell_path(&[path], false)
-                .unwrap_or_else(|_| unknown_error_value())
-        }
-        item => item.clone(),
+    if let Value::Record { val, .. } = item {
+        headers
+            .iter()
+            .map(|col| val.get(col).cloned().unwrap_or_else(unknown_error_value))
+            .collect()
+    } else {
+        // should never reach here due to `get_columns` above which will return
+        // empty columns if any value in the list is not a record
+        vec![Value::default(); headers.len()]
     }
 }
 
 pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
-    let (cols, inner_vals) = value.as_record().ok()?;
-
-    let mut hm: HashMap<String, Value> = HashMap::new();
-    for (k, v) in cols.iter().zip(inner_vals) {
-        hm.insert(k.to_string(), v.clone());
-    }
-
-    Some(hm)
+    Some(
+        value
+            .as_record()
+            .ok()?
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+    )
 }
 
 pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
-    let mut columns = Vec::with_capacity(hm.len());
-    let mut values = Vec::with_capacity(hm.len());
-
-    for (key, value) in hm {
-        columns.push(key);
-        values.push(value);
-    }
-
-    Value::Record {
-        cols: columns,
-        vals: values,
-        span: NuSpan::unknown(),
-    }
-}
-
-pub fn nu_str<S: AsRef<str>>(s: S) -> Value {
-    Value::string(s.as_ref().to_owned(), NuSpan::unknown())
+    Value::record(hm.into_iter().collect(), NuSpan::unknown())
 }
 
 fn unknown_error_value() -> Value {

@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
+use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct ReplaceAll;
@@ -44,16 +44,19 @@ impl Command for ReplaceAll {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Replaces string",
-            example: "[abac abac abac] | dfr into-df | dfr replace-all -p a -r A",
+            example: "[abac abac abac] | dfr into-df | dfr replace-all --pattern a --replace A",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("AbAc"),
-                        Value::test_string("AbAc"),
-                        Value::test_string("AbAc"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("AbAc"),
+                            Value::test_string("AbAc"),
+                            Value::test_string("AbAc"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -86,25 +89,24 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
-    let chunked = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "Error conversion to string".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let chunked = series.str().map_err(|e| ShellError::GenericError {
+        error: "Error conversion to string".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
-    let mut res = chunked.replace_all(&pattern, &replace).map_err(|e| {
-        ShellError::GenericError(
-            "Error finding pattern other".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let mut res =
+        chunked
+            .replace_all(&pattern, &replace)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error finding pattern other".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
 
     res.rename(series.name());
 

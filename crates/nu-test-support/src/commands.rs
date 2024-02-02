@@ -23,7 +23,7 @@ pub fn ensure_plugins_built() {
     let cargo_path = env!("CARGO");
     let mut arguments = vec!["build", "--package", "nu_plugin_*", "--quiet"];
 
-    let profile = std::env::var("NUSHELL_CARGO_TARGET");
+    let profile = std::env::var("NUSHELL_CARGO_PROFILE");
     if let Ok(profile) = &profile {
         arguments.push("--profile");
         arguments.push(profile);

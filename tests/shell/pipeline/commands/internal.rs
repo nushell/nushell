@@ -5,31 +5,25 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
-    Playground::setup("internal_to_external_pipe_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-                JT,1,New Zealand
-                Andrés,1,Ecuador
-                AndKitKatz,1,Estados Unidos
-            ",
-        )]);
+    let sample = r#"
+                [[name, rusty_luck, origin];
+                 [Jason, 1, Canada],
+                 [JT, 1, "New Zealand"],
+                 [Andrés, 1, Ecuador],
+                 [AndKitKatz, 1, "Estados Unidos"]]
+            "#;
 
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
+    let actual = nu!(pipeline(&format!(
         "
-            open nu_times.csv
+            {sample}
             | get origin
-            | each { |it| nu --testbin cococo $it | nu --testbin chop }
+            | each {{ |it| nu --testbin cococo $it | nu --testbin chop }}
             | get 2
             "
-        ));
+    )));
 
-        // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Ecuado");
-    })
+    // chop will remove the last escaped double quote from \"Estados Unidos\"
+    assert_eq!(actual.out, "Ecuado");
 }
 
 #[test]
@@ -111,7 +105,7 @@ fn subexpression_handles_dot() {
         ));
 
         assert_eq!(actual.out, "AndKitKat");
-    })
+    });
 }
 
 #[test]
@@ -561,7 +555,7 @@ fn index_out_of_bounds() {
 }
 
 #[test]
-fn negative_decimal_start() {
+fn negative_float_start() {
     let actual = nu!("
             -1.3 + 4
         ");
@@ -1117,4 +1111,13 @@ fn pipe_input_to_print() {
     let actual = nu!(r#""foo" | print"#);
     assert_eq!(actual.out, "foo");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn command_not_found_error_shows_not_found_2() {
+    let actual = nu!(r#"
+            export def --wrapped my-foo [...rest] { foo };
+            my-foo
+        "#);
+    assert!(actual.err.contains("did you mean"));
 }

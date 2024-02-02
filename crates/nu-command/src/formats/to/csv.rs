@@ -44,7 +44,7 @@ impl Command for ToCsv {
             },
             Example {
                 description: "Outputs an CSV string representing the contents of this table",
-                example: "[[foo bar]; [1 2]] | to csv -s ';' ",
+                example: "[[foo bar]; [1 2]] | to csv --separator ';' ",
                 result: Some(Value::test_string("foo;bar\n1;2\n")),
             },
             Example {
@@ -67,7 +67,7 @@ impl Command for ToCsv {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let noheaders = call.has_flag("noheaders");
+        let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
         let config = engine_state.get_config();
         to_csv(input, noheaders, separator, head, config)

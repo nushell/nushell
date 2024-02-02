@@ -1,9 +1,9 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::IntoPipelineData;
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -24,6 +24,11 @@ impl Command for Commandline {
                 "cursor",
                 "Set or get the current cursor position",
                 Some('c'),
+            )
+            .switch(
+                "cursor-end",
+                "Set the current cursor position to the end of the buffer",
+                Some('e'),
             )
             .switch(
                 "append",
@@ -66,7 +71,7 @@ impl Command for Commandline {
         if let Some(cmd) = call.opt::<Value>(engine_state, stack, 0)? {
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
-            if call.has_flag("cursor") {
+            if call.has_flag(engine_state, stack, "cursor")? {
                 let cmd_str = cmd.as_string()?;
                 match cmd_str.parse::<i64>() {
                     Ok(n) => {
@@ -84,16 +89,16 @@ impl Command for Commandline {
                         return Err(ShellError::CantConvert {
                             to_type: "int".to_string(),
                             from_type: "string".to_string(),
-                            span: cmd.span()?,
+                            span: cmd.span(),
                             help: Some(format!(
-                                r#"string "{cmd_str}" does not represent a valid integer"#
+                                r#"string "{cmd_str}" does not represent a valid int"#
                             )),
                         })
                     }
                 }
-            } else if call.has_flag("append") {
+            } else if call.has_flag(engine_state, stack, "append")? {
                 repl.buffer.push_str(&cmd.as_string()?);
-            } else if call.has_flag("insert") {
+            } else if call.has_flag(engine_state, stack, "insert")? {
                 let cmd_str = cmd.as_string()?;
                 let cursor_pos = repl.cursor_pos;
                 repl.buffer.insert_str(cursor_pos, &cmd_str);
@@ -102,27 +107,22 @@ impl Command for Commandline {
                 repl.buffer = cmd.as_string()?;
                 repl.cursor_pos = repl.buffer.len();
             }
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            let repl = engine_state.repl_state.lock().expect("repl state mutex");
-            if call.has_flag("cursor") {
+            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+            if call.has_flag(engine_state, stack, "cursor-end")? {
+                repl.cursor_pos = repl.buffer.len();
+                Ok(Value::nothing(call.head).into_pipeline_data())
+            } else if call.has_flag(engine_state, stack, "cursor")? {
                 let char_pos = repl
                     .buffer
                     .grapheme_indices(true)
                     .chain(std::iter::once((repl.buffer.len(), "")))
                     .position(|(i, _c)| i == repl.cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
-                Ok(Value::String {
-                    val: char_pos.to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::string(char_pos.to_string(), call.head).into_pipeline_data())
             } else {
-                Ok(Value::String {
-                    val: repl.buffer.to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::string(repl.buffer.to_string(), call.head).into_pipeline_data())
             }
         }
     }

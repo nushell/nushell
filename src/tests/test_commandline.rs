@@ -124,6 +124,14 @@ fn commandline_test_cursor_invalid() -> TestResult {
     fail_test(
         "commandline --replace '123456'\n\
         commandline --cursor 'abc'",
-        r#"string "abc" does not represent a valid integer"#,
+        r#"string "abc" does not represent a valid int"#,
+    )
+}
+
+#[test]
+fn commandline_test_cursor_end() -> TestResult {
+    run_test(
+        "commandline --insert '🤔🤔'; commandline --cursor-end; commandline --cursor",
+        "2", // 2 graphemes
     )
 }

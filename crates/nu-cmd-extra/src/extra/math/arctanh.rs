@@ -61,36 +61,40 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span) -> Value {
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+            let span = numeric.span();
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                Value::Int { val, .. } => (val as f64, span),
+                Value::Float { val, .. } => (val, span),
                 _ => unreachable!(),
             };
 
             if (-1.0..=1.0).contains(&val) {
                 let val = val.atanh();
 
-                Value::Float { val, span }
+                Value::float(val, span)
             } else {
-                Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        "'arctanh' undefined for values outside the open interval (-1, 1).".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )),
-                }
+                Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "'arctanh' undefined for values outside the open interval (-1, 1)."
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
+                    head,
+                )
             }
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

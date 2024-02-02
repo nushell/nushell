@@ -1,6 +1,6 @@
 use csv::{Writer, WriterBuilder};
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
-use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{Config, IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
 use std::collections::VecDeque;
 use std::error::Error;
 
@@ -10,20 +10,18 @@ fn from_value_to_delimited_string(
     config: &Config,
     head: Span,
 ) -> Result<String, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { cols, vals, span } => {
-            record_to_delimited(cols, vals, *span, separator, config, head)
-        }
-        Value::List { vals, span } => table_to_delimited(vals, *span, separator, config, head),
+        Value::Record { val, .. } => record_to_delimited(val, span, separator, config, head),
+        Value::List { vals, .. } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(*error.clone()),
-        v => Err(make_unsupported_input_error(v, head, v.expect_span())),
+        Value::Error { error, .. } => Err(*error.clone()),
+        v => Err(make_unsupported_input_error(v, head, v.span())),
     }
 }
 
 fn record_to_delimited(
-    cols: &[String],
-    vals: &[Value],
+    record: &Record,
     span: Span,
     separator: char,
     config: &Config,
@@ -35,7 +33,7 @@ fn record_to_delimited(
     let mut fields: VecDeque<String> = VecDeque::new();
     let mut values: VecDeque<String> = VecDeque::new();
 
-    for (k, v) in cols.iter().zip(vals.iter()) {
+    for (k, v) in record {
         fields.push_back(k.clone());
 
         values.push_back(to_string_tagged_value(v, config, head, span)?);
@@ -48,7 +46,7 @@ fn record_to_delimited(
 }
 
 fn table_to_delimited(
-    vals: &Vec<Value>,
+    vals: &[Value],
     span: Span,
     separator: char,
     config: &Config,
@@ -77,14 +75,17 @@ fn table_to_delimited(
             .expect("can not write.");
 
         for l in vals {
-            let mut row = vec![];
-            for desc in &merged_descriptors {
-                row.push(match l.to_owned().get_data_by_key(desc) {
-                    Some(s) => to_string_tagged_value(&s, config, head, span)?,
-                    None => String::new(),
-                });
+            // should always be true because of `find_non_record` above
+            if let Value::Record { val: l, .. } = l {
+                let mut row = vec![];
+                for desc in &merged_descriptors {
+                    row.push(match l.get(desc) {
+                        Some(s) => to_string_tagged_value(s, config, head, span)?,
+                        None => String::new(),
+                    });
+                }
+                wtr.write_record(&row).expect("can not write");
             }
-            wtr.write_record(&row).expect("can not write");
         }
     }
     writer_to_string(wtr).map_err(|_| make_conversion_error("table", span))
@@ -122,18 +123,18 @@ fn to_string_tagged_value(
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
-        Value::Error { error } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(make_unsupported_input_error(v, head, span)),
     }
 }
 
 fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellError {
-    ShellError::UnsupportedInput(
-        "Unexpected type".to_string(),
-        format!("input type: {:?}", value.get_type()),
-        head,
-        span,
-    )
+    ShellError::UnsupportedInput {
+        msg: "Unexpected type".to_string(),
+        input: format!("input type: {:?}", value.get_type()),
+        msg_span: head,
+        input_span: span,
+    }
 }
 
 pub fn find_non_record(values: &[Value]) -> Option<&Value> {
@@ -164,7 +165,7 @@ pub fn to_delimited_data(
         Err(_) => Err(ShellError::CantConvert {
             to_type: format_name.into(),
             from_type: value.get_type().to_string(),
-            span: value.span().unwrap_or(span),
+            span: value.span(),
             help: None,
         }),
     }?;

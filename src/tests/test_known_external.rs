@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 
 // cargo version prints a string of the form:
@@ -35,6 +37,20 @@ fn known_external_subcommand_alias() -> TestResult {
 fn known_external_complex_unknown_args() -> TestResult {
     run_test_contains(
         "extern echo []; echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+    )
+}
+
+#[test]
+fn known_external_from_module() -> TestResult {
+    run_test_contains(
+        r#"module spam {
+            export extern echo []
+        }
+
+        use spam echo
+        echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        "#,
         "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
     )
 }
@@ -83,8 +99,8 @@ fn known_external_misc_values() -> TestResult {
     run_test(
         r#"
             let x = 'abc'
-            extern echo []
-            echo $x [ a b c ]
+            extern echo [...args]
+            echo $x ...[ a b c ]
         "#,
         "abc a b c",
     )
@@ -93,7 +109,8 @@ fn known_external_misc_values() -> TestResult {
 /// GitHub issue #7822
 #[test]
 fn known_external_subcommand_from_module() -> TestResult {
-    run_test_contains(
+    let output = Command::new("cargo").arg("check").arg("-h").output()?;
+    run_test(
         r#"
             module cargo {
                 export extern check []
@@ -101,14 +118,15 @@ fn known_external_subcommand_from_module() -> TestResult {
             use cargo;
             cargo check -h
         "#,
-        "cargo check",
+        String::from_utf8(output.stdout)?.trim(),
     )
 }
 
 /// GitHub issue #7822
 #[test]
 fn known_external_aliased_subcommand_from_module() -> TestResult {
-    run_test_contains(
+    let output = Command::new("cargo").arg("check").arg("-h").output()?;
+    run_test(
         r#"
             module cargo {
                 export extern check []
@@ -117,6 +135,6 @@ fn known_external_aliased_subcommand_from_module() -> TestResult {
             alias cc = cargo check;
             cc -h
         "#,
-        "cargo check",
+        String::from_utf8(output.stdout)?.trim(),
     )
 }

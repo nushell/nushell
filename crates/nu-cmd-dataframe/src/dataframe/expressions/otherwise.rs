@@ -15,7 +15,7 @@ impl Command for ExprOtherwise {
     }
 
     fn usage(&self) -> &str {
-        "completes a when expression."
+        "Completes a when expression."
     }
 
     fn signature(&self) -> Signature {
@@ -54,24 +54,27 @@ impl Command for ExprOtherwise {
      )
    | dfr collect"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(6), Value::test_int(1), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4), Value::test_int(1)],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![Value::test_int(4), Value::test_int(5), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "d".to_string(),
-                            vec![Value::test_int(10), Value::test_int(6), Value::test_int(0)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(6), Value::test_int(1), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4), Value::test_int(1)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(4), Value::test_int(5), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "d".to_string(),
+                                vec![Value::test_int(10), Value::test_int(6), Value::test_int(0)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -95,10 +98,8 @@ impl Command for ExprOtherwise {
 
         let value = input.into_value(call.head);
         let complete: NuExpression = match NuWhen::try_from_value(value)? {
-            NuWhen::WhenThen(when_then) => when_then
-                .otherwise(otherwise_predicate.into_polars())
-                .into(),
-            NuWhen::WhenThenThen(when_then_then) => when_then_then
+            NuWhen::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
+            NuWhen::ChainedThen(chained_when) => chained_when
                 .otherwise(otherwise_predicate.into_polars())
                 .into(),
         };

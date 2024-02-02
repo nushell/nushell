@@ -46,7 +46,7 @@ fn def_errors_with_no_space_between_params_and_name_1() {
 
 #[test]
 fn def_errors_with_no_space_between_params_and_name_2() {
-    let actual = nu!("def-env test-command() {}");
+    let actual = nu!("def --env test-command() {}");
 
     assert!(actual.err.contains("expected space"));
 }
@@ -157,10 +157,138 @@ fn def_with_paren_params() {
 }
 
 #[test]
-fn extern_with_block() {
+fn def_default_value_shouldnt_restrict_explicit_type() {
+    let actual = nu!("def foo [x: any = null] { $x }; foo 1");
+    assert_eq!(actual.out, "1");
+    let actual2 = nu!("def foo [--x: any = null] { $x }; foo --x 1");
+    assert_eq!(actual2.out, "1");
+}
+
+#[test]
+fn def_default_value_should_restrict_implicit_type() {
+    let actual = nu!("def foo [x = 3] { $x }; foo 3.0");
+    assert!(actual.err.contains("expected int"));
+    let actual2 = nu!("def foo2 [--x = 3] { $x }; foo2 --x 3.0");
+    assert!(actual2.err.contains("expected int"));
+}
+
+#[test]
+fn def_wrapped_with_block() {
     let actual = nu!(
-        "extern-wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
+        "def --wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
     );
 
     assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
+}
+
+#[test]
+fn def_wrapped_from_module() {
+    let actual = nu!(r#"module spam {
+            export def --wrapped my-echo [...rest] { nu --testbin cococo ...$rest }
+        }
+
+        use spam
+        spam my-echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        "#);
+
+    assert!(actual
+        .out
+        .contains("foo -b -as -9 --abc -- -Dxmy=AKOO - bar"));
+}
+
+#[test]
+fn def_cursed_env_flag_positions() {
+    let actual = nu!("def spam --env [] { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("def spam --env []: nothing -> nothing { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+#[ignore = "TODO: Investigate why it's not working, it might be the signature parsing"]
+fn def_cursed_env_flag_positions_2() {
+    let actual = nu!("def spam [] --env { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual = nu!("def spam [] { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("def spam []: nothing -> nothing { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn export_def_cursed_env_flag_positions() {
+    let actual = nu!("export def spam --env [] { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("export def spam --env []: nothing -> nothing { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+#[ignore = "TODO: Investigate why it's not working, it might be the signature parsing"]
+fn export_def_cursed_env_flag_positions_2() {
+    let actual = nu!("export def spam [] --env { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual = nu!("export def spam [] { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("export def spam []: nothing -> nothing { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn def_cursed_wrapped_flag_positions() {
+    let actual = nu!("def spam --wrapped [...rest] { $rest.0 }; spam --foo");
+    assert_eq!(actual.out, "--foo");
+
+    let actual = nu!("def spam --wrapped [...rest]: nothing -> nothing { $rest.0 }; spam --foo");
+    assert_eq!(actual.out, "--foo");
+}
+
+#[test]
+#[ignore = "TODO: Investigate why it's not working, it might be the signature parsing"]
+fn def_cursed_wrapped_flag_positions_2() {
+    let actual = nu!("def spam [...rest] --wrapped { $rest.0 }; spam --foo");
+    assert_eq!(actual.out, "--foo");
+
+    let actual = nu!("def spam [...rest] { $rest.0 } --wrapped; spam --foo");
+    assert_eq!(actual.out, "--foo");
+
+    let actual = nu!("def spam [...rest]: nothing -> nothing { $rest.0 } --wrapped; spam --foo");
+    assert_eq!(actual.out, "--foo");
+}
+
+#[test]
+fn def_wrapped_missing_rest_error() {
+    let actual = nu!("def --wrapped spam [] {}");
+    assert!(actual.err.contains("missing_positional"))
+}
+
+#[test]
+fn def_wrapped_wrong_rest_type_error() {
+    let actual = nu!("def --wrapped spam [...eggs: list<string>] { $eggs }");
+    assert!(actual.err.contains("type_mismatch_help"));
+    assert!(actual.err.contains("of ...eggs to 'string'"));
+}
+
+#[test]
+fn def_env_wrapped() {
+    let actual = nu!(
+        "def --env --wrapped spam [...eggs: string] { $env.SPAM = $eggs.0 }; spam bacon; $env.SPAM"
+    );
+    assert_eq!(actual.out, "bacon");
+}
+
+#[test]
+fn def_env_wrapped_no_help() {
+    let actual = nu!("def --wrapped foo [...rest] { echo $rest }; foo -h | to json --raw");
+    assert_eq!(actual.out, r#"["-h"]"#);
 }

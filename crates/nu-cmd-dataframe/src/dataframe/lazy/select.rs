@@ -37,10 +37,13 @@ impl Command for LazySelect {
             description: "Select a column from the dataframe",
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr select a",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(6), Value::test_int(4), Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(6), Value::test_int(4), Value::test_int(2)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -55,10 +58,7 @@ impl Command for LazySelect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;

@@ -82,7 +82,7 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -91,28 +91,26 @@ impl Command for SubCommand {
 
         let output: Result<String, ShellError> = input
             .into_iter()
-            .map(move |value| match value {
-                Value::Record {
-                    ref cols,
-                    ref vals,
-                    span,
-                } => {
-                    let url_components = cols
-                        .iter()
-                        .zip(vals.iter())
-                        .try_fold(UrlComponents::new(), |url, (k, v)| {
-                            url.add_component(k.clone(), v.clone(), span)
-                        });
+            .map(move |value| {
+                let span = value.span();
+                match value {
+                    Value::Record { val, .. } => {
+                        let url_components = val
+                            .into_iter()
+                            .try_fold(UrlComponents::new(), |url, (k, v)| {
+                                url.add_component(k, v, span, engine_state)
+                            });
 
-                    url_components?.to_url(span)
+                        url_components?.to_url(span)
+                    }
+                    Value::Error { error, .. } => Err(*error),
+                    other => Err(ShellError::UnsupportedInput {
+                        msg: "Expected a record from pipeline".to_string(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: other.span(),
+                    }),
                 }
-                Value::Error { error } => Err(*error),
-                other => Err(ShellError::UnsupportedInput(
-                    "Expected a record from pipeline".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    other.expect_span(),
-                )),
             })
             .collect();
 
@@ -139,10 +137,17 @@ impl UrlComponents {
         Default::default()
     }
 
-    pub fn add_component(self, key: String, value: Value, _span: Span) -> Result<Self, ShellError> {
+    pub fn add_component(
+        self,
+        key: String,
+        value: Value,
+        span: Span,
+        engine_state: &EngineState,
+    ) -> Result<Self, ShellError> {
+        let value_span = value.span();
         if key == "port" {
             return match value {
-                Value::String { val, span } => {
+                Value::String { val, .. } => {
                     if val.trim().is_empty() {
                         Ok(self)
                     } else {
@@ -153,37 +158,32 @@ impl UrlComponents {
                             }),
                             Err(_) => Err(ShellError::IncompatibleParametersSingle {
                                 msg: String::from(
-                                    "Port parameter should represent an unsigned integer",
+                                    "Port parameter should represent an unsigned int",
                                 ),
-                                span,
+                                span: value_span,
                             }),
                         }
                     }
                 }
-                Value::Int { val, span: _ } => Ok(Self {
+                Value::Int { val, .. } => Ok(Self {
                     port: Some(val),
                     ..self
                 }),
-                Value::Error { error } => Err(*error),
+                Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from(
-                        "Port parameter should be an unsigned integer or a string representing it",
+                        "Port parameter should be an unsigned int or a string representing it",
                     ),
-                    span: other.expect_span(),
+                    span: other.span(),
                 }),
             };
         }
 
         if key == "params" {
             return match value {
-                Value::Record {
-                    ref cols,
-                    ref vals,
-                    span,
-                } => {
-                    let mut qs = cols
+                Value::Record { ref val, .. } => {
+                    let mut qs = val
                         .iter()
-                        .zip(vals.iter())
                         .map(|(k, v)| match v.as_string() {
                             Ok(val) => Ok(format!("{k}={val}")),
                             Err(err) => Err(err),
@@ -202,7 +202,7 @@ impl UrlComponents {
                             // if query is present it means that also query_span is set.
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("Mismatch, qs from params is: {qs}"),
-                                left_span: value.expect_span(),
+                                left_span: value.span(),
                                 right_message: format!("instead query is: {q}"),
                                 right_span: self.query_span.unwrap_or(Span::unknown()),
                             });
@@ -211,92 +211,117 @@ impl UrlComponents {
 
                     Ok(Self {
                         query: Some(qs),
-                        params_span: Some(span),
+                        params_span: Some(value_span),
                         ..self
                     })
                 }
-                Value::Error { error } => Err(*error),
+                Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from("Key params has to be a record"),
-                    span: other.expect_span(),
+                    span: other.span(),
                 }),
             };
         }
 
-        // a part from port and params all other keys are strings.
-        match value.as_string() {
-            Ok(s) => {
-                if s.trim().is_empty() {
-                    Ok(self)
+        // apart from port and params all other keys are strings.
+        let s = value.as_string()?; // If value fails String conversion, just output this ShellError
+        if !Self::check_empty_string_ok(&key, &s, value_span)? {
+            return Ok(self);
+        }
+        match key.as_str() {
+            "host" => Ok(Self {
+                host: Some(s),
+                ..self
+            }),
+            "scheme" => Ok(Self {
+                scheme: Some(s),
+                ..self
+            }),
+            "username" => Ok(Self {
+                username: Some(s),
+                ..self
+            }),
+            "password" => Ok(Self {
+                password: Some(s),
+                ..self
+            }),
+            "path" => Ok(Self {
+                path: Some(if s.starts_with('/') {
+                    s
                 } else {
-                    match key.as_str() {
-                        "host" => Ok(Self {
-                            host: Some(s),
-                            ..self
-                        }),
-                        "scheme" => Ok(Self {
-                            scheme: Some(s),
-                            ..self
-                        }),
-                        "username" => Ok(Self {
-                            username: Some(s),
-                            ..self
-                        }),
-                        "password" => Ok(Self {
-                            password: Some(s),
-                            ..self
-                        }),
-                        "path" => Ok(Self {
-                            path: Some(if s.starts_with('/') {
-                                s
-                            } else {
-                                format!("/{s}")
-                            }),
-                            ..self
-                        }),
-                        "query" => {
-                            if let Some(q) = self.query {
-                                if q != s {
-                                    // if query is present it means that also params_span is set.
-                                    return Err(ShellError::IncompatibleParameters {
-                                        left_message: format!("Mismatch, query param is: {s}"),
-                                        left_span: value.expect_span(),
-                                        right_message: format!("instead qs from params is: {q}"),
-                                        right_span: self.params_span.unwrap_or(Span::unknown()),
-                                    });
-                                }
-                            }
-
-                            Ok(Self {
-                                query: Some(format!("?{s}")),
-                                query_span: Some(value.expect_span()),
-                                ..self
-                            })
-                        }
-                        "fragment" => Ok(Self {
-                            fragment: Some(if s.starts_with('#') {
-                                s
-                            } else {
-                                format!("#{s}")
-                            }),
-                            ..self
-                        }),
-                        _ => Ok(self),
+                    format!("/{s}")
+                }),
+                ..self
+            }),
+            "query" => {
+                if let Some(q) = self.query {
+                    if q != s {
+                        // if query is present it means that also params_span is set.
+                        return Err(ShellError::IncompatibleParameters {
+                            left_message: format!("Mismatch, query param is: {s}"),
+                            left_span: value.span(),
+                            right_message: format!("instead qs from params is: {q}"),
+                            right_span: self.params_span.unwrap_or(Span::unknown()),
+                        });
                     }
                 }
+
+                Ok(Self {
+                    query: Some(format!("?{s}")),
+                    query_span: Some(value.span()),
+                    ..self
+                })
             }
-            _ => Ok(self),
+            "fragment" => Ok(Self {
+                fragment: Some(if s.starts_with('#') {
+                    s
+                } else {
+                    format!("#{s}")
+                }),
+                ..self
+            }),
+            _ => {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: format!("'{key}' is not a valid URL field"),
+                        msg: format!("remove '{key}' col from input record"),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
+                );
+                Ok(self)
+            }
+        }
+    }
+
+    // Check if value is empty. If so, check if that is fine, i.e., not a required input
+    fn check_empty_string_ok(key: &str, s: &str, value_span: Span) -> Result<bool, ShellError> {
+        if !s.trim().is_empty() {
+            return Ok(true);
+        }
+        match key {
+            "host" => Err(ShellError::UnsupportedConfigValue {
+                expected: "non-empty string".into(),
+                value: "empty string".into(),
+                span: value_span,
+            }),
+            "scheme" => Err(ShellError::UnsupportedConfigValue {
+                expected: "non-empty string".into(),
+                value: "empty string".into(),
+                span: value_span,
+            }),
+            _ => Ok(false),
         }
     }
 
     pub fn to_url(&self, span: Span) -> Result<String, ShellError> {
-        let mut user_and_pwd: String = String::from("");
-
-        if let Some(usr) = &self.username {
-            if let Some(pwd) = &self.password {
-                user_and_pwd = format!("{usr}:{pwd}@");
-            }
-        }
+        let user_and_pwd = match (&self.username, &self.password) {
+            (Some(usr), Some(pwd)) => format!("{usr}:{pwd}@"),
+            (Some(usr), None) => format!("{usr}@"),
+            _ => String::from(""),
+        };
 
         let scheme_result = match &self.scheme {
             Some(s) => Ok(s),

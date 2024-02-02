@@ -1,4 +1,11 @@
-use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::{
+    cursor,
+    event::{Event, KeyCode, KeyEventKind, KeyModifiers},
+    execute,
+    style::Print,
+    terminal::{self, ClearType},
+};
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -6,7 +13,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Type, Value,
 };
-use std::io::{Read, Write};
+use std::io::Write;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -27,16 +34,13 @@ impl Command for Input {
 
     fn signature(&self) -> Signature {
         Signature::build("input")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Binary),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .optional("prompt", SyntaxShape::String, "prompt to show the user")
+            .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(
-                "bytes-until",
+                "bytes-until-any",
                 SyntaxShape::String,
-                "read bytes (not text) until a stop byte",
+                "read bytes (not text) until any of the given stop bytes is seen",
                 Some('u'),
             )
             .named(
@@ -57,157 +61,101 @@ impl Command for Input {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
-        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until")?;
-        let suppress_output = call.has_flag("suppress-output");
+        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until-any")?;
+        let suppress_output = call.has_flag(engine_state, stack, "suppress-output")?;
         let numchar: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "numchar")?;
-        let numchar_exists = numchar.is_some();
         let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
             item: i64::MAX,
             span: call.head,
         });
 
         if numchar.item < 1 {
-            return Err(ShellError::UnsupportedInput(
-                "Number of characters to read has to be positive".to_string(),
-                "value originated from here".to_string(),
-                call.head,
-                numchar.span,
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Number of characters to read has to be positive".to_string(),
+                input: "value originated from here".to_string(),
+                msg_span: call.head,
+                input_span: numchar.span,
+            });
         }
 
-        if let Some(bytes_until) = bytes_until {
-            let _ = crossterm::terminal::enable_raw_mode();
+        if let Some(prompt) = &prompt {
+            print!("{prompt}");
+            let _ = std::io::stdout().flush();
+        }
 
-            if let Some(prompt) = prompt {
-                print!("{prompt}");
-                let _ = std::io::stdout().flush();
+        let mut buf = String::new();
+
+        crossterm::terminal::enable_raw_mode()?;
+        // clear terminal events
+        while crossterm::event::poll(Duration::from_secs(0))? {
+            // If there's an event, read it to remove it from the queue
+            let _ = crossterm::event::read()?;
+        }
+
+        loop {
+            if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
+                break;
             }
-            if let Some(c) = bytes_until.bytes().next() {
-                let mut buf = [0u8; 1];
-                let mut buffer = vec![];
-
-                let mut stdin = std::io::stdin();
-
-                loop {
-                    if let Err(err) = stdin.read_exact(&mut buf) {
-                        let _ = crossterm::terminal::disable_raw_mode();
-                        return Err(ShellError::IOError(err.to_string()));
-                    }
-                    buffer.push(buf[0]);
-
-                    if i64::try_from(buffer.len()).unwrap_or(0) >= numchar.item {
-                        let _ = crossterm::terminal::disable_raw_mode();
-                        break;
-                    }
-
-                    // 03 symbolizes SIGINT/Ctrl+C
-                    if buf.contains(&3) {
-                        let _ = crossterm::terminal::disable_raw_mode();
-                        return Err(ShellError::IOError("SIGINT".to_string()));
-                    }
-
-                    if buf[0] == c {
-                        let _ = crossterm::terminal::disable_raw_mode();
-                        break;
-                    }
-                }
-
-                Ok(Value::Binary {
-                    val: buffer,
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            } else {
-                let _ = crossterm::terminal::disable_raw_mode();
-                Err(ShellError::IOError(
-                    "input can't stop on this byte".to_string(),
-                ))
-            }
-        } else {
-            if let Some(prompt) = prompt {
-                print!("{prompt}");
-                let _ = std::io::stdout().flush();
-            }
-
-            let mut buf = String::new();
-
-            if suppress_output || numchar_exists {
-                crossterm::terminal::enable_raw_mode()?;
-                // clear terminal events
-                while crossterm::event::poll(Duration::from_secs(0))? {
-                    // If there's an event, read it to remove it from the queue
-                    let _ = crossterm::event::read()?;
-                }
-
-                loop {
-                    if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
-                        let _ = crossterm::terminal::disable_raw_mode();
-                        break;
-                    }
-                    match crossterm::event::read() {
-                        Ok(Event::Key(k)) => match k.kind {
-                            KeyEventKind::Press | KeyEventKind::Repeat => {
-                                match k.code {
-                                    // TODO: maintain keycode parity with existing command
-                                    KeyCode::Char(c) => {
-                                        if k.modifiers == KeyModifiers::ALT
-                                            || k.modifiers == KeyModifiers::CONTROL
-                                        {
-                                            if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
-                                                crossterm::terminal::disable_raw_mode()?;
-                                                return Err(ShellError::IOError(
-                                                    "SIGINT".to_string(),
-                                                ));
-                                            }
-                                            continue;
-                                        }
-
-                                        buf.push(c);
+            match crossterm::event::read() {
+                Ok(Event::Key(k)) => match k.kind {
+                    KeyEventKind::Press | KeyEventKind::Repeat => {
+                        match k.code {
+                            // TODO: maintain keycode parity with existing command
+                            KeyCode::Char(c) => {
+                                if k.modifiers == KeyModifiers::ALT
+                                    || k.modifiers == KeyModifiers::CONTROL
+                                {
+                                    if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
+                                        crossterm::terminal::disable_raw_mode()?;
+                                        return Err(ShellError::IOError {
+                                            msg: "SIGINT".to_string(),
+                                        });
                                     }
-                                    KeyCode::Backspace => {
-                                        let _ = buf.pop();
-                                    }
-                                    KeyCode::Enter => {
+                                    continue;
+                                }
+
+                                if let Some(bytes_until) = bytes_until.as_ref() {
+                                    if bytes_until.bytes().contains(&(c as u8)) {
                                         break;
                                     }
-                                    _ => continue,
                                 }
+                                buf.push(c);
+                            }
+                            KeyCode::Backspace => {
+                                let _ = buf.pop();
+                            }
+                            KeyCode::Enter => {
+                                break;
                             }
                             _ => continue,
-                        },
-                        Ok(_) => continue,
-                        Err(event_error) => {
-                            crossterm::terminal::disable_raw_mode()?;
-                            return Err(event_error.into());
                         }
                     }
-                }
-                crossterm::terminal::disable_raw_mode()?;
-                return Ok(Value::String {
-                    val: buf,
-                    span: call.head,
-                }
-                .into_pipeline_data());
-            }
-
-            // Just read a normal line of text, and trim the newline at the end
-            let input = std::io::stdin().read_line(&mut buf);
-            if buf.ends_with('\n') {
-                buf.pop();
-                if buf.ends_with('\r') {
-                    buf.pop();
+                    _ => continue,
+                },
+                Ok(_) => continue,
+                Err(event_error) => {
+                    crossterm::terminal::disable_raw_mode()?;
+                    return Err(event_error.into());
                 }
             }
-
-            match input {
-                Ok(_) => Ok(Value::String {
-                    val: buf,
-                    span: call.head,
+            if !suppress_output {
+                // clear the current line and print the current buffer
+                execute!(
+                    std::io::stdout(),
+                    terminal::Clear(ClearType::CurrentLine),
+                    cursor::MoveToColumn(0),
+                )?;
+                if let Some(prompt) = &prompt {
+                    execute!(std::io::stdout(), Print(prompt.to_string()))?;
                 }
-                .into_pipeline_data()),
-                Err(err) => Err(ShellError::IOError(err.to_string())),
+                execute!(std::io::stdout(), Print(buf.to_string()))?;
             }
         }
+        crossterm::terminal::disable_raw_mode()?;
+        if !suppress_output {
+            std::io::stdout().write_all(b"\n")?;
+        }
+        Ok(Value::string(buf, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

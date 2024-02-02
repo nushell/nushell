@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn source_file_relative_to_file() {
@@ -99,6 +100,45 @@ fn parse_file_relative_to_parsed_file_simple() {
 
         assert_eq!(actual.out, "lol");
     })
+}
+
+#[test]
+fn predecl_signature_single_inp_out_type() {
+    Playground::setup("predecl_signature_single_inp_out_type", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam1.nu",
+            "
+                def main [] { foo }
+
+                def foo []: nothing -> nothing { print 'foo' }
+            ",
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu spam1.nu"));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn predecl_signature_multiple_inp_out_types() {
+    Playground::setup(
+        "predecl_signature_multiple_inp_out_types",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+                "spam2.nu",
+                "
+                def main [] { foo }
+
+                def foo []: [nothing -> string, string -> string] { 'foo' }
+            ",
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), pipeline("nu spam2.nu"));
+
+            assert_eq!(actual.out, "foo");
+        },
+    )
 }
 
 #[ignore]
@@ -243,4 +283,51 @@ fn parse_long_duration() {
         "#);
 
     assert_eq!(actual.out, "1min 18sec 797ms");
+}
+
+#[rstest]
+#[case("def test [ --a: any = 32 ] {}")]
+#[case("def test [ --a: number = 32 ] {}")]
+#[case("def test [ --a: number = 32.0 ] {}")]
+#[case("def test [ --a: list<any> = [ 1 2 3 ] ] {}")]
+#[case("def test [ --a: record<a: int b: string> = { a: 32 b: 'qwe' c: 'wqe' } ] {}")]
+#[case("def test [ --a: record<a: any b: any> = { a: 32 b: 'qwe'} ] {}")]
+#[case("def test []: int -> int { 1 }")]
+#[case("def test []: string -> string { 'qwe' }")]
+#[case("def test []: nothing -> nothing { null }")]
+#[case("def test []: list<string> -> list<string> { [] }")]
+#[case("def test []: record<a: int b: int> -> record<c: int e: int> { {c: 1 e: 1} }")]
+#[case("def test []: table<a: int b: int> -> table<c: int e: int> { [ {c: 1 e: 1} ] }")]
+#[case("def test []: nothing -> record<c: int e: int> { {c: 1 e: 1} }")]
+fn parse_function_signature(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.is_empty());
+}
+
+#[rstest]
+#[case("def test [ in ] {}")]
+#[case("def test [ in: string ] {}")]
+#[case("def test [ nu: int ] {}")]
+#[case("def test [ env: record<> ] {}")]
+#[case("def test [ --env ] {}")]
+#[case("def test [ --nu: int ] {}")]
+#[case("def test [ --in (-i): list<any> ] {}")]
+#[case("def test [ a: string, b: int, in: table<a: int b: int> ] {}")]
+#[case("def test [ env, in, nu ] {}")]
+fn parse_function_signature_name_is_builtin_var(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.contains("nu::parser::name_is_builtin_var"))
+}
+
+#[rstest]
+#[case("let a: int = 1")]
+#[case("let a: string = 'qwe'")]
+#[case("let a: nothing = null")]
+#[case("let a: list<string> = []")]
+#[case("let a: record<a: int b: int> = {a: 1 b: 1}")]
+#[case("let a: table<a: int b: int> = [[a b]; [1 2] [3 4]]")]
+#[case("let a: record<a: record<name: string> b: int> = {a: {name: bob} b: 1}")]
+fn parse_let_signature(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.is_empty());
 }

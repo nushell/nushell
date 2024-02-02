@@ -1,11 +1,12 @@
-use nu_engine::env_to_strings;
+use nu_engine::{env_to_strings, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
-use super::utils::{gen_command, get_editor};
+use super::utils::gen_command;
+use nu_cmd_base::util::get_editor;
 
 #[derive(Clone)]
 pub struct ConfigEnv;
@@ -18,7 +19,8 @@ impl Command for ConfigEnv {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .switch("default", "Print default `env.nu` file instead.", Some('d'))
         // TODO: Signature narrower than what run actually supports theoretically
     }
 
@@ -27,11 +29,23 @@ impl Command for ConfigEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "allow user to open and update nu env",
-            example: "config env",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "allow user to open and update nu env",
+                example: "config env",
+                result: None,
+            },
+            Example {
+                description: "allow user to print default `env.nu` file",
+                example: "config env --default,",
+                result: None,
+            },
+            Example {
+                description: "allow saving the default `env.nu` locally",
+                example: "config env --default | save -f ~/.config/nushell/default_env.nu",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -41,17 +55,23 @@ impl Command for ConfigEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // `--default` flag handling
+        if call.has_flag(engine_state, stack, "default")? {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_default_env(), head).into_pipeline_data());
+        }
+
         let env_vars_str = env_to_strings(engine_state, stack)?;
         let nu_config = match engine_state.get_config_path("env-path") {
             Some(path) => path.clone(),
             None => {
-                return Err(ShellError::GenericError(
-                    "Could not find $nu.env-path".to_string(),
-                    "Could not find $nu.env-path".to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Could not find $nu.env-path".into(),
+                    msg: "Could not find $nu.env-path".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
 

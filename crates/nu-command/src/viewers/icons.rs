@@ -106,8 +106,13 @@ static MAP_BY_NAME: Lazy<HashMap<&'static str, char>> = Lazy::new(|| {
         ("config", '\u{e5fc}'),             // 
         ("docker-compose.yml", '\u{f308}'), // 
         ("Dockerfile", '\u{f308}'),         // 
+        ("Earthfile", '\u{f0ac}'),          // 
         ("ds_store", '\u{f179}'),           // 
         ("gitignore_global", '\u{f1d3}'),   // 
+        ("gitlab-ci.yml", '\u{f296}'),      // 
+        ("go.mod", '\u{e626}'),             // 
+        ("go.sum", '\u{e626}'),             // 
+        ("gradle", '\u{e256}'),             // 
         ("gradle", '\u{e70e}'),             // 
         ("gruntfile.coffee", '\u{e611}'),   // 
         ("gruntfile.js", '\u{e611}'),       // 
@@ -138,24 +143,20 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
     } else if file_path.is_dir() {
         let str = file_path
             .file_name()
-            .ok_or_else(|| {
-                ShellError::GenericError(
-                    "File name error".into(),
-                    "Unable to get file name".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .ok_or_else(|| ShellError::GenericError {
+                error: "File name error".into(),
+                msg: "Unable to get file name".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })?
             .to_str()
-            .ok_or_else(|| {
-                ShellError::GenericError(
-                    "Unable to get str error".into(),
-                    "Unable to convert to str file name".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Unable to get str error".into(),
+                msg: "Unable to convert to str file name".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })?;
         Ok(match str {
             "bin" => '\u{e5fc}',   // 
@@ -166,20 +167,21 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
     } else if let Some(icon) = extensions.icon_file(file_path) {
         Ok(icon)
     } else if let Some(ext) = file_path.extension().as_ref() {
-        let str = ext.to_str().ok_or_else(|| {
-            ShellError::GenericError(
-                "Unable to get str error".into(),
-                "Unable to convert to str file name".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let str = ext.to_str().ok_or_else(|| ShellError::GenericError {
+            error: "Unable to get str error".into(),
+            msg: "Unable to convert to str file name".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
         Ok(match str {
+            "a" => '\u{f17c}',              // 
+            "acf" => '\u{f1b6}',            // 
             "ai" => '\u{e7b4}',             // 
             "android" => '\u{e70e}',        // 
             "apk" => '\u{e70e}',            // 
             "apple" => '\u{f179}',          // 
+            "asm" => '\u{e637}',            // 
             "avi" => '\u{f03d}',            // 
             "avro" => '\u{e60b}',           // 
             "awk" => '\u{f489}',            // 
@@ -187,41 +189,50 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "bash_history" => '\u{f489}',   // 
             "bash_profile" => '\u{f489}',   // 
             "bashrc" => '\u{f489}',         // 
-            "bat" => '\u{f17a}',            // 
+            "bat" => '\u{ebc4}',            // 
+            "bib" => '\u{e69b}',            // 
+            "bin" => '\u{eae8}',            // 
             "bmp" => '\u{f1c5}',            // 
+            "bst" => '\u{e69b}',            // 
             "bz" => '\u{f410}',             // 
             "bz2" => '\u{f410}',            // 
             "c" => '\u{e61e}',              // 
             "c++" => '\u{e61d}',            // 
             "cab" => '\u{e70f}',            // 
             "cc" => '\u{e61d}',             // 
+            "cert" => '\u{eafa}',           // 
             "cfg" => '\u{e615}',            // 
             "class" => '\u{e256}',          // 
             "clj" => '\u{e768}',            // 
             "cljs" => '\u{e76a}',           // 
-            "cls" => '\u{e600}',            // 
+            "cls" => '\u{e69b}',            // 
             "cmd" => '\u{e70f}',            // 
             "coffee" => '\u{f0f4}',         // 
             "conf" => '\u{e615}',           // 
+            "config" => '\u{e615}',         // 
             "cp" => '\u{e61d}',             // 
             "cpp" => '\u{e61d}',            // 
-            "cs" => '\u{f81a}',             // 
+            "crt" => '\u{eafa}',            // 
+            "cs" => '\u{f031b}',            // 󰌛
             "csh" => '\u{f489}',            // 
             "cshtml" => '\u{f1fa}',         // 
-            "csproj" => '\u{f81a}',         // 
+            "csproj" => '\u{f031b}',        // 󰌛
             "css" => '\u{e749}',            // 
             "csv" => '\u{f1c3}',            // 
-            "csx" => '\u{f81a}',            // 
+            "csx" => '\u{f031b}',           // 󰌛
+            "cu" => '\u{e64b}',             // 
             "cxx" => '\u{e61d}',            // 
             "d" => '\u{e7af}',              // 
             "dart" => '\u{e798}',           // 
             "db" => '\u{f1c0}',             // 
             "deb" => '\u{e77d}',            // 
+            "desktop" => '\u{ebd1}',        // 
             "diff" => '\u{f440}',           // 
             "djvu" => '\u{f02d}',           // 
             "dll" => '\u{e70f}',            // 
             "doc" => '\u{f1c2}',            // 
             "docx" => '\u{f1c2}',           // 
+            "drawio" => '\u{ebba}',         // 
             "ds_store" => '\u{f179}',       // 
             "DS_store" => '\u{f179}',       // 
             "dump" => '\u{f1c0}',           // 
@@ -229,6 +240,7 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "editorconfig" => '\u{e615}',   // 
             "ejs" => '\u{e618}',            // 
             "elm" => '\u{e62c}',            // 
+            "eml" => '\u{f003}',            // 
             "env" => '\u{f462}',            // 
             "eot" => '\u{f031}',            // 
             "epub" => '\u{e28a}',           // 
@@ -265,6 +277,8 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "htm" => '\u{f13b}',            // 
             "html" => '\u{f13b}',           // 
             "hxx" => '\u{f0fd}',            // 
+            "ical" => '\u{eab0}',           // 
+            "icalendar" => '\u{eab0}',      // 
             "ico" => '\u{f1c5}',            // 
             "image" => '\u{f1c5}',          // 
             "iml" => '\u{e7b5}',            // 
@@ -279,11 +293,15 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "js" => '\u{e74e}',             // 
             "json" => '\u{e60b}',           // 
             "jsx" => '\u{e7ba}',            // 
+            "kdb" => '\u{f23e}',            // 
+            "kdbx" => '\u{f23e}',           // 
+            "key" => '\u{eb11}',            // 
+            "ko" => '\u{f17c}',             // 
             "ksh" => '\u{f489}',            // 
-            "latex" => '\u{e600}',          // 
+            "latex" => '\u{e69b}',          // 
             "less" => '\u{e758}',           // 
             "lhs" => '\u{e777}',            // 
-            "license" => '\u{f718}',        // 
+            "license" => '\u{f0fc3}',       // 󰿃
             "localized" => '\u{f179}',      // 
             "lock" => '\u{f023}',           // 
             "log" => '\u{f18d}',            // 
@@ -293,8 +311,13 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "lzma" => '\u{f410}',           // 
             "lzo" => '\u{f410}',            // 
             "m" => '\u{e61e}',              // 
+            "ml" => '\u{e67a}',             // 
+            "mli" => '\u{e67a}',            // 
+            "mll" => '\u{e67a}',            // 
+            "mly" => '\u{e67a}',            // 
             "mm" => '\u{e61d}',             // 
             "m4a" => '\u{f001}',            // 
+            "magnet" => '\u{f076}',         // 
             "markdown" => '\u{f48a}',       // 
             "md" => '\u{f48a}',             // 
             "mjs" => '\u{e74e}',            // 
@@ -307,16 +330,19 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "msi" => '\u{e70f}',            // 
             "mustache" => '\u{e60f}',       // 
             "nix" => '\u{f313}',            // 
-            "node" => '\u{f898}',           // 
+            "node" => '\u{f0399}',          // 󰎙
             "npmignore" => '\u{e71e}',      // 
+            "o" => '\u{eae8}',              // 
             "odp" => '\u{f1c4}',            // 
             "ods" => '\u{f1c3}',            // 
             "odt" => '\u{f1c2}',            // 
             "ogg" => '\u{f001}',            // 
             "ogv" => '\u{f03d}',            // 
             "otf" => '\u{f031}',            // 
+            "out" => '\u{eb2c}',            // 
             "patch" => '\u{f440}',          // 
             "pdf" => '\u{f1c1}',            // 
+            "pem" => '\u{eb11}',            // 
             "php" => '\u{e73d}',            // 
             "pl" => '\u{e769}',             // 
             "png" => '\u{f1c5}',            // 
@@ -324,11 +350,14 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "pptx" => '\u{f1c4}',           // 
             "procfile" => '\u{e21e}',       // 
             "properties" => '\u{e60b}',     // 
-            "ps1" => '\u{f489}',            // 
+            "ps1" => '\u{ebc7}',            // 
             "psd" => '\u{e7b8}',            // 
+            "psd1" => '\u{ebc7}',           // 
+            "psm1" => '\u{ebc7}',           // 
             "pxm" => '\u{f1c5}',            // 
             "py" => '\u{e606}',             // 
             "pyc" => '\u{e606}',            // 
+            "qcow2" => '\u{e271}',          // 
             "r" => '\u{f25d}',              // 
             "rakefile" => '\u{e21e}',       // 
             "rar" => '\u{f410}',            // 
@@ -347,12 +376,14 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "rspec_parallel" => '\u{e21e}', // 
             "rspec_status" => '\u{e21e}',   // 
             "rss" => '\u{f09e}',            // 
-            "rtf" => '\u{f718}',            // 
+            "rtf" => '\u{f0219}',           // 󰈙
             "ru" => '\u{e21e}',             // 
             "rubydoc" => '\u{e73b}',        // 
+            "s" => '\u{e637}',              // 
             "sass" => '\u{e603}',           // 
             "scala" => '\u{e737}',          // 
             "scss" => '\u{e749}',           // 
+            "service" => '\u{eba2}',        // 
             "sh" => '\u{f489}',             // 
             "shell" => '\u{f489}',          // 
             "slim" => '\u{e73b}',           // 
@@ -360,6 +391,7 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "so" => '\u{f17c}',             // 
             "sql" => '\u{f1c0}',            // 
             "sqlite3" => '\u{e7c4}',        // 
+            "sty" => '\u{e69b}',            // 
             "styl" => '\u{e600}',           // 
             "stylus" => '\u{e600}',         // 
             "svg" => '\u{f1c5}',            // 
@@ -368,7 +400,7 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "taz" => '\u{f410}',            // 
             "tbz" => '\u{f410}',            // 
             "tbz2" => '\u{f410}',           // 
-            "tex" => '\u{e600}',            // 
+            "tex" => '\u{e69b}',            // 
             "tiff" => '\u{f1c5}',           // 
             "toml" => '\u{e615}',           // 
             "ts" => '\u{e628}',             // 
@@ -379,9 +411,14 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "txt" => '\u{f15c}',            // 
             "tz" => '\u{f410}',             // 
             "tzo" => '\u{f410}',            // 
+            "unity" => '\u{e721}',          // 
+            "unity3d" => '\u{e721}',        // 
+            "vdi" => '\u{e271}',            // 
+            "vhd" => '\u{e271}',            // 
             "video" => '\u{f03d}',          // 
             "vim" => '\u{e62b}',            // 
-            "vue" => '\u{fd42}',            // ﵂
+            "vmdk" => '\u{e271}',           // 
+            "vue" => '\u{f0844}',           // 󰡄
             "war" => '\u{e256}',            // 
             "wav" => '\u{f001}',            // 
             "webm" => '\u{f03d}',           // 
@@ -391,9 +428,10 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "woff2" => '\u{f031}',          // 
             "xhtml" => '\u{f13b}',          // 
             "xls" => '\u{f1c3}',            // 
+            "xlsm" => '\u{f1c3}',           // 
             "xlsx" => '\u{f1c3}',           // 
-            "xml" => '\u{fabf}',            // 謹
-            "xul" => '\u{fabf}',            // 謹
+            "xml" => '\u{f05c0}',           // 󰗀
+            "xul" => '\u{f05c0}',           // 󰗀
             "xz" => '\u{f410}',             // 
             "yaml" => '\u{f481}',           // 
             "yml" => '\u{f481}',            // 
@@ -401,6 +439,7 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "zsh" => '\u{f489}',            // 
             "zsh-theme" => '\u{f489}',      // 
             "zshrc" => '\u{f489}',          // 
+            "7z" => '\u{f410}',             // 
             _ => '\u{f15b}',                // 
         })
     } else {

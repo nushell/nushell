@@ -34,16 +34,16 @@ impl Command for Into {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: get_full_help(
+        Ok(Value::string(
+            get_full_help(
                 &Into.signature(),
                 &[],
                 engine_state,
                 stack,
                 self.is_parser_keyword(),
             ),
-            span: call.head,
-        }
+            call.head,
+        )
         .into_pipeline_data())
     }
 }

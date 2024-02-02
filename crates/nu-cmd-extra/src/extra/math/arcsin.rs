@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -35,12 +36,12 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let use_degrees = call.has_flag("degrees");
+        let use_degrees = call.has_flag(engine_state, stack, "degrees")?;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
@@ -61,7 +62,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get the arcsine of 1 in degrees",
-                example: "1 | math arcsin -d",
+                example: "1 | math arcsin --degrees",
                 result: Some(Value::test_float(90.0)),
             },
         ]
@@ -71,9 +72,10 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+            let span = numeric.span();
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                Value::Int { val, .. } => (val as f64, span),
+                Value::Float { val, .. } => (val, span),
                 _ => unreachable!(),
             };
 
@@ -81,27 +83,30 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 let val = val.asin();
                 let val = if use_degrees { val.to_degrees() } else { val };
 
-                Value::Float { val, span }
+                Value::float(val, span)
             } else {
-                Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        "'arcsin' undefined for values outside the closed interval [-1, 1].".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )),
-                }
+                Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "'arcsin' undefined for values outside the closed interval [-1, 1]."
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
+                    span,
+                )
             }
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

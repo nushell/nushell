@@ -33,10 +33,13 @@ impl Command for AllTrue {
                 description: "Returns true if all values are true",
                 example: "[true true true] | dfr into-df | dfr all-true",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "all_true".to_string(),
-                        vec![Value::test_bool(true)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "all_true".to_string(),
+                            vec![Value::test_bool(true)],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -47,10 +50,13 @@ impl Command for AllTrue {
     let res = ($s > 9);
     $res | dfr all-true"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "all_true".to_string(),
-                        vec![Value::test_bool(false)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "all_true".to_string(),
+                            vec![Value::test_bool(false)],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -78,19 +84,17 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let series = df.as_series(call.head)?;
-    let bool = series.bool().map_err(|_| {
-        ShellError::GenericError(
-            "Error converting to bool".into(),
-            "all-false only works with series of type bool".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let bool = series.bool().map_err(|_| ShellError::GenericError {
+        error: "Error converting to bool".into(),
+        msg: "all-false only works with series of type bool".into(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let value = Value::bool(bool.all(), call.head);
 
-    NuDataFrame::try_from_columns(vec![Column::new("all_true".to_string(), vec![value])])
+    NuDataFrame::try_from_columns(vec![Column::new("all_true".to_string(), vec![value])], None)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

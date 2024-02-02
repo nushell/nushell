@@ -31,7 +31,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .category(Category::Strings)
     }
@@ -53,7 +53,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
-        if call.has_flag("all") {
+        if call.has_flag(engine_state, stack, "all")? {
             operate(
                 action_all,
                 args,
@@ -76,14 +76,14 @@ impl Command for SubCommand {
             Example {
                 description: "Encode multiple urls with escape characters in list",
                 example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | url encode",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                     vec![
                         Value::test_string("https://example.com/foo%20bar"),
                         Value::test_string("https://example.com/a%3Eb"),
                         Value::test_string("%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034"),
                     ],
-                    span: Span::test_data(),
-                }),
+                     Span::test_data(),
+                )),
             },
             Example {
                 description: "Encode all non alphanumeric chars with all flag",
@@ -98,20 +98,18 @@ fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = NON_ALPHANUMERIC;
-            Value::String {
-                val: utf8_percent_encode(val, FRAGMENT).to_string(),
-                span: head,
-            }
+            Value::string(utf8_percent_encode(val, FRAGMENT).to_string(), head)
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 
@@ -119,20 +117,18 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
-            Value::String {
-                val: utf8_percent_encode(val, FRAGMENT).to_string(),
-                span: head,
-            }
+            Value::string(utf8_percent_encode(val, FRAGMENT).to_string(), head)
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

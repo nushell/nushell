@@ -23,13 +23,11 @@ pub fn reducer_for(command: Reduce) -> ReducerFunction {
 pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
     let mut biggest = data
         .first()
-        .ok_or_else(|| {
-            ShellError::UnsupportedInput(
-                "Empty input".to_string(),
-                "value originates from here".into(),
-                head,
-                span,
-            )
+        .ok_or_else(|| ShellError::UnsupportedInput {
+            msg: "Empty input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
         })?
         .clone();
 
@@ -42,9 +40,9 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             return Err(ShellError::OperatorMismatch {
                 op_span: head,
                 lhs_ty: biggest.get_type().to_string(),
-                lhs_span: biggest.span()?,
+                lhs_span: biggest.span(),
                 rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span()?,
+                rhs_span: value.span(),
             });
         }
     }
@@ -54,13 +52,11 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
 pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
     let mut smallest = data
         .first()
-        .ok_or_else(|| {
-            ShellError::UnsupportedInput(
-                "Empty input".to_string(),
-                "value originates from here".into(),
-                head,
-                span,
-            )
+        .ok_or_else(|| ShellError::UnsupportedInput {
+            msg: "Empty input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
         })?
         .clone();
 
@@ -73,9 +69,9 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             return Err(ShellError::OperatorMismatch {
                 op_span: head,
                 lhs_ty: smallest.get_type().to_string(),
-                lhs_span: smallest.span()?,
+                lhs_span: smallest.span(),
                 rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span()?,
+                rhs_span: value.span(),
             });
         }
     }
@@ -83,25 +79,25 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
 }
 
 pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
-    let initial_value = data.get(0);
+    let initial_value = data.first();
 
     let mut acc = match initial_value {
-        Some(Value::Filesize { span, .. }) => Ok(Value::Filesize {
-            val: 0,
-            span: *span,
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::Filesize { .. } => Ok(Value::filesize(0, span)),
+                Value::Duration { .. } => Ok(Value::duration(0, span)),
+                Value::Int { .. } | Value::Float { .. } => Ok(Value::int(0, span)),
+                _ => Ok(Value::nothing(head)),
+            }
+        }
+
+        None => Err(ShellError::UnsupportedInput {
+            msg: "Empty input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
         }),
-        Some(Value::Duration { span, .. }) => Ok(Value::Duration {
-            val: 0,
-            span: *span,
-        }),
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(0, *span)),
-        None => Err(ShellError::UnsupportedInput(
-            "Empty input".to_string(),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
-        _ => Ok(Value::nothing(head)),
     }?;
 
     for value in &data {
@@ -112,14 +108,15 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             | Value::Duration { .. } => {
                 acc = acc.add(head, value, head)?;
             }
-            Value::Error { error } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(*error.clone()),
             other => {
-                return Err(ShellError::UnsupportedInput(
-                    "Attempted to compute the sum of a value that cannot be summed".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    other.expect_span(),
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Attempted to compute the sum of a value that cannot be summed"
+                        .to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: other.span(),
+                });
             }
         }
     }
@@ -127,17 +124,22 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
 }
 
 pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
-    let initial_value = data.get(0);
+    let initial_value = data.first();
 
     let mut acc = match initial_value {
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(1, *span)),
-        None => Err(ShellError::UnsupportedInput(
-            "Empty input".to_string(),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
-        _ => Ok(Value::nothing(head)),
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::Int { .. } | Value::Float { .. } => Ok(Value::int(1, span)),
+                _ => Ok(Value::nothing(head)),
+            }
+        }
+        None => Err(ShellError::UnsupportedInput {
+            msg: "Empty input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }),
     }?;
 
     for value in &data {
@@ -145,15 +147,15 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             Value::Int { .. } | Value::Float { .. } => {
                 acc = acc.mul(head, value, head)?;
             }
-            Value::Error { error } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(*error.clone()),
             other => {
-                return Err(ShellError::UnsupportedInput(
-                    "Attempted to compute the product of a value that cannot be multiplied"
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Attempted to compute the product of a value that cannot be multiplied"
                         .to_string(),
-                    "value originates from here".into(),
-                    head,
-                    other.expect_span(),
-                ));
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: other.span(),
+                });
             }
         }
     }

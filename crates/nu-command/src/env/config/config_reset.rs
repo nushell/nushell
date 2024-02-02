@@ -1,4 +1,5 @@
 use chrono::Local;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -39,25 +40,25 @@ impl Command for ConfigReset {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let only_nu = call.has_flag("nu");
-        let only_env = call.has_flag("env");
-        let no_backup = call.has_flag("without-backup");
+        let only_nu = call.has_flag(engine_state, stack, "nu")?;
+        let only_env = call.has_flag(engine_state, stack, "env")?;
+        let no_backup = call.has_flag(engine_state, stack, "without-backup")?;
         let span = call.head;
         let mut config_path = match nu_path::config_dir() {
             Some(path) => path,
             None => {
-                return Err(ShellError::GenericError(
-                    "Could not find config path".to_string(),
-                    "Could not find config path".to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Could not find config path".into(),
+                    msg: "Could not find config path".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
         config_path.push("nushell");
@@ -72,18 +73,18 @@ impl Command for ConfigReset {
                     Local::now().format("%F-%H-%M-%S"),
                 ));
                 if std::fs::rename(nu_config.clone(), backup_path).is_err() {
-                    return Err(ShellError::FileNotFoundCustom(
-                        "config.nu could not be backed up".into(),
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "config.nu could not be backed up".into(),
                         span,
-                    ));
+                    });
                 }
             }
             if let Ok(mut file) = std::fs::File::create(nu_config) {
                 if writeln!(&mut file, "{config_file}").is_err() {
-                    return Err(ShellError::FileNotFoundCustom(
-                        "config.nu could not be written to".into(),
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "config.nu could not be written to".into(),
                         span,
-                    ));
+                    });
                 }
             }
         }
@@ -95,18 +96,18 @@ impl Command for ConfigReset {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));
                 if std::fs::rename(env_config.clone(), backup_path).is_err() {
-                    return Err(ShellError::FileNotFoundCustom(
-                        "env.nu could not be backed up".into(),
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "env.nu could not be backed up".into(),
                         span,
-                    ));
+                    });
                 }
             }
             if let Ok(mut file) = std::fs::File::create(env_config) {
                 if writeln!(&mut file, "{config_file}").is_err() {
-                    return Err(ShellError::FileNotFoundCustom(
-                        "env.nu could not be written to".into(),
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "env.nu could not be written to".into(),
                         span,
-                    ));
+                    });
                 }
             }
         }

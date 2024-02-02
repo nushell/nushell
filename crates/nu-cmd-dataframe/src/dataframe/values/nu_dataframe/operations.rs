@@ -20,16 +20,14 @@ impl NuDataFrame {
         op_span: Span,
         right: &Value,
     ) -> Result<Value, ShellError> {
+        let rhs_span = right.span();
         match right {
-            Value::CustomValue {
-                val: rhs,
-                span: rhs_span,
-            } => {
+            Value::CustomValue { val: rhs, .. } => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
-                    ShellError::DowncastNotPossible(
-                        "Unable to create dataframe".to_string(),
-                        *rhs_span,
-                    )
+                    ShellError::DowncastNotPossible {
+                        msg: "Unable to create dataframe".to_string(),
+                        span: rhs_span,
+                    }
                 })?;
 
                 match (self.is_series(), rhs.is_series()) {
@@ -38,7 +36,7 @@ impl NuDataFrame {
                             .as_series(lhs_span)
                             .expect("Already checked that is a series");
                         let rhs = &rhs
-                            .as_series(*rhs_span)
+                            .as_series(rhs_span)
                             .expect("Already checked that is a series");
 
                         if lhs.dtype() != rhs.dtype() {
@@ -46,7 +44,7 @@ impl NuDataFrame {
                                 left_message: format!("datatype {}", lhs.dtype()),
                                 left_span: lhs_span,
                                 right_message: format!("datatype {}", lhs.dtype()),
-                                right_span: *rhs_span,
+                                right_span: rhs_span,
                             });
                         }
 
@@ -55,7 +53,7 @@ impl NuDataFrame {
                                 left_message: format!("len {}", lhs.len()),
                                 left_span: lhs_span,
                                 right_message: format!("len {}", rhs.len()),
-                                right_span: *rhs_span,
+                                right_span: rhs_span,
                             });
                         }
 
@@ -78,7 +76,7 @@ impl NuDataFrame {
                                 left_message: format!("rows {}", self.df.height()),
                                 left_span: lhs_span,
                                 right_message: format!("rows {}", rhs.df.height()),
-                                right_span: *rhs_span,
+                                right_span: rhs_span,
                             });
                         }
 
@@ -137,14 +135,12 @@ impl NuDataFrame {
                     })
                     .collect::<Vec<Series>>();
 
-                let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::GenericError(
-                        "Error creating dataframe".into(),
-                        e.to_string(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )
+                let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
+                    error: "Error creating dataframe".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
                 })?;
 
                 Ok(NuDataFrame::new(false, df_new))
@@ -185,26 +181,24 @@ impl NuDataFrame {
                         match res {
                             Ok(s) => Ok(s.clone()),
                             Err(e) => Err({
-                                ShellError::GenericError(
-                                    "Error appending dataframe".into(),
-                                    format!("Unable to append: {e}"),
-                                    Some(span),
-                                    None,
-                                    Vec::new(),
-                                )
+                                ShellError::GenericError {
+                                    error: "Error appending dataframe".into(),
+                                    msg: format!("Unable to append: {e}"),
+                                    span: Some(span),
+                                    help: None,
+                                    inner: vec![],
+                                }
                             }),
                         }
                     })
                     .collect::<Result<Vec<Series>, ShellError>>()?;
 
-                let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::GenericError(
-                        "Error appending dataframe".into(),
-                        format!("Unable to append dataframes: {e}"),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )
+                let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
+                    error: "Error appending dataframe".into(),
+                    msg: format!("Unable to append dataframes: {e}"),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
                 })?;
 
                 Ok(NuDataFrame::new(false, df_new))
