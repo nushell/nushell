@@ -14,6 +14,7 @@ pub enum Redirection {
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
     ErrPipedExpression(Option<Span>, Expression),
+    OutErrPipedExpression(Option<Span>, Expression),
     // final field indicates if it's in append mode
     Redirection(Span, Redirection, Expression, bool),
     // final bool field indicates if it's in append mode
@@ -34,7 +35,8 @@ impl PipelineElement {
     pub fn expression(&self) -> &Expression {
         match self {
             PipelineElement::Expression(_, expression)
-            | PipelineElement::ErrPipedExpression(_, expression) => expression,
+            | PipelineElement::ErrPipedExpression(_, expression)
+            | PipelineElement::OutErrPipedExpression(_, expression) => expression,
             PipelineElement::Redirection(_, _, expression, _) => expression,
             PipelineElement::SeparateRedirection {
                 out: (_, expression, _),
@@ -53,12 +55,14 @@ impl PipelineElement {
         match self {
             PipelineElement::Expression(None, expression)
             | PipelineElement::ErrPipedExpression(None, expression)
+            | PipelineElement::OutErrPipedExpression(None, expression)
             | PipelineElement::SameTargetRedirection {
                 cmd: (None, expression),
                 ..
             } => expression.span,
             PipelineElement::Expression(Some(span), expression)
             | PipelineElement::ErrPipedExpression(Some(span), expression)
+            | PipelineElement::OutErrPipedExpression(Some(span), expression)
             | PipelineElement::Redirection(span, _, expression, _)
             | PipelineElement::SeparateRedirection {
                 out: (span, expression, _),
@@ -79,6 +83,7 @@ impl PipelineElement {
         match self {
             PipelineElement::Expression(_, expression)
             | PipelineElement::ErrPipedExpression(_, expression)
+            | PipelineElement::OutErrPipedExpression(_, expression)
             | PipelineElement::Redirection(_, _, expression, _)
             | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression)
@@ -102,6 +107,7 @@ impl PipelineElement {
         match self {
             PipelineElement::Expression(_, expression)
             | PipelineElement::ErrPipedExpression(_, expression)
+            | PipelineElement::OutErrPipedExpression(_, expression)
             | PipelineElement::Redirection(_, _, expression, _)
             | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression)

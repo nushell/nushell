@@ -383,17 +383,37 @@ fn eval_element_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    redirect_combine: bool,
     stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
     match element {
-        PipelineElement::Expression(_, expr) => eval_expression_with_input(
-            engine_state,
-            stack,
-            expr,
-            input,
-            redirect_stdout,
-            redirect_stderr,
-        ),
+        PipelineElement::Expression(_, expr) | PipelineElement::OutErrPipedExpression(_, expr) => {
+            match expr {
+                Expression {
+                    expr: Expr::ExternalCall(head, args, is_subexpression),
+                    ..
+                } if redirect_combine => {
+                    let result = eval_external(
+                        engine_state,
+                        stack,
+                        head,
+                        args,
+                        input,
+                        RedirectTarget::CombinedPipe,
+                        *is_subexpression,
+                    )?;
+                    Ok(might_consume_external_result(result))
+                }
+                _ => eval_expression_with_input(
+                    engine_state,
+                    stack,
+                    expr,
+                    input,
+                    redirect_stdout,
+                    redirect_stderr,
+                ),
+            }
+        }
         PipelineElement::ErrPipedExpression(_, expr) => {
             let input = match input {
                 PipelineData::ExternalStream {
@@ -595,6 +615,7 @@ fn eval_element_with_input(
                         input,
                         true,
                         redirect_stderr,
+                        redirect_combine,
                         stderr_writer_jobs,
                     )
                     .map(|x| x.0)?
@@ -612,6 +633,7 @@ fn eval_element_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                redirect_combine,
                 stderr_writer_jobs,
             )
         }
@@ -688,6 +710,7 @@ pub fn eval_block(
         for (idx, element) in elements.iter().enumerate() {
             let mut redirect_stdout = redirect_stdout;
             let mut redirect_stderr = redirect_stderr;
+            let mut redirect_combine = false;
             if !redirect_stderr && idx < elements_length - 1 {
                 let next_element = &elements[idx + 1];
                 if matches!(
@@ -696,6 +719,7 @@ pub fn eval_block(
                         | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                         | PipelineElement::SeparateRedirection { .. }
                         | PipelineElement::ErrPipedExpression(..)
+                        | PipelineElement::OutErrPipedExpression(..)
                 ) {
                     redirect_stderr = true;
                 }
@@ -708,7 +732,8 @@ pub fn eval_block(
                     PipelineElement::Redirection(_, Redirection::Stdout, _, _)
                     | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                     | PipelineElement::SeparateRedirection { .. }
-                    | PipelineElement::Expression(..) => redirect_stdout = true,
+                    | PipelineElement::Expression(..)
+                    | PipelineElement::OutErrPipedExpression(..) => redirect_stdout = true,
 
                     PipelineElement::Redirection(_, Redirection::Stderr, _, _) => {
                         // a stderr redirection, but we still need to check for the next 2nd
@@ -720,7 +745,11 @@ pub fn eval_block(
                         // cat a.txt err> /dev/null err> /tmp/a
                         if idx < elements_length - 2 {
                             let next_2nd_element = &elements[idx + 2];
-                            if matches!(next_2nd_element, PipelineElement::Expression(..)) {
+                            if matches!(
+                                next_2nd_element,
+                                PipelineElement::Expression(..)
+                                    | PipelineElement::OutErrPipedExpression(..)
+                            ) {
                                 redirect_stdout = true;
                             }
                         }
@@ -735,6 +764,15 @@ pub fn eval_block(
             {
                 redirect_stdout = false;
             }
+            if !redirect_combine
+                && idx < elements_length - 1
+                && matches!(
+                    &elements[idx + 1],
+                    PipelineElement::OutErrPipedExpression(..)
+                )
+            {
+                redirect_combine = true;
+            }
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -744,6 +782,7 @@ pub fn eval_block(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                redirect_combine,
                 &mut stderr_writer_jobs,
             );
 

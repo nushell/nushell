@@ -561,7 +561,8 @@ pub fn flatten_pipeline_element(
 ) -> Vec<(Span, FlatShape)> {
     match pipeline_element {
         PipelineElement::Expression(span, expr)
-        | PipelineElement::ErrPipedExpression(span, expr) => {
+        | PipelineElement::ErrPipedExpression(span, expr)
+        | PipelineElement::OutErrPipedExpression(span, expr) => {
             if let Some(span) = span {
                 let mut output = vec![(*span, FlatShape::Pipe)];
                 output.append(&mut flatten_expression(working_set, expr));
