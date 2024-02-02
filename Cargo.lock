@@ -6234,7 +6234,7 @@ dependencies = [
 [[package]]
 name = "uu_uname"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#10f04461ffdd1a41c4d3dae8bbd93b6404085323"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
 dependencies = [
  "clap",
  "platform-info",
@@ -6276,7 +6276,7 @@ dependencies = [
 [[package]]
 name = "uucore"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#10f04461ffdd1a41c4d3dae8bbd93b6404085323"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
 dependencies = [
  "clap",
  "glob",
@@ -6301,7 +6301,7 @@ dependencies = [
 [[package]]
 name = "uucore_procs"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#10f04461ffdd1a41c4d3dae8bbd93b6404085323"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6317,7 +6317,7 @@ checksum = "d841f8408028085ca65896cdd60b9925d4e407cb69989a64889f2bebbb51147b"
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#10f04461ffdd1a41c4d3dae8bbd93b6404085323"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
 
 [[package]]
 name = "uuid"
