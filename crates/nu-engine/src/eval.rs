@@ -711,7 +711,6 @@ pub fn eval_block(
         for (idx, element) in elements.iter().enumerate() {
             let mut redirect_stdout = redirect_stdout;
             let mut redirect_stderr = redirect_stderr;
-            let mut redirect_combine = false;
             if !redirect_stderr && idx < elements_length - 1 {
                 let next_element = &elements[idx + 1];
                 if matches!(
@@ -765,15 +764,12 @@ pub fn eval_block(
             {
                 redirect_stdout = false;
             }
-            if !redirect_combine
-                && idx < elements_length - 1
+
+            let redirect_combine = idx < elements_length - 1
                 && matches!(
                     &elements[idx + 1],
                     PipelineElement::OutErrPipedExpression(..)
-                )
-            {
-                redirect_combine = true;
-            }
+                );
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(

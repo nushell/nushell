@@ -37,9 +37,11 @@ impl LiteCommand {
 #[derive(Debug)]
 pub enum LiteElement {
     Command(Option<Span>, LiteCommand),
-    // Similar to LiteElement::Command, except the previous command's output is error piped.
+    // Similar to LiteElement::Command, except the previous command's output is stderr piped.
     // e.g: `e>| cmd`
     ErrPipedCommand(Option<Span>, LiteCommand),
+    // Similar to LiteElement::Command, except the previous command's output is stderr + stdout piped.
+    // e.g: `o+e>| cmd`
     OutErrPipedCommand(Option<Span>, LiteCommand),
     // final field indicates if it's in append mode
     Redirection(Span, Redirection, LiteCommand, bool),
@@ -276,7 +278,9 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 last_connector = token.contents;
                 last_connector_span = Some(token.span);
             }
-            TokenContents::Pipe => {
+            pipe_token @ (TokenContents::Pipe
+            | TokenContents::ErrGreaterPipe
+            | TokenContents::OutErrGreaterPipe) => {
                 if let Some(err) = push_command_to(
                     &mut curr_pipeline,
                     curr_command,
@@ -287,38 +291,8 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 }
 
                 curr_command = LiteCommand::new();
-                last_token = TokenContents::Pipe;
-                last_connector = TokenContents::Pipe;
-                last_connector_span = Some(token.span);
-            }
-            TokenContents::ErrGreaterPipe => {
-                if let Some(err) = push_command_to(
-                    &mut curr_pipeline,
-                    curr_command,
-                    last_connector,
-                    last_connector_span,
-                ) {
-                    error = Some(err);
-                }
-
-                curr_command = LiteCommand::new();
-                last_token = TokenContents::ErrGreaterPipe;
-                last_connector = TokenContents::ErrGreaterPipe;
-                last_connector_span = Some(token.span);
-            }
-            TokenContents::OutErrGreaterPipe => {
-                if let Some(err) = push_command_to(
-                    &mut curr_pipeline,
-                    curr_command,
-                    last_connector,
-                    last_connector_span,
-                ) {
-                    error = Some(err);
-                }
-
-                curr_command = LiteCommand::new();
-                last_token = TokenContents::OutErrGreaterPipe;
-                last_connector = TokenContents::OutErrGreaterPipe;
+                last_token = *pipe_token;
+                last_connector = *pipe_token;
                 last_connector_span = Some(token.span);
             }
             TokenContents::Eol => {
