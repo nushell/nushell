@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::get_system_locale;
 
 struct Arguments {
     radix: u32,
@@ -400,7 +401,14 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
 }
 
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
-    let trimmed = a_string.trim();
+    // Get the Locale so we know what the thousands separator is
+    let locale = get_system_locale();
+
+    // Now that we know the locale, get the thousands separator and remove it
+    // so strings like 1,123,456 can be parsed as 1123456
+    let no_comma_string = a_string.replace(locale.separator(), "");
+
+    let trimmed = no_comma_string.trim();
     match trimmed {
         b if b.starts_with("0b") => {
             let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
