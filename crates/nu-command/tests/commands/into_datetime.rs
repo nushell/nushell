@@ -6,3 +6,11 @@ fn into_datetime_table_column() {
 
     assert!(actual.out.contains(" ago"));
 }
+
+#[test]
+fn invalid_date_caught_panic() {
+    let actual = nu!("'2023-13-31' | into datetime");
+    assert!(actual
+        .err
+        .contains("Internal error: Panic when parsing date"));
+}

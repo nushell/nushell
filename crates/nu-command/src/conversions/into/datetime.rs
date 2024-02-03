@@ -10,6 +10,7 @@ use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+use std::panic::AssertUnwindSafe;
 
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
@@ -265,7 +266,23 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             match parse_date_from_string(&input_val.item, input_val.span) {
                 Ok(date) => return Value::date(date, input_val.span),
                 Err(_) => {
-                    if let Ok(date) = from_human_time(&input_val.item) {
+                    let parse_result = match std::panic::catch_unwind(AssertUnwindSafe(|| {
+                        from_human_time(&input_val.item)
+                    })) {
+                        Ok(res) => res,
+                        Err(_) => {
+                            return Value::error(ShellError::GenericError {
+                            error: "Internal error: Panic when parsing date".into(),
+                            msg: "The input date cannot be parsed and caused upstream dependency to panic".to_string(),
+                            span: Some(input_val.span),
+                            help: None,
+                            inner: Vec::new(),
+                        }, input_val.span);
+                        }
+                    };
+
+                    if let Ok(date) = parse_result {
+                        //from_human_time(&input_val.item) {
                         match date {
                             ParseResult::Date(date) => {
                                 let time = NaiveTime::from_hms_opt(0, 0, 0).expect("valid time");
