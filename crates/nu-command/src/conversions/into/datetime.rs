@@ -267,6 +267,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Ok(date) => return Value::date(date, input_val.span),
                 Err(_) => {
                     let parse_result = match std::panic::catch_unwind(AssertUnwindSafe(|| {
+                        // FIXME: The panic needs to be addressed upstream
                         from_human_time(&input_val.item)
                     })) {
                         Ok(res) => res,
