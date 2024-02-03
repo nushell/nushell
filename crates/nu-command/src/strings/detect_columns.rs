@@ -200,7 +200,7 @@ fn detect_columns(
 
                         if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
                             return Value::record(
-                                Record::from_raw_cols_vals(cols, vals),
+                                Record::from_raw_cols_vals_unchecked(cols, vals),
                                 name_span,
                             );
                         }
@@ -213,7 +213,7 @@ fn detect_columns(
                     }
                 }
             } else {
-                return Value::record(Record::from_raw_cols_vals(cols, vals), name_span);
+                return Value::record(Record::from_raw_cols_vals_unchecked(cols, vals), name_span);
             };
 
             // Merge Columns
@@ -235,7 +235,7 @@ fn detect_columns(
             vals.push(binding);
             last_seg.into_iter().for_each(|v| vals.push(v));
 
-            Value::record(Record::from_raw_cols_vals(cols, vals), name_span)
+            Value::record(Record::from_raw_cols_vals_unchecked(cols, vals), name_span)
         })
         .into_pipeline_data(ctrlc))
     } else {

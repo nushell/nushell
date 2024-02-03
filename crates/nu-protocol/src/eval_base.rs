@@ -125,7 +125,7 @@ pub trait Eval {
                     }
                     // length equality already ensured in parser
                     output_rows.push(Value::record(
-                        Record::from_raw_cols_vals(output_headers.clone(), row),
+                        Record::from_raw_cols_vals_unchecked(output_headers.clone(), row),
                         expr.span,
                     ));
                 }

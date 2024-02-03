@@ -417,7 +417,7 @@ fn convert_to_value(
                     .collect::<Result<_, _>>()?;
 
                 output.push(Value::record(
-                    Record::from_raw_cols_vals(cols.clone(), vals),
+                    Record::from_raw_cols_vals_unchecked(cols.clone(), vals),
                     span,
                 ));
             }
