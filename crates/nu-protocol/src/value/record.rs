@@ -26,25 +26,25 @@ impl Record {
         }
     }
 
-    // Constructor that checks that `cols` and `vals` are of the same length.
-    //
-    // WARNING! Panics with assertion failure if cols and vals have different length!
-    // Should be used only when the same lengths are guaranteed!
-    //
-    // For perf reasons does not validate the rest of the record assumptions.
-    // - unique keys
+    /// Constructor that checks that `cols` and `vals` are of the same length.
+    ///
+    /// WARNING! Panics with assertion failure if cols and vals have different length!
+    /// Should be used only when the same lengths are guaranteed!
+    ///
+    /// For perf reasons does not validate the rest of the record assumptions.
+    /// - unique keys
     pub fn from_raw_cols_vals_unchecked(cols: Vec<String>, vals: Vec<Value>) -> Self {
         assert_eq!(cols.len(), vals.len());
 
         Self { cols, vals }
     }
 
-    // Constructor that checks that `cols` and `vals` are of the same length.
-    //
-    // Returns None if cols and vals have different length.
-    //
-    // For perf reasons does not validate the rest of the record assumptions.
-    // - unique keys
+    /// Constructor that checks that `cols` and `vals` are of the same length.
+    ///
+    /// Returns None if cols and vals have different length.
+    ///
+    /// For perf reasons does not validate the rest of the record assumptions.
+    /// - unique keys
     pub fn from_raw_cols_vals(
         cols: Vec<String>,
         vals: Vec<Value>,
