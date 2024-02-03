@@ -480,9 +480,9 @@ impl ExactSizeIterator for Drain<'_> {
 #[macro_export]
 macro_rules! record {
     {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Record::from_raw_cols_vals_unchecked (
-            vec![$($col.into(),)+],
-            vec![$($val,)+]
+        $crate::Record::from_raw_cols_vals_unchecked(
+            ::std::vec![$($col.into(),)+],
+            ::std::vec![$($val,)+]
         )
     };
     {} => {
