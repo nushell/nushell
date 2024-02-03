@@ -77,8 +77,8 @@ pub fn web_examples() -> Vec<PluginExample> {
         description: "Retrieve all `<header>` elements from phoronix.com website".into(),
         result: None,
     }, PluginExample {
-        example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population
-    | query web --as-table [Rank City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or union territory']".into(),
+        example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population |
+    query web --as-table [City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or unionterritory' 'Ref']".into(),
         description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides".into(),
         result: None
     },
