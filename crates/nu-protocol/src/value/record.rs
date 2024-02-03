@@ -28,7 +28,8 @@ impl Record {
 
     // Constructor that checks that `cols` and `vals` are of the same length.
     //
-    // Panics with assertion failure if cols and vals have different length.
+    // WARNING! Panics with assertion failure if cols and vals have different length!
+    // Should be used only when the same lengths are guaranteed!
     //
     // For perf reasons does not validate the rest of the record assumptions.
     // - unique keys
