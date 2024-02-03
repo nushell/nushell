@@ -448,21 +448,16 @@ pub fn parse_def(
             if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
-                        expr: Expr::Block(block_id),
-                        ..
-                    }
-                    | Expression {
                         expr: Expr::Closure(block_id),
-                        ..
-                    }
-                    | Expression {
-                        expr: Expr::RowCondition(block_id),
                         ..
                     } => {
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => {}
+                    _ => working_set.parse_errors.push(ParseError::Expected(
+                        "definition body closure { ... }",
+                        arg.span,
+                    )),
                 }
             }
 
