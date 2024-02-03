@@ -314,6 +314,7 @@ impl Record {
 impl FromIterator<(String, Value)> for Record {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         let (cols, vals) = iter.into_iter().unzip();
+        // TODO: should this check for duplicate keys/columns?
         Self { cols, vals }
     }
 }
