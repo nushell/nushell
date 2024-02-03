@@ -1,6 +1,6 @@
 use std::ops::RangeBounds;
 
-use crate::Value;
+use crate::{ShellError, Span, Value};
 
 use serde::{Deserialize, Serialize};
 
@@ -28,12 +28,37 @@ impl Record {
 
     // Constructor that checks that `cols` and `vals` are of the same length.
     //
+    // WARNING! Panics with assertion failure if cols and vals have different length!
+    // Should be used only when the same lengths are guaranteed!
+    //
     // For perf reasons does not validate the rest of the record assumptions.
     // - unique keys
-    pub fn from_raw_cols_vals(cols: Vec<String>, vals: Vec<Value>) -> Self {
+    pub fn from_raw_cols_vals_unchecked(cols: Vec<String>, vals: Vec<Value>) -> Self {
         assert_eq!(cols.len(), vals.len());
 
         Self { cols, vals }
+    }
+
+    // Constructor that checks that `cols` and `vals` are of the same length.
+    //
+    // Returns None if cols and vals have different length.
+    //
+    // For perf reasons does not validate the rest of the record assumptions.
+    // - unique keys
+    pub fn from_raw_cols_vals(
+        cols: Vec<String>,
+        vals: Vec<Value>,
+        input_span: Span,
+        creation_site_span: Span,
+    ) -> Result<Self, ShellError> {
+        if cols.len() == vals.len() {
+            Ok(Self { cols, vals })
+        } else {
+            Err(ShellError::RecordColsValsMismatch {
+                bad_value: input_span,
+                creation_site: creation_site_span,
+            })
+        }
     }
 
     pub fn iter(&self) -> Iter {
@@ -455,7 +480,7 @@ impl ExactSizeIterator for Drain<'_> {
 #[macro_export]
 macro_rules! record {
     {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Record::from_raw_cols_vals (
+        $crate::Record::from_raw_cols_vals_unchecked (
             vec![$($col.into(),)+],
             vec![$($val,)+]
         )

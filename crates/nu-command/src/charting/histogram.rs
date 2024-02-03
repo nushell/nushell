@@ -258,7 +258,7 @@ fn histogram_impl(
         result.push((
             count, // attach count first for easily sorting.
             Value::record(
-                Record::from_raw_cols_vals(
+                Record::from_raw_cols_vals_unchecked(
                     result_cols.clone(),
                     vec![
                         val.into_value(),

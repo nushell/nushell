@@ -607,6 +607,20 @@ pub enum ShellError {
         first_use: Span,
     },
 
+    /// Attempted to create a record from different number of columns and values
+    ///
+    /// ## Resolution
+    ///
+    /// Check the record has the same number of columns as values
+    #[error("Attempted to create a record from different number of columns and values")]
+    #[diagnostic(code(nu::shell::record_cols_vals_mismatch))]
+    RecordColsValsMismatch {
+        #[label = "problematic value"]
+        bad_value: Span,
+        #[label = "attempted to create the record here"]
+        creation_site: Span,
+    },
+
     /// An error happened while performing an external command.
     ///
     /// ## Resolution

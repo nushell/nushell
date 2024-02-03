@@ -33,7 +33,7 @@ impl Command for SchemaDF {
             description: "Dataframe schema",
             example: r#"[[a b]; [1 "foo"] [3 "bar"]] | dfr into-df | dfr schema"#,
             result: Some(Value::record(
-                Record::from_raw_cols_vals(
+                Record::from_raw_cols_vals_unchecked(
                     vec!["a".to_string(), "b".to_string()],
                     vec![
                         Value::string("i64", Span::test_data()),
@@ -98,7 +98,7 @@ fn datatype_list(span: Span) -> Value {
     ]
     .iter()
     .map(|(dtype, note)| {
-        Value::record(Record::from_raw_cols_vals(
+        Value::record(Record::from_raw_cols_vals_unchecked(
             vec!["dtype".to_string(), "note".to_string()],
             vec![Value::string(*dtype, span), Value::string(*note, span)],
         ),span)

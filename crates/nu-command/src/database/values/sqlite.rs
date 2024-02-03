@@ -499,7 +499,10 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<S
         vals.push(val);
     }
 
-    Value::record(Record::from_raw_cols_vals(column_names, vals), span)
+    Value::record(
+        Record::from_raw_cols_vals_unchecked(column_names, vals),
+        span,
+    )
 }
 
 pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {

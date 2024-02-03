@@ -1041,7 +1041,7 @@ fn series_to_values(
                         .iter()
                         .map(|field| field.name.to_string())
                         .collect();
-                    let record = Record::from_raw_cols_vals(cols, vals?);
+                    let record = Record::from_raw_cols_vals_unchecked(cols, vals?);
                     Ok(Value::record(record, span))
                 })
                 .collect();
@@ -1149,7 +1149,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                 .map(|f| f.name().to_string())
                 .collect();
             Ok(Value::Record {
-                val: Record::from_raw_cols_vals(fields, values?),
+                val: Record::from_raw_cols_vals_unchecked(fields, values?),
                 internal_span: span,
             })
         }

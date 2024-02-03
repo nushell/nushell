@@ -70,7 +70,10 @@ fn horizontal_rotate_value(
                 HorizontalDirection::Left => vals.rotate_left(rotations),
             }
 
-            Ok(Value::record(Record::from_raw_cols_vals(cols, vals), span))
+            Ok(Value::record(
+                Record::from_raw_cols_vals_unchecked(cols, vals),
+                span,
+            ))
         }
         Value::List { vals, .. } => {
             let values = vals
