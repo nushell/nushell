@@ -329,7 +329,29 @@ impl Extend<(String, Value)> for Record {
     }
 }
 
-pub type IntoIter = std::iter::Zip<std::vec::IntoIter<String>, std::vec::IntoIter<Value>>;
+pub struct IntoIter {
+    iter: std::iter::Zip<std::vec::IntoIter<String>, std::vec::IntoIter<Value>>,
+}
+
+impl Iterator for IntoIter {
+    type Item = (String, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl DoubleEndedIterator for IntoIter {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl ExactSizeIterator for IntoIter {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 impl IntoIterator for Record {
     type Item = (String, Value);
@@ -337,11 +359,35 @@ impl IntoIterator for Record {
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.cols.into_iter().zip(self.vals)
+        IntoIter {
+            iter: self.cols.into_iter().zip(self.vals),
+        }
     }
 }
 
-pub type Iter<'a> = std::iter::Zip<std::slice::Iter<'a, String>, std::slice::Iter<'a, Value>>;
+pub struct Iter<'a> {
+    iter: std::iter::Zip<std::slice::Iter<'a, String>, std::slice::Iter<'a, Value>>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a String, &'a Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<'a> DoubleEndedIterator for Iter<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<'a> ExactSizeIterator for Iter<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 impl<'a> IntoIterator for &'a Record {
     type Item = (&'a String, &'a Value);
@@ -349,11 +395,35 @@ impl<'a> IntoIterator for &'a Record {
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.cols.iter().zip(&self.vals)
+        Iter {
+            iter: self.cols.iter().zip(&self.vals),
+        }
     }
 }
 
-pub type IterMut<'a> = std::iter::Zip<std::slice::Iter<'a, String>, std::slice::IterMut<'a, Value>>;
+pub struct IterMut<'a> {
+    iter: std::iter::Zip<std::slice::Iter<'a, String>, std::slice::IterMut<'a, Value>>,
+}
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = (&'a String, &'a mut Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<'a> DoubleEndedIterator for IterMut<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<'a> ExactSizeIterator for IterMut<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 impl<'a> IntoIterator for &'a mut Record {
     type Item = (&'a String, &'a mut Value);
@@ -361,7 +431,9 @@ impl<'a> IntoIterator for &'a mut Record {
     type IntoIter = IterMut<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.cols.iter().zip(&mut self.vals)
+        IterMut {
+            iter: self.cols.iter().zip(&mut self.vals),
+        }
     }
 }
 
