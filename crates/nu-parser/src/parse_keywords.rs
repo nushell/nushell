@@ -281,7 +281,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &sig, &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage(spans[0]);
             };
 
@@ -448,21 +448,16 @@ pub fn parse_def(
             if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
-                        expr: Expr::Block(block_id),
-                        ..
-                    }
-                    | Expression {
                         expr: Expr::Closure(block_id),
-                        ..
-                    }
-                    | Expression {
-                        expr: Expr::RowCondition(block_id),
                         ..
                     } => {
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => {}
+                    _ => working_set.parse_errors.push(ParseError::Expected(
+                        "definition body closure { ... }",
+                        arg.span,
+                    )),
                 }
             }
 
@@ -470,7 +465,7 @@ pub fn parse_def(
             check_call(working_set, call_span, &sig, &call);
             working_set.parse_errors.append(&mut new_errors);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), None);
             };
 
@@ -490,10 +485,10 @@ pub fn parse_def(
         }
     };
 
-    let Ok(has_env) = has_flag_wrapped(working_set, &call, "env") else {
+    let Ok(has_env) = has_flag_const(working_set, &call, "env") else {
         return (garbage_pipeline(spans), None);
     };
-    let Ok(has_wrapped) = has_flag_wrapped(working_set, &call, "wrapped") else {
+    let Ok(has_wrapped) = has_flag_const(working_set, &call, "wrapped") else {
         return (garbage_pipeline(spans), None);
     };
 
@@ -884,7 +879,7 @@ pub fn parse_alias(
             .parse_errors
             .truncate(original_starting_error_count);
 
-        let Ok(has_help_flag) = has_flag_wrapped(working_set, &alias_call, "help") else {
+        let Ok(has_help_flag) = has_flag_const(working_set, &alias_call, "help") else {
             return garbage_pipeline(spans);
         };
 
@@ -1139,7 +1134,7 @@ pub fn parse_export_in_block(
         let starting_error_count = working_set.parse_errors.len();
         check_call(working_set, call_span, &decl.signature(), &call);
 
-        let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+        let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
             return garbage_pipeline(&lite_command.parts);
         };
 
@@ -1628,7 +1623,7 @@ pub fn parse_export_env(
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), None);
             };
 
@@ -2134,7 +2129,7 @@ pub fn parse_module(
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), None);
             };
 
@@ -2334,7 +2329,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), vec![]);
             };
 
@@ -2524,7 +2519,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage_pipeline(spans);
             };
 
@@ -2789,10 +2784,10 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         None
     };
 
-    let Ok(has_prefix) = has_flag_wrapped(working_set, &call, "prefix") else {
+    let Ok(has_prefix) = has_flag_const(working_set, &call, "prefix") else {
         return garbage_pipeline(&[call_span]);
     };
-    let Ok(do_reload) = has_flag_wrapped(working_set, &call, "reload") else {
+    let Ok(do_reload) = has_flag_const(working_set, &call, "reload") else {
         return garbage_pipeline(&[call_span]);
     };
 
@@ -2980,7 +2975,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
         )
     };
 
-    let Ok(keep_custom) = has_flag_wrapped(working_set, &call, "keep-custom") else {
+    let Ok(keep_custom) = has_flag_const(working_set, &call, "keep-custom") else {
         return garbage_pipeline(&[call_span]);
     };
 
@@ -3398,7 +3393,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage_pipeline(spans);
             };
 
@@ -3536,7 +3531,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage(span(spans));
             };
 
@@ -3611,7 +3606,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage_pipeline(spans);
             };
 
@@ -3939,11 +3934,7 @@ fn detect_params_in_name(
 }
 
 /// Run has_flag_const and and push possible error to working_set
-fn has_flag_wrapped(
-    working_set: &mut StateWorkingSet,
-    call: &Call,
-    name: &str,
-) -> Result<bool, ()> {
+fn has_flag_const(working_set: &mut StateWorkingSet, call: &Call, name: &str) -> Result<bool, ()> {
     call.has_flag_const(working_set, name).map_err(|err| {
         working_set.error(err.wrap(working_set, call.span()));
     })
