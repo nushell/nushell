@@ -603,8 +603,6 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let block = working_set.get_block_mut(block_id);
-            let calls_itself = block_calls_itself(block, decl_id);
-            block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = has_env;
 
@@ -763,10 +761,7 @@ pub fn parse_extern(
                     } else {
                         *declaration = signature.clone().into_block_command(block_id);
 
-                        let block = working_set.get_block_mut(block_id);
-                        let calls_itself = block_calls_itself(block, decl_id);
-                        block.recursive = Some(calls_itself);
-                        block.signature = signature;
+                        working_set.get_block_mut(block_id).signature = signature;
                     }
                 } else {
                     let decl = KnownExternal {
@@ -802,43 +797,6 @@ pub fn parse_extern(
         ty: Type::Any,
         custom_completion: None,
     }])
-}
-
-fn block_calls_itself(block: &Block, decl_id: usize) -> bool {
-    block.pipelines.iter().any(|pipeline| {
-        pipeline
-            .elements
-            .iter()
-            .any(|pipe_element| match pipe_element {
-                PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(call_expr),
-                        ..
-                    },
-                ) => {
-                    if call_expr.decl_id == decl_id {
-                        return true;
-                    }
-                    call_expr.arguments.iter().any(|arg| match arg {
-                        Argument::Positional(Expression { expr, .. }) => match expr {
-                            Expr::Keyword(.., expr) => {
-                                let expr = expr.as_ref();
-                                let Expression { expr, .. } = expr;
-                                match expr {
-                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                    _ => false,
-                                }
-                            }
-                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                            _ => false,
-                        },
-                        _ => false,
-                    })
-                }
-                _ => false,
-            })
-    })
 }
 
 pub fn parse_alias(

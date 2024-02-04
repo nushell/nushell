@@ -42,6 +42,21 @@ pub fn eval_call(
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
+        // Rust does not check recursion limits outside of const evaluation.
+        // But nu programs run in the same process as the shell.
+        // To prevent a stack overflow in user code from crashing the shell,
+        // we limit the recursion depth of function calls.
+        // Picked 50 arbitrarily, should work on all architectures.
+        const MAXIMUM_CALL_STACK_DEPTH: u64 = 50;
+        callee_stack.recursion_count += 1;
+        if callee_stack.recursion_count > MAXIMUM_CALL_STACK_DEPTH {
+            callee_stack.recursion_count = 0;
+            return Err(ShellError::RecursionLimitReached {
+                recursion_limit: MAXIMUM_CALL_STACK_DEPTH,
+                span: block.span,
+            });
+        }
+
         for (param_idx, (param, required)) in decl
             .signature()
             .required_positional
@@ -635,22 +650,6 @@ pub fn eval_block(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
-    // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
-    if let Some(recursive) = block.recursive {
-        // picked 50 arbitrarily, should work on all architectures
-        const RECURSION_LIMIT: u64 = 50;
-        if recursive {
-            if stack.recursion_count >= RECURSION_LIMIT {
-                stack.recursion_count = 0;
-                return Err(ShellError::RecursionLimitReached {
-                    recursion_limit: RECURSION_LIMIT,
-                    span: block.span,
-                });
-            }
-            stack.recursion_count += 1;
-        }
-    }
-
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
