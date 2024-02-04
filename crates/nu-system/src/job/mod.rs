@@ -131,7 +131,7 @@ impl Jobs {
         };
         let id = job.id;
 
-        if let Some(stdout) = child.stdout.take() {
+        let err_thread = if let Some(stderr) = child.stderr.take() {
             // TODO: `lines()` will error on invalid utf-8.
 
             // TODO: the `BufRead::read_line` docs say:
@@ -141,26 +141,8 @@ impl Jobs {
 
             // All lines need to be read to prevent the child process from being blocking on write,
             // so we use `flatten()` to skip over errors instead of exiting early.
-            let lines = BufReader::new(stdout).lines().flatten();
-            let _ = if let Some(printer) = self.sender.as_ref() {
-                let out = printer.clone();
-                thread::Builder::new().spawn(move || {
-                    for line in lines {
-                        let _ = out.send(line.into());
-                    }
-                })
-            } else {
-                thread::Builder::new().spawn(move || {
-                    for line in lines {
-                        println!("{line}");
-                    }
-                })
-            };
-        }
-
-        if let Some(stderr) = child.stderr.take() {
             let lines = BufReader::new(stderr).lines().flatten();
-            let _ = if let Some(printer) = self.sender.as_ref() {
+            let thread = if let Some(printer) = self.sender.as_ref() {
                 let err = printer.clone();
                 thread::Builder::new().spawn(move || {
                     for line in lines {
@@ -174,31 +156,58 @@ impl Jobs {
                     }
                 })
             };
-        }
+            thread.ok()
+        } else {
+            None
+        };
 
         // Other commands/libraries can spawn processes outside of job control,
         // so we cannot use waitpid(-1) without potentially messing with that.
         // Instead, we spawn a thread to wait on each background job.
         let wait_thread = {
-            let jobs = self.state.clone();
-            let sender = if interactive && !quiet {
+            let stdout = child.stdout.take();
+            let out_sender = self.sender.as_ref().cloned();
+            let completion_sender = if interactive && !quiet {
                 self.sender.as_ref().cloned()
             } else {
                 None
             };
+            let jobs = self.state.clone();
+
             thread::Builder::new().spawn(move || {
-                let status = child.wait();
-                let mut state = jobs.lock().expect("unpoisoned");
-                if let Some(job) = state.jobs.iter_mut().find(|job| job.id == id) {
-                    debug_assert!(
-                        job.exit_status.is_none(),
-                        "job with id {id} already had its exit status set"
-                    );
-                    job.exit_status = Some(status.map_or(JobExitStatus::Unknown, Into::into));
-                } else {
-                    debug_assert!(false, "did not find job with id {id}")
+                if let Some(stdout) = stdout {
+                    let lines = BufReader::new(stdout).lines().flatten();
+                    if let Some(out) = out_sender {
+                        for line in lines {
+                            let _ = out.send(line.into());
+                        }
+                    } else {
+                        for line in lines {
+                            println!("{line}");
+                        }
+                    };
                 }
-                if let Some(sender) = sender {
+
+                if let Some(err) = err_thread {
+                    let _ = err.join();
+                }
+
+                let status = child.wait();
+
+                {
+                    let mut state = jobs.lock().expect("unpoisoned");
+                    if let Some(job) = state.jobs.iter_mut().find(|job| job.id == id) {
+                        debug_assert!(
+                            job.exit_status.is_none(),
+                            "job with id {id} already had its exit status set"
+                        );
+                        job.exit_status = Some(status.map_or(JobExitStatus::Unknown, Into::into));
+                    } else {
+                        debug_assert!(false, "did not find job with id {id}")
+                    }
+                }
+
+                if let Some(sender) = completion_sender {
                     let _ = sender.send(format!("Job {id} has completed").into_bytes());
                 }
             })
