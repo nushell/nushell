@@ -837,6 +837,7 @@ pub fn eval_block(
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut stderr_writer_jobs = vec![];
         let elements = &pipeline.elements;
+        let elements_length = pipeline.elements.len();
         for (idx, element) in elements.iter().enumerate() {
             let mut redirect_stdout = redirect_stdout;
             let mut redirect_stderr = redirect_stderr;
@@ -844,8 +845,14 @@ pub fn eval_block(
                 redirect_stderr = true;
             }
 
-            if !redirect_stdout && is_redirect_stdout_required(elements, idx) {
-                redirect_stdout = true;
+            if !redirect_stdout {
+                if is_redirect_stdout_required(elements, idx) {
+                    redirect_stdout = true;
+                }
+            } else if idx < elements_length - 1
+                && matches!(elements[idx + 1], PipelineElement::ErrPipedExpression(..))
+            {
+                redirect_stdout = false;
             }
 
             let redirect_combine = is_redirect_combine_required(elements, idx);

@@ -5481,7 +5481,9 @@ pub fn parse_pipeline(
 
                     for command in &pipeline.commands[1..] {
                         match command {
-                            LiteElement::Command(Some(pipe_span), command) => {
+                            LiteElement::Command(Some(pipe_span), command)
+                            | LiteElement::ErrPipedCommand(Some(pipe_span), command)
+                            | LiteElement::OutErrPipedCommand(Some(pipe_span), command) => {
                                 new_command.parts.push(*pipe_span);
 
                                 new_command.comments.extend_from_slice(&command.comments);
