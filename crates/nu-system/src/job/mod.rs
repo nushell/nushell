@@ -109,6 +109,7 @@ impl Jobs {
         mut command: Command,
         interactive: bool,
         inherit_io: bool,
+        quiet: bool,
     ) -> io::Result<JobId> {
         Self::platform_pre_spawn(&mut command, interactive);
 
@@ -180,6 +181,11 @@ impl Jobs {
         // Instead, we spawn a thread to wait on each background job.
         let wait_thread = {
             let jobs = self.state.clone();
+            let sender = if interactive && !quiet {
+                self.sender.as_ref().cloned()
+            } else {
+                None
+            };
             thread::Builder::new().spawn(move || {
                 let status = child.wait();
                 let mut state = jobs.lock().expect("unpoisoned");
@@ -191,6 +197,9 @@ impl Jobs {
                     job.exit_status = Some(status.map_or(JobExitStatus::Unknown, Into::into));
                 } else {
                     debug_assert!(false, "did not find job with id {id}")
+                }
+                if let Some(sender) = sender {
+                    let _ = sender.send(format!("Job {id} has completed").into_bytes());
                 }
             })
         };

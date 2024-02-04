@@ -30,6 +30,11 @@ impl Command for JobStart {
                 "make the background job inherit stdin, stdout, and stderr from the terminal",
                 Some('i'),
             )
+            .switch(
+                "quiet",
+                "in interactive mode, do not print a message when the job completes",
+                Some('q'),
+            )
             .rest(
                 "args",
                 SyntaxShape::Any,
@@ -57,6 +62,7 @@ Otherwise, the background job will have separate input and output channels disco
     ) -> Result<PipelineData, ShellError> {
         let interactive = engine_state.is_interactive && std::io::stdin().is_terminal();
         let inherit_io = call.has_flag(engine_state, stack, "inherit")?;
+        let quiet = call.has_flag(engine_state, stack, "quiet")?;
 
         let external = ExternalCommand::new(engine_state, stack, call, false, false, false, false)?;
 
@@ -66,7 +72,7 @@ Otherwise, the background job will have separate input and output channels disco
         #[cfg(not(unix))]
         match engine_state
             .jobs
-            .spawn_background(command, interactive, inherit_io)
+            .spawn_background(command, interactive, inherit_io, quiet)
         {
             Ok(id) => Ok(id),
             Err(err) => {
@@ -82,7 +88,7 @@ Otherwise, the background job will have separate input and output channels disco
                     {
                         engine_state
                             .jobs
-                            .spawn_background(command, interactive, inherit_io)
+                            .spawn_background(command, interactive, inherit_io, quiet)
                     } else {
                         Err(err)
                     }
@@ -93,7 +99,7 @@ Otherwise, the background job will have separate input and output channels disco
         #[cfg(unix)]
         engine_state
             .jobs
-            .spawn_background(command, interactive, inherit_io)?;
+            .spawn_background(command, interactive, inherit_io, quiet)?;
 
         Ok(PipelineData::Empty)
     }
