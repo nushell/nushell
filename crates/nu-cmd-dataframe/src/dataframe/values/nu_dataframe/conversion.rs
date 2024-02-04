@@ -1033,15 +1033,14 @@ fn series_to_values(
                     Either::Right(it)
                 }
                 .map(|any_values| {
-                    let vals: Result<Vec<Value>, ShellError> = any_values
+                    let record = polar_fields
                         .iter()
-                        .map(|v| any_value_to_value(v, span))
-                        .collect();
-                    let cols: Vec<String> = polar_fields
-                        .iter()
-                        .map(|field| field.name.to_string())
-                        .collect();
-                    let record = Record::from_raw_cols_vals_unchecked(cols, vals?);
+                        .zip(any_values)
+                        .map(|(field, val)| {
+                            any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                        })
+                        .collect::<Result<_, _>>()?;
+
                     Ok(Value::record(record, span))
                 })
                 .collect();
@@ -1138,20 +1137,16 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
             any_value_to_value(&static_value, span)
         }
         AnyValue::StructOwned(struct_tuple) => {
-            let values: Result<Vec<Value>, ShellError> = struct_tuple
-                .0
-                .iter()
-                .map(|s| any_value_to_value(s, span))
-                .collect();
-            let fields = struct_tuple
+            let record = struct_tuple
                 .1
                 .iter()
-                .map(|f| f.name().to_string())
-                .collect();
-            Ok(Value::Record {
-                val: Record::from_raw_cols_vals_unchecked(fields, values?),
-                internal_span: span,
-            })
+                .zip(&struct_tuple.0)
+                .map(|(field, val)| {
+                    any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                })
+                .collect::<Result<_, _>>()?;
+
+            Ok(Value::record(record, span))
         }
         AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),

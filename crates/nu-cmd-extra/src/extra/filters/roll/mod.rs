@@ -70,10 +70,11 @@ fn horizontal_rotate_value(
                 HorizontalDirection::Left => vals.rotate_left(rotations),
             }
 
-            Ok(Value::record(
-                Record::from_raw_cols_vals_unchecked(cols, vals),
-                span,
-            ))
+            // Safety: cols and vals were obtained from a `Record`, so they must have the same length.
+            // These `Vec`s are only rotated, which means their lengths can not have changed.
+            let record = unsafe { Record::from_raw_cols_vals_unchecked(cols, vals) };
+
+            Ok(Value::record(record, span))
         }
         Value::List { vals, .. } => {
             let values = vals

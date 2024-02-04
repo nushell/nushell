@@ -160,7 +160,8 @@ impl NuDataFrame {
 
                     conversion::insert_record(
                         &mut column_values,
-                        Record::from_raw_cols_vals_unchecked(cols, vals),
+                        // Safety: vals.len() is used to construct cols, so their lengths are equal.
+                        unsafe { Record::from_raw_cols_vals_unchecked(cols, vals) },
                         &maybe_schema,
                     )?
                 }
