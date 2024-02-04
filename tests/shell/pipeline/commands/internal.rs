@@ -1116,15 +1116,13 @@ fn pipe_input_to_print() {
 #[test]
 fn err_pipe_input_to_print() {
     let actual = nu!(r#""foo" e>| print"#);
-    assert_eq!(actual.out, "foo");
-    assert!(actual.err.is_empty());
+    assert!(actual.err.contains("only works on external streams"));
 }
 
 #[test]
 fn outerr_pipe_input_to_print() {
     let actual = nu!(r#""foo" o+e>| print"#);
-    assert_eq!(actual.out, "foo");
-    assert!(actual.err.is_empty());
+    assert!(actual.err.contains("only works on external streams"));
 }
 
 #[test]

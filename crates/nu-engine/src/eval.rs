@@ -388,7 +388,19 @@ fn eval_element_with_input(
     stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
     match element {
-        PipelineElement::Expression(_, expr) | PipelineElement::OutErrPipedExpression(_, expr) => {
+        PipelineElement::Expression(pipe_span, expr)
+        | PipelineElement::OutErrPipedExpression(pipe_span, expr) => {
+            if matches!(element, PipelineElement::OutErrPipedExpression(..))
+                && !matches!(input, PipelineData::ExternalStream { .. })
+            {
+                return Err(ShellError::GenericError {
+                    error: "`o+e>|` only works with external streams".into(),
+                    msg: "`o+e>|` only works on external streams".into(),
+                    span: *pipe_span,
+                    help: None,
+                    inner: vec![],
+                });
+            }
             match expr {
                 Expression {
                     expr: Expr::ExternalCall(head, args, is_subexpression),
@@ -415,7 +427,7 @@ fn eval_element_with_input(
                 ),
             }
         }
-        PipelineElement::ErrPipedExpression(_, expr) => {
+        PipelineElement::ErrPipedExpression(pipe_span, expr) => {
             let input = match input {
                 PipelineData::ExternalStream {
                     stdout,
@@ -432,7 +444,15 @@ fn eval_element_with_input(
                     metadata,
                     trim_end_newline,
                 },
-                other => other,
+                _ => {
+                    return Err(ShellError::GenericError {
+                        error: "`e>|` only works with external streams".into(),
+                        msg: "`e>|` only works on external streams".into(),
+                        span: *pipe_span,
+                        help: None,
+                        inner: vec![],
+                    })
+                }
             };
             eval_expression_with_input(
                 engine_state,
