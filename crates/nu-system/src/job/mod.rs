@@ -84,8 +84,6 @@ impl Job {
 #[derive(Debug, Default)]
 struct JobState {
     /// All completed and running jobs in ascending order based on JobId.
-    ///
-    /// Completed jobs are removed once `background_jobs` is called.
     jobs: Vec<Job>,
 }
 
@@ -226,13 +224,30 @@ impl Jobs {
 
     /// Returns information about each job (running and completed).
     /// Note that any completed jobs are removed from the job list.
-    pub fn info(&self) -> Vec<JobInfo> {
-        let mut state = self.state.lock().expect("unpoisoned");
-        let jobs = state.jobs.iter().map(Job::info).collect();
-        state
+    pub fn info_list(&self) -> Vec<JobInfo> {
+        self.state
+            .lock()
+            .expect("unpoisoned")
+            .jobs
+            .iter()
+            .map(Job::info)
+            .collect()
+    }
+
+    pub fn clean(&self) {
+        self.state
+            .lock()
+            .expect("unpoisoned")
             .jobs
             .retain(|job| job.status() != JobStatus::Completed);
-        jobs
+    }
+
+    pub fn clean_ids(&self, ids: &[JobId]) {
+        self.state
+            .lock()
+            .expect("unpoisoned")
+            .jobs
+            .retain(|job| job.status() != JobStatus::Completed || !ids.contains(&job.id));
     }
 }
 

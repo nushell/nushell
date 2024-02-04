@@ -36,7 +36,7 @@ impl Command for JobList {
         let span = call.head;
         let jobs = engine_state
             .jobs
-            .info()
+            .info_list()
             .into_iter()
             .map(|job| {
                 // how should `job.exit_status` be displayed?
