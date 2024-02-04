@@ -142,6 +142,22 @@ fn command_substitution_wont_output_extra_newline() {
     assert_eq!(actual.out, "bar");
 }
 
+#[test]
+fn basic_err_pipe_works() {
+    let actual = nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr FOO e>| str length }"#);
+    // there is a `newline` output from nu --testbin
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn basic_outerr_pipe_works() {
+    let actual = nu!(
+        r#"with-env [FOO "bar"] { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+    );
+    // there is a `newline` output from nu --testbin
+    assert_eq!(actual.out, "8");
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

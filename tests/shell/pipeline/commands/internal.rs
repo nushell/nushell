@@ -1114,6 +1114,20 @@ fn pipe_input_to_print() {
 }
 
 #[test]
+fn err_pipe_input_to_print() {
+    let actual = nu!(r#""foo" e>| print"#);
+    assert_eq!(actual.out, "foo");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn outerr_pipe_input_to_print() {
+    let actual = nu!(r#""foo" o+e>| print"#);
+    assert_eq!(actual.out, "foo");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
 fn command_not_found_error_shows_not_found_2() {
     let actual = nu!(r#"
             export def --wrapped my-foo [...rest] { foo };

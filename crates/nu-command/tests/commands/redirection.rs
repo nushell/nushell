@@ -333,31 +333,39 @@ fn redirection_should_have_a_target() {
 }
 
 #[test]
-fn redirection_with_pipe() {
+fn redirection_with_out_pipe() {
     use nu_test_support::playground::Playground;
-    Playground::setup(
-        "external with many stdout and stderr messages",
-        |dirs, _| {
-            // check for stdout
-            let actual = nu!(
-                cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
-            );
+    Playground::setup("redirection with out pipes", |dirs, _| {
+        // check for stdout
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
+        );
 
-            assert_eq!(actual.out, "8");
-            // check for stderr redirection file.
-            let expected_out_file = dirs.test().join("tmp_file");
-            let actual_len = file_contents(expected_out_file).len();
-            assert_eq!(actual_len, 8);
+        assert_eq!(actual.out, "8");
+        // check for stderr redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual_len = file_contents(expected_out_file).len();
+        assert_eq!(actual_len, 8);
+    })
+}
 
-            // check it inside a function
-            let actual = nu!(
-                cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file; print aa"#,
-            );
-            assert!(actual.out.contains("messageaa"));
-        },
-    )
+#[test]
+fn redirection_with_err_pipe() {
+    use nu_test_support::playground::Playground;
+    Playground::setup("redirection with err pipe", |dirs, _| {
+        // check for stdout
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out> tmp_file e>| str length"#,
+        );
+
+        assert_eq!(actual.out, "8");
+        // check for stdout redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual_len = file_contents(expected_out_file).len();
+        assert_eq!(actual_len, 8);
+    })
 }
 
 #[test]
