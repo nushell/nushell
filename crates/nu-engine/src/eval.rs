@@ -454,55 +454,8 @@ fn eval_element_with_input(
                         _ => None,
                     };
 
-                    // when nushell get Stderr Redirection, we want to take `stdout` part of `input`
-                    // so this stdout stream can be handled by next command.
-                    let (input, out_stream, is_out) = match (redirection, input) {
-                        (
-                            Redirection::Stderr,
-                            PipelineData::ExternalStream {
-                                stdout,
-                                stderr,
-                                exit_code,
-                                span,
-                                metadata,
-                                trim_end_newline,
-                            },
-                        ) => (
-                            PipelineData::ExternalStream {
-                                stdout: stderr,
-                                stderr: None,
-                                exit_code,
-                                span,
-                                metadata,
-                                trim_end_newline,
-                            },
-                            Some(stdout),
-                            true,
-                        ),
-                        (
-                            Redirection::Stdout,
-                            PipelineData::ExternalStream {
-                                stdout,
-                                stderr,
-                                exit_code,
-                                span,
-                                metadata,
-                                trim_end_newline,
-                            },
-                        ) => (
-                            PipelineData::ExternalStream {
-                                stdout,
-                                stderr: None,
-                                exit_code,
-                                span,
-                                metadata,
-                                trim_end_newline,
-                            },
-                            Some(stderr),
-                            false,
-                        ),
-                        (_, input) => (input, None, true),
-                    };
+                    let (input, result_out_stream, result_is_out) =
+                        adjust_stream_for_input_and_output(input, redirection);
 
                     if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                         let save_call = gen_save_call(
@@ -510,7 +463,7 @@ fn eval_element_with_input(
                             (*span, expr.clone(), *is_append_mode),
                             None,
                         );
-                        match out_stream {
+                        match result_out_stream {
                             None => {
                                 eval_call(engine_state, stack, &save_call, input).map(|_| {
                                     // save is internal command, normally it exists with non-ExternalStream
@@ -529,7 +482,7 @@ fn eval_element_with_input(
                                     })
                                 })
                             }
-                            Some(out_stream) => {
+                            Some(result_out_stream) => {
                                 // delegate to a different thread
                                 // so nushell won't hang if external command generates both too much
                                 // stderr and stdout message
@@ -541,37 +494,31 @@ fn eval_element_with_input(
                                     save_call,
                                     input,
                                 ));
-
-                                if is_out {
-                                    Ok(might_consume_external_result(
-                                        PipelineData::ExternalStream {
-                                            stdout: out_stream,
-                                            stderr: None,
-                                            exit_code,
-                                            span: *span,
-                                            metadata: None,
-                                            trim_end_newline: false,
-                                        },
-                                    ))
+                                let (result_out_stream, result_err_stream) = if result_is_out {
+                                    (result_out_stream, None)
                                 } else {
-                                    // we need `stdout` to be an empty Rawstream
-                                    // so nushell don't want to check for exit_code.
-                                    Ok(might_consume_external_result(
-                                        PipelineData::ExternalStream {
-                                            stdout: Some(RawStream::new(
-                                                Box::new(vec![].into_iter()),
-                                                None,
-                                                *span,
-                                                Some(0),
-                                            )),
-                                            stderr: out_stream,
-                                            exit_code,
-                                            span: *span,
-                                            metadata: None,
-                                            trim_end_newline: false,
-                                        },
-                                    ))
-                                }
+                                    // we need `stdout` to be an empty RawStream
+                                    // so nushell knows this result is not the last part of a command.
+                                    (
+                                        Some(RawStream::new(
+                                            Box::new(vec![].into_iter()),
+                                            None,
+                                            *span,
+                                            Some(0),
+                                        )),
+                                        result_out_stream,
+                                    )
+                                };
+                                Ok(might_consume_external_result(
+                                    PipelineData::ExternalStream {
+                                        stdout: result_out_stream,
+                                        stderr: result_err_stream,
+                                        exit_code,
+                                        span: *span,
+                                        metadata: None,
+                                        trim_end_newline: false,
+                                    },
+                                ))
                             }
                         }
                     } else {
@@ -697,6 +644,73 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
+    }
+}
+
+// In redirection context, if nushell gets an ExternalStream
+// it might want to take a stream from `input`(if `input` is `PipelineData::ExternalStream`)
+// so this stream can be handled by next command.
+//
+//
+// 1. get a stderr redirection, we need to take `stdout` out of `input`.
+//    e.g:  nu --testbin echo_env FOO e> /dev/null | str length
+// 2. get a stdout redirection, we need to take `stderr` out of `input`.
+//    e.g:  nu --testbin echo_env FOO o> /dev/null e>| str length
+//
+// Returns 3 values:
+// 1. adjusted pipeline data
+// 2. a result stream which is taken from `input`, it can be handled in next command
+// 3. a boolean value indicates if result stream should be a stdout stream.
+fn adjust_stream_for_input_and_output(
+    input: PipelineData,
+    redirection: &Redirection,
+) -> (PipelineData, Option<Option<RawStream>>, bool) {
+    match (redirection, input) {
+        (
+            Redirection::Stderr,
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+        ) => (
+            PipelineData::ExternalStream {
+                stdout: stderr,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+            Some(stdout),
+            true,
+        ),
+        (
+            Redirection::Stdout,
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+        ) => (
+            PipelineData::ExternalStream {
+                stdout,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+            Some(stderr),
+            false,
+        ),
+        (_, input) => (input, None, true),
     }
 }
 
