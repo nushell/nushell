@@ -441,6 +441,23 @@ fn push_command_to(
                 if last_connector == TokenContents::ErrGreaterPipe {
                     pipeline.push(LiteElement::ErrPipedCommand(last_connector_span, command))
                 } else if last_connector == TokenContents::OutErrGreaterPipe {
+                    // Don't allow o+e>| along with redirection.
+                    for cmd in &pipeline.commands {
+                        if matches!(
+                            cmd,
+                            LiteElement::Redirection { .. }
+                                | LiteElement::SameTargetRedirection { .. }
+                                | LiteElement::SeparateRedirection { .. }
+                        ) {
+                            return Some(ParseError::LabeledError(
+                                "`o+e>|` pipe is not allowed to use with redirection".into(),
+                                "try to use different type of pipe, or remove redirection".into(),
+                                last_connector_span
+                                    .expect("internal error: outerr pipe missing span information"),
+                            ));
+                        }
+                    }
+
                     pipeline.push(LiteElement::OutErrPipedCommand(
                         last_connector_span,
                         command,
