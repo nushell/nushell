@@ -2,7 +2,7 @@ use std::{
     fmt::Display,
     io::{self, BufRead, BufReader},
     process::{Command, Stdio},
-    sync::{mpsc::SyncSender, Arc, Mutex},
+    sync::{mpsc::SyncSender, Arc, Mutex, MutexGuard},
     thread,
 };
 
@@ -102,6 +102,10 @@ impl Jobs {
         self.sender = Some(sender);
     }
 
+    fn state(&self) -> MutexGuard<JobState> {
+        self.state.lock().expect("unpoisoned")
+    }
+
     pub fn spawn_background(
         &self,
         mut command: Command,
@@ -120,7 +124,7 @@ impl Jobs {
 
         let mut child = command.spawn()?;
 
-        let mut state = self.state.lock().expect("unpoisoned");
+        let mut state = self.state();
         let job = Job {
             id: state.jobs.last().map(|job| job.id).unwrap_or(0) + 1,
             command: command.get_program().to_string_lossy().to_string(),
@@ -225,27 +229,17 @@ impl Jobs {
     /// Returns information about each job (running and completed).
     /// Note that any completed jobs are removed from the job list.
     pub fn info_list(&self) -> Vec<JobInfo> {
-        self.state
-            .lock()
-            .expect("unpoisoned")
-            .jobs
-            .iter()
-            .map(Job::info)
-            .collect()
+        self.state().jobs.iter().map(Job::info).collect()
     }
 
     pub fn clean(&self) {
-        self.state
-            .lock()
-            .expect("unpoisoned")
+        self.state()
             .jobs
             .retain(|job| job.status() != JobStatus::Completed);
     }
 
     pub fn clean_ids(&self, ids: &[JobId]) {
-        self.state
-            .lock()
-            .expect("unpoisoned")
+        self.state()
             .jobs
             .retain(|job| job.status() != JobStatus::Completed || !ids.contains(&job.id));
     }
