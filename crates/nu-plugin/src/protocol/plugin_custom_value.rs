@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use nu_protocol::{CustomValue, ShellError, Value};
 use serde::Serialize;
 
-use crate::plugin::{call_plugin, create_command, get_plugin_encoding};
+use crate::plugin::{create_command, make_plugin_interface};
 
-use super::{PluginCall, PluginData, PluginResponse};
+use super::{PluginCall, PluginCallResponse, PluginData};
 
 /// An opaque container for a custom value that is handled fully by a plugin
 ///
@@ -62,20 +62,16 @@ impl CustomValue for PluginCustomValue {
             data: self.data.clone(),
             span,
         });
-        let encoding = {
-            let stdout_reader = match &mut child.stdout {
-                Some(out) => out,
-                None => {
-                    return Err(ShellError::PluginFailedToLoad {
-                        msg: "Plugin missing stdout reader".into(),
-                    })
-                }
-            };
-            get_plugin_encoding(stdout_reader)?
-        };
 
-        let response = call_plugin(&mut child, plugin_call, &encoding, span).map_err(|err| {
-            ShellError::GenericError {
+        let interface = make_plugin_interface(&mut child, None)?;
+        let interface_clone = interface.clone();
+
+        // Write the call on another thread to avoid blocking
+        std::thread::spawn(move || interface_clone.write_call(plugin_call));
+
+        let response = interface
+            .read_call_response()
+            .map_err(|err| ShellError::GenericError {
                 error: format!(
                     "Unable to decode call for {} to get base value",
                     self.source
@@ -84,20 +80,30 @@ impl CustomValue for PluginCustomValue {
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            }
-        });
+            });
+
+        drop(interface);
 
         let value = match response {
-            Ok(PluginResponse::Value(value)) => Ok(*value),
-            Ok(PluginResponse::PluginData(..)) => Err(ShellError::GenericError {
+            Ok(PluginCallResponse::Value(value)) => Ok(*value),
+            Ok(PluginCallResponse::PluginData(..)) => Err(ShellError::GenericError {
                 error: "Plugin misbehaving".into(),
                 msg: "Plugin returned custom data as a response to a collapse call".into(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
             }),
-            Ok(PluginResponse::Error(err)) => Err(err.into()),
-            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError {
+            Ok(PluginCallResponse::Empty)
+            | Ok(PluginCallResponse::ListStream)
+            | Ok(PluginCallResponse::ExternalStream(..)) => Err(ShellError::GenericError {
+                error: "Plugin misbehaving".into(),
+                msg: "Plugin returned stream as a response to a collapse call".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }),
+            Ok(PluginCallResponse::Error(err)) => Err(err.into()),
+            Ok(PluginCallResponse::Signature(..)) => Err(ShellError::GenericError {
                 error: "Plugin missing value".into(),
                 msg: "Received a signature from plugin instead of value".into(),
                 span: Some(span),

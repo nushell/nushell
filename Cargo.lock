@@ -3161,11 +3161,13 @@ name = "nu-plugin"
 version = "0.90.2"
 dependencies = [
  "bincode",
+ "log",
  "nu-engine",
  "nu-protocol",
  "rmp-serde",
  "serde",
  "serde_json",
+ "typetag",
 ]
 
 [[package]]
@@ -3336,6 +3338,14 @@ dependencies = [
  "scraper",
  "sxd-document",
  "sxd-xpath",
+]
+
+[[package]]
+name = "nu_plugin_stream_example"
+version = "0.90.2"
+dependencies = [
+ "nu-plugin",
+ "nu-protocol",
 ]
 
 [[package]]

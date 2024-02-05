@@ -3,12 +3,12 @@ mod plugin_custom_value;
 mod plugin_data;
 
 pub use evaluated_call::EvaluatedCall;
-use nu_protocol::{PluginSignature, ShellError, Span, Value};
+use nu_protocol::{PluginSignature, RawStream, ShellError, Span, Value};
 pub use plugin_custom_value::PluginCustomValue;
 pub use plugin_data::PluginData;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CallInfo {
     pub name: String,
     pub call: EvaluatedCall,
@@ -16,18 +16,78 @@ pub struct CallInfo {
     pub config: Option<Value>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+/// Pipeline input to a plugin call
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum CallInput {
+    /// No input
+    Empty,
+    /// A single value
     Value(Value),
+    /// Deserialized to [PluginCustomValue]
     Data(PluginData),
+    /// Initiate [nu_protocol::PipelineData::ListStream]
+    ///
+    /// Items are sent via [StreamData]
+    ListStream,
+    /// Initiate [nu_protocol::PipelineData::ExternalStream]
+    ///
+    /// Items are sent via [StreamData]
+    ExternalStream(ExternalStreamInfo),
 }
 
-// Information sent to the plugin
-#[derive(Serialize, Deserialize, Debug)]
+/// Additional information about external streams
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ExternalStreamInfo {
+    pub span: Span,
+    pub stdout: Option<RawStreamInfo>,
+    pub stderr: Option<RawStreamInfo>,
+    pub has_exit_code: bool,
+    pub trim_end_newline: bool,
+}
+
+/// Additional information about raw streams
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct RawStreamInfo {
+    pub is_binary: bool,
+    pub known_size: Option<u64>,
+}
+
+impl From<&RawStream> for RawStreamInfo {
+    fn from(stream: &RawStream) -> Self {
+        RawStreamInfo {
+            is_binary: stream.is_binary,
+            known_size: stream.known_size,
+        }
+    }
+}
+
+/// Initial message sent to the plugin
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCall {
     Signature,
-    CallInfo(CallInfo),
+    Run(CallInfo),
     CollapseCustomValue(PluginData),
+}
+
+/// Any data sent to the plugin
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PluginInput {
+    Call(PluginCall),
+    StreamData(StreamData),
+}
+
+/// A single item of stream data for a stream.
+///
+/// A `None` value ends the stream. An `Error` ends all streams, and the error should be propagated.
+///
+/// Note: exported for internal use, not public.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[doc(hidden)]
+pub enum StreamData {
+    List(Option<Value>),
+    ExternalStdout(Option<Result<Vec<u8>, ShellError>>),
+    ExternalStderr(Option<Result<Vec<u8>, ShellError>>),
+    ExternalExitCode(Option<Value>),
 }
 
 /// An error message with debugging information that can be passed to Nushell from the plugin
@@ -36,7 +96,7 @@ pub enum PluginCall {
 /// a [Plugin](crate::Plugin)'s [`run`](crate::Plugin::run()) method. It contains
 /// the error message along with optional [Span] data to support highlighting in the
 /// shell.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct LabeledError {
     /// The name of the error
     pub label: String,
@@ -107,7 +167,7 @@ impl From<ShellError> for LabeledError {
                 span: None,
             },
             err => LabeledError {
-                label: "Error - Add to LabeledError From<ShellError>".into(),
+                label: format!("Error - Add to LabeledError From<ShellError>: {err:?}"),
                 msg: err.to_string(),
                 span: None,
             },
@@ -115,14 +175,27 @@ impl From<ShellError> for LabeledError {
     }
 }
 
-// Information received from the plugin
-// Needs to be public to communicate with nu-parser but not typically
-// used by Plugin authors
+/// Response to a [PluginCall]
+///
+/// Note: exported for internal use, not public.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[doc(hidden)]
-#[derive(Serialize, Deserialize)]
-pub enum PluginResponse {
+pub enum PluginCallResponse {
     Error(LabeledError),
     Signature(Vec<PluginSignature>),
+    Empty,
     Value(Box<Value>),
     PluginData(String, PluginData),
+    ListStream,
+    ExternalStream(ExternalStreamInfo),
+}
+
+/// Information received from the plugin
+///
+/// Note: exported for internal use, not public.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[doc(hidden)]
+pub enum PluginOutput {
+    CallResponse(PluginCallResponse),
+    StreamData(StreamData),
 }
