@@ -13,6 +13,7 @@ mod ucp;
 mod umkdir;
 mod umv;
 mod util;
+mod utouch;
 mod watch;
 
 pub use self::open::Open;
@@ -29,4 +30,5 @@ pub use touch::Touch;
 pub use ucp::UCp;
 pub use umkdir::UMkdir;
 pub use umv::UMv;
+pub use utouch::UTouch;
 pub use watch::Watch;

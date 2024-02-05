@@ -92,6 +92,7 @@ uu_cp = "0.0.23"
 uu_whoami = "0.0.23"
 uu_mkdir = "0.0.23"
 uu_mktemp = "0.0.23"
+uu_touch = { path = "../../../coreutils/src/uu/touch" }
 uuid = { version = "1.6", features = ["v4"] }
 v_htmlescape = "0.15.0"
 wax = { version = "0.6" }
