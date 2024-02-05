@@ -25,11 +25,11 @@ indexmap = { version = "2.2" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.43", optional = true }
-polars-io = { version = "0.36", features = ["avro"], optional = true }
-polars-arrow = { version = "0.36", optional = true }
-polars-ops = { version = "0.36", optional = true }
-polars-plan = { version = "0.36", optional = true }
-polars-utils = { version = "0.36", optional = true }
+polars-io = { version = "0.37", features = ["avro"], optional = true }
+polars-arrow = { version = "0.37", optional = true }
+polars-ops = { version = "0.37", optional = true }
+polars-plan = { version = "0.37", optional = true }
+polars-utils = { version = "0.37", optional = true }
 
 [dependencies.polars]
 features = [
@@ -63,7 +63,7 @@ features = [
 	"to_dummies",
 ]
 optional = true
-version = "0.36"
+version = "0.37"
 
 [features]
 dataframe = ["num", "polars", "polars-io", "polars-arrow", "polars-ops", "polars-plan", "polars-utils", "sqlparser"]
