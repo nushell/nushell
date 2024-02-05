@@ -128,11 +128,10 @@ impl Command for Touch {
         }
 
         for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
-            if no_create {
-                let path = Path::new(&item);
-                if !path.exists() {
-                    continue;
-                }
+            let path = Path::new(&item);
+
+            if no_create && !path.exists() {
+                continue;
             }
 
             if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
