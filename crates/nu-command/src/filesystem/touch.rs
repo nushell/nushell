@@ -134,15 +134,18 @@ impl Command for Touch {
                 continue;
             }
 
-            if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
-                return Err(ShellError::CreateNotPossible {
-                    msg: format!("Failed to create file: {err}"),
-                    span: call
-                        .positional_nth(index)
-                        .expect("already checked positional")
-                        .span,
-                });
-            };
+            // If the path is an existing directory it should not be created
+            if !path.is_dir() {
+                if let Err(err) = OpenOptions::new().write(true).create(true).open(path) {
+                    return Err(ShellError::CreateNotPossible {
+                        msg: format!("Failed to create file: {err}"),
+                        span: call
+                            .positional_nth(index)
+                            .expect("already checked positional")
+                            .span,
+                    });
+                };
+            }
 
             if change_mtime {
                 // Should not panic as we return an error above if we can't parse the date
