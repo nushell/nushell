@@ -1426,7 +1426,7 @@ mod tests {
         let test_int_arr = PrimitiveArray::from([Some(1_i32)]);
         let test_bool_arr = BooleanArray::from([Some(true)]);
         let test_struct_arr = StructArray::new(
-            DataType::Struct(fields.clone()).to_arrow(),
+            DataType::Struct(fields.clone()).to_arrow(true),
             vec![Box::new(test_int_arr), Box::new(test_bool_arr)],
             None,
         );
