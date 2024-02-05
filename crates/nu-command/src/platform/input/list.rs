@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 use std::fmt::{Display, Formatter};
 
@@ -254,9 +254,7 @@ impl Command for InputList {
             Example {
                 description: "Choose an item from a table using a column as display value",
                 example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name"#,
-                result: Some(Value::test_record(
-                    record!("name" => Value::test_string("Kiwi"), "price" => Value::test_int(4)),
-                )),
+                result: None,
             },
         ]
     }
