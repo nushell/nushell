@@ -154,6 +154,16 @@ pub fn complete_item(
 
 // Fix files or folders with quotes or hashes
 pub fn escape_path(path: String, dir: bool) -> String {
+    // make glob pattern have the highest priority.
+    let glob_contaminated = path.contains(['[', '*', ']']);
+    if glob_contaminated {
+        return if path.contains('"') {
+            format!("'{path}'")
+        } else {
+            format!("\"{path}\"")
+        };
+    }
+
     let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
     let maybe_flag = path.starts_with('-');
