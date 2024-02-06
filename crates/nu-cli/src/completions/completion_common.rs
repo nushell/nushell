@@ -157,10 +157,10 @@ pub fn escape_path(path: String, dir: bool) -> String {
     // make glob pattern have the highest priority.
     let glob_contaminated = path.contains(['[', '*', ']']);
     if glob_contaminated {
-        return if path.contains('"') {
-            format!("'{path}'")
-        } else {
+        return if path.contains('\'') {
             format!("\"{path}\"")
+        } else {
+            format!("'{path}'")
         };
     }
 
