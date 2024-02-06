@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,6 +27,12 @@ impl Command for ProposeSelect {
             ])
             .rest(
                 "rest",
+		// TODO: investigate replacing CellPath with strings
+		// The reason for this is because this forbids nested cell paths
+		// anyways, since we'll have `get` for it.  Currently
+		// expressions like `select 1..` error out, since `1..` gets
+		// interpretted as a cell path.  And typing `select (1)..` every
+		// time is quite cluncky.
                 SyntaxShape::OneOf(vec![
                     SyntaxShape::CellPath,
                     SyntaxShape::Int,
@@ -59,80 +65,98 @@ impl Command for ProposeSelect {
     ) -> Result<PipelineData, ShellError> {
         let values: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let call_span = call.span();
-        let (members, rows, ranges) = split_args(&values, call_span)?;
+        let (keys, rows) = split_args(&values, call_span)?;
 
-        // get column names and rows
-        // two functions: for rejecting columns and for rows
-        // columns just uses `remove_data_at_cell_path`
-        // for rows:
-        // zip (0..) with input
-        // filter checking i not in ranges or ints
-        // if there are negative rows, collect input and also check length - i
-        // map and remove the index
-
-        let values = input.into_value(Span::unknown());
-
-        let out: Vec<_> = (0i64..)
-            .zip(values.as_list()?)
-            .filter(|(i, _)| {
-                if rows.contains(i) {
-                    return true;
-                }
-                let curr_i = Value::int(*i, Span::unknown());
-                for range in &ranges {
-                    if range.contains(&curr_i) {
-                        return true;
+	// TODO: handle negatives
+	// TODO: do error checking on columns via `get_columns` (and figure out
+	// flags and default error checking states)
+	// TODO: move this to a separate function
+        match input {
+            PipelineData::Value(mut value, ..) => {
+                let value_span = value.span();
+                match value {
+                    Value::Record { .. } => {
+                        select_in_record(&mut value, &keys);
+                        Ok(value.into_pipeline_data())
                     }
-                }
+                    Value::List { vals, .. } => {
+                        let mut values = select_rows(vals, &rows);
+                        for value in &mut values {
+                            select_in_record(value, &keys);
+                        }
 
-                // TODO variable
-                false
-            })
-            .map(|(_, value)| value)
-            .map(|value| {
-                let value = match value {
-                    Value::Record { val, .. } => {
-                        let record = select_record(val, members);
-			Value::record(record, value.span())
+                        Ok(Value::list(values, value_span).into_pipeline_data())
                     }
-                    _ => value.clone(),
-                };
-                let mut value = value.clone();
-                for i in 0..members.len() {
-                    // Ignore error
-                    let _ = value.remove_data_at_cell_path(&members[i..i + 1]);
+                    Value::Binary { val, .. } => {
+                        let bytes = select_rows(val, &rows);
+                        Ok(Value::binary(bytes, value_span).into_pipeline_data())
+                    }
+                    _ => unreachable!("Unexpected type {}", value.get_type()),
                 }
-                value
-            })
-            .collect();
-        Ok(Value::test_list(out).into_pipeline_data())
+            }
+            PipelineData::ListStream(stream, metadata, ..) => {
+                if let Some(max_idex) = rows.max_index() {
+                    // TODO panic.  Needs a proper integer management to avoid
+		    // stuff like #11756
+                    let values: Vec<Value> = stream.take(max_idex as usize).collect();
 
-        // Ok(Value::nothing(Span::unknown()).into_pipeline_data())
+                    // XXX copypasta from Value::List handling
+                    let mut values = select_rows(values, &rows);
+                    for value in &mut values {
+                        select_in_record(value, &keys);
+                    }
+
+                    Ok(values
+                        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                } else {
+                    let iter = stream
+                        // enumerate
+                        .zip(0i64..)
+                        .filter(move |(_, i)| {
+                            // TODO try avoiding the entire filter here if rows
+			    // are empty
+                            if rows.is_empty() {
+                                return true;
+                            }
+
+                            rows.contains(*i)
+                        })
+                        // remove enumeration
+                        .map(|(value, _)| value)
+                        .map(move |mut value| {
+                            select_in_record(&mut value, &keys);
+                            value
+                        })
+                        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone());
+                    Ok(iter)
+                }
+            }
+            _ => todo!("add error"),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
+        // TODO add examples back when the interface gets locked in
         vec![]
     }
 }
 
-fn split_args(
-    values: &[Value],
-    call_span: Span,
-) -> Result<(Vec<PathMember>, Vec<i64>, Vec<Range>), ShellError> {
+/// Split arguments into rows and columns.
+fn split_args(values: &[Value], call_span: Span) -> Result<(Vec<String>, Rows), ShellError> {
     let mut members = vec![];
-    let mut rows = vec![];
+    let mut integers = vec![];
     let mut ranges = vec![];
 
     for value in values {
         let span = value.span();
         match value {
-            Value::Int { val, .. } => rows.push(*val),
+            Value::Int { val, .. } => integers.push(*val),
             Value::CellPath { val, .. } => {
                 if let [member] = &val.members[..] {
                     match member {
-                        // TODO panic
-                        PathMember::Int { val, .. } => rows.push(*val as i64),
-                        _ => members.push(member.clone()),
+                        // TODO panic, conversion
+                        PathMember::Int { val, .. } => integers.push(*val as i64),
+                        PathMember::String { val, .. } => members.push(val.clone()),
                     }
                 } else {
                     return Err(ShellError::IncorrectValue {
@@ -143,21 +167,89 @@ fn split_args(
                 }
             }
             Value::Range { val, .. } => ranges.push(*val.to_owned()),
-            _ => unreachable!(),
+            _ => unreachable!("Unexpected type: {}", value.get_type()),
         }
     }
 
-    Ok((members, rows, ranges))
+    Ok((members, Rows::new(integers, ranges)))
 }
 
-fn select_record(record: &Record, names: &[String]) -> Record {
-    let mut copy = record.clone();
-    for column in record.columns() {
-        if names.contains(column) {
-            copy.remove(column);
+/// Pick key-value pairs from `select_keys` inplace.
+fn select_in_record(value: &mut Value, select_keys: &[String]) {
+    if select_keys.is_empty() {
+        return;
+    }
+
+    match value {
+        Value::Record { val, .. } => {
+            // An ugly hack because columns is some weird iterator, not a vector
+            // TODO do it the right way.  I'm ready to help change the record
+            // inferface if that'll get rid of this monstrosity
+            let columns = val.columns().map(|c| c.clone()).collect::<Vec<String>>();
+            for key in columns {
+                if !select_keys.contains(&key) {
+                    val.remove(key);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Select `rows` from `values`, without cloning the values themselves.
+fn select_rows<T>(values: Vec<T>, rows: &Rows) -> Vec<T> {
+    if rows.is_empty() {
+        return values;
+    }
+
+    let mut out = vec![];
+
+    for (value, i) in values.into_iter().zip(0i64..) {
+        if rows.contains(i) {
+            out.push(value);
         }
     }
-    copy
+
+    out
+}
+
+struct Rows {
+    integers: Vec<i64>,
+    ranges: Vec<Range>,
+}
+
+impl Rows {
+    fn new(integers: Vec<i64>, ranges: Vec<Range>) -> Self {
+        Rows { integers, ranges }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.integers.is_empty() && self.ranges.is_empty()
+    }
+
+    fn contains(&self, index: i64) -> bool {
+        if self.integers.contains(&index) {
+            return true;
+        }
+
+        let value_index = Value::int(index, Span::unknown());
+        for range in &self.ranges {
+            if range.contains(&value_index) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn max_index(&self) -> Option<i64> {
+        // TODO
+	None
+    }
+
+    fn has_negatives(&self) -> bool {
+        todo!()
+    }
 }
 
 #[cfg(test)]
