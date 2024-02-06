@@ -975,7 +975,7 @@ impl Value {
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
-                        Value::Record { .. } => {
+                        Value::Record { .. } | Value::LazyRecord { .. } => {
                             return Err(ShellError::TypeMismatch {
                                 err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
