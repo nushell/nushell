@@ -226,3 +226,75 @@ fn match_with_guard_no_expr_after_if() {
 
     assert!(actual.err.contains("Match guard without an expression"));
 }
+
+#[test]
+fn match_typed_variables_int() {
+    let actual = nu!("match 4 { $s: string => { 'no' }, $x: int => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn match_typed_variables_string() {
+    let actual =
+        nu!("match 'hello' { $s: string => { 'yes' }, $x: int => { 'no' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn match_invalid_type() {
+    let actual =
+        nu!("match 4 { $s: invalid_type => { 'no' }, $x: bool => { 'no' }, _ => { 'what' } }");
+
+    assert!(actual.err.contains("Unknown type."));
+}
+
+#[test]
+fn match_subtyping() {
+    let actual =
+        nu!("match 4 { $s: string => { 'no' }, $x: number => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+
+    let actual =
+        nu!("match 4.0 { $s: string => { 'no' }, $x: number => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn match_subtyping_list() {
+    let actual =
+        nu!("match [1 2 3] { $s: number => { 'no' }, $x: list => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+
+    let actual = nu!(
+        "match [1 2 3] { $s: number => { 'no' }, $x: list<int> => { 'yes' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "yes");
+
+    // lists are covariant
+    let actual = nu!(
+        "match [1 2 3] { $s: number => { 'no' }, $x: list<number> => { 'yes' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn match_typed_variables_int_with_guard() {
+    let actual = nu!(
+        "match 12 { $s: string => { 'str' }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "even");
+
+    let actual = nu!(
+        "match 13 { $s: string => { 'str' }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "odd");
+}

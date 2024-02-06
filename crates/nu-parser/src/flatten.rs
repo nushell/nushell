@@ -676,6 +676,13 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
         Pattern::Value(_) => {
             output.push((match_pattern.span, FlatShape::MatchPattern));
         }
+        Pattern::Type(_, var_id) => {
+            output.push((match_pattern.span, FlatShape::MatchPattern));
+
+            if let Some(var_id) = var_id {
+                output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
+            }
+        }
         Pattern::Variable(var_id) => {
             output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
         }

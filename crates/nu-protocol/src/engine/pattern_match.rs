@@ -45,6 +45,12 @@ impl Matcher for Pattern {
                 matches.push((*var_id, value.clone()));
                 true
             }
+            Pattern::Type(ty, var_id) => {
+                if let Some(var_id) = var_id {
+                    matches.push((*var_id, value.clone()));
+                }
+                value.get_type().is_subtype(ty)
+            }
             Pattern::List(items) => match &value {
                 Value::List { vals, .. } => {
                     if items.len() > vals.len() {
