@@ -88,8 +88,8 @@ fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, SubCommand};
-    use nu_protocol::{Span, Value};
+    use super::{action, Arguments, SubCommand};
+    use nu_protocol::{engine::EngineState, Span, Value};
 
     #[test]
     fn examples_work_as_expected() {
@@ -104,7 +104,12 @@ mod tests {
             Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld");
         let expected = Value::test_string("Hello Nu World");
 
-        let actual = action(&input_string, &vec![].into(), Span::test_data());
+        let args = Arguments {
+            cell_paths: vec![].into(),
+            config: EngineState::new().get_config().clone(),
+        };
+
+        let actual = action(&input_string, &args, Span::test_data());
         assert_eq!(actual, expected);
     }
 }
