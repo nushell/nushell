@@ -774,3 +774,8 @@ fn record_expected_colon() -> TestResult {
 fn record_missing_value() -> TestResult {
     fail_test(r#"{ a: 2 b: }"#, "expected value for record field")
 }
+
+#[test]
+fn def_requires_body_closure() -> TestResult {
+    fail_test("def a [] (echo 4)", "expected definition body closure")
+}

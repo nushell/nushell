@@ -5,6 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::get_system_locale;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -137,7 +138,13 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     }
 }
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
-    match a_string.trim().parse::<bytesize::ByteSize>() {
+    // Get the Locale so we know what the thousands separator is
+    let locale = get_system_locale();
+
+    // Now that we know the locale, get the thousands separator and remove it
+    // so strings like 1,123,456 can be parsed as 1123456
+    let no_comma_string = a_string.replace(locale.separator(), "");
+    match no_comma_string.trim().parse::<bytesize::ByteSize>() {
         Ok(n) => Ok(n.0 as i64),
         Err(_) => Err(ShellError::CantConvert {
             to_type: "int".into(),

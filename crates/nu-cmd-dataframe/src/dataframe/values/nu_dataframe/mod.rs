@@ -160,7 +160,7 @@ impl NuDataFrame {
 
                     conversion::insert_record(
                         &mut column_values,
-                        Record::from_raw_cols_vals(cols, vals),
+                        Record::from_raw_cols_vals_unchecked(cols, vals),
                         &maybe_schema,
                     )?
                 }
