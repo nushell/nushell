@@ -587,18 +587,6 @@ fn record_matches_term(
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Find)
-    }
-}
-
 fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
     let span = input.span().unwrap_or(head_span);
     match input {
@@ -616,5 +604,17 @@ fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineDa
             }
         }
         _ => input,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Find)
     }
 }
