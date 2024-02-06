@@ -53,7 +53,7 @@ itertools = "0.12"
 log = "0.4"
 lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
-miette = { version = "5.10", features = ["fancy-no-backtrace"] }
+miette = { version = "7.0", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
