@@ -78,7 +78,7 @@ nu-std = { path = "./crates/nu-std", version = "0.89.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.89.1" }
 
 nu-ansi-term = "0.50.0"
-reedline = { version = "0.28.0", features = ["bashisms", "sqlite"] }
+reedline = { version = "0.29.0", features = ["bashisms", "sqlite"] }
 
 crossterm = "0.27"
 ctrlc = "3.4"
@@ -183,8 +183,8 @@ bench = false
 
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
-[patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+#[patch.crates-io]
+#reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 # uu_cp = { git = "https://github.com/uutils/coreutils.git", branch = "main" }
 
