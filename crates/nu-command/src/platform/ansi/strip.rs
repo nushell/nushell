@@ -1,9 +1,21 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+pub struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+    config: Config,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -41,9 +53,14 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let arg = CellPathOnlyArgs::from(cell_paths);
-        operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let config = engine_state.get_config();
+        let args = Arguments {
+            cell_paths,
+            config: config.clone(),
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,22 +72,16 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, _span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
     let span = input.span();
     match input {
         Value::String { val, .. } => {
             Value::string(nu_utils::strip_ansi_likely(val).to_string(), span)
         }
         other => {
-            let got = format!("value is {}, not string", other.get_type());
-
-            Value::error(
-                ShellError::TypeMismatch {
-                    err_message: got,
-                    span: other.span(),
-                },
-                other.span(),
-            )
+            // Fake stripping ansi for other types and just show the abbreviated string
+            // instead of showing an error message
+            Value::string(other.into_abbreviated_string(&args.config), span)
         }
     }
 }
