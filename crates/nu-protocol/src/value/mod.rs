@@ -4,9 +4,10 @@ mod from_value;
 mod lazy_record;
 mod path;
 mod range;
-mod record;
 mod stream;
 mod unit;
+
+pub mod record;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
