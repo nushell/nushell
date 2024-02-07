@@ -69,8 +69,8 @@ impl Command for Headers {
     ) -> Result<PipelineData, ShellError> {
         let config = engine_state.get_config();
         let metadata = input.metadata();
-        let value = input.into_value(call.head);
-        let span = value.span();
+        let span = input.span().unwrap_or(call.head);
+        let value = input.into_value(span);
         let Value::List { vals: table, .. } = value else {
             return Err(ShellError::TypeMismatch {
                 err_message: "not a table".to_string(),
@@ -79,9 +79,9 @@ impl Command for Headers {
         };
 
         let (old_headers, new_headers) = extract_headers(&table, span, config)?;
-        let new_headers = replace_headers(table, span, &old_headers, &new_headers)?;
+        let value = replace_headers(table, span, &old_headers, &new_headers)?;
 
-        Ok(new_headers.into_pipeline_data_with_metadata(metadata))
+        Ok(value.into_pipeline_data_with_metadata(metadata))
     }
 }
 
