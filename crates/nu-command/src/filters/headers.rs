@@ -85,53 +85,6 @@ impl Command for Headers {
     }
 }
 
-fn replace_headers(
-    rows: Vec<Value>,
-    span: Span,
-    old_headers: &[String],
-    new_headers: &[String],
-) -> Result<Value, ShellError> {
-    rows.into_iter()
-        .skip(1)
-        .map(|value| {
-            let span = value.span();
-            if let Value::Record { val: record, .. } = value {
-                Ok(Value::record(
-                    record
-                        .into_iter()
-                        .filter_map(|(col, val)| {
-                            old_headers
-                                .iter()
-                                .position(|c| c == &col)
-                                .map(|i| (new_headers[i].clone(), val))
-                        })
-                        .collect(),
-                    span,
-                ))
-            } else {
-                Err(ShellError::CantConvert {
-                    to_type: "record".into(),
-                    from_type: value.get_type().to_string(),
-                    span,
-                    help: None,
-                })
-            }
-        })
-        .collect::<Result<_, _>>()
-        .map(|rows| Value::list(rows, span))
-}
-
-fn is_valid_header(value: &Value) -> bool {
-    matches!(
-        value,
-        Value::Nothing { .. }
-            | Value::String { val: _, .. }
-            | Value::Bool { val: _, .. }
-            | Value::Float { val: _, .. }
-            | Value::Int { val: _, .. }
-    )
-}
-
 fn extract_headers(
     table: &[Value],
     span: Span,
@@ -174,6 +127,53 @@ fn extract_headers(
 
             Ok((old_headers, new_headers))
         })
+}
+
+fn is_valid_header(value: &Value) -> bool {
+    matches!(
+        value,
+        Value::Nothing { .. }
+            | Value::String { val: _, .. }
+            | Value::Bool { val: _, .. }
+            | Value::Float { val: _, .. }
+            | Value::Int { val: _, .. }
+    )
+}
+
+fn replace_headers(
+    rows: Vec<Value>,
+    span: Span,
+    old_headers: &[String],
+    new_headers: &[String],
+) -> Result<Value, ShellError> {
+    rows.into_iter()
+        .skip(1)
+        .map(|value| {
+            let span = value.span();
+            if let Value::Record { val: record, .. } = value {
+                Ok(Value::record(
+                    record
+                        .into_iter()
+                        .filter_map(|(col, val)| {
+                            old_headers
+                                .iter()
+                                .position(|c| c == &col)
+                                .map(|i| (new_headers[i].clone(), val))
+                        })
+                        .collect(),
+                    span,
+                ))
+            } else {
+                Err(ShellError::CantConvert {
+                    to_type: "record".into(),
+                    from_type: value.get_type().to_string(),
+                    span,
+                    help: None,
+                })
+            }
+        })
+        .collect::<Result<_, _>>()
+        .map(|rows| Value::list(rows, span))
 }
 
 #[cfg(test)]
