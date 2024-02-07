@@ -102,13 +102,15 @@ pub fn complete_item(
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
-    let ls_colors = engine_state.config.use_ansi_coloring.then(|| {
-        let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-            Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
-            None => None,
-        };
-        get_ls_colors(ls_colors_env_str)
-    });
+    let ls_colors = (engine_state.config.use_ls_colors_completions
+        && engine_state.config.use_ansi_coloring)
+        .then(|| {
+            let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
+                Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
+                None => None,
+            };
+            get_ls_colors(ls_colors_env_str)
+        });
     let mut original_cwd = OriginalCwd::None;
     let mut components = Path::new(&partial).components().peekable();
     let mut cwd = match components.peek().cloned() {

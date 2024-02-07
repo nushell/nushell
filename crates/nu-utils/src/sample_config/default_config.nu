@@ -212,6 +212,7 @@ $env.config = {
             max_results: 100 # setting it lower can improve completion performance at the cost of omitting some options
             completer: null # check 'carapace_completer' above as an example
         }
+        use_ls_colors: false # set this to enable file/path/directory completions to use LS_COLORS instead
     }
 
     filesize: {
