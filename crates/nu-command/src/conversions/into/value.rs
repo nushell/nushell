@@ -27,6 +27,11 @@ impl Command for IntoValue {
                 "list of columns to update",
                 Some('c'),
             )
+            .switch(
+                "prefer-filesizes",
+                "For ints display them as human-readable file sizes",
+                Some('f'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -61,6 +66,7 @@ impl Command for IntoValue {
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
+        let display_as_filesizes = call.has_flag(&engine_state, stack, "prefer-filesizes")?;
 
         // the columns to update
         let columns: Option<Value> = call.get_flag(&engine_state, stack, "columns")?;
@@ -79,6 +85,7 @@ impl Command for IntoValue {
         Ok(UpdateCellIterator {
             input: input.into_iter(),
             columns,
+            display_as_filesizes,
             span,
         }
         .into_pipeline_data(ctrlc)
@@ -89,6 +96,7 @@ impl Command for IntoValue {
 struct UpdateCellIterator {
     input: PipelineIterator,
     columns: Option<HashSet<String>>,
+    display_as_filesizes: bool,
     span: Span,
 }
 
@@ -112,7 +120,7 @@ impl Iterator for UpdateCellIterator {
                                 Some(cols) if !cols.contains(&col) => (col, val),
                                 _ => (
                                     col,
-                                    match process_cell(val, span) {
+                                    match process_cell(val, self.display_as_filesizes, span) {
                                         Ok(val) => val,
                                         Err(err) => Value::error(err, span),
                                     },
@@ -121,7 +129,7 @@ impl Iterator for UpdateCellIterator {
                             .collect(),
                         span,
                     )),
-                    val => match process_cell(val, self.span) {
+                    val => match process_cell(val, self.display_as_filesizes, self.span) {
                         Ok(val) => Some(val),
                         Err(err) => Some(Value::error(err, self.span)),
                     },
@@ -134,7 +142,7 @@ impl Iterator for UpdateCellIterator {
 
 // This function will check each cell to see if it matches a regular expression
 // for a particular datatype. If it does, it will convert the cell to that datatype.
-fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
+fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Value, ShellError> {
     // step 1: convert value to string
     let val_str = val.as_string().unwrap_or_default();
 
@@ -177,7 +185,11 @@ fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
                 )),
             })?;
 
-        Ok(Value::int(ival, span))
+        if display_as_filesizes {
+            Ok(Value::filesize(ival, span))
+        } else {
+            Ok(Value::int(ival, span))
+        }
     } else if INTEGER_WITH_DELIMS_RE.is_match(&val_str) {
         let mut val_str = val_str;
         val_str.retain(|x| !['_', ','].contains(&x));
@@ -193,7 +205,11 @@ fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
                 )),
             })?;
 
-        Ok(Value::int(ival, span))
+        if display_as_filesizes {
+            Ok(Value::filesize(ival, span))
+        } else {
+            Ok(Value::int(ival, span))
+        }
     } else if DATETIME_DMY_RE.is_match(&val_str) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
             to_type: "date".to_string(),
