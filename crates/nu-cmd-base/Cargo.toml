@@ -18,7 +18,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
 nu-utils = { path = "../nu-utils", version = "0.90.2" }
 
 indexmap = "2.1"
-miette = "5.10.0"
+miette = "7.0.0"
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
