@@ -4177,7 +4177,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], false);
+    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
