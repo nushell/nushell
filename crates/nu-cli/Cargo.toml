@@ -5,27 +5,27 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cli"
 edition = "2021"
 license = "MIT"
 name = "nu-cli"
-version = "0.89.1"
+version = "0.90.1"
 
 [lib]
 bench = false
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.89.1" }
-nu-command = { path = "../nu-command", version = "0.89.1" }
-nu-test-support = { path = "../nu-test-support", version = "0.89.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.90.1" }
+nu-command = { path = "../nu-command", version = "0.90.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.90.1" }
 rstest = { version = "0.18.1", default-features = false }
 
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.89.1" }
-nu-engine = { path = "../nu-engine", version = "0.89.1" }
-nu-path = { path = "../nu-path", version = "0.89.1" }
-nu-parser = { path = "../nu-parser", version = "0.89.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.89.1" }
-nu-utils = { path = "../nu-utils", version = "0.89.1" }
-nu-color-config = { path = "../nu-color-config", version = "0.89.1" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.90.1" }
+nu-engine = { path = "../nu-engine", version = "0.90.1" }
+nu-path = { path = "../nu-path", version = "0.90.1" }
+nu-parser = { path = "../nu-parser", version = "0.90.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.90.1" }
+nu-utils = { path = "../nu-utils", version = "0.90.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.90.1" }
 nu-ansi-term = "0.50.0"
-reedline = { version = "0.28.0", features = ["bashisms", "sqlite"] }
+reedline = { version = "0.29.0", features = ["bashisms", "sqlite"] }
 
 chrono = { default-features = false, features = ["std"], version = "0.4" }
 crossterm = "0.27"
