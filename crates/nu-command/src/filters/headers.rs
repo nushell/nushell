@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type,
-    Value,
+    record, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -70,45 +70,55 @@ impl Command for Headers {
         let config = engine_state.get_config();
         let metadata = input.metadata();
         let value = input.into_value(call.head);
-        let (old_headers, new_headers) = extract_headers(&value, config)?;
-        let new_headers = replace_headers(value, &old_headers, &new_headers)?;
+        let span = value.span();
+        let Value::List { vals: table, .. } = value else {
+            return Err(ShellError::TypeMismatch {
+                err_message: "not a table".to_string(),
+                span,
+            });
+        };
+
+        let (old_headers, new_headers) = extract_headers(&table, span, config)?;
+        let new_headers = replace_headers(table, span, &old_headers, &new_headers)?;
 
         Ok(new_headers.into_pipeline_data_with_metadata(metadata))
     }
 }
 
 fn replace_headers(
-    value: Value,
+    rows: Vec<Value>,
+    span: Span,
     old_headers: &[String],
     new_headers: &[String],
 ) -> Result<Value, ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val, .. } => Ok(Value::record(
-            val.into_iter()
-                .filter_map(|(col, val)| {
-                    old_headers
-                        .iter()
-                        .position(|c| c == &col)
-                        .map(|i| (new_headers[i].clone(), val))
+    rows.into_iter()
+        .skip(1)
+        .map(|value| {
+            let span = value.span();
+            if let Value::Record { val: record, .. } = value {
+                Ok(Value::record(
+                    record
+                        .into_iter()
+                        .filter_map(|(col, val)| {
+                            old_headers
+                                .iter()
+                                .position(|c| c == &col)
+                                .map(|i| (new_headers[i].clone(), val))
+                        })
+                        .collect(),
+                    span,
+                ))
+            } else {
+                Err(ShellError::CantConvert {
+                    to_type: "record".into(),
+                    from_type: value.get_type().to_string(),
+                    span,
+                    help: None,
                 })
-                .collect(),
-            span,
-        )),
-        Value::List { vals, .. } => {
-            let vals = vals
-                .into_iter()
-                .skip(1)
-                .map(|value| replace_headers(value, old_headers, new_headers))
-                .collect::<Result<Vec<Value>, ShellError>>()?;
-
-            Ok(Value::list(vals, span))
-        }
-        _ => Err(ShellError::TypeMismatch {
-            err_message: "record".to_string(),
-            span: value.span(),
-        }),
-    }
+            }
+        })
+        .collect::<Result<_, _>>()
+        .map(|rows| Value::list(rows, span))
 }
 
 fn is_valid_header(value: &Value) -> bool {
@@ -123,12 +133,21 @@ fn is_valid_header(value: &Value) -> bool {
 }
 
 fn extract_headers(
-    value: &Value,
+    table: &[Value],
+    span: Span,
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val: record, .. } => {
+    table
+        .first()
+        .ok_or_else(|| ShellError::GenericError {
+            error: "Found empty list".into(),
+            msg: "unable to extract headers".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
+        .and_then(Value::as_record)
+        .and_then(|record| {
             for v in record.values() {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
@@ -151,26 +170,10 @@ fn extract_headers(
                         col
                     }
                 })
-                .collect::<Vec<String>>();
+                .collect();
 
             Ok((old_headers, new_headers))
-        }
-        Value::List { vals, .. } => vals
-            .iter()
-            .map(|value| extract_headers(value, config))
-            .next()
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Found empty list".into(),
-                msg: "unable to extract headers".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })?,
-        _ => Err(ShellError::TypeMismatch {
-            err_message: "record".to_string(),
-            span: value.span(),
-        }),
-    }
+        })
 }
 
 #[cfg(test)]
