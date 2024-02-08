@@ -2843,6 +2843,7 @@ dependencies = [
  "fuzzy-matcher",
  "is_executable",
  "log",
+ "lscolors",
  "miette",
  "nu-ansi-term",
  "nu-cmd-base",

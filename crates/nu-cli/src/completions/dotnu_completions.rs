@@ -1,6 +1,6 @@
 use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
@@ -12,11 +12,15 @@ use std::{
 #[derive(Clone)]
 pub struct DotNuCompletion {
     engine_state: Arc<EngineState>,
+    stack: Stack,
 }
 
 impl DotNuCompletion {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self { engine_state }
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
+        Self {
+            engine_state,
+            stack,
+        }
     }
 }
 
@@ -92,7 +96,14 @@ impl Completer for DotNuCompletion {
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
             .flat_map(|search_dir| {
-                let completions = file_path_completion(span, &partial, &search_dir, options);
+                let completions = file_path_completion(
+                    span,
+                    &partial,
+                    &search_dir,
+                    options,
+                    self.engine_state.as_ref(),
+                    &self.stack,
+                );
                 completions
                     .into_iter()
                     .filter(move |it| {
@@ -111,7 +122,7 @@ impl Completer for DotNuCompletion {
                     .map(move |x| Suggestion {
                         value: x.1,
                         description: None,
-                        style: None,
+                        style: x.2,
                         extra: None,
                         span: reedline::Span {
                             start: x.0.start - offset,

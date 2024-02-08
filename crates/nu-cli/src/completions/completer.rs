@@ -266,8 +266,10 @@ impl NuCompleter {
                                             || prev_expr_str == b"overlay use"
                                             || prev_expr_str == b"source-env"
                                         {
-                                            let mut completer =
-                                                DotNuCompletion::new(self.engine_state.clone());
+                                            let mut completer = DotNuCompletion::new(
+                                                self.engine_state.clone(),
+                                                self.stack.clone(),
+                                            );
 
                                             return self.process_completion(
                                                 &mut completer,
@@ -278,8 +280,10 @@ impl NuCompleter {
                                                 pos,
                                             );
                                         } else if prev_expr_str == b"ls" {
-                                            let mut completer =
-                                                FileCompletion::new(self.engine_state.clone());
+                                            let mut completer = FileCompletion::new(
+                                                self.engine_state.clone(),
+                                                self.stack.clone(),
+                                            );
 
                                             return self.process_completion(
                                                 &mut completer,
@@ -313,8 +317,10 @@ impl NuCompleter {
                                         );
                                     }
                                     FlatShape::Directory => {
-                                        let mut completer =
-                                            DirectoryCompletion::new(self.engine_state.clone());
+                                        let mut completer = DirectoryCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                        );
 
                                         return self.process_completion(
                                             &mut completer,
@@ -326,8 +332,10 @@ impl NuCompleter {
                                         );
                                     }
                                     FlatShape::Filepath | FlatShape::GlobPattern => {
-                                        let mut completer =
-                                            FileCompletion::new(self.engine_state.clone());
+                                        let mut completer = FileCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                        );
 
                                         return self.process_completion(
                                             &mut completer,
@@ -374,8 +382,10 @@ impl NuCompleter {
                                         }
 
                                         // Check for file completion
-                                        let mut completer =
-                                            FileCompletion::new(self.engine_state.clone());
+                                        let mut completer = FileCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                        );
                                         out = self.process_completion(
                                             &mut completer,
                                             &working_set,
