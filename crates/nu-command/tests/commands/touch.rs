@@ -126,15 +126,34 @@ fn not_create_file_if_it_not_exists() {
     })
 }
 
-        nu!(
-            cwd: dirs.test(),
-            "touch -c file.txt"
-        );
+#[test]
+fn change_file_times_if_exists_with_no_create() {
+    Playground::setup(
+        "change_file_times_if_exists_with_no_create",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+            let path = dirs.test().join("file.txt");
 
-        let path = dirs.test().join("file.txt");
+            filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
 
-        assert!(!path.exists());
-    })
+            nu!(
+                cwd: dirs.test(),
+                "touch -c file.txt"
+            );
+
+            let metadata = path.metadata().unwrap();
+
+            // Check only the date since the time may not match exactly
+            let date = Local::now().date_naive();
+            let adate_time: DateTime<Local> = DateTime::from(metadata.accessed().unwrap());
+            let adate = adate_time.date_naive();
+            let mdate_time: DateTime<Local> = DateTime::from(metadata.modified().unwrap());
+            let mdate = mdate_time.date_naive();
+
+            assert_eq!(date, adate);
+            assert_eq!(date, mdate);
+        },
+    )
 }
 
 #[test]
