@@ -45,7 +45,7 @@ use super::views::{Layout, View};
 
 use events::UIEvents;
 
-pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
 pub type ConfigMap = HashMap<String, Value>;
 
