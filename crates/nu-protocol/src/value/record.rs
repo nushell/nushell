@@ -106,7 +106,7 @@ impl Record {
     }
 
     pub fn contains(&self, col: impl AsRef<str>) -> bool {
-        self.cols.iter().any(|k| k == col.as_ref())
+        self.columns().any(|k| k == col.as_ref())
     }
 
     pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
@@ -298,11 +298,7 @@ impl Record {
     where
         R: RangeBounds<usize> + Clone,
     {
-        debug_assert_eq!(
-            self.cols.len(),
-            self.vals.len(),
-            "Length of cols and vals must be equal for sane `Record::drain`"
-        );
+        debug_assert_eq!(self.cols.len(), self.vals.len());
         Drain {
             keys: self.cols.drain(range.clone()),
             values: self.vals.drain(range),
@@ -322,8 +318,7 @@ impl Extend<(String, Value)> for Record {
     fn extend<T: IntoIterator<Item = (String, Value)>>(&mut self, iter: T) {
         for (k, v) in iter {
             // TODO: should this .insert with a check?
-            self.cols.push(k);
-            self.vals.push(v);
+            self.push(k, v)
         }
     }
 }
