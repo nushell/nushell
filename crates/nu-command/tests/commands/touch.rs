@@ -40,21 +40,27 @@ fn change_modified_time_of_file_to_today() {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        // Set file.txt's mtime to 0 before the test to make sure `touch` actually changes the mtime to today
-        filetime::set_file_mtime(&path, TIME_ZERO).unwrap();
+        // Set file.txt's times 0 before the test to make sure `touch` actually changes the mtime to today
+        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
             "touch -m file.txt"
         );
 
-        // Check only the date since the time may not match exactly
-        let date = Local::now().date_naive();
-        let actual_date_time: DateTime<Local> =
-            DateTime::from(path.metadata().unwrap().modified().unwrap());
-        let actual_date = actual_date_time.date_naive();
+        let metadata = path.metadata().unwrap();
 
-        assert_eq!(date, actual_date);
+        // Check only the date since the time may not match exactly
+        let today = Local::now().date_naive();
+        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+
+        assert_eq!(today, mtime_day);
+
+        // Check that atime remains unchanged
+        assert_eq!(
+            TIME_ZERO,
+            filetime::FileTime::from_system_time(metadata.accessed().unwrap())
+        );
     })
 }
 
@@ -64,21 +70,27 @@ fn change_access_time_of_file_to_today() {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        // Set file.txt's atime to 0 before the test to make sure `touch` actually changes the atime to today
-        filetime::set_file_atime(&path, TIME_ZERO).unwrap();
+        // Set file.txt's times 0 before the test to make sure `touch` actually changes the atime to today
+        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
             "touch -a file.txt"
         );
 
-        // Check only the date since the time may not match exactly
-        let date = Local::now().date_naive();
-        let actual_date_time: DateTime<Local> =
-            DateTime::from(path.metadata().unwrap().accessed().unwrap());
-        let actual_date = actual_date_time.date_naive();
+        let metadata = path.metadata().unwrap();
 
-        assert_eq!(date, actual_date);
+        // Check only the date since the time may not match exactly
+        let today = Local::now().date_naive();
+        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+
+        assert_eq!(today, atime_day);
+
+        // Check that mtime remains unchanged
+        assert_eq!(
+            TIME_ZERO,
+            filetime::FileTime::from_system_time(metadata.modified().unwrap())
+        );
     })
 }
 
