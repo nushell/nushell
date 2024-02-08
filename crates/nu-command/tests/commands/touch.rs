@@ -112,7 +112,7 @@ fn change_modified_and_access_time_of_file_to_today() {
 #[test]
 fn not_create_file_if_it_not_exists() {
     Playground::setup("change_time_test_28", |dirs, _sandbox| {
-        nu!(
+        let outcome = nu!(
             cwd: dirs.test(),
             "touch -c file.txt"
         );
@@ -120,6 +120,11 @@ fn not_create_file_if_it_not_exists() {
         let path = dirs.test().join("file.txt");
 
         assert!(!path.exists());
+
+        // If --no-create is improperly handled `touch` may error when trying to change the times of a nonexistent file
+        assert!(outcome.status.success())
+    })
+}
 
         nu!(
             cwd: dirs.test(),
