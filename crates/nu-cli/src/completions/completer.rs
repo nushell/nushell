@@ -129,6 +129,8 @@ impl NuCompleter {
             for pipeline_element in pipeline.elements {
                 match pipeline_element {
                     PipelineElement::Expression(_, expr)
+                    | PipelineElement::ErrPipedExpression(_, expr)
+                    | PipelineElement::OutErrPipedExpression(_, expr)
                     | PipelineElement::Redirection(_, _, expr, _)
                     | PipelineElement::And(_, expr)
                     | PipelineElement::Or(_, expr)

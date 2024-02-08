@@ -1114,6 +1114,18 @@ fn pipe_input_to_print() {
 }
 
 #[test]
+fn err_pipe_input_to_print() {
+    let actual = nu!(r#""foo" e>| print"#);
+    assert!(actual.err.contains("only works on external streams"));
+}
+
+#[test]
+fn outerr_pipe_input_to_print() {
+    let actual = nu!(r#""foo" o+e>| print"#);
+    assert!(actual.err.contains("only works on external streams"));
+}
+
+#[test]
 fn command_not_found_error_shows_not_found_2() {
     let actual = nu!(r#"
             export def --wrapped my-foo [...rest] { foo };
