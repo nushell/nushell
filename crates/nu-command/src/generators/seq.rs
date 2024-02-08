@@ -115,18 +115,6 @@ fn seq(
     run_seq(rest_nums, span, contains_decimals, engine_state)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Seq {})
-    }
-}
-
 pub fn run_seq(
     free: Vec<f64>,
     span: Span,
@@ -208,5 +196,17 @@ impl Iterator for IntSeq {
         let ret = Some(Value::int(self.count, self.span));
         self.count += self.step;
         ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Seq {})
     }
 }

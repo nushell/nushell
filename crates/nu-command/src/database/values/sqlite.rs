@@ -521,6 +521,27 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
     }
 }
 
+pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
+    let flags = OpenFlags::default();
+    Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
+        error: "Failed to open SQLite custom connection in memory".into(),
+        msg: e.to_string(),
+        span: Some(Span::test_data()),
+        help: None,
+        inner: vec![],
+    })
+}
+
+pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
+    Connection::open_in_memory().map_err(|e| ShellError::GenericError {
+        error: "Failed to open SQLite standard connection in memory".into(),
+        msg: e.to_string(),
+        span: Some(Span::test_data()),
+        help: None,
+        inner: vec![],
+    })
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -597,25 +618,4 @@ mod test {
 
         assert_eq!(converted_db, expected);
     }
-}
-
-pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
-    let flags = OpenFlags::default();
-    Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
-        error: "Failed to open SQLite custom connection in memory".into(),
-        msg: e.to_string(),
-        span: Some(Span::test_data()),
-        help: None,
-        inner: vec![],
-    })
-}
-
-pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    Connection::open_in_memory().map_err(|e| ShellError::GenericError {
-        error: "Failed to open SQLite standard connection in memory".into(),
-        msg: e.to_string(),
-        span: Some(Span::test_data()),
-        help: None,
-        inner: vec![],
-    })
 }
