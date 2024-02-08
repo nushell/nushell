@@ -129,6 +129,8 @@ impl NuCompleter {
             for pipeline_element in pipeline.elements {
                 match pipeline_element {
                     PipelineElement::Expression(_, expr)
+                    | PipelineElement::ErrPipedExpression(_, expr)
+                    | PipelineElement::OutErrPipedExpression(_, expr)
                     | PipelineElement::Redirection(_, _, expr, _)
                     | PipelineElement::And(_, expr)
                     | PipelineElement::Or(_, expr)
@@ -264,8 +266,10 @@ impl NuCompleter {
                                             || prev_expr_str == b"overlay use"
                                             || prev_expr_str == b"source-env"
                                         {
-                                            let mut completer =
-                                                DotNuCompletion::new(self.engine_state.clone());
+                                            let mut completer = DotNuCompletion::new(
+                                                self.engine_state.clone(),
+                                                self.stack.clone(),
+                                            );
 
                                             return self.process_completion(
                                                 &mut completer,
@@ -276,8 +280,10 @@ impl NuCompleter {
                                                 pos,
                                             );
                                         } else if prev_expr_str == b"ls" {
-                                            let mut completer =
-                                                FileCompletion::new(self.engine_state.clone());
+                                            let mut completer = FileCompletion::new(
+                                                self.engine_state.clone(),
+                                                self.stack.clone(),
+                                            );
 
                                             return self.process_completion(
                                                 &mut completer,
@@ -311,8 +317,10 @@ impl NuCompleter {
                                         );
                                     }
                                     FlatShape::Directory => {
-                                        let mut completer =
-                                            DirectoryCompletion::new(self.engine_state.clone());
+                                        let mut completer = DirectoryCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                        );
 
                                         return self.process_completion(
                                             &mut completer,
@@ -324,8 +332,10 @@ impl NuCompleter {
                                         );
                                     }
                                     FlatShape::Filepath | FlatShape::GlobPattern => {
-                                        let mut completer =
-                                            FileCompletion::new(self.engine_state.clone());
+                                        let mut completer = FileCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                        );
 
                                         return self.process_completion(
                                             &mut completer,
@@ -372,8 +382,10 @@ impl NuCompleter {
                                         }
 
                                         // Check for file completion
-                                        let mut completer =
-                                            FileCompletion::new(self.engine_state.clone());
+                                        let mut completer = FileCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                        );
                                         out = self.process_completion(
                                             &mut completer,
                                             &working_set,

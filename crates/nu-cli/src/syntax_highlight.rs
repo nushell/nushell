@@ -264,6 +264,8 @@ fn find_matching_block_end_in_block(
         for e in &p.elements {
             match e {
                 PipelineElement::Expression(_, e)
+                | PipelineElement::ErrPipedExpression(_, e)
+                | PipelineElement::OutErrPipedExpression(_, e)
                 | PipelineElement::Redirection(_, _, e, _)
                 | PipelineElement::And(_, e)
                 | PipelineElement::Or(_, e)
