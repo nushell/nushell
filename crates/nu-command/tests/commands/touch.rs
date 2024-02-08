@@ -110,14 +110,12 @@ fn change_modified_and_access_time_of_file_to_today() {
         let metadata = path.metadata().unwrap();
 
         // Check only the date since the time may not match exactly
-        let date = Local::now().date_naive();
-        let adate_time: DateTime<Local> = DateTime::from(metadata.accessed().unwrap());
-        let adate = adate_time.date_naive();
-        let mdate_time: DateTime<Local> = DateTime::from(metadata.modified().unwrap());
-        let mdate = mdate_time.date_naive();
+        let today = Local::now().date_naive();
+        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
 
-        assert_eq!(date, adate);
-        assert_eq!(date, mdate);
+        assert_eq!(today, mtime_day);
+        assert_eq!(today, atime_day);
     })
 }
 
@@ -156,14 +154,12 @@ fn change_file_times_if_exists_with_no_create() {
             let metadata = path.metadata().unwrap();
 
             // Check only the date since the time may not match exactly
-            let date = Local::now().date_naive();
-            let adate_time: DateTime<Local> = DateTime::from(metadata.accessed().unwrap());
-            let adate = adate_time.date_naive();
-            let mdate_time: DateTime<Local> = DateTime::from(metadata.modified().unwrap());
-            let mdate = mdate_time.date_naive();
+            let today = Local::now().date_naive();
+            let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+            let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
 
-            assert_eq!(date, adate);
-            assert_eq!(date, mdate);
+            assert_eq!(today, mtime_day);
+            assert_eq!(today, atime_day);
         },
     )
 }
@@ -221,12 +217,11 @@ fn change_modified_time_of_dir_to_today() {
         );
 
         // Check only the date since the time may not match exactly
-        let date = Local::now().date_naive();
-        let actual_date_time: DateTime<Local> =
-            DateTime::from(path.metadata().unwrap().modified().unwrap());
-        let actual_date = actual_date_time.date_naive();
+        let today = Local::now().date_naive();
+        let mtime_day =
+            DateTime::<Local>::from(path.metadata().unwrap().modified().unwrap()).date_naive();
 
-        assert_eq!(date, actual_date);
+        assert_eq!(today, mtime_day);
     })
 }
 
@@ -244,12 +239,11 @@ fn change_access_time_of_dir_to_today() {
         );
 
         // Check only the date since the time may not match exactly
-        let date = Local::now().date_naive();
-        let actual_date_time: DateTime<Local> =
-            DateTime::from(path.metadata().unwrap().accessed().unwrap());
-        let actual_date = actual_date_time.date_naive();
+        let today = Local::now().date_naive();
+        let atime_day =
+            DateTime::<Local>::from(path.metadata().unwrap().accessed().unwrap()).date_naive();
 
-        assert_eq!(date, actual_date);
+        assert_eq!(today, atime_day);
     })
 }
 
@@ -269,14 +263,12 @@ fn change_modified_and_access_time_of_dir_to_today() {
         let metadata = path.metadata().unwrap();
 
         // Check only the date since the time may not match exactly
-        let date = Local::now().date_naive();
-        let adate_time: DateTime<Local> = DateTime::from(metadata.accessed().unwrap());
-        let adate = adate_time.date_naive();
-        let mdate_time: DateTime<Local> = DateTime::from(metadata.modified().unwrap());
-        let mdate = mdate_time.date_naive();
+        let today = Local::now().date_naive();
+        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
 
-        assert_eq!(date, adate);
-        assert_eq!(date, mdate);
+        assert_eq!(today, mtime_day);
+        assert_eq!(today, atime_day);
     })
 }
 
@@ -295,14 +287,13 @@ fn change_dir_three_dots_times() {
 
         let metadata = path.metadata().unwrap();
 
-        let date = Local::now().date_naive();
-        let adate_time: DateTime<Local> = DateTime::from(metadata.accessed().unwrap());
-        let adate = adate_time.date_naive();
-        let mdate_time: DateTime<Local> = DateTime::from(metadata.modified().unwrap());
-        let mdate = mdate_time.date_naive();
+        // Check only the date since the time may not match exactly
+        let today = Local::now().date_naive();
+        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
 
-        assert_eq!(date, adate);
-        assert_eq!(date, mdate);
+        assert_eq!(today, mtime_day);
+        assert_eq!(today, atime_day);
     })
 }
 
