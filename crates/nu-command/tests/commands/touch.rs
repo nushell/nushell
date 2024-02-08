@@ -3,6 +3,8 @@ use nu_test_support::fs::Stub;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
+const TIME_ZERO: filetime::FileTime = filetime::FileTime::zero();
+
 #[test]
 fn creates_a_file_when_it_doesnt_exist() {
     Playground::setup("create_test_1", |dirs, _sandbox| {
@@ -36,13 +38,15 @@ fn creates_two_files() {
 fn change_modified_time_of_file_to_today() {
     Playground::setup("change_time_test_9", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        let path = dirs.test().join("file.txt");
+
+        // Set file.txt's mtime to 0 before the test to make sure `touch` actually changes the mtime to today
+        filetime::set_file_mtime(&path, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
             "touch -m file.txt"
         );
-
-        let path = dirs.test().join("file.txt");
 
         // Check only the date since the time may not match exactly
         let date = Local::now().date_naive();
@@ -58,13 +62,15 @@ fn change_modified_time_of_file_to_today() {
 fn change_access_time_of_file_to_today() {
     Playground::setup("change_time_test_18", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        let path = dirs.test().join("file.txt");
+
+        // Set file.txt's atime to 0 before the test to make sure `touch` actually changes the atime to today
+        filetime::set_file_atime(&path, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
             "touch -a file.txt"
         );
-
-        let path = dirs.test().join("file.txt");
 
         // Check only the date since the time may not match exactly
         let date = Local::now().date_naive();
@@ -80,13 +86,16 @@ fn change_access_time_of_file_to_today() {
 fn change_modified_and_access_time_of_file_to_today() {
     Playground::setup("change_time_test_27", |dirs, sandbox| {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        let path = dirs.test().join("file.txt");
+
+        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
             "touch -a -m file.txt"
         );
 
-        let metadata = dirs.test().join("file.txt").metadata().unwrap();
+        let metadata = path.metadata().unwrap();
 
         // Check only the date since the time may not match exactly
         let date = Local::now().date_naive();
@@ -166,11 +175,9 @@ fn creates_file_four_dots_quotation_marks() {
 fn change_modified_time_of_dir_to_today() {
     Playground::setup("change_dir_mtime", |dirs, sandbox| {
         sandbox.mkdir("test_dir");
-
         let path = dirs.test().join("test_dir");
 
-        // Set test_dir's mtime to 0 before the test to make sure `touch` actually changes the mtime to today
-        filetime::set_file_mtime(&path, filetime::FileTime::zero()).unwrap();
+        filetime::set_file_mtime(&path, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -191,10 +198,9 @@ fn change_modified_time_of_dir_to_today() {
 fn change_access_time_of_dir_to_today() {
     Playground::setup("change_dir_atime", |dirs, sandbox| {
         sandbox.mkdir("test_dir");
-
         let path = dirs.test().join("test_dir");
 
-        filetime::set_file_atime(&path, filetime::FileTime::zero()).unwrap();
+        filetime::set_file_atime(&path, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -215,15 +221,9 @@ fn change_access_time_of_dir_to_today() {
 fn change_modified_and_access_time_of_dir_to_today() {
     Playground::setup("change_dir_times", |dirs, sandbox| {
         sandbox.mkdir("test_dir");
-
         let path = dirs.test().join("test_dir");
 
-        filetime::set_file_times(
-            &path,
-            filetime::FileTime::zero(),
-            filetime::FileTime::zero(),
-        )
-        .unwrap();
+        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -248,15 +248,9 @@ fn change_modified_and_access_time_of_dir_to_today() {
 fn change_dir_three_dots_times() {
     Playground::setup("change_dir_three_dots_times", |dirs, sandbox| {
         sandbox.mkdir("test_dir...");
-
         let path = dirs.test().join("test_dir...");
 
-        filetime::set_file_times(
-            &path,
-            filetime::FileTime::zero(),
-            filetime::FileTime::zero(),
-        )
-        .unwrap();
+        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -289,7 +283,7 @@ fn change_dir_times_to_reference_dir() {
         filetime::set_file_times(
             &reference_dir_path,
             filetime::FileTime::from_unix_time(1337, 0),
-            filetime::FileTime::zero(),
+            TIME_ZERO,
         )
         .unwrap();
 
