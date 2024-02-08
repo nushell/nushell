@@ -81,3 +81,15 @@ fn catch_block_can_use_error_object() {
     let output = nu!("try {1 / 0} catch {|err| print ($err | get msg)}");
     assert_eq!(output.out, "Division by zero.")
 }
+
+// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
+// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
+// TODO: investigate so we can enable on Windows
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn can_catch_infinite_recursion() {
+    let actual = nu!(r#"
+            def bang [] { try { bang } catch { "Caught infinite recursion" } }; bang
+        "#);
+    assert_eq!(actual.out, "Caught infinite recursion");
+}

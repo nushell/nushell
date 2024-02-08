@@ -173,7 +173,7 @@ impl Command for UCp {
             target.item.to_string(),
         ));
         let cwd = current_dir(engine_state, stack)?;
-        let target_path = nu_path::expand_path_with(&target_path, &cwd);
+        let target_path = nu_path::expand_path_with(target_path, &cwd);
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError {
                 error: "is not a directory".into(),

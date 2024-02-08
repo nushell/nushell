@@ -297,7 +297,7 @@ fn main_script_can_have_subcommands1() {
             r#"def "main foo" [x: int] {
                     print ($x + 100)
                   }
-                  
+
                   def "main" [] {
                     print "usage: script.nu <command name>"
                   }"#,
@@ -318,7 +318,7 @@ fn main_script_can_have_subcommands2() {
             r#"def "main foo" [x: int] {
                     print ($x + 100)
                   }
-                  
+
                   def "main" [] {
                     print "usage: script.nu <command name>"
                   }"#,
@@ -327,5 +327,16 @@ fn main_script_can_have_subcommands2() {
         let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
 
         assert!(actual.out.contains("usage: script.nu"));
+    })
+}
+
+#[test]
+fn source_empty_file() {
+    Playground::setup("source_empty_file", |dirs, sandbox| {
+        sandbox.mkdir("source_empty_file");
+        sandbox.with_files(vec![FileWithContent("empty.nu", "")]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu empty.nu"));
+        assert!(actual.out.is_empty());
     })
 }

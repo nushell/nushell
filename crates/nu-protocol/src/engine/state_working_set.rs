@@ -355,11 +355,10 @@ impl<'a> StateWorkingSet<'a> {
                     return &contents[begin..end];
                 }
             }
-        } else {
-            return self.permanent_state.get_span_contents(span);
         }
 
-        panic!("internal error: missing span contents in file cache")
+        // if no files with span were found, fall back on permanent ones
+        return self.permanent_state.get_span_contents(span);
     }
 
     pub fn enter_scope(&mut self) {

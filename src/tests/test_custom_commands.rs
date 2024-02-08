@@ -214,6 +214,18 @@ fn infinite_recursion_does_not_panic() {
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
 
+// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
+// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
+// TODO: investigate so we can enable on Windows
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn infinite_mutual_recursion_does_not_panic() {
+    let actual = nu!(r#"
+            def bang [] { def boom [] { bang }; boom }; bang
+        "#);
+    assert!(actual.err.contains("Recursion limit (50) reached"));
+}
+
 #[test]
 fn type_check_for_during_eval() -> TestResult {
     fail_test(
