@@ -21,7 +21,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.8"
 fancy-regex = "0.12"
-indexmap = { version = "2.1" }
+indexmap = { version = "2.2" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.43", optional = true }
