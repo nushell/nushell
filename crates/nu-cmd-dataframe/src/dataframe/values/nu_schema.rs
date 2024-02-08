@@ -73,7 +73,7 @@ fn value_to_fields(value: &Value, span: Span) -> Result<Vec<Field>, ShellError> 
                 Ok(Field::new(col, dtype))
             }
             _ => {
-                let dtype = dtype_str_to_schema(&val.as_string()?, span)?;
+                let dtype = str_to_dtype(&val.as_string()?, span)?;
                 Ok(Field::new(col, dtype))
             }
         })
@@ -81,7 +81,7 @@ fn value_to_fields(value: &Value, span: Span) -> Result<Vec<Field>, ShellError> 
     Ok(fields)
 }
 
-fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> {
+pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
     match dtype {
         "bool" => Ok(DataType::Boolean),
         "u8" => Ok(DataType::UInt8),
@@ -107,7 +107,7 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
                 .trim_start_matches('<')
                 .trim_end_matches('>')
                 .trim();
-            let dtype = dtype_str_to_schema(dtype, span)?;
+            let dtype = str_to_dtype(dtype, span)?;
             Ok(DataType::List(Box::new(dtype)))
         }
         _ if dtype.starts_with("datetime") => {
@@ -242,82 +242,82 @@ mod test {
     #[test]
     fn test_dtype_str_to_schema_simple_types() {
         let dtype = "bool";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Boolean;
         assert_eq!(schema, expected);
 
         let dtype = "u8";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::UInt8;
         assert_eq!(schema, expected);
 
         let dtype = "u16";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::UInt16;
         assert_eq!(schema, expected);
 
         let dtype = "u32";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::UInt32;
         assert_eq!(schema, expected);
 
         let dtype = "u64";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::UInt64;
         assert_eq!(schema, expected);
 
         let dtype = "i8";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Int8;
         assert_eq!(schema, expected);
 
         let dtype = "i16";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Int16;
         assert_eq!(schema, expected);
 
         let dtype = "i32";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Int32;
         assert_eq!(schema, expected);
 
         let dtype = "i64";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Int64;
         assert_eq!(schema, expected);
 
         let dtype = "str";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::String;
         assert_eq!(schema, expected);
 
         let dtype = "binary";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Binary;
         assert_eq!(schema, expected);
 
         let dtype = "date";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Date;
         assert_eq!(schema, expected);
 
         let dtype = "time";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Time;
         assert_eq!(schema, expected);
 
         let dtype = "null";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Null;
         assert_eq!(schema, expected);
 
         let dtype = "unknown";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Unknown;
         assert_eq!(schema, expected);
 
         let dtype = "object";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Object("unknown", None);
         assert_eq!(schema, expected);
     }
@@ -325,54 +325,54 @@ mod test {
     #[test]
     fn test_dtype_str_schema_datetime() {
         let dtype = "datetime<ms, *>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Milliseconds, None);
         assert_eq!(schema, expected);
 
         let dtype = "datetime<us, *>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Microseconds, None);
         assert_eq!(schema, expected);
 
         let dtype = "datetime<μs, *>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Microseconds, None);
         assert_eq!(schema, expected);
 
         let dtype = "datetime<ns, *>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Nanoseconds, None);
         assert_eq!(schema, expected);
 
         let dtype = "datetime<ms, UTC>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Milliseconds, Some("UTC".into()));
         assert_eq!(schema, expected);
 
         let dtype = "invalid";
-        let schema = dtype_str_to_schema(dtype, Span::unknown());
+        let schema = str_to_dtype(dtype, Span::unknown());
         assert!(schema.is_err())
     }
 
     #[test]
     fn test_dtype_str_schema_duration() {
         let dtype = "duration<ms>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Milliseconds);
         assert_eq!(schema, expected);
 
         let dtype = "duration<us>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Microseconds);
         assert_eq!(schema, expected);
 
         let dtype = "duration<μs>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Microseconds);
         assert_eq!(schema, expected);
 
         let dtype = "duration<ns>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Nanoseconds);
         assert_eq!(schema, expected);
     }
@@ -380,17 +380,17 @@ mod test {
     #[test]
     fn test_dtype_str_to_schema_list_types() {
         let dtype = "list<i32>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Int32));
         assert_eq!(schema, expected);
 
         let dtype = "list<duration<ms>>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Duration(TimeUnit::Milliseconds)));
         assert_eq!(schema, expected);
 
         let dtype = "list<datetime<ms, *>>";
-        let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Datetime(TimeUnit::Milliseconds, None)));
         assert_eq!(schema, expected);
     }
