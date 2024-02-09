@@ -303,25 +303,25 @@ fn change_dir_times_to_reference_dir() {
         sandbox.mkdir("reference_dir");
         sandbox.mkdir("target_dir");
 
-        let reference_dir_path = dirs.test().join("reference_dir");
-        let target_dir_path = dirs.test().join("target_dir");
+        let reference = dirs.test().join("reference_dir");
+        let target = dirs.test().join("target_dir");
 
-        // Change the times for reference_dir
+        // Change the times for reference
         filetime::set_file_times(
-            &reference_dir_path,
+            &reference,
             filetime::FileTime::from_unix_time(1337, 0),
             TIME_ZERO,
         )
         .unwrap();
 
-        // target_dir should have today's date since it was just created, but reference_dir should be different
+        // target should have today's date since it was just created, but reference should be different
         assert_ne!(
-            reference_dir_path.metadata().unwrap().accessed().unwrap(),
-            target_dir_path.metadata().unwrap().accessed().unwrap()
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
         );
         assert_ne!(
-            reference_dir_path.metadata().unwrap().modified().unwrap(),
-            target_dir_path.metadata().unwrap().modified().unwrap()
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
         );
 
         nu!(
@@ -330,12 +330,12 @@ fn change_dir_times_to_reference_dir() {
         );
 
         assert_eq!(
-            reference_dir_path.metadata().unwrap().accessed().unwrap(),
-            target_dir_path.metadata().unwrap().accessed().unwrap()
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
         );
         assert_eq!(
-            reference_dir_path.metadata().unwrap().modified().unwrap(),
-            target_dir_path.metadata().unwrap().modified().unwrap()
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
         );
     })
 }
