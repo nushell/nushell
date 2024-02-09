@@ -250,6 +250,58 @@ fn change_file_times_to_reference_file() {
 }
 
 #[test]
+fn change_file_mtime_to_reference() {
+    Playground::setup("change_file_mtime_to_reference", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            Stub::EmptyFile("reference_file"),
+            Stub::EmptyFile("target_file"),
+        ]);
+
+        let reference = dirs.test().join("reference_file");
+        let target = dirs.test().join("target_file");
+
+        // Change the times for reference
+        filetime::set_file_times(
+            &reference,
+            TIME_ONE,
+            filetime::FileTime::from_unix_time(1337, 0),
+        )
+        .unwrap();
+
+        // target should have today's date since it was just created, but reference should be different
+        assert_ne!(
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
+        );
+        assert_ne!(
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+
+        // Save target's current atime to make sure it is preserved
+        let target_original_atime = target.metadata().unwrap().accessed().unwrap();
+
+        nu!(
+            cwd: dirs.test(),
+            "touch -mr reference_file target_file"
+        );
+
+        assert_eq!(
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+        assert_ne!(
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
+        );
+        assert_eq!(
+            target_original_atime,
+            target.metadata().unwrap().accessed().unwrap()
+        );
+    })
+}
+
+#[test]
 fn change_modified_time_of_dir_to_today() {
     Playground::setup("change_dir_mtime", |dirs, sandbox| {
         sandbox.mkdir("test_dir");
@@ -381,6 +433,56 @@ fn change_dir_times_to_reference_dir() {
         );
         assert_eq!(
             reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+    })
+}
+
+#[test]
+fn change_dir_atime_to_reference() {
+    Playground::setup("change_dir_atime_to_reference", |dirs, sandbox| {
+        sandbox.mkdir("reference_dir");
+        sandbox.mkdir("target_dir");
+
+        let reference = dirs.test().join("reference_dir");
+        let target = dirs.test().join("target_dir");
+
+        // Change the times for reference
+        filetime::set_file_times(
+            &reference,
+            filetime::FileTime::from_unix_time(1337, 0),
+            TIME_ONE,
+        )
+        .unwrap();
+
+        // target should have today's date since it was just created, but reference should be different
+        assert_ne!(
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
+        );
+        assert_ne!(
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+
+        // Save target's current mtime to make sure it is preserved
+        let target_original_mtime = target.metadata().unwrap().modified().unwrap();
+
+        nu!(
+            cwd: dirs.test(),
+            "touch -ar reference_dir target_dir"
+        );
+
+        assert_eq!(
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
+        );
+        assert_ne!(
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+        assert_eq!(
+            target_original_mtime,
             target.metadata().unwrap().modified().unwrap()
         );
     })
