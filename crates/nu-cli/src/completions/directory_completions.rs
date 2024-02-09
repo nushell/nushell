@@ -50,6 +50,7 @@ impl Completer for DirectoryCompletion {
         .into_iter()
         .map(move |x| Suggestion {
             value: x.1,
+            display: None,
             description: None,
             style: x.2,
             extra: None,

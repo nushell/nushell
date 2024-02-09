@@ -477,6 +477,7 @@ pub fn map_value_completions<'a>(
         if let Ok(s) = x.as_string() {
             return Some(Suggestion {
                 value: s,
+                display: None,
                 description: None,
                 style: None,
                 extra: None,
@@ -492,6 +493,7 @@ pub fn map_value_completions<'a>(
         if let Ok(record) = x.as_record() {
             let mut suggestion = Suggestion {
                 value: String::from(""), // Initialize with empty string
+                display: None,
                 description: None,
                 style: None,
                 extra: None,
@@ -510,6 +512,15 @@ pub fn map_value_completions<'a>(
                     if let Ok(val_str) = it.1.as_string() {
                         // Update the suggestion value
                         suggestion.value = val_str;
+                    }
+                }
+
+                // Match `display` column
+                if it.0 == "display" {
+                    // Convert the value to string
+                    if let Ok(display_str) = it.1.as_string() {
+                        // Update the suggestion value
+                        suggestion.display = Some(display_str);
                     }
                 }
 

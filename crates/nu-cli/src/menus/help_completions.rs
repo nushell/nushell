@@ -101,6 +101,7 @@ impl NuHelpCompleter {
 
                 Suggestion {
                     value: sig.name.clone(),
+                    display: None,
                     description: Some(long_desc),
                     style: None,
                     extra: Some(extra),
