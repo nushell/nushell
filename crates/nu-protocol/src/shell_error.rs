@@ -729,7 +729,8 @@ pub enum ShellError {
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
     FileNotFound {
-        #[label("file not found")]
+        file: String,
+        #[label("file not found: {file}")]
         span: Span,
     },
 

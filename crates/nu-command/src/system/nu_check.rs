@@ -120,6 +120,7 @@ impl Command for NuCheck {
                                 path
                             } else {
                                 return Err(ShellError::FileNotFound {
+                                    file: path_str.item,
                                     span: path_str.span,
                                 });
                             }
