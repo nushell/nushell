@@ -204,6 +204,51 @@ fn creates_file_four_dots_quotation_marks() {
 }
 
 #[test]
+fn change_file_times_to_reference_file() {
+    Playground::setup("change_dir_times_to_reference_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            Stub::EmptyFile("reference_file"),
+            Stub::EmptyFile("target_file"),
+        ]);
+
+        let reference = dirs.test().join("reference_file");
+        let target = dirs.test().join("target_file");
+
+        // Change the times for reference_file
+        filetime::set_file_times(
+            &reference,
+            filetime::FileTime::from_unix_time(1337, 0),
+            TIME_ZERO,
+        )
+        .unwrap();
+
+        // target should have today's date since it was just created, but reference should be different
+        assert_ne!(
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
+        );
+        assert_ne!(
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+
+        nu!(
+            cwd: dirs.test(),
+            "touch -r reference_file target_file"
+        );
+
+        assert_eq!(
+            reference.metadata().unwrap().accessed().unwrap(),
+            target.metadata().unwrap().accessed().unwrap()
+        );
+        assert_eq!(
+            reference.metadata().unwrap().modified().unwrap(),
+            target.metadata().unwrap().modified().unwrap()
+        );
+    })
+}
+
+#[test]
 fn change_modified_time_of_dir_to_today() {
     Playground::setup("change_dir_mtime", |dirs, sandbox| {
         sandbox.mkdir("test_dir");
