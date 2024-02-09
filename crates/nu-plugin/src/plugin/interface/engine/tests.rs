@@ -894,10 +894,10 @@ fn write_pipeline_data_response_external_stream_full() {
     // Consume three streams simultaneously. Can't predict which order the output will really be
     // in, though
     let stdout_chunks = vec![
-        b"hel".to_vec(),
-        b"lo ".to_vec(),
-        b"wor".to_vec(),
-        b"ld".to_vec(),
+        b"hello ".to_vec(),
+        b"world\n".to_vec(),
+        b"test".to_vec(),
+        b" stdout".to_vec(),
     ];
 
     let stderr_chunks = vec![b"standard ".to_vec(), b"error\n".to_vec()];
