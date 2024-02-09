@@ -3,7 +3,8 @@ use nu_test_support::fs::Stub;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
-const TIME_ZERO: filetime::FileTime = filetime::FileTime::zero();
+// Use 1 instead of 0 because 0 has a special meaning in Windows
+const TIME_ONE: filetime::FileTime = filetime::FileTime::from_unix_time(1, 0);
 
 #[test]
 fn creates_a_file_when_it_doesnt_exist() {
@@ -41,7 +42,7 @@ fn change_modified_time_of_file_to_today() {
         let path = dirs.test().join("file.txt");
 
         // Set file.txt's times to 0 before the test to make sure `touch` actually changes the mtime to today
-        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -58,7 +59,7 @@ fn change_modified_time_of_file_to_today() {
 
         // Check that atime remains unchanged
         assert_eq!(
-            TIME_ZERO,
+            TIME_ONE,
             filetime::FileTime::from_system_time(metadata.accessed().unwrap())
         );
     })
@@ -71,7 +72,7 @@ fn change_access_time_of_file_to_today() {
         let path = dirs.test().join("file.txt");
 
         // Set file.txt's times to 0 before the test to make sure `touch` actually changes the atime to today
-        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -88,7 +89,7 @@ fn change_access_time_of_file_to_today() {
 
         // Check that mtime remains unchanged
         assert_eq!(
-            TIME_ZERO,
+            TIME_ONE,
             filetime::FileTime::from_system_time(metadata.modified().unwrap())
         );
     })
@@ -100,7 +101,7 @@ fn change_modified_and_access_time_of_file_to_today() {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -144,7 +145,7 @@ fn change_file_times_if_exists_with_no_create() {
             sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
             let path = dirs.test().join("file.txt");
 
-            filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
+            filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
             nu!(
                 cwd: dirs.test(),
@@ -218,7 +219,7 @@ fn change_file_times_to_reference_file() {
         filetime::set_file_times(
             &reference,
             filetime::FileTime::from_unix_time(1337, 0),
-            TIME_ZERO,
+            TIME_ONE,
         )
         .unwrap();
 
@@ -254,7 +255,7 @@ fn change_modified_time_of_dir_to_today() {
         sandbox.mkdir("test_dir");
         let path = dirs.test().join("test_dir");
 
-        filetime::set_file_mtime(&path, TIME_ZERO).unwrap();
+        filetime::set_file_mtime(&path, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -276,7 +277,7 @@ fn change_access_time_of_dir_to_today() {
         sandbox.mkdir("test_dir");
         let path = dirs.test().join("test_dir");
 
-        filetime::set_file_atime(&path, TIME_ZERO).unwrap();
+        filetime::set_file_atime(&path, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -298,7 +299,7 @@ fn change_modified_and_access_time_of_dir_to_today() {
         sandbox.mkdir("test_dir");
         let path = dirs.test().join("test_dir");
 
-        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -323,7 +324,7 @@ fn change_dir_three_dots_times() {
         sandbox.mkdir("test_dir...");
         let path = dirs.test().join("test_dir...");
 
-        filetime::set_file_times(&path, TIME_ZERO, TIME_ZERO).unwrap();
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
@@ -355,7 +356,7 @@ fn change_dir_times_to_reference_dir() {
         filetime::set_file_times(
             &reference,
             filetime::FileTime::from_unix_time(1337, 0),
-            TIME_ZERO,
+            TIME_ONE,
         )
         .unwrap();
 
