@@ -215,7 +215,7 @@ fn change_file_times_to_reference_file() {
         let reference = dirs.test().join("reference_file");
         let target = dirs.test().join("target_file");
 
-        // Change the times for reference_file
+        // Change the times for reference
         filetime::set_file_times(
             &reference,
             filetime::FileTime::from_unix_time(1337, 0),
