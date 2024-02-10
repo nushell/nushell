@@ -285,7 +285,7 @@ pub(crate) struct StreamBuffers {
 /// A buffer for stream messages that need to be stored temporarily to allow a different stream
 /// to be consumed.
 ///
-/// The buffer is a LIFO queue.
+/// The buffer is a FIFO queue.
 #[derive(Debug, Default)]
 pub(crate) enum StreamBuffer<T> {
     /// The default state: this stream was not specified for use, so there is no buffer available
