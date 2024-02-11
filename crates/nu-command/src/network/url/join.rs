@@ -184,7 +184,7 @@ impl UrlComponents {
                 Value::Record { ref val, .. } => {
                     let mut qs = val
                         .iter()
-                        .map(|(k, v)| match v.as_string() {
+                        .map(|(k, v)| match v.coerce_string() {
                             Ok(val) => Ok(format!("{k}={val}")),
                             Err(err) => Err(err),
                         })
@@ -224,7 +224,7 @@ impl UrlComponents {
         }
 
         // apart from port and params all other keys are strings.
-        let s = value.as_string()?; // If value fails String conversion, just output this ShellError
+        let s = value.coerce_string()?; // If value fails String conversion, just output this ShellError
         if !Self::check_empty_string_ok(&key, &s, value_span)? {
             return Ok(self);
         }

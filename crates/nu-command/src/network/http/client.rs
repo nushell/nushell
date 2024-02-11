@@ -73,7 +73,7 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.as_string()?;
+    let requested_url = raw_url.coerce_string()?;
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
@@ -222,7 +222,7 @@ pub fn send_request(
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
             for (col, val) in val {
-                let val_string = val.as_string()?;
+                let val_string = val.coerce_string()?;
                 data.push((col, val_string))
             }
 
@@ -245,7 +245,7 @@ pub fn send_request(
 
             let data = vals
                 .chunks(2)
-                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
+                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
                 .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
 
             let request_fn = move || {
@@ -364,7 +364,7 @@ pub fn request_add_custom_headers(
                     // primitive values ([key1 val1 key2 val2])
                     for row in table.chunks(2) {
                         if row.len() == 2 {
-                            custom_headers.insert(row[0].as_string()?, row[1].clone());
+                            custom_headers.insert(row[0].coerce_string()?, row[1].clone());
                         }
                     }
                 }
@@ -381,7 +381,7 @@ pub fn request_add_custom_headers(
         };
 
         for (k, v) in &custom_headers {
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_string() {
                 request = request.set(k, &s);
             }
         }
@@ -691,7 +691,7 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"));
     match proxy_value {
-        Some(value) => match value.as_string() {
+        Some(value) => match value.coerce_string() {
             Ok(proxy) => Some(proxy),
             _ => None,
         },

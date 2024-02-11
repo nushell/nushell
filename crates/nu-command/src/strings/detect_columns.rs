@@ -227,7 +227,7 @@ fn detect_columns(
                 .iter()
                 .take(end_index)
                 .skip(start_index)
-                .map(|v| v.as_string().unwrap_or_default())
+                .map(|v| v.coerce_string().unwrap_or_default())
                 .join(" ");
             let binding = Value::string(combined, Span::unknown());
             let last_seg = vals.split_off(end_index);

@@ -193,7 +193,7 @@ fn sort_record(
             match &a.1 {
                 Value::String { val, .. } => val.clone(),
                 val => {
-                    if let Ok(val) = val.as_string() {
+                    if let Ok(val) = val.coerce_string() {
                         val
                     } else {
                         // Values that can't be turned to strings are disregarded by the sort
@@ -209,7 +209,7 @@ fn sort_record(
             match &b.1 {
                 Value::String { val, .. } => val.clone(),
                 val => {
-                    if let Ok(val) = val.as_string() {
+                    if let Ok(val) = val.coerce_string() {
                         val
                     } else {
                         // Values that can't be turned to strings are disregarded by the sort
@@ -275,7 +275,7 @@ pub fn sort(
                     };
 
                     if natural {
-                        match (folded_left.as_string(), folded_right.as_string()) {
+                        match (folded_left.coerce_string(), folded_right.coerce_string()) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
@@ -285,7 +285,7 @@ pub fn sort(
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
-                    match (a.as_string(), b.as_string()) {
+                    match (a.coerce_string(), b.coerce_string()) {
                         (Ok(left), Ok(right)) => compare_str(left, right),
                         _ => Ordering::Equal,
                     }
@@ -334,7 +334,7 @@ pub fn process(
                 _ => right_res,
             };
             if natural {
-                match (folded_left.as_string(), folded_right.as_string()) {
+                match (folded_left.coerce_string(), folded_right.coerce_string()) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }

@@ -98,10 +98,10 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.as_string()?),
+        ConversionResult::Ok(v) => Ok(v.coerce_string()?),
         ConversionResult::ConversionError(e) => Err(e),
         ConversionResult::GeneralError(e) => Err(e),
-        ConversionResult::CellPathError => match value.as_string() {
+        ConversionResult::CellPathError => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
                 if env_name == ENV_PATH_NAME {
@@ -110,7 +110,7 @@ pub fn env_to_string(
                         Value::List { vals, .. } => {
                             let paths = vals
                                 .iter()
-                                .map(|v| v.as_string())
+                                .map(|v| v.coerce_string())
                                 .collect::<Result<Vec<_>, _>>()?;
 
                             match std::env::join_paths(paths) {

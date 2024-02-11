@@ -55,7 +55,7 @@ impl RawStream {
             if nu_utils::ctrl_c::was_pressed(ctrlc) {
                 break;
             }
-            output.push_str(&item?.as_string()?);
+            output.push_str(&item?.coerce_string()?);
         }
 
         Ok(Spanned { item: output, span })

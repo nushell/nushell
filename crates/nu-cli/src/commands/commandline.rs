@@ -72,7 +72,7 @@ impl Command for Commandline {
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
             if call.has_flag(engine_state, stack, "cursor")? {
-                let cmd_str = cmd.as_string()?;
+                let cmd_str = cmd.coerce_string()?;
                 match cmd_str.parse::<i64>() {
                     Ok(n) => {
                         repl.cursor_pos = if n <= 0 {
@@ -97,14 +97,14 @@ impl Command for Commandline {
                     }
                 }
             } else if call.has_flag(engine_state, stack, "append")? {
-                repl.buffer.push_str(&cmd.as_string()?);
+                repl.buffer.push_str(&cmd.coerce_string()?);
             } else if call.has_flag(engine_state, stack, "insert")? {
-                let cmd_str = cmd.as_string()?;
+                let cmd_str = cmd.coerce_string()?;
                 let cursor_pos = repl.cursor_pos;
                 repl.buffer.insert_str(cursor_pos, &cmd_str);
                 repl.cursor_pos += cmd_str.len();
             } else {
-                repl.buffer = cmd.as_string()?;
+                repl.buffer = cmd.coerce_string()?;
                 repl.cursor_pos = repl.buffer.len();
             }
             Ok(Value::nothing(call.head).into_pipeline_data())

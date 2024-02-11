@@ -460,7 +460,7 @@ pub(crate) fn add_ide_menu(
 
         ide_menu = match extract_value("description_mode", val, span) {
             Ok(description_mode) => {
-                let description_mode_str = description_mode.as_string()?;
+                let description_mode_str = description_mode.coerce_string()?;
                 match description_mode_str.as_str() {
                     "left" => ide_menu.with_description_mode(DescriptionMode::Left),
                     "right" => ide_menu.with_description_mode(DescriptionMode::Right),

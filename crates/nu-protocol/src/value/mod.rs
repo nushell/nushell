@@ -260,7 +260,7 @@ impl Value {
         }
     }
 
-    pub fn as_float(&self) -> Result<f64, ShellError> {
+    pub fn coerce_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
@@ -322,7 +322,7 @@ impl Value {
     }
 
     /// Converts into string values that can be changed into string natively
-    pub fn as_string(&self) -> Result<String, ShellError> {
+    pub fn coerce_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
@@ -407,7 +407,7 @@ impl Value {
         }
     }
 
-    pub fn as_block(&self) -> Result<BlockId, ShellError> {
+    pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
             Value::Closure { val, .. } => Ok(val.block_id),
@@ -432,7 +432,7 @@ impl Value {
         }
     }
 
-    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
+    pub fn coerce_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.as_bytes()),

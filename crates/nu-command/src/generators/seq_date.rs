@@ -204,7 +204,7 @@ pub fn run_seq_dates(
     }
 
     let in_format = match input_format {
-        Some(i) => match i.as_string() {
+        Some(i) => match i.coerce_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -220,7 +220,7 @@ pub fn run_seq_dates(
     };
 
     let out_format = match output_format {
-        Some(i) => match i.as_string() {
+        Some(i) => match i.coerce_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {

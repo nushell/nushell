@@ -738,7 +738,7 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
         });
     }
     let code_string = if param_is_string {
-        code.as_string().expect("error getting code as string")
+        code.coerce_string().expect("error getting code as string")
     } else {
         "".to_string()
     };
@@ -810,9 +810,9 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
         // Iterate and populate NuStyle with real values
         for (k, v) in record {
             match k.as_str() {
-                "fg" => nu_style.fg = Some(v.as_string()?),
-                "bg" => nu_style.bg = Some(v.as_string()?),
-                "attr" => nu_style.attr = Some(v.as_string()?),
+                "fg" => nu_style.fg = Some(v.coerce_string()?),
+                "bg" => nu_style.bg = Some(v.coerce_string()?),
+                "attr" => nu_style.attr = Some(v.coerce_string()?),
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),

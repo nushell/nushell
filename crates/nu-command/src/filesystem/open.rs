@@ -80,7 +80,7 @@ impl Command for Open {
                 }
                 PipelineData::Value(val, ..) => {
                     let span = val.span();
-                    (val.as_string()?, span)
+                    (val.coerce_string()?, span)
                 }
                 _ => {
                     return Err(ShellError::MissingParameter {

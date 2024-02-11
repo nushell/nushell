@@ -213,7 +213,7 @@ fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
 }
 
 fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
-    let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
+    let path: Result<PathBuf, ShellError> = parts.iter().map(Value::coerce_string).collect();
 
     match path {
         Ok(ref path) => join_single(path, head, args),
@@ -269,7 +269,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
     }
 
     if let Some(val) = record.get("parent") {
-        let p = val.as_string()?;
+        let p = val.coerce_string()?;
         if !p.is_empty() {
             result.push(p);
         }
@@ -277,14 +277,14 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
 
     let mut basename = String::new();
     if let Some(val) = record.get("stem") {
-        let p = val.as_string()?;
+        let p = val.coerce_string()?;
         if !p.is_empty() {
             basename.push_str(&p);
         }
     }
 
     if let Some(val) = record.get("extension") {
-        let p = val.as_string()?;
+        let p = val.coerce_string()?;
         if !p.is_empty() {
             basename.push('.');
             basename.push_str(&p);

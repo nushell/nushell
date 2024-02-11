@@ -176,7 +176,7 @@ impl PipelineData {
                 if s.is_binary {
                     let mut output = vec![];
                     for item in items {
-                        match item.as_binary() {
+                        match item.coerce_binary() {
                             Ok(item) => {
                                 output.extend(item);
                             }
@@ -192,7 +192,7 @@ impl PipelineData {
                 } else {
                     let mut output = String::new();
                     for item in items {
-                        match item.as_string() {
+                        match item.coerce_string() {
                             Ok(s) => output.push_str(&s),
                             Err(err) => {
                                 return Value::error(err, span);
@@ -330,7 +330,7 @@ impl PipelineData {
                 let mut output = String::new();
 
                 for val in s {
-                    output.push_str(&val?.as_string()?);
+                    output.push_str(&val?.coerce_string()?);
                 }
                 if trim_end_newline {
                     output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
@@ -859,7 +859,7 @@ pub fn print_if_stream(
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;
-            let bin_output = s_live.as_binary()?;
+            let bin_output = s_live.coerce_binary()?;
 
             if !to_stderr {
                 stdout_write_all_and_flush(bin_output)?

@@ -118,7 +118,7 @@ impl Command for UpdateCells {
                 let cols = val
                     .as_list()?
                     .iter()
-                    .map(|val| val.as_string())
+                    .map(|val| val.coerce_string())
                     .collect::<Result<Vec<String>, ShellError>>()?;
                 Some(HashSet::from_iter(cols))
             }

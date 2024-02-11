@@ -340,7 +340,7 @@ mod tests {
                     .as_list()
                     .unwrap()
                     .iter()
-                    .map(|text_nodes| text_nodes.as_string().unwrap())
+                    .map(|text_nodes| text_nodes.coerce_string().unwrap())
                     .collect::<Vec<String>>()
             })
             .collect::<Vec<Vec<String>>>();
