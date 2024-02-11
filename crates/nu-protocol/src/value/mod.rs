@@ -246,23 +246,26 @@ impl Value {
     }
 
     pub fn as_bool(&self) -> Result<bool, ShellError> {
-        match self {
-            Value::Bool { val, .. } => Ok(*val),
-            x => x.cant_convert_to("boolean"),
+        if let Value::Bool { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("boolean")
         }
     }
 
     pub fn as_int(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Int { val, .. } => Ok(*val),
-            x => x.cant_convert_to("int"),
+        if let Value::Int { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("int")
         }
     }
 
     pub fn as_float(&self) -> Result<f64, ShellError> {
-        match self {
-            Value::Float { val, .. } => Ok(*val),
-            x => x.cant_convert_to("float"),
+        if let Value::Float { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("float")
         }
     }
 
@@ -270,35 +273,39 @@ impl Value {
         match self {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
-            x => x.cant_convert_to("float"),
+            val => val.cant_convert_to("float"),
         }
     }
 
     pub fn as_filesize(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Filesize { val, .. } => Ok(*val),
-            x => x.cant_convert_to("filesize"),
+        if let Value::Filesize { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("filesize")
         }
     }
 
     pub fn as_duration(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Duration { val, .. } => Ok(*val),
-            x => x.cant_convert_to("duration"),
+        if let Value::Duration { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("duration")
         }
     }
 
     pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
-        match self {
-            Value::Date { val, .. } => Ok(*val),
-            x => x.cant_convert_to("date"),
+        if let Value::Date { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("date")
         }
     }
 
     pub fn as_range(&self) -> Result<&Range, ShellError> {
-        match self {
-            Value::Range { val, .. } => Ok(val.as_ref()),
-            x => x.cant_convert_to("range"),
+        if let Value::Range { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("range")
         }
     }
 
@@ -311,9 +318,10 @@ impl Value {
     }
 
     pub fn as_string(&self) -> Result<&str, ShellError> {
-        match self {
-            Value::String { val, .. } => Ok(val),
-            x => x.cant_convert_to("string"),
+        if let Value::String { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("string")
         }
     }
 
@@ -336,39 +344,40 @@ impl Value {
                 Err(_) => self.cant_convert_to("string"),
             },
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            x => x.cant_convert_to("string"),
+            val => val.cant_convert_to("string"),
         }
     }
 
     pub fn as_char(&self) -> Result<char, ShellError> {
         let span = self.span();
 
-        match self {
-            Value::String { val, .. } => {
-                let mut chars = val.chars();
-                match (chars.next(), chars.next()) {
-                    (Some(c), None) => Ok(c),
-                    _ => Err(ShellError::MissingParameter {
-                        param_name: "single character separator".into(),
-                        span,
-                    }),
-                }
+        if let Value::String { val, .. } = self {
+            let mut chars = val.chars();
+            match (chars.next(), chars.next()) {
+                (Some(c), None) => Ok(c),
+                _ => Err(ShellError::MissingParameter {
+                    param_name: "single character separator".into(),
+                    span,
+                }),
             }
-            x => x.cant_convert_to("char"),
+        } else {
+            self.cant_convert_to("char")
         }
     }
 
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
-        match self {
-            Value::String { val, .. } => Ok(PathBuf::from(val)),
-            x => x.cant_convert_to("path"),
+        if let Value::String { val, .. } = self {
+            Ok(PathBuf::from(val))
+        } else {
+            self.cant_convert_to("path")
         }
     }
 
     pub fn as_record(&self) -> Result<&Record, ShellError> {
-        match self {
-            Value::Record { val, .. } => Ok(val),
-            x => x.cant_convert_to("record"),
+        if let Value::Record { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("record")
         }
     }
 
@@ -381,9 +390,10 @@ impl Value {
     }
 
     pub fn as_list(&self) -> Result<&[Value], ShellError> {
-        match self {
-            Value::List { vals, .. } => Ok(vals),
-            x => x.cant_convert_to("list"),
+        if let Value::List { vals, .. } = self {
+            Ok(vals)
+        } else {
+            self.cant_convert_to("list")
         }
     }
 
@@ -396,9 +406,10 @@ impl Value {
     }
 
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
-        match self {
-            Value::Block { val, .. } => Ok(*val),
-            x => x.cant_convert_to("block"),
+        if let Value::Block { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("block")
         }
     }
 
@@ -406,14 +417,15 @@ impl Value {
         match self {
             Value::Block { val, .. } => Ok(*val),
             Value::Closure { val, .. } => Ok(val.block_id),
-            x => x.cant_convert_to("block"),
+            val => val.cant_convert_to("block"),
         }
     }
 
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
-        match self {
-            Value::Closure { val, .. } => Ok(val),
-            x => x.cant_convert_to("closure"),
+        if let Value::Closure { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("closure")
         }
     }
 
@@ -426,9 +438,10 @@ impl Value {
     }
 
     pub fn as_binary(&self) -> Result<&[u8], ShellError> {
-        match self {
-            Value::Binary { val, .. } => Ok(val),
-            x => x.cant_convert_to("binary"),
+        if let Value::Binary { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("binary")
         }
     }
 
@@ -444,14 +457,15 @@ impl Value {
         match self {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.as_bytes()),
-            x => x.cant_convert_to("binary"),
+            val => val.cant_convert_to("binary"),
         }
     }
 
     pub fn as_cell_path(&self) -> Result<&CellPath, ShellError> {
-        match self {
-            Value::CellPath { val, .. } => Ok(val),
-            x => x.cant_convert_to("cell path"),
+        if let Value::CellPath { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("cell path")
         }
     }
 
@@ -464,9 +478,10 @@ impl Value {
     }
 
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
-        match self {
-            Value::CustomValue { val, .. } => Ok(val.as_ref()),
-            x => x.cant_convert_to("custom value"),
+        if let Value::CustomValue { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("custom value")
         }
     }
 
@@ -479,9 +494,10 @@ impl Value {
     }
 
     pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
-        match self {
-            Value::LazyRecord { val, .. } => Ok(val.as_ref()),
-            x => x.cant_convert_to("lazy record"),
+        if let Value::LazyRecord { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("lazy record")
         }
     }
 
