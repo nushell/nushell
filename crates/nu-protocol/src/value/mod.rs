@@ -333,6 +333,19 @@ impl Value {
         }
     }
 
+    pub fn into_range(self) -> Result<Range, ShellError> {
+        if let Value::Range { val, .. } = self {
+            Ok(*val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "range".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
+        }
+    }
+
     pub fn as_string(&self) -> Result<&str, ShellError> {
         match self {
             Value::String { val, .. } => Ok(val),
@@ -342,6 +355,19 @@ impl Value {
                 span: self.span(),
                 help: None,
             }),
+        }
+    }
+
+    pub fn into_string(self) -> Result<String, ShellError> {
+        if let Value::String { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
         }
     }
 
@@ -419,6 +445,19 @@ impl Value {
         }
     }
 
+    pub fn into_record(self) -> Result<Record, ShellError> {
+        if let Value::Record { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "record".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
+        }
+    }
+
     pub fn as_list(&self) -> Result<&[Value], ShellError> {
         match self {
             Value::List { vals, .. } => Ok(vals),
@@ -428,6 +467,19 @@ impl Value {
                 span: self.span(),
                 help: None,
             }),
+        }
+    }
+
+    pub fn into_list(self) -> Result<Vec<Value>, ShellError> {
+        if let Value::List { vals, .. } = self {
+            Ok(vals)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "list".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
         }
     }
 
@@ -468,6 +520,19 @@ impl Value {
         }
     }
 
+    pub fn into_closure(self) -> Result<Closure, ShellError> {
+        if let Value::Closure { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "closure".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
+        }
+    }
+
     pub fn as_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
@@ -477,6 +542,19 @@ impl Value {
                 span: self.span(),
                 help: None,
             }),
+        }
+    }
+
+    pub fn into_binary(self) -> Result<Vec<u8>, ShellError> {
+        if let Value::Binary { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "binary".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
         }
     }
 
@@ -505,6 +583,19 @@ impl Value {
         }
     }
 
+    pub fn into_cell_path(self) -> Result<CellPath, ShellError> {
+        if let Value::CellPath { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "cell path".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
+        }
+    }
+
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
         match self {
             Value::CustomValue { val, .. } => Ok(val.as_ref()),
@@ -517,6 +608,19 @@ impl Value {
         }
     }
 
+    pub fn into_custom_value(self) -> Result<Box<dyn CustomValue>, ShellError> {
+        if let Value::CustomValue { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "custom value".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
+        }
+    }
+
     pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
         match self {
             Value::LazyRecord { val, .. } => Ok(val.as_ref()),
@@ -526,6 +630,19 @@ impl Value {
                 span: self.span(),
                 help: None,
             }),
+        }
+    }
+
+    pub fn into_lazy_record(self) -> Result<Box<dyn for<'a> LazyRecord<'a>>, ShellError> {
+        if let Value::LazyRecord { val, .. } = self {
+            Ok(val)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "lazy record".into(),
+                from_type: self.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            })
         }
     }
 
