@@ -114,7 +114,7 @@ prints out the list properly."#
                 let mut items = vec![];
 
                 for (i, (c, v)) in val.into_iter().enumerate() {
-                    items.push((i, c, v.into_string(", ", config)))
+                    items.push((i, c, v.to_formatted_string(", ", config)))
                 }
 
                 Ok(create_grid_output(

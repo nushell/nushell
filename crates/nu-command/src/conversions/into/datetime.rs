@@ -339,7 +339,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.debug_value(),
+                                msg: input.to_debug_string(),
                                 span: *span,
                             },
                             *span,
@@ -352,7 +352,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.debug_value(),
+                                msg: input.to_debug_string(),
                                 span: *span,
                             },
                             *span,

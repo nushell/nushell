@@ -59,7 +59,7 @@ impl Command for StrJoin {
                     return Err(*error);
                 }
                 value => {
-                    strings.push(value.debug_string("\n", config));
+                    strings.push(value.to_formatted_debug_string("\n", config));
                 }
             }
         }

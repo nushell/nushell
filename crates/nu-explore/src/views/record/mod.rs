@@ -648,7 +648,7 @@ fn convert_records_to_string(
         .map(|row| {
             row.iter()
                 .map(|value| {
-                    let text = value.clone().into_abbreviated_string(cfg);
+                    let text = value.clone().to_abbreviated_string(cfg);
                     let float_precision = cfg.float_precision as usize;
 
                     make_styled_string(style_computer, text, Some(value), float_precision)

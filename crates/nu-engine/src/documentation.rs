@@ -139,7 +139,7 @@ fn get_documentation(
     if !sig.named.is_empty() {
         long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
             nu_highlight_string(
-                &v.into_string_parsable(", ", &engine_state.config),
+                &v.to_parsable_string(", ", &engine_state.config),
                 engine_state,
                 stack,
             )
@@ -187,7 +187,7 @@ fn get_documentation(
                         format!(
                             " (optional, default: {})",
                             nu_highlight_string(
-                                &value.into_string_parsable(", ", &engine_state.config),
+                                &value.to_parsable_string(", ", &engine_state.config),
                                 engine_state,
                                 stack
                             )
@@ -316,7 +316,7 @@ fn get_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.into_string("", engine_state.get_config())
+                    item.to_formatted_string("", engine_state.get_config())
                         .replace('\n', "\n  ")
                         .trim()
                 );
@@ -390,7 +390,7 @@ fn get_argument_for_color_value(
                         },
                         Expression {
                             expr: Expr::String(
-                                v.clone().into_string("", engine_state.get_config()),
+                                v.clone().to_formatted_string("", engine_state.get_config()),
                             ),
                             span,
                             ty: Type::String,

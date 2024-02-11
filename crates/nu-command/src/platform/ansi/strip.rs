@@ -81,7 +81,7 @@ fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
         other => {
             // Fake stripping ansi for other types and just show the abbreviated string
             // instead of showing an error message
-            Value::string(other.into_abbreviated_string(&args.config), span)
+            Value::string(other.to_abbreviated_string(&args.config), span)
         }
     }
 }

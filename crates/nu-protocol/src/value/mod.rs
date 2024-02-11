@@ -669,12 +669,12 @@ impl Value {
         if let Value::Error { error, .. } = self {
             Err(*error.to_owned())
         } else {
-            Ok(self.into_string(separator, config))
+            Ok(self.to_formatted_string(separator, config))
         }
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
-    pub fn into_string(&self, separator: &str, config: &Config) -> String {
+    pub fn to_formatted_string(&self, separator: &str, config: &Config) -> String {
         let span = self.span();
 
         match self {
@@ -683,7 +683,6 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-
             Value::Date { val, .. } => match &config.datetime_normal_format {
                 Some(format) => self.format_datetime(val, format),
                 None => {
@@ -701,8 +700,8 @@ impl Value {
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
+                    val.from.to_formatted_string(", ", config),
+                    val.to.to_formatted_string(", ", config)
                 )
             }
             Value::String { val, .. } => val.clone(),
@@ -710,14 +709,14 @@ impl Value {
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
-                    .map(|x| x.into_string(", ", config))
+                    .map(|x| x.to_formatted_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::Record { val, .. } => format!(
                 "{{{}}}",
                 val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.to_formatted_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
@@ -729,7 +728,7 @@ impl Value {
                         internal_span: span,
                     },
                 };
-                collected.into_string(separator, config)
+                collected.to_formatted_string(separator, config)
             }
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
@@ -742,7 +741,7 @@ impl Value {
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
-    pub fn into_abbreviated_string(&self, config: &Config) -> String {
+    pub fn to_abbreviated_string(&self, config: &Config) -> String {
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
@@ -756,8 +755,8 @@ impl Value {
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
+                    val.from.to_formatted_string(", ", config),
+                    val.to.to_formatted_string(", ", config)
                 )
             }
             Value::String { val, .. } => val.to_string(),
@@ -783,7 +782,7 @@ impl Value {
                 if val.len() == 1 { "" } else { "s" }
             ),
             Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.into_abbreviated_string(config),
+                Ok(val) => val.to_abbreviated_string(config),
                 Err(error) => format!("{error:?}"),
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
@@ -825,7 +824,7 @@ impl Value {
     }
 
     /// Convert Value into a debug string
-    pub fn debug_value(&self) -> String {
+    pub fn to_debug_string(&self) -> String {
         match self {
             Value::String { val, .. } => {
                 if contains_emoji(val) {
@@ -845,7 +844,7 @@ impl Value {
     /// Convert Value into a parsable string (quote strings)
     /// bugbug other, rarer types not handled
 
-    pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
+    pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
             Value::String { val, .. } => format!("'{}'", val),
@@ -854,25 +853,25 @@ impl Value {
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
-                    .map(|x| x.into_string_parsable(", ", config))
+                    .map(|x| x.to_parsable_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::Record { val, .. } => format!(
                 "{{{}}}",
                 val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.into_string_parsable(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.to_parsable_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
 
             // defer to standard handling for types where standard representation is parsable
-            _ => self.into_string(separator, config),
+            _ => self.to_formatted_string(separator, config),
         }
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
-    pub fn debug_string(&self, separator: &str, config: &Config) -> String {
+    pub fn to_formatted_debug_string(&self, separator: &str, config: &Config) -> String {
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
@@ -883,8 +882,8 @@ impl Value {
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
+                    val.from.to_formatted_string(", ", config),
+                    val.to.to_formatted_string(", ", config)
                 )
             }
             Value::String { val, .. } => val.clone(),
@@ -892,19 +891,19 @@ impl Value {
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
-                    .map(|x| x.into_string(", ", config))
+                    .map(|x| x.to_formatted_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::Record { val, .. } => format!(
                 "{{{}}}",
                 val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.to_formatted_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.debug_string(separator, config),
+                Ok(val) => val.to_formatted_debug_string(separator, config),
                 Err(error) => format!("{error:?}"),
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
@@ -3887,7 +3886,7 @@ mod tests {
                 NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ))
-            .into_string("", &Default::default());
+            .to_formatted_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
@@ -3901,7 +3900,7 @@ mod tests {
                 NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ))
-            .into_string("", &Default::default());
+            .to_formatted_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
