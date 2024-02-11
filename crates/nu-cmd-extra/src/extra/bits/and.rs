@@ -113,12 +113,12 @@ impl Command for BitsAnd {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Apply bits and to two numbers",
+                description: "Apply logical and to two numbers",
                 example: "2 | bits and 2",
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Apply bits and to two binary values",
+                description: "Apply logical and to two binary values",
                 example: "0x[ab cd] | bits and 0x[99 99]",
                 result: Some(Value::test_binary([137, 137]))
             },
