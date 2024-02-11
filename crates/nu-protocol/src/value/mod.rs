@@ -13,7 +13,7 @@ use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
 use crate::engine::{Closure, EngineState};
 use crate::ShellError;
-use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type};
+use crate::{did_you_mean, BlockId, Config, Span, Type};
 
 use byte_unit::UnitType;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
@@ -339,36 +339,6 @@ impl Value {
                 }
             }),
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            x => Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
-        }
-    }
-
-    pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
-        let span = self.span();
-        match self {
-            Value::String { val, .. } => Ok(Spanned {
-                item: val.to_string(),
-                span,
-            }),
-            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
-                Ok(s) => Spanned {
-                    item: s.to_string(),
-                    span,
-                },
-                Err(_) => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "binary".into(),
-                        span: self.span(),
-                        help: None,
-                    })
-                }
-            }),
             x => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: x.get_type().to_string(),

@@ -71,14 +71,17 @@ impl Command for Open {
         if let Some(filename) = req_path {
             path_params.insert(0, filename);
         } else {
-            let filename = match input {
+            let (filename, span) = match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {
                     return Err(ShellError::MissingParameter {
                         param_name: "needs filename".to_string(),
                         span: call.head,
                     })
                 }
-                PipelineData::Value(val, ..) => val.as_spanned_string()?,
+                PipelineData::Value(val, ..) => {
+                    let span = val.span();
+                    (val.as_string()?, span)
+                }
                 _ => {
                     return Err(ShellError::MissingParameter {
                         param_name: "needs filename".to_string(),
@@ -90,8 +93,8 @@ impl Command for Open {
             path_params.insert(
                 0,
                 Spanned {
-                    item: NuPath::UnQuoted(filename.item),
-                    span: filename.span,
+                    item: NuPath::UnQuoted(filename),
+                    span,
                 },
             );
         }
