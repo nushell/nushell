@@ -9,6 +9,7 @@ mod shift_left;
 mod shift_right;
 mod xor;
 
+use nu_protocol::Value;
 pub use and::BitsAnd;
 pub use bits_::Bits;
 pub use into::BitsInto;
@@ -19,8 +20,6 @@ pub use rotate_right::BitsRor;
 pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
-
-use nu_protocol::Spanned;
 
 #[derive(Clone, Copy)]
 enum NumberBytes {
@@ -44,10 +43,10 @@ enum InputNumType {
     SignedEight,
 }
 
-fn get_number_bytes(number_bytes: Option<&Spanned<String>>) -> NumberBytes {
-    match number_bytes.as_ref() {
+fn get_number_bytes(number_bytes: Option<&Value>) -> NumberBytes {
+    match number_bytes {
         None => NumberBytes::Eight,
-        Some(size) => match size.item.as_str() {
+        Some(Value::String { val, .. }) => match val.as_str() {
             "1" => NumberBytes::One,
             "2" => NumberBytes::Two,
             "4" => NumberBytes::Four,
@@ -55,6 +54,14 @@ fn get_number_bytes(number_bytes: Option<&Spanned<String>>) -> NumberBytes {
             "auto" => NumberBytes::Auto,
             _ => NumberBytes::Invalid,
         },
+        Some(Value::Int { val, .. }) => match val {
+            1 => NumberBytes::One,
+            2 => NumberBytes::Two,
+            4 => NumberBytes::Four,
+            8 => NumberBytes::Eight,
+            _ => NumberBytes::Invalid,
+        },
+        _ => NumberBytes::Invalid
     }
 }
 

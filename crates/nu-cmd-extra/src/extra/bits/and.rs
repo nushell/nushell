@@ -117,7 +117,7 @@ impl Command for BitsAnd {
             Example {
                 description: "Apply logical and to two binary values",
                 example: "0x[ab cd] | bits and 0x[99 99]",
-                result: Some(Value::test_binary([137, 137])),
+                result: Some(Value::test_binary([0x89, 0x89])),
             },
             Example {
                 description: "Apply logical and to a list of numbers",
@@ -132,8 +132,8 @@ impl Command for BitsAnd {
                 description: "Apply logical and to a list of binary data",
                 example: "[0x[7f ff] 0x[ff f0]] | bits and 0x[99 99]",
                 result: Some(Value::test_list(vec![
-                    Value::test_binary([25, 153]),
-                    Value::test_binary([153, 144]),
+                    Value::test_binary([0x19, 0x99]),
+                    Value::test_binary([0x99, 0x90]),
                 ])),
             },
         ]
