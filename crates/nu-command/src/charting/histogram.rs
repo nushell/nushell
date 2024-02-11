@@ -127,15 +127,16 @@ impl Command for Histogram {
 
         let span = call.head;
         let data_as_value = input.into_value(span);
+        let value_span = data_as_value.span();
         // `input` is not a list, here we can return an error.
         run_histogram(
-            data_as_value.as_list()?.to_vec(),
+            data_as_value.into_list()?,
             column_name,
             frequency_column_name,
             calc_method,
             span,
             // Note that as_list() filters out Value::Error here.
-            data_as_value.span(),
+            value_span,
         )
     }
 }
