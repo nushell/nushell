@@ -870,52 +870,6 @@ impl Value {
         }
     }
 
-    /// Convert Value into string. Note that Streams will be consumed.
-    pub fn to_formatted_debug_string(&self, separator: &str, config: &Config) -> String {
-        match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => format!("{val:?}"),
-            Value::Range { val, .. } => {
-                format!(
-                    "{}..{}",
-                    val.from.to_formatted_string(", ", config),
-                    val.to.to_formatted_string(", ", config)
-                )
-            }
-            Value::String { val, .. } => val.clone(),
-            Value::QuotedString { val, .. } => val.clone(),
-            Value::List { vals: val, .. } => format!(
-                "[{}]",
-                val.iter()
-                    .map(|x| x.to_formatted_string(", ", config))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::Record { val, .. } => format!(
-                "{{{}}}",
-                val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.to_formatted_string(", ", config)))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.to_formatted_debug_string(separator, config),
-                Err(error) => format!("{error:?}"),
-            },
-            Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error, .. } => format!("{error:?}"),
-            Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.to_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
-        }
-    }
-
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn follow_cell_path(
         self,
