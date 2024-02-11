@@ -365,7 +365,7 @@ impl Value {
         }
     }
 
-    pub fn as_path(&self) -> Result<PathBuf, ShellError> {
+    pub fn to_path(&self) -> Result<PathBuf, ShellError> {
         if let Value::String { val, .. } = self {
             Ok(PathBuf::from(val))
         } else {

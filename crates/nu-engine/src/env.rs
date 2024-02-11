@@ -333,7 +333,7 @@ pub fn find_in_dirs_env(
             .ok()?
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.as_path().ok()?;
+                let dir = lib_dir.to_path().ok()?;
                 let dir_abs = canonicalize_with(dir, &cwd).ok()?;
                 canonicalize_with(filename, dir_abs).ok()
             })

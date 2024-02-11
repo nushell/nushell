@@ -3800,7 +3800,7 @@ pub fn find_in_dirs(
             .ok()?
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.as_path().ok()?;
+                let dir = lib_dir.to_path().ok()?;
                 let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
                 canonicalize_with(filename, dir_abs).ok()
             })
@@ -3833,7 +3833,7 @@ pub fn find_in_dirs(
                 if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
                     if let Ok(dirs) = lib_dirs.as_list() {
                         for lib_dir in dirs {
-                            if let Ok(dir) = lib_dir.as_path() {
+                            if let Ok(dir) = lib_dir.to_path() {
                                 // make sure the dir is absolute path
                                 if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd) {
                                     if let Ok(path) = canonicalize_with(filename, dir_abs) {
