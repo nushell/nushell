@@ -236,39 +236,33 @@ impl Clone for Value {
 }
 
 impl Value {
+    fn cant_convert_to<T>(&self, typ: &str) -> Result<T, ShellError> {
+        Err(ShellError::CantConvert {
+            to_type: typ.into(),
+            from_type: self.get_type().to_string(),
+            span: self.span(),
+            help: None,
+        })
+    }
+
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "boolean".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("boolean"),
         }
     }
 
     pub fn as_int(&self) -> Result<i64, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("int"),
         }
     }
 
     pub fn as_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "float".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("float"),
         }
     }
 
@@ -276,60 +270,35 @@ impl Value {
         match self {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
-            x => Err(ShellError::CantConvert {
-                to_type: "float".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("float"),
         }
     }
 
     pub fn as_filesize(&self) -> Result<i64, ShellError> {
         match self {
             Value::Filesize { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "filesize".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("filesize"),
         }
     }
 
     pub fn as_duration(&self) -> Result<i64, ShellError> {
         match self {
             Value::Duration { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "duration".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("duration"),
         }
     }
 
     pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
         match self {
             Value::Date { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "date".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("date"),
         }
     }
 
     pub fn as_range(&self) -> Result<&Range, ShellError> {
         match self {
             Value::Range { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "range".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("range"),
         }
     }
 
@@ -337,24 +306,14 @@ impl Value {
         if let Value::Range { val, .. } = self {
             Ok(*val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "range".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("range")
         }
     }
 
     pub fn as_string(&self) -> Result<&str, ShellError> {
         match self {
             Value::String { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("string"),
         }
     }
 
@@ -362,12 +321,7 @@ impl Value {
         if let Value::String { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("string")
         }
     }
 
@@ -377,24 +331,12 @@ impl Value {
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val.to_string()),
-            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
-                Ok(s) => s.to_string(),
-                Err(_) => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "binary".into(),
-                        span: self.span(),
-                        help: None,
-                    });
-                }
-            }),
+            Value::Binary { val, .. } => match std::str::from_utf8(val) {
+                Ok(s) => Ok(s.to_string()),
+                Err(_) => self.cant_convert_to("string"),
+            },
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            x => Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("string"),
         }
     }
 
@@ -412,36 +354,21 @@ impl Value {
                     }),
                 }
             }
-            x => Err(ShellError::CantConvert {
-                to_type: "char".into(),
-                from_type: x.get_type().to_string(),
-                span,
-                help: None,
-            }),
+            x => x.cant_convert_to("char"),
         }
     }
 
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self {
             Value::String { val, .. } => Ok(PathBuf::from(val)),
-            x => Err(ShellError::CantConvert {
-                to_type: "path".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("path"),
         }
     }
 
     pub fn as_record(&self) -> Result<&Record, ShellError> {
         match self {
             Value::Record { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "record".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("record"),
         }
     }
 
@@ -449,24 +376,14 @@ impl Value {
         if let Value::Record { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "record".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("record")
         }
     }
 
     pub fn as_list(&self) -> Result<&[Value], ShellError> {
         match self {
             Value::List { vals, .. } => Ok(vals),
-            x => Err(ShellError::CantConvert {
-                to_type: "list".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("list"),
         }
     }
 
@@ -474,24 +391,14 @@ impl Value {
         if let Value::List { vals, .. } = self {
             Ok(vals)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "list".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("list")
         }
     }
 
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "block".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("block"),
         }
     }
 
@@ -499,24 +406,14 @@ impl Value {
         match self {
             Value::Block { val, .. } => Ok(*val),
             Value::Closure { val, .. } => Ok(val.block_id),
-            x => Err(ShellError::CantConvert {
-                to_type: "block".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("block"),
         }
     }
 
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         match self {
             Value::Closure { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "closure".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("closure"),
         }
     }
 
@@ -524,24 +421,14 @@ impl Value {
         if let Value::Closure { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "closure".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("closure")
         }
     }
 
     pub fn as_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "binary".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("binary"),
         }
     }
 
@@ -549,12 +436,7 @@ impl Value {
         if let Value::Binary { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "binary".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("binary")
         }
     }
 
@@ -562,24 +444,14 @@ impl Value {
         match self {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.as_bytes()),
-            x => Err(ShellError::CantConvert {
-                to_type: "binary".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("binary"),
         }
     }
 
     pub fn as_cell_path(&self) -> Result<&CellPath, ShellError> {
         match self {
             Value::CellPath { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "cell path".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("cell path"),
         }
     }
 
@@ -587,24 +459,14 @@ impl Value {
         if let Value::CellPath { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "cell path".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("cell path")
         }
     }
 
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
         match self {
             Value::CustomValue { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "custom value".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("custom value"),
         }
     }
 
@@ -612,24 +474,14 @@ impl Value {
         if let Value::CustomValue { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "custom value".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("custom value")
         }
     }
 
     pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
         match self {
             Value::LazyRecord { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "lazy record".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            x => x.cant_convert_to("lazy record"),
         }
     }
 
@@ -637,12 +489,7 @@ impl Value {
         if let Value::LazyRecord { val, .. } = self {
             Ok(val)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "lazy record".into(),
-                from_type: self.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            })
+            self.cant_convert_to("lazy record")
         }
     }
 
