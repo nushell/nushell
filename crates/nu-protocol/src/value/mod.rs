@@ -260,6 +260,18 @@ impl Value {
         }
     }
 
+    pub fn as_float(&self) -> Result<f64, ShellError> {
+        match self {
+            Value::Float { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "float".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            }),
+        }
+    }
+
     pub fn coerce_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
@@ -314,6 +326,18 @@ impl Value {
             Value::Range { val, .. } => Ok(val.as_ref()),
             x => Err(ShellError::CantConvert {
                 to_type: "range".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_string(&self) -> Result<&str, ShellError> {
+        match self {
+            Value::String { val, .. } => Ok(val),
+            x => Err(ShellError::CantConvert {
+                to_type: "string".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span(),
                 help: None,
@@ -407,6 +431,18 @@ impl Value {
         }
     }
 
+    pub fn as_block(&self) -> Result<BlockId, ShellError> {
+        match self {
+            Value::Block { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "block".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            }),
+        }
+    }
+
     pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
@@ -425,6 +461,18 @@ impl Value {
             Value::Closure { val, .. } => Ok(val),
             x => Err(ShellError::CantConvert {
                 to_type: "closure".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
+        match self {
+            Value::Binary { val, .. } => Ok(val),
+            x => Err(ShellError::CantConvert {
+                to_type: "binary".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span(),
                 help: None,
