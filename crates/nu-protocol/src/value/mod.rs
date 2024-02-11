@@ -245,6 +245,7 @@ impl Value {
         })
     }
 
+    /// Returns the inner `bool` value or an error if this `Value` is not a bool
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         if let Value::Bool { val, .. } = self {
             Ok(*val)
@@ -253,6 +254,7 @@ impl Value {
         }
     }
 
+    /// Returns the inner `i64` value or an error if this `Value` is not an int
     pub fn as_int(&self) -> Result<i64, ShellError> {
         if let Value::Int { val, .. } = self {
             Ok(*val)
@@ -261,6 +263,7 @@ impl Value {
         }
     }
 
+    /// Returns the inner `f64` value or an error if this `Value` is not a float
     pub fn as_float(&self) -> Result<f64, ShellError> {
         if let Value::Float { val, .. } = self {
             Ok(*val)
@@ -269,6 +272,11 @@ impl Value {
         }
     }
 
+    /// Returns this `Value` converted to a `f64` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
     pub fn coerce_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
@@ -277,6 +285,7 @@ impl Value {
         }
     }
 
+    /// Returns the inner `i64` filesize value or an error if this `Value` is not a filesize
     pub fn as_filesize(&self) -> Result<i64, ShellError> {
         if let Value::Filesize { val, .. } = self {
             Ok(*val)
@@ -285,6 +294,7 @@ impl Value {
         }
     }
 
+    /// Returns the inner `i64` duration value or an error if this `Value` is not a duration
     pub fn as_duration(&self) -> Result<i64, ShellError> {
         if let Value::Duration { val, .. } = self {
             Ok(*val)
@@ -293,6 +303,7 @@ impl Value {
         }
     }
 
+    /// Returns the inner [`DateTime`] value or an error if this `Value` is not a date
     pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
         if let Value::Date { val, .. } = self {
             Ok(*val)
@@ -301,6 +312,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner [`Range`] value or an error if this `Value` is not a range
     pub fn as_range(&self) -> Result<&Range, ShellError> {
         if let Value::Range { val, .. } = self {
             Ok(val.as_ref())
@@ -309,6 +321,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner [`Range`] value or returns an error if this `Value` is not a range
     pub fn into_range(self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
             Ok(*val)
@@ -317,6 +330,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner `str` value or an error if this `Value` is not a string
     pub fn as_string(&self) -> Result<&str, ShellError> {
         if let Value::String { val, .. } = self {
             Ok(val)
@@ -325,6 +339,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner `String` value or returns an error if this `Value` is not a string
     pub fn into_string(self) -> Result<String, ShellError> {
         if let Value::String { val, .. } = self {
             Ok(val)
@@ -333,7 +348,14 @@ impl Value {
         }
     }
 
-    /// Converts into string values that can be changed into string natively
+    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
     pub fn coerce_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(val.to_string()),
@@ -348,6 +370,7 @@ impl Value {
         }
     }
 
+    /// Returns this `Value` as a `char` or an error if it is not a single character string
     pub fn as_char(&self) -> Result<char, ShellError> {
         let span = self.span();
 
@@ -365,6 +388,7 @@ impl Value {
         }
     }
 
+    /// Converts this `Value` to a `PathBuf` or returns an error if it is not a string
     pub fn to_path(&self) -> Result<PathBuf, ShellError> {
         if let Value::String { val, .. } = self {
             Ok(PathBuf::from(val))
@@ -373,6 +397,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner [`Record`] value or an error if this `Value` is not a record
     pub fn as_record(&self) -> Result<&Record, ShellError> {
         if let Value::Record { val, .. } = self {
             Ok(val)
@@ -381,6 +406,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner [`Record`] value or returns an error if this `Value` is not a record
     pub fn into_record(self) -> Result<Record, ShellError> {
         if let Value::Record { val, .. } = self {
             Ok(val)
@@ -389,6 +415,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner list slice or an error if this `Value` is not a list
     pub fn as_list(&self) -> Result<&[Value], ShellError> {
         if let Value::List { vals, .. } = self {
             Ok(vals)
@@ -397,6 +424,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner list `Vec` or returns an error if this `Value` is not a list
     pub fn into_list(self) -> Result<Vec<Value>, ShellError> {
         if let Value::List { vals, .. } = self {
             Ok(vals)
@@ -405,6 +433,7 @@ impl Value {
         }
     }
 
+    /// Returns the inner [`BlockId`] or an error if this `Value` is not a block
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
         if let Value::Block { val, .. } = self {
             Ok(*val)
@@ -413,6 +442,11 @@ impl Value {
         }
     }
 
+    /// Returns this `Value`'s [`BlockId`] or an error if it does not have one
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Block`
+    /// - `Closure`
     pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
@@ -421,6 +455,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner [`Closure`] value or an error if this `Value` is not a closure
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
             Ok(val)
@@ -429,6 +464,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner [`Closure`] value or returns an error if this `Value` is not a closure
     pub fn into_closure(self) -> Result<Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
             Ok(val)
@@ -437,6 +473,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner binary slice or an error if this `Value` is not a binary value
     pub fn as_binary(&self) -> Result<&[u8], ShellError> {
         if let Value::Binary { val, .. } = self {
             Ok(val)
@@ -445,6 +482,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner binary `Vec` or returns an error if this `Value` is not a binary value
     pub fn into_binary(self) -> Result<Vec<u8>, ShellError> {
         if let Value::Binary { val, .. } = self {
             Ok(val)
@@ -453,6 +491,11 @@ impl Value {
         }
     }
 
+    /// Returns this `Value` as a `u8` slice or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Binary`
+    /// - `String`
     pub fn coerce_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
@@ -461,6 +504,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner [`CellPath`] value or an error if this `Value` is not a cell path
     pub fn as_cell_path(&self) -> Result<&CellPath, ShellError> {
         if let Value::CellPath { val, .. } = self {
             Ok(val)
@@ -469,6 +513,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner [`CellPath`] value or returns an error if this `Value` is not a cell path
     pub fn into_cell_path(self) -> Result<CellPath, ShellError> {
         if let Value::CellPath { val, .. } = self {
             Ok(val)
@@ -477,6 +522,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner [`CustomValue`] trait object or an error if this `Value` is not a custom value
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
         if let Value::CustomValue { val, .. } = self {
             Ok(val.as_ref())
@@ -485,6 +531,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner [`CustomValue`] trait object or returns an error if this `Value` is not a custom value
     pub fn into_custom_value(self) -> Result<Box<dyn CustomValue>, ShellError> {
         if let Value::CustomValue { val, .. } = self {
             Ok(val)
@@ -493,6 +540,7 @@ impl Value {
         }
     }
 
+    /// Returns a reference to the inner [`LazyRecord`] trait object or an error if this `Value` is not a lazy record
     pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
         if let Value::LazyRecord { val, .. } = self {
             Ok(val.as_ref())
@@ -501,6 +549,7 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner [`LazyRecord`] trait object or returns an error if this `Value` is not a lazy record
     pub fn into_lazy_record(self) -> Result<Box<dyn for<'a> LazyRecord<'a>>, ShellError> {
         if let Value::LazyRecord { val, .. } = self {
             Ok(val)
