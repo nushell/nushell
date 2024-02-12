@@ -93,6 +93,7 @@ impl CommandCompletion {
             .into_iter()
             .map(move |x| Suggestion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
+                display: None,
                 description: x.1,
                 style: None,
                 extra: None,
@@ -110,6 +111,7 @@ impl CommandCompletion {
                 .into_iter()
                 .map(move |x| Suggestion {
                     value: x,
+                    display: None,
                     description: None,
                     style: None,
                     extra: None,
@@ -124,6 +126,7 @@ impl CommandCompletion {
                 if results_strings.contains(&external.value) {
                     results.push(Suggestion {
                         value: format!("^{}", external.value),
+                        display: None,
                         description: None,
                         style: None,
                         extra: None,

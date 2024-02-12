@@ -121,6 +121,7 @@ impl Completer for DotNuCompletion {
                     })
                     .map(move |x| Suggestion {
                         value: x.1,
+                        display: None,
                         description: None,
                         style: x.2,
                         extra: None,

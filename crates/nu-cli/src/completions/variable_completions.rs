@@ -94,6 +94,7 @@ impl Completer for VariableCompletion {
                         ) {
                             output.push(Suggestion {
                                 value: env_var.0,
+                                display: None,
                                 description: None,
                                 style: None,
                                 extra: None,
@@ -165,6 +166,7 @@ impl Completer for VariableCompletion {
             ) {
                 output.push(Suggestion {
                     value: builtin.to_string(),
+                    display: None,
                     description: None,
                     style: None,
                     extra: None,
@@ -188,6 +190,7 @@ impl Completer for VariableCompletion {
                     ) {
                         output.push(Suggestion {
                             value: String::from_utf8_lossy(v.0).to_string(),
+                            display: None,
                             description: None,
                             style: None,
                             extra: None,
@@ -210,6 +213,7 @@ impl Completer for VariableCompletion {
                 ) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
+                        display: None,
                         description: None,
                         style: None,
                         extra: None,
@@ -242,6 +246,7 @@ fn nested_suggestions(
             for (col, _) in val.into_iter() {
                 output.push(Suggestion {
                     value: col,
+                    display: None,
                     description: None,
                     style: None,
                     extra: None,
@@ -257,6 +262,7 @@ fn nested_suggestions(
             for column_name in val.column_names() {
                 output.push(Suggestion {
                     value: column_name.to_string(),
+                    display: None,
                     description: None,
                     style: None,
                     extra: None,
@@ -271,6 +277,7 @@ fn nested_suggestions(
             for column_name in get_columns(vals.as_slice()) {
                 output.push(Suggestion {
                     value: column_name,
+                    display: None,
                     description: None,
                     style: None,
                     extra: None,

@@ -145,6 +145,7 @@ fn convert_to_suggestions(
 
             vec![Suggestion {
                 value: text,
+                display: None,
                 description,
                 style: None,
                 extra,
@@ -158,6 +159,7 @@ fn convert_to_suggestions(
             .collect(),
         _ => vec![Suggestion {
             value: format!("Not a record: {value:?}"),
+            display: None,
             description: None,
             style: None,
             extra: None,

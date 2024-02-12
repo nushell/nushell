@@ -45,6 +45,7 @@ impl Completer for FlagCompletion {
                     if options.match_algorithm.matches_u8(&named, &prefix) {
                         output.push(Suggestion {
                             value: String::from_utf8_lossy(&named).to_string(),
+                            display: None,
                             description: Some(flag_desc.to_string()),
                             style: None,
                             extra: None,
@@ -68,6 +69,7 @@ impl Completer for FlagCompletion {
                 if options.match_algorithm.matches_u8(&named, &prefix) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(&named).to_string(),
+                        display: None,
                         description: Some(flag_desc.to_string()),
                         style: None,
                         extra: None,
