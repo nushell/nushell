@@ -331,7 +331,7 @@ impl Value {
     }
 
     /// Returns a reference to the inner `str` value or an error if this `Value` is not a string
-    pub fn as_string(&self) -> Result<&str, ShellError> {
+    pub fn as_str(&self) -> Result<&str, ShellError> {
         if let Value::String { val, .. } = self {
             Ok(val)
         } else {
