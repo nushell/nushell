@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -23,6 +24,19 @@ impl Command for FromToml {
         "Parse text as .toml and create record."
     }
 
+    fn run(
+        &self,
+        __engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let span = call.head;
+        let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
+        string_input.push('\n');
+        Ok(convert_string_to_value(string_input, span)?.into_pipeline_data_with_metadata(metadata))
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -44,19 +58,6 @@ b = [1, 2]' | from toml",
                 })),
             },
         ]
-    }
-
-    fn run(
-        &self,
-        __engine_state: &EngineState,
-        _stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-        let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
-        string_input.push('\n');
-        Ok(convert_string_to_value(string_input, span)?.into_pipeline_data_with_metadata(metadata))
     }
 }
 
@@ -80,7 +81,8 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
             span,
         ),
         toml::Value::String(s) => Value::string(s.clone(), span),
-        toml::Value::Datetime(d) => Value::string(d.to_string(), span),
+        toml::Value::Datetime(d) =>
+            Value::date(chrono::DateTime::from_str(&d.to_string()).unwrap(), span),
     }
 }
 
