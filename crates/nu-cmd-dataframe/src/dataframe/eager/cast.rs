@@ -1,4 +1,4 @@
-use crate::dataframe::values::str_to_dtype;
+use crate::dataframe::values::{str_to_dtype, NuLazyFrame};
 
 use super::super::values::NuDataFrame;
 use nu_engine::CallExt;
@@ -7,6 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
+use polars::prelude::*;
 
 #[derive(Clone)]
 pub struct CastDF;
@@ -46,23 +47,50 @@ impl Command for CastDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        //todo: lazy version
-        command_eager(engine_state, stack, call, input)
+        let value = input.into_value(call.head);
+        let column_nm: String = call.req(engine_state, stack, 0)?;
+        let dtype: String = call.req(engine_state, stack, 1)?;
+        let dtype = str_to_dtype(&dtype, call.head)?;
+        if NuLazyFrame::can_downcast(&value) {
+            let df = NuLazyFrame::try_from_value(value)?;
+            command_lazy(call, column_nm, dtype, df)
+        } else if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command_eager(call, column_nm, dtype, df)
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "lazy or eager dataframe".into(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            })
+        }
     }
 }
 
-fn command_eager(
-    engine_state: &EngineState,
-    stack: &mut Stack,
+fn command_lazy(
     call: &Call,
-    input: PipelineData,
+    column_nm: String,
+    dtype: DataType,
+    lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let column_nm: String = call.req(engine_state, stack, 0)?;
-    let dtype: String = call.req(engine_state, stack, 1)?;
-    let dtype = str_to_dtype(&dtype, call.head)?;
+    let column = col(&column_nm).cast(dtype);
+    let lazy = lazy.into_polars().with_columns(&[column]);
+    let lazy = NuLazyFrame::new(false, lazy);
 
-    let new_df = NuDataFrame::try_from_pipeline(input, call.head)?;
-    let mut df = new_df.df;
+    Ok(PipelineData::Value(
+        NuLazyFrame::into_value(lazy, call.head)?,
+        None,
+    ))
+}
+
+fn command_eager(
+    call: &Call,
+    column_nm: String,
+    dtype: DataType,
+    nu_df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
+    let mut df = nu_df.df;
     let column = df
         .column(&column_nm)
         .map_err(|e| ShellError::GenericError {
