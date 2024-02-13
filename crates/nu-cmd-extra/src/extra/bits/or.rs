@@ -40,6 +40,7 @@ impl Command for BitsOr {
                     Type::List(Box::new(Type::Binary)),
                 ),
             ])
+            .allow_variants_without_examples(true)
             .required(
                 "target",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),

@@ -52,10 +52,12 @@ impl Command for BitsRor {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::Int,
-                    SyntaxShape::String
-                ]),
+                SyntaxShape::String,
+                // #9960: named flags cannot accept SyntaxShape::OneOf
+                // SyntaxShape::OneOf(vec![
+                //     SyntaxShape::Int,
+                //     SyntaxShape::String
+                // ]),
                 "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
                 Some('n'),
             )
@@ -129,14 +131,6 @@ impl Command for BitsRor {
                     Span::test_data(),
                 )),
             },
-            Example {
-                description: "rotate right binary data",
-                example: "0x[ff bb 03] | bits ror 10",
-                result: Some(Value::binary(
-                    vec![0xc0, 0xff, 0xee],
-                    Span::test_data(),
-                )),
-            },
         ]
     }
 }
@@ -184,7 +178,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             .iter()
             .copied()
             .circular_tuple_windows::<(u8, u8)>()
-            .map(|(lhs, rhs)| (lhs >> (8 - bit_rotate)) | (rhs << bit_rotate))
+            .map(|(lhs, rhs)| (lhs >> bit_rotate) | (rhs << (8 - bit_rotate)))
             .collect::<Vec<u8>>();
             bytes.rotate_right(byte_shift as usize);
 

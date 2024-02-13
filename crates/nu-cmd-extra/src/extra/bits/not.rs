@@ -49,10 +49,12 @@ impl Command for BitsNot {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::Int,
-                    SyntaxShape::String
-                ]),
+                SyntaxShape::String,
+                // #9960: named flags cannot accept SyntaxShape::OneOf
+                // SyntaxShape::OneOf(vec![
+                //     SyntaxShape::Int,
+                //     SyntaxShape::String
+                // ]),
                 "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",
                 Some('n'),
             )
@@ -144,7 +146,7 @@ impl Command for BitsNot {
                     "Apply logical negation to binary data",
                 example: "0x[ff 00 7f] | bits not",
                 result: Some(Value::binary(
-                    vec![0x00, 0xff, 0x7f],
+                    vec![0x00, 0xff, 0x80],
                     Span::test_data(),
                 )),
             },

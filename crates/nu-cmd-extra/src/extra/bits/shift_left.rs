@@ -53,10 +53,12 @@ impl Command for BitsShl {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::Int,
-                    SyntaxShape::String
-                ]),
+                SyntaxShape::String,
+                // #9960: named flags cannot accept SyntaxShape::OneOf
+                // SyntaxShape::OneOf(vec![
+                //     SyntaxShape::Int,
+                //     SyntaxShape::String
+                // ]),
                 "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
                 Some('n'),
             )
