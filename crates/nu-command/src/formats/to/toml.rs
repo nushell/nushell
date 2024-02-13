@@ -52,8 +52,9 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Int { val, .. } => toml::Value::Integer(*val),
         Value::Filesize { val, .. } => toml::Value::Integer(*val),
         Value::Duration { val, .. } => toml::Value::String(val.to_string()),
-        Value::Date { val, .. } =>
-            toml::Value::String(val.to_rfc3339_opts(SecondsFormat::AutoSi, false)),
+        Value::Date { val, .. } => {
+            toml::Value::String(val.to_rfc3339_opts(SecondsFormat::AutoSi, false))
+        }
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
         Value::String { val, .. } | Value::QuotedString { val, .. } => {
