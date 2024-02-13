@@ -104,12 +104,72 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
+    use toml::value::Datetime;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
         test_examples(FromToml {})
+    }
+
+    #[test]
+    fn from_toml_creates_nushell_date() {
+        let toml_date = toml::Value::Datetime(Datetime {
+            date: Option::from(toml::value::Date {
+                year: 1980,
+                month: 10,
+                day: 12,
+            }),
+            time: Option::from(toml::value::Time {
+                hour: 10,
+                minute: 12,
+                second: 44,
+                nanosecond: 0,
+            }),
+            offset: Option::from(toml::value::Offset::Custom { minutes: 120 }),
+        });
+
+        let span = Span::test_data();
+        let reference_date = Value::date(Default::default(), Span::test_data());
+
+        let result = convert_toml_to_value(&toml_date, span);
+
+        //positive test (from toml returns a nushell date)
+        assert_eq!(result.get_type(), reference_date.get_type());
+    }
+
+    #[test]
+    fn from_toml_creates_correct_date() {
+        let toml_date = toml::Value::Datetime(Datetime {
+            date: Option::from(toml::value::Date {
+                year: 1980,
+                month: 10,
+                day: 12,
+            }),
+            time: Option::from(toml::value::Time {
+                hour: 10,
+                minute: 12,
+                second: 44,
+                nanosecond: 0,
+            }),
+            offset: Option::from(toml::value::Offset::Custom { minutes: 120 }),
+        });
+
+        let span = Span::test_data();
+        let reference_date = Value::date(
+            chrono::FixedOffset::east_opt(60 * 120)
+                .unwrap()
+                .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
+                .unwrap(),
+            Span::test_data(),
+        );
+
+        let result = convert_toml_to_value(&toml_date, span);
+
+        //positive test (from toml returns a nushell date)
+        assert_eq!(result, reference_date);
     }
 
     #[test]

@@ -174,12 +174,32 @@ fn to_toml(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
         test_examples(ToToml {})
+    }
+
+    #[test]
+    fn to_toml_creates_correct_date() {
+        let engine_state = EngineState::new();
+
+        let test_date = Value::date(
+            chrono::FixedOffset::east_opt(60 * 120)
+                .unwrap()
+                .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
+                .unwrap(),
+            Span::test_data(),
+        );
+
+        let reference_date = toml::Value::String(String::from("1980-10-12T10:12:44+02:00"));
+
+        let result = helper(&engine_state, &test_date);
+
+        assert!(result.is_ok_and(|res| res == reference_date));
     }
 
     #[test]
