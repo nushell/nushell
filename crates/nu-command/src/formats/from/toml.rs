@@ -81,9 +81,10 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
             span,
         ),
         toml::Value::String(s) => Value::string(s.clone(), span),
-        toml::Value::Datetime(d) => {
-            Value::date(chrono::DateTime::from_str(&d.to_string()).unwrap(), span)
-        }
+        toml::Value::Datetime(d) => Value::date(
+            chrono::DateTime::from_str(&d.to_string()).expect("from toml date conversion"),
+            span,
+        ),
     }
 }
 
