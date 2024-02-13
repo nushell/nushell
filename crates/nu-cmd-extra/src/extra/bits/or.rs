@@ -126,10 +126,7 @@ impl Command for BitsOr {
             Example {
                 description: "Apply logical or to binary data",
                 example: "0x[88 cc] | bits or 0x[42 32]",
-                result: Some(Value::binary( 
-                    vec![0xca, 0xfe],
-                    Span::test_data()
-                )),
+                result: Some(Value::binary(vec![0xca, 0xfe], Span::test_data())),
             },
         ]
     }

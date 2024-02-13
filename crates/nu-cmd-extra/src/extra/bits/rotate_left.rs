@@ -1,9 +1,9 @@
-use nu_protocol::ast::CellPath;
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 use itertools::Itertools;
-use nu_engine::CallExt;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -98,8 +98,12 @@ impl Command for BitsRol {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-            
-        let args = Arguments { signed, number_size, bits };
+
+        let args = Arguments {
+            signed,
+            number_size,
+            bits,
+        };
 
         operate(action, args, input, head, engine_state.ctrlc.clone())
     }
@@ -122,10 +126,7 @@ impl Command for BitsRol {
             Example {
                 description: "rotate left binary data",
                 example: "0x[c0 ff ee] | bits rol 10",
-                result: Some(Value::binary(
-                    vec![0xff, 0xbb, 0x03],
-                    Span::test_data(),
-                )),
+                result: Some(Value::binary(vec![0xff, 0xbb, 0x03], Span::test_data())),
             },
         ]
     }
@@ -145,41 +146,51 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let bits = bits as u64;
             let input_num_type = get_input_num_type(val, signed, number_size);
             match input_num_type {
-                One if bits <= 0xff => Value::int((val as u8).rotate_left(bits as u32) as i64, span),
-                Two if bits <= 0xffff => Value::int((val as u16).rotate_left(bits as u32) as i64, span), 
-                Four if bits <= 0xffff_ffff => Value::int((val as u32).rotate_left(bits as u32) as i64, span),
+                One if bits <= 0xff => {
+                    Value::int((val as u8).rotate_left(bits as u32) as i64, span)
+                }
+                Two if bits <= 0xffff => {
+                    Value::int((val as u16).rotate_left(bits as u32) as i64, span)
+                }
+                Four if bits <= 0xffff_ffff => {
+                    Value::int((val as u32).rotate_left(bits as u32) as i64, span)
+                }
                 Eight => Value::int((val as u64).rotate_left(bits as u32) as i64, span),
-                SignedOne if bits <= 0xff => Value::int((val as i8).rotate_left(bits as u32) as i64, span),
-                SignedTwo if bits <= 0xffff => Value::int((val as i16).rotate_left(bits as u32) as i64, span),
-                SignedFour if bits <= 0xffff_ffff => Value::int((val as i32).rotate_left(bits as u32) as i64, span),
+                SignedOne if bits <= 0xff => {
+                    Value::int((val as i8).rotate_left(bits as u32) as i64, span)
+                }
+                SignedTwo if bits <= 0xffff => {
+                    Value::int((val as i16).rotate_left(bits as u32) as i64, span)
+                }
+                SignedFour if bits <= 0xffff_ffff => {
+                    Value::int((val as i32).rotate_left(bits as u32) as i64, span)
+                }
                 SignedEight => Value::int(val.rotate_left(bits as u32), span),
                 _ => Value::error(
                     ShellError::GenericError {
                         error: "result out of range for specified number".into(),
-                        msg: format!(
-                            "rotating left by {bits} is out of range for the value {val}"
-                        ),
+                        msg: format!("rotating left by {bits} is out of range for the value {val}"),
                         span: Some(span),
                         help: None,
                         inner: vec![],
                     },
                     span,
-                )
+                ),
             }
-        },
+        }
         Value::Binary { val, .. } => {
             let byte_shift = bits / 8;
             let bit_rotate = bits % 8;
             let mut bytes = val
-            .iter()
-            .copied()
-            .circular_tuple_windows::<(u8, u8)>()
-            .map(|(lhs, rhs)| (lhs << bit_rotate) | (rhs >> (8 - bit_rotate)))
-            .collect::<Vec<u8>>();
+                .iter()
+                .copied()
+                .circular_tuple_windows::<(u8, u8)>()
+                .map(|(lhs, rhs)| (lhs << bit_rotate) | (rhs >> (8 - bit_rotate)))
+                .collect::<Vec<u8>>();
             bytes.rotate_left(byte_shift as usize);
 
             Value::binary(bytes, span)
-        },
+        }
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),

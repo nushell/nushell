@@ -96,7 +96,10 @@ impl Command for BitsNot {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
 
-        let args = Arguments { signed, number_size };
+        let args = Arguments {
+            signed,
+            number_size,
+        };
 
         operate(action, args, input, head, engine_state.ctrlc.clone())
     }
@@ -142,13 +145,9 @@ impl Command for BitsNot {
                 )),
             },
             Example {
-                description:
-                    "Apply logical negation to binary data",
+                description: "Apply logical negation to binary data",
                 example: "0x[ff 00 7f] | bits not",
-                result: Some(Value::binary(
-                    vec![0x00, 0xff, 0x80],
-                    Span::test_data(),
-                )),
+                result: Some(Value::binary(vec![0x00, 0xff, 0x80], Span::test_data())),
             },
         ]
     }
@@ -187,8 +186,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 };
                 Value::int(out_val, span)
             }
-        },
-        Value::Binary { val, .. } => Value::binary(val.iter().copied().map(|b| !b).collect::<Vec<_>>(), span),
+        }
+        Value::Binary { val, .. } => {
+            Value::binary(val.iter().copied().map(|b| !b).collect::<Vec<_>>(), span)
+        }
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),

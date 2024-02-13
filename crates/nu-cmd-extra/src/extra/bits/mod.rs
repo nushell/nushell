@@ -9,11 +9,11 @@ mod shift_left;
 mod shift_right;
 mod xor;
 
-use nu_protocol::Value;
 pub use and::BitsAnd;
 pub use bits_::Bits;
 pub use into::BitsInto;
 pub use not::BitsNot;
+use nu_protocol::Value;
 pub use or::BitsOr;
 pub use rotate_left::BitsRol;
 pub use rotate_right::BitsRor;
@@ -61,7 +61,7 @@ fn get_number_bytes(number_bytes: Option<&Value>) -> NumberBytes {
             8 => NumberBytes::Eight,
             _ => NumberBytes::Invalid,
         },
-        _ => NumberBytes::Invalid
+        _ => NumberBytes::Invalid,
     }
 }
 

@@ -1,14 +1,14 @@
-use std::iter;
-use nu_protocol::ast::CellPath;
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 use itertools::Itertools;
-use nu_engine::CallExt;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use std::iter;
 
 struct Arguments {
     signed: bool,
@@ -99,8 +99,12 @@ impl Command for BitsShr {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-            
-        let args = Arguments { signed, number_size, bits };
+
+        let args = Arguments {
+            signed,
+            number_size,
+            bits,
+        };
 
         operate(action, args, input, head, engine_state.ctrlc.clone())
     }
@@ -123,11 +127,8 @@ impl Command for BitsShr {
             Example {
                 description: "Shift right a binary value",
                 example: "0x[4f f4] | bits shr 4",
-                result: Some(Value::binary(
-                    vec![0x04, 0xff],
-                    Span::test_data()
-                )),
-            }
+                result: Some(Value::binary(vec![0x04, 0xff], Span::test_data())),
+            },
         ]
     }
 }
@@ -147,12 +148,18 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let input_num_type = get_input_num_type(val, signed, number_size);
             match input_num_type {
                 One if bits <= 0xff => Value::int(((val as u8) >> bits as u32) as i64, span),
-                Two if bits <= 0xffff => Value::int(((val as u16) >> bits as u32) as i64, span), 
-                Four if bits <= 0xffff_ffff => Value::int(((val as u32) >> bits as u32) as i64, span),
+                Two if bits <= 0xffff => Value::int(((val as u16) >> bits as u32) as i64, span),
+                Four if bits <= 0xffff_ffff => {
+                    Value::int(((val as u32) >> bits as u32) as i64, span)
+                }
                 Eight => Value::int(((val as u64) >> bits as u32) as i64, span),
                 SignedOne if bits <= 0xff => Value::int(((val as i8) >> bits as u32) as i64, span),
-                SignedTwo if bits <= 0xffff => Value::int(((val as i16) >> bits as u32) as i64, span),
-                SignedFour if bits <= 0xffff_ffff => Value::int(((val as i32) >> bits as u32) as i64, span),
+                SignedTwo if bits <= 0xffff => {
+                    Value::int(((val as i16) >> bits as u32) as i64, span)
+                }
+                SignedFour if bits <= 0xffff_ffff => {
+                    Value::int(((val as i32) >> bits as u32) as i64, span)
+                }
                 SignedEight => Value::int(val >> (bits as u32), span),
                 _ => Value::error(
                     ShellError::GenericError {
@@ -165,9 +172,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         inner: vec![],
                     },
                     span,
-                )
+                ),
             }
-        },
+        }
         Value::Binary { val, .. } => {
             let byte_shift = bits / 8;
             let bit_shift = bits % 8;
@@ -176,21 +183,20 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let bytes = iter::repeat(0)
                 .take(byte_shift as usize)
                 .chain(
-                    val
-                    .iter()
-                    .copied()
-                    .circular_tuple_windows::<(u8, u8)>()
-                    .with_position()
-                    .map(|(pos, (lhs, rhs))| match pos {
-                        First | Only => lhs >> bit_shift,
-                        _ => (lhs >> bit_shift) | (rhs << bit_shift)
-                    })
-                    .take(len - byte_shift as usize)
+                    val.iter()
+                        .copied()
+                        .circular_tuple_windows::<(u8, u8)>()
+                        .with_position()
+                        .map(|(pos, (lhs, rhs))| match pos {
+                            First | Only => lhs >> bit_shift,
+                            _ => (lhs >> bit_shift) | (rhs << bit_shift),
+                        })
+                        .take(len - byte_shift as usize),
                 )
-            .collect::<Vec<u8>>();
+                .collect::<Vec<u8>>();
 
             Value::binary(bytes, span)
-        },
+        }
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),
