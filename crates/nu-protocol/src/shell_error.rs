@@ -1326,7 +1326,14 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
 
     /// The config directory could not be found
     #[error("The config directory could not be found")]
-    #[diagnostic(code(nu::shell::config_dir_not_found))]
+    #[diagnostic(
+        code(nu::shell::config_dir_not_found),
+        help(
+            r#"On Linux, this would be $XDG_CONFIG_HOME or $HOME/.config.
+On MacOS, this would be $HOME/Library/Application Support.
+On Windows, this would be %USERPROFILE%\AppData\Roaming"#
+        )
+    )]
     ConfigDirNotFound {
         #[label = "Could not find config directory"]
         span: Option<Span>,
