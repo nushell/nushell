@@ -4,9 +4,10 @@ mod from_value;
 mod lazy_record;
 mod path;
 mod range;
-mod record;
 mod stream;
 mod unit;
+
+pub mod record;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
@@ -975,7 +976,7 @@ impl Value {
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
-                        Value::Record { .. } => {
+                        Value::Record { .. } | Value::LazyRecord { .. } => {
                             return Err(ShellError::TypeMismatch {
                                 err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
@@ -1201,9 +1202,8 @@ impl Value {
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
-                        let mut record = val.collect()?;
-                        record.upsert_data_at_cell_path(cell_path, new_val)?;
-                        *self = record;
+                        *self = val.collect()?;
+                        self.upsert_data_at_cell_path(cell_path, new_val)?;
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
@@ -1318,9 +1318,8 @@ impl Value {
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
-                        let mut record = val.collect()?;
-                        record.update_data_at_cell_path(cell_path, new_val)?;
-                        *self = record;
+                        *self = val.collect()?;
+                        self.update_data_at_cell_path(cell_path, new_val)?;
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
@@ -1408,10 +1407,8 @@ impl Value {
                         }
                         Value::LazyRecord { val, .. } => {
                             // convert to Record first.
-                            let mut record = val.collect()?;
-                            record.remove_data_at_cell_path(cell_path)?;
-                            *self = record;
-                            Ok(())
+                            *self = val.collect()?;
+                            self.remove_data_at_cell_path(cell_path)
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
@@ -1494,10 +1491,8 @@ impl Value {
                         }
                         Value::LazyRecord { val, .. } => {
                             // convert to Record first.
-                            let mut record = val.collect()?;
-                            record.remove_data_at_cell_path(cell_path)?;
-                            *self = record;
-                            Ok(())
+                            *self = val.collect()?;
+                            self.remove_data_at_cell_path(cell_path)
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
@@ -1623,9 +1618,8 @@ impl Value {
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
-                        let mut record = val.collect()?;
-                        record.insert_data_at_cell_path(cell_path, new_val, v_span)?;
-                        *self = record;
+                        *self = val.collect()?;
+                        self.insert_data_at_cell_path(cell_path, new_val, v_span)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedInput {

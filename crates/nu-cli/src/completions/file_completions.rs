@@ -2,8 +2,9 @@ use crate::completions::{
     completion_common::{adjust_if_intermediate, complete_item, AdjustView},
     Completer, CompletionOptions, SortBy,
 };
+use nu_ansi_term::Style;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use nu_utils::IgnoreCaseExt;
@@ -14,11 +15,15 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct FileCompletion {
     engine_state: Arc<EngineState>,
+    stack: Stack,
 }
 
 impl FileCompletion {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self { engine_state }
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
+        Self {
+            engine_state,
+            stack,
+        }
     }
 }
 
@@ -44,12 +49,14 @@ impl Completer for FileCompletion {
             &prefix,
             &self.engine_state.current_work_dir(),
             options,
+            self.engine_state.as_ref(),
+            &self.stack,
         )
         .into_iter()
         .map(move |x| Suggestion {
             value: x.1,
             description: None,
-            style: None,
+            style: x.2,
             extra: None,
             span: reedline::Span {
                 start: x.0.start - offset,
@@ -118,8 +125,10 @@ pub fn file_path_completion(
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
-) -> Vec<(nu_protocol::Span, String)> {
-    complete_item(false, span, partial, cwd, options)
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
+    complete_item(false, span, partial, cwd, options, engine_state, stack)
 }
 
 pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {

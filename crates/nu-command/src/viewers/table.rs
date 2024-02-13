@@ -897,13 +897,10 @@ fn render_path_name(
 
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
 
-    let (style, has_metadata) = match std::fs::symlink_metadata(stripped_path.as_ref()) {
-        Ok(metadata) => (
-            ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), Some(&metadata)),
-            true,
-        ),
-        Err(_) => (ls_colors.style_for_path(stripped_path.as_ref()), false),
-    };
+    let metadata = std::fs::symlink_metadata(stripped_path.as_ref());
+    let has_metadata = metadata.is_ok();
+    let style =
+        ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), metadata.ok().as_ref());
 
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();

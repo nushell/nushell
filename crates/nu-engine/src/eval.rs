@@ -7,8 +7,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    Config, DeclId, IntoPipelineData, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
-    ENV_VARIABLE_ID,
+    Config, DeclId, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned, Type,
+    Value, VarId, ENV_VARIABLE_ID,
 };
 use std::thread::{self, JoinHandle};
 use std::{borrow::Cow, collections::HashMap};
@@ -41,6 +41,21 @@ pub fn eval_call(
         let block = engine_state.get_block(block_id);
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+
+        // Rust does not check recursion limits outside of const evaluation.
+        // But nu programs run in the same process as the shell.
+        // To prevent a stack overflow in user code from crashing the shell,
+        // we limit the recursion depth of function calls.
+        // Picked 50 arbitrarily, should work on all architectures.
+        const MAXIMUM_CALL_STACK_DEPTH: u64 = 50;
+        callee_stack.recursion_count += 1;
+        if callee_stack.recursion_count > MAXIMUM_CALL_STACK_DEPTH {
+            callee_stack.recursion_count = 0;
+            return Err(ShellError::RecursionLimitReached {
+                recursion_limit: MAXIMUM_CALL_STACK_DEPTH,
+                span: block.span,
+            });
+        }
 
         for (param_idx, (param, required)) in decl
             .signature()
@@ -376,6 +391,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
     input.is_external_failed()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn eval_element_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -383,17 +399,85 @@ fn eval_element_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    redirect_combine: bool,
     stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
     match element {
-        PipelineElement::Expression(_, expr) => eval_expression_with_input(
-            engine_state,
-            stack,
-            expr,
-            input,
-            redirect_stdout,
-            redirect_stderr,
-        ),
+        PipelineElement::Expression(pipe_span, expr)
+        | PipelineElement::OutErrPipedExpression(pipe_span, expr) => {
+            if matches!(element, PipelineElement::OutErrPipedExpression(..))
+                && !matches!(input, PipelineData::ExternalStream { .. })
+            {
+                return Err(ShellError::GenericError {
+                    error: "`o+e>|` only works with external streams".into(),
+                    msg: "`o+e>|` only works on external streams".into(),
+                    span: *pipe_span,
+                    help: None,
+                    inner: vec![],
+                });
+            }
+            match expr {
+                Expression {
+                    expr: Expr::ExternalCall(head, args, is_subexpression),
+                    ..
+                } if redirect_combine => {
+                    let result = eval_external(
+                        engine_state,
+                        stack,
+                        head,
+                        args,
+                        input,
+                        RedirectTarget::CombinedPipe,
+                        *is_subexpression,
+                    )?;
+                    Ok(might_consume_external_result(result))
+                }
+                _ => eval_expression_with_input(
+                    engine_state,
+                    stack,
+                    expr,
+                    input,
+                    redirect_stdout,
+                    redirect_stderr,
+                ),
+            }
+        }
+        PipelineElement::ErrPipedExpression(pipe_span, expr) => {
+            let input = match input {
+                PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                } => PipelineData::ExternalStream {
+                    stdout: stderr, // swap stderr and stdout to get stderr piped feature.
+                    stderr: stdout,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                },
+                _ => {
+                    return Err(ShellError::GenericError {
+                        error: "`e>|` only works with external streams".into(),
+                        msg: "`e>|` only works on external streams".into(),
+                        span: *pipe_span,
+                        help: None,
+                        inner: vec![],
+                    })
+                }
+            };
+            eval_expression_with_input(
+                engine_state,
+                stack,
+                expr,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            )
+        }
         PipelineElement::Redirection(span, redirection, expr, is_append_mode) => {
             match &expr.expr {
                 Expr::String(_)
@@ -405,32 +489,8 @@ fn eval_element_with_input(
                         _ => None,
                     };
 
-                    // when nushell get Stderr Redirection, we want to take `stdout` part of `input`
-                    // so this stdout stream can be handled by next command.
-                    let (input, out_stream) = match (redirection, input) {
-                        (
-                            Redirection::Stderr,
-                            PipelineData::ExternalStream {
-                                stdout,
-                                stderr,
-                                exit_code,
-                                span,
-                                metadata,
-                                trim_end_newline,
-                            },
-                        ) => (
-                            PipelineData::ExternalStream {
-                                stdout: stderr,
-                                stderr: None,
-                                exit_code,
-                                span,
-                                metadata,
-                                trim_end_newline,
-                            },
-                            Some(stdout),
-                        ),
-                        (_, input) => (input, None),
-                    };
+                    let (input, result_out_stream, result_is_out) =
+                        adjust_stream_for_input_and_output(input, redirection);
 
                     if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                         let save_call = gen_save_call(
@@ -438,7 +498,7 @@ fn eval_element_with_input(
                             (*span, expr.clone(), *is_append_mode),
                             None,
                         );
-                        match out_stream {
+                        match result_out_stream {
                             None => {
                                 eval_call(engine_state, stack, &save_call, input).map(|_| {
                                     // save is internal command, normally it exists with non-ExternalStream
@@ -457,7 +517,7 @@ fn eval_element_with_input(
                                     })
                                 })
                             }
-                            Some(out_stream) => {
+                            Some(result_out_stream) => {
                                 // delegate to a different thread
                                 // so nushell won't hang if external command generates both too much
                                 // stderr and stdout message
@@ -469,11 +529,25 @@ fn eval_element_with_input(
                                     save_call,
                                     input,
                                 ));
-
+                                let (result_out_stream, result_err_stream) = if result_is_out {
+                                    (result_out_stream, None)
+                                } else {
+                                    // we need `stdout` to be an empty RawStream
+                                    // so nushell knows this result is not the last part of a command.
+                                    (
+                                        Some(RawStream::new(
+                                            Box::new(vec![].into_iter()),
+                                            None,
+                                            *span,
+                                            Some(0),
+                                        )),
+                                        result_out_stream,
+                                    )
+                                };
                                 Ok(might_consume_external_result(
                                     PipelineData::ExternalStream {
-                                        stdout: out_stream,
-                                        stderr: None,
+                                        stdout: result_out_stream,
+                                        stderr: result_err_stream,
                                         exit_code,
                                         span: *span,
                                         metadata: None,
@@ -567,6 +641,7 @@ fn eval_element_with_input(
                         input,
                         true,
                         redirect_stderr,
+                        redirect_combine,
                         stderr_writer_jobs,
                     )
                     .map(|x| x.0)?
@@ -584,6 +659,7 @@ fn eval_element_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                redirect_combine,
                 stderr_writer_jobs,
             )
         }
@@ -604,6 +680,146 @@ fn eval_element_with_input(
             redirect_stderr,
         ),
     }
+}
+
+// In redirection context, if nushell gets an ExternalStream
+// it might want to take a stream from `input`(if `input` is `PipelineData::ExternalStream`)
+// so this stream can be handled by next command.
+//
+//
+// 1. get a stderr redirection, we need to take `stdout` out of `input`.
+//    e.g:  nu --testbin echo_env FOO e> /dev/null | str length
+// 2. get a stdout redirection, we need to take `stderr` out of `input`.
+//    e.g:  nu --testbin echo_env FOO o> /dev/null e>| str length
+//
+// Returns 3 values:
+// 1. adjusted pipeline data
+// 2. a result stream which is taken from `input`, it can be handled in next command
+// 3. a boolean value indicates if result stream should be a stdout stream.
+fn adjust_stream_for_input_and_output(
+    input: PipelineData,
+    redirection: &Redirection,
+) -> (PipelineData, Option<Option<RawStream>>, bool) {
+    match (redirection, input) {
+        (
+            Redirection::Stderr,
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+        ) => (
+            PipelineData::ExternalStream {
+                stdout: stderr,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+            Some(stdout),
+            true,
+        ),
+        (
+            Redirection::Stdout,
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+        ) => (
+            PipelineData::ExternalStream {
+                stdout,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            },
+            Some(stderr),
+            false,
+        ),
+        (_, input) => (input, None, true),
+    }
+}
+
+fn is_redirect_stderr_required(elements: &[PipelineElement], idx: usize) -> bool {
+    let elements_length = elements.len();
+    if idx < elements_length - 1 {
+        let next_element = &elements[idx + 1];
+        match next_element {
+            PipelineElement::Redirection(_, Redirection::Stderr, _, _)
+            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
+            | PipelineElement::SeparateRedirection { .. }
+            | PipelineElement::ErrPipedExpression(..)
+            | PipelineElement::OutErrPipedExpression(..) => return true,
+            PipelineElement::Redirection(_, Redirection::Stdout, _, _) => {
+                // a stderr redirection, but we still need to check for the next 2nd
+                // element, to handle for the following case:
+                // cat a.txt out> /dev/null e>| lines
+                //
+                // we only need to check the next 2nd element because we already make sure
+                // that we don't have duplicate err> like this:
+                // cat a.txt out> /dev/null err> /tmp/a
+                if idx < elements_length - 2 {
+                    let next_2nd_element = &elements[idx + 2];
+                    if matches!(next_2nd_element, PipelineElement::ErrPipedExpression(..)) {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn is_redirect_stdout_required(elements: &[PipelineElement], idx: usize) -> bool {
+    let elements_length = elements.len();
+    if idx < elements_length - 1 {
+        let next_element = &elements[idx + 1];
+        match next_element {
+            // is next element a stdout relative redirection?
+            PipelineElement::Redirection(_, Redirection::Stdout, _, _)
+            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
+            | PipelineElement::SeparateRedirection { .. }
+            | PipelineElement::Expression(..)
+            | PipelineElement::OutErrPipedExpression(..) => return true,
+
+            PipelineElement::Redirection(_, Redirection::Stderr, _, _) => {
+                // a stderr redirection, but we still need to check for the next 2nd
+                // element, to handle for the following case:
+                // cat a.txt err> /dev/null | lines
+                //
+                // we only need to check the next 2nd element because we already make sure
+                // that we don't have duplicate err> like this:
+                // cat a.txt err> /dev/null err> /tmp/a
+                if idx < elements_length - 2 {
+                    let next_2nd_element = &elements[idx + 2];
+                    if matches!(next_2nd_element, PipelineElement::Expression(..)) {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn is_redirect_combine_required(elements: &[PipelineElement], idx: usize) -> bool {
+    let elements_length = elements.len();
+    idx < elements_length - 1
+        && matches!(
+            &elements[idx + 1],
+            PipelineElement::OutErrPipedExpression(..)
+        )
 }
 
 pub fn eval_block_with_early_return(
@@ -635,70 +851,30 @@ pub fn eval_block(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
-    // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
-    if let Some(recursive) = block.recursive {
-        // picked 50 arbitrarily, should work on all architectures
-        const RECURSION_LIMIT: u64 = 50;
-        if recursive {
-            if stack.recursion_count >= RECURSION_LIMIT {
-                stack.recursion_count = 0;
-                return Err(ShellError::RecursionLimitReached {
-                    recursion_limit: RECURSION_LIMIT,
-                    span: block.span,
-                });
-            }
-            stack.recursion_count += 1;
-        }
-    }
-
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut stderr_writer_jobs = vec![];
         let elements = &pipeline.elements;
-        let elements_length = elements.len();
+        let elements_length = pipeline.elements.len();
         for (idx, element) in elements.iter().enumerate() {
             let mut redirect_stdout = redirect_stdout;
             let mut redirect_stderr = redirect_stderr;
-            if !redirect_stderr && idx < elements_length - 1 {
-                let next_element = &elements[idx + 1];
-                if matches!(
-                    next_element,
-                    PipelineElement::Redirection(_, Redirection::Stderr, _, _)
-                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
-                        | PipelineElement::SeparateRedirection { .. }
-                ) {
-                    redirect_stderr = true;
-                }
+            if !redirect_stderr && is_redirect_stderr_required(elements, idx) {
+                redirect_stderr = true;
             }
 
-            if !redirect_stdout && idx < elements_length - 1 {
-                let next_element = &elements[idx + 1];
-                match next_element {
-                    // is next element a stdout relative redirection?
-                    PipelineElement::Redirection(_, Redirection::Stdout, _, _)
-                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
-                    | PipelineElement::SeparateRedirection { .. }
-                    | PipelineElement::Expression(..) => redirect_stdout = true,
-
-                    PipelineElement::Redirection(_, Redirection::Stderr, _, _) => {
-                        // a stderr redirection, but we still need to check for the next 2nd
-                        // element, to handle for the following case:
-                        // cat a.txt err> /dev/null | lines
-                        //
-                        // we only need to check the next 2nd element because we already make sure
-                        // that we don't have duplicate err> like this:
-                        // cat a.txt err> /dev/null err> /tmp/a
-                        if idx < elements_length - 2 {
-                            let next_2nd_element = &elements[idx + 2];
-                            if matches!(next_2nd_element, PipelineElement::Expression(..)) {
-                                redirect_stdout = true
-                            }
-                        }
-                    }
-                    _ => {}
+            if !redirect_stdout {
+                if is_redirect_stdout_required(elements, idx) {
+                    redirect_stdout = true;
                 }
+            } else if idx < elements_length - 1
+                && matches!(elements[idx + 1], PipelineElement::ErrPipedExpression(..))
+            {
+                redirect_stdout = false;
             }
+
+            let redirect_combine = is_redirect_combine_required(elements, idx);
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -708,6 +884,7 @@ pub fn eval_block(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                redirect_combine,
                 &mut stderr_writer_jobs,
             );
 

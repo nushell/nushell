@@ -83,7 +83,10 @@ impl Example {
                     .map(|v| Value::int(v * i, call.head))
                     .collect::<Vec<Value>>();
 
-                Value::record(Record::from_raw_cols_vals(cols.clone(), vals), call.head)
+                Value::record(
+                    Record::from_raw_cols_vals_unchecked(cols.clone(), vals),
+                    call.head,
+                )
             })
             .collect::<Vec<Value>>();
 

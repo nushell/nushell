@@ -73,17 +73,17 @@ impl Plugin for Query {
 
 pub fn web_examples() -> Vec<PluginExample> {
     vec![PluginExample {
-        example: "http get https://phoronix.com | query web --query 'header'".into(),
+        example: "http get https://phoronix.com | query web --query 'header' | flatten".into(),
         description: "Retrieve all `<header>` elements from phoronix.com website".into(),
         result: None,
     }, PluginExample {
-        example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population
-    | query web --as-table [Rank City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or union territory']".into(),
+        example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population |
+    query web --as-table [City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or unionterritory' 'Ref']".into(),
         description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides".into(),
         result: None
     },
     PluginExample {
-        example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | group 2 | each {rotate --ccw tagline description} | flatten".into(),
+        example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | group 2 | each {rotate --ccw tagline description} | flatten".into(),
         description: "Pass multiple css selectors to extract several elements within single query, group the query results together and rotate them to create a table".into(),
         result: None,
     },

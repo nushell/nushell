@@ -107,7 +107,6 @@ pub fn retrieve_tables(
     let mut cols: Vec<String> = Vec::new();
     if let Value::List { vals, .. } = &columns {
         for x in vals {
-            // TODO Find a way to get the Config object here
             if let Value::String { val, .. } = x {
                 cols.push(val.to_string())
             }
@@ -115,10 +114,11 @@ pub fn retrieve_tables(
     }
 
     if inspect_mode {
-        eprintln!("Passed in Column Headers = {:#?}", &cols,);
+        eprintln!("Passed in Column Headers = {:?}\n", &cols);
+        eprintln!("First 2048 HTML chars = {}\n", &html[0..2047]);
     }
 
-    let tables = match WebTable::find_by_headers(html, &cols) {
+    let tables = match WebTable::find_by_headers(html, &cols, inspect_mode) {
         Some(t) => {
             if inspect_mode {
                 eprintln!("Table Found = {:#?}", &t);
@@ -159,6 +159,18 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         for col in table.headers().keys() {
             cols.push(col.to_string());
         }
+    }
+
+    // We provided columns but the table has no headers, so we'll just make a single column table
+    if !cols.is_empty() && table.headers().is_empty() {
+        let mut record = Record::new();
+        for col in &cols {
+            record.push(
+                col.clone(),
+                Value::string("error: no data found (column name may be incorrect)", span),
+            );
+        }
+        return Value::record(record, span);
     }
 
     let mut table_out = Vec::new();
@@ -248,10 +260,11 @@ fn execute_selector_query(
         false => doc
             .select(&css(query_string, inspect))
             .map(|selection| {
-                Value::string(
+                Value::list(
                     selection
                         .text()
-                        .fold("".to_string(), |acc, x| format!("{acc}{x}")),
+                        .map(|text| Value::string(text, span))
+                        .collect(),
                     span,
                 )
             })
@@ -281,6 +294,8 @@ mod tests {
          </ul>
      "#;
 
+    const NESTED_TEXT: &str = r#"<p>Hello there, <span style="color: red;">World</span></p>"#;
+
     #[test]
     fn test_first_child_is_not_empty() {
         assert!(!execute_selector_query(
@@ -304,6 +319,35 @@ mod tests {
         );
         let config = nu_protocol::Config::default();
         let out = item.into_string("\n", &config);
-        assert_eq!("[Coffee]".to_string(), out)
+        assert_eq!("[[Coffee]]".to_string(), out)
+    }
+
+    #[test]
+    fn test_nested_text_nodes() {
+        let item = execute_selector_query(
+            NESTED_TEXT,
+            "p:first-child",
+            false,
+            false,
+            Span::test_data(),
+        );
+        let out = item
+            .as_list()
+            .unwrap()
+            .iter()
+            .map(|matches| {
+                matches
+                    .as_list()
+                    .unwrap()
+                    .iter()
+                    .map(|text_nodes| text_nodes.as_string().unwrap())
+                    .collect::<Vec<String>>()
+            })
+            .collect::<Vec<Vec<String>>>();
+
+        assert_eq!(
+            out,
+            vec![vec!["Hello there, ".to_string(), "World".to_string()]],
+        );
     }
 }

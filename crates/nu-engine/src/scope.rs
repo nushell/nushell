@@ -198,7 +198,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         // input
         sig_records.push(Value::record(
-            Record::from_raw_cols_vals(
+            Record::from_raw_cols_vals_unchecked(
                 sig_cols.clone(),
                 vec![
                     Value::nothing(span),
@@ -231,7 +231,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
+                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
@@ -257,7 +257,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
+                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
@@ -279,7 +279,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
+                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
@@ -326,14 +326,14 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
+                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
 
         // output
         sig_records.push(Value::record(
-            Record::from_raw_cols_vals(
+            Record::from_raw_cols_vals_unchecked(
                 sig_cols,
                 vec![
                     Value::nothing(span),

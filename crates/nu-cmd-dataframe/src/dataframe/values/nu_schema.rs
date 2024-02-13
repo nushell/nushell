@@ -45,7 +45,7 @@ fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
         })
         .unzip();
 
-    let record = Record::from_raw_cols_vals(cols, vals);
+    let record = Record::from_raw_cols_vals_unchecked(cols, vals);
     Value::record(record, Span::unknown())
 }
 
@@ -193,7 +193,7 @@ mod test {
     #[test]
     fn test_value_to_schema() {
         let value = Value::Record {
-            val: Record::from_raw_cols_vals(
+            val: Record::from_raw_cols_vals_unchecked(
                 vec!["name".into(), "age".into(), "address".into()],
                 vec![
                     Value::String {
@@ -205,7 +205,7 @@ mod test {
                         internal_span: Span::test_data(),
                     },
                     Value::Record {
-                        val: Record::from_raw_cols_vals(
+                        val: Record::from_raw_cols_vals_unchecked(
                             vec!["street".into(), "city".into()],
                             vec![
                                 Value::String {

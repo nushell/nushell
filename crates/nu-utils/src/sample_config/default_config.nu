@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.89.1"
+# version = "0.90.2"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -212,6 +212,7 @@ $env.config = {
             max_results: 100 # setting it lower can improve completion performance at the cost of omitting some options
             completer: null # check 'carapace_completer' above as an example
         }
+        use_ls_colors: false # set this to true to enable file/path/directory completions using LS_COLORS
     }
 
     filesize: {
@@ -281,7 +282,7 @@ $env.config = {
                 max_completion_width: 50,
                 # max_completion_height: 10, # will be limited by the available lines in the terminal
                 padding: 0,
-                border: false,
+                border: true,
                 cursor_offset: 0,
                 description_mode: "prefer_right"
                 min_description_width: 0
