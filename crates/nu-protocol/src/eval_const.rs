@@ -26,19 +26,23 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
 
     let mut record = Record::new();
 
+    let config_path = match nu_path::config_dir() {
+        Some(mut path) => {
+            path.push("nushell");
+            Ok(path)
+        }
+        None => Err(Value::error(
+            ShellError::ConfigDirNotFound { span: Some(span) },
+            span,
+        )),
+    };
+
     record.push(
         "default-config-dir",
-        if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            Value::string(path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not get config directory".into(),
-                },
-                span,
-            )
-        },
+        config_path.as_ref().map_or_else(
+            |e| e.clone(),
+            |path| Value::string(path.to_string_lossy(), span),
+        ),
     );
 
     record.push(
@@ -46,16 +50,13 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         if let Some(path) = engine_state.get_config_path("config-path") {
             let canon_config_path = canonicalize_path(engine_state, path);
             Value::string(canon_config_path.to_string_lossy(), span)
-        } else if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            path.push("config.nu");
-            Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not get config directory".into(),
+            config_path.clone().map_or_else(
+                |e| e,
+                |mut path| {
+                    path.push("config.nu");
+                    Value::string(path.to_string_lossy(), span)
                 },
-                span,
             )
         },
     );
@@ -65,59 +66,46 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         if let Some(path) = engine_state.get_config_path("env-path") {
             let canon_env_path = canonicalize_path(engine_state, path);
             Value::string(canon_env_path.to_string_lossy(), span)
-        } else if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            path.push("env.nu");
-            Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not find environment path".into(),
+            config_path.clone().map_or_else(
+                |e| e,
+                |mut path| {
+                    path.push("env.nu");
+                    Value::string(path.to_string_lossy(), span)
                 },
-                span,
             )
         },
     );
 
     record.push(
         "history-path",
-        if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            match engine_state.config.history.file_format {
-                HistoryFileFormat::Sqlite => {
-                    path.push("history.sqlite3");
+        config_path.clone().map_or_else(
+            |e| e,
+            |mut path| {
+                match engine_state.config.history.file_format {
+                    HistoryFileFormat::Sqlite => {
+                        path.push("history.sqlite3");
+                    }
+                    HistoryFileFormat::PlainText => {
+                        path.push("history.txt");
+                    }
                 }
-                HistoryFileFormat::PlainText => {
-                    path.push("history.txt");
-                }
-            }
-            let canon_hist_path = canonicalize_path(engine_state, &path);
-            Value::string(canon_hist_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not find history path".into(),
-                },
-                span,
-            )
-        },
+                let canon_hist_path = canonicalize_path(engine_state, &path);
+                Value::string(canon_hist_path.to_string_lossy(), span)
+            },
+        ),
     );
 
     record.push(
         "loginshell-path",
-        if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            path.push("login.nu");
-            let canon_login_path = canonicalize_path(engine_state, &path);
-            Value::string(canon_login_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not find login shell path".into(),
-                },
-                span,
-            )
-        },
+        config_path.clone().map_or_else(
+            |e| e,
+            |mut path| {
+                path.push("login.nu");
+                let canon_login_path = canonicalize_path(engine_state, &path);
+                Value::string(canon_login_path.to_string_lossy(), span)
+            },
+        ),
     );
 
     #[cfg(feature = "plugin")]
@@ -127,17 +115,14 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             if let Some(path) = &engine_state.plugin_signatures {
                 let canon_plugin_path = canonicalize_path(engine_state, path);
                 Value::string(canon_plugin_path.to_string_lossy(), span)
-            } else if let Some(mut plugin_path) = nu_path::config_dir() {
-                // If there are no signatures, we should still populate the plugin path
-                plugin_path.push("nushell");
-                plugin_path.push("plugin.nu");
-                Value::string(plugin_path.to_string_lossy(), span)
             } else {
-                Value::error(
-                    ShellError::IOError {
-                        msg: "Could not get plugin signature location".into(),
+                // If there are no signatures, we should still populate the plugin path
+                config_path.clone().map_or_else(
+                    |e| e,
+                    |mut path| {
+                        path.push("plugin.nu");
+                        Value::string(path.to_string_lossy(), span)
                     },
-                    span,
                 )
             },
         );
