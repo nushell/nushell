@@ -26,7 +26,7 @@ impl Command for FromToml {
 
     fn run(
         &self,
-        __engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
