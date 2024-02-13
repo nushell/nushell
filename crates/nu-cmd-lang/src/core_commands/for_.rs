@@ -71,8 +71,8 @@ impl Command for For {
             .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
-        // DEBUG TODO
-        let values = eval_expression(engine_state, stack, keyword_expr, WithoutDebug, &None)?;
+        // TODO: DEBUG
+        let values = eval_expression::<WithoutDebug>(engine_state, stack, keyword_expr)?;
 
         let block: Block = call.req(engine_state, stack, 2)?;
 
@@ -107,16 +107,14 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(
+                    // TODO: DEBUG
+                    match eval_block::<WithoutDebug>(
                         &engine_state,
                         stack,
                         &block,
                         PipelineData::empty(),
                         redirect_stdout,
                         redirect_stderr,
-                        // DEBUG TODO
-                        WithoutDebug,
-                        &None,
                     ) {
                         Err(ShellError::Break { .. }) => {
                             break;
@@ -156,16 +154,14 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(
+                    // TODO: DEBUG
+                    match eval_block::<WithoutDebug>(
                         &engine_state,
                         stack,
                         &block,
                         PipelineData::empty(),
                         redirect_stdout,
                         redirect_stderr,
-                        // DEBUG TODO
-                        WithoutDebug,
-                        &None,
                     ) {
                         Err(ShellError::Break { .. }) => {
                             break;
@@ -190,16 +186,14 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(
+                // TODO: DEBUG
+                eval_block::<WithoutDebug>(
                     &engine_state,
                     stack,
                     &block,
                     PipelineData::empty(),
                     redirect_stdout,
                     redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 )?
                 .into_value(head);
             }

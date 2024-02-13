@@ -75,16 +75,13 @@ impl Command for DebugProfile {
 
         callee_stack.with_debugger(profiler.clone());
 
-        let result = eval_block_with_early_return(
+        let result = eval_block_with_early_return::<WithDebug>(
             engine_state,
             &mut callee_stack,
             block,
             input,
             call.redirect_stdout,
             call.redirect_stdout,
-            // DEBUG TODO
-            WithDebug,
-            &Some(profiler.clone()),
         );
 
         // TODO: See eval_source()

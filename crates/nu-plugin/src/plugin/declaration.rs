@@ -157,15 +157,13 @@ impl Command for PluginDeclaration {
                         let mut stack = stack.captures_to_stack(val.captures);
 
                         // TODO: DEBUG
-                        match eval_block(
+                        match eval_block::<WithoutDebug>(
                             engine_state,
                             &mut stack,
                             &block,
                             input,
                             false,
                             false,
-                            WithoutDebug,
-                            &None,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(e) => Value::error(e, call.head),
@@ -177,7 +175,7 @@ impl Command for PluginDeclaration {
 
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
-            call: EvaluatedCall::try_from_call(call, engine_state, stack, WithoutDebug, &None)?, // DEBUG TODO
+            call: EvaluatedCall::try_from_call::<WithoutDebug>(call, engine_state, stack)?, // TODO: DEBUG
             input,
             config,
         });

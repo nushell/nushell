@@ -290,16 +290,14 @@ fn update_value_by_closure(
         }
     }
 
-    let output = eval_block(
+    // TODO: DEBUG
+    let output = eval_block::<WithoutDebug>(
         engine_state,
         stack,
         block,
         input_at_path.into_pipeline_data(),
         redirect_stdout,
         redirect_stderr,
-        // DEBUG TODO
-        WithoutDebug,
-        &None,
     )?;
 
     value.update_data_at_cell_path(cell_path, output.into_value(span))

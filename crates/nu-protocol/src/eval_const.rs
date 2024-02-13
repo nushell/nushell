@@ -271,8 +271,8 @@ pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    // DEBUG TODO
-    <EvalConst as Eval>::eval(working_set, &mut (), expr, WithoutDebug, &None)
+    // TODO: DEBUG
+    <EvalConst as Eval>::eval::<WithoutDebug>(working_set, &mut (), expr)
 }
 
 struct EvalConst;
@@ -318,14 +318,13 @@ impl Eval for EvalConst {
         }
     }
 
-    fn eval_call(
+    fn eval_call<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),
         call: &Call,
         span: Span,
-        _debug_context: impl DebugContext,
-        _debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
+        // TODO: DEBUG
         // TODO: eval.rs uses call.head for the span rather than expr.span
         Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
     }
@@ -342,14 +341,13 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn eval_subexpression(
+    fn eval_subexpression<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),
         block_id: usize,
         span: Span,
-        _debug_context: impl DebugContext,
-        _debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
+        // TODO: DEBUG
         let block = working_set.get_block(block_id);
         Ok(
             eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
@@ -368,7 +366,7 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span: expr_span })
     }
 
-    fn eval_assignment(
+    fn eval_assignment<D: DebugContext>(
         _: &StateWorkingSet,
         _: &mut (),
         _: &Expression,
@@ -376,8 +374,6 @@ impl Eval for EvalConst {
         _: Assignment,
         _op_span: Span,
         expr_span: Span,
-        _debug_context: impl DebugContext,
-        _debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr_span })
     }

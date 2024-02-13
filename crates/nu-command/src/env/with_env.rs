@@ -145,16 +145,14 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block(
+    // TODO: DEBUG
+    eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,
         block,
         input,
         call.redirect_stdout,
         call.redirect_stderr,
-        // DEBUG TODO
-        WithoutDebug,
-        &None,
     )
 }
 

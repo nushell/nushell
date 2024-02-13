@@ -62,16 +62,14 @@ impl Command for Mut {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
-        let pipeline_data = eval_block(
+        // TODO: DEBUG
+        let pipeline_data = eval_block::<WithoutDebug>(
             engine_state,
             stack,
             block,
             input,
             call.redirect_stdout,
             call.redirect_stderr,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         )?;
 
         //println!("Adding: {:?} to {}", rhs, var_id);

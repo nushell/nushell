@@ -40,16 +40,14 @@ impl Command for ExportEnv {
         let block = engine_state.get_block(capture_block.block_id);
         let mut callee_stack = caller_stack.captures_to_stack(capture_block.captures);
 
-        let _ = eval_block(
+        // TODO: DEBUG
+        let _ = eval_block::<WithoutDebug>(
             engine_state,
             &mut callee_stack,
             block,
             input,
             call.redirect_stdout,
             call.redirect_stderr,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
 
         redirect_env(engine_state, caller_stack, &callee_stack);

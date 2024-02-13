@@ -129,16 +129,14 @@ used as the next argument to the closure, otherwise generation stops.
                 }
             }
 
-            let (output, next_input) = match eval_block_with_early_return(
+            // TODO: DEBUG
+            let (output, next_input) = match eval_block_with_early_return::<WithoutDebug>(
                 &engine_state,
                 &mut stack,
                 &block,
                 arg.into_pipeline_data(),
                 redirect_stdout,
                 redirect_stderr,
-                // DEBUG TODO
-                WithoutDebug,
-                &None,
             ) {
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),

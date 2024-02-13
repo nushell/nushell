@@ -166,16 +166,14 @@ impl Command for ParEach {
                             let val_span = x.span();
                             let x_is_error = x.is_error();
 
-                            let val = match eval_block_with_early_return(
+                            // TODO: DEBUG
+                            let val = match eval_block_with_early_return::<WithoutDebug>(
                                 engine_state,
                                 &mut stack,
                                 block,
                                 x.into_pipeline_data(),
                                 redirect_stdout,
                                 redirect_stderr,
-                                // DEBUG TODO
-                                WithoutDebug,
-                                &None,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -209,16 +207,14 @@ impl Command for ParEach {
                             let val_span = x.span();
                             let x_is_error = x.is_error();
 
-                            let val = match eval_block_with_early_return(
+                            // TODO: DEBUG
+                            let val = match eval_block_with_early_return::<WithoutDebug>(
                                 engine_state,
                                 &mut stack,
                                 block,
                                 x.clone().into_pipeline_data(),
                                 redirect_stdout,
                                 redirect_stderr,
-                                // DEBUG TODO
-                                WithoutDebug,
-                                &None,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -251,16 +247,14 @@ impl Command for ParEach {
                         let val_span = x.span();
                         let x_is_error = x.is_error();
 
-                        let val = match eval_block_with_early_return(
+                        // TODO: DEBUG
+                        let val = match eval_block_with_early_return::<WithoutDebug>(
                             engine_state,
                             &mut stack,
                             block,
                             x.into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
-                            // DEBUG TODO
-                            WithoutDebug,
-                            &None,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(
@@ -299,16 +293,14 @@ impl Command for ParEach {
                             }
                         }
 
-                        let val = match eval_block_with_early_return(
+                        // TODO: DEBUG
+                        let val = match eval_block_with_early_return::<WithoutDebug>(
                             engine_state,
                             &mut stack,
                             block,
                             x.into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
-                            // DEBUG TODO
-                            WithoutDebug,
-                            &None,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(error, span),
@@ -331,16 +323,14 @@ impl Command for ParEach {
                     }
                 }
 
-                eval_block_with_early_return(
+                // TODO: DEBUG
+                eval_block_with_early_return::<WithoutDebug>(
                     engine_state,
                     &mut stack,
                     block,
                     x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 )
             }
         }

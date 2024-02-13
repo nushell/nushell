@@ -56,16 +56,15 @@ impl Completer for NuMenuCompleter {
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
-        let res = eval_block(
+
+        // TODO: DEBUG
+        let res = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut self.stack,
             block,
             input,
             false,
             false,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
 
         if let Ok(values) = res {

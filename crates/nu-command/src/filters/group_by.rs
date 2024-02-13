@@ -245,16 +245,14 @@ fn group_closure(
 
         for value in values {
             let mut stack = stack.captures_to_stack(capture_block.captures.clone());
-            let pipeline = eval_block(
+            // TODO: DEBUG
+            let pipeline = eval_block::<WithoutDebug>(
                 engine_state,
                 &mut stack,
                 block,
                 value.clone().into_pipeline_data(),
                 call.redirect_stdout,
                 call.redirect_stderr,
-                // DEBUG TODO
-                WithoutDebug,
-                &None,
             );
 
             let group_key = match pipeline {

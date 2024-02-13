@@ -105,16 +105,14 @@ impl Command for EachWhile {
                         }
                     }
 
-                    match eval_block_with_early_return(
+                    // TODO: Debug
+                    match eval_block_with_early_return::<WithoutDebug>(
                         &engine_state,
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
-                        // TODO: Debug
-                        WithoutDebug,
-                        &None,
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -152,16 +150,14 @@ impl Command for EachWhile {
                         }
                     }
 
-                    match eval_block_with_early_return(
+                    // TODO: DEBUG
+                    match eval_block_with_early_return::<WithoutDebug>(
                         &engine_state,
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
-                        // TODO: DEBUG
-                        WithoutDebug,
-                        &None,
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -185,16 +181,14 @@ impl Command for EachWhile {
                     }
                 }
 
-                eval_block_with_early_return(
+                // TODO: DEBUG
+                eval_block_with_early_return::<WithoutDebug>(
                     &engine_state,
                     &mut stack,
                     &block,
                     x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
-                    // TODO: DEBUG
-                    WithoutDebug,
-                    &None,
                 )
             }
         }

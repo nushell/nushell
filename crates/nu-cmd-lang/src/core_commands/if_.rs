@@ -107,63 +107,55 @@ impl Command for If {
         let then_block: Block = call.req(engine_state, stack, 1)?;
         let else_case = call.positional_nth(2);
 
-        // DEBUG TODO
-        let result = eval_expression(engine_state, stack, cond, WithoutDebug, &None)?;
+        // TODO: DEBUG
+        let result = eval_expression::<WithoutDebug>(engine_state, stack, cond)?;
         match &result {
             Value::Bool { val, .. } => {
                 if *val {
                     let block = engine_state.get_block(then_block.block_id);
-                    eval_block(
+                    // TODO: DEBUG
+                    eval_block::<WithoutDebug>(
                         engine_state,
                         stack,
                         block,
                         input,
                         call.redirect_stdout,
                         call.redirect_stderr,
-                        // DEBUG TODO
-                        WithoutDebug,
-                        &None,
                     )
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let block = engine_state.get_block(block_id);
-                            eval_block(
+                            // TODO: DEBUG
+                            eval_block::<WithoutDebug>(
                                 engine_state,
                                 stack,
                                 block,
                                 input,
                                 call.redirect_stdout,
                                 call.redirect_stderr,
-                                // DEBUG TODO
-                                WithoutDebug,
-                                &None,
                             )
                         } else {
-                            eval_expression_with_input(
+                            // TODO: DEBUG
+                            eval_expression_with_input::<WithoutDebug>(
                                 engine_state,
                                 stack,
                                 else_expr,
                                 input,
                                 call.redirect_stdout,
                                 call.redirect_stderr,
-                                // DEBUG TODO
-                                WithoutDebug,
-                                &None,
                             )
                             .map(|res| res.0)
                         }
                     } else {
-                        eval_expression_with_input(
+                        // TODO: DEBUG
+                        eval_expression_with_input::<WithoutDebug>(
                             engine_state,
                             stack,
                             else_case,
                             input,
                             call.redirect_stdout,
                             call.redirect_stderr,
-                            // DEBUG TODO
-                            WithoutDebug,
-                            &None,
                         )
                         .map(|res| res.0)
                     }

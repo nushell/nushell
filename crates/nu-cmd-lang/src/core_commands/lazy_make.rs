@@ -127,16 +127,14 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
             }
         }
 
-        let pipeline_result = eval_block(
+        // TODO: DEBUG
+        let pipeline_result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut stack,
             block,
             PipelineData::Value(column_value, None),
             false,
             false,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
 
         pipeline_result.map(|data| match data {

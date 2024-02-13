@@ -81,7 +81,9 @@ not supported."#
                         stack.add_var(*var_id, value.clone());
                     }
                 }
-                let result = eval_block(
+
+                // TODO: DEBUG
+                let result = eval_block::<WithoutDebug>(
                     &engine_state,
                     &mut stack,
                     &block,
@@ -89,9 +91,6 @@ not supported."#
                     value.clone().into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 );
 
                 match result {

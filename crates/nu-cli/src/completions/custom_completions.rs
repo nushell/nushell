@@ -47,7 +47,8 @@ impl Completer for CustomCompletion {
         let line_pos = pos - offset;
 
         // Call custom declaration
-        let result = eval_call(
+        // TODO: DEBUG
+        let result = eval_call::<WithoutDebug>(
             &self.engine_state,
             &mut self.stack,
             &Call {
@@ -72,9 +73,6 @@ impl Completer for CustomCompletion {
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
 
         let mut custom_completion_options = None;

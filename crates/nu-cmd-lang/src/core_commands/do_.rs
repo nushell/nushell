@@ -117,16 +117,15 @@ impl Command for Do {
                 )
             }
         }
-        let result = eval_block_with_early_return(
+
+        // TODO: DEBUG
+        let result = eval_block_with_early_return::<WithoutDebug>(
             engine_state,
             &mut callee_stack,
             block,
             input,
             call.redirect_stdout,
             call.redirect_stdout,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
 
         if has_env {

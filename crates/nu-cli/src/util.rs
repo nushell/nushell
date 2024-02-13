@@ -241,29 +241,18 @@ pub fn eval_source(
     }
 
     let b = if allow_return {
-        eval_block_with_early_return(
+        // TODO: DEBUG
+        eval_block_with_early_return::<WithoutDebug>(
             engine_state,
             stack,
             &block,
             input,
             false,
             false,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         )
     } else {
-        eval_block(
-            engine_state,
-            stack,
-            &block,
-            input,
-            false,
-            false,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
-        )
+        // TODO: DEBUG
+        eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false)
     };
 
     match b {

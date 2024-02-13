@@ -131,16 +131,14 @@ pub fn evaluate_file(
     if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        let pipeline_data = eval_block(
+        // TODO: DEBUG
+        let pipeline_data = eval_block::<WithoutDebug>(
             engine_state,
             stack,
             &block,
             PipelineData::empty(),
             false,
             false,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
         let pipeline_data = match pipeline_data {
             Err(ShellError::Return { .. }) => {

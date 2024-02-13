@@ -151,7 +151,8 @@ impl Command for Reduce {
                 }
             }
 
-            acc = eval_block_with_early_return(
+            // TODO: DEBUG
+            acc = eval_block_with_early_return::<WithoutDebug>(
                 engine_state,
                 &mut stack,
                 block,
@@ -159,9 +160,6 @@ impl Command for Reduce {
                 // redirect stdout until its the last input value
                 redirect_stdout || input_iter.peek().is_some(),
                 redirect_stderr,
-                // DEBUG TODO
-                WithoutDebug,
-                &None,
             )?
             .into_value(span);
 

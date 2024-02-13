@@ -49,17 +49,9 @@ impl Command for Try {
 
         let try_block = engine_state.get_block(try_block.block_id);
 
-        // DEBUG TODO
-        let result = eval_block(
-            engine_state,
-            stack,
-            try_block,
-            input,
-            false,
-            false,
-            WithoutDebug,
-            &None,
-        );
+        // TODO: DEBUG
+        let result =
+            eval_block::<WithoutDebug>(engine_state, stack, try_block, input, false, false);
 
         match result {
             Err(error) => {
@@ -119,7 +111,8 @@ fn handle_catch(
             }
         }
 
-        eval_block(
+        // TODO: DEBUG
+        eval_block::<WithoutDebug>(
             engine_state,
             stack,
             catch_block,
@@ -127,9 +120,6 @@ fn handle_catch(
             err_value.into_pipeline_data(),
             false,
             false,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         )
     } else {
         Ok(PipelineData::empty())

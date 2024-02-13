@@ -177,17 +177,17 @@ fn rename(
                                         stack.add_var(*var_id, Value::string(c.clone(), span))
                                     }
                                 }
-                                let eval_result = eval_block_with_early_return(
+
+                                // TODO: DEBUG
+                                let eval_result = eval_block_with_early_return::<WithoutDebug>(
                                     &engine_state,
                                     &mut stack,
                                     &block,
                                     Value::string(c.clone(), span).into_pipeline_data(),
                                     redirect_stdout,
                                     redirect_stderr,
-                                    // DEBUG TODO
-                                    WithoutDebug,
-                                    &None
                                 );
+
                                 match eval_result {
                                     Err(e) => return Value::error(e, span),
                                     Ok(res) => match res.collect_string_strict(span) {

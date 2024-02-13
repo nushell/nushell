@@ -116,17 +116,8 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            // DEBUG TODO
-            match eval_block(
-                engine_state,
-                stack,
-                &block,
-                input,
-                false,
-                false,
-                WithoutDebug,
-                &None,
-            ) {
+            // TODO: DEBUG
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -254,16 +245,14 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        // DEBUG TODO
-                        match eval_block(
+                        // TODO: DEBUG
+                        match eval_block::<WithoutDebug>(
                             engine_state,
                             stack,
                             &block,
                             input,
                             false,
                             false,
-                            WithoutDebug,
-                            &None,
                         ) {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
@@ -357,16 +346,14 @@ fn run_hook_block(
         }
     }
 
-    // DEBUG TODO
-    let pipeline_data = eval_block_with_early_return(
+    // TODO: DEBUG
+    let pipeline_data = eval_block_with_early_return::<WithoutDebug>(
         engine_state,
         &mut callee_stack,
         block,
         input,
         false,
         false,
-        WithoutDebug,
-        &None,
     )?;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {

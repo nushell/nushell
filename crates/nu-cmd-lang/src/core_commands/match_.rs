@@ -54,9 +54,9 @@ impl Command for Match {
                     }
 
                     let guard_matches = if let Some(guard) = &match_.0.guard {
-                        // DEBUG TODO
+                        // TODO: DEBUG
                         let Value::Bool { val, .. } =
-                            eval_expression(engine_state, stack, guard, WithoutDebug, &None)?
+                            eval_expression::<WithoutDebug>(engine_state, stack, guard)?
                         else {
                             return Err(ShellError::MatchGuardNotBool { span: guard.span });
                         };
@@ -69,28 +69,24 @@ impl Command for Match {
                     if guard_matches {
                         return if let Some(block_id) = match_.1.as_block() {
                             let block = engine_state.get_block(block_id);
-                            eval_block(
+                            // TODO: DEBUG
+                            eval_block::<WithoutDebug>(
                                 engine_state,
                                 stack,
                                 block,
                                 input,
                                 call.redirect_stdout,
                                 call.redirect_stderr,
-                                // DEBUG TODO
-                                WithoutDebug,
-                                &None,
                             )
                         } else {
-                            eval_expression_with_input(
+                            // TODO: DEBUG
+                            eval_expression_with_input::<WithoutDebug>(
                                 engine_state,
                                 stack,
                                 &match_.1,
                                 input,
                                 call.redirect_stdout,
                                 call.redirect_stderr,
-                                // DEBUG TODO
-                                WithoutDebug,
-                                &None,
                             )
                             .map(|x| x.0)
                         };

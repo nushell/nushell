@@ -85,7 +85,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }
                     }
 
-                    match eval_block(
+                    // TODO: DEBUG
+                    match eval_block::<WithoutDebug>(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -93,9 +94,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         x.clone().into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
-                        // DEBUG TODO
-                        WithoutDebug,
-                        &None,
                     ) {
                         Ok(v) => {
                             if v.into_value(span).is_true() {
@@ -132,7 +130,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }
                     }
 
-                    match eval_block(
+                    // TODO: DEBUG
+                    match eval_block::<WithoutDebug>(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -140,9 +139,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         x.clone().into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
-                        // DEBUG TODO
-                        WithoutDebug,
-                        &None,
                     ) {
                         Ok(v) => {
                             if v.into_value(span).is_true() {
@@ -169,7 +165,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         stack.add_var(*var_id, x.clone());
                     }
                 }
-                Ok(match eval_block(
+                // TODO: DEBUG
+                Ok(match eval_block::<WithoutDebug>(
                     &engine_state,
                     &mut stack,
                     &block,
@@ -177,9 +174,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     x.clone().into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 ) {
                     Ok(v) => {
                         if v.into_value(span).is_true() {

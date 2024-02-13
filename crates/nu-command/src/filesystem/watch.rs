@@ -210,16 +210,14 @@ impl Command for Watch {
                         }
                     }
 
-                    let eval_result = eval_block(
+                    // TODO: DEBUG
+                    let eval_result = eval_block::<WithoutDebug>(
                         engine_state,
                         stack,
                         &block,
                         Value::nothing(call.span()).into_pipeline_data(),
                         call.redirect_stdout,
                         call.redirect_stderr,
-                        // DEBUG TODO
-                        WithoutDebug,
-                        &None,
                     );
 
                     match eval_result {

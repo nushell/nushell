@@ -52,16 +52,14 @@ pub fn boolean_fold(
             stack.add_var(var_id, value.clone());
         }
 
-        let eval = eval_block(
+        // TODO: DEBUG
+        let eval = eval_block::<WithoutDebug>(
             &engine_state,
             &mut stack,
             block,
             value.into_pipeline_data(),
             call.redirect_stdout,
             call.redirect_stderr,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
         match eval {
             Err(e) => {

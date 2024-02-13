@@ -7,18 +7,14 @@ use std::sync::{Arc, Mutex};
 
 /// Trait for static dispatching of eval_xxx() and debugger callback calls
 pub trait DebugContext: Clone + Copy + Debug {
-    fn should_debug(&self) -> bool;
+    #[allow(unused_variables)]
+    fn enter_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
 
     #[allow(unused_variables)]
-    fn enter_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
-    fn enter_block2(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
-
-    #[allow(unused_variables)]
-    fn leave_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn leave_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
 
     #[allow(unused_variables)]
     fn leave_element(
-        &self,
         debugger: &Option<Arc<Mutex<dyn Debugger>>>,
         engine_state: &EngineState,
         input: &Result<(PipelineData, bool), ShellError>,
@@ -27,7 +23,7 @@ pub trait DebugContext: Clone + Copy + Debug {
     }
 
     #[allow(unused_variables)]
-    fn enter_element(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn enter_element(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
 }
 
 /// Marker struct signalizing that evaluation should use a Debugger
@@ -36,19 +32,7 @@ pub struct WithDebug;
 
 // TODO: Remove unwraps
 impl DebugContext for WithDebug {
-    fn should_debug(&self) -> bool {
-        true
-    }
-    fn enter_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
-        debugger
-            .as_ref()
-            .unwrap()
-            .lock()
-            .unwrap()
-            .deref_mut()
-            .enter_block();
-    }
-    fn enter_block2(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
+    fn enter_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
         debugger
             .as_ref()
             .unwrap()
@@ -58,7 +42,7 @@ impl DebugContext for WithDebug {
             .enter_block();
     }
 
-    fn leave_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
+    fn leave_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
         debugger
             .as_ref()
             .unwrap()
@@ -69,7 +53,6 @@ impl DebugContext for WithDebug {
     }
 
     fn leave_element(
-        &self,
         debugger: &Option<Arc<Mutex<dyn Debugger>>>,
         engine_state: &EngineState,
         input: &Result<(PipelineData, bool), ShellError>,
@@ -84,7 +67,7 @@ impl DebugContext for WithDebug {
             .leave_element(engine_state, input, element);
     }
 
-    fn enter_element(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
+    fn enter_element(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
         debugger
             .as_ref()
             .unwrap()
@@ -99,11 +82,7 @@ impl DebugContext for WithDebug {
 #[derive(Clone, Copy, Debug)]
 pub struct WithoutDebug;
 
-impl DebugContext for WithoutDebug {
-    fn should_debug(&self) -> bool {
-        false
-    }
-}
+impl DebugContext for WithoutDebug {}
 
 /// Debugger trait that every debugger needs to implement.
 ///

@@ -75,16 +75,14 @@ impl Command for Items {
                 }
             }
 
-            match eval_block_with_early_return(
+            // TODO: DEBUG
+            match eval_block_with_early_return::<WithoutDebug>(
                 &engine_state,
                 &mut stack,
                 &block,
                 PipelineData::empty(),
                 true,
                 redirect_stderr,
-                // DEBUG TODO
-                WithoutDebug,
-                &None,
             ) {
                 Ok(v) => Some(v.into_value(span)),
                 Err(ShellError::Break { .. }) => None,

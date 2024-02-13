@@ -84,16 +84,14 @@ impl NuCompleter {
             }
         }
 
-        let result = eval_block(
+        // TODO: DEBUG
+        let result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut callee_stack,
             block,
             PipelineData::empty(),
             true,
             true,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
         );
 
         match result {

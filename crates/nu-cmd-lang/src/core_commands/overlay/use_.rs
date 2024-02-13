@@ -142,16 +142,14 @@ impl Command for OverlayUse {
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
-                let _ = eval_block(
+                // TODO: DEBUG
+                let _ = eval_block::<WithoutDebug>(
                     engine_state,
                     &mut callee_stack,
                     block,
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 );
 
                 // The export-env block should see the env vars *before* activating this overlay

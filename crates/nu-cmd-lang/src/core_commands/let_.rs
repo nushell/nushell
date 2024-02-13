@@ -62,17 +62,9 @@ impl Command for Let {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
-        // DEBUG TODO
-        let pipeline_data = eval_block(
-            engine_state,
-            stack,
-            block,
-            input,
-            true,
-            false,
-            WithoutDebug,
-            &None,
-        )?;
+        // TODO: DEBUG
+        let pipeline_data =
+            eval_block::<WithoutDebug>(engine_state, stack, block, input, true, false)?;
         stack.add_var(var_id, pipeline_data.into_value(call.head));
         Ok(PipelineData::empty())
     }

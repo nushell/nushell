@@ -230,14 +230,8 @@ fn get_expression_as_value(
     stack: &mut Stack,
     inner_expr: &Expression,
 ) -> Value {
-    match eval_expression(
-        engine_state,
-        stack,
-        inner_expr,
-        // DEBUG TODO
-        WithoutDebug,
-        &None,
-    ) {
+    // TODO: DEBUG
+    match eval_expression::<WithoutDebug>(engine_state, stack, inner_expr) {
         Ok(v) => v,
         Err(error) => Value::error(error, inner_expr.span),
     }

@@ -107,16 +107,14 @@ impl Command for SkipWhile {
                     stack.add_var(var_id, value.clone());
                 }
 
-                eval_block(
+                // TODO: DEBUG
+                eval_block::<WithoutDebug>(
                     &engine_state,
                     &mut stack,
                     &block,
                     PipelineData::empty(),
                     redirect_stdout,
                     redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 )
                 .map_or(false, |pipeline_data| {
                     pipeline_data.into_value(span).is_true()

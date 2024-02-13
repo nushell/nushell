@@ -54,28 +54,24 @@ impl Command for TimeIt {
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
                 let block = engine_state.get_block(block_id);
-                eval_block(
+                // TODO: DEBUG
+                eval_block::<WithoutDebug>(
                     engine_state,
                     stack,
                     block,
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 )?
             } else {
-                eval_expression_with_input(
+                // TODO: DEBUG
+                eval_expression_with_input::<WithoutDebug>(
                     engine_state,
                     stack,
                     command_to_run,
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
-                    // DEBUG TODO
-                    WithoutDebug,
-                    &None,
                 )
                 .map(|res| res.0)?
             }

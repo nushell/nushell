@@ -226,16 +226,14 @@ fn upsert(
                             }
                         }
 
-                        let output = eval_block(
+                        // TODO: DEBUG
+                        let output = eval_block::<WithoutDebug>(
                             engine_state,
                             &mut stack,
                             block,
                             value.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
-                            // DEBUG TODO
-                            WithoutDebug,
-                            &None,
                         )?;
 
                         pre_elems.push(output.into_value(span));
@@ -357,16 +355,14 @@ fn upsert_value_by_closure(
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
-    let output = eval_block(
+    // TODO: DEBUG
+    let output = eval_block::<WithoutDebug>(
         engine_state,
         stack,
         block,
         input_at_path,
         redirect_stdout,
         redirect_stderr,
-        // DEBUG TODO
-        WithoutDebug,
-        &None,
     )?;
 
     value.upsert_data_at_cell_path(cell_path, output.into_value(span))

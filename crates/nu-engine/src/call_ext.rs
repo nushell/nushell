@@ -63,8 +63,8 @@ impl CallExt for Call {
             if flag_name == name.0.item {
                 return if let Some(expr) = &name.2 {
                     // Check --flag=false
-                    // DEBUG TODO
-                    let result = eval_expression(engine_state, stack, expr, WithoutDebug, &None)?;
+                    // TODO: DEBUG
+                    let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
                     match result {
                         Value::Bool { val, .. } => Ok(val),
                         _ => Err(ShellError::CantConvert {
@@ -90,8 +90,8 @@ impl CallExt for Call {
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
-            // DEBUG TODO
-            let result = eval_expression(engine_state, stack, expr, WithoutDebug, &None)?;
+            // TODO: DEBUG
+            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
@@ -107,8 +107,8 @@ impl CallExt for Call {
         let mut output = vec![];
 
         for result in self.rest_iter_flattened(starting_pos, |expr| {
-            // DEBUG TODO
-            eval_expression(engine_state, stack, expr, WithoutDebug, &None)
+            // TODO: DEBUG
+            eval_expression::<WithoutDebug>(engine_state, stack, expr)
         })? {
             output.push(FromValue::from_value(result)?);
         }
@@ -123,8 +123,8 @@ impl CallExt for Call {
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
-            // DEBUG TODO
-            let result = eval_expression(engine_state, stack, expr, WithoutDebug, &None)?;
+            // TODO: DEBUG
+            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
@@ -138,8 +138,8 @@ impl CallExt for Call {
         pos: usize,
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
-            // DEBUG TODO
-            let result = eval_expression(engine_state, stack, expr, WithoutDebug, &None)?;
+            // TODO: DEBUG
+            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
             FromValue::from_value(result)
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
@@ -158,8 +158,8 @@ impl CallExt for Call {
         name: &str,
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.get_parser_info(name) {
-            // DEBUG TODO
-            let result = eval_expression(engine_state, stack, expr, WithoutDebug, &None)?;
+            // TODO: DEBUG
+            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
             FromValue::from_value(result)
         } else if self.parser_info.is_empty() {
             Err(ShellError::AccessEmptyContent { span: self.head })

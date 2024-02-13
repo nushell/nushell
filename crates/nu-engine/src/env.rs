@@ -389,16 +389,14 @@ fn get_converted_value(
                     }
 
                     let val_span = orig_val.span();
-                    let result = eval_block(
+                    // TODO DEBUG
+                    let result = eval_block::<WithoutDebug>(
                         engine_state,
                         &mut stack,
                         block,
                         PipelineData::new_with_metadata(None, val_span),
                         true,
                         true,
-                        // TODO DEBUG
-                        WithoutDebug,
-                        &None,
                     );
 
                     match result {

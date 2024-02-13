@@ -297,14 +297,9 @@ fn format_record(
                 let exp = parse_expression(working_set, &[*span], false);
                 match working_set.parse_errors.first() {
                     None => {
-                        let parsed_result = eval_expression(
-                            engine_state,
-                            stack,
-                            &exp,
-                            // TODO: DEBUG
-                            WithoutDebug,
-                            &None,
-                        );
+                        // TODO: DEBUG
+                        let parsed_result =
+                            eval_expression::<WithoutDebug>(engine_state, stack, &exp);
                         if let Ok(val) = parsed_result {
                             output.push_str(&val.into_abbreviated_string(config))
                         }

@@ -216,16 +216,15 @@ fn process_cell(
             stack.add_var(*var_id, val.clone());
         }
     }
-    match eval_block(
+
+    // TODO: DEBUG
+    match eval_block::<WithoutDebug>(
         engine_state,
         stack,
         block,
         val.into_pipeline_data(),
         redirect_stdout,
         redirect_stderr,
-        // TODO: DEBUG
-        WithoutDebug,
-        &None,
     ) {
         Ok(pd) => pd.into_value(span),
         Err(e) => Value::error(e, span),

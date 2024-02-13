@@ -93,16 +93,14 @@ use std pwd
     // We need to evaluate the module in order to run the `export-env` blocks.
     let mut stack = Stack::new();
     let pipeline_data = PipelineData::Empty;
-    eval_block(
+    // TODO: DEBUG
+    eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,
         &block,
         pipeline_data,
         false,
         false,
-        // DEBUG TODO
-        WithoutDebug,
-        &None,
     )?;
 
     let cwd = current_dir(engine_state, &stack)?;

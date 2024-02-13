@@ -236,8 +236,8 @@ fn get_documentation(
             }
 
             let mut caller_stack = Stack::new();
-            // DEBUG TODO
-            if let Ok(result) = eval_call(
+            // TODO: DEBUG
+            if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
                 &mut caller_stack,
                 &Call {
@@ -249,8 +249,6 @@ fn get_documentation(
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
-                WithoutDebug,
-                &None,
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
                     let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
@@ -351,7 +349,8 @@ fn get_ansi_color_for_component_or_default(
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call(
+                // TODO: DEBUG
+                if let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
                     &mut caller_stack,
                     &Call {
@@ -363,8 +362,6 @@ fn get_ansi_color_for_component_or_default(
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,
-                    WithoutDebug,
-                    &None,
                 ) {
                     if let Ok((str, ..)) = result.collect_string_strict(span) {
                         return str;

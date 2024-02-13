@@ -30,28 +30,19 @@ pub struct EvaluatedCall {
 }
 
 impl EvaluatedCall {
-    pub(crate) fn try_from_call(
+    pub(crate) fn try_from_call<D: DebugContext>(
         call: &Call,
         engine_state: &EngineState,
         stack: &mut Stack,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Self, ShellError> {
-        let positional = call.rest_iter_flattened(0, |expr| {
-            eval_expression(engine_state, stack, expr, debug_context, debugger)
-        })?;
+        let positional =
+            call.rest_iter_flattened(0, |expr| eval_expression::<D>(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
-                Some(expr) => Some(eval_expression(
-                    engine_state,
-                    stack,
-                    expr,
-                    debug_context,
-                    debugger,
-                )?),
+                Some(expr) => Some(eval_expression::<D>(engine_state, stack, expr)?),
             };
 
             named.push((string.clone(), value))

@@ -72,16 +72,14 @@ impl<'a> StyleComputer<'a> {
                         }
 
                         // Run the block.
-                        match eval_block(
+                        // TODO: DEBUG
+                        match eval_block::<WithoutDebug>(
                             self.engine_state,
                             &mut stack,
                             &block,
                             value.clone().into_pipeline_data(),
                             false,
                             false,
-                            // DEBUG TODO
-                            WithoutDebug,
-                            &None,
                         ) {
                             Ok(v) => {
                                 let value = v.into_value(span);

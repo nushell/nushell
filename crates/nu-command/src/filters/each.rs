@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, eval_block_with_early_return2, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -124,9 +124,9 @@ with 'transpose' first."#
         // };
 
         let eval_fn = if stack.debugger.is_some() {
-            eval_block_with_early_return2::<WithDebug>
+            eval_block_with_early_return::<WithDebug>
         } else {
-            eval_block_with_early_return2::<WithoutDebug>
+            eval_block_with_early_return::<WithoutDebug>
         };
 
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
