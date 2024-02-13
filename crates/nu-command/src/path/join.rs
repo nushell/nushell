@@ -262,7 +262,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
 
     #[cfg(windows)]
     if let Some(val) = record.get("prefix") {
-        let p = val.as_string()?;
+        let p = val.coerce_string()?;
         if !p.is_empty() {
             result.push(p);
         }
