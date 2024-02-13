@@ -1,4 +1,4 @@
-use crate::dataframe::values::{str_to_dtype, NuLazyFrame};
+use crate::dataframe::values::{str_to_dtype, NuExpression, NuLazyFrame};
 
 use super::super::values::NuDataFrame;
 use nu_engine::CallExt;
@@ -23,15 +23,25 @@ impl Command for CastDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
-            .required("column", SyntaxShape::String, "The column to cast")
+            .input_output_types(vec![
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+            ])
             .required(
                 "dtype",
                 SyntaxShape::String,
                 "The dtype to cast the column to",
+            )
+            .optional(
+                "column",
+                SyntaxShape::String,
+                "The column to cast. Required when used with a dataframe.",
             )
             .category(Category::Custom("dataframe".into()))
     }
@@ -48,24 +58,51 @@ impl Command for CastDF {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value = input.into_value(call.head);
-        let column_nm: String = call.req(engine_state, stack, 0)?;
-        let dtype: String = call.req(engine_state, stack, 1)?;
-        let dtype = str_to_dtype(&dtype, call.head)?;
         if NuLazyFrame::can_downcast(&value) {
+            let (dtype, column_nm) = df_args(engine_state, stack, call)?;
             let df = NuLazyFrame::try_from_value(value)?;
             command_lazy(call, column_nm, dtype, df)
         } else if NuDataFrame::can_downcast(&value) {
+            let (dtype, column_nm) = df_args(engine_state, stack, call)?;
             let df = NuDataFrame::try_from_value(value)?;
             command_eager(call, column_nm, dtype, df)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "lazy or eager dataframe".into(),
-                from_type: value.get_type().to_string(),
-                span: value.span(),
-                help: None,
-            })
+            let dtype: String = call.req(engine_state, stack, 0)?;
+            let dtype = str_to_dtype(&dtype, call.head)?;
+
+            let expr = NuExpression::try_from_value(value)?;
+            let expr: NuExpression = expr.into_polars().cast(dtype).into();
+
+            Ok(PipelineData::Value(
+                NuExpression::into_value(expr, call.head),
+                None,
+            ))
         }
     }
+}
+
+fn df_args(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<(DataType, String), ShellError> {
+    let dtype = dtype_arg(engine_state, stack, call)?;
+    let column_nm: String =
+        call.opt(engine_state, stack, 1)?
+            .ok_or(ShellError::MissingParameter {
+                param_name: "column_name".into(),
+                span: call.head,
+            })?;
+    Ok((dtype, column_nm))
+}
+
+fn dtype_arg(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<DataType, ShellError> {
+    let dtype: String = call.req(engine_state, stack, 0)?;
+    str_to_dtype(&dtype, call.head)
 }
 
 fn command_lazy(
