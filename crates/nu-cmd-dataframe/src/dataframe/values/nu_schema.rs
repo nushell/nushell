@@ -73,7 +73,7 @@ fn value_to_fields(value: &Value, span: Span) -> Result<Vec<Field>, ShellError> 
                 Ok(Field::new(col, dtype))
             }
             _ => {
-                let dtype = dtype_str_to_schema(&val.as_string()?, span)?;
+                let dtype = dtype_str_to_schema(&val.coerce_string()?, span)?;
                 Ok(Field::new(col, dtype))
             }
         })
