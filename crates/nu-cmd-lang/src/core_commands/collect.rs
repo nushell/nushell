@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{eval_block, eval_block2, eval_block_with_early_return2, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::{Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -59,68 +59,19 @@ impl Command for Collect {
             }
         }
 
-        let result = eval_block(
+        let eval_fn = if stack.debugger.is_some() {
+            eval_block2::<WithDebug>
+        } else {
+            eval_block2::<WithoutDebug>
+        };
+
+        let result = eval_fn(
             engine_state,
             &mut stack_captures,
             &block,
             input.into_pipeline_data(),
             call.redirect_stdout,
             call.redirect_stderr,
-            // DEBUG TODO
-            WithoutDebug,
-            &None,
-        )
-        .map(|x| x.set_metadata(metadata));
-
-        if call.has_flag(engine_state, stack, "keep-env")? {
-            redirect_env(engine_state, stack, &stack_captures);
-            // for when we support `data | let x = $in;`
-            // remove the variables added earlier
-            for (var_id, _) in capture_block.captures {
-                stack_captures.remove_var(var_id);
-            }
-            if let Some(u) = saved_positional {
-                stack_captures.remove_var(u);
-            }
-            // add any new variables to the stack
-            stack.vars.extend(stack_captures.vars);
-        }
-        result
-    }
-
-    fn run_debug(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-        debugger: Arc<Mutex<dyn Debugger>>,
-    ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
-
-        let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack_captures = stack.captures_to_stack(capture_block.captures.clone());
-
-        let metadata = input.metadata();
-        let input: Value = input.into_value(call.head);
-
-        let mut saved_positional = None;
-        if let Some(var) = block.signature.get_positional(0) {
-            if let Some(var_id) = &var.var_id {
-                stack_captures.add_var(*var_id, input.clone());
-                saved_positional = Some(*var_id);
-            }
-        }
-
-        let result = eval_block(
-            engine_state,
-            &mut stack_captures,
-            &block,
-            input.into_pipeline_data(),
-            call.redirect_stdout,
-            call.redirect_stderr,
-            WithDebug,
-            &Some(debugger),
         )
         .map(|x| x.set_metadata(metadata));
 

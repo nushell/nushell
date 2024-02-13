@@ -194,17 +194,17 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        if debug_context.should_debug() {
-            decl.run_debug(
-                engine_state,
-                caller_stack,
-                call,
-                input,
-                debugger.clone().unwrap(),
-            ) // DEBUG TODO
-        } else {
-            decl.run(engine_state, caller_stack, call, input)
-        }
+        // if debug_context.should_debug() {
+        //     decl.run_debug(
+        //         engine_state,
+        //         caller_stack,
+        //         call,
+        //         input,
+        //         debugger.clone().unwrap(),
+        //     ) // DEBUG TODO
+        // } else {
+        decl.run(engine_state, caller_stack, call, input)
+        // }
     }
 }
 
@@ -674,6 +674,39 @@ fn eval_element_with_input(
     debug_context.leave_element(debugger, &engine_state, &result, element);
 
     result
+}
+
+pub fn eval_block_with_early_return2<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+) -> Result<PipelineData, ShellError> {
+    match eval_block2::<D>(
+        engine_state,
+        stack,
+        block,
+        input,
+        redirect_stdout,
+        redirect_stderr,
+    ) {
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
+        x => x,
+    }
+}
+
+pub fn eval_block2<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    mut input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+) -> Result<PipelineData, ShellError> {
+    D::enter_block2(&stack.debugger);
+    Ok(PipelineData::empty())
 }
 
 pub fn eval_block_with_early_return(

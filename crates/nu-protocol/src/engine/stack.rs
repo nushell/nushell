@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
+use crate::debugger::Debugger;
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
 use crate::{ShellError, Span, Value, VarId};
@@ -36,6 +38,7 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: u64,
+    pub debugger: Option<Arc<Mutex<dyn Debugger>>>,
 }
 
 impl Stack {
@@ -46,6 +49,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: 0,
+            debugger: None,
         }
     }
 
@@ -62,6 +66,10 @@ impl Stack {
         if !self.env_hidden.is_empty() {
             self.env_hidden = env_hidden.to_owned();
         }
+    }
+
+    pub fn with_debugger(&mut self, debugger: Arc<Mutex<dyn Debugger>>) {
+        self.debugger = Some(debugger);
     }
 
     pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
@@ -160,6 +168,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
+            debugger: self.debugger.clone(),
         }
     }
 
@@ -187,6 +196,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
+            debugger: self.debugger.clone(),
         }
     }
 

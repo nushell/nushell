@@ -11,6 +11,7 @@ pub trait DebugContext: Clone + Copy + Debug {
 
     #[allow(unused_variables)]
     fn enter_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn enter_block2(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
 
     #[allow(unused_variables)]
     fn leave_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
@@ -39,6 +40,15 @@ impl DebugContext for WithDebug {
         true
     }
     fn enter_block(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
+        debugger
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .deref_mut()
+            .enter_block();
+    }
+    fn enter_block2(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
         debugger
             .as_ref()
             .unwrap()

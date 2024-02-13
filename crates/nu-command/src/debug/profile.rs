@@ -73,6 +73,8 @@ impl Command for DebugProfile {
             collect_values,
         )));
 
+        callee_stack.with_debugger(profiler.clone());
+
         let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,

@@ -49,21 +49,6 @@ pub trait Command: Send + Sync + CommandClone {
         Err(ShellError::MissingConstEvalImpl { span: call.head })
     }
 
-    /// Run the command via a provided debugger.
-    ///
-    /// By default runs without debugging.
-    #[allow(unused_variables)]
-    fn run_debug(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-        debugger: Arc<Mutex<dyn Debugger>>,
-    ) -> Result<PipelineData, ShellError> {
-        self.run(engine_state, stack, call, input)
-    }
-
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }

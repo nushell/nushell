@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, eval_block_with_early_return2, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -45,18 +45,25 @@ impl Command for Source {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_source(engine_state, stack, call, input, WithoutDebug, &None)
-    }
+        // Note: this hidden positional is the block_id that corresponded to the 0th position
+        // it is put here by the parser
+        let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
+        let block = engine_state.get_block(block_id as usize).clone();
 
-    fn run_debug(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-        debugger: Arc<Mutex<dyn Debugger>>,
-    ) -> Result<PipelineData, ShellError> {
-        run_source(engine_state, stack, call, input, WithDebug, &Some(debugger))
+        let eval_fn = if stack.debugger.is_some() {
+            eval_block_with_early_return2::<WithDebug>
+        } else {
+            eval_block_with_early_return2::<WithoutDebug>
+        };
+
+        eval_fn(
+            engine_state,
+            stack,
+            &block,
+            input,
+            call.redirect_stdout,
+            call.redirect_stderr,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,29 +80,4 @@ impl Command for Source {
             },
         ]
     }
-}
-
-fn run_source(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-    debug_context: impl DebugContext,
-    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
-) -> Result<PipelineData, ShellError> {
-    // Note: this hidden positional is the block_id that corresponded to the 0th position
-    // it is put here by the parser
-    let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-    let block = engine_state.get_block(block_id as usize).clone();
-
-    eval_block_with_early_return(
-        engine_state,
-        stack,
-        &block,
-        input,
-        call.redirect_stdout,
-        call.redirect_stderr,
-        debug_context,
-        debugger,
-    )
 }
