@@ -96,7 +96,7 @@ pub fn split_by(
     match splitter {
         Some(v) => {
             let splitter = Some(Spanned {
-                item: v.coerce_string()?,
+                item: v.coerce_into_string()?,
                 span: name,
             });
             Ok(split(splitter.as_ref(), input, name)?)

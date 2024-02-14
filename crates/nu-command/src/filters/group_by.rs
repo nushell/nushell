@@ -259,7 +259,7 @@ fn group_closure(
 
                     let key = match s.next() {
                         Some(Value::Error { .. }) | None => error_key.into(),
-                        Some(return_value) => return_value.coerce_string()?,
+                        Some(return_value) => return_value.coerce_into_string()?,
                     };
 
                     if s.next().is_some() {

@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
-use std::{collections::HashSet, iter::FromIterator};
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct IntoValue;
@@ -71,14 +71,12 @@ impl Command for IntoValue {
         // the columns to update
         let columns: Option<Value> = call.get_flag(&engine_state, stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
-            Some(val) => {
-                let cols = val
-                    .as_list()?
-                    .iter()
-                    .map(|val| val.coerce_string())
-                    .collect::<Result<Vec<String>, ShellError>>()?;
-                Some(HashSet::from_iter(cols))
-            }
+            Some(val) => Some(
+                val.into_list()?
+                    .into_iter()
+                    .map(Value::coerce_into_string)
+                    .collect::<Result<HashSet<String>, ShellError>>()?,
+            ),
             None => None,
         };
 

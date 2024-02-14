@@ -121,12 +121,12 @@ impl Command for Move {
 
         let before_or_after = match (after, before) {
             (Some(v), None) => Spanned {
-                item: BeforeOrAfter::After(v.coerce_string()?),
                 span: v.span(),
+                item: BeforeOrAfter::After(v.coerce_into_string()?),
             },
             (None, Some(v)) => Spanned {
-                item: BeforeOrAfter::Before(v.coerce_string()?),
                 span: v.span(),
+                item: BeforeOrAfter::Before(v.coerce_into_string()?),
             },
             (Some(_), Some(_)) => {
                 return Err(ShellError::GenericError {

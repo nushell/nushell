@@ -98,7 +98,7 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.coerce_string()?),
+        ConversionResult::Ok(v) => Ok(v.coerce_into_string()?),
         ConversionResult::ConversionError(e) => Err(e),
         ConversionResult::GeneralError(e) => Err(e),
         ConversionResult::CellPathError => match value.coerce_string() {

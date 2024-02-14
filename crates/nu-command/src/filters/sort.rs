@@ -275,7 +275,10 @@ pub fn sort(
                     };
 
                     if natural {
-                        match (folded_left.coerce_string(), folded_right.coerce_string()) {
+                        match (
+                            folded_left.coerce_into_string(),
+                            folded_right.coerce_into_string(),
+                        ) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
@@ -334,7 +337,10 @@ pub fn process(
                 _ => right_res,
             };
             if natural {
-                match (folded_left.coerce_string(), folded_right.coerce_string()) {
+                match (
+                    folded_left.coerce_into_string(),
+                    folded_right.coerce_into_string(),
+                ) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }
