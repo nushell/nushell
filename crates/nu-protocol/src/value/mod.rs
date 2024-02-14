@@ -689,6 +689,34 @@ impl Value {
         }
     }
 
+    fn format_datetime<Tz: TimeZone>(&self, date_time: &DateTime<Tz>, formatter: &str) -> String
+    where
+        Tz::Offset: Display,
+    {
+        let mut formatter_buf = String::new();
+        // These are already in locale format, so we don't need to localize them
+        let format = if ["%x", "%X", "%r"]
+            .iter()
+            .any(|item| formatter.contains(item))
+        {
+            date_time.format(formatter)
+        } else {
+            let locale: Locale = get_system_locale_string()
+                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
+                .unwrap_or_else(|| String::from("en_US"))
+                .as_str()
+                .try_into()
+                .unwrap_or(Locale::en_US);
+            date_time.format_localized(formatter, locale)
+        };
+
+        match formatter_buf.write_fmt(format_args!("{format}")) {
+            Ok(_) => (),
+            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
+        }
+        formatter_buf
+    }
+
     /// Converts this `Value` to a string according to the given [`Config`] and separator
     ///
     /// This functions recurses into records and lists,
@@ -794,55 +822,6 @@ impl Value {
         }
     }
 
-    fn format_datetime<Tz: TimeZone>(&self, date_time: &DateTime<Tz>, formatter: &str) -> String
-    where
-        Tz::Offset: Display,
-    {
-        let mut formatter_buf = String::new();
-        // These are already in locale format, so we don't need to localize them
-        let format = if ["%x", "%X", "%r"]
-            .iter()
-            .any(|item| formatter.contains(item))
-        {
-            date_time.format(formatter)
-        } else {
-            let locale: Locale = get_system_locale_string()
-                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US);
-            date_time.format_localized(formatter, locale)
-        };
-
-        match formatter_buf.write_fmt(format_args!("{format}")) {
-            Ok(_) => (),
-            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
-        }
-        formatter_buf
-    }
-
-    /// Convert this `Value` to a debug string
-    ///
-    /// In general, this function should only be used for debug purposes,
-    /// and the resulting string should not be displayed to the user (not even in an error).
-    pub fn to_debug_string(&self) -> String {
-        match self {
-            Value::String { val, .. } => {
-                if contains_emoji(val) {
-                    // This has to be an emoji, so let's display the code points that make it up.
-                    format!(
-                        "{:#?}",
-                        Value::string(val.escape_unicode().to_string(), self.span())
-                    )
-                } else {
-                    format!("{self:#?}")
-                }
-            }
-            _ => format!("{self:#?}"),
-        }
-    }
-
     /// Converts this `Value` to a string according to the given [`Config`] and separator
     ///
     /// This function adds quotes around strings,
@@ -873,6 +852,27 @@ impl Value {
             ),
             // defer to standard handling for types where standard representation is parsable
             _ => self.to_expanded_string(separator, config),
+        }
+    }
+
+    /// Convert this `Value` to a debug string
+    ///
+    /// In general, this function should only be used for debug purposes,
+    /// and the resulting string should not be displayed to the user (not even in an error).
+    pub fn to_debug_string(&self) -> String {
+        match self {
+            Value::String { val, .. } => {
+                if contains_emoji(val) {
+                    // This has to be an emoji, so let's display the code points that make it up.
+                    format!(
+                        "{:#?}",
+                        Value::string(val.escape_unicode().to_string(), self.span())
+                    )
+                } else {
+                    format!("{self:#?}")
+                }
+            }
+            _ => format!("{self:#?}"),
         }
     }
 
