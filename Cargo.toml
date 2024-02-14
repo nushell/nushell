@@ -49,6 +49,7 @@ members = [
 	"crates/nu-std",
 	"crates/nu-table",
 	"crates/nu-term-grid",
+	"crates/nu-test-support",
 	"crates/nu-utils",
 ]
 
