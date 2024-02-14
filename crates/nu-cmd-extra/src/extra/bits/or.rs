@@ -128,6 +128,12 @@ impl Command for BitsOr {
                 example: "0x[88 cc] | bits or 0x[42 32]",
                 result: Some(Value::binary(vec![0xca, 0xfe], Span::test_data())),
             },
+            Example {
+                description:
+                    "Apply logical or to binary data of varying lengths with specified endianness",
+                example: "0x[c0 ff ee] | bits or 0x[aa] --endian big",
+                result: Some(Value::test_binary(vec![0xea, 0xff, 0xee])),
+            },
         ]
     }
 }

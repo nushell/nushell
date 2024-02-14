@@ -136,6 +136,12 @@ impl Command for BitsAnd {
                     Value::test_binary([0x99, 0x90]),
                 ])),
             },
+            Example {
+                description:
+                    "Apply logical and to binary data of varying lengths with specified endianness",
+                example: "0x[c0 ff ee] | bits and 0x[ff] --endian big",
+                result: Some(Value::test_binary(vec![0xc0, 0x00, 0x00])),
+            },
         ]
     }
 }
