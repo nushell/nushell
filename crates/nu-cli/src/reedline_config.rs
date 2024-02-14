@@ -447,7 +447,7 @@ pub(crate) fn add_ide_menu(
                     });
                 }
             }
-            Err(_) => ide_menu,
+            Err(_) => ide_menu.with_default_border(),
         };
 
         ide_menu = match extract_value("cursor_offset", val, span) {
