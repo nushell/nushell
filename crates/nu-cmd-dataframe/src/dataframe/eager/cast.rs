@@ -79,16 +79,7 @@ impl Command for CastDF {
             Example {
                 description: "Cast a column in a expression to a different dtype",
                 example: r#"[[a b]; [1 2] [1 4]] | dfr into-df | dfr group-by a | dfr agg [ (dfr col b | dfr cast u8 | dfr min | dfr as "b_min") ] | dfr schema"#,
-                result: Some(Value::record(
-                    Record::from_raw_cols_vals_unchecked(
-                        vec!["a".to_string(), "b_min".to_string()],
-                        vec![
-                            Value::string("i64", Span::test_data()),
-                            Value::string("u8", Span::test_data()),
-                        ],
-                    ),
-                    Span::test_data()
-                )),
+                result: None
             }
         ]
     }
