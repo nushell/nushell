@@ -81,10 +81,13 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
             span,
         ),
         toml::Value::String(s) => Value::string(s.clone(), span),
-        toml::Value::Datetime(d) => Value::date(
-            chrono::DateTime::from_str(&d.to_string()).expect("from toml date conversion"),
-            span,
-        ),
+        toml::Value::Datetime(d) => match chrono::DateTime::from_str(&d.to_string()) {
+            Ok(nushell_date) => Value::date(nushell_date, span),
+            // in the unlikely event that parsing goes wrong, this function still returns a valid
+            // nushell date (however the default one). This decision was made to make the output of
+            // this function uniform amongst all eventualities
+            Err(_) => Value::date(chrono::DateTime::default(), span),
+        },
     }
 }
 
