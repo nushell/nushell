@@ -21,6 +21,7 @@ mod default;
 mod detect_columns;
 mod do_;
 mod drop;
+mod du;
 mod each;
 mod echo;
 mod empty;
