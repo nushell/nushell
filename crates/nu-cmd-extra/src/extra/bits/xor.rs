@@ -1,12 +1,25 @@
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use std::iter;
 
 #[derive(Clone)]
 pub struct BitsXor;
+
+struct Arguments {
+    target: Value,
+    little_endian: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        None
+    }
+}
 
 impl Command for BitsXor {
     fn name(&self) -> &str {
@@ -17,17 +30,33 @@ impl Command for BitsXor {
         Signature::build("bits xor")
             .input_output_types(vec![
                 (Type::Int, Type::Int),
+                (Type::Binary, Type::Binary),
                 (
                     Type::List(Box::new(Type::Int)),
                     Type::List(Box::new(Type::Int)),
                 ),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
             ])
-            .required("target", SyntaxShape::Int, "target int to perform bit xor")
+            .allow_variants_without_examples(true)
+            .required(
+                "target",
+                SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
+                "right-hand side of the operation",
+            )
+            .named(
+                "endian",
+                SyntaxShape::String,
+                "byte encode endian, available options: native(default), little, big",
+                Some('e'),
+            )
             .category(Category::Bits)
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise xor for ints."
+        "Performs bitwise xor for ints or binary."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -42,15 +71,41 @@ impl Command for BitsXor {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let target: i64 = call.req(engine_state, stack, 0)?;
-        // This doesn't match explicit nulls
+        let target: Value = call.req(engine_state, stack, 0)?;
+        let endian = call.get_flag::<Value>(engine_state, stack, "endian")?;
+
+        let little_endian = match endian {
+            Some(val) => {
+                let span = val.span();
+                match val {
+                    Value::String { val, .. } => match val.as_str() {
+                        "native" => cfg!(target_endian = "little"),
+                        "little" => true,
+                        "big" => false,
+                        _ => {
+                            return Err(ShellError::TypeMismatch {
+                                err_message: "Endian must be one of native, little, big"
+                                    .to_string(),
+                                span,
+                            })
+                        }
+                    },
+                    _ => false,
+                }
+            }
+            None => cfg!(target_endian = "little"),
+        };
+
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(
-            move |value| operate(value, target, head),
-            engine_state.ctrlc.clone(),
-        )
+
+        let args = Arguments {
+            target,
+            little_endian,
+        };
+
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,24 +123,72 @@ impl Command for BitsXor {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Apply logical xor to binary data",
+                example: "0x[ca fe] | bits xor 0x[ba be]",
+                result: Some(Value::test_binary(vec![0x70, 0x40])),
+            },
+            Example {
+                description:
+                    "Apply logical xor to binary data of varying lengths with specified endianness",
+                example: "0x[ca fe] | bits xor 0x[aa] --endian big",
+                result: Some(Value::test_binary(vec![0x60, 0xfe])),
+            },
         ]
     }
 }
 
-fn operate(value: Value, target: i64, head: Span) -> Value {
-    let span = value.span();
-    match value {
-        Value::Int { val, .. } => Value::int(val ^ target, span),
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => value,
-        other => Value::error(
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+    let Arguments {
+        target,
+        little_endian,
+    } = args;
+    match (input, target) {
+        (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Value::int(lhs ^ rhs, span),
+        (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+            let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
+                (max, min) if max > min => (lhs, rhs, max, min),
+                (min, max) => (rhs, lhs, min, max),
+            };
+
+            let pad = iter::repeat(0).take(max_len - min_len);
+
+            let mut a;
+            let mut b;
+
+            let padded: &mut dyn Iterator<Item = u8> = if *little_endian {
+                a = pad.chain(rhs.iter().copied());
+                &mut a
+            } else {
+                b = rhs.iter().copied().chain(pad);
+                &mut b
+            };
+
+            let bytes = lhs.iter().copied().zip(padded);
+
+            let val: Vec<u8> = bytes.map(|(l, r)| l ^ r).collect();
+
+            Value::binary(val, span)
+        }
+        (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
+            Value::error(
+                ShellError::PipelineMismatch {
+                    exp_input_type: "input, and argument, to be both int or both binary"
+                        .to_string(),
+                    dst_span: target.span(),
+                    src_span: span,
+                },
+                span,
+            )
+        }
+        (other, Value::Int { .. } | Value::Binary { .. }) | (_, other) => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int".into(),
+                exp_input_type: "int or binary".into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: head,
-                src_span: other.span(),
+                dst_span: other.span(),
+                src_span: span,
             },
-            head,
+            span,
         ),
     }
 }
