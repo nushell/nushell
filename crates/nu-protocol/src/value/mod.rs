@@ -356,11 +356,14 @@ impl Value {
     /// - `String`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
+    ///
+    /// Prefer [`coerce_into_string`](Self::coerce_into_string)
+    /// if you do not need to keep the original `Value` around.
     pub fn coerce_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.to_string()),
+            Value::String { val, .. } => Ok(val.clone()),
             Value::Binary { val, .. } => match std::str::from_utf8(val) {
                 Ok(s) => Ok(s.to_string()),
                 Err(_) => self.cant_convert_to("string"),
@@ -370,10 +373,32 @@ impl Value {
         }
     }
 
+    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
+    pub fn coerce_into_string(self) -> Result<String, ShellError> {
+        let span = self.span();
+        match self {
+            Value::Int { val, .. } => Ok(val.to_string()),
+            Value::Float { val, .. } => Ok(val.to_string()),
+            Value::String { val, .. } => Ok(val),
+            Value::Binary { val, .. } => match String::from_utf8(val) {
+                Ok(s) => Ok(s),
+                Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
+            },
+            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+            val => val.cant_convert_to("string"),
+        }
+    }
+
     /// Returns this `Value` as a `char` or an error if it is not a single character string
     pub fn as_char(&self) -> Result<char, ShellError> {
         let span = self.span();
-
         if let Value::String { val, .. } = self {
             let mut chars = val.chars();
             match (chars.next(), chars.next()) {
@@ -496,10 +521,26 @@ impl Value {
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Binary`
     /// - `String`
+    ///
+    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
+    /// if you do not need to keep the original `Value` around.
     pub fn coerce_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.as_bytes()),
+            val => val.cant_convert_to("binary"),
+        }
+    }
+
+    /// Returns this `Value` as a `Vec<u8>` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Binary`
+    /// - `String`
+    pub fn coerce_into_binary(self) -> Result<Vec<u8>, ShellError> {
+        match self {
+            Value::Binary { val, .. } => Ok(val),
+            Value::String { val, .. } => Ok(val.into_bytes()),
             val => val.cant_convert_to("binary"),
         }
     }
