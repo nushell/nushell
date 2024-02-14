@@ -13,7 +13,7 @@ pub use and::BitsAnd;
 pub use bits_::Bits;
 pub use into::BitsInto;
 pub use not::BitsNot;
-use nu_protocol::Value;
+use nu_protocol::{ShellError, Value};
 pub use or::BitsOr;
 pub use rotate_left::BitsRol;
 pub use rotate_right::BitsRor;
@@ -109,29 +109,62 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
     }
 }
 
-fn binary_op<F>(lhs: &Vec<u8>, rhs: &Vec<u8>, little_endian: bool, f: F) -> Vec<u8>
+fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F) -> Value
 where
-    F: Fn((u8, u8)) -> u8,
+    F: Fn((i64, i64)) -> i64,
 {
-    let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
-        (max, min) if max > min => (lhs, rhs, max, min),
-        (min, max) => (rhs, lhs, min, max),
-    };
+    let span = lhs.span();
+    match (lhs, rhs) {
+        (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+            Value::int(f((*lhs, *rhs)), span)
+        }
+        (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+            let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
+                (max, min) if max > min => (lhs, rhs, max, min),
+                (min, max) => (rhs, lhs, min, max),
+            };
 
-    let pad = iter::repeat(0).take(max_len - min_len);
+            let pad = iter::repeat(0).take(max_len - min_len);
 
-    let mut a;
-    let mut b;
+            let mut a;
+            let mut b;
 
-    let padded: &mut dyn Iterator<Item = u8> = if little_endian {
-        a = pad.chain(rhs.iter().copied());
-        &mut a
-    } else {
-        b = rhs.iter().copied().chain(pad);
-        &mut b
-    };
+            let padded: &mut dyn Iterator<Item = u8> = if little_endian {
+                a = pad.chain(rhs.iter().copied());
+                &mut a
+            } else {
+                b = rhs.iter().copied().chain(pad);
+                &mut b
+            };
 
-    let bytes = lhs.iter().copied().zip(padded);
+            let bytes: Vec<u8> = lhs
+                .iter()
+                .copied()
+                .zip(padded)
+                .map(|(lhs, rhs)| f((lhs as i64, rhs as i64)) as u8)
+                .collect();
 
-    bytes.map(f).collect()
+            Value::binary(bytes, span)
+        }
+        (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
+            Value::error(
+                ShellError::PipelineMismatch {
+                    exp_input_type: "input, and argument, to be both int or both binary"
+                        .to_string(),
+                    dst_span: rhs.span(),
+                    src_span: span,
+                },
+                span,
+            )
+        }
+        (other, Value::Int { .. } | Value::Binary { .. }) | (_, other) => Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int or binary".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: other.span(),
+                src_span: span,
+            },
+            span,
+        ),
+    }
 }

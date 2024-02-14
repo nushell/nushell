@@ -1,25 +1,13 @@
 use super::binary_op;
-use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
 pub struct BitsAnd;
-
-struct Arguments {
-    target: Value,
-    little_endian: bool,
-}
-
-impl CmdArgument for Arguments {
-    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
-        None
-    }
-}
 
 impl Command for BitsAnd {
     fn name(&self) -> &str {
@@ -99,12 +87,10 @@ impl Command for BitsAnd {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
 
-        let args = Arguments {
-            target,
-            little_endian,
-        };
-
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        input.map(
+            move |value| binary_op(&value, &target, little_endian, |(l, r)| l & r),
+            engine_state.ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -143,39 +129,6 @@ impl Command for BitsAnd {
                 result: Some(Value::test_binary(vec![0xc0, 0x00, 0x00])),
             },
         ]
-    }
-}
-
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
-    let Arguments {
-        target,
-        little_endian,
-    } = args;
-    match (input, target) {
-        (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Value::int(lhs & rhs, span),
-        (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
-            Value::binary(binary_op(lhs, rhs, *little_endian, |(l, r)| l & r), span)
-        }
-        (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
-            Value::error(
-                ShellError::PipelineMismatch {
-                    exp_input_type: "input, and argument, to be both int or both binary"
-                        .to_string(),
-                    dst_span: target.span(),
-                    src_span: span,
-                },
-                span,
-            )
-        }
-        (other, Value::Int { .. } | Value::Binary { .. }) | (_, other) => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int or binary".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: other.span(),
-                src_span: span,
-            },
-            span,
-        ),
     }
 }
 
