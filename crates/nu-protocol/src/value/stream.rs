@@ -189,7 +189,7 @@ pub struct ListStream {
 
 impl ListStream {
     pub fn into_string(self, separator: &str, config: &Config) -> String {
-        self.map(|x: Value| x.to_formatted_string(", ", config))
+        self.map(|x: Value| x.to_expanded_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
     }

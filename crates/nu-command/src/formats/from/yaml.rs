@@ -293,8 +293,8 @@ mod test {
                 );
             } else {
                 assert_eq!(
-                    actual.unwrap().to_formatted_string("", &config),
-                    tc.expected.unwrap().to_formatted_string("", &config)
+                    actual.unwrap().to_expanded_string("", &config),
+                    tc.expected.unwrap().to_expanded_string("", &config)
                 );
             }
         }

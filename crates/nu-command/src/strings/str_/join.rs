@@ -59,7 +59,7 @@ impl Command for StrJoin {
                     return Err(*error);
                 }
                 Value::Date { val, .. } => format!("{val:?}"),
-                value => value.to_formatted_string("\n", config),
+                value => value.to_expanded_string("\n", config),
             };
             strings.push(str);
         }

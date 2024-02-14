@@ -319,7 +319,7 @@ impl PipelineData {
     pub fn collect_string(self, separator: &str, config: &Config) -> Result<String, ShellError> {
         match self {
             PipelineData::Empty => Ok(String::new()),
-            PipelineData::Value(v, ..) => Ok(v.to_formatted_string(separator, config)),
+            PipelineData::Value(v, ..) => Ok(v.to_expanded_string(separator, config)),
             PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(String::new()),
             PipelineData::ExternalStream {
@@ -783,9 +783,9 @@ impl PipelineData {
                 is_err = true;
                 format_error(&working_set, &*error)
             } else if no_newline {
-                item.to_formatted_string("", config)
+                item.to_expanded_string("", config)
             } else {
-                item.to_formatted_string("\n", config)
+                item.to_expanded_string("\n", config)
             };
 
             if !no_newline {

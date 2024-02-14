@@ -287,7 +287,7 @@ fn format_record(
                     .collect();
                 match data_as_value.clone().follow_cell_path(&path_members, false) {
                     Ok(value_at_column) => {
-                        output.push_str(value_at_column.to_formatted_string(", ", config).as_str())
+                        output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
                     }
                     Err(se) => return Err(se),
                 }

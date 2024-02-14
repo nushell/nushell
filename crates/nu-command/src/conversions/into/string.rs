@@ -204,11 +204,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::String { val, .. } => Value::string(val.to_string(), span),
 
         Value::Filesize { val: _, .. } => {
-            Value::string(input.to_formatted_string(", ", config), span)
+            Value::string(input.to_expanded_string(", ", config), span)
         }
-        Value::Duration { val: _, .. } => {
-            Value::string(input.to_formatted_string("", config), span)
-        }
+        Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
 
         Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
         Value::Nothing { .. } => Value::string("".to_string(), span),

@@ -318,7 +318,7 @@ mod tests {
             Span::test_data(),
         );
         let config = nu_protocol::Config::default();
-        let out = item.to_formatted_string("\n", &config);
+        let out = item.to_expanded_string("\n", &config);
         assert_eq!("[[Coffee]]".to_string(), out)
     }
 

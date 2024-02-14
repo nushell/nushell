@@ -693,7 +693,7 @@ impl Value {
     ///
     /// This functions recurses into records and lists,
     /// returning a string that contains the stringified form of all nested `Value`s.
-    pub fn to_formatted_string(&self, separator: &str, config: &Config) -> String {
+    pub fn to_expanded_string(&self, separator: &str, config: &Config) -> String {
         let span = self.span();
         match self {
             Value::Bool { val, .. } => val.to_string(),
@@ -718,8 +718,8 @@ impl Value {
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.to_formatted_string(", ", config),
-                    val.to.to_formatted_string(", ", config)
+                    val.from.to_expanded_string(", ", config),
+                    val.to.to_expanded_string(", ", config)
                 )
             }
             Value::String { val, .. } => val.clone(),
@@ -727,21 +727,21 @@ impl Value {
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
-                    .map(|x| x.to_formatted_string(", ", config))
+                    .map(|x| x.to_expanded_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::Record { val, .. } => format!(
                 "{{{}}}",
                 val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.to_formatted_string(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.to_expanded_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::LazyRecord { val, .. } => val
                 .collect()
                 .unwrap_or_else(|err| Value::error(err, span))
-                .to_formatted_string(separator, config),
+                .to_expanded_string(separator, config),
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
@@ -790,7 +790,7 @@ impl Value {
                 .collect()
                 .unwrap_or_else(|err| Value::error(err, span))
                 .to_abbreviated_string(config),
-            val => val.to_formatted_string(", ", config),
+            val => val.to_expanded_string(", ", config),
         }
     }
 
@@ -872,7 +872,7 @@ impl Value {
                     .join(separator)
             ),
             // defer to standard handling for types where standard representation is parsable
-            _ => self.to_formatted_string(separator, config),
+            _ => self.to_expanded_string(separator, config),
         }
     }
 
@@ -3846,7 +3846,7 @@ mod tests {
                 NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ))
-            .to_formatted_string("", &Default::default());
+            .to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
@@ -3860,7 +3860,7 @@ mod tests {
                 NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ))
-            .to_formatted_string("", &Default::default());
+            .to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.

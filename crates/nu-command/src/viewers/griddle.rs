@@ -114,7 +114,7 @@ prints out the list properly."#
                 let mut items = vec![];
 
                 for (i, (c, v)) in val.into_iter().enumerate() {
-                    items.push((i, c, v.to_formatted_string(", ", config)))
+                    items.push((i, c, v.to_expanded_string(", ", config)))
                 }
 
                 Ok(create_grid_output(
@@ -272,7 +272,7 @@ fn convert_to_list(
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.to_formatted_string(", ", config))
+                row.push(item.to_expanded_string(", ", config))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match &item {
@@ -285,7 +285,7 @@ fn convert_to_list(
                             if let Value::Error { error, .. } = item {
                                 return Err(*error);
                             }
-                            row.push(value.to_formatted_string(", ", config));
+                            row.push(value.to_expanded_string(", ", config));
                         }
                         None => row.push(String::new()),
                     }

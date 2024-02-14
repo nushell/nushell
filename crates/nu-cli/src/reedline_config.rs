@@ -94,7 +94,7 @@ pub(crate) fn add_menus(
         if !config
             .menus
             .iter()
-            .any(|menu| menu.name.to_formatted_string("", config) == name)
+            .any(|menu| menu.name.to_expanded_string("", config) == name)
         {
             let (block, _) = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
@@ -133,7 +133,7 @@ fn add_menu(
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
     if let Value::Record { val, .. } = &menu.menu_type {
-        let layout = extract_value("layout", val, span)?.to_formatted_string("", config);
+        let layout = extract_value("layout", val, span)?.to_expanded_string("", config);
 
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
@@ -181,7 +181,7 @@ pub(crate) fn add_columnar_menu(
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
-    let name = menu.name.to_formatted_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
     if let Value::Record { val, .. } = &menu.menu_type {
@@ -254,7 +254,7 @@ pub(crate) fn add_columnar_menu(
         );
     }
 
-    let marker = menu.marker.to_formatted_string("", config);
+    let marker = menu.marker.to_expanded_string("", config);
     columnar_menu = columnar_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -294,7 +294,7 @@ pub(crate) fn add_list_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    let name = menu.name.to_formatted_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
     let span = menu.menu_type.span();
@@ -336,7 +336,7 @@ pub(crate) fn add_list_menu(
         );
     }
 
-    let marker = menu.marker.to_formatted_string("", config);
+    let marker = menu.marker.to_expanded_string("", config);
     list_menu = list_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -377,7 +377,7 @@ pub(crate) fn add_ide_menu(
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
-    let name = menu.name.to_formatted_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut ide_menu = IdeMenu::default().with_name(&name);
 
     if let Value::Record { val, .. } = &menu.menu_type {
@@ -562,7 +562,7 @@ pub(crate) fn add_ide_menu(
         );
     }
 
-    let marker = menu.marker.to_formatted_string("", config);
+    let marker = menu.marker.to_expanded_string("", config);
     ide_menu = ide_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -602,7 +602,7 @@ pub(crate) fn add_description_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    let name = menu.name.to_formatted_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
     let span = menu.menu_type.span();
@@ -676,7 +676,7 @@ pub(crate) fn add_description_menu(
         );
     }
 
-    let marker = menu.marker.to_formatted_string("", config);
+    let marker = menu.marker.to_expanded_string("", config);
     description_menu = description_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -858,7 +858,7 @@ fn add_parsed_keybinding(
 ) -> Result<(), ShellError> {
     let modifier = match keybinding
         .modifier
-        .to_formatted_string("", config)
+        .to_expanded_string("", config)
         .to_ascii_lowercase()
         .as_str()
     {
@@ -883,7 +883,7 @@ fn add_parsed_keybinding(
 
     let keycode = match keybinding
         .keycode
-        .to_formatted_string("", config)
+        .to_expanded_string("", config)
         .to_ascii_lowercase()
         .as_str()
     {
@@ -975,7 +975,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
         Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
             EventType::Send(value) => event_from_record(
                 value
-                    .to_formatted_string("", config)
+                    .to_expanded_string("", config)
                     .to_ascii_lowercase()
                     .as_str(),
                 record,
@@ -986,7 +986,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
             EventType::Edit(value) => {
                 let edit = edit_from_record(
                     value
-                        .to_formatted_string("", config)
+                        .to_expanded_string("", config)
                         .to_ascii_lowercase()
                         .as_str(),
                     record,
@@ -1085,11 +1085,11 @@ fn event_from_record(
         "openeditor" => ReedlineEvent::OpenEditor,
         "menu" => {
             let menu = extract_value("name", record, span)?;
-            ReedlineEvent::Menu(menu.to_formatted_string("", config))
+            ReedlineEvent::Menu(menu.to_expanded_string("", config))
         }
         "executehostcommand" => {
             let cmd = extract_value("cmd", record, span)?;
-            ReedlineEvent::ExecuteHostCommand(cmd.to_formatted_string("", config))
+            ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
         v => {
             return Err(ShellError::UnsupportedConfigValue {
@@ -1194,7 +1194,7 @@ fn edit_from_record(
         }
         "insertstring" => {
             let value = extract_value("value", record, span)?;
-            EditCommand::InsertString(value.to_formatted_string("", config))
+            EditCommand::InsertString(value.to_expanded_string("", config))
         }
         "insertnewline" => EditCommand::InsertNewline,
         "backspace" => EditCommand::Backspace,
@@ -1295,7 +1295,7 @@ fn edit_from_record(
 fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
     let span = value.span();
     value
-        .to_formatted_string("", config)
+        .to_expanded_string("", config)
         .chars()
         .next()
         .ok_or_else(|| ShellError::MissingConfigValue {

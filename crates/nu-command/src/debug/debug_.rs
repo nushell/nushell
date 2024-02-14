@@ -46,7 +46,7 @@ impl Command for Debug {
                 if raw {
                     Value::string(x.to_debug_string(), head)
                 } else {
-                    Value::string(x.to_formatted_string(", ", &config), head)
+                    Value::string(x.to_expanded_string(", ", &config), head)
                 }
             },
             engine_state.ctrlc.clone(),

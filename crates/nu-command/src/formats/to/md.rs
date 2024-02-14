@@ -120,12 +120,12 @@ fn fragment(input: Value, pretty: bool, config: &Config) -> String {
                 };
 
                 out.push_str(&markup);
-                out.push_str(&data.to_formatted_string("|", config));
+                out.push_str(&data.to_expanded_string("|", config));
             }
             _ => out = table(input.into_pipeline_data(), pretty, config),
         }
     } else {
-        out = input.to_formatted_string("|", config)
+        out = input.to_expanded_string("|", config)
     }
 
     out.push('\n');
@@ -168,7 +168,7 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
                         .get(&headers[i])
                         .cloned()
                         .unwrap_or_else(|| Value::nothing(span))
-                        .to_formatted_string(", ", config);
+                        .to_expanded_string(", ", config);
                     let new_column_width = value_string.len();
 
                     escaped_row.push(value_string);
@@ -215,7 +215,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
                 .or_insert_with(|| vec![val.clone()]);
         } else {
             lists
-                .entry(val.to_formatted_string(",", config))
+                .entry(val.to_expanded_string(",", config))
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         }

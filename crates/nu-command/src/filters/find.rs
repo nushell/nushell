@@ -271,7 +271,7 @@ where
     I: IntoIterator<Item = &'a Value>,
 {
     values.into_iter().any(|v| {
-        re.is_match(v.to_formatted_string(" ", config).as_str())
+        re.is_match(v.to_expanded_string(" ", config).as_str())
             .unwrap_or(false)
     })
 }
@@ -284,13 +284,13 @@ fn highlight_terms_in_string(
     string_style: Style,
     highlight_style: Style,
 ) -> Value {
-    let val_str = val.to_formatted_string("", config);
+    let val_str = val.to_expanded_string("", config);
 
     if let Some(term) = terms
         .iter()
-        .find(|term| contains_ignore_case(&val_str, &term.to_formatted_string("", config)))
+        .find(|term| contains_ignore_case(&val_str, &term.to_expanded_string("", config)))
     {
-        let term_str = term.to_formatted_string("", config);
+        let term_str = term.to_expanded_string("", config);
         let highlighted_str =
             highlight_search_string(&val_str, &term_str, &string_style, &highlight_style)
                 .unwrap_or_else(|_| string_style.paint(&term_str).to_string());
@@ -314,7 +314,7 @@ fn highlight_terms_in_record_with_search_columns(
     let col_select = !search_cols.is_empty();
     let term_strs: Vec<_> = terms
         .iter()
-        .map(|v| v.to_formatted_string("", config))
+        .map(|v| v.to_expanded_string("", config))
         .collect();
 
     // TODO: change API to mutate in place
@@ -324,7 +324,7 @@ fn highlight_terms_in_record_with_search_columns(
         if col_select && !search_cols.contains(col) {
             continue;
         }
-        let val_str = val.to_formatted_string("", config);
+        let val_str = val.to_expanded_string("", config);
         let Some(term_str) = term_strs
             .iter()
             .find(|term_str| contains_ignore_case(&val_str, term_str))
@@ -363,7 +363,7 @@ fn find_with_rest_and_highlight(
     let terms = call.rest::<Value>(&engine_state, stack, 0)?;
     let lower_terms = terms
         .iter()
-        .map(|v| Value::string(v.to_formatted_string("", &config).to_lowercase(), span))
+        .map(|v| Value::string(v.to_expanded_string("", &config).to_lowercase(), span))
         .collect::<Vec<Value>>();
 
     let style_computer = StyleComputer::from_config(&engine_state, stack);
@@ -469,10 +469,10 @@ fn find_with_rest_and_highlight(
 
                                 for line in val.split(split_char) {
                                     for term in lower_terms.iter() {
-                                        let term_str = term.to_formatted_string("", &filter_config);
+                                        let term_str = term.to_expanded_string("", &filter_config);
                                         let lower_val = line.to_lowercase();
                                         if lower_val.contains(
-                                            &term.to_formatted_string("", &config).to_lowercase(),
+                                            &term.to_expanded_string("", &config).to_lowercase(),
                                         ) {
                                             output.push(Value::string(
                                                 highlight_search_string(
@@ -517,7 +517,7 @@ fn value_should_be_printed(
     invert: bool,
 ) -> bool {
     let lower_value = Value::string(
-        value.to_formatted_string("", filter_config).to_lowercase(),
+        value.to_expanded_string("", filter_config).to_lowercase(),
         span,
     );
 
@@ -583,7 +583,7 @@ fn record_matches_term(
         }
         let lower_val = if !val.is_error() {
             Value::string(
-                val.to_formatted_string("", filter_config).to_lowercase(),
+                val.to_expanded_string("", filter_config).to_lowercase(),
                 Span::test_data(),
             )
         } else {
