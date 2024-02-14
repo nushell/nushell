@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -50,13 +50,10 @@ impl Command for Source {
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
         let block = engine_state.get_block(block_id as usize).clone();
 
-        let eval_fn = if stack.debugger.is_some() {
-            eval_block_with_early_return::<WithDebug>
-        } else {
-            eval_block_with_early_return::<WithoutDebug>
-        };
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(engine_state, call.head)?;
 
-        eval_fn(
+        eval_block_with_early_return(
             engine_state,
             stack,
             &block,

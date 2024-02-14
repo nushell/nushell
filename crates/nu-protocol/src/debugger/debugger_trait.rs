@@ -1,6 +1,6 @@
 use crate::ast::PipelineElement;
 use crate::engine::EngineState;
-use crate::{PipelineData, ShellError};
+use crate::{PipelineData, ShellError, Span, Value};
 use std::fmt::Debug;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
@@ -8,14 +8,14 @@ use std::sync::{Arc, Mutex};
 /// Trait for static dispatching of eval_xxx() and debugger callback calls
 pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
-    fn enter_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn enter_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {}
 
     #[allow(unused_variables)]
-    fn leave_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn leave_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {}
 
     #[allow(unused_variables)]
     fn leave_element(
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
+        debugger: &Arc<Mutex<Box<dyn Debugger>>>,
         engine_state: &EngineState,
         input: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
@@ -23,7 +23,7 @@ pub trait DebugContext: Clone + Copy + Debug {
     }
 
     #[allow(unused_variables)]
-    fn enter_element(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn enter_element(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {}
 }
 
 /// Marker struct signalizing that evaluation should use a Debugger
@@ -32,49 +32,29 @@ pub struct WithDebug;
 
 // TODO: Remove unwraps
 impl DebugContext for WithDebug {
-    fn enter_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
-        debugger
-            .as_ref()
-            .unwrap()
-            .lock()
-            .unwrap()
-            .deref_mut()
-            .enter_block();
+    fn enter_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {
+        debugger.lock().unwrap().deref_mut().enter_block();
     }
 
-    fn leave_block(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
-        debugger
-            .as_ref()
-            .unwrap()
-            .lock()
-            .unwrap()
-            .deref_mut()
-            .leave_block();
+    fn leave_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {
+        debugger.lock().unwrap().deref_mut().leave_block();
     }
 
     fn leave_element(
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
+        debugger: &Arc<Mutex<Box<dyn Debugger>>>,
         engine_state: &EngineState,
         input: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
     ) {
         debugger
-            .as_ref()
-            .unwrap()
             .lock()
             .unwrap()
             .deref_mut()
             .leave_element(engine_state, input, element);
     }
 
-    fn enter_element(debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
-        debugger
-            .as_ref()
-            .unwrap()
-            .lock()
-            .unwrap()
-            .deref_mut()
-            .enter_element();
+    fn enter_element(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {
+        debugger.lock().unwrap().deref_mut().enter_element();
     }
 }
 
@@ -88,6 +68,10 @@ impl DebugContext for WithoutDebug {}
 ///
 /// By default, its callbacks are empty.
 pub trait Debugger: Send + Debug {
+    fn should_debug(&self) -> bool {
+        true
+    }
+
     fn enter_block(&mut self) {}
     fn leave_block(&mut self) {}
 
@@ -100,10 +84,18 @@ pub trait Debugger: Send + Debug {
     ) {
     }
     fn enter_element(&mut self) {}
+
+    fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
+        Ok(Value::nothing(profiler_span))
+    }
 }
 
 /// Noop debugger doing nothing, should not interfere with normal flow in any way.
 #[derive(Debug)]
 pub struct NoopDebugger;
 
-impl Debugger for NoopDebugger {}
+impl Debugger for NoopDebugger {
+    fn should_debug(&self) -> bool {
+        false
+    }
+}

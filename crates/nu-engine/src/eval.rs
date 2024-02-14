@@ -1,6 +1,6 @@
 use crate::{current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
-use nu_protocol::debugger::{DebugContext, Debugger, WithoutDebug};
+use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::{
     ast::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
@@ -387,7 +387,7 @@ fn eval_element_with_input<D: DebugContext>(
     redirect_stderr: bool,
     stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    D::enter_element(&stack.debugger);
+    D::enter_element(&engine_state.debugger);
 
     let result = match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input::<D>(
@@ -609,7 +609,7 @@ fn eval_element_with_input<D: DebugContext>(
         ),
     };
 
-    D::leave_element(&stack.debugger, &engine_state, &result, element);
+    D::leave_element(&engine_state.debugger, &engine_state, &result, element);
 
     result
 }
@@ -659,7 +659,7 @@ pub fn eval_block<D: DebugContext>(
         }
     }
 
-    D::enter_block(&stack.debugger);
+    D::enter_block(&engine_state.debugger);
 
     let num_pipelines = block.len();
 
@@ -781,7 +781,7 @@ pub fn eval_block<D: DebugContext>(
         }
     }
 
-    D::leave_block(&stack.debugger);
+    D::leave_block(&engine_state.debugger);
 
     Ok(input)
 }
@@ -1182,5 +1182,67 @@ impl Eval for EvalRuntime {
 
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span))
+    }
+}
+
+pub fn get_eval_block_with_early_return(
+    engine_state: &EngineState,
+    span: Span,
+) -> Result<
+    fn(
+        &EngineState,
+        &mut Stack,
+        &Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
+    ShellError,
+> {
+    if let Ok(debugger) = engine_state.debugger.lock() {
+        Ok(if debugger.should_debug() {
+            eval_block_with_early_return::<WithDebug>
+        } else {
+            eval_block_with_early_return::<WithoutDebug>
+        })
+    } else {
+        Err(ShellError::GenericError {
+            error: "Internal Error: Could not lock debugger".to_string(),
+            msg: "Could not lock debugger".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
+    }
+}
+
+pub fn get_eval_block(
+    engine_state: &EngineState,
+    span: Span,
+) -> Result<
+    fn(
+        &EngineState,
+        &mut Stack,
+        &Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
+    ShellError,
+> {
+    if let Ok(debugger) = engine_state.debugger.lock() {
+        Ok(if debugger.should_debug() {
+            eval_block::<WithDebug>
+        } else {
+            eval_block::<WithoutDebug>
+        })
+    } else {
+        Err(ShellError::GenericError {
+            error: "Internal Error: Could not lock debugger".to_string(),
+            msg: "Could not lock debugger".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
     }
 }

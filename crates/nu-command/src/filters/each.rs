@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -115,19 +115,8 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // run_each!(engine_state, stack, call, input, WithoutDebug, &None)
-
-        // let debug_context = if stack.debugger.is_some() {
-        //     WithDebug
-        // } else {
-        //     WithoutDebug
-        // };
-
-        let eval_fn = if stack.debugger.is_some() {
-            eval_block_with_early_return::<WithDebug>
-        } else {
-            eval_block_with_early_return::<WithoutDebug>
-        };
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(engine_state, call.head)?;
 
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
@@ -165,7 +154,7 @@ with 'transpose' first."#
 
                     let input_span = x.span();
                     let x_is_error = x.is_error();
-                    match eval_fn(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -213,7 +202,7 @@ with 'transpose' first."#
                     let input_span = x.span();
                     let x_is_error = x.is_error();
 
-                    match eval_fn(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -240,7 +229,7 @@ with 'transpose' first."#
                     }
                 }
 
-                eval_fn(
+                eval_block_with_early_return(
                     &engine_state,
                     &mut stack,
                     &block,

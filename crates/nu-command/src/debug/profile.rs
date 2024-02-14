@@ -5,6 +5,8 @@ use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
+use std::any::Any;
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -66,14 +68,10 @@ impl Command for DebugProfile {
             .get_flag(engine_state, caller_stack, "max-depth")?
             .unwrap_or(default_max_depth);
 
-        let profiler = Arc::new(Mutex::new(Profiler::new(
-            max_depth,
-            !no_collect_spans,
-            collect_source,
-            collect_values,
-        )));
+        let profiler = Profiler::new(max_depth, !no_collect_spans, collect_source, collect_values);
 
-        callee_stack.with_debugger(profiler.clone());
+        // TODO unwrap
+        *engine_state.debugger.lock().unwrap() = Box::new(profiler);
 
         let result = eval_block_with_early_return::<WithDebug>(
             engine_state,
@@ -94,7 +92,14 @@ impl Command for DebugProfile {
         }
 
         // TODO unwrap
-        let res = profiler.lock().unwrap().report(call.span());
+        // TODO: Make report() Profiler-only
+        let res = engine_state
+            .debugger
+            .lock()
+            .unwrap()
+            .deref()
+            .deref()
+            .report(call.span());
 
         res.and_then(|val| Ok(val.into_pipeline_data()))
     }

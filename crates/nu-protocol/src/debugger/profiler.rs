@@ -6,7 +6,7 @@ use crate::{PipelineData, ShellError, Span, Value};
 use std::collections::HashMap;
 use std::time::Instant;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ProfilerInfo {
     depth: i64,
     element_span: Span,
@@ -14,7 +14,7 @@ struct ProfilerInfo {
 }
 
 /// Basic profiler
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Profiler {
     depth: i64,
     max_depth: i64,
@@ -43,58 +43,6 @@ impl Profiler {
             collect_source,
             collect_values,
         }
-    }
-
-    pub fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
-        let rows: Vec<Value> = self
-            .element_durations_sec
-            .iter()
-            .map(|(info, duration_sec)| {
-                let dur_us = duration_sec * 1e6;
-                let mut cols = vec!["depth".to_string()];
-                let mut vals = vec![Value::int(info.depth, profiler_span)];
-
-                if self.collect_spans {
-                    cols.push("span".to_string());
-                    // TODO unwrap
-                    let span_start = info.element_span.start.try_into().unwrap();
-                    let span_end = info.element_span.end.try_into().unwrap();
-                    vals.push(Value::record(
-                        Record::from_raw_cols_vals(
-                            vec!["start".into(), "end".into()],
-                            vec![
-                                Value::int(span_start, profiler_span),
-                                Value::int(span_end, profiler_span),
-                            ],
-                        ),
-                        profiler_span,
-                    ));
-                }
-
-                if self.collect_source {
-                    cols.push("source".into());
-                    // TODO: unwrap
-                    let val = self
-                        .source_fragments
-                        .get(&(info.element_span.start, info.element_span.end))
-                        .unwrap();
-                    vals.push(Value::string(val, profiler_span));
-                }
-
-                if let Some(val) = &info.element_input {
-                    cols.push("output".into());
-                    vals.push(val.clone());
-                }
-
-                cols.push("duration_us".to_string());
-                vals.push(Value::float(dur_us, profiler_span));
-
-                let record = Record::from_raw_cols_vals(cols, vals);
-                Value::record(record, profiler_span)
-            })
-            .collect();
-
-        Ok(Value::list(rows, profiler_span))
     }
 }
 
@@ -166,5 +114,57 @@ impl Debugger for Profiler {
 
         self.element_durations_sec
             .push((info, start.elapsed().as_secs_f64()));
+    }
+
+    fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
+        let rows: Vec<Value> = self
+            .element_durations_sec
+            .iter()
+            .map(|(info, duration_sec)| {
+                let dur_us = duration_sec * 1e6;
+                let mut cols = vec!["depth".to_string()];
+                let mut vals = vec![Value::int(info.depth, profiler_span)];
+
+                if self.collect_spans {
+                    cols.push("span".to_string());
+                    // TODO unwrap
+                    let span_start = info.element_span.start.try_into().unwrap();
+                    let span_end = info.element_span.end.try_into().unwrap();
+                    vals.push(Value::record(
+                        Record::from_raw_cols_vals(
+                            vec!["start".into(), "end".into()],
+                            vec![
+                                Value::int(span_start, profiler_span),
+                                Value::int(span_end, profiler_span),
+                            ],
+                        ),
+                        profiler_span,
+                    ));
+                }
+
+                if self.collect_source {
+                    cols.push("source".into());
+                    // TODO: unwrap
+                    let val = self
+                        .source_fragments
+                        .get(&(info.element_span.start, info.element_span.end))
+                        .unwrap();
+                    vals.push(Value::string(val, profiler_span));
+                }
+
+                if let Some(val) = &info.element_input {
+                    cols.push("output".into());
+                    vals.push(val.clone());
+                }
+
+                cols.push("duration_us".to_string());
+                vals.push(Value::float(dur_us, profiler_span));
+
+                let record = Record::from_raw_cols_vals(cols, vals);
+                Value::record(record, profiler_span)
+            })
+            .collect();
+
+        Ok(Value::list(rows, profiler_span))
     }
 }

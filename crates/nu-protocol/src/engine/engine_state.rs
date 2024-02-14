@@ -4,9 +4,10 @@ use lru::LruCache;
 use super::{usage::build_usage, usage::Usage, StateDelta};
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::ast::Block;
+use crate::debugger::{Debugger, NoopDebugger};
 use crate::{
     BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
+    PipelineData, ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, Value};
 use std::borrow::Borrow;
@@ -103,6 +104,7 @@ pub struct EngineState {
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
+    pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
     startup_time: i64,
 }
 
@@ -160,6 +162,7 @@ impl EngineState {
             ))),
             is_interactive: false,
             is_login: false,
+            debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             startup_time: -1,
         }
     }

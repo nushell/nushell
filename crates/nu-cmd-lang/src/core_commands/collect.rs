@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{get_eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::{Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -59,13 +59,9 @@ impl Command for Collect {
             }
         }
 
-        let eval_fn = if stack.debugger.is_some() {
-            eval_block::<WithDebug>
-        } else {
-            eval_block::<WithoutDebug>
-        };
+        let eval_block = get_eval_block(engine_state, call.head)?;
 
-        let result = eval_fn(
+        let result = eval_block(
             engine_state,
             &mut stack_captures,
             &block,
