@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::*;
 
@@ -47,7 +47,50 @@ impl Command for CastDF {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Cast a column in a dataframe to a different dtype",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr cast u8 a | dfr schema",
+                result: Some(Value::record(
+                    Record::from_raw_cols_vals_unchecked(
+                        vec!["a".to_string(), "b".to_string()],
+                        vec![
+                            Value::string("u8", Span::test_data()),
+                            Value::string("i64", Span::test_data()),
+                        ],
+                    ),
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Cast a column in a lazy dataframe to a different dtype",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr into-lazy | dfr cast u8 a | dfr schema",
+                result: Some(Value::record(
+                    Record::from_raw_cols_vals_unchecked(
+                        vec!["a".to_string(), "b".to_string()],
+                        vec![
+                            Value::string("u8", Span::test_data()),
+                            Value::string("i64", Span::test_data()),
+                        ],
+                    ),
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Cast a column in a expression to a different dtype",
+                example: r#"[[a b]; [1 2] [1 4]] | dfr into-df | dfr group-by a | dfr agg [ (dfr col b | dfr cast u8 |  dfr min | dfr as "b_min") ] | dfr schema"#,
+                result: Some(Value::record(
+                    Record::from_raw_cols_vals_unchecked(
+                        vec!["a".to_string(), "b_min".to_string()],
+                        vec![
+                            Value::string("i64", Span::test_data()),
+                            Value::string("u8", Span::test_data()),
+                        ],
+                    ),
+                    Span::test_data()
+                )),
+            }
+        ]
     }
 
     fn run(
@@ -162,6 +205,7 @@ fn command_eager(
 
 #[cfg(test)]
 mod test {
+
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
 
