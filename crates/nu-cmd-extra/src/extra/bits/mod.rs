@@ -157,6 +157,8 @@ where
                 span,
             )
         }
+        // Propagate errors by explicitly matching them before the final case.
+        (e @ Value::Error { .. }, _) | (_, e @ Value::Error { .. }) => e.clone(),
         (other, Value::Int { .. } | Value::Binary { .. }) | (_, other) => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),

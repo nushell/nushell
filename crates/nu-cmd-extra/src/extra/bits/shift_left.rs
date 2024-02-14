@@ -202,6 +202,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
 
             Value::binary(bytes, span)
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),

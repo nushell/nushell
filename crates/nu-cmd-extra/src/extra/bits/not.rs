@@ -190,6 +190,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary { val, .. } => {
             Value::binary(val.iter().copied().map(|b| !b).collect::<Vec<_>>(), span)
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),
