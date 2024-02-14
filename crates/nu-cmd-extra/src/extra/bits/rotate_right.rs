@@ -65,7 +65,7 @@ impl Command for BitsRor {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise rotate right for ints or binary."
+        "Bitwise rotate right for ints or binary values."
     }
 
     fn search_terms(&self) -> Vec<&str> {

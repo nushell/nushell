@@ -1,3 +1,4 @@
+use super::binary_op;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
@@ -5,7 +6,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::iter;
 
 #[derive(Clone)]
 pub struct BitsXor;
@@ -56,7 +56,7 @@ impl Command for BitsXor {
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise xor for ints or binary."
+        "Performs bitwise xor for ints or binary values."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -116,7 +116,7 @@ impl Command for BitsXor {
                 result: Some(Value::test_int(0)),
             },
             Example {
-                description: "Apply logical xor to a list of numbers",
+                description: "Apply bitwise xor to a list of numbers",
                 example: "[8 3 2] | bits xor 2",
                 result: Some(Value::list(
                     vec![Value::test_int(10), Value::test_int(1), Value::test_int(0)],
@@ -124,13 +124,13 @@ impl Command for BitsXor {
                 )),
             },
             Example {
-                description: "Apply logical xor to binary data",
+                description: "Apply bitwise xor to binary data",
                 example: "0x[ca fe] | bits xor 0x[ba be]",
                 result: Some(Value::test_binary(vec![0x70, 0x40])),
             },
             Example {
                 description:
-                    "Apply logical xor to binary data of varying lengths with specified endianness",
+                    "Apply bitwise xor to binary data of varying lengths with specified endianness",
                 example: "0x[ca fe] | bits xor 0x[aa] --endian big",
                 result: Some(Value::test_binary(vec![0x60, 0xfe])),
             },
@@ -146,29 +146,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match (input, target) {
         (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Value::int(lhs ^ rhs, span),
         (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
-            let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
-                (max, min) if max > min => (lhs, rhs, max, min),
-                (min, max) => (rhs, lhs, min, max),
-            };
-
-            let pad = iter::repeat(0).take(max_len - min_len);
-
-            let mut a;
-            let mut b;
-
-            let padded: &mut dyn Iterator<Item = u8> = if *little_endian {
-                a = pad.chain(rhs.iter().copied());
-                &mut a
-            } else {
-                b = rhs.iter().copied().chain(pad);
-                &mut b
-            };
-
-            let bytes = lhs.iter().copied().zip(padded);
-
-            let val: Vec<u8> = bytes.map(|(l, r)| l ^ r).collect();
-
-            Value::binary(val, span)
+            Value::binary(binary_op(lhs, rhs, *little_endian, |(l, r)| l ^ r), span)
         }
         (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
             Value::error(

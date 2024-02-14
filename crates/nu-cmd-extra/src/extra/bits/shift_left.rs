@@ -66,7 +66,7 @@ impl Command for BitsShl {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift left for ints or binary."
+        "Bitwise shift left for ints or binary values."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -1,3 +1,4 @@
+use super::binary_op;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
@@ -5,7 +6,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::iter;
 
 #[derive(Clone)]
 pub struct BitsAnd;
@@ -55,7 +55,7 @@ impl Command for BitsAnd {
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise and for ints or binary."
+        "Performs bitwise and for ints or binary values."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -110,17 +110,17 @@ impl Command for BitsAnd {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Apply logical and to two numbers",
+                description: "Apply bitwise and to two numbers",
                 example: "2 | bits and 2",
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Apply logical and to two binary values",
+                description: "Apply bitwise and to two binary values",
                 example: "0x[ab cd] | bits and 0x[99 99]",
                 result: Some(Value::test_binary([0x89, 0x89])),
             },
             Example {
-                description: "Apply logical and to a list of numbers",
+                description: "Apply bitwise and to a list of numbers",
                 example: "[4 3 2] | bits and 2",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
@@ -129,7 +129,7 @@ impl Command for BitsAnd {
                 ])),
             },
             Example {
-                description: "Apply logical and to a list of binary data",
+                description: "Apply bitwise and to a list of binary data",
                 example: "[0x[7f ff] 0x[ff f0]] | bits and 0x[99 99]",
                 result: Some(Value::test_list(vec![
                     Value::test_binary([0x19, 0x99]),
@@ -138,7 +138,7 @@ impl Command for BitsAnd {
             },
             Example {
                 description:
-                    "Apply logical and to binary data of varying lengths with specified endianness",
+                    "Apply bitwise and to binary data of varying lengths with specified endianness",
                 example: "0x[c0 ff ee] | bits and 0x[ff] --endian big",
                 result: Some(Value::test_binary(vec![0xc0, 0x00, 0x00])),
             },
@@ -154,27 +154,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match (input, target) {
         (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Value::int(lhs & rhs, span),
         (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
-            let max_len = lhs.len().max(rhs.len());
-            let min_len = lhs.len().min(rhs.len());
-
-            let bytes = lhs.iter().copied().zip(rhs.iter().copied());
-
-            let pad = iter::repeat((0, 0)).take(max_len - min_len);
-
-            let mut a;
-            let mut b;
-
-            let padded: &mut dyn Iterator<Item = (u8, u8)> = if *little_endian {
-                a = pad.chain(bytes);
-                &mut a
-            } else {
-                b = bytes.chain(pad);
-                &mut b
-            };
-
-            let val: Vec<u8> = padded.map(|(l, r)| l & r).collect();
-
-            Value::binary(val, span)
+            Value::binary(binary_op(lhs, rhs, *little_endian, |(l, r)| l & r), span)
         }
         (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
             Value::error(

@@ -21,6 +21,8 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
+use std::iter;
+
 #[derive(Clone, Copy)]
 enum NumberBytes {
     One,
@@ -105,4 +107,31 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
             NumberBytes::Invalid => InputNumType::Four,
         }
     }
+}
+
+fn binary_op<F>(lhs: &Vec<u8>, rhs: &Vec<u8>, little_endian: bool, f: F) -> Vec<u8>
+where
+    F: Fn((u8, u8)) -> u8,
+{
+    let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
+        (max, min) if max > min => (lhs, rhs, max, min),
+        (min, max) => (rhs, lhs, min, max),
+    };
+
+    let pad = iter::repeat(0).take(max_len - min_len);
+
+    let mut a;
+    let mut b;
+
+    let padded: &mut dyn Iterator<Item = u8> = if little_endian {
+        a = pad.chain(rhs.iter().copied());
+        &mut a
+    } else {
+        b = rhs.iter().copied().chain(pad);
+        &mut b
+    };
+
+    let bytes = lhs.iter().copied().zip(padded);
+
+    bytes.map(f).collect()
 }
