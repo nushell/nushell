@@ -689,10 +689,12 @@ impl Value {
         }
     }
 
-    /// Convert Value into string. Note that Streams will be consumed.
+    /// Converts this `Value` to a string according to the given [`Config`] and separator
+    ///
+    /// This functions recurses into records and lists,
+    /// returning a string that contains the stringified form of all nested `Value`s.
     pub fn to_formatted_string(&self, separator: &str, config: &Config) -> String {
         let span = self.span();
-
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
@@ -736,16 +738,10 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::LazyRecord { val, .. } => {
-                let collected = match val.collect() {
-                    Ok(val) => val,
-                    Err(error) => Value::Error {
-                        error: Box::new(error),
-                        internal_span: span,
-                    },
-                };
-                collected.to_formatted_string(separator, config)
-            }
+            Value::LazyRecord { val, .. } => val
+                .collect()
+                .unwrap_or_else(|err| Value::error(err, span))
+                .to_formatted_string(separator, config),
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
@@ -756,27 +752,20 @@ impl Value {
         }
     }
 
-    /// Convert Value into string. Note that Streams will be consumed.
+    /// Converts this `Value` to a string according to the given [`Config`]
+    ///
+    /// This functions does not recurse into records and lists.
+    /// Instead, it will shorten the first list or record it finds like so:
+    /// - "[table {n} rows]"
+    /// - "[list {n} items]"
+    /// - "[record {n} fields]"
     pub fn to_abbreviated_string(&self, config: &Config) -> String {
+        let span = self.span();
         match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_table_format {
                 Some(format) => self.format_datetime(val, format),
                 None => HumanTime::from(*val).to_string(),
             },
-            Value::Range { val, .. } => {
-                format!(
-                    "{}..{}",
-                    val.from.to_formatted_string(", ", config),
-                    val.to.to_formatted_string(", ", config)
-                )
-            }
-            Value::String { val, .. } => val.to_string(),
-            Value::QuotedString { val, .. } => val.to_string(),
             Value::List { ref vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
                     format!(
@@ -797,17 +786,11 @@ impl Value {
                 val.len(),
                 if val.len() == 1 { "" } else { "s" }
             ),
-            Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.to_abbreviated_string(config),
-                Err(error) => format!("{error:?}"),
-            },
-            Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error, .. } => format!("{error:?}"),
-            Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.to_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
+            Value::LazyRecord { val, .. } => val
+                .collect()
+                .unwrap_or_else(|err| Value::error(err, span))
+                .to_abbreviated_string(config),
+            val => val.to_formatted_string(", ", config),
         }
     }
 
@@ -839,7 +822,10 @@ impl Value {
         formatter_buf
     }
 
-    /// Convert Value into a debug string
+    /// Convert this `Value` to a debug string
+    ///
+    /// In general, this function should only be used for debug purposes,
+    /// and the resulting string should not be displayed to the user (not even in an error).
     pub fn to_debug_string(&self) -> String {
         match self {
             Value::String { val, .. } => {
@@ -857,14 +843,19 @@ impl Value {
         }
     }
 
-    /// Convert Value into a parsable string (quote strings)
-    /// bugbug other, rarer types not handled
-
+    /// Converts this `Value` to a string according to the given [`Config`] and separator
+    ///
+    /// This function adds quotes around strings,
+    /// so that the returned string can be parsed by nushell.
+    /// The other `Value` cases are already parsable when converted strings
+    /// or are not yet handled by this function.
+    ///
+    /// This functions behaves like [`to_formatted_string`](Self::to_formatted_string)
+    /// and will recurse into records and lists.
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
             Value::String { val, .. } => format!("'{}'", val),
-
             // recurse back into this function for recursive formatting
             Value::List { vals: val, .. } => format!(
                 "[{}]",
@@ -880,7 +871,6 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-
             // defer to standard handling for types where standard representation is parsable
             _ => self.to_formatted_string(separator, config),
         }
