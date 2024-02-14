@@ -689,19 +689,6 @@ impl Value {
         }
     }
 
-    // Convert Value into String, but propagate errors.
-    pub fn nonerror_into_string(
-        &self,
-        separator: &str,
-        config: &Config,
-    ) -> Result<String, ShellError> {
-        if let Value::Error { error, .. } = self {
-            Err(*error.to_owned())
-        } else {
-            Ok(self.to_formatted_string(separator, config))
-        }
-    }
-
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn to_formatted_string(&self, separator: &str, config: &Config) -> String {
         let span = self.span();
