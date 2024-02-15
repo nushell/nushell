@@ -95,7 +95,7 @@ uu_mktemp = "0.0.23"
 uuid = { version = "1.6", features = ["v4"] }
 v_htmlescape = "0.15.0"
 wax = { version = "0.6" }
-which = { version = "5.0", optional = true }
+which = { version = "6.0", optional = true }
 bracoxide = "0.1.2"
 chardetng = "0.1.17"
 
