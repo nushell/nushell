@@ -1308,6 +1308,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// Lists are not automatically spread when calling external commands
+    ///
+    /// ## Resolution
+    ///
+    /// Use the spread operator (put a '...' before the argument)
+    #[error("Lists are not automatically spread when calling external commands")]
+    #[diagnostic(
+        code(nu::shell::cannot_pass_list_to_external),
+        help("Either convert the list to a string or use the spread operator, like so: ...{arg}")
+    )]
+    CannotPassListToExternal {
+        arg: String,
+        #[label = "Spread operator (...) is necessary to spread lists"]
+        span: Span,
+    },
+
     /// Out of bounds.
     ///
     /// ## Resolution

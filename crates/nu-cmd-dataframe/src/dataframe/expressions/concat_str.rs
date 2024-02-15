@@ -86,7 +86,7 @@ impl Command for ExprConcatStr {
         let value: Value = call.req(engine_state, stack, 1)?;
 
         let expressions = NuExpression::extract_exprs(value)?;
-        let expr: NuExpression = concat_str(expressions, &separator).into();
+        let expr: NuExpression = concat_str(expressions, &separator, false).into();
 
         Ok(PipelineData::Value(expr.into_value(call.head), None))
     }
