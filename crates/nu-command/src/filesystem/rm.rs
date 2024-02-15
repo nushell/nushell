@@ -128,6 +128,13 @@ fn rm(
 
     let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
 
+    if paths.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "requires file paths".to_string(),
+            span: call.head,
+        });
+    }
+
     let mut unique_argument_check = None;
 
     let currentdir_path = current_dir(engine_state, stack)?;

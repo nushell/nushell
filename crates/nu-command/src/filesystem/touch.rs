@@ -68,6 +68,13 @@ impl Command for Touch {
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let files: Vec<String> = call.rest(engine_state, stack, 0)?;
 
+        if files.is_empty() {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires file paths".to_string(),
+                span: call.head,
+            });
+        }
+
         let mut date: Option<DateTime<Local>> = None;
         let mut ref_date_atime: Option<DateTime<Local>> = None;
 
