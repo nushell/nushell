@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::*;
 
@@ -52,13 +52,10 @@ impl Command for CastDF {
                 description: "Cast a column in a dataframe to a different dtype",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr cast u8 a | dfr schema",
                 result: Some(Value::record(
-                    Record::from_raw_cols_vals_unchecked(
-                        vec!["a".to_string(), "b".to_string()],
-                        vec![
-                            Value::string("u8", Span::test_data()),
-                            Value::string("i64", Span::test_data()),
-                        ],
-                    ),
+                    record! {
+                        "a" => Value::string("u8", Span::test_data()),
+                        "b" => Value::string("i64", Span::test_data()),
+                    },
                     Span::test_data(),
                 )),
             },
@@ -66,13 +63,10 @@ impl Command for CastDF {
                 description: "Cast a column in a lazy dataframe to a different dtype",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr into-lazy | dfr cast u8 a | dfr schema",
                 result: Some(Value::record(
-                    Record::from_raw_cols_vals_unchecked(
-                        vec!["a".to_string(), "b".to_string()],
-                        vec![
-                            Value::string("u8", Span::test_data()),
-                            Value::string("i64", Span::test_data()),
-                        ],
-                    ),
+                    record! {
+                        "a" => Value::string("u8", Span::test_data()),
+                        "b" => Value::string("i64", Span::test_data()),
+                    },
                     Span::test_data(),
                 )),
             },
