@@ -147,17 +147,25 @@ impl Command for Reject {
                 })),
             },
             Example {
-                description: "Reject multiple columns",
-                example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject type size",
-                result: Some(Value::test_list(vec![
-                    Value::test_record(record! {"name" => Value::test_string("Cargo.toml")}),
-                    Value::test_record(record! {"name" => Value::test_string("Cargo.lock")}),
-                ])),
-            },
-            Example {
                 description: "Reject multiple rows",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject 0 2",
                 result: None,
+            },
+            Example {
+                description: "Reject multiple columns",
+                example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject type size",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
+                ])),
+            },
+            Example {
+                description: "Reject multiple columns by spreading a list",
+                example: "let cols = [type size]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ...$cols",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
+                ])),
             },
         ]
     }

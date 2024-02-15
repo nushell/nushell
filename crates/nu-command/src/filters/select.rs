@@ -140,8 +140,28 @@ produce a table, a list will produce a list, and a record will produce a record.
                 description: "Select multiple columns",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select name type",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")}),
-                    Value::test_record(record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")}),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Cargo.toml"),
+                        "type" => Value::test_string("toml"),
+                    }),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Cargo.lock"),
+                        "type" => Value::test_string("toml")
+                    }),
+                ]))
+            },
+            Example {
+                description: "Select multiple columns by spreading a list",
+                example: r#"let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Cargo.toml"),
+                        "type" => Value::test_string("toml")
+                    }),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Cargo.lock"),
+                        "type" => Value::test_string("toml")
+                    }),
                 ]))
             },
         ]
