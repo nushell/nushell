@@ -362,8 +362,8 @@ pub(crate) fn run_repl_wrapped(
         run_repl(engine_state, parsed_nu_cli_args.clone(), entire_start_time)
     })) {
         Ok(r) => r,
-        Err(e) => {
-            println!("Error: {:?}", e);
+        Err(_) => {
+            eprintln!("Caught panic, restarting REPL");
             run_repl_wrapped(engine_state, parsed_nu_cli_args, entire_start_time)
         }
     }
