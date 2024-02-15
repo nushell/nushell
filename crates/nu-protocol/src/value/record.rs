@@ -534,8 +534,8 @@ impl ExactSizeIterator for Drain<'_> {
 
 #[macro_export]
 macro_rules! record {
-    // Safety: the macro only compiles if the number of columns equals the number of values,
-    // so it's ok to use `from_raw_cols_vals_unchecked`.
+    // The macro only compiles if the number of columns equals the number of values,
+    // so it's safe to call `unwrap` below.
     {$($col:expr => $val:expr),+ $(,)?} => {
         $crate::Record::from_raw_cols_vals(
             ::std::vec![$($col.into(),)+],
