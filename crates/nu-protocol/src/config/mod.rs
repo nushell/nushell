@@ -130,7 +130,7 @@ impl Default for Config {
             enable_external_completion: true,
             max_external_completion_results: 100,
             external_completer: None,
-            use_ls_colors_completions: false,
+            use_ls_colors_completions: true,
 
             filesize_metric: false,
             filesize_format: "auto".into(),

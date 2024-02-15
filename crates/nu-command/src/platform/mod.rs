@@ -1,7 +1,6 @@
 mod ansi;
 mod clear;
 mod dir_info;
-mod du;
 mod input;
 mod is_terminal;
 mod kill;
@@ -14,7 +13,6 @@ mod whoami;
 pub use ansi::{Ansi, AnsiLink, AnsiStrip};
 pub use clear::Clear;
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
-pub use du::Du;
 pub use input::Input;
 pub use input::InputList;
 pub use input::InputListen;
