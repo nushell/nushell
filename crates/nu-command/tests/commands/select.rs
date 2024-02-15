@@ -249,20 +249,20 @@ fn select_on_empty_list_returns_empty_list() {
 }
 
 #[test]
-fn select_columns_with_variable_list() {
+fn select_columns_with_list_spread() {
     let actual = nu!(r#"
         let columns = [a c];
-        echo [[a b c]; [1 2 3]] | select $columns | to nuon
+        echo [[a b c]; [1 2 3]] | select ...$columns | to nuon
         "#);
 
     assert_eq!(actual.out, "[[a, c]; [1, 3]]");
 }
 
 #[test]
-fn select_rows_with_variable_list() {
+fn select_rows_with_list_spread() {
     let actual = nu!(r#"
         let rows = [0 2];
-        echo [[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select $rows | to nuon
+        echo [[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ...$rows | to nuon
         "#);
 
     assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [7, 8, 9]]");
@@ -270,7 +270,7 @@ fn select_rows_with_variable_list() {
 
 #[test]
 fn select_single_row_with_variable() {
-    let actual = nu!("let idx = 2;[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select $idx | to nuon");
+    let actual = nu!("let idx = 2; [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select $idx | to nuon");
 
     assert_eq!(actual.out, "[[a]; [3]]".to_string());
     assert!(actual.err.is_empty());
