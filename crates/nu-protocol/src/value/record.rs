@@ -26,18 +26,6 @@ impl Record {
         }
     }
 
-    /// Unsafely create a [`Record`] from a `Vec` of columns and a `Vec` of [`Value`]s
-    ///
-    /// For perf reasons, this will not validate the rest of the record assumptions:
-    /// - unique keys
-    ///
-    /// # Safety
-    /// This function should only be used if `cols` and `vals` have the same length.
-    pub unsafe fn from_raw_cols_vals_unchecked(cols: Vec<String>, vals: Vec<Value>) -> Self {
-        debug_assert_eq!(cols.len(), vals.len());
-        Self { cols, vals }
-    }
-
     /// Create a [`Record`] from a `Vec` of columns and a `Vec` of [`Value`]s
     ///
     /// Returns an error if `cols` and `vals` have different lengths.
@@ -549,11 +537,12 @@ macro_rules! record {
     // Safety: the macro only compiles if the number of columns equals the number of values,
     // so it's ok to use `from_raw_cols_vals_unchecked`.
     {$($col:expr => $val:expr),+ $(,)?} => {
-        {
-            let cols = ::std::vec![$($col.into(),)+];
-            let vals = ::std::vec![$($val,)+];
-            unsafe { $crate::Record::from_raw_cols_vals_unchecked(cols, vals) }
-        }
+        $crate::Record::from_raw_cols_vals(
+            ::std::vec![$($col.into(),)+],
+            ::std::vec![$($val,)+],
+            $crate::Span::unknown(),
+            $crate::Span::unknown(),
+        ).unwrap()
     };
     {} => {
         $crate::Record::new()

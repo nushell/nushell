@@ -4,7 +4,7 @@ mod roll_left;
 mod roll_right;
 mod roll_up;
 
-use nu_protocol::{Record, ShellError, Value};
+use nu_protocol::{ShellError, Value};
 pub use roll_::Roll;
 pub use roll_down::RollDown;
 pub use roll_left::RollLeft;
@@ -70,10 +70,7 @@ fn horizontal_rotate_value(
                 HorizontalDirection::Left => vals.rotate_left(rotations),
             }
 
-            // Safety: cols and vals were obtained from a `Record`, so they must have the same length.
-            // These `Vec`s are only rotated, which means their lengths can not have changed.
-            let record = unsafe { Record::from_raw_cols_vals_unchecked(cols, vals) };
-
+            let record = cols.into_iter().zip(vals).collect();
             Ok(Value::record(record, span))
         }
         Value::List { vals, .. } => {
