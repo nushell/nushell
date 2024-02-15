@@ -135,7 +135,12 @@ impl Command for Touch {
                 }
             }
 
-            if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
+            if let Err(err) = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&item)
+            {
                 return Err(ShellError::CreateNotPossible {
                     msg: format!("Failed to create file: {err}"),
                     span: call
