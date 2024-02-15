@@ -35,6 +35,7 @@ use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
     io::BufReader,
+    panic::{catch_unwind, AssertUnwindSafe},
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -348,6 +349,22 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
+        run_repl_wrapped(&mut engine_state, parsed_nu_cli_args, entire_start_time)
+    }
+}
+
+pub(crate) fn run_repl_wrapped(
+    engine_state: &mut nu_protocol::engine::EngineState,
+    parsed_nu_cli_args: command::NushellCliArgs,
+    entire_start_time: std::time::Instant,
+) -> std::result::Result<(), miette::ErrReport> {
+    match catch_unwind(AssertUnwindSafe(|| {
+        run_repl(engine_state, parsed_nu_cli_args.clone(), entire_start_time)
+    })) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Error: {:?}", e);
+            run_repl_wrapped(engine_state, parsed_nu_cli_args, entire_start_time)
+        }
     }
 }
