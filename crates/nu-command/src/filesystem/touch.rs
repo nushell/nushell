@@ -24,12 +24,8 @@ impl Command for Touch {
 
     fn signature(&self) -> Signature {
         Signature::build("touch")
-            .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
-            .required(
-                "filename",
-                SyntaxShape::Filepath,
-                "The path of the file you want to create.",
-            )
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .rest("files", SyntaxShape::Filepath, "The file(s) to create.")
             .named(
                 "reference",
                 SyntaxShape::String,
@@ -51,7 +47,6 @@ impl Command for Touch {
                 "do not create the file if it does not exist",
                 Some('c'),
             )
-            .rest("rest", SyntaxShape::Filepath, "Additional files to create.")
             .category(Category::FileSystem)
     }
 
@@ -70,8 +65,14 @@ impl Command for Touch {
         let mut change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let reference: Option<Spanned<String>> = call.get_flag(engine_state, stack, "reference")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
-        let target: String = call.req(engine_state, stack, 0)?;
-        let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
+        let files: Vec<String> = call.rest(engine_state, stack, 0)?;
+
+        if files.is_empty() {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires file paths".to_string(),
+                span: call.head,
+            });
+        }
 
         let mut mtime = SystemTime::now();
         let mut atime = SystemTime::now();
@@ -96,7 +97,7 @@ impl Command for Touch {
             atime = metadata.accessed().expect("should have metadata"); // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
         }
 
-        for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
+        for (index, item) in files.into_iter().enumerate() {
             let path = Path::new(&item);
 
             // If --no-create is passed and the file/dir does not exist there's nothing to do
