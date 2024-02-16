@@ -64,7 +64,8 @@ impl Command for Sleep {
             let tsec = tsecs % 60;
 
             let timeout_str = format!("{:02}:{:02}:{:02}", thour, tmin, tsec);
-            if let Ok(style) = indicatif::ProgressStyle::with_template("{wide_bar}[{elapsed_precise} / {msg}]")
+            if let Ok(style) =
+                indicatif::ProgressStyle::with_template("{wide_bar}[{elapsed_precise} / {msg}]")
             {
                 Some(
                     indicatif::ProgressBar::new((total_dur.as_millis() / 10) as u64)
