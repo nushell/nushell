@@ -727,10 +727,10 @@ pub enum ShellError {
     ///
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found))]
+    #[diagnostic(code(nu::shell::file_not_found), help("{file} does not exist"))]
     FileNotFound {
         file: String,
-        #[label("file not found: {file}")]
+        #[label("file not found")]
         span: Span,
     },
 
