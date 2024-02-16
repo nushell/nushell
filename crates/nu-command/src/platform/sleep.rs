@@ -1,4 +1,3 @@
-use indicatif::ProgressBar;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -65,16 +64,16 @@ impl Command for Sleep {
             let tsec = tsecs % 60;
 
             let timeout_str = format!("{:02}:{:02}:{:02}", thour, tmin, tsec);
-            Some(
-                indicatif::ProgressBar::new((total_dur.as_millis() / 10) as u64)
-                    .with_message(timeout_str)
-                    .with_style(
-                        indicatif::ProgressStyle::with_template(
-                            "{wide_bar}[{elapsed_precise} / {msg}]",
-                        )
-                        .unwrap(),
-                    ),
-            )
+            if let Ok(style) = indicatif::ProgressStyle::with_template("{wide_bar}[{elapsed_precise} / {msg}]")
+            {
+                Some(
+                    indicatif::ProgressBar::new((total_dur.as_millis() / 10) as u64)
+                        .with_message(timeout_str)
+                        .with_style(style),
+                )
+            } else {
+                None
+            }
         } else {
             None
         };
