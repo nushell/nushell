@@ -28,6 +28,13 @@ fn test_default_config_path() {
         let _ = fs::create_dir_all(&config_dir_nushell);
     }
     let cwd = std::env::current_dir().expect("Could not get current working directory");
+
+    let canon_config_dir = adjust_canonicalization(
+        std::fs::canonicalize(&config_dir_nushell).expect("canonicalize config dir failed"),
+    );
+    let actual = nu!(cwd: &cwd, "$nu.default-config-dir");
+    assert_eq!(actual.out, canon_config_dir);
+
     let config_path = config_dir_nushell.join("config.nu");
 
     // Create an empty file for canonicalization if it doesn't already exist
@@ -54,6 +61,42 @@ fn test_default_config_path() {
     );
     let actual = nu!(cwd: &cwd, "$nu.env-path");
     assert_eq!(actual.out, canon_env_path);
+
+    let history_path = config_dir_nushell.join("history.txt");
+    // Create an empty file for canonicalization if it doesn't already exist
+    if !history_path.exists() {
+        let _ = std::fs::File::create(&history_path);
+    }
+    let canon_history_path = adjust_canonicalization(
+        std::fs::canonicalize(history_path).expect("canonicalize of history-path failed"),
+    );
+    let actual = nu!(cwd: &cwd, "$nu.history-path");
+    assert_eq!(actual.out, canon_history_path);
+
+    let login_path = config_dir_nushell.join("login.nu");
+    // Create an empty file for canonicalization if it doesn't already exist
+    if !login_path.exists() {
+        let _ = std::fs::File::create(&login_path);
+    }
+    let canon_login_path = adjust_canonicalization(
+        std::fs::canonicalize(login_path).expect("canonicalize of loginshell-path failed"),
+    );
+    let actual = nu!(cwd: &cwd, "$nu.loginshell-path");
+    assert_eq!(actual.out, canon_login_path);
+
+    #[cfg(feature = "plugin")]
+    {
+        let plugin_path = config_dir_nushell.join("plugin.nu");
+        // Create an empty file for canonicalization if it doesn't already exist
+        if !plugin_path.exists() {
+            let _ = std::fs::File::create(&plugin_path);
+        }
+        let canon_plugin_path = adjust_canonicalization(
+            std::fs::canonicalize(plugin_path).expect("canonicalize of plugin-path failed"),
+        );
+        let actual = nu!(cwd: &cwd, "$nu.plugin-path");
+        assert_eq!(actual.out, canon_plugin_path);
+    }
 }
 
 #[test]
