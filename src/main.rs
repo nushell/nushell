@@ -296,7 +296,18 @@ fn main() -> Result<()> {
     );
 
     start_time = std::time::Instant::now();
-    let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+    let should_process_stdin_as_script = parsed_nu_cli_args.redirect_stdin.is_some()
+        || (parsed_nu_cli_args.commands.is_none()
+            && script_name.is_empty()
+            && !engine_state.is_interactive);
+    // eprintln!(
+    //     "should_process_stdin_as_script: {}\n{:#?}",
+    //     should_process_stdin_as_script, parsed_nu_cli_args
+    // );
+    // let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+    let input = if should_process_stdin_as_script {
+        // eprintln!("redirect stdin");
+        let redirect_stdin = parsed_nu_cli_args.redirect_stdin.as_ref().unwrap();
         let stdin = std::io::stdin();
         let buf_reader = BufReader::new(stdin);
 
@@ -330,6 +341,7 @@ fn main() -> Result<()> {
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
+        // eprintln!("process commands");
         run_commands(
             &mut engine_state,
             parsed_nu_cli_args,
@@ -339,6 +351,7 @@ fn main() -> Result<()> {
             entire_start_time,
         )
     } else if !script_name.is_empty() {
+        // eprintln!("process script");
         run_file(
             &mut engine_state,
             parsed_nu_cli_args,
@@ -347,7 +360,24 @@ fn main() -> Result<()> {
             args_to_script,
             input,
         )
+    } else if should_process_stdin_as_script && parsed_nu_cli_args.commands.is_none() {
+        // eprintln!("process stdin as a command");
+        let input_span = input.span().unwrap_or_else(Span::unknown);
+        let commands = &nu_protocol::Spanned {
+            item: input.collect_string("", engine_state.get_config())?,
+            span: input_span,
+        };
+        // eprintln!("commands: {:#?}, span: {:#?}", commands.clone(), input_span);
+        run_commands(
+            &mut engine_state,
+            parsed_nu_cli_args,
+            use_color,
+            commands,
+            PipelineData::empty(),
+            entire_start_time,
+        )
     } else {
+        // eprintln!("process repl");
         run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

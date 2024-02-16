@@ -1,3 +1,4 @@
+use atty::Stream;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
@@ -17,6 +18,36 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
     let mut args_to_nushell = Vec::from(["nu".into()]);
     let mut script_name = String::new();
     let mut args = std::env::args();
+
+    // Is there anything being redirected into nushell?
+    if !atty::is(Stream::Stdin) {
+        args_to_nushell.push("--stdin".into());
+    }
+
+    // Above is the only way I could get stdin without consuming it
+    // Below almost worked but when you started nushell normally it
+    // would hang waiting for input
+
+    // Get a handle to stdin
+    // let stdin = std::io::stdin();
+    // let mut stdin_lock = stdin.lock();
+
+    // Peek into stdin without consuming it
+    // let input_available = match stdin_lock.fill_buf() {
+    //     Ok(buf) => !buf.is_empty(),
+    //     Err(_) => false,
+    // };
+    // if input_available {
+    //     args_to_nushell.push("--stdin".into());
+    // }
+
+    // if stdin_lock
+    //     .fill_buf()
+    //     .map(|buf| !buf.is_empty())
+    //     .unwrap_or(false)
+    // {
+    //     args_to_nushell.push("--stdin".into());
+    // }
 
     // Mimic the behaviour of bash/zsh
     if let Some(argv0) = args.next() {
@@ -216,6 +247,7 @@ pub(crate) fn parse_commandline_args(
     std::process::exit(1);
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct NushellCliArgs {
     pub(crate) redirect_stdin: Option<Spanned<String>>,
     pub(crate) login_shell: Option<Spanned<String>>,
