@@ -718,9 +718,8 @@ fn test_nothing_comparison_eq() {
 #[case(b"let a = 1 out> /dev/null", "RedirectionInLetMut")]
 #[case(b"mut a = 1 err> /dev/null", "RedirectionInLetMut")]
 #[case(b"mut a = 1 out> /dev/null", "RedirectionInLetMut")]
-// This two cases cause AssignInPipeline instead of RedirectionInLetMut
-#[case(b"let a = 1 out+err> /dev/null", "AssignInPipeline")]
-#[case(b"mut a = 1 out+err> /dev/null", "AssignInPipeline")]
+#[case(b"let a = 1 out+err> /dev/null", "RedirectionInLetMut")]
+#[case(b"mut a = 1 out+err> /dev/null", "RedirectionInLetMut")]
 fn test_redirection_with_letmut(#[case] phase: &[u8], #[case] expected: &str) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
