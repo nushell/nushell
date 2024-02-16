@@ -173,7 +173,16 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             }
         }
         Value::Binary { val, .. } => {
-            let byte_shift = bits / 8;
+            let Ok(byte_shift): Result<usize, _> = (bits / 8).try_into() else {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!("integer {bits} out of range for bit rotate"),
+                        val_span: input.span(),
+                        call_span: span,
+                    },
+                    span,
+                );
+            };
             let bit_rotate = bits % 8;
             let mut bytes = val
                 .iter()
@@ -181,7 +190,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 .circular_tuple_windows::<(u8, u8)>()
                 .map(|(lhs, rhs)| (lhs >> bit_rotate) | (rhs << (8 - bit_rotate)))
                 .collect::<Vec<u8>>();
-            bytes.rotate_right(byte_shift as usize);
+            bytes.rotate_right(byte_shift);
 
             Value::binary(bytes, span)
         }

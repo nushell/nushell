@@ -164,12 +164,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             }
         }
         Value::Binary { val, .. } => {
-            let byte_shift = bits / 8;
+            let Ok(byte_shift): Result<usize, _> = (bits / 8).try_into() else {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!("integer {bits} out of range for bit shift"),
+                        val_span: input.span(),
+                        call_span: span,
+                    },
+                    span,
+                );
+            };
             let bit_shift = bits % 8;
             let len = val.len();
             use itertools::Position::*;
             let bytes = iter::repeat(0)
-                .take(byte_shift as usize)
+                .take(byte_shift)
                 .chain(
                     val.iter()
                         .copied()
@@ -179,7 +188,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                             First | Only => lhs >> bit_shift,
                             _ => (lhs >> bit_shift) | (rhs << bit_shift),
                         })
-                        .take(len - byte_shift as usize),
+                        .take(len - byte_shift),
                 )
                 .collect::<Vec<u8>>();
 
