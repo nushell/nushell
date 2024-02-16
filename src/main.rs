@@ -54,6 +54,7 @@ fn get_engine_state() -> EngineState {
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
     let mut start_time = std::time::Instant::now();
+    miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
