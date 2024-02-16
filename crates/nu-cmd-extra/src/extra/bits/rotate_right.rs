@@ -5,6 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Spanned;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -52,12 +53,7 @@ impl Command for BitsRor {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::String,
-                // #9960: named flags cannot accept SyntaxShape::OneOf
-                // SyntaxShape::OneOf(vec![
-                //     SyntaxShape::Int,
-                //     SyntaxShape::String
-                // ]),
+                SyntaxShape::Int,
                 "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
                 Some('n'),
             )
@@ -82,18 +78,10 @@ impl Command for BitsRor {
         let head = call.head;
         let bits: i64 = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Value> = call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_size = get_number_bytes(number_bytes.as_ref());
-        if let NumberBytes::Invalid = number_size {
-            if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    input: "value originates from here".to_string(),
-                    msg_span: head,
-                    input_span: val.span(),
-                });
-            }
-        }
+        let number_bytes: Option<Spanned<i64>> =
+            call.get_flag(engine_state, stack, "number-bytes")?;
+        let number_size = get_number_bytes(number_bytes, head)?;
+
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
@@ -112,16 +100,16 @@ impl Command for BitsRor {
         vec![
             Example {
                 description: "rotate right a number with 2 bits",
-                example: "17 | bits ror 60",
-                result: Some(Value::test_int(272)),
+                example: "17 | bits ror 2",
+                result: Some(Value::test_int(68)),
             },
             Example {
-                description: "rotate right a list of numbers of one byte",
-                example: "[15 33 92] | bits ror 2 --number-bytes '1'",
+                description: "rotate right a list of numbers of two bytes",
+                example: "[15 33 92] | bits ror 2 --number-bytes 2",
                 result: Some(Value::list(
                     vec![
-                        Value::test_int(195),
-                        Value::test_int(72),
+                        Value::test_int(49155),
+                        Value::test_int(16392),
                         Value::test_int(23),
                     ],
                     Span::test_data(),

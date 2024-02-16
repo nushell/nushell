@@ -21,6 +21,7 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
+use nu_protocol::{Span, Spanned};
 use std::iter;
 
 #[derive(Clone, Copy)]
@@ -30,7 +31,6 @@ enum NumberBytes {
     Four,
     Eight,
     Auto,
-    Invalid,
 }
 
 #[derive(Clone, Copy)]
@@ -45,25 +45,22 @@ enum InputNumType {
     SignedEight,
 }
 
-fn get_number_bytes(number_bytes: Option<&Value>) -> NumberBytes {
+fn get_number_bytes(
+    number_bytes: Option<Spanned<i64>>,
+    head: Span,
+) -> Result<NumberBytes, ShellError> {
     match number_bytes {
-        None => NumberBytes::Eight,
-        Some(Value::String { val, .. }) => match val.as_str() {
-            "1" => NumberBytes::One,
-            "2" => NumberBytes::Two,
-            "4" => NumberBytes::Four,
-            "8" => NumberBytes::Eight,
-            "auto" => NumberBytes::Auto,
-            _ => NumberBytes::Invalid,
-        },
-        Some(Value::Int { val, .. }) => match val {
-            1 => NumberBytes::One,
-            2 => NumberBytes::Two,
-            4 => NumberBytes::Four,
-            8 => NumberBytes::Eight,
-            _ => NumberBytes::Invalid,
-        },
-        _ => NumberBytes::Invalid,
+        None => Ok(NumberBytes::Auto),
+        Some(Spanned { item: 1, .. }) => Ok(NumberBytes::One),
+        Some(Spanned { item: 2, .. }) => Ok(NumberBytes::Two),
+        Some(Spanned { item: 4, .. }) => Ok(NumberBytes::Four),
+        Some(Spanned { item: 8, .. }) => Ok(NumberBytes::Eight),
+        Some(Spanned { span, .. }) => Err(ShellError::UnsupportedInput {
+            msg: "Only 1, 2, 4, or 8 bytes are supported as word sizes".to_string(),
+            input: "value originates from here".to_string(),
+            msg_span: head,
+            input_span: span,
+        }),
     }
 }
 
@@ -85,7 +82,6 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
                     InputNumType::SignedEight
                 }
             }
-            NumberBytes::Invalid => InputNumType::SignedFour,
         }
     } else {
         match number_size {
@@ -104,7 +100,6 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
                     InputNumType::Eight
                 }
             }
-            NumberBytes::Invalid => InputNumType::Four,
         }
     }
 }

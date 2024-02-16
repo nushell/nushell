@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -49,12 +49,7 @@ impl Command for BitsNot {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::String,
-                // #9960: named flags cannot accept SyntaxShape::OneOf
-                // SyntaxShape::OneOf(vec![
-                //     SyntaxShape::Int,
-                //     SyntaxShape::String
-                // ]),
+                SyntaxShape::Int,
                 "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",
                 Some('n'),
             )
@@ -78,18 +73,9 @@ impl Command for BitsNot {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Value> = call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_size = get_number_bytes(number_bytes.as_ref());
-        if let NumberBytes::Invalid = number_size {
-            if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    input: "value originates from here".to_string(),
-                    msg_span: head,
-                    input_span: val.span(),
-                });
-            }
-        }
+        let number_bytes: Option<Spanned<i64>> =
+            call.get_flag(engine_state, stack, "number-bytes")?;
+        let number_size = get_number_bytes(number_bytes, head)?;
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -111,9 +97,9 @@ impl Command for BitsNot {
                 example: "[4 3 2] | bits not",
                 result: Some(Value::list(
                     vec![
-                        Value::test_int(140737488355323),
-                        Value::test_int(140737488355324),
-                        Value::test_int(140737488355325),
+                        Value::test_int(251),
+                        Value::test_int(252),
+                        Value::test_int(253),
                     ],
                     Span::test_data(),
                 )),
@@ -121,7 +107,7 @@ impl Command for BitsNot {
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
-                example: "[4 3 2] | bits not --number-bytes '2'",
+                example: "[4 3 2] | bits not --number-bytes 2",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(65531),
@@ -181,8 +167,6 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                             !val & 0x7F_FF_FF_FF_FF_FF
                         }
                     }
-                    // This case shouldn't happen here, as it's handled before
-                    Invalid => 0,
                 };
                 Value::int(out_val, span)
             }

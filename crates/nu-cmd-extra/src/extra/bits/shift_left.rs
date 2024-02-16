@@ -5,6 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Spanned;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -53,12 +54,7 @@ impl Command for BitsShl {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::String,
-                // #9960: named flags cannot accept SyntaxShape::OneOf
-                // SyntaxShape::OneOf(vec![
-                //     SyntaxShape::Int,
-                //     SyntaxShape::String
-                // ]),
+                SyntaxShape::Int,
                 "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
                 Some('n'),
             )
@@ -83,18 +79,10 @@ impl Command for BitsShl {
         let head = call.head;
         let bits: i64 = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Value> = call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_size = get_number_bytes(number_bytes.as_ref());
-        if let NumberBytes::Invalid = number_size {
-            if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    input: "value originates from here".to_string(),
-                    msg_span: head,
-                    input_span: val.span(),
-                });
-            }
-        }
+        let number_bytes: Option<Spanned<i64>> =
+            call.get_flag(engine_state, stack, "number-bytes")?;
+        let number_size = get_number_bytes(number_bytes, head)?;
+
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
@@ -114,17 +102,17 @@ impl Command for BitsShl {
             Example {
                 description: "Shift left a number by 7 bits",
                 example: "2 | bits shl 7",
-                result: Some(Value::test_int(256)),
+                result: Some(Value::test_int(0)),
             },
             Example {
-                description: "Shift left a number with 1 byte by 7 bits",
-                example: "2 | bits shl 7 --number-bytes '1'",
-                result: Some(Value::test_int(0)),
+                description: "Shift left a number with 2 byte by 7 bits",
+                example: "2 | bits shl 7 --number-bytes 2",
+                result: Some(Value::test_int(256)),
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
                 example: "0x7F | bits shl 1 --signed",
-                result: Some(Value::test_int(254)),
+                result: Some(Value::test_int(-2)),
             },
             Example {
                 description: "Shift left a list of numbers",
