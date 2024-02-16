@@ -1,3 +1,4 @@
+use indicatif::ProgressBar;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -28,6 +29,7 @@ impl Command for Sleep {
         Signature::build("sleep")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("duration", SyntaxShape::Duration, "Time to sleep.")
+            .switch("progress", "show progress/countdown bar", Some('p'))
             .rest("rest", SyntaxShape::Duration, "Additional time.")
             .category(Category::Platform)
     }
@@ -55,10 +57,36 @@ impl Command for Sleep {
 
         let ctrlc_ref = &engine_state.ctrlc.clone();
         let start = Instant::now();
+        let should_progress = if matches!(call.has_flag(engine_state, stack, "progress"), Ok(true))
+        {
+            let tsecs = total_dur.as_secs();
+            let thour = tsecs / 3600;
+            let tmin = (tsecs % 3600) / 60;
+            let tsec = tsecs % 60;
+
+            let timeout_str = format!("{:02}:{:02}:{:02}", thour, tmin, tsec);
+            Some(
+                indicatif::ProgressBar::new((total_dur.as_millis() / 10) as u64)
+                    .with_message(timeout_str)
+                    .with_style(
+                        indicatif::ProgressStyle::with_template(
+                            "{wide_bar}[{elapsed_precise} / {msg}]",
+                        )
+                        .unwrap(),
+                    ),
+            )
+        } else {
+            None
+        };
+
         loop {
             thread::sleep(CTRL_C_CHECK_INTERVAL);
-            if start.elapsed() >= total_dur {
+            let time_elapsed = start.elapsed();
+            if time_elapsed >= total_dur {
                 break;
+            }
+            if let Some(ref pb) = should_progress {
+                pb.set_position((time_elapsed.as_millis() / 10) as u64);
             }
 
             if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
