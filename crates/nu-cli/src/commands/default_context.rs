@@ -16,6 +16,7 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
             Commandline,
             History,
             HistorySession,
+            HistoryRemoveItem,
             Keybindings,
             KeybindingsDefault,
             KeybindingsList,
