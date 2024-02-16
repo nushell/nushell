@@ -12,7 +12,7 @@ impl Command for Panic {
     }
 
     fn usage(&self) -> &str {
-        "List the filenames, sizes, and modification times of items in a directory."
+        "Executes a rust panic, useful only for testing."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -21,7 +21,7 @@ impl Command for Panic {
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .optional("msg", SyntaxShape::String, "The glob pattern to use.")
-            .category(Category::Misc)
+            .category(Category::Experimental)
     }
 
     fn run(
