@@ -292,10 +292,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::cant_add_overlay_help), help("{0}"))]
     CantAddOverlayHelp(String, #[label = "cannot add this overlay"] Span),
 
-    #[error("Not found.")]
-    #[diagnostic(code(nu::parser::not_found))]
-    NotFound(#[label = "did not find anything under this name"] Span),
-
     #[error("Duplicate command definition within a block.")]
     #[diagnostic(code(nu::parser::duplicate_command_def))]
     DuplicateCommandDef(#[label = "defined more than once"] Span),
@@ -521,7 +517,6 @@ impl ParseError {
             ParseError::CantRemoveLastOverlay(s) => *s,
             ParseError::CantHideDefaultOverlay(_, s) => *s,
             ParseError::CantAddOverlayHelp(_, s) => *s,
-            ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,
             ParseError::NonUtf8(s) => *s,
