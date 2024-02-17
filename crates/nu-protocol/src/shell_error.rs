@@ -1060,15 +1060,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Non-Unicode input received.
-    ///
-    /// ## Resolution
-    ///
-    /// Check that your path is UTF-8 compatible.
-    #[error("Non-Unicode input received.")]
-    #[diagnostic(code(nu::shell::non_unicode_input))]
-    NonUnicodeInput,
-
     // It should be only used by commands accepts block, and accept inputs from pipeline.
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
