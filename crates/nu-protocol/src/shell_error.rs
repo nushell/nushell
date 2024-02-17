@@ -808,19 +808,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Permission for an operation was denied.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("Permission Denied")]
-    #[diagnostic(code(nu::shell::permission_denied))]
-    PermissionDeniedError {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Out of memory.
     ///
     /// ## Resolution
