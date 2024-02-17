@@ -4,11 +4,13 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Example, PipelineData, Span,
 };
+use sqlparser::ast::With;
 
 use super::eager::{SchemaDF, ToDataFrame};
 use super::expressions::ExprCol;
 use super::lazy::{LazyCollect, ToLazyFrame};
 use nu_cmd_lang::Let;
+use nu_protocol::debugger::WithoutDebug;
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
     if cmds.is_empty() {
@@ -78,7 +80,7 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Exa
 
     let mut stack = Stack::new();
 
-    let result = eval_block(
+    let result = eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,
         &block,
