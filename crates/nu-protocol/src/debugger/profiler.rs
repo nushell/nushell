@@ -1,7 +1,7 @@
 use crate::ast::PipelineElement;
 use crate::debugger::Debugger;
 use crate::engine::EngineState;
-use crate::{Record, record};
+use crate::{record, Record};
 use crate::{PipelineData, ShellError, Span, Value};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -132,12 +132,13 @@ impl Debugger for Profiler {
 
                     row.push(
                         "span",
-                        Value::record(record! {
-                        "start" => Value::int(span_start, profiler_span),
-                        "end" => Value::int(span_end, profiler_span),
-                    },
-                                      profiler_span,
-                        )
+                        Value::record(
+                            record! {
+                                "start" => Value::int(span_start, profiler_span),
+                                "end" => Value::int(span_end, profiler_span),
+                            },
+                            profiler_span,
+                        ),
                     );
                 }
 
@@ -148,17 +149,17 @@ impl Debugger for Profiler {
                         .get(&(info.element_span.start, info.element_span.end))
                         .unwrap();
 
-                    row.push(
-                        "source",
-                        Value::string(val, profiler_span)
-                    );
+                    row.push("source", Value::string(val, profiler_span));
                 }
 
                 if let Some(val) = &info.element_input {
                     row.push("output", val.clone());
                 }
 
-                row.push("duration_us", Value::float(duration_sec * 1e6, profiler_span));
+                row.push(
+                    "duration_us",
+                    Value::float(duration_sec * 1e6, profiler_span),
+                );
 
                 Value::record(row, profiler_span)
             })

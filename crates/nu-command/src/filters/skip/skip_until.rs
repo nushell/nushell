@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, get_eval_block, CallExt};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
@@ -95,6 +95,8 @@ impl Command for SkipUntil {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        let eval_block = get_eval_block(&engine_state, call.head)?;
+
         Ok(input
             .into_iter_strict(span)?
             .skip_while(move |value| {
@@ -102,8 +104,7 @@ impl Command for SkipUntil {
                     stack.add_var(var_id, value.clone());
                 }
 
-                // TODO: DEBUG
-                !eval_block::<WithoutDebug>(
+                !eval_block(
                     &engine_state,
                     &mut stack,
                     &block,

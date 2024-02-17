@@ -1092,9 +1092,8 @@ impl DataSaveJob {
             inner: thread::Builder::new()
                 .name("stderr saver".to_string())
                 .spawn(move || {
-                    // TODO: DEBUG
                     let result =
-                        eval_call::<WithoutDebug>(&engine_state, &mut stack, &save_call, input); // TODO: DEBUG
+                        eval_call::<WithoutDebug>(&engine_state, &mut stack, &save_call, input);
                     if let Err(err) = result {
                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                     }
@@ -1433,19 +1432,71 @@ pub fn get_eval_block(
 pub fn get_eval_expression(
     engine_state: &EngineState,
     span: Span,
-) -> Result<
-    fn(
-        &EngineState,
-        &mut Stack,
-        &Expression
-    ) -> Result<Value, ShellError>,
-    ShellError,
-> {
+) -> Result<fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>, ShellError> {
     if let Ok(debugger) = engine_state.debugger.lock() {
         Ok(if debugger.should_debug() {
             eval_expression::<WithDebug>
         } else {
             eval_expression::<WithoutDebug>
+        })
+    } else {
+        Err(ShellError::GenericError {
+            error: "Internal Error: Could not lock debugger".to_string(),
+            msg: "Could not lock debugger".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
+    }
+}
+
+/// Helper function to fetch `eval_expression_with_input()` with the correct type parameter based
+/// on whether engine_state is configured with or without a debugger.
+pub fn get_eval_expression_with_input(
+    engine_state: &EngineState,
+    span: Span,
+) -> Result<
+    fn(
+        &EngineState,
+        &mut Stack,
+        &Expression,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<(PipelineData, bool), ShellError>,
+    ShellError,
+> {
+    if let Ok(debugger) = engine_state.debugger.lock() {
+        Ok(if debugger.should_debug() {
+            eval_expression_with_input::<WithDebug>
+        } else {
+            eval_expression_with_input::<WithoutDebug>
+        })
+    } else {
+        Err(ShellError::GenericError {
+            error: "Internal Error: Could not lock debugger".to_string(),
+            msg: "Could not lock debugger".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
+    }
+}
+
+/// Helper function to fetch `eval_subexpression()` with the correct type parameter based on whether
+/// engine_state is configured with or without a debugger.
+pub fn get_eval_subexpression(
+    engine_state: &EngineState,
+    span: Span,
+) -> Result<
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>,
+    ShellError,
+> {
+    if let Ok(debugger) = engine_state.debugger.lock() {
+        Ok(if debugger.should_debug() {
+            eval_subexpression::<WithDebug>
+        } else {
+            eval_subexpression::<WithoutDebug>
         })
     } else {
         Err(ShellError::GenericError {

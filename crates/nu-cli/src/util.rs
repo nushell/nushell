@@ -241,7 +241,6 @@ pub fn eval_source(
     }
 
     let b = if allow_return {
-        // TODO: DEBUG
         eval_block_with_early_return::<WithoutDebug>(
             engine_state,
             stack,
@@ -251,7 +250,6 @@ pub fn eval_source(
             false,
         )
     } else {
-        // TODO: DEBUG
         eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false)
     };
 

@@ -147,7 +147,6 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
             }
         }
 
-        // TODO: DEBUG
         let pipeline_result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut stack,

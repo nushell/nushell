@@ -91,6 +91,5 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    // TODO: DEBUG
     eval_block::<WithoutDebug>(engine_state, stack, &block, input, true, true)
 }

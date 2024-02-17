@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, get_eval_block, CallExt};
 use nu_protocol::ast::{Block, Call, CellPath, PathMember};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -135,6 +135,8 @@ fn insert(
 
     let ctrlc = engine_state.ctrlc.clone();
 
+    let eval_block = get_eval_block(&engine_state, call.head)?;
+
     match input {
         PipelineData::Value(mut value, metadata) => {
             if replacement.as_block().is_ok() {
@@ -156,6 +158,7 @@ fn insert(
                                 block,
                                 &cell_path.members,
                                 false,
+                                eval_block,
                             )?;
                         }
                     }
@@ -169,6 +172,7 @@ fn insert(
                             redirect_stderr,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
+                            eval_block,
                         )?;
                     }
                 }
@@ -200,6 +204,8 @@ fn insert(
                     }
                 }
 
+                let eval_block = get_eval_block(&engine_state, call.head)?;
+
                 if path.is_empty() {
                     if replacement.as_block().is_ok() {
                         let span = replacement.span();
@@ -216,8 +222,7 @@ fn insert(
                             }
                         }
 
-                        // TODO: DEBUG
-                        let output = eval_block::<WithoutDebug>(
+                        let output = eval_block(
                             engine_state,
                             &mut stack,
                             block,
@@ -244,6 +249,7 @@ fn insert(
                             redirect_stderr,
                             path,
                             true,
+                            eval_block,
                         )?;
                     } else {
                         value.insert_data_at_cell_path(path, replacement, span)?;
@@ -283,6 +289,7 @@ fn insert(
                             &block,
                             &cell_path.members,
                             false,
+                            eval_block,
                         );
 
                         if let Err(e) = err {
@@ -330,6 +337,14 @@ fn insert_value_by_closure(
     block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
+    eval_block_fn: fn(
+        &EngineState,
+        &mut Stack,
+        &Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
 ) -> Result<(), ShellError> {
     let input_at_path = value.clone().follow_cell_path(cell_path, false);
 
@@ -350,8 +365,7 @@ fn insert_value_by_closure(
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
-    // TODO: DEBUG
-    let output = eval_block::<WithoutDebug>(
+    let output = eval_block_fn(
         engine_state,
         stack,
         block,
@@ -373,6 +387,14 @@ fn insert_single_value_by_closure(
     redirect_stderr: bool,
     cell_path: &[PathMember],
     first_path_member_int: bool,
+    eval_block_fn: fn(
+        &EngineState,
+        &mut Stack,
+        &Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
 ) -> Result<(), ShellError> {
     let span = replacement.span();
     let capture_block = Closure::from_value(replacement)?;
@@ -389,6 +411,7 @@ fn insert_single_value_by_closure(
         block,
         cell_path,
         first_path_member_int,
+        eval_block_fn,
     )
 }
 

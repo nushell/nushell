@@ -93,7 +93,7 @@ use std pwd
     // We need to evaluate the module in order to run the `export-env` blocks.
     let mut stack = Stack::new();
     let pipeline_data = PipelineData::Empty;
-    // TODO: DEBUG
+
     eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,

@@ -116,7 +116,6 @@ pub fn eval_block(
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
-    // TODO: DEBUG
     match nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input, true, true)
     {
         Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),

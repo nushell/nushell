@@ -1,4 +1,7 @@
-use nu_engine::{eval_block, eval_expression_with_input};
+use nu_engine::{
+    eval_block, eval_expression_with_input, get_eval_block, get_eval_expression,
+    get_eval_expression_with_input,
+};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
@@ -53,9 +56,9 @@ impl Command for TimeIt {
 
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
+                let eval_block = get_eval_block(engine_state, call.head)?;
                 let block = engine_state.get_block(block_id);
-                // TODO: DEBUG
-                eval_block::<WithoutDebug>(
+                eval_block(
                     engine_state,
                     stack,
                     block,
@@ -64,8 +67,9 @@ impl Command for TimeIt {
                     call.redirect_stderr,
                 )?
             } else {
-                // TODO: DEBUG
-                eval_expression_with_input::<WithoutDebug>(
+                let eval_expression_with_input =
+                    get_eval_expression_with_input(engine_state, call.head)?;
+                eval_expression_with_input(
                     engine_state,
                     stack,
                     command_to_run,

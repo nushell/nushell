@@ -131,7 +131,6 @@ pub fn evaluate_file(
     if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        // TODO: DEBUG
         let pipeline_data = eval_block::<WithoutDebug>(
             engine_state,
             stack,

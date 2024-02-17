@@ -47,7 +47,6 @@ impl Completer for CustomCompletion {
         let line_pos = pos - offset;
 
         // Call custom declaration
-        // TODO: DEBUG
         let result = eval_call::<WithoutDebug>(
             &self.engine_state,
             &mut self.stack,

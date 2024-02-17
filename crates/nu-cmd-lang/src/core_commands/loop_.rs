@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, get_eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
@@ -34,6 +34,7 @@ impl Command for Loop {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let block: Block = call.req(engine_state, stack, 0)?;
+        let eval_block = get_eval_block(&engine_state, call.head)?;
 
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
@@ -41,8 +42,8 @@ impl Command for Loop {
             }
 
             let block = engine_state.get_block(block.block_id);
-            // TODO: DEBUG
-            match eval_block::<WithoutDebug>(
+
+            match eval_block(
                 engine_state,
                 stack,
                 block,

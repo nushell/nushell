@@ -316,7 +316,6 @@ pub fn nu_repl() {
         let input = PipelineData::empty();
         let config = engine_state.get_config();
 
-        // TODO: DEBUG
         match eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, input, false, false) {
             Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                 Ok(s) => last_output = s,

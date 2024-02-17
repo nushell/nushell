@@ -1,12 +1,12 @@
 use crate::NushellPrompt;
 use log::trace;
-use nu_engine::eval_subexpression;
+use nu_engine::{eval_subexpression, get_eval_subexpression};
 use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, Value,
 };
+use nu_protocol::{report_error, Span};
 use reedline::Prompt;
 
 // Name of environment variable where the prompt could be stored
@@ -36,6 +36,10 @@ fn get_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
+    let Ok(eval_subexpression) = get_eval_subexpression(engine_state, Span::unknown()) else {
+        return None;
+    };
+
     stack
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
@@ -43,13 +47,8 @@ fn get_prompt_string(
                 let block = engine_state.get_block(val.block_id);
                 let mut stack = stack.captures_to_stack(val.captures);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                // TODO: DEBUG
-                let ret_val = eval_subexpression::<WithoutDebug>(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::empty(),
-                );
+                let ret_val =
+                    eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());
                 trace!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),
@@ -67,13 +66,7 @@ fn get_prompt_string(
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                // TODO: DEBUG
-                let ret_val = eval_subexpression::<WithoutDebug>(
-                    engine_state,
-                    stack,
-                    block,
-                    PipelineData::empty(),
-                );
+                let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
                 trace!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),

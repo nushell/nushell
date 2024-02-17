@@ -145,7 +145,6 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    // TODO: DEBUG
     eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,

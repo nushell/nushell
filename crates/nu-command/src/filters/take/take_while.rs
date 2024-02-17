@@ -1,5 +1,4 @@
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -92,6 +91,8 @@ impl Command for TakeWhile {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        let eval_block = get_eval_block(&engine_state, span)?;
+
         Ok(input
             .into_iter_strict(span)?
             .take_while(move |value| {
@@ -99,8 +100,7 @@ impl Command for TakeWhile {
                     stack.add_var(var_id, value.clone());
                 }
 
-                // TODO: DEBUG
-                eval_block::<WithoutDebug>(
+                eval_block(
                     &engine_state,
                     &mut stack,
                     &block,

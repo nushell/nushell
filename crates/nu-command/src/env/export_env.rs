@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{eval_block, get_eval_block, redirect_env, CallExt};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
@@ -40,8 +40,9 @@ impl Command for ExportEnv {
         let block = engine_state.get_block(capture_block.block_id);
         let mut callee_stack = caller_stack.captures_to_stack(capture_block.captures);
 
-        // TODO: DEBUG
-        let _ = eval_block::<WithoutDebug>(
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
+        let _ = eval_block(
             engine_state,
             &mut callee_stack,
             block,

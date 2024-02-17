@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, get_eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
@@ -49,9 +49,9 @@ impl Command for Try {
 
         let try_block = engine_state.get_block(try_block.block_id);
 
-        // TODO: DEBUG
-        let result =
-            eval_block::<WithoutDebug>(engine_state, stack, try_block, input, false, false);
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
+        let result = eval_block(engine_state, stack, try_block, input, false, false);
 
         match result {
             Err(error) => {

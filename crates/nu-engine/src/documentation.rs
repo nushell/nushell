@@ -236,7 +236,6 @@ fn get_documentation(
             }
 
             let mut caller_stack = Stack::new();
-            // TODO: DEBUG
             if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
                 &mut caller_stack,
@@ -349,7 +348,6 @@ fn get_ansi_color_for_component_or_default(
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                // TODO: DEBUG
                 if let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
                     &mut caller_stack,

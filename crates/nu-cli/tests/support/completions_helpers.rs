@@ -196,16 +196,13 @@ pub fn merge_input(
 
     engine_state.merge_delta(delta)?;
 
-    assert!(eval_block(
+    assert!(eval_block::<WithoutDebug>(
         engine_state,
         stack,
         &block,
         PipelineData::Value(Value::nothing(Span::unknown(),), None),
         false,
         false,
-        // TODO: DEBUG
-        WithoutDebug,
-        &None,
     )
     .is_ok());
 

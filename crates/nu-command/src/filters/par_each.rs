@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -143,6 +143,9 @@ impl Command for ParEach {
             vec.into_iter().map(|(_, val)| val)
         };
 
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(&engine_state, call.head)?;
+
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(create_pool(max_threads)?
@@ -166,8 +169,7 @@ impl Command for ParEach {
                             let val_span = x.span();
                             let x_is_error = x.is_error();
 
-                            // TODO: DEBUG
-                            let val = match eval_block_with_early_return::<WithoutDebug>(
+                            let val = match eval_block_with_early_return(
                                 engine_state,
                                 &mut stack,
                                 block,
@@ -207,8 +209,7 @@ impl Command for ParEach {
                             let val_span = x.span();
                             let x_is_error = x.is_error();
 
-                            // TODO: DEBUG
-                            let val = match eval_block_with_early_return::<WithoutDebug>(
+                            let val = match eval_block_with_early_return(
                                 engine_state,
                                 &mut stack,
                                 block,
@@ -247,8 +248,7 @@ impl Command for ParEach {
                         let val_span = x.span();
                         let x_is_error = x.is_error();
 
-                        // TODO: DEBUG
-                        let val = match eval_block_with_early_return::<WithoutDebug>(
+                        let val = match eval_block_with_early_return(
                             engine_state,
                             &mut stack,
                             block,
@@ -293,8 +293,7 @@ impl Command for ParEach {
                             }
                         }
 
-                        // TODO: DEBUG
-                        let val = match eval_block_with_early_return::<WithoutDebug>(
+                        let val = match eval_block_with_early_return(
                             engine_state,
                             &mut stack,
                             block,
@@ -323,8 +322,7 @@ impl Command for ParEach {
                     }
                 }
 
-                // TODO: DEBUG
-                eval_block_with_early_return::<WithoutDebug>(
+                eval_block_with_early_return(
                     engine_state,
                     &mut stack,
                     block,

@@ -1,6 +1,8 @@
 use std::thread;
 
-use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
+use nu_engine::{
+    eval_block_with_early_return, get_eval_block_with_early_return, redirect_env, CallExt,
+};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -118,8 +120,10 @@ impl Command for Do {
             }
         }
 
-        // TODO: DEBUG
-        let result = eval_block_with_early_return::<WithoutDebug>(
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(engine_state, call.head)?;
+
+        let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
             block,

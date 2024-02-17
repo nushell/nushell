@@ -1,7 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::eval_expression;
 use nu_engine::CallExt;
+use nu_engine::{env_to_strings, get_eval_expression};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Call, Expr},
@@ -132,13 +131,14 @@ pub fn create_external_command(
             })
     }
 
+    let eval_expression = get_eval_expression(engine_state, call.head)?;
+
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
     for (arg, spread) in call.rest_iter(1) {
         // TODO: Disallow automatic spreading entirely later. This match block will
         // have to be refactored, and lists will have to be disallowed in the parser too
-        // TODO: DEBUG
-        match eval_expression::<WithoutDebug>(engine_state, stack, arg)? {
+        match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
                 if spread {
                     // turn all the strings in the array into params.

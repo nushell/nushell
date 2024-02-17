@@ -56,7 +56,6 @@ pub fn evaluate_commands(
     }
 
     // Run the block
-    // TODO: DEBUG
     let exit_code =
         match eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false) {
             Ok(pipeline_data) => {

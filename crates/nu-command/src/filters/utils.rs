@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt, get_eval_block};
+use nu_engine::{eval_block, get_eval_block, CallExt};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,

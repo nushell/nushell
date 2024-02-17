@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -157,6 +157,8 @@ fn rename(
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
 
+    let eval_block_with_early_return = get_eval_block_with_early_return(engine_state, call.head)?;
+
     let head_span = call.head;
     input
         .map(
@@ -178,8 +180,7 @@ fn rename(
                                     }
                                 }
 
-                                // TODO: DEBUG
-                                let eval_result = eval_block_with_early_return::<WithoutDebug>(
+                                let eval_result = eval_block_with_early_return(
                                     &engine_state,
                                     &mut stack,
                                     &block,

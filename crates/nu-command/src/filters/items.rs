@@ -1,4 +1,7 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{
+    eval_block_with_early_return, get_eval_block_with_early_return, get_eval_expression_with_input,
+    CallExt,
+};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -55,6 +58,7 @@ impl Command for Items {
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
         let redirect_stderr = call.redirect_stderr;
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state, span)?;
 
         let input_span = input.span().unwrap_or(call.head);
         let run_for_each_item = move |keyval: (String, Value)| -> Option<Value> {
@@ -75,8 +79,7 @@ impl Command for Items {
                 }
             }
 
-            // TODO: DEBUG
-            match eval_block_with_early_return::<WithoutDebug>(
+            match eval_block_with_early_return(
                 &engine_state,
                 &mut stack,
                 &block,
