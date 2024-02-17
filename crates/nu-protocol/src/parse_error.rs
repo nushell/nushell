@@ -245,17 +245,6 @@ pub enum ParseError {
         #[label = "module '{0}' already contains 'main'"] Span,
     ),
 
-    #[error("Invalid module file name")]
-    #[diagnostic(
-        code(nu::parser::invalid_module_file_name),
-        help("File {0} resolves to module name {1} which is the same as the parent module. Either rename the file or, save it as 'mod.nu' to define the parent module.")
-    )]
-    InvalidModuleFileName(
-        String,
-        String,
-        #[label = "submodule can't have the same name as the parent module"] Span,
-    ),
-
     #[error("Can't export alias defined as 'main'.")]
     #[diagnostic(
         code(nu::parser::export_main_alias_not_allowed),
@@ -524,7 +513,6 @@ impl ParseError {
             ParseError::ModuleMissingModNuFile(_, s) => *s,
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
-            ParseError::InvalidModuleFileName(_, _, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
