@@ -3,58 +3,60 @@ use crate::engine::EngineState;
 use crate::{PipelineData, ShellError, Span, Value};
 use std::fmt::Debug;
 use std::ops::DerefMut;
-use std::sync::{Arc, Mutex};
 
 /// Trait for static dispatching of eval_xxx() and debugger callback calls
 pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
-    fn enter_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {}
+    fn enter_block(engine_state: &EngineState) {}
 
     #[allow(unused_variables)]
-    fn leave_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {}
+    fn leave_block(engine_state: &EngineState) {}
+
+    #[allow(unused_variables)]
+    fn enter_element(engine_state: &EngineState) {}
 
     #[allow(unused_variables)]
     fn leave_element(
-        debugger: &Arc<Mutex<Box<dyn Debugger>>>,
         engine_state: &EngineState,
         input: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
     ) {
     }
-
-    #[allow(unused_variables)]
-    fn enter_element(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {}
 }
 
 /// Marker struct signalizing that evaluation should use a Debugger
 #[derive(Clone, Copy, Debug)]
 pub struct WithDebug;
 
-// TODO: Remove unwraps
 impl DebugContext for WithDebug {
-    fn enter_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {
-        debugger.lock().unwrap().deref_mut().enter_block();
+    fn enter_block(engine_state: &EngineState) {
+        if let Ok(mut debugger) = engine_state.debugger.lock() {
+            debugger.deref_mut().enter_block();
+        }
     }
 
-    fn leave_block(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {
-        debugger.lock().unwrap().deref_mut().leave_block();
+    fn leave_block(engine_state: &EngineState) {
+        if let Ok(mut debugger) = engine_state.debugger.lock() {
+            debugger.deref_mut().leave_block();
+        }
+    }
+
+    fn enter_element(engine_state: &EngineState) {
+        if let Ok(mut debugger) = engine_state.debugger.lock() {
+            debugger.deref_mut().enter_element();
+        }
     }
 
     fn leave_element(
-        debugger: &Arc<Mutex<Box<dyn Debugger>>>,
         engine_state: &EngineState,
         input: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
     ) {
-        debugger
-            .lock()
-            .unwrap()
-            .deref_mut()
-            .leave_element(engine_state, input, element);
-    }
-
-    fn enter_element(debugger: &Arc<Mutex<Box<dyn Debugger>>>) {
-        debugger.lock().unwrap().deref_mut().enter_element();
+        if let Ok(mut debugger) = engine_state.debugger.lock() {
+            debugger
+                .deref_mut()
+                .leave_element(engine_state, input, element);
+        }
     }
 }
 

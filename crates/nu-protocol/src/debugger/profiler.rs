@@ -1,7 +1,7 @@
 use crate::ast::PipelineElement;
 use crate::debugger::Debugger;
 use crate::engine::EngineState;
-use crate::{record};
+use crate::record;
 use crate::{PipelineData, ShellError, Span, Value};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -117,54 +117,69 @@ impl Debugger for Profiler {
     }
 
     fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
-        let rows: Vec<Value> = self
-            .element_durations_sec
-            .iter()
-            .map(|(info, duration_sec)| {
-                let mut row = record! {
-                    "depth" => Value::int(info.depth, profiler_span)
-                };
+        let mut rows = vec![];
 
-                if self.collect_spans {
-                    // TODO unwrap
-                    let span_start = info.element_span.start.try_into().unwrap();
-                    let span_end = info.element_span.end.try_into().unwrap();
+        for (info, duration_sec) in self.element_durations_sec.iter() {
+            let mut row = record! {
+                "depth" => Value::int(info.depth, profiler_span)
+            };
 
-                    row.push(
-                        "span",
-                        Value::record(
-                            record! {
-                                "start" => Value::int(span_start, profiler_span),
-                                "end" => Value::int(span_end, profiler_span),
-                            },
-                            profiler_span,
-                        ),
-                    );
-                }
-
-                if self.collect_source {
-                    // TODO: unwrap
-                    let val = self
-                        .source_fragments
-                        .get(&(info.element_span.start, info.element_span.end))
-                        .unwrap();
-
-                    row.push("source", Value::string(val, profiler_span));
-                }
-
-                if let Some(val) = &info.element_input {
-                    row.push("output", val.clone());
-                }
+            if self.collect_spans {
+                let span_start = i64::try_from(info.element_span.start).map_err(|_| {
+                    profiler_error("error converting span start to i64", profiler_span)
+                })?;
+                let span_end = i64::try_from(info.element_span.end).map_err(|_| {
+                    profiler_error("error converting span end to i64", profiler_span)
+                })?;
 
                 row.push(
-                    "duration_us",
-                    Value::float(duration_sec * 1e6, profiler_span),
+                    "span",
+                    Value::record(
+                        record! {
+                            "start" => Value::int(span_start, profiler_span),
+                            "end" => Value::int(span_end, profiler_span),
+                        },
+                        profiler_span,
+                    ),
                 );
+            }
 
-                Value::record(row, profiler_span)
-            })
-            .collect();
+            if self.collect_source {
+                let Some(val) = self
+                    .source_fragments
+                    .get(&(info.element_span.start, info.element_span.end))
+                else {
+                    return Err(profiler_error(
+                        "could not get source fragment",
+                        profiler_span,
+                    ));
+                };
+
+                row.push("source", Value::string(val, profiler_span));
+            }
+
+            if let Some(val) = &info.element_input {
+                row.push("output", val.clone());
+            }
+
+            row.push(
+                "duration_us",
+                Value::float(duration_sec * 1e6, profiler_span),
+            );
+
+            rows.push(Value::record(row, profiler_span))
+        }
 
         Ok(Value::list(rows, profiler_span))
+    }
+}
+
+fn profiler_error(msg: impl Into<String>, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: "Profiler Error".to_string(),
+        msg: msg.into(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
     }
 }
