@@ -238,7 +238,10 @@ fn any_group(_current_user_gid: gid_t, owner_group: u32) -> bool {
     user_groups.iter().any(|gid| gid.as_raw() == owner_group)
 }
 
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "freebsd", target_os = "android"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "linux", target_os = "freebsd", target_os = "android"))
+))]
 fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
     use crate::filesystem::util::users;
 

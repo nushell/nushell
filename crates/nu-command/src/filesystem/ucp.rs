@@ -141,9 +141,19 @@ impl Command for UCp {
         } else {
             uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
         };
-        #[cfg(any(target_os = "linux", target_os = "freebsd" , target_os = "android", target_os = "macos"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        ))]
         let reflink_mode = uu_cp::ReflinkMode::Auto;
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd" , target_os = "android", target_os = "macos")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
         let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
         if paths.is_empty() {
