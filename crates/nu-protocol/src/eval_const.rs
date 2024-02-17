@@ -271,7 +271,7 @@ pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    // TODO: DEBUG
+    // TODO: Allow debugging const eval
     <EvalConst as Eval>::eval::<WithoutDebug>(working_set, &mut (), expr)
 }
 
@@ -324,7 +324,7 @@ impl Eval for EvalConst {
         call: &Call,
         span: Span,
     ) -> Result<Value, ShellError> {
-        // TODO: DEBUG
+        // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
         Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
     }
@@ -347,7 +347,7 @@ impl Eval for EvalConst {
         block_id: usize,
         span: Span,
     ) -> Result<Value, ShellError> {
-        // TODO: DEBUG
+        // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
         Ok(
             eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
@@ -375,6 +375,7 @@ impl Eval for EvalConst {
         _op_span: Span,
         expr_span: Span,
     ) -> Result<Value, ShellError> {
+        // TODO: Allow debugging const eval
         Err(ShellError::NotAConstant { span: expr_span })
     }
 
