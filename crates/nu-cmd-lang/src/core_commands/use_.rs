@@ -1,8 +1,8 @@
 use nu_engine::{
-    eval_block, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
+    find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::debugger::WithoutDebug;
+
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,

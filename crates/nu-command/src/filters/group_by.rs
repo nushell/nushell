@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, get_eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 
 use indexmap::IndexMap;
-use nu_protocol::debugger::WithoutDebug;
+
 
 #[derive(Clone)]
 pub struct GroupBy;

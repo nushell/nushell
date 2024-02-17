@@ -1,8 +1,8 @@
 use nu_engine::{
-    eval_block, eval_expression_with_input, get_eval_block, get_eval_expression,
+    get_eval_block,
     get_eval_expression_with_input,
 };
-use nu_protocol::debugger::WithoutDebug;
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},

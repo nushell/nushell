@@ -1,13 +1,13 @@
-use nu_engine::eval_expression;
+
 use nu_protocol::ast::Expression;
-use nu_protocol::debugger::{DebugContext, Debugger};
+
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
     FromValue, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+
 
 /// A representation of the plugin's invocation command including command line args
 ///

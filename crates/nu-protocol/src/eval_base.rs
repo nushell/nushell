@@ -1,4 +1,4 @@
-use crate::debugger::{DebugContext, Debugger};
+use crate::debugger::{DebugContext};
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
@@ -6,7 +6,7 @@ use crate::{
     },
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-use std::sync::{Arc, Mutex};
+
 use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval

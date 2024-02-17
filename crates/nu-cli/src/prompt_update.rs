@@ -1,7 +1,7 @@
 use crate::NushellPrompt;
 use log::trace;
-use nu_engine::{eval_subexpression, get_eval_subexpression};
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::{get_eval_subexpression};
+
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, Value,

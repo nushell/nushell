@@ -1,9 +1,9 @@
 use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
+
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
-use std::sync::{Arc, Mutex};
+
 
 /// Source a file for environment variables.
 #[derive(Clone)]

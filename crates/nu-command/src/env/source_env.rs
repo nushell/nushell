@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use nu_engine::{
-    eval_block_with_early_return, find_in_dirs_env, get_dirs_var_from_call,
+    find_in_dirs_env, get_dirs_var_from_call,
     get_eval_block_with_early_return, redirect_env, CallExt,
 };
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::WithoutDebug;
+
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,

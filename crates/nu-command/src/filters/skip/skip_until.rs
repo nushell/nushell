@@ -1,5 +1,5 @@
-use nu_engine::{eval_block, get_eval_block, CallExt};
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::{get_eval_block, CallExt};
+
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},

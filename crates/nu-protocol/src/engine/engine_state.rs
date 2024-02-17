@@ -6,8 +6,7 @@ use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAU
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
 use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    PipelineData, ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId, ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, Value};
 use std::borrow::Borrow;

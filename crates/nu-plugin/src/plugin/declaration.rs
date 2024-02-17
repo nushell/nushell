@@ -6,8 +6,8 @@ use crate::protocol::{
 };
 use std::path::{Path, PathBuf};
 
-use nu_engine::{eval_block, get_eval_block, get_eval_expression};
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::{get_eval_block, get_eval_expression};
+
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};

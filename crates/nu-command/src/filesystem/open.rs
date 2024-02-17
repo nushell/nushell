@@ -1,4 +1,4 @@
-use nu_engine::{current_dir, eval_block, get_eval_block, CallExt};
+use nu_engine::{current_dir, get_eval_block, CallExt};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -15,7 +15,7 @@ use crate::database::SQLiteDatabase;
 #[cfg(feature = "sqlite")]
 use nu_protocol::IntoPipelineData;
 
-use nu_protocol::debugger::WithoutDebug;
+
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;

@@ -1,6 +1,6 @@
-use nu_engine::{eval_block, eval_expression, get_eval_block, get_eval_expression, CallExt};
+use nu_engine::{get_eval_block, get_eval_expression, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::WithoutDebug;
+
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,

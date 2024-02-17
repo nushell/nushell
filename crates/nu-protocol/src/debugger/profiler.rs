@@ -1,7 +1,7 @@
 use crate::ast::PipelineElement;
 use crate::debugger::Debugger;
 use crate::engine::EngineState;
-use crate::{record, Record};
+use crate::{record};
 use crate::{PipelineData, ShellError, Span, Value};
 use std::collections::HashMap;
 use std::time::Instant;

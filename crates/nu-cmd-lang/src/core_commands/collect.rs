@@ -1,12 +1,12 @@
 use nu_engine::{get_eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::{Debugger, WithDebug, WithoutDebug};
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
-use std::sync::{Arc, Mutex};
+
 
 #[derive(Clone)]
 pub struct Collect;

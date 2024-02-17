@@ -5,9 +5,9 @@ use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
-use std::any::Any;
+
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+
 
 #[derive(Clone)]
 pub struct DebugProfile;
@@ -88,7 +88,7 @@ impl Command for DebugProfile {
                 let _ = pipeline_data.into_value(call.span());
                 // pipeline_data.print(engine_state, caller_stack, true, false)
             }
-            Err(e) => (), // TODO: Report error
+            Err(_e) => (), // TODO: Report error
         }
 
         // TODO unwrap

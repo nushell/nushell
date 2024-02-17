@@ -11,7 +11,7 @@ use nu_protocol::{
     Config, DeclId, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
 };
-use std::sync::{Arc, Mutex};
+
 use std::thread::{self, JoinHandle};
 use std::{borrow::Cow, collections::HashMap};
 
