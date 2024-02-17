@@ -1,4 +1,4 @@
-use crate::debugger::{DebugContext};
+use crate::debugger::DebugContext;
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,

@@ -144,7 +144,7 @@ impl Command for ParEach {
         };
 
         let eval_block_with_early_return =
-            get_eval_block_with_early_return(&engine_state, call.head)?;
+            get_eval_block_with_early_return(engine_state, call.head)?;
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),

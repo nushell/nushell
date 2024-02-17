@@ -9,7 +9,6 @@ use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         let cwd = engine_state.current_work_dir();

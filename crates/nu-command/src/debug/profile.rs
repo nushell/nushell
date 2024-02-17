@@ -6,9 +6,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
 
-use std::ops::Deref;
-
-
 #[derive(Clone)]
 pub struct DebugProfile;
 
@@ -70,8 +67,19 @@ impl Command for DebugProfile {
 
         let profiler = Profiler::new(max_depth, !no_collect_spans, collect_source, collect_values);
 
-        // TODO unwrap
-        *engine_state.debugger.lock().unwrap() = Box::new(profiler);
+        let lock_err = {
+            |_| ShellError::GenericError {
+                error: "Profiler Error".to_string(),
+                msg: "could not lock debugger".to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }
+        };
+
+        {
+            *engine_state.debugger.lock().map_err(lock_err)? = Box::new(profiler);
+        }
 
         let result = eval_block_with_early_return::<WithDebug>(
             engine_state,
@@ -91,20 +99,18 @@ impl Command for DebugProfile {
             Err(_e) => (), // TODO: Report error
         }
 
-        // TODO unwrap
         // TODO: Make report() Profiler-only
         let res = engine_state
             .debugger
             .lock()
-            .unwrap()
-            .deref()
-            .deref()
+            .map_err(lock_err)?
             .report(call.span());
 
-        // TODO unwrap
-        *engine_state.debugger.lock().unwrap() = Box::new(NoopDebugger);
+        {
+            *engine_state.debugger.lock().map_err(lock_err)? = Box::new(NoopDebugger);
+        }
 
-        res.and_then(|val| Ok(val.into_pipeline_data()))
+        res.map(|val| val.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

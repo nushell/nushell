@@ -1,4 +1,3 @@
-
 use nu_protocol::ast::Expression;
 
 use nu_protocol::{
@@ -7,7 +6,6 @@ use nu_protocol::{
     FromValue, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
-
 
 /// A representation of the plugin's invocation command including command line args
 ///

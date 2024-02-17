@@ -1,7 +1,4 @@
-use nu_engine::{
-    get_eval_block,
-    get_eval_expression_with_input,
-};
+use nu_engine::{get_eval_block, get_eval_expression_with_input};
 
 use nu_protocol::{
     ast::Call,

@@ -1,4 +1,4 @@
-use nu_engine::{get_eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::{Block, Call};
 
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -151,14 +151,7 @@ struct UpdateCellIterator {
     block: Block,
     redirect_stdout: bool,
     redirect_stderr: bool,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
     span: Span,
 }
 
@@ -214,6 +207,7 @@ impl Iterator for UpdateCellIterator {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_cell(
     val: Value,
     engine_state: &EngineState,
@@ -222,14 +216,7 @@ fn process_cell(
     redirect_stdout: bool,
     redirect_stderr: bool,
     span: Span,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
 ) -> Value {
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {

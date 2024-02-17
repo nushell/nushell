@@ -15,7 +15,6 @@ use crate::database::SQLiteDatabase;
 #[cfg(feature = "sqlite")]
 use nu_protocol::IntoPipelineData;
 
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;

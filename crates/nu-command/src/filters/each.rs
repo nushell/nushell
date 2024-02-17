@@ -7,7 +7,6 @@ use nu_protocol::{
     Signature, Span, SyntaxShape, Type, Value,
 };
 
-
 use super::utils::chain_error_with_input;
 
 #[derive(Clone)]

@@ -34,7 +34,7 @@ impl Command for Loop {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let block: Block = call.req(engine_state, stack, 0)?;
-        let eval_block = get_eval_block(&engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
 
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {

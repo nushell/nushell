@@ -1,4 +1,4 @@
-use nu_engine::{get_eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::{Block, Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -339,14 +339,7 @@ fn upsert_value_by_closure(
     block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
     let input_at_path = value.clone().follow_cell_path(cell_path, false);
 
@@ -389,14 +382,7 @@ fn upsert_single_value_by_closure(
     redirect_stderr: bool,
     cell_path: &[PathMember],
     first_path_member_int: bool,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
     let span = replacement.span();
     let capture_block = Closure::from_value(replacement)?;

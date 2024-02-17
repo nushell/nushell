@@ -1,4 +1,4 @@
-use nu_engine::{get_eval_expression};
+use nu_engine::get_eval_expression;
 use nu_protocol::ast::Call;
 
 use nu_protocol::engine::{Command, EngineState, Stack};

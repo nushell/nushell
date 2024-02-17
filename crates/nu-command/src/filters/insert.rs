@@ -1,4 +1,4 @@
-use nu_engine::{get_eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::{Block, Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -135,7 +135,7 @@ fn insert(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let eval_block = get_eval_block(&engine_state, call.head)?;
+    let eval_block = get_eval_block(engine_state, call.head)?;
 
     match input {
         PipelineData::Value(mut value, metadata) => {
@@ -203,8 +203,6 @@ fn insert(
                         });
                     }
                 }
-
-                let eval_block = get_eval_block(&engine_state, call.head)?;
 
                 if path.is_empty() {
                     if replacement.as_block().is_ok() {
@@ -337,14 +335,7 @@ fn insert_value_by_closure(
     block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
     let input_at_path = value.clone().follow_cell_path(cell_path, false);
 
@@ -387,14 +378,7 @@ fn insert_single_value_by_closure(
     redirect_stderr: bool,
     cell_path: &[PathMember],
     first_path_member_int: bool,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
     let span = replacement.span();
     let capture_block = Closure::from_value(replacement)?;

@@ -7,7 +7,6 @@ use nu_protocol::{
     Value,
 };
 
-
 #[derive(Clone)]
 pub struct Collect;
 

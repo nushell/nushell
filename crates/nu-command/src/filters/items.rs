@@ -1,7 +1,4 @@
-use nu_engine::{
-    get_eval_block_with_early_return,
-    CallExt,
-};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};

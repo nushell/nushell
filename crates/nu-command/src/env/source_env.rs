@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use nu_engine::{
-    find_in_dirs_env, get_dirs_var_from_call,
-    get_eval_block_with_early_return, redirect_env, CallExt,
+    find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return, redirect_env,
+    CallExt,
 };
 use nu_protocol::ast::Call;
 

@@ -103,7 +103,7 @@ impl Command for Reduce {
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
         let eval_block_with_early_return =
-            get_eval_block_with_early_return(&engine_state, call.head)?;
+            get_eval_block_with_early_return(engine_state, call.head)?;
 
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();

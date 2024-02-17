@@ -1,4 +1,4 @@
-use nu_engine::{get_eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::Call;
 
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
@@ -100,14 +100,7 @@ fn handle_catch(
     catch_block: Option<Closure>,
     engine_state: &EngineState,
     stack: &mut Stack,
-    eval_block_fn: fn(
-        &EngineState,
-        &mut Stack,
-        &nu_protocol::ast::Block,
-        PipelineData,
-        bool,
-        bool,
-    ) -> Result<PipelineData, ShellError>,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<PipelineData, ShellError> {
     if let Some(catch_block) = catch_block {
         let catch_block = engine_state.get_block(catch_block.block_id);
