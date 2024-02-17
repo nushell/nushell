@@ -72,7 +72,7 @@ rand = "0.8"
 rayon = "1.8"
 regex = "1.9.5"
 roxmltree = "0.19"
-rusqlite = { version = "0.29", features = ["bundled", "backup", "chrono"], optional = true }
+rusqlite = { version = "0.31.0", features = ["bundled", "backup", "chrono"], optional = true }
 same-file = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
