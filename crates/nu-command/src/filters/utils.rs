@@ -42,6 +42,8 @@ pub fn boolean_fold(
     let ctrlc = engine_state.ctrlc.clone();
     let engine_state = engine_state.clone();
 
+    // TODO: This Clippy lint is incorrectly triggered in our CI for come reason
+    #[allow(clippy::needless_borrow)]
     let eval_block = get_eval_block(&engine_state, span)?;
 
     for value in input.into_interruptible_iter(ctrlc) {
