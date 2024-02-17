@@ -399,13 +399,6 @@ impl Value {
 
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
     ///
-    /// Only the following `Value` cases will return an `Ok` result:
-    /// - `Int`
-    /// - `Float`
-    /// - `String`
-    /// - `Binary` (only if valid utf-8)
-    /// - `Date`
-    ///
     /// # Note
     /// This function is equivalent to `value.coerce_str().map(Cow::into_owned)`
     /// which might allocate a new `String`.
@@ -414,6 +407,13 @@ impl Value {
     /// if you do not need an owned `String`,
     /// or [`coerce_into_string`](Self::coerce_into_string)
     /// if you do not need to keep the original `Value` around.
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
     ///
     /// ```
     /// # use nu_protocol::Value;
@@ -607,12 +607,12 @@ impl Value {
 
     /// Returns this `Value` as a `u8` slice or an error if it cannot be converted
     ///
+    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
+    /// if you do not need to keep the original `Value` around.
+    ///
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Binary`
     /// - `String`
-    ///
-    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
-    /// if you do not need to keep the original `Value` around.
     ///
     /// ```
     /// # use nu_protocol::Value;
