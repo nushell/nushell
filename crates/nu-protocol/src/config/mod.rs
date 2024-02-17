@@ -89,6 +89,7 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    pub use_ls_colors_completions: bool,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -129,6 +130,7 @@ impl Default for Config {
             enable_external_completion: true,
             max_external_completion_results: 100,
             external_completer: None,
+            use_ls_colors_completions: true,
 
             filesize_metric: false,
             filesize_format: "auto".into(),
@@ -349,6 +351,9 @@ impl Value {
                                             *value = reconstruct_external(&config, span);
                                         }
                                     }
+                                    "use_ls_colors" => {
+                                        process_bool_config(value, &mut errors, &mut config.use_ls_colors_completions);
+                                    }
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -366,6 +371,7 @@ impl Value {
                                     "algorithm" => config.completion_algorithm.reconstruct_value(span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
                                     "external" => reconstruct_external(&config, span),
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
                                 },
                                 span,
                             );

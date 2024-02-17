@@ -1122,3 +1122,19 @@ fn test_cp_inside_glob_metachars_dir() {
         assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
     });
 }
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_to_customized_home_directory() {
+    Playground::setup("cp_to_home", |dirs, sandbox| {
+        std::env::set_var("HOME", dirs.test());
+        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+        let actual = nu!(cwd: dirs.test(), "mkdir test; cp test_file.txt ~/test/");
+
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join("test")
+        ));
+    })
+}

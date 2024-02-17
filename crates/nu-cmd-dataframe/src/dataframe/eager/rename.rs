@@ -46,15 +46,18 @@ impl Command for RenameDF {
                 description: "Renames a series",
                 example: "[5 6 7 8] | dfr into-df | dfr rename '0' new_name",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "new_name".to_string(),
-                        vec![
-                            Value::test_int(5),
-                            Value::test_int(6),
-                            Value::test_int(7),
-                            Value::test_int(8),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "new_name".to_string(),
+                            vec![
+                                Value::test_int(5),
+                                Value::test_int(6),
+                                Value::test_int(7),
+                                Value::test_int(8),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -63,16 +66,19 @@ impl Command for RenameDF {
                 description: "Renames a dataframe column",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr rename a a_new",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a_new".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a_new".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -81,16 +87,19 @@ impl Command for RenameDF {
                 description: "Renames two dataframe columns",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr rename [a b] [a_new b_new]",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a_new".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b_new".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a_new".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b_new".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

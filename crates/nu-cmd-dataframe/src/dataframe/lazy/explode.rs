@@ -69,7 +69,7 @@ impl Command for LazyExplode {
                             Value::test_string("Skiing"),
                             Value::test_string("Football"),
                         ]),
-                   ]).expect("simple df for test should not fail")
+                   ], None).expect("simple df for test should not fail")
                    .into_value(Span::test_data()),
                     )
             },
@@ -86,7 +86,7 @@ impl Command for LazyExplode {
                             Value::test_string("Skiing"),
                             Value::test_string("Football"),
                         ]),
-                   ]).expect("simple df for test should not fail")
+                   ], None).expect("simple df for test should not fail")
                    .into_value(Span::test_data()),
                     ),
             },

@@ -607,6 +607,20 @@ pub enum ShellError {
         first_use: Span,
     },
 
+    /// Attempted to create a record from different number of columns and values
+    ///
+    /// ## Resolution
+    ///
+    /// Check the record has the same number of columns as values
+    #[error("Attempted to create a record from different number of columns and values")]
+    #[diagnostic(code(nu::shell::record_cols_vals_mismatch))]
+    RecordColsValsMismatch {
+        #[label = "problematic value"]
+        bad_value: Span,
+        #[label = "attempted to create the record here"]
+        creation_site: Span,
+    },
+
     /// An error happened while performing an external command.
     ///
     /// ## Resolution
@@ -1291,6 +1305,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     CannotSpreadAsRecord {
         #[label = "cannot spread value"]
+        span: Span,
+    },
+
+    /// Lists are not automatically spread when calling external commands
+    ///
+    /// ## Resolution
+    ///
+    /// Use the spread operator (put a '...' before the argument)
+    #[error("Lists are not automatically spread when calling external commands")]
+    #[diagnostic(
+        code(nu::shell::cannot_pass_list_to_external),
+        help("Either convert the list to a string or use the spread operator, like so: ...{arg}")
+    )]
+    CannotPassListToExternal {
+        arg: String,
+        #[label = "Spread operator (...) is necessary to spread lists"]
         span: Span,
     },
 

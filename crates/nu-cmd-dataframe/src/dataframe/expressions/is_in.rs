@@ -39,28 +39,31 @@ impl Command for ExprIsIn {
             example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | dfr into-df);
     $df | dfr with-column (dfr col a | dfr is-in [one two] | dfr as a_in)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![
-                            Value::test_string("one"),
-                            Value::test_string("two"),
-                            Value::test_string("three"),
-                        ],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    ),
-                    Column::new(
-                        "a_in".to_string(),
-                        vec![
-                            Value::test_bool(true),
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                        ],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![
+                                Value::test_string("one"),
+                                Value::test_string("two"),
+                                Value::test_string("three"),
+                            ],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "a_in".to_string(),
+                            vec![
+                                Value::test_bool(true),
+                                Value::test_bool(true),
+                                Value::test_bool(false),
+                            ],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -81,7 +84,8 @@ impl Command for ExprIsIn {
         let list: Vec<Value> = call.req(engine_state, stack, 0)?;
         let expr = NuExpression::try_from_pipeline(input, call.head)?;
 
-        let values = NuDataFrame::try_from_columns(vec![Column::new("list".to_string(), list)])?;
+        let values =
+            NuDataFrame::try_from_columns(vec![Column::new("list".to_string(), list)], None)?;
         let list = values.as_series(call.head)?;
 
         if matches!(list.dtype(), DataType::Object(..)) {

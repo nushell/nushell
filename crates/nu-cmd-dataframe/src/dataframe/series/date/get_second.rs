@@ -35,10 +35,13 @@ impl Command for GetSecond {
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr get-second"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(18), Value::test_int(18)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(18), Value::test_int(18)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

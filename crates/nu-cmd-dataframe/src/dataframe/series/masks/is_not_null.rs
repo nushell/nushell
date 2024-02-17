@@ -41,15 +41,18 @@ impl Command for IsNotNull {
     let res = ($s / $s);
     $res | dfr is-not-null"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "is_not_null".to_string(),
-                        vec![
-                            Value::test_bool(true),
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                            Value::test_bool(true),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "is_not_null".to_string(),
+                            vec![
+                                Value::test_bool(true),
+                                Value::test_bool(true),
+                                Value::test_bool(false),
+                                Value::test_bool(true),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

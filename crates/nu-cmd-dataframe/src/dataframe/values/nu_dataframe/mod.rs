@@ -13,7 +13,7 @@ use polars_utils::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
-use super::{utils::DEFAULT_ROWS, NuLazyFrame};
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -141,7 +141,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn try_from_iter<T>(iter: T) -> Result<Self, ShellError>
+    pub fn try_from_iter<T>(iter: T, maybe_schema: Option<NuSchema>) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
     {
@@ -160,15 +160,16 @@ impl NuDataFrame {
 
                     conversion::insert_record(
                         &mut column_values,
-                        Record::from_raw_cols_vals(cols, vals),
+                        Record::from_raw_cols_vals_unchecked(cols, vals),
+                        &maybe_schema,
                     )?
                 }
                 Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, record)?
+                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
                 _ => {
                     let key = "0".to_string();
-                    conversion::insert_value(value, key, &mut column_values)?
+                    conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
                 }
             }
         }
@@ -188,13 +189,16 @@ impl NuDataFrame {
         Ok(Self::new(false, dataframe))
     }
 
-    pub fn try_from_columns(columns: Vec<Column>) -> Result<Self, ShellError> {
+    pub fn try_from_columns(
+        columns: Vec<Column>,
+        maybe_schema: Option<NuSchema>,
+    ) -> Result<Self, ShellError> {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
             let name = column.name().to_string();
             for value in column {
-                conversion::insert_value(value, name.clone(), &mut column_values)?;
+                conversion::insert_value(value, name.clone(), &mut column_values, &maybe_schema)?;
             }
         }
 
@@ -502,5 +506,9 @@ impl NuDataFrame {
         }
 
         Some(Ordering::Equal)
+    }
+
+    pub fn schema(&self) -> NuSchema {
+        NuSchema::new(self.df.schema())
     }
 }

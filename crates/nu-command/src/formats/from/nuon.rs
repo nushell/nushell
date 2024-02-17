@@ -124,6 +124,8 @@ impl Command for FromNuon {
             } else {
                 match pipeline.elements.remove(0) {
                     PipelineElement::Expression(_, expression)
+                    | PipelineElement::ErrPipedExpression(_, expression)
+                    | PipelineElement::OutErrPipedExpression(_, expression)
                     | PipelineElement::Redirection(_, _, expression, _)
                     | PipelineElement::And(_, expression)
                     | PipelineElement::Or(_, expression)
@@ -308,7 +310,8 @@ fn convert_to_value(
             ))
         }
         Expr::Record(key_vals) => {
-            let mut record = Record::new();
+            let mut record = Record::with_capacity(key_vals.len());
+            let mut key_spans = Vec::with_capacity(key_vals.len());
 
             for key_val in key_vals {
                 match key_val {
@@ -325,9 +328,16 @@ fn convert_to_value(
                             }
                         };
 
-                        let value = convert_to_value(val, span, original_text)?;
-
-                        record.push(key_str, value);
+                        if let Some(i) = record.index_of(&key_str) {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                col_name: key_str,
+                                second_use: key.span,
+                                first_use: key_spans[i],
+                            });
+                        } else {
+                            key_spans.push(key.span);
+                            record.push(key_str, convert_to_value(val, span, original_text)?);
+                        }
                     }
                     RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError {
@@ -417,7 +427,7 @@ fn convert_to_value(
                     .collect::<Result<_, _>>()?;
 
                 output.push(Value::record(
-                    Record::from_raw_cols_vals(cols.clone(), vals),
+                    Record::from_raw_cols_vals_unchecked(cols.clone(), vals),
                     span,
                 ));
             }

@@ -5,7 +5,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::io::BufReader;
 
@@ -43,12 +43,7 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filename", SyntaxShape::GlobPattern, "The filename to use.")
-            .rest(
-                "filenames",
-                SyntaxShape::GlobPattern,
-                "Optional additional files to open.",
-            )
+            .rest("files", SyntaxShape::GlobPattern, "The file(s) to open.")
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
@@ -64,21 +59,11 @@ impl Command for Open {
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
-        let req_path = call.opt::<Spanned<NuPath>>(engine_state, stack, 0)?;
-        let mut path_params = call.rest::<Spanned<NuPath>>(engine_state, stack, 1)?;
+        let mut paths = call.rest::<Spanned<NuPath>>(engine_state, stack, 0)?;
 
-        // FIXME: JT: what is this doing here?
-
-        if let Some(filename) = req_path {
-            path_params.insert(0, filename);
-        } else {
+        if paths.is_empty() && call.rest_iter(0).next().is_none() {
+            // try to use path from pipeline input if there were no positional or spread args
             let filename = match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {
-                    return Err(ShellError::MissingParameter {
-                        param_name: "needs filename".to_string(),
-                        span: call.head,
-                    })
-                }
                 PipelineData::Value(val, ..) => val.as_spanned_string()?,
                 _ => {
                     return Err(ShellError::MissingParameter {
@@ -88,18 +73,15 @@ impl Command for Open {
                 }
             };
 
-            path_params.insert(
-                0,
-                Spanned {
-                    item: NuPath::UnQuoted(filename.item),
-                    span: filename.span,
-                },
-            );
+            paths.push(Spanned {
+                item: NuPath::UnQuoted(filename.item),
+                span: filename.span,
+            });
         }
 
         let mut output = vec![];
 
-        for mut path in path_params.into_iter() {
+        for mut path in paths {
             //FIXME: `open` should not have to do this
             path.item = path.item.strip_ansi_string_unlikely();
 

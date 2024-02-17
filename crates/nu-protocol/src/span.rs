@@ -23,7 +23,7 @@ pub struct Span {
 
 impl From<Span> for SourceSpan {
     fn from(s: Span) -> Self {
-        Self::new(s.start.into(), (s.end - s.start).into())
+        Self::new(s.start.into(), s.end - s.start)
     }
 }
 

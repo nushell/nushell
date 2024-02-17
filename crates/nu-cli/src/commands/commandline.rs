@@ -19,6 +19,7 @@ impl Command for Commandline {
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::String, Type::String),
+                (Type::String, Type::Int),
             ])
             .switch(
                 "cursor",
@@ -120,7 +121,16 @@ impl Command for Commandline {
                     .chain(std::iter::once((repl.buffer.len(), "")))
                     .position(|(i, _c)| i == repl.cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
-                Ok(Value::string(char_pos.to_string(), call.head).into_pipeline_data())
+                match i64::try_from(char_pos) {
+                    Ok(pos) => Ok(Value::int(pos, call.head).into_pipeline_data()),
+                    Err(e) => Err(ShellError::GenericError {
+                        error: "Failed to convert cursor position to int".to_string(),
+                        msg: e.to_string(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    }),
+                }
             } else {
                 Ok(Value::string(repl.buffer.to_string(), call.head).into_pipeline_data())
             }

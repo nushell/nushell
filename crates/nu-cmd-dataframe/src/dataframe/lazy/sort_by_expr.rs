@@ -60,7 +60,7 @@ impl Command for LazySortBy {
                             "b".to_string(),
                             vec![Value::test_int(4), Value::test_int(1), Value::test_int(2)],
                         ),
-                    ])
+                    ], None)
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -89,7 +89,7 @@ impl Command for LazySortBy {
                                 Value::test_int(2),
                             ],
                         ),
-                    ])
+                    ], None)
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

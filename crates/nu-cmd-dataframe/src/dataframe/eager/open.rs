@@ -1,3 +1,5 @@
+use crate::dataframe::values::NuSchema;
+
 use super::super::values::{NuDataFrame, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -69,6 +71,12 @@ impl Command for OpenDataFrame {
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Columns to be selected from csv file. CSV and Parquet file",
                 None,
+            )
+            .named(
+                "schema",
+                SyntaxShape::Record(vec![]),
+                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                Some('s')
             )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
@@ -146,7 +154,7 @@ fn from_parquet(
             cache: true,
             parallel: ParallelStrategy::Auto,
             rechunk: false,
-            row_count: None,
+            row_index: None,
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
@@ -244,7 +252,7 @@ fn from_ipc(
             n_rows: None,
             cache: true,
             rechunk: false,
-            row_count: None,
+            row_index: None,
             memmap: true,
         };
 
@@ -305,9 +313,18 @@ fn from_json(
         help: None,
         inner: vec![],
     })?;
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
 
     let buf_reader = BufReader::new(file);
     let reader = JsonReader::new(buf_reader);
+
+    let reader = match maybe_schema {
+        Some(schema) => reader.with_schema(schema.into()),
+        None => reader,
+    };
 
     let df: NuDataFrame = reader
         .finish()
@@ -329,6 +346,10 @@ fn from_jsonl(
     call: &Call,
 ) -> Result<Value, ShellError> {
     let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
@@ -342,6 +363,11 @@ fn from_jsonl(
     let reader = JsonReader::new(buf_reader)
         .with_json_format(JsonFormat::JsonLines)
         .infer_schema_len(infer_schema);
+
+    let reader = match maybe_schema {
+        Some(schema) => reader.with_schema(schema.into()),
+        None => reader,
+    };
 
     let df: NuDataFrame = reader
         .finish()
@@ -367,6 +393,11 @@ fn from_csv(
     let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
     let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
+
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
 
     if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
@@ -394,6 +425,11 @@ fn from_csv(
         };
 
         let csv_reader = csv_reader.has_header(!no_header);
+
+        let csv_reader = match maybe_schema {
+            Some(schema) => csv_reader.with_schema(Some(schema.into())),
+            None => csv_reader,
+        };
 
         let csv_reader = match infer_schema {
             None => csv_reader,
@@ -451,6 +487,11 @@ fn from_csv(
         };
 
         let csv_reader = csv_reader.has_header(!no_header);
+
+        let csv_reader = match maybe_schema {
+            Some(schema) => csv_reader.with_schema(Some(schema.into())),
+            None => csv_reader,
+        };
 
         let csv_reader = match infer_schema {
             None => csv_reader,

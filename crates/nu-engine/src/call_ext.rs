@@ -1,7 +1,8 @@
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, Stack},
+    engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::eval_constant,
     FromValue, ShellError, Value,
 };
 
@@ -34,6 +35,12 @@ pub trait CallExt {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
+        pos: usize,
+    ) -> Result<Option<T>, ShellError>;
+
+    fn opt_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
         pos: usize,
     ) -> Result<Option<T>, ShellError>;
 
@@ -125,6 +132,19 @@ impl CallExt for Call {
         if let Some(expr) = self.positional_nth(pos) {
             // TODO: DEBUG
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
+            FromValue::from_value(result).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn opt_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        pos: usize,
+    ) -> Result<Option<T>, ShellError> {
+        if let Some(expr) = self.positional_nth(pos) {
+            let result = eval_constant(working_set, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
             Ok(None)

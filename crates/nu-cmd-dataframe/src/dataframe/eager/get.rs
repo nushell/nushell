@@ -36,10 +36,13 @@ impl Command for GetDF {
             description: "Returns the selected column",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr get a",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(1), Value::test_int(3)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(1), Value::test_int(3)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

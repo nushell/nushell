@@ -43,20 +43,23 @@ impl Command for DropNulls {
     let a = ($df | dfr with-column $res --name res);
     $a | dfr drop-nulls"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(1)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "res".to_string(),
-                            vec![Value::test_int(1), Value::test_int(1)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(1)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "res".to_string(),
+                                vec![Value::test_int(1), Value::test_int(1)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -66,15 +69,18 @@ impl Command for DropNulls {
                 example: r#"let s = ([1 2 0 0 3 4] | dfr into-df);
     ($s / $s) | dfr drop-nulls"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "div_0_0".to_string(),
-                        vec![
-                            Value::test_int(1),
-                            Value::test_int(1),
-                            Value::test_int(1),
-                            Value::test_int(1),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "div_0_0".to_string(),
+                            vec![
+                                Value::test_int(1),
+                                Value::test_int(1),
+                                Value::test_int(1),
+                                Value::test_int(1),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

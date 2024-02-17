@@ -1,4 +1,5 @@
 mod append;
+mod cast;
 mod columns;
 mod drop;
 mod drop_duplicates;
@@ -15,6 +16,7 @@ mod open;
 mod query_df;
 mod rename;
 mod sample;
+mod schema;
 mod shape;
 mod slice;
 mod sql_context;
@@ -34,6 +36,7 @@ use nu_protocol::engine::StateWorkingSet;
 
 pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
+pub use cast::CastDF;
 pub use columns::ColumnsDF;
 pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
@@ -49,6 +52,7 @@ pub use melt::MeltDF;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
+pub use schema::SchemaDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use sql_context::SQLContext;
@@ -76,6 +80,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
     // Dataframe commands
     bind_command!(
         AppendDF,
+        CastDF,
         ColumnsDF,
         DataTypes,
         Summary,
@@ -93,6 +98,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         QueryDf,
         RenameDF,
         SampleDF,
+        SchemaDF,
         ShapeDF,
         SliceDF,
         TakeDF,

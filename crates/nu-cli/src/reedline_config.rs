@@ -411,7 +411,7 @@ pub(crate) fn add_ide_menu(
                 let max_completion_height = max_completion_height.as_int()?;
                 ide_menu.with_max_completion_height(max_completion_height as u16)
             }
-            Err(_) => ide_menu,
+            Err(_) => ide_menu.with_max_completion_height(10u16),
         };
 
         ide_menu = match extract_value("padding", val, span) {
@@ -456,7 +456,7 @@ pub(crate) fn add_ide_menu(
                     });
                 }
             }
-            Err(_) => ide_menu,
+            Err(_) => ide_menu.with_default_border(),
         };
 
         ide_menu = match extract_value("cursor_offset", val, span) {

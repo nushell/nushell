@@ -46,16 +46,19 @@ impl Command for ArgSort {
                 description: "Returns indexes for a sorted series",
                 example: "[1 2 2 3 3] | dfr into-df | dfr arg-sort",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "arg_sort".to_string(),
-                        vec![
-                            Value::test_int(0),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(3),
-                            Value::test_int(4),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "arg_sort".to_string(),
+                            vec![
+                                Value::test_int(0),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(3),
+                                Value::test_int(4),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -64,16 +67,19 @@ impl Command for ArgSort {
                 description: "Returns indexes for a sorted series",
                 example: "[1 2 2 3 3] | dfr into-df | dfr arg-sort --reverse",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "arg_sort".to_string(),
-                        vec![
-                            Value::test_int(3),
-                            Value::test_int(4),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(0),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "arg_sort".to_string(),
+                            vec![
+                                Value::test_int(3),
+                                Value::test_int(4),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(0),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

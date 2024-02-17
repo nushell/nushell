@@ -37,10 +37,10 @@ impl Command for ArgMin {
             description: "Returns index for min value",
             example: "[1 3 2] | dfr into-df | dfr arg-min",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_min".to_string(),
-                    vec![Value::test_int(0)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new("arg_min".to_string(), vec![Value::test_int(0)])],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

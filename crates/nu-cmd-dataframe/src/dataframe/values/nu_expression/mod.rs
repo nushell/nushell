@@ -252,7 +252,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 span,
             ))
         }
-        Expr::Count => Ok(Value::record(
+        Expr::Len => Ok(Value::record(
             record! { "expr" => Value::string("count", span) },
             span,
         )),

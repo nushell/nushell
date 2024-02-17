@@ -283,7 +283,7 @@ fn errors_if_moving_to_itself() {
             "umv mydir mydir/mydir_2/"
         );
         assert!(actual.err.contains("cannot move"));
-        assert!(actual.err.contains("to a subdirectory of"));
+        assert!(actual.err.contains("to a subdirectory"));
     });
 }
 
