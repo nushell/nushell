@@ -9,11 +9,9 @@ mod unit;
 
 pub mod record;
 
-use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
-use crate::ast::{Math, Operator};
+use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
 use crate::engine::{Closure, EngineState};
-use crate::ShellError;
-use crate::{did_you_mean, BlockId, Config, Span, Type};
+use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
 
 use byte_unit::UnitType;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
@@ -277,6 +275,16 @@ impl Value {
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Int`
     /// - `Float`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Float { .. } | Value::Int { .. }),
+    ///         val.coerce_float().is_ok(),
+    ///     );
+    /// }
+    /// ```
     pub fn coerce_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
@@ -359,6 +367,23 @@ impl Value {
     ///
     /// Prefer [`coerce_into_string`](Self::coerce_into_string)
     /// if you do not need to keep the original `Value` around.
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_string().is_ok(),
+    ///     );
+    /// }
+    /// ```
     pub fn coerce_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(val.to_string()),
@@ -381,6 +406,23 @@ impl Value {
     /// - `String`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_into_string().is_ok(),
+    ///     );
+    /// }
+    /// ```
     pub fn coerce_into_string(self) -> Result<String, ShellError> {
         let span = self.span();
         match self {
@@ -472,6 +514,16 @@ impl Value {
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Block`
     /// - `Closure`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Block { .. } | Value::Closure { .. }),
+    ///         val.coerce_block().is_ok(),
+    ///     );
+    /// }
+    /// ```
     pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
@@ -524,6 +576,16 @@ impl Value {
     ///
     /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
     /// if you do not need to keep the original `Value` around.
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Binary { .. } | Value::String { .. }),
+    ///         val.coerce_binary().is_ok(),
+    ///     );
+    /// }
+    /// ```
     pub fn coerce_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
@@ -537,6 +599,16 @@ impl Value {
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Binary`
     /// - `String`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Binary { .. } | Value::String { .. }),
+    ///         val.coerce_into_binary().is_ok(),
+    ///     );
+    /// }
+    /// ```
     pub fn coerce_into_binary(self) -> Result<Vec<u8>, ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
@@ -1957,6 +2029,47 @@ impl Value {
     /// when used in errors.
     pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
         Value::lazy_record(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data,
+    /// as it will point into unknown source when used in errors.
+    ///
+    /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
+    /// except for `Value::LazyRecord` and `Value::CustomValue`.
+    pub fn test_values() -> Vec<Value> {
+        vec![
+            Value::test_bool(false),
+            Value::test_int(0),
+            Value::test_filesize(0),
+            Value::test_duration(0),
+            Value::test_date(DateTime::UNIX_EPOCH.into()),
+            Value::test_range(Range {
+                from: Value::test_nothing(),
+                incr: Value::test_nothing(),
+                to: Value::test_nothing(),
+                inclusion: RangeInclusion::Inclusive,
+            }),
+            Value::test_float(0.0),
+            Value::test_string(String::new()),
+            Value::test_record(Record::new()),
+            // Value::test_lazy_record(Box::new(todo!())),
+            Value::test_list(Vec::new()),
+            Value::test_block(0),
+            Value::test_closure(Closure {
+                block_id: 0,
+                captures: Vec::new(),
+            }),
+            Value::test_nothing(),
+            Value::error(
+                ShellError::NushellFailed { msg: String::new() },
+                Span::test_data(),
+            ),
+            Value::test_binary(Vec::new()),
+            Value::test_cell_path(CellPath {
+                members: Vec::new(),
+            }),
+            // Value::test_custom_value(Box::new(todo!())),
+        ]
     }
 }
 
