@@ -1,6 +1,6 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::{Profiler, WithDebug};
+use nu_protocol::debugger::{NoopDebugger, Profiler, WithDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -100,6 +100,9 @@ impl Command for DebugProfile {
             .deref()
             .deref()
             .report(call.span());
+
+        // TODO unwrap
+        *engine_state.debugger.lock().unwrap() = Box::new(NoopDebugger);
 
         res.and_then(|val| Ok(val.into_pipeline_data()))
     }
