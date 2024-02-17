@@ -6,7 +6,7 @@ use crate::protocol::{
 };
 use std::path::{Path, PathBuf};
 
-use nu_engine::eval_block;
+use nu_engine::{eval_block, get_eval_block, get_eval_expression};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
@@ -98,6 +98,9 @@ impl Command for PluginDeclaration {
             }
         })?;
 
+        let eval_expression = get_eval_expression(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
         let input = input.into_value(call.head);
         let span = input.span();
         let input = match input {
@@ -156,8 +159,7 @@ impl Command for PluginDeclaration {
                         let block = engine_state.get_block(val.block_id).clone();
                         let mut stack = stack.captures_to_stack(val.captures);
 
-                        // TODO: DEBUG
-                        match eval_block::<WithoutDebug>(
+                        match eval_block(
                             engine_state,
                             &mut stack,
                             &block,
@@ -175,7 +177,7 @@ impl Command for PluginDeclaration {
 
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
-            call: EvaluatedCall::try_from_call::<WithoutDebug>(call, engine_state, stack)?, // TODO: DEBUG
+            call: EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?,
             input,
             config,
         });

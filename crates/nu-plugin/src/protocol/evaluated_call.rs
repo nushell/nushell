@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use nu_protocol::ast::Expression;
 
 /// A representation of the plugin's invocation command including command line args
 ///
@@ -30,19 +31,20 @@ pub struct EvaluatedCall {
 }
 
 impl EvaluatedCall {
-    pub(crate) fn try_from_call<D: DebugContext>(
+    pub(crate) fn try_from_call(
         call: &Call,
         engine_state: &EngineState,
         stack: &mut Stack,
+        eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
     ) -> Result<Self, ShellError> {
         let positional =
-            call.rest_iter_flattened(0, |expr| eval_expression::<D>(engine_state, stack, expr))?;
+            call.rest_iter_flattened(0, |expr| eval_expression_fn(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
-                Some(expr) => Some(eval_expression::<D>(engine_state, stack, expr)?),
+                Some(expr) => Some(eval_expression_fn(engine_state, stack, expr)?),
             };
 
             named.push((string.clone(), value))
