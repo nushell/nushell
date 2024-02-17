@@ -84,7 +84,6 @@ impl NuCompleter {
             }
         }
 
-        // TODO: DEBUG
         let result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut callee_stack,

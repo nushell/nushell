@@ -70,7 +70,6 @@ impl CallExt for Call {
             if flag_name == name.0.item {
                 return if let Some(expr) = &name.2 {
                     // Check --flag=false
-                    // TODO: DEBUG
                     let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
                     match result {
                         Value::Bool { val, .. } => Ok(val),

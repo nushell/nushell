@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, CallExt, get_eval_block};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
@@ -42,6 +42,8 @@ pub fn boolean_fold(
     let ctrlc = engine_state.ctrlc.clone();
     let engine_state = engine_state.clone();
 
+    let eval_block = get_eval_block(&engine_state, span)?;
+
     for value in input.into_interruptible_iter(ctrlc) {
         // with_env() is used here to ensure that each iteration uses
         // a different set of environment variables.
@@ -52,8 +54,7 @@ pub fn boolean_fold(
             stack.add_var(var_id, value.clone());
         }
 
-        // TODO: DEBUG
-        let eval = eval_block::<WithoutDebug>(
+        let eval = eval_block(
             &engine_state,
             &mut stack,
             block,

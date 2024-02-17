@@ -1,4 +1,4 @@
-use nu_engine::eval_expression;
+use nu_engine::{eval_expression, get_eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -50,8 +50,8 @@ impl Command for BytesBuild {
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
         for val in call.rest_iter_flattened(0, |expr| {
-            // TODO: DEBUG
-            eval_expression::<WithoutDebug>(engine_state, stack, expr)
+            let eval_expression = get_eval_expression(engine_state, call.head)?;
+            eval_expression(engine_state, stack, expr)
         })? {
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),

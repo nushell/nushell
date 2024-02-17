@@ -111,7 +111,7 @@ pub(crate) fn add_menus(
 
             let mut temp_stack = Stack::new();
             let input = PipelineData::Empty;
-            // TODO: DEBUG
+
             let res = eval_block::<WithoutDebug>(
                 &engine_state,
                 &mut temp_stack,

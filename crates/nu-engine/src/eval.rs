@@ -1362,6 +1362,8 @@ impl Eval for EvalRuntime {
     }
 }
 
+/// Helper function to fetch `eval_block_with_early_return()` with the correct type parameter based
+/// on whether engine_state is configured with or without a debugger.
 pub fn get_eval_block_with_early_return(
     engine_state: &EngineState,
     span: Span,
@@ -1393,6 +1395,8 @@ pub fn get_eval_block_with_early_return(
     }
 }
 
+/// Helper function to fetch `eval_block()` with the correct type parameter based on whether
+/// engine_state is configured with or without a debugger.
 pub fn get_eval_block(
     engine_state: &EngineState,
     span: Span,
@@ -1412,6 +1416,36 @@ pub fn get_eval_block(
             eval_block::<WithDebug>
         } else {
             eval_block::<WithoutDebug>
+        })
+    } else {
+        Err(ShellError::GenericError {
+            error: "Internal Error: Could not lock debugger".to_string(),
+            msg: "Could not lock debugger".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
+    }
+}
+
+/// Helper function to fetch `eval_expression()` with the correct type parameter based on whether
+/// engine_state is configured with or without a debugger.
+pub fn get_eval_expression(
+    engine_state: &EngineState,
+    span: Span,
+) -> Result<
+    fn(
+        &EngineState,
+        &mut Stack,
+        &Expression
+    ) -> Result<Value, ShellError>,
+    ShellError,
+> {
+    if let Ok(debugger) = engine_state.debugger.lock() {
+        Ok(if debugger.should_debug() {
+            eval_expression::<WithDebug>
+        } else {
+            eval_expression::<WithoutDebug>
         })
     } else {
         Err(ShellError::GenericError {
