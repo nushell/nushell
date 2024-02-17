@@ -808,19 +808,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Out of memory.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("Out of memory")]
-    #[diagnostic(code(nu::shell::out_of_memory))]
-    OutOfMemoryError {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
