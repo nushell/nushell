@@ -903,7 +903,7 @@ fn test_cp_debug_default() {
         {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if !actual
             .out
             .contains("copy offload: unknown, reflink: unsupported, sparse detection: no")
