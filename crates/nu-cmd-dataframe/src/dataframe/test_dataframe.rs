@@ -4,7 +4,6 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Example, PipelineData, Span,
 };
-use sqlparser::ast::With;
 
 use super::eager::{SchemaDF, ToDataFrame};
 use super::expressions::ExprCol;
