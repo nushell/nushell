@@ -431,15 +431,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::file_not_found))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
 
-    /// Error while trying to read a file
-    ///
-    /// ## Resolution
-    ///
-    /// The error will show the result from a file operation
-    #[error("Error trying to read file")]
-    #[diagnostic(code(nu::shell::error_reading_file))]
-    ReadingFile(String, #[label("{0}")] Span),
-
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -544,7 +535,6 @@ impl ParseError {
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
-            ParseError::ReadingFile(_, s) => *s,
             ParseError::LabeledError(_, _, s) => *s,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,
