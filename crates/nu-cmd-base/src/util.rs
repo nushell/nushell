@@ -66,7 +66,7 @@ fn get_editor_commandline(
     match value {
         Value::String { val, .. } if !val.is_empty() => Ok((val.to_string(), Vec::new())),
         Value::List { vals, .. } if !vals.is_empty() => {
-            let mut editor_cmd = vals.iter().map(|l| l.as_string());
+            let mut editor_cmd = vals.iter().map(|l| l.coerce_string());
             match editor_cmd.next().transpose()? {
                 Some(editor) if !editor.is_empty() => {
                     let params = editor_cmd.collect::<Result<_, ShellError>>()?;

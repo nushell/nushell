@@ -79,7 +79,7 @@ impl Command for Cd {
                     let oldpwd = stack.get_env_var(engine_state, "OLDPWD");
 
                     if let Some(oldpwd) = oldpwd {
-                        let path = oldpwd.as_path()?;
+                        let path = oldpwd.to_path()?;
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
                             Err(_) => {

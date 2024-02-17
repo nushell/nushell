@@ -118,7 +118,7 @@ fn update(
 
     match input {
         PipelineData::Value(mut value, metadata) => {
-            if replacement.as_block().is_ok() {
+            if replacement.coerce_block().is_ok() {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let span = replacement.span();
@@ -186,7 +186,7 @@ fn update(
                 // cannot fail since loop above does at least one iteration or returns an error
                 let value = pre_elems.last_mut().expect("one element");
 
-                if replacement.as_block().is_ok() {
+                if replacement.coerce_block().is_ok() {
                     update_single_value_by_closure(
                         value,
                         replacement,
@@ -205,7 +205,7 @@ fn update(
                     .into_iter()
                     .chain(stream)
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
-            } else if replacement.as_block().is_ok() {
+            } else if replacement.coerce_block().is_ok() {
                 let replacement_span = replacement.span();
                 let engine_state = engine_state.clone();
                 let capture_block = Closure::from_value(replacement)?;

@@ -97,7 +97,7 @@ fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
 }
 
 fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, LabeledError> {
-    let value = input.as_string()?;
+    let value = input.coerce_string()?;
 
     let eml = EmlParser::from_string(value)
         .with_body_preview(body_preview)

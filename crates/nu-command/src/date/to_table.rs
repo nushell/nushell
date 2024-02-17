@@ -122,7 +122,7 @@ fn helper(val: Value, head: Span) -> Value {
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
             DatetimeParseError {
-                msg: val.debug_value(),
+                msg: val.to_debug_string(),
                 span: head,
             },
             head,

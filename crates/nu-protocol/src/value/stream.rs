@@ -55,7 +55,7 @@ impl RawStream {
             if nu_utils::ctrl_c::was_pressed(ctrlc) {
                 break;
             }
-            output.push_str(&item?.as_string()?);
+            output.push_str(&item?.coerce_into_string()?);
         }
 
         Ok(Spanned { item: output, span })
@@ -189,7 +189,7 @@ pub struct ListStream {
 
 impl ListStream {
     pub fn into_string(self, separator: &str, config: &Config) -> String {
-        self.map(|x: Value| x.into_string(", ", config))
+        self.map(|x: Value| x.to_expanded_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
     }

@@ -115,10 +115,10 @@ mod test {
         };
 
         let encoded = encode(test_span, encoding.clone(), expected, test_span, true).unwrap();
-        let encoded = encoded.as_binary().unwrap();
+        let encoded = encoded.coerce_into_binary().unwrap();
 
-        let decoded = decode(test_span, encoding, encoded).unwrap();
-        let decoded = decoded.as_string().unwrap();
+        let decoded = decode(test_span, encoding, &encoded).unwrap();
+        let decoded = decoded.coerce_into_string().unwrap();
 
         assert_eq!(decoded, expected);
     }

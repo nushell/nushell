@@ -423,7 +423,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                     Value::string(item, Span::unknown()).into_pipeline_data(),
                 ) {
                     let result = output.into_value(Span::unknown());
-                    match result.as_string() {
+                    match result.coerce_into_string() {
                         Ok(s) => {
                             build.push_str(&s);
                         }
