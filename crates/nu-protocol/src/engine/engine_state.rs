@@ -104,7 +104,7 @@ pub struct EngineState {
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
-    pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+    pub debugger: Arc<Mutex<Box<dyn Debugger>>>, // TODO: Add a boolean to check for debugger -- not necessary to lock just to check if debug or not
     startup_time: i64,
 }
 
