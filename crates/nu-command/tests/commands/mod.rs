@@ -93,6 +93,7 @@ mod select;
 mod semicolon;
 mod seq;
 mod seq_char;
+mod seq_date;
 mod skip;
 mod sort;
 mod sort_by;
