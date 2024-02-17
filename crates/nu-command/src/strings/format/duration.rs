@@ -67,7 +67,7 @@ impl Command for FormatDuration {
     ) -> Result<PipelineData, ShellError> {
         let format_value = call
             .req::<Value>(engine_state, stack, 0)?
-            .as_string()?
+            .coerce_into_string()?
             .to_ascii_lowercase();
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);

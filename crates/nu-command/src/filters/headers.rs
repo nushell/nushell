@@ -116,7 +116,7 @@ fn extract_headers(
                 .values()
                 .enumerate()
                 .map(|(idx, value)| {
-                    let col = value.into_string("", config);
+                    let col = value.to_expanded_string("", config);
                     if col.is_empty() {
                         format!("column{idx}")
                     } else {

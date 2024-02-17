@@ -256,7 +256,7 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
             std::process::exit(1);
         }
 
-        let out = item.into_string("\n", config) + "\n";
+        let out = item.to_expanded_string("\n", config) + "\n";
         let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{err}"));
     }
 }

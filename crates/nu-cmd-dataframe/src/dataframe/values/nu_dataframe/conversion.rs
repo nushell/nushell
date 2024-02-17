@@ -342,7 +342,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
             }
             DataType::String => {
                 let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_string()).collect();
+                    column.values.iter().map(|v| v.coerce_string()).collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Object(_, _) => value_to_series(name, &column.values),
@@ -561,7 +561,7 @@ fn input_type_list_to_series(
                 let value_list = v
                     .as_list()?
                     .iter()
-                    .map(|v| v.as_string())
+                    .map(|v| v.coerce_string())
                     .collect::<Result<Vec<String>, _>>()
                     .map_err(inconsistent_error)?;
                 builder.append_values_iter(value_list.iter().map(AsRef::as_ref));

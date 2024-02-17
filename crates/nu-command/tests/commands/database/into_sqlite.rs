@@ -180,7 +180,9 @@ fn into_sqlite_big_insert() {
                         span: Span::unknown(),
                         optional: false,
                     }],
-                    Box::new(|dateval| Value::string(dateval.as_string().unwrap(), dateval.span())),
+                    Box::new(|dateval| {
+                        Value::string(dateval.coerce_string().unwrap(), dateval.span())
+                    }),
                 )
                 .unwrap();
 
