@@ -851,22 +851,6 @@ pub enum ShellError {
         destination_span: Span,
     },
 
-    /// The requested move operation cannot be completed. This is typically because both paths exist,
-    /// but are of different types. For example, you might be trying to overwrite an existing file with
-    /// a directory.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the destination path does not exist before moving a directory.
-    #[error("Move not possible")]
-    #[diagnostic(code(nu::shell::move_not_possible_single))]
-    // NOTE: Currently not actively used.
-    MoveNotPossibleSingle {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Failed to create either a file or directory.
     ///
     /// ## Resolution
