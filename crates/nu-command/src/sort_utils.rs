@@ -150,7 +150,7 @@ pub fn sort(
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
-                    match (a.coerce_string(), b.coerce_string()) {
+                    match (a.coerce_str(), b.coerce_str()) {
                         (Ok(left), Ok(right)) => compare_str(left, right),
                         _ => Ordering::Equal,
                     }

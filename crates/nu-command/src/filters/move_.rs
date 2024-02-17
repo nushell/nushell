@@ -222,9 +222,7 @@ fn move_record_columns(
 
     // Find indices of columns to be moved
     for column in columns.iter() {
-        let column_str = column.coerce_string()?;
-
-        if let Some(idx) = record.index_of(&column_str) {
+        if let Some(idx) = record.index_of(&column.coerce_str()?) {
             column_idx.push(idx);
         } else {
             return Err(ShellError::GenericError {

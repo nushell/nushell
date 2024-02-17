@@ -356,6 +356,47 @@ impl Value {
         }
     }
 
+    /// Returns this `Value` converted to a `str` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_str().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Binary { val, .. } => match std::str::from_utf8(val) {
+                Ok(s) => Ok(Cow::Borrowed(s)),
+                Err(_) => self.cant_convert_to("string"),
+            },
+            Value::Date { val, .. } => Ok(Cow::Owned(
+                val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            )),
+            val => val.cant_convert_to("string"),
+        }
+    }
+
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
@@ -365,7 +406,13 @@ impl Value {
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
-    /// Prefer [`coerce_into_string`](Self::coerce_into_string)
+    /// # Note
+    /// This function is equivalent to `value.coerce_str().map(Cow::into_owned)`
+    /// which might allocate a new `String`.
+    ///
+    /// To avoid this allocation, prefer [`coerce_str`](Self::coerce_str)
+    /// if you do not need an owned `String`,
+    /// or [`coerce_into_string`](Self::coerce_into_string)
     /// if you do not need to keep the original `Value` around.
     ///
     /// ```
@@ -385,17 +432,7 @@ impl Value {
     /// }
     /// ```
     pub fn coerce_string(&self) -> Result<String, ShellError> {
-        match self {
-            Value::Int { val, .. } => Ok(val.to_string()),
-            Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.clone()),
-            Value::Binary { val, .. } => match std::str::from_utf8(val) {
-                Ok(s) => Ok(s.to_string()),
-                Err(_) => self.cant_convert_to("string"),
-            },
-            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            val => val.cant_convert_to("string"),
-        }
+        self.coerce_str().map(Cow::into_owned)
     }
 
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted

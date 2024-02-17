@@ -459,21 +459,18 @@ pub(crate) fn add_ide_menu(
         };
 
         ide_menu = match extract_value("description_mode", val, span) {
-            Ok(description_mode) => {
-                let description_mode_str = description_mode.coerce_string()?;
-                match description_mode_str.as_str() {
-                    "left" => ide_menu.with_description_mode(DescriptionMode::Left),
-                    "right" => ide_menu.with_description_mode(DescriptionMode::Right),
-                    "prefer_right" => ide_menu.with_description_mode(DescriptionMode::PreferRight),
-                    _ => {
-                        return Err(ShellError::UnsupportedConfigValue {
-                            expected: "\"left\", \"right\" or \"prefer_right\"".to_string(),
-                            value: description_mode.to_abbreviated_string(config),
-                            span: description_mode.span(),
-                        });
-                    }
+            Ok(description_mode) => match description_mode.coerce_str()?.as_ref() {
+                "left" => ide_menu.with_description_mode(DescriptionMode::Left),
+                "right" => ide_menu.with_description_mode(DescriptionMode::Right),
+                "prefer_right" => ide_menu.with_description_mode(DescriptionMode::PreferRight),
+                _ => {
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "\"left\", \"right\" or \"prefer_right\"".to_string(),
+                        value: description_mode.to_abbreviated_string(config),
+                        span: description_mode.span(),
+                    });
                 }
-            }
+            },
             Err(_) => ide_menu,
         };
 

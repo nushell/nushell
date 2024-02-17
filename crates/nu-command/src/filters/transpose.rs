@@ -194,7 +194,7 @@ pub fn transpose(
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
                         if let Ok(s) = x.coerce_string() {
-                            headers.push(s.to_string());
+                            headers.push(s);
                         } else {
                             return Err(ShellError::GenericError {
                                 error: "Header row needs string headers".into(),

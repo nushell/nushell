@@ -262,7 +262,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     // Let's try dtparse first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
-        if let Ok(input_val) = input.coerce_string() {
+        if let Ok(input_val) = input.coerce_str() {
             match parse_date_from_string(&input_val, span) {
                 Ok(date) => return Value::date(date, span),
                 Err(_) => {
