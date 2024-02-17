@@ -141,7 +141,7 @@ impl Command for OverlayUse {
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
-                let eval_block = get_eval_block(engine_state, call.head)?;
+                let eval_block = get_eval_block(engine_state);
 
                 let _ = eval_block(
                     engine_state,

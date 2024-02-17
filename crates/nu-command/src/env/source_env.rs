@@ -77,8 +77,7 @@ impl Command for SourceEnv {
         let block = engine_state.get_block(block_id as usize).clone();
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        let eval_block_with_early_return =
-            get_eval_block_with_early_return(engine_state, call.head)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         let result = eval_block_with_early_return(
             engine_state,

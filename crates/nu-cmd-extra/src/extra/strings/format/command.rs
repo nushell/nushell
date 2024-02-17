@@ -208,7 +208,6 @@ fn format(
                 engine_state,
                 working_set,
                 stack,
-                head_span,
             ) {
                 Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
                 Err(value) => Err(value),
@@ -226,7 +225,6 @@ fn format(
                             engine_state,
                             working_set,
                             stack,
-                            head_span,
                         ) {
                             Ok(value) => {
                                 list.push(Value::string(value, head_span));
@@ -271,11 +269,10 @@ fn format_record(
     engine_state: &EngineState,
     working_set: &mut StateWorkingSet,
     stack: &mut Stack,
-    head_span: Span,
 ) -> Result<String, ShellError> {
     let config = engine_state.get_config();
     let mut output = String::new();
-    let eval_expression = get_eval_expression(engine_state, head_span)?;
+    let eval_expression = get_eval_expression(engine_state);
 
     for op in format_operations {
         match op {

@@ -106,9 +106,9 @@ impl Command for If {
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block: Block = call.req(engine_state, stack, 1)?;
         let else_case = call.positional_nth(2);
-        let eval_expression = get_eval_expression(engine_state, call.head)?;
-        let eval_expression_with_input = get_eval_expression_with_input(engine_state, call.head)?;
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         let result = eval_expression(engine_state, stack, cond)?;
         match &result {

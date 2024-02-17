@@ -70,10 +70,6 @@ impl DebugContext for WithoutDebug {}
 ///
 /// By default, its callbacks are empty.
 pub trait Debugger: Send + Debug {
-    fn should_debug(&self) -> bool {
-        true
-    }
-
     fn enter_block(&mut self) {}
     fn leave_block(&mut self) {}
 
@@ -96,8 +92,4 @@ pub trait Debugger: Send + Debug {
 #[derive(Debug)]
 pub struct NoopDebugger;
 
-impl Debugger for NoopDebugger {
-    fn should_debug(&self) -> bool {
-        false
-    }
-}
+impl Debugger for NoopDebugger {}

@@ -2,11 +2,11 @@ use crate::NushellPrompt;
 use log::trace;
 use nu_engine::get_eval_subexpression;
 
+use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, Value,
 };
-use nu_protocol::{report_error, Span};
 use reedline::Prompt;
 
 // Name of environment variable where the prompt could be stored
@@ -36,9 +36,7 @@ fn get_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
-    let Ok(eval_subexpression) = get_eval_subexpression(engine_state, Span::unknown()) else {
-        return None;
-    };
+    let eval_subexpression = get_eval_subexpression(engine_state);
 
     stack
         .get_env_var(engine_state, prompt)

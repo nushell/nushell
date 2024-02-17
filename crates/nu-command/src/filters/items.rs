@@ -55,7 +55,7 @@ impl Command for Items {
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
         let redirect_stderr = call.redirect_stderr;
-        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state, span)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         let input_span = input.span().unwrap_or(call.head);
         let run_for_each_item = move |keyval: (String, Value)| -> Option<Value> {

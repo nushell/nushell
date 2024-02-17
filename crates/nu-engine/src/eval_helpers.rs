@@ -5,7 +5,7 @@ use crate::{
 use nu_protocol::ast::{Block, Expression};
 use nu_protocol::debugger::{WithDebug, WithoutDebug};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Value};
 
 /// Type of eval_block() function
 pub type EvalBlockFn = fn(
@@ -44,114 +44,52 @@ pub type EvalExpressionWithInputFn = fn(
 pub type EvalSubexpressionFn =
     fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
 
-/// Helper function to fetch `eval_block_with_early_return()` with the correct type parameter based
-/// on whether engine_state is configured with or without a debugger.
-pub fn get_eval_block_with_early_return(
-    engine_state: &EngineState,
-    span: Span,
-) -> Result<EvalBlockWithEarlyReturnFn, ShellError> {
-    if let Ok(debugger) = engine_state.debugger.lock() {
-        Ok(if debugger.should_debug() {
-            eval_block_with_early_return::<WithDebug>
-        } else {
-            eval_block_with_early_return::<WithoutDebug>
-        })
+/// Helper function to fetch `eval_block()` with the correct type parameter based on whether
+/// engine_state is configured with or without a debugger.
+pub fn get_eval_block(engine_state: &EngineState) -> EvalBlockFn {
+    if engine_state.is_debugging() {
+        eval_block::<WithDebug>
     } else {
-        Err(ShellError::GenericError {
-            error: "Internal Error: Could not lock debugger".to_string(),
-            msg: "Could not lock debugger".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
+        eval_block::<WithoutDebug>
     }
 }
 
-/// Helper function to fetch `eval_block()` with the correct type parameter based on whether
-/// engine_state is configured with or without a debugger.
-pub fn get_eval_block(engine_state: &EngineState, span: Span) -> Result<EvalBlockFn, ShellError> {
-    if let Ok(debugger) = engine_state.debugger.lock() {
-        Ok(if debugger.should_debug() {
-            eval_block::<WithDebug>
-        } else {
-            eval_block::<WithoutDebug>
-        })
+/// Helper function to fetch `eval_block_with_early_return()` with the correct type parameter based
+/// on whether engine_state is configured with or without a debugger.
+pub fn get_eval_block_with_early_return(engine_state: &EngineState) -> EvalBlockWithEarlyReturnFn {
+    if engine_state.is_debugging() {
+        eval_block_with_early_return::<WithDebug>
     } else {
-        Err(ShellError::GenericError {
-            error: "Internal Error: Could not lock debugger".to_string(),
-            msg: "Could not lock debugger".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
+        eval_block_with_early_return::<WithoutDebug>
     }
 }
 
 /// Helper function to fetch `eval_expression()` with the correct type parameter based on whether
 /// engine_state is configured with or without a debugger.
-pub fn get_eval_expression(
-    engine_state: &EngineState,
-    span: Span,
-) -> Result<EvalExpressionFn, ShellError> {
-    if let Ok(debugger) = engine_state.debugger.lock() {
-        Ok(if debugger.should_debug() {
-            eval_expression::<WithDebug>
-        } else {
-            eval_expression::<WithoutDebug>
-        })
+pub fn get_eval_expression(engine_state: &EngineState) -> EvalExpressionFn {
+    if engine_state.is_debugging() {
+        eval_expression::<WithDebug>
     } else {
-        Err(ShellError::GenericError {
-            error: "Internal Error: Could not lock debugger".to_string(),
-            msg: "Could not lock debugger".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
+        eval_expression::<WithoutDebug>
     }
 }
 
 /// Helper function to fetch `eval_expression_with_input()` with the correct type parameter based
 /// on whether engine_state is configured with or without a debugger.
-pub fn get_eval_expression_with_input(
-    engine_state: &EngineState,
-    span: Span,
-) -> Result<EvalExpressionWithInputFn, ShellError> {
-    if let Ok(debugger) = engine_state.debugger.lock() {
-        Ok(if debugger.should_debug() {
-            eval_expression_with_input::<WithDebug>
-        } else {
-            eval_expression_with_input::<WithoutDebug>
-        })
+pub fn get_eval_expression_with_input(engine_state: &EngineState) -> EvalExpressionWithInputFn {
+    if engine_state.is_debugging() {
+        eval_expression_with_input::<WithDebug>
     } else {
-        Err(ShellError::GenericError {
-            error: "Internal Error: Could not lock debugger".to_string(),
-            msg: "Could not lock debugger".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
+        eval_expression_with_input::<WithoutDebug>
     }
 }
 
 /// Helper function to fetch `eval_subexpression()` with the correct type parameter based on whether
 /// engine_state is configured with or without a debugger.
-pub fn get_eval_subexpression(
-    engine_state: &EngineState,
-    span: Span,
-) -> Result<EvalSubexpressionFn, ShellError> {
-    if let Ok(debugger) = engine_state.debugger.lock() {
-        Ok(if debugger.should_debug() {
-            eval_subexpression::<WithDebug>
-        } else {
-            eval_subexpression::<WithoutDebug>
-        })
+pub fn get_eval_subexpression(engine_state: &EngineState) -> EvalSubexpressionFn {
+    if engine_state.is_debugging() {
+        eval_subexpression::<WithDebug>
     } else {
-        Err(ShellError::GenericError {
-            error: "Internal Error: Could not lock debugger".to_string(),
-            msg: "Could not lock debugger".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
+        eval_subexpression::<WithoutDebug>
     }
 }

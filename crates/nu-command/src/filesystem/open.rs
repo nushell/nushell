@@ -59,7 +59,7 @@ impl Command for Open {
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = call.rest::<Spanned<NuPath>>(engine_state, stack, 0)?;
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state);
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args

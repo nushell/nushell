@@ -238,7 +238,7 @@ fn group_closure(
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let error_key = "error";
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
-    let eval_block = get_eval_block(engine_state, call.head)?;
+    let eval_block = get_eval_block(engine_state);
 
     if let Some(capture_block) = &block {
         let block = engine_state.get_block(capture_block.block_id);

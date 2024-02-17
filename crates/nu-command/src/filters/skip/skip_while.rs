@@ -100,7 +100,7 @@ impl Command for SkipWhile {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
-        let eval_block = get_eval_block(&engine_state, span)?;
+        let eval_block = get_eval_block(&engine_state);
 
         Ok(input
             .into_iter_strict(span)?

@@ -53,7 +53,7 @@ impl Command for TimeIt {
 
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
-                let eval_block = get_eval_block(engine_state, call.head)?;
+                let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);
                 eval_block(
                     engine_state,
@@ -64,8 +64,7 @@ impl Command for TimeIt {
                     call.redirect_stderr,
                 )?
             } else {
-                let eval_expression_with_input =
-                    get_eval_expression_with_input(engine_state, call.head)?;
+                let eval_expression_with_input = get_eval_expression_with_input(engine_state);
                 eval_expression_with_input(
                     engine_state,
                     stack,

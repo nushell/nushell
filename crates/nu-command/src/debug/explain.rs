@@ -67,7 +67,7 @@ pub fn get_pipeline_elements(
 ) -> Result<Vec<Value>, ShellError> {
     let mut element_values = vec![];
 
-    let eval_expression = get_eval_expression(engine_state, span)?;
+    let eval_expression = get_eval_expression(engine_state);
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;

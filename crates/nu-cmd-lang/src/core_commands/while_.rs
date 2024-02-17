@@ -45,8 +45,8 @@ impl Command for While {
         let cond = call.positional_nth(0).expect("checked through parser");
         let block: Block = call.req(engine_state, stack, 1)?;
 
-        let eval_expression = get_eval_expression(engine_state, call.head)?;
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {

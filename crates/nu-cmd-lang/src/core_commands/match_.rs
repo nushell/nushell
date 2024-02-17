@@ -39,9 +39,9 @@ impl Command for Match {
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
         let block = call.positional_nth(1);
-        let eval_expression = get_eval_expression(engine_state, call.head)?;
-        let eval_expression_with_input = get_eval_expression_with_input(engine_state, call.head)?;
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         if let Some(Expression {
             expr: Expr::MatchBlock(matches),

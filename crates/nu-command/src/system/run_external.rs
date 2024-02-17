@@ -131,7 +131,7 @@ pub fn create_external_command(
             })
     }
 
-    let eval_expression = get_eval_expression(engine_state, call.head)?;
+    let eval_expression = get_eval_expression(engine_state);
 
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];

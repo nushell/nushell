@@ -62,7 +62,7 @@ impl Command for Let {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state);
         let pipeline_data = eval_block(engine_state, stack, block, input, true, false)?;
         stack.add_var(var_id, pipeline_data.into_value(call.head));
         Ok(PipelineData::empty())

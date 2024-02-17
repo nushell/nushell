@@ -104,7 +104,7 @@ impl Command for UpdateCells {
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block: Block = engine_state.get_block(block.block_id).clone();
-        let eval_block_fn = get_eval_block(&engine_state, call.head)?;
+        let eval_block_fn = get_eval_block(&engine_state);
 
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;

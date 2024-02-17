@@ -40,7 +40,7 @@ impl Command for ExportEnv {
         let block = engine_state.get_block(capture_block.block_id);
         let mut callee_stack = caller_stack.captures_to_stack(capture_block.captures);
 
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state);
 
         let _ = eval_block(
             engine_state,

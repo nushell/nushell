@@ -1,6 +1,6 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::{NoopDebugger, Profiler, WithDebug};
+use nu_protocol::debugger::{Profiler, WithDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -70,16 +70,16 @@ impl Command for DebugProfile {
         let lock_err = {
             |_| ShellError::GenericError {
                 error: "Profiler Error".to_string(),
-                msg: "could not lock debugger".to_string(),
+                msg: "could not lock debugger, poisoned mutex".to_string(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
             }
         };
 
-        {
-            *engine_state.debugger.lock().map_err(lock_err)? = Box::new(profiler);
-        }
+        engine_state
+            .activate_debugger(Box::new(profiler))
+            .map_err(lock_err)?;
 
         let result = eval_block_with_early_return::<WithDebug>(
             engine_state,
@@ -106,9 +106,7 @@ impl Command for DebugProfile {
             .map_err(lock_err)?
             .report(call.span());
 
-        {
-            *engine_state.debugger.lock().map_err(lock_err)? = Box::new(NoopDebugger);
-        }
+        engine_state.deactivate_debugger().map_err(lock_err)?;
 
         res.map(|val| val.into_pipeline_data())
     }

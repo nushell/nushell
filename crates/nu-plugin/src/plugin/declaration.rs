@@ -98,8 +98,8 @@ impl Command for PluginDeclaration {
             }
         })?;
 
-        let eval_expression = get_eval_expression(engine_state, call.head)?;
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         let input = input.into_value(call.head);
         let span = input.span();

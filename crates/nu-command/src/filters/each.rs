@@ -114,8 +114,7 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let eval_block_with_early_return =
-            get_eval_block_with_early_return(engine_state, call.head)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 

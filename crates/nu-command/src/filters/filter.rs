@@ -64,7 +64,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
-        let eval_block = get_eval_block(&engine_state, call.head)?;
+        let eval_block = get_eval_block(&engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),

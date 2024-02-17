@@ -157,7 +157,7 @@ fn rename(
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
 
-    let eval_block_with_early_return = get_eval_block_with_early_return(engine_state, call.head)?;
+    let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
     let head_span = call.head;
     input

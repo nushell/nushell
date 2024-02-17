@@ -143,8 +143,7 @@ impl Command for ParEach {
             vec.into_iter().map(|(_, val)| val)
         };
 
-        let eval_block_with_early_return =
-            get_eval_block_with_early_return(engine_state, call.head)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),

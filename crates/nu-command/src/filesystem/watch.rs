@@ -169,7 +169,7 @@ impl Command for Watch {
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state);
 
         let event_handler =
             |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {

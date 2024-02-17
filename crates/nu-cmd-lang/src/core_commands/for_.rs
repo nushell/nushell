@@ -72,8 +72,8 @@ impl Command for For {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let eval_expression = get_eval_expression(engine_state, call.head)?;
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         let values = eval_expression(engine_state, stack, keyword_expr)?;
 

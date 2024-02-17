@@ -50,7 +50,7 @@ impl Command for BytesBuild {
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
         for val in call.rest_iter_flattened(0, |expr| {
-            let eval_expression = get_eval_expression(engine_state, call.head)?;
+            let eval_expression = get_eval_expression(engine_state);
             eval_expression(engine_state, stack, expr)
         })? {
             match val {

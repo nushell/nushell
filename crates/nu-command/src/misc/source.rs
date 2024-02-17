@@ -49,8 +49,7 @@ impl Command for Source {
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
         let block = engine_state.get_block(block_id as usize).clone();
 
-        let eval_block_with_early_return =
-            get_eval_block_with_early_return(engine_state, call.head)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         eval_block_with_early_return(
             engine_state,

@@ -48,7 +48,7 @@ impl Command for Try {
         let catch_block: Option<Closure> = call.opt(engine_state, stack, 1)?;
 
         let try_block = engine_state.get_block(try_block.block_id);
-        let eval_block = get_eval_block(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state);
 
         let result = eval_block(engine_state, stack, try_block, input, false, false);
 

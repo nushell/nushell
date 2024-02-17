@@ -118,8 +118,7 @@ impl Command for Do {
             }
         }
 
-        let eval_block_with_early_return =
-            get_eval_block_with_early_return(engine_state, call.head)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         let result = eval_block_with_early_return(
             engine_state,

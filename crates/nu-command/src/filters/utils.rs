@@ -44,7 +44,7 @@ pub fn boolean_fold(
 
     // TODO: This Clippy lint is incorrectly triggered in our CI for come reason
     #[allow(clippy::needless_borrow)]
-    let eval_block = get_eval_block(&engine_state, span)?;
+    let eval_block = get_eval_block(&engine_state);
 
     for value in input.into_interruptible_iter(ctrlc) {
         // with_env() is used here to ensure that each iteration uses

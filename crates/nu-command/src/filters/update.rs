@@ -117,7 +117,7 @@ fn update(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let eval_block = get_eval_block(engine_state, call.head)?;
+    let eval_block = get_eval_block(engine_state);
 
     match input {
         PipelineData::Value(mut value, metadata) => {

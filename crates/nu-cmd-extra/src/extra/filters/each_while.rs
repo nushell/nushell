@@ -85,8 +85,7 @@ impl Command for EachWhile {
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
-        let eval_block_with_early_return =
-            get_eval_block_with_early_return(&engine_state, call.head)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
