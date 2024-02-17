@@ -1,5 +1,5 @@
 use itertools::unfold;
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, get_eval_block_with_early_return, CallExt};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
@@ -108,6 +108,8 @@ used as the next argument to the closure, otherwise generation stops.
         let orig_env_hidden = stack.env_hidden.clone();
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(&engine_state, call.head)?;
 
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
@@ -129,8 +131,7 @@ used as the next argument to the closure, otherwise generation stops.
                 }
             }
 
-            // TODO: DEBUG
-            let (output, next_input) = match eval_block_with_early_return::<WithoutDebug>(
+            let (output, next_input) = match eval_block_with_early_return(
                 &engine_state,
                 &mut stack,
                 &block,

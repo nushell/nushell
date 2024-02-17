@@ -1,4 +1,6 @@
-use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt};
+use nu_engine::{
+    eval_block, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env, CallExt,
+};
 use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -142,8 +144,9 @@ impl Command for OverlayUse {
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
-                // TODO: DEBUG
-                let _ = eval_block::<WithoutDebug>(
+                let eval_block = get_eval_block(engine_state, call.head)?;
+
+                let _ = eval_block(
                     engine_state,
                     &mut callee_stack,
                     block,

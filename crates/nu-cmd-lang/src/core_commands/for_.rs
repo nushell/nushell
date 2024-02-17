@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, eval_expression, CallExt};
+use nu_engine::{eval_block, eval_expression, get_eval_block, get_eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
@@ -71,8 +71,11 @@ impl Command for For {
             .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
-        // TODO: DEBUG
-        let values = eval_expression::<WithoutDebug>(engine_state, stack, keyword_expr)?;
+
+        let eval_expression = get_eval_expression(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
+        let values = eval_expression(engine_state, stack, keyword_expr)?;
 
         let block: Block = call.req(engine_state, stack, 2)?;
 
@@ -106,9 +109,7 @@ impl Command for For {
                         },
                     );
 
-                    //let block = engine_state.get_block(block_id);
-                    // TODO: DEBUG
-                    match eval_block::<WithoutDebug>(
+                    match eval_block(
                         &engine_state,
                         stack,
                         &block,
@@ -153,9 +154,7 @@ impl Command for For {
                         },
                     );
 
-                    //let block = engine_state.get_block(block_id);
-                    // TODO: DEBUG
-                    match eval_block::<WithoutDebug>(
+                    match eval_block(
                         &engine_state,
                         stack,
                         &block,
@@ -186,8 +185,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                // TODO: DEBUG
-                eval_block::<WithoutDebug>(
+                eval_block(
                     &engine_state,
                     stack,
                     &block,

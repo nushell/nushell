@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, eval_expression, CallExt};
+use nu_engine::{eval_block, eval_expression, get_eval_block, get_eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
@@ -45,19 +45,22 @@ impl Command for While {
         let cond = call.positional_nth(0).expect("checked through parser");
         let block: Block = call.req(engine_state, stack, 1)?;
 
+        let eval_expression = get_eval_expression(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 break;
             }
 
-            // TODO: DEBUG
-            let result = eval_expression::<WithoutDebug>(engine_state, stack, cond)?;
+            let result = eval_expression(engine_state, stack, cond)?;
+
             match &result {
                 Value::Bool { val, .. } => {
                     if *val {
                         let block = engine_state.get_block(block.block_id);
-                        // TODO: DEBUG
-                        match eval_block::<WithoutDebug>(
+
+                        match eval_block(
                             engine_state,
                             stack,
                             block,

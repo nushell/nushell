@@ -1,4 +1,5 @@
 use nu_engine::eval_expression;
+use nu_protocol::ast::Expression;
 use nu_protocol::debugger::{DebugContext, Debugger};
 use nu_protocol::{
     ast::Call,
@@ -7,7 +8,6 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use nu_protocol::ast::Expression;
 
 /// A representation of the plugin's invocation command including command line args
 ///

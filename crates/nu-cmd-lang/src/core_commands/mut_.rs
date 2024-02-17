@@ -1,4 +1,4 @@
-use nu_engine::eval_block;
+use nu_engine::{eval_block, get_eval_block};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -62,8 +62,9 @@ impl Command for Mut {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
-        // TODO: DEBUG
-        let pipeline_data = eval_block::<WithoutDebug>(
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
+        let pipeline_data = eval_block(
             engine_state,
             stack,
             block,

@@ -9,7 +9,7 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
-use nu_engine::{current_dir, eval_block, CallExt};
+use nu_engine::{current_dir, eval_block, get_eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
@@ -169,6 +169,8 @@ impl Command for Watch {
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
+        let eval_block = get_eval_block(engine_state, call.head)?;
+
         let event_handler =
             |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {
                 let glob_pattern = glob_pattern.clone();
@@ -210,8 +212,7 @@ impl Command for Watch {
                         }
                     }
 
-                    // TODO: DEBUG
-                    let eval_result = eval_block::<WithoutDebug>(
+                    let eval_result = eval_block(
                         engine_state,
                         stack,
                         &block,

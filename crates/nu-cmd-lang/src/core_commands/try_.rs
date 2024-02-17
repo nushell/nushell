@@ -48,7 +48,6 @@ impl Command for Try {
         let catch_block: Option<Closure> = call.opt(engine_state, stack, 1)?;
 
         let try_block = engine_state.get_block(try_block.block_id);
-
         let eval_block = get_eval_block(engine_state, call.head)?;
 
         let result = eval_block(engine_state, stack, try_block, input, false, false);
@@ -57,12 +56,12 @@ impl Command for Try {
             Err(error) => {
                 let error = intercept_block_control(error)?;
                 let err_record = err_to_record(error, call.head);
-                handle_catch(err_record, catch_block, engine_state, stack)
+                handle_catch(err_record, catch_block, engine_state, stack, eval_block)
             }
             Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
                 let error = intercept_block_control(*error)?;
                 let err_record = err_to_record(error, call.head);
-                handle_catch(err_record, catch_block, engine_state, stack)
+                handle_catch(err_record, catch_block, engine_state, stack, eval_block)
             }
             // external command may fail to run
             Ok(pipeline) => {
@@ -72,7 +71,7 @@ impl Command for Try {
                     // (unless do -c is in effect)
                     // they can't be passed in as Nushell values.
                     let err_value = Value::nothing(call.head);
-                    handle_catch(err_value, catch_block, engine_state, stack)
+                    handle_catch(err_value, catch_block, engine_state, stack, eval_block)
                 } else {
                     Ok(pipeline)
                 }
@@ -101,6 +100,14 @@ fn handle_catch(
     catch_block: Option<Closure>,
     engine_state: &EngineState,
     stack: &mut Stack,
+    eval_block_fn: fn(
+        &EngineState,
+        &mut Stack,
+        &nu_protocol::ast::Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     if let Some(catch_block) = catch_block {
         let catch_block = engine_state.get_block(catch_block.block_id);
@@ -111,8 +118,7 @@ fn handle_catch(
             }
         }
 
-        // TODO: DEBUG
-        eval_block::<WithoutDebug>(
+        eval_block_fn(
             engine_state,
             stack,
             catch_block,

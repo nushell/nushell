@@ -1,4 +1,4 @@
-use nu_engine::{current_dir, eval_block, CallExt};
+use nu_engine::{current_dir, eval_block, get_eval_block, CallExt};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -60,6 +60,7 @@ impl Command for Open {
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = call.rest::<Spanned<NuPath>>(engine_state, stack, 0)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args
@@ -183,15 +184,7 @@ impl Command for Open {
                             let decl = engine_state.get_decl(converter_id);
                             let command_output = if let Some(block_id) = decl.get_block_id() {
                                 let block = engine_state.get_block(block_id);
-                                // TODO: DEBUG
-                                eval_block::<WithoutDebug>(
-                                    engine_state,
-                                    stack,
-                                    block,
-                                    file_contents,
-                                    false,
-                                    false,
-                                )
+                                eval_block(engine_state, stack, block, file_contents, false, false)
                             } else {
                                 decl.run(engine_state, stack, &Call::new(call_span), file_contents)
                             };

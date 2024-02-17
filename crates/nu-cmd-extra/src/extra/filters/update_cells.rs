@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, get_eval_block, CallExt};
 use nu_protocol::ast::{Block, Call};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -104,6 +104,7 @@ impl Command for UpdateCells {
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block: Block = engine_state.get_block(block.block_id).clone();
+        let eval_block_fn = get_eval_block(&engine_state, call.head)?;
 
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
@@ -135,6 +136,7 @@ impl Command for UpdateCells {
             redirect_stdout,
             redirect_stderr,
             span,
+            eval_block_fn,
         }
         .into_pipeline_data(ctrlc)
         .set_metadata(metadata))
@@ -149,6 +151,14 @@ struct UpdateCellIterator {
     block: Block,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    eval_block_fn: fn(
+        &EngineState,
+        &mut Stack,
+        &Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
     span: Span,
 }
 
@@ -180,6 +190,7 @@ impl Iterator for UpdateCellIterator {
                                         self.redirect_stdout,
                                         self.redirect_stderr,
                                         span,
+                                        self.eval_block_fn,
                                     ),
                                 ),
                             })
@@ -194,6 +205,7 @@ impl Iterator for UpdateCellIterator {
                         self.redirect_stdout,
                         self.redirect_stderr,
                         self.span,
+                        self.eval_block_fn,
                     )),
                 }
             }
@@ -210,6 +222,14 @@ fn process_cell(
     redirect_stdout: bool,
     redirect_stderr: bool,
     span: Span,
+    eval_block_fn: fn(
+        &EngineState,
+        &mut Stack,
+        &Block,
+        PipelineData,
+        bool,
+        bool,
+    ) -> Result<PipelineData, ShellError>,
 ) -> Value {
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {
@@ -217,8 +237,7 @@ fn process_cell(
         }
     }
 
-    // TODO: DEBUG
-    match eval_block::<WithoutDebug>(
+    match eval_block_fn(
         engine_state,
         stack,
         block,

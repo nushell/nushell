@@ -1,4 +1,7 @@
-use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
+use nu_engine::{
+    eval_block, eval_expression, eval_expression_with_input, get_eval_block, get_eval_expression,
+    get_eval_expression_with_input, CallExt,
+};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Matcher, Stack};
@@ -39,6 +42,9 @@ impl Command for Match {
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
         let block = call.positional_nth(1);
+        let eval_expression = get_eval_expression(engine_state, call.head)?;
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
 
         if let Some(Expression {
             expr: Expr::MatchBlock(matches),
@@ -54,9 +60,7 @@ impl Command for Match {
                     }
 
                     let guard_matches = if let Some(guard) = &match_.0.guard {
-                        // TODO: DEBUG
-                        let Value::Bool { val, .. } =
-                            eval_expression::<WithoutDebug>(engine_state, stack, guard)?
+                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
                         else {
                             return Err(ShellError::MatchGuardNotBool { span: guard.span });
                         };
@@ -69,8 +73,7 @@ impl Command for Match {
                     if guard_matches {
                         return if let Some(block_id) = match_.1.as_block() {
                             let block = engine_state.get_block(block_id);
-                            // TODO: DEBUG
-                            eval_block::<WithoutDebug>(
+                            eval_block(
                                 engine_state,
                                 stack,
                                 block,
@@ -79,8 +82,7 @@ impl Command for Match {
                                 call.redirect_stderr,
                             )
                         } else {
-                            // TODO: DEBUG
-                            eval_expression_with_input::<WithoutDebug>(
+                            eval_expression_with_input(
                                 engine_state,
                                 stack,
                                 &match_.1,

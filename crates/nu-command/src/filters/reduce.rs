@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, get_eval_block_with_early_return, CallExt};
 
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
@@ -102,6 +102,8 @@ impl Command for Reduce {
         let mut stack = stack.captures_to_stack(capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(&engine_state, call.head)?;
 
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
@@ -151,8 +153,7 @@ impl Command for Reduce {
                 }
             }
 
-            // TODO: DEBUG
-            acc = eval_block_with_early_return::<WithoutDebug>(
+            acc = eval_block_with_early_return(
                 engine_state,
                 &mut stack,
                 block,

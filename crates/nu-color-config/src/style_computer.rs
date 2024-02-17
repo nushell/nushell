@@ -72,7 +72,6 @@ impl<'a> StyleComputer<'a> {
                         }
 
                         // Run the block.
-                        // TODO: DEBUG
                         match eval_block::<WithoutDebug>(
                             self.engine_state,
                             &mut stack,

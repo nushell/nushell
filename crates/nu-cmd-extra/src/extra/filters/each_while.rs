@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -85,6 +85,8 @@ impl Command for EachWhile {
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
+        let eval_block_with_early_return =
+            get_eval_block_with_early_return(&engine_state, call.head)?;
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -105,8 +107,7 @@ impl Command for EachWhile {
                         }
                     }
 
-                    // TODO: Debug
-                    match eval_block_with_early_return::<WithoutDebug>(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -150,8 +151,7 @@ impl Command for EachWhile {
                         }
                     }
 
-                    // TODO: DEBUG
-                    match eval_block_with_early_return::<WithoutDebug>(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -181,8 +181,7 @@ impl Command for EachWhile {
                     }
                 }
 
-                // TODO: DEBUG
-                eval_block_with_early_return::<WithoutDebug>(
+                eval_block_with_early_return(
                     &engine_state,
                     &mut stack,
                     &block,

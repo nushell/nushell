@@ -1,4 +1,7 @@
-use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
+use nu_engine::{
+    eval_block, eval_expression, eval_expression_with_input, get_eval_block, get_eval_expression,
+    get_eval_expression_with_input, CallExt,
+};
 use nu_protocol::ast::Call;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Command, EngineState, Stack, StateWorkingSet};
@@ -106,15 +109,16 @@ impl Command for If {
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block: Block = call.req(engine_state, stack, 1)?;
         let else_case = call.positional_nth(2);
+        let eval_expression = get_eval_expression(engine_state, call.head)?;
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state, call.head)?;
+        let eval_block = get_eval_block(engine_state, call.head)?;
 
-        // TODO: DEBUG
-        let result = eval_expression::<WithoutDebug>(engine_state, stack, cond)?;
+        let result = eval_expression(engine_state, stack, cond)?;
         match &result {
             Value::Bool { val, .. } => {
                 if *val {
                     let block = engine_state.get_block(then_block.block_id);
-                    // TODO: DEBUG
-                    eval_block::<WithoutDebug>(
+                    eval_block(
                         engine_state,
                         stack,
                         block,
@@ -126,8 +130,7 @@ impl Command for If {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let block = engine_state.get_block(block_id);
-                            // TODO: DEBUG
-                            eval_block::<WithoutDebug>(
+                            eval_block(
                                 engine_state,
                                 stack,
                                 block,
@@ -136,8 +139,7 @@ impl Command for If {
                                 call.redirect_stderr,
                             )
                         } else {
-                            // TODO: DEBUG
-                            eval_expression_with_input::<WithoutDebug>(
+                            eval_expression_with_input(
                                 engine_state,
                                 stack,
                                 else_expr,
@@ -148,8 +150,7 @@ impl Command for If {
                             .map(|res| res.0)
                         }
                     } else {
-                        // TODO: DEBUG
-                        eval_expression_with_input::<WithoutDebug>(
+                        eval_expression_with_input(
                             engine_state,
                             stack,
                             else_case,

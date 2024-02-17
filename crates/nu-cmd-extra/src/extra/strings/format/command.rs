@@ -1,6 +1,6 @@
 use std::vec;
 
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::{eval_expression, get_eval_expression, CallExt};
 use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::debugger::WithoutDebug;
@@ -208,6 +208,7 @@ fn format(
                 engine_state,
                 working_set,
                 stack,
+                head_span,
             ) {
                 Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
                 Err(value) => Err(value),
@@ -225,6 +226,7 @@ fn format(
                             engine_state,
                             working_set,
                             stack,
+                            head_span,
                         ) {
                             Ok(value) => {
                                 list.push(Value::string(value, head_span));
@@ -269,9 +271,11 @@ fn format_record(
     engine_state: &EngineState,
     working_set: &mut StateWorkingSet,
     stack: &mut Stack,
+    head_span: Span,
 ) -> Result<String, ShellError> {
     let config = engine_state.get_config();
     let mut output = String::new();
+    let eval_expression = get_eval_expression(engine_state, head_span)?;
 
     for op in format_operations {
         match op {
@@ -297,9 +301,7 @@ fn format_record(
                 let exp = parse_expression(working_set, &[*span], false);
                 match working_set.parse_errors.first() {
                     None => {
-                        // TODO: DEBUG
-                        let parsed_result =
-                            eval_expression::<WithoutDebug>(engine_state, stack, &exp);
+                        let parsed_result = eval_expression(engine_state, stack, &exp);
                         if let Ok(val) = parsed_result {
                             output.push_str(&val.into_abbreviated_string(config))
                         }
