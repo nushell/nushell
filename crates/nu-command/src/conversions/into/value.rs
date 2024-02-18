@@ -142,7 +142,7 @@ impl Iterator for UpdateCellIterator {
 // for a particular datatype. If it does, it will convert the cell to that datatype.
 fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Value, ShellError> {
     // step 1: convert value to string
-    let val_str = val.coerce_string().unwrap_or_default();
+    let val_str = val.coerce_str().unwrap_or_default();
 
     // step 2: bounce string up against regexes
     if BOOLEAN_RE.is_match(&val_str) {
@@ -189,7 +189,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
             Ok(Value::int(ival, span))
         }
     } else if INTEGER_WITH_DELIMS_RE.is_match(&val_str) {
-        let mut val_str = val_str;
+        let mut val_str = val_str.into_owned();
         val_str.retain(|x| !['_', ','].contains(&x));
 
         let ival = val_str
