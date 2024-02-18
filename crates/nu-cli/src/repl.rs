@@ -638,9 +638,7 @@ fn do_auto_cd(
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.as_list()
-            .map(|x| x.to_vec())
-            .unwrap_or_else(|_| vec![cwd])
+        v.into_list().unwrap_or_else(|_| vec![cwd])
     } else {
         vec![cwd]
     };
@@ -707,7 +705,7 @@ fn do_run_cmd(
 
     if shell_integration {
         if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-            let path = cwd.as_string()?;
+            let path = cwd.coerce_into_string()?;
 
             // Try to abbreviate string for windows title
             let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
@@ -746,7 +744,7 @@ fn do_shell_integration_finalize_command(
 ) -> Result<()> {
     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        let path = cwd.as_string()?;
+        let path = cwd.coerce_into_string()?;
 
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences

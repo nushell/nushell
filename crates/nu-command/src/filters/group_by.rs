@@ -208,7 +208,7 @@ pub fn group_cell_path(
             continue; // likely the result of a failed optional access, ignore this value
         }
 
-        let group_key = group_key.as_string()?;
+        let group_key = group_key.coerce_string()?;
         let group = groups.entry(group_key).or_default();
         group.push(value);
     }
@@ -220,7 +220,7 @@ pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for value in values.into_iter() {
-        let group_key = value.as_string()?;
+        let group_key = value.coerce_string()?;
         let group = groups.entry(group_key).or_default();
         group.push(value);
     }
@@ -259,7 +259,7 @@ fn group_closure(
 
                     let key = match s.next() {
                         Some(Value::Error { .. }) | None => error_key.into(),
-                        Some(return_value) => return_value.as_string()?,
+                        Some(return_value) => return_value.coerce_into_string()?,
                     };
 
                     if s.next().is_some() {

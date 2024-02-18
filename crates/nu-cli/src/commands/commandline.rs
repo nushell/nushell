@@ -19,6 +19,7 @@ impl Command for Commandline {
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::String, Type::String),
+                (Type::String, Type::Int),
             ])
             .switch(
                 "cursor",
@@ -69,11 +70,12 @@ impl Command for Commandline {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if let Some(cmd) = call.opt::<Value>(engine_state, stack, 0)? {
+            let span = cmd.span();
+            let cmd = cmd.coerce_into_string()?;
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
             if call.has_flag(engine_state, stack, "cursor")? {
-                let cmd_str = cmd.as_string()?;
-                match cmd_str.parse::<i64>() {
+                match cmd.parse::<i64>() {
                     Ok(n) => {
                         repl.cursor_pos = if n <= 0 {
                             0usize
@@ -89,22 +91,19 @@ impl Command for Commandline {
                         return Err(ShellError::CantConvert {
                             to_type: "int".to_string(),
                             from_type: "string".to_string(),
-                            span: cmd.span(),
-                            help: Some(format!(
-                                r#"string "{cmd_str}" does not represent a valid int"#
-                            )),
+                            span,
+                            help: Some(format!(r#"string "{cmd}" does not represent a valid int"#)),
                         })
                     }
                 }
             } else if call.has_flag(engine_state, stack, "append")? {
-                repl.buffer.push_str(&cmd.as_string()?);
+                repl.buffer.push_str(&cmd);
             } else if call.has_flag(engine_state, stack, "insert")? {
-                let cmd_str = cmd.as_string()?;
                 let cursor_pos = repl.cursor_pos;
-                repl.buffer.insert_str(cursor_pos, &cmd_str);
-                repl.cursor_pos += cmd_str.len();
+                repl.buffer.insert_str(cursor_pos, &cmd);
+                repl.cursor_pos += cmd.len();
             } else {
-                repl.buffer = cmd.as_string()?;
+                repl.buffer = cmd;
                 repl.cursor_pos = repl.buffer.len();
             }
             Ok(Value::nothing(call.head).into_pipeline_data())
@@ -120,7 +119,16 @@ impl Command for Commandline {
                     .chain(std::iter::once((repl.buffer.len(), "")))
                     .position(|(i, _c)| i == repl.cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
-                Ok(Value::string(char_pos.to_string(), call.head).into_pipeline_data())
+                match i64::try_from(char_pos) {
+                    Ok(pos) => Ok(Value::int(pos, call.head).into_pipeline_data()),
+                    Err(e) => Err(ShellError::GenericError {
+                        error: "Failed to convert cursor position to int".to_string(),
+                        msg: e.to_string(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    }),
+                }
             } else {
                 Ok(Value::string(repl.buffer.to_string(), call.head).into_pipeline_data())
             }

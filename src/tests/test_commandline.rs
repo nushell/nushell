@@ -135,3 +135,8 @@ fn commandline_test_cursor_end() -> TestResult {
         "2", // 2 graphemes
     )
 }
+
+#[test]
+fn commandline_test_cursor_type() -> TestResult {
+    run_test("commandline --cursor | describe", "int")
+}

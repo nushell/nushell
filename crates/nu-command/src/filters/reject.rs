@@ -29,10 +29,7 @@ impl Command for Reject {
             )
             .rest(
                 "rest",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::CellPath,
-                    SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
-                ]),
+                SyntaxShape::CellPath,
                 "The names of columns to remove from the table.",
             )
             .category(Category::Filters)
@@ -64,42 +61,6 @@ impl Command for Reject {
             match col_val {
                 Value::CellPath { val, .. } => {
                     new_columns.push(val);
-                }
-                Value::List { vals, .. } => {
-                    for value in vals {
-                        let val_span = &value.span();
-                        match value {
-                            Value::String { val, .. } => {
-                                let cv = CellPath {
-                                    members: vec![PathMember::String {
-                                        val: val.clone(),
-                                        span: *val_span,
-                                        optional: false,
-                                    }],
-                                };
-                                new_columns.push(cv.clone());
-                            }
-                            Value::Int { val, .. } => {
-                                let cv = CellPath {
-                                    members: vec![PathMember::Int {
-                                        val: val as usize,
-                                        span: *val_span,
-                                        optional: false,
-                                    }],
-                                };
-                                new_columns.push(cv.clone());
-                            }
-                            Value::CellPath { val, .. } => new_columns.push(val),
-                            y => {
-                                return Err(ShellError::CantConvert {
-                                    to_type: "cell path".into(),
-                                    from_type: y.get_type().to_string(),
-                                    span: y.span(),
-                                    help: None,
-                                });
-                            }
-                        }
-                    }
                 }
                 Value::String { val, .. } => {
                     let cv = CellPath {
@@ -186,23 +147,25 @@ impl Command for Reject {
                 })),
             },
             Example {
-                description: "Reject columns by a provided list of columns",
-                example: "let cols = [size type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject $cols",
-                result: None
+                description: "Reject multiple rows",
+                example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject 0 2",
+                result: None,
             },
             Example {
-                description: "Reject columns by a list of columns directly",
-                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ["size", "type"]"#,
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record! {"name" =>  Value::test_string("Cargo.toml")}),
-                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock")})],
-                )),
+                description: "Reject multiple columns",
+                example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject type size",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
+                ])),
             },
             Example {
-                description: "Reject rows by a provided list of rows",
-                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject $rows",
-                result: None
+                description: "Reject multiple columns by spreading a list",
+                example: "let cols = [type size]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ...$cols",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
+                    Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
+                ])),
             },
         ]
     }
