@@ -141,11 +141,11 @@ fn from_ods(
                     .enumerate()
                     .map(|(i, cell)| {
                         let value = match cell {
-                            DataType::Empty => Value::nothing(head),
-                            DataType::String(s) => Value::string(s, head),
-                            DataType::Float(f) => Value::float(*f, head),
-                            DataType::Int(i) => Value::int(*i, head),
-                            DataType::Bool(b) => Value::bool(*b, head),
+                            Data::Empty => Value::nothing(head),
+                            Data::String(s) => Value::string(s, head),
+                            Data::Float(f) => Value::float(*f, head),
+                            Data::Int(i) => Value::int(*i, head),
+                            Data::Bool(b) => Value::bool(*b, head),
                             _ => Value::nothing(head),
                         };
 

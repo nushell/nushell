@@ -69,6 +69,8 @@ impl Command for Commandline {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if let Some(cmd) = call.opt::<Value>(engine_state, stack, 0)? {
+            let span = cmd.span();
+            let cmd = cmd.coerce_into_string()?;
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
             if call.has_flag(engine_state, stack, "cursor")? {
@@ -83,8 +85,7 @@ impl Command for Commandline {
                         inner: vec![],
                     },
                 );
-                let cmd_str = cmd.as_string()?;
-                match cmd_str.parse::<i64>() {
+                match cmd.parse::<i64>() {
                     Ok(n) => {
                         repl.cursor_pos = if n <= 0 {
                             0usize
@@ -100,10 +101,8 @@ impl Command for Commandline {
                         return Err(ShellError::CantConvert {
                             to_type: "int".to_string(),
                             from_type: "string".to_string(),
-                            span: cmd.span(),
-                            help: Some(format!(
-                                r#"string "{cmd_str}" does not represent a valid int"#
-                            )),
+                            span,
+                            help: Some(format!(r#"string "{cmd}" does not represent a valid int"#)),
                         })
                     }
                 }
@@ -118,7 +117,7 @@ impl Command for Commandline {
                         inner: vec![],
                     },
                 );
-                repl.buffer.push_str(&cmd.as_string()?);
+                repl.buffer.push_str(&cmd);
             } else if call.has_flag(engine_state, stack, "insert")? {
                 nu_protocol::report_error_new(
                     engine_state,
@@ -130,10 +129,9 @@ impl Command for Commandline {
                         inner: vec![],
                     },
                 );
-                let cmd_str = cmd.as_string()?;
                 let cursor_pos = repl.cursor_pos;
-                repl.buffer.insert_str(cursor_pos, &cmd_str);
-                repl.cursor_pos += cmd_str.len();
+                repl.buffer.insert_str(cursor_pos, &cmd);
+                repl.cursor_pos += cmd.len();
             } else {
                 nu_protocol::report_error_new(
                     engine_state,
@@ -145,7 +143,7 @@ impl Command for Commandline {
                         inner: vec![],
                     },
                 );
-                repl.buffer = cmd.as_string()?;
+                repl.buffer = cmd;
                 repl.cursor_pos = repl.buffer.len();
             }
             Ok(Value::nothing(call.head).into_pipeline_data())

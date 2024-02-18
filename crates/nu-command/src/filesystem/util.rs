@@ -107,7 +107,7 @@ pub mod users {
         Gid::current().as_raw()
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_current_username() -> Option<String> {
         User::from_uid(Uid::current())
             .ok()
@@ -115,7 +115,7 @@ pub mod users {
             .map(|user| user.name)
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     pub fn current_user_groups() -> Option<Vec<Gid>> {
         // SAFETY:
         // if first arg is 0 then it ignores second argument and returns number of groups present for given user.
@@ -154,7 +154,7 @@ pub mod users {
     ///     println!("User is a member of group #{group}");
     /// }
     /// ```
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_user_groups(username: &str, gid: gid_t) -> Option<Vec<Gid>> {
         use std::ffi::CString;
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons

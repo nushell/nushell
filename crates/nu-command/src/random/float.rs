@@ -81,9 +81,9 @@ fn float(
         range_span = spanned_range.span;
 
         if r.is_end_inclusive() {
-            (r.from.as_float()?, r.to.as_float()?)
-        } else if r.to.as_float()? >= 1.0 {
-            (r.from.as_float()?, r.to.as_float()? - 1.0)
+            (r.from.coerce_float()?, r.to.coerce_float()?)
+        } else if r.to.coerce_float()? >= 1.0 {
+            (r.from.coerce_float()?, r.to.coerce_float()? - 1.0)
         } else {
             (0.0, 0.0)
         }

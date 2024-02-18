@@ -159,7 +159,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.debug_value(),
+                msg: value.to_debug_string(),
                 span: head_span,
             },
             head_span,
@@ -180,7 +180,7 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.debug_value(),
+                msg: value.to_debug_string(),
                 span,
             },
             span,

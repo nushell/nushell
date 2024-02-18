@@ -123,7 +123,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.debug_value(),
+                msg: value.to_debug_string(),
                 span: head,
             },
             head,
