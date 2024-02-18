@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
     Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
-    PathMember, Pattern, Pipeline, PipelineElement, RecordItem,
+    PathMember, Pattern, Pipeline, PipelineElement, RecordItem, Redirection,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -559,59 +559,37 @@ pub fn flatten_pipeline_element(
     working_set: &StateWorkingSet,
     pipeline_element: &PipelineElement,
 ) -> Vec<(Span, FlatShape)> {
-    match pipeline_element {
-        PipelineElement::Expression(span, expr)
-        | PipelineElement::ErrPipedExpression(span, expr)
-        | PipelineElement::OutErrPipedExpression(span, expr) => {
-            if let Some(span) = span {
-                let mut output = vec![(*span, FlatShape::Pipe)];
-                output.append(&mut flatten_expression(working_set, expr));
-                output
-            } else {
-                flatten_expression(working_set, expr)
+    let mut output = if let Some(span) = pipeline_element.pipe {
+        let mut output = vec![(span, FlatShape::Pipe)];
+        output.extend(flatten_expression(working_set, &pipeline_element.expr));
+        output
+    } else {
+        flatten_expression(working_set, &pipeline_element.expr)
+    };
+
+    if let Some(redirection) = pipeline_element.redirection.as_ref() {
+        match redirection {
+            Redirection::Single { target, .. } => {
+                output.push((target.span(), FlatShape::Redirection));
+                if let Some(expr) = target.expr() {
+                    output.extend(flatten_expression(working_set, expr));
+                }
+            }
+            Redirection::Separate { out, err } => {
+                // TODO: these may be in the wrong order
+                output.push((out.span(), FlatShape::Redirection));
+                if let Some(expr) = out.expr() {
+                    output.extend(flatten_expression(working_set, expr));
+                }
+                output.push((err.span(), FlatShape::Redirection));
+                if let Some(expr) = err.expr() {
+                    output.extend(flatten_expression(working_set, expr));
+                }
             }
         }
-        PipelineElement::Redirection(span, _, expr, _) => {
-            let mut output = vec![(*span, FlatShape::Redirection)];
-            output.append(&mut flatten_expression(working_set, expr));
-            output
-        }
-        PipelineElement::SeparateRedirection {
-            out: (out_span, out_expr, _),
-            err: (err_span, err_expr, _),
-        } => {
-            let mut output = vec![(*out_span, FlatShape::Redirection)];
-            output.append(&mut flatten_expression(working_set, out_expr));
-            output.push((*err_span, FlatShape::Redirection));
-            output.append(&mut flatten_expression(working_set, err_expr));
-            output
-        }
-        PipelineElement::SameTargetRedirection {
-            cmd: (cmd_span, cmd_expr),
-            redirection: (redirect_span, redirect_expr, _),
-        } => {
-            let mut output = if let Some(span) = cmd_span {
-                let mut output = vec![(*span, FlatShape::Pipe)];
-                output.append(&mut flatten_expression(working_set, cmd_expr));
-                output
-            } else {
-                flatten_expression(working_set, cmd_expr)
-            };
-            output.push((*redirect_span, FlatShape::Redirection));
-            output.append(&mut flatten_expression(working_set, redirect_expr));
-            output
-        }
-        PipelineElement::And(span, expr) => {
-            let mut output = vec![(*span, FlatShape::And)];
-            output.append(&mut flatten_expression(working_set, expr));
-            output
-        }
-        PipelineElement::Or(span, expr) => {
-            let mut output = vec![(*span, FlatShape::Or)];
-            output.append(&mut flatten_expression(working_set, expr));
-            output
-        }
     }
+
+    output
 }
 
 pub fn flatten_pipeline(

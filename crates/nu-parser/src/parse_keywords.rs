@@ -9,7 +9,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Pipeline, PipelineElement,
+        ImportPatternMember, Pipeline,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
@@ -27,7 +27,7 @@ use crate::{
     is_math_expression_like,
     known_external::KnownExternal,
     lex,
-    lite_parser::{lite_parse, LiteCommand, LiteElement},
+    lite_parser::{lite_parse, LiteCommand},
     parser::{
         check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
         parse_full_signature, parse_import_pattern, parse_internal_call, parse_multispan_value,
@@ -1185,8 +1185,6 @@ pub fn parse_export_in_module(
         head: spans[0],
         decl_id: export_decl_id,
         arguments: vec![],
-        redirect_stdout: true,
-        redirect_stderr: false,
         parser_info: HashMap::new(),
     });
 
@@ -1197,6 +1195,8 @@ pub fn parse_export_in_module(
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
+                    pipe: lite_command.pipe,
+                    redirection: lite_command.redirection.clone(),
                 };
                 let (pipeline, cmd_result) =
                     parse_def(working_set, &lite_command, Some(module_name));
@@ -1221,16 +1221,9 @@ pub fn parse_export_in_module(
                 };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref def_call),
-                        ..
-                    },
-                )) = pipeline.elements.first()
+                if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call = def_call.clone();
-
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
@@ -1246,6 +1239,8 @@ pub fn parse_export_in_module(
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
+                    pipe: lite_command.pipe,
+                    redirection: lite_command.redirection.clone(),
                 };
                 let extern_name = [b"export ", kw_name].concat();
 
@@ -1262,16 +1257,9 @@ pub fn parse_export_in_module(
                 };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref def_call),
-                        ..
-                    },
-                )) = pipeline.elements.first()
+                if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call = def_call.clone();
-
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
@@ -1307,6 +1295,8 @@ pub fn parse_export_in_module(
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
+                    pipe: lite_command.pipe,
+                    redirection: lite_command.redirection.clone(),
                 };
                 let pipeline = parse_alias(working_set, &lite_command, Some(module_name));
 
@@ -1322,13 +1312,8 @@ pub fn parse_export_in_module(
                 };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref alias_call),
-                        ..
-                    },
-                )) = pipeline.elements.first()
+                if let Some(Expr::Call(alias_call)) =
+                    pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call = alias_call.clone();
 
@@ -1364,11 +1349,8 @@ pub fn parse_export_in_module(
                 result
             }
             b"use" => {
-                let lite_command = LiteCommand {
-                    comments: lite_command.comments.clone(),
-                    parts: spans[1..].to_vec(),
-                };
-                let (pipeline, exportables) = parse_use(working_set, &lite_command.parts);
+                let parts = &spans[1..];
+                let (pipeline, exportables) = parse_use(working_set, parts);
 
                 let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
                     id
@@ -1381,13 +1363,7 @@ pub fn parse_export_in_module(
                 };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref use_call),
-                        ..
-                    },
-                )) = pipeline.elements.first()
+                if let Some(Expr::Call(use_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call = use_call.clone();
 
@@ -1418,13 +1394,8 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'module' call into the 'export module' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref module_call),
-                        ..
-                    },
-                )) = pipeline.elements.first()
+                if let Some(Expr::Call(module_call)) =
+                    pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call = module_call.clone();
 
@@ -1475,13 +1446,7 @@ pub fn parse_export_in_module(
                 };
 
                 // Trying to warp the 'const' call into the 'export const' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref def_call),
-                        ..
-                    },
-                )) = pipeline.elements.first()
+                if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call = def_call.clone();
 
@@ -1689,9 +1654,7 @@ pub fn parse_module_block(
 
     for pipeline in &output.block {
         if pipeline.commands.len() == 1 {
-            if let LiteElement::Command(_, command) = &pipeline.commands[0] {
-                parse_def_predecl(working_set, &command.parts);
-            }
+            parse_def_predecl(working_set, &pipeline.commands[0].parts);
         }
     }
 
@@ -1701,186 +1664,146 @@ pub fn parse_module_block(
 
     for pipeline in output.block.iter() {
         if pipeline.commands.len() == 1 {
-            match &pipeline.commands[0] {
-                LiteElement::Command(_, command)
-                | LiteElement::ErrPipedCommand(_, command)
-                | LiteElement::OutErrPipedCommand(_, command) => {
-                    let name = working_set.get_span_contents(command.parts[0]);
+            let command = &pipeline.commands[0];
 
-                    match name {
-                        b"def" => {
-                            block.pipelines.push(
-                                parse_def(
-                                    working_set,
-                                    command,
-                                    None, // using commands named as the module locally is OK
-                                )
-                                .0,
-                            )
-                        }
-                        b"const" => block
-                            .pipelines
-                            .push(parse_const(working_set, &command.parts)),
-                        b"extern" => block
-                            .pipelines
-                            .push(parse_extern(working_set, command, None)),
-                        b"alias" => {
-                            block.pipelines.push(parse_alias(
-                                working_set,
-                                command,
-                                None, // using aliases named as the module locally is OK
-                            ))
-                        }
-                        b"use" => {
-                            let (pipeline, _) = parse_use(working_set, &command.parts);
+            let name = working_set.get_span_contents(command.parts[0]);
 
-                            block.pipelines.push(pipeline)
-                        }
-                        b"module" => {
-                            let (pipeline, _) = parse_module(
-                                working_set,
-                                command,
-                                None, // using modules named as the module locally is OK
-                            );
+            match name {
+                b"def" => {
+                    block.pipelines.push(
+                        parse_def(
+                            working_set,
+                            command,
+                            None, // using commands named as the module locally is OK
+                        )
+                        .0,
+                    )
+                }
+                b"const" => block
+                    .pipelines
+                    .push(parse_const(working_set, &command.parts)),
+                b"extern" => block
+                    .pipelines
+                    .push(parse_extern(working_set, command, None)),
+                b"alias" => {
+                    block.pipelines.push(parse_alias(
+                        working_set,
+                        command,
+                        None, // using aliases named as the module locally is OK
+                    ))
+                }
+                b"use" => {
+                    let (pipeline, _) = parse_use(working_set, &command.parts);
 
-                            block.pipelines.push(pipeline)
-                        }
-                        b"export" => {
-                            let (pipe, exportables) =
-                                parse_export_in_module(working_set, command, module_name);
+                    block.pipelines.push(pipeline)
+                }
+                b"module" => {
+                    let (pipeline, _) = parse_module(
+                        working_set,
+                        command,
+                        None, // using modules named as the module locally is OK
+                    );
 
-                            for exportable in exportables {
-                                match exportable {
-                                    Exportable::Decl { name, id } => {
-                                        if &name == b"main" {
-                                            if module.main.is_some() {
-                                                let err_span = if !pipe.elements.is_empty() {
-                                                    if let PipelineElement::Expression(
-                                                        _,
-                                                        Expression {
-                                                            expr: Expr::Call(call),
-                                                            ..
-                                                        },
-                                                    ) = &pipe.elements[0]
-                                                    {
-                                                        call.head
-                                                    } else {
-                                                        pipe.elements[0].span()
-                                                    }
-                                                } else {
-                                                    span
-                                                };
-                                                working_set.error(ParseError::ModuleDoubleMain(
-                                                    String::from_utf8_lossy(module_name)
-                                                        .to_string(),
-                                                    err_span,
-                                                ));
+                    block.pipelines.push(pipeline)
+                }
+                b"export" => {
+                    let (pipe, exportables) =
+                        parse_export_in_module(working_set, command, module_name);
+
+                    for exportable in exportables {
+                        match exportable {
+                            Exportable::Decl { name, id } => {
+                                if &name == b"main" {
+                                    if module.main.is_some() {
+                                        let err_span = if !pipe.elements.is_empty() {
+                                            if let Expr::Call(call) = &pipe.elements[0].expr.expr {
+                                                call.head
                                             } else {
-                                                module.main = Some(id);
+                                                pipe.elements[0].expr.span
                                             }
                                         } else {
-                                            module.add_decl(name, id);
-                                        }
+                                            span
+                                        };
+                                        working_set.error(ParseError::ModuleDoubleMain(
+                                            String::from_utf8_lossy(module_name).to_string(),
+                                            err_span,
+                                        ));
+                                    } else {
+                                        module.main = Some(id);
                                     }
-                                    Exportable::Module { name, id } => {
-                                        if &name == b"mod" {
-                                            let (
-                                                submodule_main,
-                                                submodule_decls,
-                                                submodule_submodules,
-                                            ) = {
-                                                let submodule = working_set.get_module(id);
-                                                (
-                                                    submodule.main,
-                                                    submodule.decls(),
-                                                    submodule.submodules(),
-                                                )
-                                            };
-
-                                            // Add submodule's decls to the parent module
-                                            for (decl_name, decl_id) in submodule_decls {
-                                                module.add_decl(decl_name, decl_id);
-                                            }
-
-                                            // Add submodule's main command to the parent module
-                                            if let Some(main_decl_id) = submodule_main {
-                                                if module.main.is_some() {
-                                                    let err_span = if !pipe.elements.is_empty() {
-                                                        if let PipelineElement::Expression(
-                                                            _,
-                                                            Expression {
-                                                                expr: Expr::Call(call),
-                                                                ..
-                                                            },
-                                                        ) = &pipe.elements[0]
-                                                        {
-                                                            call.head
-                                                        } else {
-                                                            pipe.elements[0].span()
-                                                        }
-                                                    } else {
-                                                        span
-                                                    };
-                                                    working_set.error(
-                                                        ParseError::ModuleDoubleMain(
-                                                            String::from_utf8_lossy(module_name)
-                                                                .to_string(),
-                                                            err_span,
-                                                        ),
-                                                    );
-                                                } else {
-                                                    module.main = Some(main_decl_id);
-                                                }
-                                            }
-
-                                            // Add submodule's submodules to the parent module
-                                            for (submodule_name, submodule_id) in
-                                                submodule_submodules
-                                            {
-                                                module.add_submodule(submodule_name, submodule_id);
-                                            }
-                                        } else {
-                                            module.add_submodule(name, id);
-                                        }
-                                    }
-                                    Exportable::VarDecl { name, id } => {
-                                        module.add_variable(name, id);
-                                    }
+                                } else {
+                                    module.add_decl(name, id);
                                 }
                             }
+                            Exportable::Module { name, id } => {
+                                if &name == b"mod" {
+                                    let (submodule_main, submodule_decls, submodule_submodules) = {
+                                        let submodule = working_set.get_module(id);
+                                        (submodule.main, submodule.decls(), submodule.submodules())
+                                    };
 
-                            block.pipelines.push(pipe)
-                        }
-                        b"export-env" => {
-                            let (pipe, maybe_env_block) =
-                                parse_export_env(working_set, &command.parts);
+                                    // Add submodule's decls to the parent module
+                                    for (decl_name, decl_id) in submodule_decls {
+                                        module.add_decl(decl_name, decl_id);
+                                    }
 
-                            if let Some(block_id) = maybe_env_block {
-                                module.add_env_block(block_id);
+                                    // Add submodule's main command to the parent module
+                                    if let Some(main_decl_id) = submodule_main {
+                                        if module.main.is_some() {
+                                            let err_span = if !pipe.elements.is_empty() {
+                                                if let Expr::Call(call) =
+                                                    &pipe.elements[0].expr.expr
+                                                {
+                                                    call.head
+                                                } else {
+                                                    pipe.elements[0].expr.span
+                                                }
+                                            } else {
+                                                span
+                                            };
+                                            working_set.error(ParseError::ModuleDoubleMain(
+                                                String::from_utf8_lossy(module_name).to_string(),
+                                                err_span,
+                                            ));
+                                        } else {
+                                            module.main = Some(main_decl_id);
+                                        }
+                                    }
+
+                                    // Add submodule's submodules to the parent module
+                                    for (submodule_name, submodule_id) in submodule_submodules {
+                                        module.add_submodule(submodule_name, submodule_id);
+                                    }
+                                } else {
+                                    module.add_submodule(name, id);
+                                }
                             }
-
-                            block.pipelines.push(pipe)
-                        }
-                        _ => {
-                            working_set.error(ParseError::ExpectedKeyword(
-                                "def, const, extern, alias, use, module, export or export-env keyword".into(),
-                                command.parts[0],
-                            ));
-
-                            block.pipelines.push(garbage_pipeline(&command.parts))
+                            Exportable::VarDecl { name, id } => {
+                                module.add_variable(name, id);
+                            }
                         }
                     }
+
+                    block.pipelines.push(pipe)
                 }
-                LiteElement::Redirection(_, _, command, _) => {
+                b"export-env" => {
+                    let (pipe, maybe_env_block) = parse_export_env(working_set, &command.parts);
+
+                    if let Some(block_id) = maybe_env_block {
+                        module.add_env_block(block_id);
+                    }
+
+                    block.pipelines.push(pipe)
+                }
+                _ => {
+                    working_set.error(ParseError::ExpectedKeyword(
+                        "def, const, extern, alias, use, module, export or export-env keyword"
+                            .into(),
+                        command.parts[0],
+                    ));
+
                     block.pipelines.push(garbage_pipeline(&command.parts))
                 }
-                LiteElement::SeparateRedirection {
-                    out: (_, command, _),
-                    ..
-                } => block.pipelines.push(garbage_pipeline(&command.parts)),
-                LiteElement::SameTargetRedirection {
-                    cmd: (_, command), ..
-                } => block.pipelines.push(garbage_pipeline(&command.parts)),
             }
         } else {
             working_set.error(ParseError::Expected("not a pipeline", span));
@@ -2235,8 +2158,6 @@ pub fn parse_module(
             Argument::Positional(module_name_or_path_expr),
             Argument::Positional(block_expr),
         ],
-        redirect_stdout: true,
-        redirect_stderr: false,
         parser_info: HashMap::new(),
     });
 
@@ -3053,8 +2974,6 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         decl_id,
                         head: spans[0],
                         arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
-                        redirect_stdout: true,
-                        redirect_stderr: false,
                         parser_info: HashMap::new(),
                     });
 
@@ -3184,8 +3103,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                         decl_id,
                         head: spans[0],
                         arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
-                        redirect_stdout: true,
-                        redirect_stderr: false,
                         parser_info: HashMap::new(),
                     });
 
@@ -3301,8 +3218,6 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         decl_id,
                         head: spans[0],
                         arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
-                        redirect_stdout: true,
-                        redirect_stderr: false,
                         parser_info: HashMap::new(),
                     });
 
@@ -3531,7 +3446,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     use nu_plugin::{get_signature, PluginDeclaration};
-    use nu_protocol::{engine::Stack, PluginSignature};
+    use nu_protocol::{engine::Stack, IoStream, PluginSignature};
 
     let cwd = working_set.get_cwd();
 
@@ -3658,7 +3573,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
     // We need the current environment variables for `python` based plugins
     // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
-    let stack = Stack::new();
+    let stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
 
