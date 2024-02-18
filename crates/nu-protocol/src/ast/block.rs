@@ -1,5 +1,5 @@
 use super::Pipeline;
-use crate::{ast::PipelineElement, Signature, Span, Type, VarId};
+use crate::{Signature, Span, Type, VarId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,15 +51,10 @@ impl Block {
     pub fn output_type(&self) -> Type {
         if let Some(last) = self.pipelines.last() {
             if let Some(last) = last.elements.last() {
-                match last {
-                    PipelineElement::Expression(_, expr) => expr.ty.clone(),
-                    PipelineElement::ErrPipedExpression(_, expr) => expr.ty.clone(),
-                    PipelineElement::OutErrPipedExpression(_, expr) => expr.ty.clone(),
-                    PipelineElement::Redirection(_, _, _, _) => Type::Any,
-                    PipelineElement::SeparateRedirection { .. } => Type::Any,
-                    PipelineElement::SameTargetRedirection { .. } => Type::Any,
-                    PipelineElement::And(_, expr) => expr.ty.clone(),
-                    PipelineElement::Or(_, expr) => expr.ty.clone(),
+                if last.redirection.is_some() {
+                    Type::Any
+                } else {
+                    last.expr.ty.clone()
                 }
             } else {
                 Type::Nothing

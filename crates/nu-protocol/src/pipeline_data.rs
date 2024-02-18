@@ -4,9 +4,13 @@ use crate::{
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::path::PathBuf;
-use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
+use std::{
+    fs::File,
+    io::{self, Cursor, Read, Write},
+    path::PathBuf,
+    process::Stdio,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -52,6 +56,39 @@ pub enum PipelineData {
         trim_end_newline: bool,
     },
     Empty,
+}
+
+#[derive(Debug, Clone)]
+pub enum IoStream {
+    /// Redirect output to the next command in the pipeline
+    ///
+    /// The output pipe will be available in `PipelineData::ExternalStream::stdout`.
+    Pipe,
+    /// Ignore output
+    Null,
+    /// Inherit `stdout` or `stderr`
+    Inherit,
+    /// Redirect output to a file
+    File(Arc<File>), // Arc<File>, since we sometimes need to clone IoStream into iterators, etc.
+}
+
+impl From<File> for IoStream {
+    fn from(file: File) -> Self {
+        Self::File(Arc::new(file))
+    }
+}
+
+impl TryFrom<&IoStream> for Stdio {
+    type Error = io::Error;
+
+    fn try_from(target: &IoStream) -> Result<Self, Self::Error> {
+        match target {
+            IoStream::Pipe => Ok(Self::piped()),
+            IoStream::Null => Ok(Self::null()),
+            IoStream::Inherit => Ok(Self::inherit()),
+            IoStream::File(file) => Ok(file.try_clone()?.into()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -206,6 +243,133 @@ impl PipelineData {
                         output, span, // FIXME?
                     )
                 }
+            }
+        }
+    }
+
+    /// Writes all values or redirects all output to the given `out` and `err` streams,
+    /// but otherwise returns the PipelineData as is for [`IoStream::Pipe`]
+    pub fn write_to_io_streams(
+        self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+    ) -> Result<PipelineData, ShellError> {
+        match (self, stack.stdout()) {
+            (
+                PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                },
+                _,
+            ) => {
+                fn needs_redirect(
+                    stream: Option<RawStream>,
+                    io_stream: &IoStream,
+                ) -> Result<RawStream, Option<RawStream>> {
+                    match (stream, io_stream) {
+                        (Some(stream), IoStream::Pipe) => Err(Some(stream)),
+                        (Some(stream), _) => Ok(stream),
+                        (None, _) => Err(None),
+                    }
+                }
+
+                let (stdout, stderr) = match (
+                    needs_redirect(stdout, stack.stdout()),
+                    needs_redirect(stderr, stack.stderr()),
+                ) {
+                    (Ok(stdout), Ok(stderr)) => {
+                        // We need to redirect both stdout and stderr
+
+                        // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
+                        let err_thread = {
+                            let err = stack.stderr().clone();
+                            std::thread::Builder::new()
+                                .spawn(move || consume_child_output(stderr, &err))
+                        };
+
+                        consume_child_output(stdout, stack.stdout())?;
+
+                        if let Ok(result) = err_thread?.join() {
+                            result?;
+                        } else {
+                            // thread paniced, which should not happen
+                            debug_assert!(false)
+                        }
+
+                        (None, None)
+                    }
+                    (Ok(stdout), Err(stderr)) => {
+                        // single output stream, we can consume directly
+                        consume_child_output(stdout, stack.stdout())?;
+                        (None, stderr)
+                    }
+                    (Err(stdout), Ok(stderr)) => {
+                        // single output stream, we can consume directly
+                        consume_child_output(stderr, stack.stderr())?;
+                        (stdout, None)
+                    }
+                    (Err(stdout), Err(stderr)) => (stdout, stderr),
+                };
+
+                Ok(PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                })
+            }
+            (data, IoStream::Pipe) => Ok(data),
+            (PipelineData::Empty, _) => Ok(PipelineData::Empty),
+            (PipelineData::Value(_, _), IoStream::Null) => Ok(PipelineData::Empty),
+            (PipelineData::ListStream(stream, _), IoStream::Null) => {
+                // we need to drain the stream in case there are external commands in the pipeline
+                stream.drain()?;
+                Ok(PipelineData::Empty)
+            }
+            (PipelineData::Value(value, _), IoStream::File(file)) => {
+                let bytes = value_to_bytes(value)?;
+                let mut file = file.try_clone()?;
+                file.write_all(&bytes)?;
+                file.flush()?;
+                Ok(PipelineData::Empty)
+            }
+            (PipelineData::ListStream(stream, _), IoStream::File(file)) => {
+                let mut file = file.try_clone()?;
+                // use BufWriter here?
+                for value in stream {
+                    let bytes = value_to_bytes(value)?;
+                    file.write_all(&bytes)?;
+                    file.write_all("\n".as_bytes())?;
+                }
+                file.flush()?;
+                Ok(PipelineData::Empty)
+            }
+            (
+                data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
+                IoStream::Inherit,
+            ) => {
+                let config = engine_state.get_config();
+
+                if let Some(decl_id) = engine_state.table_decl_id {
+                    let command = engine_state.get_decl(decl_id);
+                    if command.get_block_id().is_some() {
+                        data.write_all_and_flush(engine_state, config, false, false)?;
+                    } else {
+                        let call = Call::new(Span::unknown());
+                        let stack = &mut stack.with_stdout(IoStream::Pipe);
+                        let table = command.run(engine_state, stack, &call, data)?;
+                        table.write_all_and_flush(engine_state, config, false, false)?;
+                    }
+                } else {
+                    data.write_all_and_flush(engine_state, config, false, false)?;
+                };
+                Ok(PipelineData::Empty)
             }
         }
     }
@@ -730,10 +894,8 @@ impl PipelineData {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
 
-            let mut call = Call::new(Span::new(0, 0));
-            call.redirect_stdout = false;
+            let call = Call::new(Span::new(0, 0));
             let table = command.run(engine_state, stack, &call, self)?;
-
             table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         } else {
             self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
@@ -850,7 +1012,7 @@ pub fn print_if_stream(
     // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
 
     if let Some(stderr_stream) = stderr_stream {
-        thread::Builder::new()
+        std::thread::Builder::new()
             .name("stderr consumer".to_string())
             .spawn(move || stderr_stream.into_bytes())
             .expect("could not create thread");
@@ -885,6 +1047,32 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
         Some(Value::Int { val, .. }) => Ok(val),
         _ => Ok(0),
     }
+}
+
+/// Only call this if `output_stream` is not `IoStream::Pipe`.
+fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io::Result<()> {
+    let mut output = ReadRawStream::new(child_output);
+    match output_stream {
+        IoStream::Pipe => {
+            // The point of `consume_child_output` is to redirect output *right now*,
+            // but IoStream::Pipe means to redirect output
+            // into an OS pipe for *future use* (as input for another commmand).
+            // So, this branch makes no sense, and will simply drop `output` instead of draining it.
+            // This could trigger a `SIGPIPE` for the external command,
+            // since there will be no reader for its pipe.
+            debug_assert!(false)
+        }
+        IoStream::Null => {
+            io::copy(&mut output, &mut io::sink())?;
+        }
+        IoStream::Inherit => {
+            io::copy(&mut output, &mut io::stdout())?;
+        }
+        IoStream::File(file) => {
+            io::copy(&mut output, &mut file.try_clone()?)?;
+        }
+    }
+    Ok(())
 }
 
 impl Iterator for PipelineIterator {
@@ -967,5 +1155,63 @@ where
             ListStream::from_stream(self.into_iter().map(Into::into), ctrlc),
             metadata.into(),
         )
+    }
+}
+
+fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
+    let bytes = match value {
+        Value::String { val, .. } => val.into_bytes(),
+        Value::Binary { val, .. } => val,
+        Value::List { vals, .. } => {
+            let val = vals
+                .into_iter()
+                .map(Value::coerce_into_string)
+                .collect::<Result<Vec<String>, ShellError>>()?
+                .join("\n")
+                + "\n";
+
+            val.into_bytes()
+        }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { error, .. } => return Err(*error),
+        value => value.coerce_into_string()?.into_bytes(),
+    };
+    Ok(bytes)
+}
+
+struct ReadRawStream {
+    iter: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>>>,
+    cursor: Option<Cursor<Vec<u8>>>,
+}
+
+impl ReadRawStream {
+    fn new(stream: RawStream) -> Self {
+        debug_assert!(stream.leftover.is_empty());
+        Self {
+            iter: stream.stream,
+            cursor: Some(Cursor::new(Vec::new())),
+        }
+    }
+}
+
+impl Read for ReadRawStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while let Some(cursor) = self.cursor.as_mut() {
+            let read = cursor.read(buf)?;
+            if read > 0 {
+                return Ok(read);
+            } else {
+                match self.iter.next().transpose() {
+                    Ok(next) => {
+                        self.cursor = next.map(Cursor::new);
+                    }
+                    Err(err) => {
+                        // temporary hack
+                        return Err(io::Error::new(io::ErrorKind::Other, err));
+                    }
+                }
+            }
+        }
+        Ok(0)
     }
 }

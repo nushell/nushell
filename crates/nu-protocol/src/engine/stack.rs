@@ -1,9 +1,13 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
+    ops::{Deref, DerefMut},
+};
 
-use crate::engine::EngineState;
-use crate::engine::DEFAULT_OVERLAY_NAME;
-use crate::{ShellError, Span, Value, VarId};
-use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
+use crate::{
+    engine::{EngineState, DEFAULT_OVERLAY_NAME},
+    IoStream, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -36,16 +40,24 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: u64,
+    stdout: IoStream,
+    stderr: IoStream,
+    parent_stdout: Option<IoStream>,
+    parent_stderr: Option<IoStream>,
 }
 
 impl Stack {
-    pub fn new() -> Stack {
+    pub fn new(stdout: IoStream, stderr: IoStream) -> Stack {
         Stack {
             vars: vec![],
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: 0,
+            stdout,
+            stderr,
+            parent_stdout: None,
+            parent_stderr: None,
         }
     }
 
@@ -160,6 +172,10 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
+            stdout: IoStream::Pipe,
+            stderr: self.stderr.clone(),
+            parent_stdout: None,
+            parent_stderr: None,
         }
     }
 
@@ -187,6 +203,10 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
+            stdout: self.stdout.clone(),
+            stderr: self.stderr.clone(),
+            parent_stdout: None,
+            parent_stderr: None,
         }
     }
 
@@ -393,10 +413,161 @@ impl Stack {
     pub fn remove_overlay(&mut self, name: &str) {
         self.active_overlays.retain(|o| o != name);
     }
+
+    pub fn stdout(&self) -> &IoStream {
+        &self.stdout
+    }
+
+    pub fn stderr(&self) -> &IoStream {
+        &self.stderr
+    }
+
+    pub fn parent_stdout(&self) -> Option<&IoStream> {
+        self.parent_stdout.as_ref()
+    }
+
+    pub fn parent_stderr(&self) -> Option<&IoStream> {
+        self.parent_stderr.as_ref()
+    }
+
+    pub fn with_stdout(&mut self, stdout: IoStream) -> StackIoGuard {
+        let stdout = self.push_stdout(stdout);
+        let stderr = self.parent_stderr.take();
+        StackIoGuard::new(self, stdout, stderr)
+    }
+
+    pub fn with_stderr(&mut self, stderr: IoStream) -> StackIoGuard {
+        let stdout = self.parent_stdout.take();
+        let stderr = self.push_stderr(stderr);
+        StackIoGuard::new(self, stdout, stderr)
+    }
+
+    pub fn with_stdio(&mut self, stdout: IoStream, stderr: IoStream) -> StackIoGuard {
+        let stdout = self.push_stdout(stdout);
+        let stderr = self.push_stderr(stderr);
+        StackIoGuard::new(self, stdout, stderr)
+    }
+
+    pub fn without_parent_stdio(&mut self) -> StackIoGuard {
+        let stdout = self.parent_stdout.take();
+        let stderr = self.parent_stderr.take();
+        StackIoGuard::new(self, stdout, stderr)
+    }
+
+    pub fn with_parent_stdio(&mut self) -> StackParentIoGuard {
+        StackParentIoGuard::new(self)
+    }
+
+    pub fn reset_stdio(&mut self, stdout: IoStream, stderr: IoStream) {
+        self.parent_stdout = None;
+        self.parent_stderr = None;
+        self.stdout = stdout;
+        self.stderr = stderr;
+    }
+
+    fn push_stdout(&mut self, stdout: IoStream) -> Option<IoStream> {
+        let stdout = mem::replace(&mut self.stdout, stdout);
+        mem::replace(&mut self.parent_stdout, Some(stdout))
+    }
+
+    fn push_stderr(&mut self, stderr: IoStream) -> Option<IoStream> {
+        let stderr = mem::replace(&mut self.stderr, stderr);
+        mem::replace(&mut self.parent_stderr, Some(stderr))
+    }
 }
 
-impl Default for Stack {
-    fn default() -> Self {
-        Self::new()
+pub struct StackIoGuard<'a> {
+    stack: &'a mut Stack,
+    old_parent_stdout: Option<IoStream>,
+    old_parent_stderr: Option<IoStream>,
+}
+
+impl<'a> StackIoGuard<'a> {
+    fn new(
+        stack: &'a mut Stack,
+        old_parent_stdout: Option<IoStream>,
+        old_parent_stderr: Option<IoStream>,
+    ) -> Self {
+        Self {
+            stack,
+            old_parent_stdout,
+            old_parent_stderr,
+        }
+    }
+}
+
+impl<'a> Deref for StackIoGuard<'a> {
+    type Target = Stack;
+
+    fn deref(&self) -> &Self::Target {
+        self.stack
+    }
+}
+
+impl<'a> DerefMut for StackIoGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.stack
+    }
+}
+
+impl Drop for StackIoGuard<'_> {
+    fn drop(&mut self) {
+        let old_stdout = self.old_parent_stdout.take();
+        if let Some(stdout) = mem::replace(&mut self.parent_stdout, old_stdout) {
+            self.stdout = stdout;
+        }
+
+        let old_stderr = self.old_parent_stderr.take();
+        if let Some(stderr) = mem::replace(&mut self.parent_stderr, old_stderr) {
+            self.stderr = stderr;
+        }
+    }
+}
+
+pub struct StackParentIoGuard<'a> {
+    stack: &'a mut Stack,
+    old_stdout: Option<IoStream>,
+    old_stderr: Option<IoStream>,
+}
+
+impl<'a> StackParentIoGuard<'a> {
+    fn new(stack: &'a mut Stack) -> Self {
+        let old_stdout = Some(mem::replace(&mut stack.stdout, IoStream::Pipe));
+
+        let old_stderr = stack
+            .parent_stderr
+            .take()
+            .map(|stderr| mem::replace(&mut stack.stderr, stderr));
+
+        Self {
+            stack,
+            old_stdout,
+            old_stderr,
+        }
+    }
+}
+
+impl<'a> Deref for StackParentIoGuard<'a> {
+    type Target = Stack;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.stack
+    }
+}
+
+impl<'a> DerefMut for StackParentIoGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.stack
+    }
+}
+
+impl Drop for StackParentIoGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(stdout) = self.old_stdout.take() {
+            self.stdout = stdout;
+        }
+        if let Some(stderr) = self.old_stderr.take() {
+            self.stack.push_stderr(stderr);
+        }
     }
 }
