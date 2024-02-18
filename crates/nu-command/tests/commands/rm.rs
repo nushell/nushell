@@ -1,6 +1,7 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use rstest::rstest;
 use std::fs;
 use std::path::Path;
 
@@ -488,10 +489,7 @@ fn rm_files_inside_glob_metachars_dir() {
 #[case("a][c")]
 fn rm_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("rm_files_with_glob_metachars", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            src_name,
-            "What is the sound of one hand clapping?",
-        )]);
+        sandbox.with_files(vec![EmptyFile(src_name)]);
 
         let src = dirs.test().join(src_name);
 
@@ -503,35 +501,18 @@ fn rm_files_with_glob_metachars(#[case] src_name: &str) {
 
         assert!(actual.err.is_empty());
         assert!(!src.exists());
+
+        // test with variables
+        sandbox.with_files(vec![EmptyFile(src_name)]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; rm $f",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
     });
-}
-
-#[rstest]
-#[case("a]c")]
-#[case("a[c")]
-#[case("a[bc]d")]
-#[case("a][c")]
-fn rm_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
-    Playground::setup(
-        "rm_files_with_glob_metachars_when_input_are_variables",
-        |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
-                src_name,
-                "What is the sound of one hand clapping?",
-            )]);
-
-            let src = dirs.test().join(src_name);
-
-            let actual = nu!(
-                cwd: dirs.test(),
-                "let f = '{}'; rm $f",
-                src.display(),
-            );
-
-            assert!(actual.err.is_empty());
-            assert!(!src.exists());
-        },
-    );
 }
 
 #[cfg(not(windows))]
@@ -541,7 +522,6 @@ fn rm_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str)
 // windows doesn't allow filename with `*`.
 fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) {
     rm_files_with_glob_metachars(src_name);
-    rm_files_with_glob_metachars_when_input_are_variables(src_name);
 }
 
 #[test]
