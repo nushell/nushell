@@ -52,7 +52,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
-            if let Ok(s) = result.as_string() {
+            if let Ok(s) = result.coerce_into_string() {
                 return s; // successfully highlighted string
             }
         }
@@ -140,7 +140,7 @@ fn get_documentation(
     if !sig.named.is_empty() {
         long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
             nu_highlight_string(
-                &v.into_string_parsable(", ", &engine_state.config),
+                &v.to_parsable_string(", ", &engine_state.config),
                 engine_state,
                 stack,
             )
@@ -188,7 +188,7 @@ fn get_documentation(
                         format!(
                             " (optional, default: {})",
                             nu_highlight_string(
-                                &value.into_string_parsable(", ", &engine_state.config),
+                                &value.to_parsable_string(", ", &engine_state.config),
                                 engine_state,
                                 stack
                             )
@@ -281,7 +281,7 @@ fn get_documentation(
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span::unknown());
-                    match result.as_string() {
+                    match result.coerce_into_string() {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {s}\n");
                         }
@@ -317,7 +317,7 @@ fn get_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.into_string("", engine_state.get_config())
+                    item.to_expanded_string("", engine_state.get_config())
                         .replace('\n', "\n  ")
                         .trim()
                 );
@@ -391,7 +391,7 @@ fn get_argument_for_color_value(
                         },
                         Expression {
                             expr: Expr::String(
-                                v.clone().into_string("", engine_state.get_config()),
+                                v.clone().to_expanded_string("", engine_state.get_config()),
                             ),
                             span,
                             ty: Type::String,

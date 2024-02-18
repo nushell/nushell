@@ -47,7 +47,7 @@ pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, style: &StyleComput
 
 pub fn nu_value_to_string(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
     let float_precision = cfg.float_precision as usize;
-    let text = val.into_abbreviated_string(cfg);
+    let text = val.to_abbreviated_string(cfg);
     make_styled_string(style, text, Some(val), float_precision)
 }
 
@@ -99,7 +99,7 @@ pub fn get_value_style(value: &Value, config: &Config, style_computer: &StyleCom
             style_computer.style_primitive(value),
         ),
         _ => (
-            value.into_abbreviated_string(config),
+            value.to_abbreviated_string(config),
             style_computer.style_primitive(value),
         ),
     }

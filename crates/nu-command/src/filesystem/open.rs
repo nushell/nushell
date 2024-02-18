@@ -63,8 +63,11 @@ impl Command for Open {
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args
-            let filename = match input {
-                PipelineData::Value(val, ..) => val.as_spanned_string()?,
+            let (filename, span) = match input {
+                PipelineData::Value(val, ..) => {
+                    let span = val.span();
+                    (val.coerce_into_string()?, span)
+                }
                 _ => {
                     return Err(ShellError::MissingParameter {
                         param_name: "needs filename".to_string(),
@@ -74,8 +77,8 @@ impl Command for Open {
             };
 
             paths.push(Spanned {
-                item: NuPath::UnQuoted(filename.item),
-                span: filename.span,
+                item: NuPath::UnQuoted(filename),
+                span,
             });
         }
 

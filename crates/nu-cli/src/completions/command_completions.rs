@@ -43,7 +43,7 @@ impl CommandCompletion {
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
                 for path in paths {
-                    let path = path.as_string().unwrap_or_default();
+                    let path = path.coerce_string().unwrap_or_default();
 
                     if let Ok(mut contents) = std::fs::read_dir(path) {
                         while let Some(Ok(item)) = contents.next() {

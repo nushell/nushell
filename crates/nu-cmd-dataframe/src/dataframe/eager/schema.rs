@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,13 +33,10 @@ impl Command for SchemaDF {
             description: "Dataframe schema",
             example: r#"[[a b]; [1 "foo"] [3 "bar"]] | dfr into-df | dfr schema"#,
             result: Some(Value::record(
-                Record::from_raw_cols_vals_unchecked(
-                    vec!["a".to_string(), "b".to_string()],
-                    vec![
-                        Value::string("i64", Span::test_data()),
-                        Value::string("str", Span::test_data()),
-                    ],
-                ),
+                record! {
+                    "a" => Value::string("i64", Span::test_data()),
+                    "b" => Value::string("str", Span::test_data()),
+                },
                 Span::test_data(),
             )),
         }]
@@ -98,10 +95,11 @@ fn datatype_list(span: Span) -> Value {
     ]
     .iter()
     .map(|(dtype, note)| {
-        Value::record(Record::from_raw_cols_vals_unchecked(
-            vec!["dtype".to_string(), "note".to_string()],
-            vec![Value::string(*dtype, span), Value::string(*note, span)],
-        ),span)
+        Value::record(record! {
+            "dtype" => Value::string(*dtype, span),
+            "note" => Value::string(*note, span),
+        },
+        span)
     })
     .collect();
     Value::list(types, span)

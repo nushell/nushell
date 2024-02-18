@@ -122,7 +122,7 @@ pub fn create_external_command(
         let span = value.span();
 
         value
-            .as_string()
+            .coerce_string()
             .map(|item| Spanned { item, span })
             .map_err(|_| ShellError::ExternalCommand {
                 label: format!("Cannot convert {} to a string", value.get_type()),

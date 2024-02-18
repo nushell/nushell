@@ -40,7 +40,6 @@ pub fn boolean_fold(
     let orig_env_hidden = stack.env_hidden.clone();
 
     let ctrlc = engine_state.ctrlc.clone();
-    let engine_state = engine_state.clone();
 
     // TODO: This Clippy lint is incorrectly triggered in our CI for come reason
     #[allow(clippy::needless_borrow)]
@@ -57,7 +56,7 @@ pub fn boolean_fold(
         }
 
         let eval = eval_block(
-            &engine_state,
+            engine_state,
             &mut stack,
             block,
             value.into_pipeline_data(),
