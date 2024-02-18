@@ -130,14 +130,7 @@ pub fn evaluate_file(
     if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        let pipeline_data = eval_block(
-            engine_state,
-            stack,
-            &block,
-            PipelineData::empty(),
-            false,
-            false,
-        );
+        let pipeline_data = eval_block(engine_state, stack, &block, PipelineData::empty());
         let pipeline_data = match pipeline_data {
             Err(ShellError::Return { .. }) => {
                 // allows early exists before `main` is run.
@@ -213,8 +206,7 @@ pub(crate) fn print_table_or_error(
             print_or_exit(pipeline_data, engine_state, config);
         } else {
             // The final call on table command, it's ok to set redirect_output to false.
-            let mut call = Call::new(Span::new(0, 0));
-            call.redirect_stdout = false;
+            let call = Call::new(Span::new(0, 0));
             let table = command.run(engine_state, stack, &call, pipeline_data);
 
             match table {

@@ -6,8 +6,8 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
-    ShellError, Span, Value,
+    extract_value, Config, EditBindings, IoStream, ParsedKeybinding, ParsedMenu, PipelineData,
+    Record, ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -108,9 +108,9 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::new();
+            let mut temp_stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
             let input = PipelineData::Empty;
-            let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
+            let res = eval_block(&engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {

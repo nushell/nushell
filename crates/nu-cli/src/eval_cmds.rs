@@ -55,7 +55,7 @@ pub fn evaluate_commands(
     }
 
     // Run the block
-    let exit_code = match eval_block(engine_state, stack, &block, input, false, false) {
+    let exit_code = match eval_block(engine_state, stack, &block, input) {
         Ok(pipeline_data) => {
             let mut config = engine_state.get_config().clone();
             if let Some(t_mode) = table_mode {

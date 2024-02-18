@@ -240,9 +240,9 @@ pub fn eval_source(
     }
 
     let b = if allow_return {
-        eval_block_with_early_return(engine_state, stack, &block, input, false, false)
+        eval_block_with_early_return(engine_state, stack, &block, input)
     } else {
-        eval_block(engine_state, stack, &block, input, false, false)
+        eval_block(engine_state, stack, &block, input)
     };
 
     match b {
