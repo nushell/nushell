@@ -19,7 +19,6 @@ impl Command for Commandline {
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::String, Type::String),
-                (Type::String, Type::Int),
             ])
             .switch(
                 "cursor",
@@ -75,6 +74,17 @@ impl Command for Commandline {
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
             if call.has_flag(engine_state, stack, "cursor")? {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: "`--cursor (-c)` is deprecated".into(),
+                        msg: "Setting the current cursor position by `--cursor (-c)` is deprecated"
+                            .into(),
+                        span: Some(call.arguments_span()),
+                        help: Some("Use `commandline set-cursor`".into()),
+                        inner: vec![],
+                    },
+                );
                 match cmd.parse::<i64>() {
                     Ok(n) => {
                         repl.cursor_pos = if n <= 0 {
@@ -97,12 +107,42 @@ impl Command for Commandline {
                     }
                 }
             } else if call.has_flag(engine_state, stack, "append")? {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: "`--append (-a)` is deprecated".into(),
+                        msg: "Appending the string to the end of the buffer by `--append (-a)` is deprecated".into(),
+                        span: Some(call.arguments_span()),
+                        help: Some("Use `commandline edit --append (-a)`".into()),
+                        inner: vec![],
+                    },
+                );
                 repl.buffer.push_str(&cmd);
             } else if call.has_flag(engine_state, stack, "insert")? {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: "`--insert (-i)` is deprecated".into(),
+                        msg: "Inserts the string into the buffer at the cursor position by `--insert (-i)` is deprecated".into(),
+                        span: Some(call.arguments_span()),
+                        help: Some("Use `commandline edit --insert (-i)`".into()),
+                        inner: vec![],
+                    },
+                );
                 let cursor_pos = repl.cursor_pos;
                 repl.buffer.insert_str(cursor_pos, &cmd);
                 repl.cursor_pos += cmd.len();
             } else {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: "`--replace (-r)` is deprecated".into(),
+                        msg: "Replaceing the current contents of the buffer by `--replace (-p)` or positional argument is deprecated".into(),
+                        span: Some(call.arguments_span()),
+                        help: Some("Use `commandline edit --replace (-r)`".into()),
+                        inner: vec![],
+                    },
+                );
                 repl.buffer = cmd;
                 repl.cursor_pos = repl.buffer.len();
             }
@@ -110,25 +150,37 @@ impl Command for Commandline {
         } else {
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
             if call.has_flag(engine_state, stack, "cursor-end")? {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: "`--cursor-end (-e)` is deprecated".into(),
+                        msg: "Setting the current cursor position to the end of the buffer by `--cursor-end (-e)` is deprecated".into(),
+                        span: Some(call.arguments_span()),
+                        help: Some("Use `commandline set-cursor --end (-e)`".into()),
+                        inner: vec![],
+                    },
+                );
                 repl.cursor_pos = repl.buffer.len();
                 Ok(Value::nothing(call.head).into_pipeline_data())
             } else if call.has_flag(engine_state, stack, "cursor")? {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: "`--cursor (-c)` is deprecated".into(),
+                        msg: "Getting the current cursor position by `--cursor (-c)` is deprecated"
+                            .into(),
+                        span: Some(call.arguments_span()),
+                        help: Some("Use `commandline get-cursor`".into()),
+                        inner: vec![],
+                    },
+                );
                 let char_pos = repl
                     .buffer
                     .grapheme_indices(true)
                     .chain(std::iter::once((repl.buffer.len(), "")))
                     .position(|(i, _c)| i == repl.cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
-                match i64::try_from(char_pos) {
-                    Ok(pos) => Ok(Value::int(pos, call.head).into_pipeline_data()),
-                    Err(e) => Err(ShellError::GenericError {
-                        error: "Failed to convert cursor position to int".to_string(),
-                        msg: e.to_string(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    }),
-                }
+                Ok(Value::string(char_pos.to_string(), call.head).into_pipeline_data())
             } else {
                 Ok(Value::string(repl.buffer.to_string(), call.head).into_pipeline_data())
             }
