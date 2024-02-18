@@ -170,7 +170,7 @@ impl Command for Commandline {
                         msg: "Getting the current cursor position by `--cursor (-c)` is deprecated"
                             .into(),
                         span: Some(call.arguments_span()),
-                        help: Some("Use `commandline get-corsor`".into()),
+                        help: Some("Use `commandline get-cursor`".into()),
                         inner: vec![],
                     },
                 );
