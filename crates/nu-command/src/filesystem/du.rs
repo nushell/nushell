@@ -67,11 +67,7 @@ impl Command for Du {
                 "Exclude files below this size",
                 Some('m'),
             )
-            .switch(
-                "glob-on-var",
-                "expand the glob if input is variable",
-                Some('g'),
-            )
+            .switch("glob", "expand the glob if input is variable", Some('g'))
             .category(Category::FileSystem)
     }
 
@@ -85,7 +81,7 @@ impl Command for Du {
         let tag = call.head;
         let min_size: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
-        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob")?;
         if let Some(ref max_depth) = max_depth {
             if max_depth.item < 0 {
                 return Err(ShellError::NeedsPositiveValue {

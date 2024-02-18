@@ -66,7 +66,7 @@ impl Command for Ls {
                 Some('D'),
             )
             .switch(
-                "glob-on-var",
+                "glob",
                 "expand the glob if input is variable",
                 Some('g'),
             )
@@ -88,7 +88,7 @@ impl Command for Ls {
         let du = call.has_flag(engine_state, stack, "du")?;
         let directory = call.has_flag(engine_state, stack, "directory")?;
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
-        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;

@@ -53,11 +53,7 @@ impl Command for UMv {
             .switch("progress", "display a progress bar", Some('p'))
             .switch("interactive", "prompt before overwriting", Some('i'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
-            .switch(
-                "glob-on-var",
-                "expand the glob if input is variable",
-                Some('g'),
-            )
+            .switch("glob", "expand the glob if input is variable", Some('g'))
             .rest(
                 "paths",
                 SyntaxShape::GlobPattern,
@@ -78,7 +74,7 @@ impl Command for UMv {
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
-        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob")?;
         let overwrite = if no_clobber {
             uu_mv::OverwriteMode::NoClobber
         } else if interactive {

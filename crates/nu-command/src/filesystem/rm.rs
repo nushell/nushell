@@ -63,7 +63,7 @@ impl Command for Rm {
                 "ask user to confirm action only once",
                 Some('I'),
             )
-            .switch("glob-on-var", "expand the glob if input is variable", Some('g'))
+            .switch("glob", "expand the glob if input is variable", Some('g'))
             .category(Category::FileSystem)
     }
 
@@ -125,7 +125,7 @@ fn rm(
     let verbose = call.has_flag(engine_state, stack, "verbose")?;
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
-    let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
+    let glob_on_var = call.has_flag(engine_state, stack, "glob")?;
 
     let ctrlc = engine_state.ctrlc.clone();
 

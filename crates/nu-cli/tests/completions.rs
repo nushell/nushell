@@ -627,7 +627,7 @@ fn flag_completions() {
         "--directory".into(),
         "--du".into(),
         "--full-paths".into(),
-        "--glob-on-var".into(),
+        "--glob".into(),
         "--help".into(),
         "--long".into(),
         "--mime-type".into(),
