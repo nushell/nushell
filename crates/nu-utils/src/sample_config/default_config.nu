@@ -621,7 +621,7 @@ $env.config = {
             event: {edit: delete}
         }
         {
-            name: delete_one_character_forward
+            name: delete_one_character_backward
             modifier: control
             keycode: char_h
             mode: [emacs, vi_insert]
