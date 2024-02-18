@@ -32,6 +32,13 @@ fn into_int_binary() {
 }
 
 #[test]
+fn into_int_binary_signed() {
+    let actual = nu!("echo 0x[f0] | into int --signed");
+
+    assert!(actual.out.contains("-16"));
+}
+
+#[test]
 #[ignore]
 fn into_int_datetime1() {
     let dt = DateTime::parse_from_rfc3339("1983-04-13T12:09:14.123456789+00:00");
