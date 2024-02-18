@@ -481,6 +481,69 @@ fn rm_files_inside_glob_metachars_dir() {
     });
 }
 
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn rm_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("rm_files_with_glob_metachars", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm '{}'",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+    });
+}
+
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn rm_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
+    Playground::setup(
+        "rm_files_with_glob_metachars_when_input_are_variables",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                src_name,
+                "What is the sound of one hand clapping?",
+            )]);
+
+            let src = dirs.test().join(src_name);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                "let f = '{}'; rm $f",
+                src.display(),
+            );
+
+            assert!(actual.err.is_empty());
+            assert!(!src.exists());
+        },
+    );
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case("a]?c")]
+#[case("a*.?c")]
+// windows doesn't allow filename with `*`.
+fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    rm_files_with_glob_metachars(src_name);
+    rm_files_with_glob_metachars_when_input_are_variables(src_name);
+}
+
 #[test]
 fn force_rm_suppress_error() {
     Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
