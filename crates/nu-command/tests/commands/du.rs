@@ -66,7 +66,7 @@ fn du_files_with_glob_metachars(#[case] src_name: &str) {
         // also test for variables.
         let actual = nu!(
             cwd: dirs.test(),
-            "let f = '{}', du -d 1 $f",
+            "let f = '{}'; du -d 1 $f",
             src.display(),
         );
 
