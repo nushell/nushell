@@ -129,9 +129,6 @@ fn insert(
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
-    let redirect_stdout = call.redirect_stdout;
-    let redirect_stderr = call.redirect_stderr;
-
     let ctrlc = engine_state.ctrlc.clone();
 
     match input {
@@ -150,8 +147,6 @@ fn insert(
                                 span,
                                 engine_state,
                                 &mut stack,
-                                redirect_stdout,
-                                redirect_stderr,
                                 block,
                                 &cell_path.members,
                                 false,
@@ -164,8 +159,6 @@ fn insert(
                             replacement,
                             engine_state,
                             stack,
-                            redirect_stdout,
-                            redirect_stderr,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
                         )?;
@@ -220,8 +213,6 @@ fn insert(
                             &mut stack,
                             block,
                             value.clone().into_pipeline_data(),
-                            redirect_stdout,
-                            redirect_stderr,
                         )?;
 
                         pre_elems.push(output.into_value(span));
@@ -238,8 +229,6 @@ fn insert(
                             replacement,
                             engine_state,
                             stack,
-                            redirect_stdout,
-                            redirect_stderr,
                             path,
                             true,
                         )?;
@@ -276,8 +265,6 @@ fn insert(
                             replacement_span,
                             &engine_state,
                             &mut stack,
-                            redirect_stdout,
-                            redirect_stderr,
                             &block,
                             &cell_path.members,
                             false,
@@ -323,8 +310,6 @@ fn insert_value_by_closure(
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
@@ -348,14 +333,7 @@ fn insert_value_by_closure(
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
-    let output = eval_block(
-        engine_state,
-        stack,
-        block,
-        input_at_path,
-        redirect_stdout,
-        redirect_stderr,
-    )?;
+    let output = eval_block(engine_state, stack, block, input_at_path)?;
 
     value.insert_data_at_cell_path(cell_path, output.into_value(span), span)
 }
@@ -366,8 +344,6 @@ fn insert_single_value_by_closure(
     replacement: Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
@@ -381,8 +357,6 @@ fn insert_single_value_by_closure(
         span,
         engine_state,
         &mut stack,
-        redirect_stdout,
-        redirect_stderr,
         block,
         cell_path,
         first_path_member_int,

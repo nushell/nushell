@@ -1,13 +1,13 @@
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
-use nu_protocol::report_error;
 use nu_protocol::{
-    ast::{Call, Expr, Expression, PipelineElement},
+    ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Value,
 };
+use nu_protocol::{report_error, IoStream};
 use nu_utils::stdout_write_all_and_flush;
 
 pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
@@ -78,18 +78,11 @@ pub(crate) fn parse_commandline_args(
 
     engine_state.merge_delta(delta)?;
 
-    let mut stack = Stack::new();
+    let mut stack = Stack::new(IoStream::Inherit, IoStream::Inherit);
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.first() {
-        if let Some(PipelineElement::Expression(
-            _,
-            Expression {
-                expr: Expr::Call(call),
-                ..
-            },
-        )) = pipeline.elements.first()
-        {
+        if let Some(Expr::Call(call)) = pipeline.elements.first().map(|e| &e.expr.expr) {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");

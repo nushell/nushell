@@ -62,8 +62,6 @@ impl Command for Collect {
             &mut stack_captures,
             &block,
             input.into_pipeline_data(),
-            call.redirect_stdout,
-            call.redirect_stderr,
         )
         .map(|x| x.set_metadata(metadata));
 

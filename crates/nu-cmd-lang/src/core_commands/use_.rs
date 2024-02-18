@@ -118,14 +118,7 @@ This command is a parser keyword. For details, check:
                 }
 
                 // Run the block (discard the result)
-                let _ = eval_block(
-                    engine_state,
-                    &mut callee_stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )?;
+                let _ = eval_block(engine_state, &mut callee_stack, block, input)?;
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);

@@ -3,7 +3,7 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
+    IoStream, PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
@@ -21,7 +21,13 @@ pub struct CustomCompletion {
 }
 
 impl CustomCompletion {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
+    pub fn new(
+        engine_state: Arc<EngineState>,
+        mut stack: Stack,
+        decl_id: usize,
+        line: String,
+    ) -> Self {
+        stack.reset_stdio(IoStream::Pipe, IoStream::Inherit);
         Self {
             engine_state,
             stack,
@@ -66,8 +72,6 @@ impl Completer for CustomCompletion {
                         custom_completion: None,
                     }),
                 ],
-                redirect_stdout: true,
-                redirect_stderr: true,
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),

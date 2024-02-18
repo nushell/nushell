@@ -48,14 +48,7 @@ impl Command for Source {
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
 
         let block = engine_state.get_block(block_id as usize).clone();
-        eval_block_with_early_return(
-            engine_state,
-            stack,
-            &block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        )
+        eval_block_with_early_return(engine_state, stack, &block, input)
     }
 
     fn examples(&self) -> Vec<Example> {

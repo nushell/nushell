@@ -1,4 +1,5 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
+use nu_protocol::IoStream;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -22,6 +23,9 @@ pub fn get_full_help(
         no_color: !config.use_ansi_coloring,
         brief: false,
     };
+
+    let stack = &mut stack.with_stdout(IoStream::Pipe);
+
     get_documentation(
         sig,
         examples,
@@ -234,7 +238,7 @@ fn get_documentation(
                 ));
             }
 
-            let mut caller_stack = Stack::new();
+            let mut caller_stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
             if let Ok(result) = eval_call(
                 engine_state,
                 &mut caller_stack,
@@ -242,8 +246,6 @@ fn get_documentation(
                     decl_id,
                     head: span,
                     arguments: vec![],
-                    redirect_stdout: true,
-                    redirect_stderr: true,
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -339,7 +341,7 @@ fn get_ansi_color_for_component_or_default(
     default: &str,
 ) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
-        let mut caller_stack = Stack::new();
+        let mut caller_stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
         let span = Span::unknown();
 
         let argument_opt = get_argument_for_color_value(engine_state, color, span);
@@ -354,8 +356,6 @@ fn get_ansi_color_for_component_or_default(
                         decl_id,
                         head: span,
                         arguments: vec![argument],
-                        redirect_stdout: true,
-                        redirect_stderr: true,
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,

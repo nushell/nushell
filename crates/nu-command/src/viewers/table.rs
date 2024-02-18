@@ -12,7 +12,7 @@ use nu_protocol::{
     Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
     PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use nu_protocol::{record, TableMode};
+use nu_protocol::{record, IoStream, TableMode};
 use nu_table::common::create_nu_table_config;
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
@@ -364,7 +364,7 @@ fn handle_table_command(
     match input.data {
         PipelineData::ExternalStream { .. } => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let stream_list = if input.call.redirect_stdout {
+            let stream_list = if matches!(input.stack.stdout(), IoStream::Pipe | IoStream::Null) {
                 vec![Ok(val)]
             } else {
                 let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))

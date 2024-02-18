@@ -96,9 +96,6 @@ impl Command for SkipWhile {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
-
         Ok(input
             .into_iter_strict(span)?
             .skip_while(move |value| {
@@ -106,17 +103,10 @@ impl Command for SkipWhile {
                     stack.add_var(var_id, value.clone());
                 }
 
-                eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    PipelineData::empty(),
-                    redirect_stdout,
-                    redirect_stderr,
-                )
-                .map_or(false, |pipeline_data| {
-                    pipeline_data.into_value(span).is_true()
-                })
+                eval_block(&engine_state, &mut stack, &block, PipelineData::empty())
+                    .map_or(false, |pipeline_data| {
+                        pipeline_data.into_value(span).is_true()
+                    })
             })
             .into_pipeline_data_with_metadata(metadata, ctrlc))
     }

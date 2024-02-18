@@ -54,14 +54,7 @@ impl Command for While {
                 Value::Bool { val, .. } => {
                     if *val {
                         let block = engine_state.get_block(block.block_id);
-                        match eval_block(
-                            engine_state,
-                            stack,
-                            block,
-                            PipelineData::empty(),
-                            call.redirect_stdout,
-                            call.redirect_stderr,
-                        ) {
+                        match eval_block(engine_state, stack, block, PipelineData::empty()) {
                             Err(ShellError::Break { .. }) => {
                                 break;
                             }

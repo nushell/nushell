@@ -79,8 +79,6 @@ impl Command for For {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block.block_id).clone();
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
 
         match values {
             Value::List { vals, .. } => {
@@ -105,14 +103,7 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(
-                        &engine_state,
-                        stack,
-                        &block,
-                        PipelineData::empty(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
+                    match eval_block(&engine_state, stack, &block, PipelineData::empty()) {
                         Err(ShellError::Break { .. }) => {
                             break;
                         }
@@ -151,14 +142,7 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(
-                        &engine_state,
-                        stack,
-                        &block,
-                        PipelineData::empty(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
+                    match eval_block(&engine_state, stack, &block, PipelineData::empty()) {
                         Err(ShellError::Break { .. }) => {
                             break;
                         }
@@ -182,15 +166,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(
-                    &engine_state,
-                    stack,
-                    &block,
-                    PipelineData::empty(),
-                    redirect_stdout,
-                    redirect_stderr,
-                )?
-                .into_value(head);
+                eval_block(&engine_state, stack, &block, PipelineData::empty())?.into_value(head);
             }
         }
         Ok(PipelineData::empty())

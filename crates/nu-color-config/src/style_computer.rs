@@ -76,8 +76,6 @@ impl<'a> StyleComputer<'a> {
                             &mut stack,
                             &block,
                             value.clone().into_pipeline_data(),
-                            false,
-                            false,
                         ) {
                             Ok(v) => {
                                 let value = v.into_value(span);
@@ -206,13 +204,13 @@ impl<'a> Debug for StyleComputer<'a> {
 
 #[test]
 fn test_computable_style_static() {
-    use nu_protocol::Span;
+    use nu_protocol::{IoStream, Span};
 
     let style1 = Style::default().italic();
     let style2 = Style::default().underline();
     // Create a "dummy" style_computer for this test.
     let dummy_engine_state = EngineState::new();
-    let dummy_stack = Stack::new();
+    let dummy_stack = Stack::new(IoStream::Inherit, IoStream::Inherit);
     let style_computer = StyleComputer::new(
         &dummy_engine_state,
         &dummy_stack,

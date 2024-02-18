@@ -4,8 +4,8 @@ use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Type, Value,
+    Category, Example, IoStream, ListStream, PipelineData, RawStream, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -116,14 +116,7 @@ impl Command for Do {
                 )
             }
         }
-        let result = eval_block_with_early_return(
-            engine_state,
-            &mut callee_stack,
-            block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stdout,
-        );
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {
             // Merge the block's environment to the current stack
@@ -234,7 +227,7 @@ impl Command for Do {
                 span,
                 metadata,
                 trim_end_newline,
-            }) if ignore_program_errors && !call.redirect_stdout => {
+            }) if ignore_program_errors && !matches!(caller_stack.stdout(), IoStream::Pipe) => {
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr,

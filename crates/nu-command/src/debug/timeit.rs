@@ -2,8 +2,8 @@ use nu_engine::{eval_block, eval_expression_with_input};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, IoStream, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 use std::time::Instant;
 
@@ -51,26 +51,13 @@ impl Command for TimeIt {
         let start_time = Instant::now();
 
         if let Some(command_to_run) = command_to_run {
+            let stack = &mut stack.with_stdout(IoStream::Pipe);
             if let Some(block_id) = command_to_run.as_block() {
                 let block = engine_state.get_block(block_id);
-                eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )?
+                eval_block(engine_state, stack, block, input)?
             } else {
-                eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    command_to_run,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )
-                .map(|res| res.0)?
+                eval_expression_with_input(engine_state, stack, command_to_run, input)
+                    .map(|res| res.0)?
             }
         } else {
             PipelineData::empty()

@@ -50,14 +50,7 @@ pub fn boolean_fold(
             stack.add_var(var_id, value.clone());
         }
 
-        let eval = eval_block(
-            engine_state,
-            &mut stack,
-            block,
-            value.into_pipeline_data(),
-            call.redirect_stdout,
-            call.redirect_stderr,
-        );
+        let eval = eval_block(engine_state, &mut stack, block, value.into_pipeline_data());
         match eval {
             Err(e) => {
                 return Err(e);

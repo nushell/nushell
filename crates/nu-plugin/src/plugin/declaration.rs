@@ -155,12 +155,12 @@ impl Command for PluginDeclaration {
                         let block = engine_state.get_block(val.block_id).clone();
                         let mut stack = stack.captures_to_stack(val.captures);
 
-                        match eval_block(engine_state, &mut stack, &block, input, false, false) {
+                        match eval_block(engine_state, &mut stack, &block, input) {
                             Ok(v) => v.into_value(span),
                             Err(e) => Value::error(e, call.head),
                         }
                     }
-                    _ => value.clone(),
+                    _ => value,
                 }
             });
 

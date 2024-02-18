@@ -61,8 +61,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -90,8 +88,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         &block,
                         // clone() is used here because x is given to Ok() below.
                         x.clone().into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => {
                             if v.into_value(span).is_true() {
@@ -134,8 +130,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         &block,
                         // clone() is used here because x is given to Ok() below.
                         x.clone().into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => {
                             if v.into_value(span).is_true() {
@@ -168,8 +162,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     &block,
                     // clone() is used here because x is given to Ok() below.
                     x.clone().into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 ) {
                     Ok(v) => {
                         if v.into_value(span).is_true() {

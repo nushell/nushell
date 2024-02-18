@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
+use nu_protocol::{Config, IoStream, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
 
@@ -383,6 +383,7 @@ fn get_converted_value(
 
                 if let Some(var) = block.signature.get_positional(0) {
                     let mut stack = stack.gather_captures(engine_state, &block.captures);
+                    stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, orig_val.clone());
                     }
@@ -393,8 +394,6 @@ fn get_converted_value(
                         &mut stack,
                         block,
                         PipelineData::new_with_metadata(None, val_span),
-                        true,
-                        true,
                     );
 
                     match result {

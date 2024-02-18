@@ -125,8 +125,6 @@ with 'transpose' first."#
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -153,8 +151,6 @@ with 'transpose' first."#
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -199,8 +195,6 @@ with 'transpose' first."#
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -226,8 +220,6 @@ with 'transpose' first."#
                     &mut stack,
                     &block,
                     x.into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 )
             }
         }

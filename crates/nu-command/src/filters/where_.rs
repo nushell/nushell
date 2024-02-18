@@ -68,8 +68,6 @@ not supported."#
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
         Ok(input
             .into_iter_strict(span)?
             .filter_map(move |value| {
@@ -86,8 +84,6 @@ not supported."#
                     &block,
                     // clone() is used here because x is given to Ok() below.
                     value.clone().into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 );
 
                 match result {

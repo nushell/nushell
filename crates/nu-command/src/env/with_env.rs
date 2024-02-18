@@ -85,7 +85,10 @@ fn with_env(
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
+    let out = stack.stdout().clone();
+    let err = stack.stderr().clone();
     let mut stack = stack.captures_to_stack(capture_block.captures);
+    stack.reset_stdio(out, err);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 
@@ -144,14 +147,7 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block(
-        engine_state,
-        &mut stack,
-        block,
-        input,
-        call.redirect_stdout,
-        call.redirect_stderr,
-    )
+    eval_block(engine_state, &mut stack, block, input)
 }
 
 #[cfg(test)]

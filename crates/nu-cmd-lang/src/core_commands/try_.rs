@@ -48,7 +48,7 @@ impl Command for Try {
 
         let try_block = engine_state.get_block(try_block.block_id);
 
-        let result = eval_block(engine_state, stack, try_block, input, false, false);
+        let result = eval_block(engine_state, stack, try_block, input);
 
         match result {
             Err(error) => {
@@ -114,8 +114,6 @@ fn handle_catch(
             catch_block,
             // Make the error accessible with $in, too
             err_value.into_pipeline_data(),
-            false,
-            false,
         )
     } else {
         Ok(PipelineData::empty())

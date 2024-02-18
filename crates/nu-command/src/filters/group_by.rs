@@ -171,7 +171,7 @@ pub fn group_by(
                 Value::CellPath { val, .. } => group_cell_path(val, values)?,
                 Value::Block { .. } | Value::Closure { .. } => {
                     let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
-                    group_closure(values, span, block, stack, engine_state, call)?
+                    group_closure(values, span, block, stack, engine_state)?
                 }
 
                 _ => {
@@ -234,7 +234,6 @@ fn group_closure(
     block: Option<Closure>,
     stack: &mut Stack,
     engine_state: &EngineState,
-    call: &Call,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let error_key = "error";
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
@@ -249,8 +248,6 @@ fn group_closure(
                 &mut stack,
                 block,
                 value.clone().into_pipeline_data(),
-                call.redirect_stdout,
-                call.redirect_stderr,
             );
 
             let group_key = match pipeline {

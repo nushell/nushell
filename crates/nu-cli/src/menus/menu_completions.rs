@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    IntoPipelineData, Span, Value,
+    IntoPipelineData, IoStream, Span, Value,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
 use std::sync::Arc;
@@ -20,10 +20,11 @@ impl NuMenuCompleter {
     pub fn new(
         block_id: usize,
         span: Span,
-        stack: Stack,
+        mut stack: Stack,
         engine_state: Arc<EngineState>,
         only_buffer_difference: bool,
     ) -> Self {
+        stack.reset_stdio(IoStream::Pipe, IoStream::Inherit);
         Self {
             block_id,
             span,
@@ -55,14 +56,7 @@ impl Completer for NuMenuCompleter {
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
-        let res = eval_block(
-            &self.engine_state,
-            &mut self.stack,
-            block,
-            input,
-            false,
-            false,
-        );
+        let res = eval_block(&self.engine_state, &mut self.stack, block, input);
 
         if let Ok(values) = res {
             let values = values.into_value(self.span);

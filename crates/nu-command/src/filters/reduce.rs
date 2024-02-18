@@ -105,9 +105,6 @@ impl Command for Reduce {
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
-
         // To enumerate over the input (for the index argument),
         // it must be converted into an iterator using into_iter().
         let mut input_iter = input.into_iter();
@@ -128,9 +125,7 @@ impl Command for Reduce {
 
         let mut acc = start_val;
 
-        let mut input_iter = input_iter.peekable();
-
-        while let Some(x) = input_iter.next() {
+        for x in input_iter {
             // with_env() is used here to ensure that each iteration uses
             // a different set of environment variables.
             // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -155,9 +150,6 @@ impl Command for Reduce {
                 &mut stack,
                 block,
                 PipelineData::empty(),
-                // redirect stdout until its the last input value
-                redirect_stdout || input_iter.peek().is_some(),
-                redirect_stderr,
             )?
             .into_value(span);
 
