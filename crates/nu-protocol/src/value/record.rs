@@ -26,24 +26,11 @@ impl Record {
         }
     }
 
-    /// Constructor that checks that `cols` and `vals` are of the same length.
+    /// Create a [`Record`] from a `Vec` of columns and a `Vec` of [`Value`]s
     ///
-    /// WARNING! Panics with assertion failure if cols and vals have different length!
-    /// Should be used only when the same lengths are guaranteed!
+    /// Returns an error if `cols` and `vals` have different lengths.
     ///
-    /// For perf reasons does not validate the rest of the record assumptions.
-    /// - unique keys
-    pub fn from_raw_cols_vals_unchecked(cols: Vec<String>, vals: Vec<Value>) -> Self {
-        assert_eq!(cols.len(), vals.len());
-
-        Self { cols, vals }
-    }
-
-    /// Constructor that checks that `cols` and `vals` are of the same length.
-    ///
-    /// Returns None if cols and vals have different length.
-    ///
-    /// For perf reasons does not validate the rest of the record assumptions.
+    /// For perf reasons, this will not validate the rest of the record assumptions:
     /// - unique keys
     pub fn from_raw_cols_vals(
         cols: Vec<String>,
@@ -70,11 +57,13 @@ impl Record {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.cols.is_empty() || self.vals.is_empty()
+        debug_assert_eq!(self.cols.len(), self.vals.len());
+        self.cols.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        usize::min(self.cols.len(), self.vals.len())
+        debug_assert_eq!(self.cols.len(), self.vals.len());
+        self.cols.len()
     }
 
     /// Naive push to the end of the datastructure.
@@ -99,14 +88,13 @@ impl Record {
             let curr_val = &mut self.vals[idx];
             Some(std::mem::replace(curr_val, val))
         } else {
-            self.cols.push(col.into());
-            self.vals.push(val);
+            self.push(col, val);
             None
         }
     }
 
     pub fn contains(&self, col: impl AsRef<str>) -> bool {
-        self.cols.iter().any(|k| k == col.as_ref())
+        self.columns().any(|k| k == col.as_ref())
     }
 
     pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
@@ -138,7 +126,6 @@ impl Record {
 
     /// Remove elements in-place that do not satisfy `keep`
     ///
-    /// Note: Panics if `vals.len() > cols.len()`
     /// ```rust
     /// use nu_protocol::{record, Value};
     ///
@@ -147,7 +134,7 @@ impl Record {
     ///     "b" => Value::test_int(42),
     ///     "c" => Value::test_nothing(),
     ///     "d" => Value::test_int(42),
-    ///     );
+    /// );
     /// rec.retain(|_k, val| !val.is_nothing());
     /// let mut iter_rec = rec.columns();
     /// assert_eq!(iter_rec.next().map(String::as_str), Some("b"));
@@ -165,7 +152,6 @@ impl Record {
     ///
     /// This can for example be used to recursively prune nested records.
     ///
-    /// Note: Panics if `vals.len() > cols.len()`
     /// ```rust
     /// use nu_protocol::{record, Record, Value};
     ///
@@ -235,6 +221,7 @@ impl Record {
     /// Truncate record to the first `len` elements.
     ///
     /// `len > self.len()` will be ignored
+    ///
     /// ```rust
     /// use nu_protocol::{record, Value};
     ///
@@ -243,7 +230,7 @@ impl Record {
     ///     "b" => Value::test_int(42),
     ///     "c" => Value::test_nothing(),
     ///     "d" => Value::test_int(42),
-    ///     );
+    /// );
     /// rec.truncate(42); // this is fine
     /// assert_eq!(rec.columns().map(String::as_str).collect::<String>(), "abcd");
     /// rec.truncate(2); // truncate
@@ -299,11 +286,7 @@ impl Record {
     where
         R: RangeBounds<usize> + Clone,
     {
-        assert_eq!(
-            self.cols.len(),
-            self.vals.len(),
-            "Length of cols and vals must be equal for sane `Record::drain`"
-        );
+        debug_assert_eq!(self.cols.len(), self.vals.len());
         Drain {
             keys: self.cols.drain(range.clone()),
             values: self.vals.drain(range),
@@ -323,8 +306,7 @@ impl Extend<(String, Value)> for Record {
     fn extend<T: IntoIterator<Item = (String, Value)>>(&mut self, iter: T) {
         for (k, v) in iter {
             // TODO: should this .insert with a check?
-            self.cols.push(k);
-            self.vals.push(v);
+            self.push(k, v)
         }
     }
 }
@@ -552,11 +534,15 @@ impl ExactSizeIterator for Drain<'_> {
 
 #[macro_export]
 macro_rules! record {
+    // The macro only compiles if the number of columns equals the number of values,
+    // so it's safe to call `unwrap` below.
     {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Record::from_raw_cols_vals_unchecked(
+        $crate::Record::from_raw_cols_vals(
             ::std::vec![$($col.into(),)+],
-            ::std::vec![$($val,)+]
-        )
+            ::std::vec![$($val,)+],
+            $crate::Span::unknown(),
+            $crate::Span::unknown(),
+        ).unwrap()
     };
     {} => {
         $crate::Record::new()

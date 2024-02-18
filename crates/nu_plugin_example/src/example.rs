@@ -1,5 +1,5 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Record, Value};
+use nu_protocol::{record, Value};
 pub struct Example;
 
 impl Example {
@@ -75,20 +75,16 @@ impl Example {
     pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
         self.print_values(2, call, input)?;
 
-        let cols = vec!["one".to_string(), "two".to_string(), "three".to_string()];
-
         let vals = (0..10i64)
             .map(|i| {
-                let vals = (0..3)
-                    .map(|v| Value::int(v * i, call.head))
-                    .collect::<Vec<Value>>();
-
-                Value::record(
-                    Record::from_raw_cols_vals_unchecked(cols.clone(), vals),
-                    call.head,
-                )
+                let record = record! {
+                    "one" => Value::int(i, call.head),
+                    "two" => Value::int(2 * i, call.head),
+                    "three" => Value::int(3 * i, call.head),
+                };
+                Value::record(record, call.head)
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
         Ok(Value::list(vals, call.head))
     }

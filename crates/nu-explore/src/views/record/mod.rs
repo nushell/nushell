@@ -701,16 +701,13 @@ fn build_last_value(v: &RecordView) -> Value {
 fn build_table_as_list(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
-    let headers = layer.columns.to_vec();
+    let cols = &layer.columns;
     let vals = layer
         .records
         .iter()
-        .cloned()
         .map(|vals| {
-            Value::record(
-                Record::from_raw_cols_vals_unchecked(headers.clone(), vals),
-                NuSpan::unknown(),
-            )
+            let record = cols.iter().cloned().zip(vals.iter().cloned()).collect();
+            Value::record(record, NuSpan::unknown())
         })
         .collect();
 
@@ -720,13 +717,18 @@ fn build_table_as_list(v: &RecordView) -> Value {
 fn build_table_as_record(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
-    let cols = layer.columns.to_vec();
-    let vals = layer.records.first().map_or(Vec::new(), |row| row.clone());
+    let record = if let Some(row) = layer.records.first() {
+        layer
+            .columns
+            .iter()
+            .cloned()
+            .zip(row.iter().cloned())
+            .collect()
+    } else {
+        Record::new()
+    };
 
-    Value::record(
-        Record::from_raw_cols_vals_unchecked(cols, vals),
-        NuSpan::unknown(),
-    )
+    Value::record(record, NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
