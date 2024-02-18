@@ -421,15 +421,16 @@ fn convert_to_value(
                         span: expr.span,
                     });
                 }
-                let vals: Vec<Value> = row
-                    .into_iter()
-                    .map(|cell| convert_to_value(cell, span, original_text))
+
+                let record = cols
+                    .iter()
+                    .zip(row)
+                    .map(|(col, cell)| {
+                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
+                    })
                     .collect::<Result<_, _>>()?;
 
-                output.push(Value::record(
-                    Record::from_raw_cols_vals_unchecked(cols.clone(), vals),
-                    span,
-                ));
+                output.push(Value::record(record, span));
             }
 
             Ok(Value::list(output, span))
