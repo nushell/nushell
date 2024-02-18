@@ -245,17 +245,6 @@ pub enum ParseError {
         #[label = "module '{0}' already contains 'main'"] Span,
     ),
 
-    #[error("Invalid module file name")]
-    #[diagnostic(
-        code(nu::parser::invalid_module_file_name),
-        help("File {0} resolves to module name {1} which is the same as the parent module. Either rename the file or, save it as 'mod.nu' to define the parent module.")
-    )]
-    InvalidModuleFileName(
-        String,
-        String,
-        #[label = "submodule can't have the same name as the parent module"] Span,
-    ),
-
     #[error("Can't export alias defined as 'main'.")]
     #[diagnostic(
         code(nu::parser::export_main_alias_not_allowed),
@@ -302,10 +291,6 @@ pub enum ParseError {
     #[error("Cannot add overlay.")]
     #[diagnostic(code(nu::parser::cant_add_overlay_help), help("{0}"))]
     CantAddOverlayHelp(String, #[label = "cannot add this overlay"] Span),
-
-    #[error("Not found.")]
-    #[diagnostic(code(nu::parser::not_found))]
-    NotFound(#[label = "did not find anything under this name"] Span),
 
     #[error("Duplicate command definition within a block.")]
     #[diagnostic(code(nu::parser::duplicate_command_def))]
@@ -420,10 +405,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::assignment_mismatch))]
     AssignmentMismatch(String, String, #[label("{1}")] Span),
 
-    #[error("Missing import pattern.")]
-    #[diagnostic(code(nu::parser::missing_import_pattern))]
-    MissingImportPattern(#[label = "needs an import pattern"] Span),
-
     #[error("Wrong import pattern structure.")]
     #[diagnostic(code(nu::parser::wrong_import_pattern))]
     WrongImportPattern(String, #[label = "{0}"] Span),
@@ -449,15 +430,6 @@ pub enum ParseError {
     #[error("File not found")]
     #[diagnostic(code(nu::parser::file_not_found))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
-
-    /// Error while trying to read a file
-    ///
-    /// ## Resolution
-    ///
-    /// The error will show the result from a file operation
-    #[error("Error trying to read file")]
-    #[diagnostic(code(nu::shell::error_reading_file))]
-    ReadingFile(String, #[label("{0}")] Span),
 
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
@@ -524,7 +496,6 @@ impl ParseError {
             ParseError::ModuleMissingModNuFile(_, s) => *s,
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
-            ParseError::InvalidModuleFileName(_, _, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
@@ -533,7 +504,6 @@ impl ParseError {
             ParseError::CantRemoveLastOverlay(s) => *s,
             ParseError::CantHideDefaultOverlay(_, s) => *s,
             ParseError::CantAddOverlayHelp(_, s) => *s,
-            ParseError::NotFound(s) => *s,
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,
             ParseError::NonUtf8(s) => *s,
@@ -560,13 +530,11 @@ impl ParseError {
             ParseError::ExtraColumns(_, s) => *s,
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
-            ParseError::MissingImportPattern(s) => *s,
             ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
-            ParseError::ReadingFile(_, s) => *s,
             ParseError::LabeledError(_, _, s) => *s,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,
