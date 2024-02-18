@@ -272,7 +272,7 @@ pub(super) fn try_parse_trim_strategy(
 }
 
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    if let Ok(value) = value.coerce_string() {
+    if let Ok(value) = value.coerce_str() {
         match value.to_lowercase().as_str() {
         "wrapping" => {
             return Some(TrimStrategy::Wrap {

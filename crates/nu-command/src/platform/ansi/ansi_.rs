@@ -738,9 +738,9 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
         });
     }
     let code_string = if param_is_string {
-        code.coerce_string().expect("error getting code as string")
+        code.coerce_str().expect("error getting code as string")
     } else {
-        "".to_string()
+        "".into()
     };
     let param_is_valid_string = param_is_string && !code_string.is_empty();
     if (escape || osc) && (param_is_valid_string) {

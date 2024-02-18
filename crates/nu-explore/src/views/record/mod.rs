@@ -331,8 +331,8 @@ impl View for RecordView<'_> {
         if let Some(hm) = cfg.config.get("table").and_then(create_map) {
             self.theme = theme_from_config(&hm);
 
-            if let Some(orientation) = hm.get("orientation").and_then(|v| v.coerce_string().ok()) {
-                let orientation = match orientation.as_str() {
+            if let Some(orientation) = hm.get("orientation").and_then(|v| v.coerce_str().ok()) {
+                let orientation = match orientation.as_ref() {
                     "left" => Some(Orientation::Left),
                     "top" => Some(Orientation::Top),
                     _ => None,
@@ -859,7 +859,7 @@ fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
 fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
     config
         .get(key)
-        .and_then(|v| v.coerce_string().ok())
+        .and_then(|v| v.coerce_str().ok())
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(default)
 }

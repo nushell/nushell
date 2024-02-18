@@ -72,7 +72,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                     for (k, v) in val {
                         match v.coerce_string() {
                             Ok(s) => {
-                                row_vec.push((k.clone(), s.to_string()));
+                                row_vec.push((k.clone(), s));
                             }
                             _ => {
                                 return Err(ShellError::UnsupportedInput {

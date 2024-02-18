@@ -110,10 +110,10 @@ pub fn env_to_string(
                         Value::List { vals, .. } => {
                             let paths = vals
                                 .iter()
-                                .map(|v| v.coerce_string())
+                                .map(Value::coerce_str)
                                 .collect::<Result<Vec<_>, _>>()?;
 
-                            match std::env::join_paths(paths) {
+                            match std::env::join_paths(paths.iter().map(AsRef::as_ref)) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
                                 Err(_) => Err(ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
