@@ -620,7 +620,7 @@ fn flag_completions() {
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
-    assert_eq!(16, suggestions.len());
+    assert_eq!(18, suggestions.len());
 
     let expected: Vec<String> = vec![
         "--all".into(),
