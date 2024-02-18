@@ -1,3 +1,4 @@
+use super::util::opt_for_glob_pattern;
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
@@ -64,6 +65,11 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
+            .switch(
+                "glob-on-var",
+                "expand the glob if input is variable",
+                Some('g'),
+            )
             .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .category(Category::FileSystem)
     }
@@ -82,12 +88,12 @@ impl Command for Ls {
         let du = call.has_flag(engine_state, stack, "du")?;
         let directory = call.has_flag(engine_state, stack, "directory")?;
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg: Option<Spanned<NuPath>> = call.opt(engine_state, stack, 0)?;
-
+        let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 match path.item {

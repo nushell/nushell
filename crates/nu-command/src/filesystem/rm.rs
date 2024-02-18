@@ -5,6 +5,7 @@ use std::io::ErrorKind;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
+use super::util::get_rest_for_glob_pattern;
 use super::util::try_interaction;
 
 use nu_engine::env::current_dir;
@@ -62,6 +63,7 @@ impl Command for Rm {
                 "ask user to confirm action only once",
                 Some('I'),
             )
+            .switch("glob-on-var", "expand the glob if input is variable", Some('g'))
             .category(Category::FileSystem)
     }
 
@@ -123,10 +125,11 @@ fn rm(
     let verbose = call.has_flag(engine_state, stack, "verbose")?;
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
+    let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?;
 
     if paths.is_empty() {
         return Err(ShellError::MissingParameter {

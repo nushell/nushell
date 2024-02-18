@@ -1,3 +1,4 @@
+use super::util::opt_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::{current_dir, CallExt};
 use nu_glob::Pattern;
@@ -66,7 +67,12 @@ impl Command for Du {
                 "Exclude files below this size",
                 Some('m'),
             )
-            .category(Category::Core)
+            .switch(
+                "glob-on-var",
+                "expand the glob if input is variable",
+                Some('g'),
+            )
+            .category(Category::FileSystem)
     }
 
     fn run(
@@ -79,6 +85,7 @@ impl Command for Du {
         let tag = call.head;
         let min_size: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
         if let Some(ref max_depth) = max_depth {
             if max_depth.item < 0 {
                 return Err(ShellError::NeedsPositiveValue {
@@ -96,7 +103,7 @@ impl Command for Du {
         let current_dir = current_dir(engine_state, stack)?;
 
         let args = DuArgs {
-            path: call.opt(engine_state, stack, 0)?,
+            path: opt_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?,
             all: call.has_flag(engine_state, stack, "all")?,
             deref: call.has_flag(engine_state, stack, "deref")?,
             exclude: call.get_flag(engine_state, stack, "exclude")?,

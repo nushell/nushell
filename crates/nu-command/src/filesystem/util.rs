@@ -1,4 +1,12 @@
 use dialoguer::Input;
+use nu_engine::eval_expression;
+use nu_protocol::ast::Expr;
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    ShellError, Spanned, Value,
+};
+use nu_protocol::{FromValue, NuPath};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -198,5 +206,81 @@ pub mod users {
                 .collect::<Vec<_>>()
                 .into()
         }
+    }
+}
+
+/// Get rest arguments from given `call`, starts with `starting_pos`.
+///
+/// It's similar to `call.rest`, except that it returns `Value::quoted_string` if input is
+/// a variable or string interpolation.  You can make it returns `Value::string` if the value
+/// of `glob_on_var` is false
+pub fn get_rest_for_glob_pattern(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    starting_pos: usize,
+    glob_on_var: bool,
+) -> Result<Vec<Spanned<NuPath>>, ShellError> {
+    let mut output = vec![];
+
+    for result in call.rest_iter_flattened(starting_pos, |expr| {
+        let result = eval_expression(engine_state, stack, expr);
+        match result {
+            Err(e) => Err(e),
+            Ok(result) => {
+                let span = result.span();
+                // convert from string to quoted string if expr is a variable
+                // or string interpolation
+                match result {
+                    Value::String { val, .. }
+                        if matches!(
+                            &expr.expr,
+                            Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                        ) && !glob_on_var =>
+                    {
+                        // nushell thinks it's a quoted string.
+                        Ok(Value::quoted_string(val, span))
+                    }
+                    other => Ok(other),
+                }
+            }
+        }
+    })? {
+        output.push(FromValue::from_value(result)?);
+    }
+
+    Ok(output)
+}
+
+/// Get optional arguments from given `call` with position `pos`.
+///
+/// It's similar to `call.opt`, except that it returns `Value::quoted_string` if input is
+/// a variable or string interpolation.  You can make it returns `Value::string` if the value
+/// of `glob_on_var` is false
+pub fn opt_for_glob_pattern(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    pos: usize,
+    glob_on_var: bool,
+) -> Result<Option<Spanned<NuPath>>, ShellError> {
+    if let Some(expr) = call.positional_nth(pos) {
+        let result = eval_expression(engine_state, stack, expr)?;
+        let result_span = result.span();
+        let result = match result {
+            Value::String { val, .. }
+                if matches!(
+                    &expr.expr,
+                    Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                ) && !glob_on_var =>
+            {
+                // nushell thinks it's a quoted string.
+                Value::quoted_string(val, result_span)
+            }
+            other => other,
+        };
+        FromValue::from_value(result).map(Some)
+    } else {
+        Ok(None)
     }
 }

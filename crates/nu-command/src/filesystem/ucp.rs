@@ -1,5 +1,5 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::NuPath;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -61,6 +61,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
+            .switch("glob-on-var", "expand the glob if input is variable", Some('g'))
             .rest("paths", SyntaxShape::GlobPattern, "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
@@ -125,6 +126,7 @@ impl Command for UCp {
         let progress = call.has_flag(engine_state, stack, "progress")?;
         let recursive = call.has_flag(engine_state, stack, "recursive")?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
         let preserve: Option<Value> = call.get_flag(engine_state, stack, "preserve")?;
 
         let debug = call.has_flag(engine_state, stack, "debug")?;
@@ -155,7 +157,7 @@ impl Command for UCp {
             target_os = "macos"
         )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),

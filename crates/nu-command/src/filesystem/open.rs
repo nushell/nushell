@@ -1,3 +1,4 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
@@ -44,6 +45,11 @@ impl Command for Open {
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
             .rest("files", SyntaxShape::GlobPattern, "The file(s) to open.")
             .switch("raw", "open file as raw binary", Some('r'))
+            .switch(
+                "glob-on-var",
+                "expand the glob if input is variable",
+                Some('g'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -55,10 +61,11 @@ impl Command for Open {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = call.rest::<Spanned<NuPath>>(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?;
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args

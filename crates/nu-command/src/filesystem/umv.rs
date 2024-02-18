@@ -1,11 +1,10 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, NuPath, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use uu_mv::{BackupMode, UpdateMode};
@@ -54,6 +53,11 @@ impl Command for UMv {
             .switch("progress", "display a progress bar", Some('p'))
             .switch("interactive", "prompt before overwriting", Some('i'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .switch(
+                "glob-on-var",
+                "expand the glob if input is variable",
+                Some('g'),
+            )
             .rest(
                 "paths",
                 SyntaxShape::GlobPattern,
@@ -74,6 +78,7 @@ impl Command for UMv {
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let glob_on_var = call.has_flag(engine_state, stack, "glob-on-var")?;
         let overwrite = if no_clobber {
             uu_mv::OverwriteMode::NoClobber
         } else if interactive {
@@ -83,7 +88,7 @@ impl Command for UMv {
         };
 
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
