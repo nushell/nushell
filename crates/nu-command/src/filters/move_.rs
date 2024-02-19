@@ -260,10 +260,8 @@ fn move_record_columns(
             if matches!(&before_or_after.item, BeforeOrAfter::Before(..)) {
                 out.push(inp_col.clone(), inp_val.clone());
             }
-        } else {
-            if !column_idx.contains(&i) {
-                out.push(inp_col.clone(), inp_val.clone());
-            }
+        } else if !column_idx.contains(&i) {
+            out.push(inp_col.clone(), inp_val.clone());
         }
     }
 
