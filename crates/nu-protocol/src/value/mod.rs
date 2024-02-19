@@ -5,7 +5,6 @@ mod glob;
 mod lazy_record;
 mod range;
 mod stream;
-mod unit;
 
 pub mod record;
 
@@ -38,7 +37,6 @@ use std::{
     {cmp::Ordering, fmt::Debug},
 };
 pub use stream::*;
-pub use unit::*;
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the

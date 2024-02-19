@@ -26,6 +26,7 @@ mod value;
 mod variable;
 
 pub use alias::*;
+pub use ast::Unit;
 pub use cli_error::*;
 pub use config::*;
 pub use did_you_mean::did_you_mean;
