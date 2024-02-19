@@ -46,6 +46,8 @@ impl Command for Move {
             .category(Category::Filters)
     }
 
+    
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -286,10 +288,191 @@ fn move_record_columns(
 mod test {
     use super::*;
 
+    // helper
+    fn get_test_record(columns: Vec<&str>, values: Vec<i64>) -> Record{
+
+        let test_span = Span::test_data();
+        Record::from_raw_cols_vals_unchecked(
+            columns.iter().map(|col| col.to_string()).collect(),
+            values.iter().map(|val| Value::Int{val: *val, internal_span: test_span}).collect())
+
+    }
+
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
         test_examples(Move {})
+    }
+
+    #[test]
+    fn move_after_with_single_column(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::After("c".to_string()), span: test_span };
+        let columns = [Value::String {val: "a".to_string(), internal_span: test_span}];
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move a --after c
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(result.is_ok());
+
+        let result_rec_tmp = result.unwrap();
+        let result_record = result_rec_tmp.as_record().unwrap();
+
+        assert_eq!(*result_record.get_index(0).unwrap().0, "b".to_string());
+        assert_eq!(*result_record.get_index(1).unwrap().0, "c".to_string());
+        assert_eq!(*result_record.get_index(2).unwrap().0, "a".to_string());
+        assert_eq!(*result_record.get_index(3).unwrap().0, "d".to_string());
+
+
+    }
+
+    #[test]
+    fn move_after_with_multiple_columns(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::After("c".to_string()), span: test_span };
+        let columns = [Value::String {val: "b".to_string(), internal_span: test_span},
+            Value::String {val: "e".to_string(), internal_span: test_span}];
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move b e --after c
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(result.is_ok());
+
+        let result_rec_tmp = result.unwrap();
+        let result_record = result_rec_tmp.as_record().unwrap();
+
+        assert_eq!(*result_record.get_index(0).unwrap().0, "a".to_string());
+        assert_eq!(*result_record.get_index(1).unwrap().0, "c".to_string());
+        assert_eq!(*result_record.get_index(2).unwrap().0, "b".to_string());
+        assert_eq!(*result_record.get_index(3).unwrap().0, "e".to_string());
+        assert_eq!(*result_record.get_index(4).unwrap().0, "d".to_string());
+
+
+    }
+
+    #[test]
+    fn move_before_with_single_column(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::Before("b".to_string()), span: test_span };
+        let columns = [Value::String {val: "d".to_string(), internal_span: test_span}];
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move d --before b
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(result.is_ok());
+
+        let result_rec_tmp = result.unwrap();
+        let result_record = result_rec_tmp.as_record().unwrap();
+
+        assert_eq!(*result_record.get_index(0).unwrap().0, "a".to_string());
+        assert_eq!(*result_record.get_index(1).unwrap().0, "d".to_string());
+        assert_eq!(*result_record.get_index(2).unwrap().0, "b".to_string());
+        assert_eq!(*result_record.get_index(3).unwrap().0, "c".to_string());
+
+
+    }
+
+    #[test]
+    fn move_before_with_multiple_columns(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::Before("b".to_string()), span: test_span };
+        let columns = [Value::String {val: "c".to_string(), internal_span: test_span},
+            Value::String {val: "e".to_string(), internal_span: test_span}];
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c e --before b
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(result.is_ok());
+
+        let result_rec_tmp = result.unwrap();
+        let result_record = result_rec_tmp.as_record().unwrap();
+
+        assert_eq!(*result_record.get_index(0).unwrap().0, "a".to_string());
+        assert_eq!(*result_record.get_index(1).unwrap().0, "c".to_string());
+        assert_eq!(*result_record.get_index(2).unwrap().0, "e".to_string());
+        assert_eq!(*result_record.get_index(3).unwrap().0, "b".to_string());
+        assert_eq!(*result_record.get_index(4).unwrap().0, "d".to_string());
+
+
+    }
+
+    #[test]
+    fn move_with_multiple_columns_reorders_columns(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::After("e".to_string()), span: test_span };
+        let columns = [Value::String {val: "d".to_string(), internal_span: test_span},
+            Value::String {val: "c".to_string(), internal_span: test_span},
+            Value::String {val: "a".to_string(), internal_span: test_span}];
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move d c a --after e
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(result.is_ok());
+
+        let result_rec_tmp = result.unwrap();
+        let result_record = result_rec_tmp.as_record().unwrap();
+
+        assert_eq!(*result_record.get_index(0).unwrap().0, "b".to_string());
+        assert_eq!(*result_record.get_index(1).unwrap().0, "e".to_string());
+        assert_eq!(*result_record.get_index(2).unwrap().0, "d".to_string());
+        assert_eq!(*result_record.get_index(3).unwrap().0, "c".to_string());
+        assert_eq!(*result_record.get_index(4).unwrap().0, "a".to_string());
+
+
+    }
+
+    #[test]
+    fn move_fails_when_pivot_not_present(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b"], vec![1, 2]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::Before("non-existent".to_string()), span: test_span };
+        let columns = [Value::String {val: "a".to_string(), internal_span: test_span}];
+
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(!result.is_ok());
+
+    }
+
+    #[test]
+    fn move_fails_when_column_not_present(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b"], vec![1, 2]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::Before("b".to_string()), span: test_span };
+        let columns = [Value::String {val: "a".to_string(), internal_span: test_span},
+        Value::String{val: "non-existent".to_string(), internal_span: test_span}];
+
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(!result.is_ok());
+
+    }
+
+    #[test]
+    fn move_fails_when_column_is_also_pivot(){
+
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
+        let after: Spanned<BeforeOrAfter> = Spanned{ item: BeforeOrAfter::After("b".to_string()), span: test_span };
+        let columns = [Value::String {val: "b".to_string(), internal_span: test_span},
+            Value::String{val: "d".to_string(), internal_span: test_span}];
+
+        let result = move_record_columns(&test_record, &columns, &after, test_span);
+
+        assert!(!result.is_ok());
+
     }
 }
