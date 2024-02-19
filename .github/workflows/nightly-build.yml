@@ -156,7 +156,7 @@ jobs:
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
-      uses: JasonEtco/create-an-issue@v2.9.1
+      uses: JasonEtco/create-an-issue@v2.9.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -268,7 +268,7 @@ jobs:
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
-      uses: JasonEtco/create-an-issue@v2.9.1
+      uses: JasonEtco/create-an-issue@v2.9.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
