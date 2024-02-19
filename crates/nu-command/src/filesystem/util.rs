@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     ShellError, Spanned, Value,
 };
-use nu_protocol::{FromValue, NuPath};
+use nu_protocol::{FromValue, NuPath, Type};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -236,10 +236,27 @@ pub fn get_rest_for_glob_pattern(
                         if matches!(
                             &expr.expr,
                             Expr::FullCellPath(_) | Expr::StringInterpolation(_)
-                        ) && !glob_on_var =>
+                        ) && expr.ty != Type::Glob =>
                     {
                         // nushell thinks it's a quoted string.
                         Ok(Value::quoted_string(val, span))
+                    }
+                    Value::List { vals, .. } => {
+                        // convert from string to quoted string.
+                        Ok(Value::list(
+                            vals.into_iter()
+                                .map(|v| {
+                                    let v_span = v.span();
+                                    match v {
+                                        Value::String { val, .. } => {
+                                            Value::quoted_string(val, v_span)
+                                        }
+                                        other => other,
+                                    }
+                                })
+                                .collect(),
+                            span,
+                        ))
                     }
                     other => Ok(other),
                 }
