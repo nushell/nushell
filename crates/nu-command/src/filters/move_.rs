@@ -121,12 +121,12 @@ impl Command for Move {
 
         let before_or_after = match (after, before) {
             (Some(v), None) => Spanned {
-                item: BeforeOrAfter::After(v.as_string()?),
                 span: v.span(),
+                item: BeforeOrAfter::After(v.coerce_into_string()?),
             },
             (None, Some(v)) => Spanned {
-                item: BeforeOrAfter::Before(v.as_string()?),
                 span: v.span(),
+                item: BeforeOrAfter::Before(v.coerce_into_string()?),
             },
             (Some(_), Some(_)) => {
                 return Err(ShellError::GenericError {
@@ -212,9 +212,10 @@ fn move_record_columns(
 
     // Find indices of columns to be moved
     for column in columns.iter() {
-        let column_as_string = column.as_string()?;
 
-        if let Some(idx) = record.index_of(&column_as_string) {
+        let column_as_string = column.coerce_string()?;
+
+        if let Some(idx) = record.index_of(column_as_string) {
             column_idx.push(idx);
         } else {
             return Err(ShellError::GenericError {

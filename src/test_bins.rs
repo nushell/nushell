@@ -325,9 +325,9 @@ pub fn nu_repl() {
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
             let path = cwd
-                .as_string()
+                .coerce_str()
                 .unwrap_or_else(|err| outcome_err(&engine_state, &err));
-            let _ = std::env::set_current_dir(path);
+            let _ = std::env::set_current_dir(path.as_ref());
             engine_state.add_env_var("PWD".into(), cwd);
         }
     }

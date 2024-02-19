@@ -6,7 +6,6 @@ use nu_protocol::{
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
-use std::iter::FromIterator;
 
 #[derive(Clone)]
 pub struct UpdateCells;
@@ -114,14 +113,12 @@ impl Command for UpdateCells {
         // the columns to update
         let columns: Option<Value> = call.get_flag(&engine_state, &mut stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
-            Some(val) => {
-                let cols = val
-                    .as_list()?
-                    .iter()
-                    .map(|val| val.as_string())
-                    .collect::<Result<Vec<String>, ShellError>>()?;
-                Some(HashSet::from_iter(cols))
-            }
+            Some(val) => Some(
+                val.into_list()?
+                    .into_iter()
+                    .map(Value::coerce_into_string)
+                    .collect::<Result<HashSet<String>, ShellError>>()?,
+            ),
             None => None,
         };
 

@@ -95,9 +95,9 @@ impl Command for InputList {
                     let display_value = if let Some(ref cellpath) = display_path {
                         val.clone()
                             .follow_cell_path(&cellpath.members, false)?
-                            .into_string(", ", engine_state.get_config())
+                            .to_expanded_string(", ", engine_state.get_config())
                     } else {
-                        val.into_string(", ", engine_state.get_config())
+                        val.to_expanded_string(", ", engine_state.get_config())
                     };
                     Ok(Options {
                         name: display_value,

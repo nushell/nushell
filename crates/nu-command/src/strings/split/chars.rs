@@ -124,7 +124,7 @@ fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
         Value::Error { error, .. } => Value::error(*error.clone(), span),
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 Value::list(
                     if graphemes {
                         s.graphemes(true)

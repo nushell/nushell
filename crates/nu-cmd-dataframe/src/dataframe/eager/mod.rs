@@ -1,4 +1,5 @@
 mod append;
+mod cast;
 mod columns;
 mod drop;
 mod drop_duplicates;
@@ -35,6 +36,7 @@ use nu_protocol::engine::StateWorkingSet;
 
 pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
+pub use cast::CastDF;
 pub use columns::ColumnsDF;
 pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
@@ -78,6 +80,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
     // Dataframe commands
     bind_command!(
         AppendDF,
+        CastDF,
         ColumnsDF,
         DataTypes,
         Summary,

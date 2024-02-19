@@ -318,7 +318,7 @@ mod tests {
             Span::test_data(),
         );
         let config = nu_protocol::Config::default();
-        let out = item.into_string("\n", &config);
+        let out = item.to_expanded_string("\n", &config);
         assert_eq!("[[Coffee]]".to_string(), out)
     }
 
@@ -332,15 +332,15 @@ mod tests {
             Span::test_data(),
         );
         let out = item
-            .as_list()
+            .into_list()
             .unwrap()
-            .iter()
+            .into_iter()
             .map(|matches| {
                 matches
-                    .as_list()
+                    .into_list()
                     .unwrap()
-                    .iter()
-                    .map(|text_nodes| text_nodes.as_string().unwrap())
+                    .into_iter()
+                    .map(|text_nodes| text_nodes.coerce_into_string().unwrap())
                     .collect::<Vec<String>>()
             })
             .collect::<Vec<Vec<String>>>();

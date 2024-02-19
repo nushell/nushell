@@ -5,7 +5,7 @@ pub const CMD_NAME: &str = "from ini";
 
 pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
     let span = input.span();
-    let input_string = input.as_string()?;
+    let input_string = input.coerce_str()?;
     let head = call.head;
 
     let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&input_string);

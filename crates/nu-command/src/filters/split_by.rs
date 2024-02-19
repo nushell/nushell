@@ -96,7 +96,7 @@ pub fn split_by(
     match splitter {
         Some(v) => {
             let splitter = Some(Spanned {
-                item: v.as_string()?,
+                item: v.coerce_into_string()?,
                 span: name,
             });
             Ok(split(splitter.as_ref(), input, name)?)
@@ -133,7 +133,7 @@ pub fn split(
                 };
 
                 match group_key {
-                    Some(group_key) => Ok(group_key.as_string()?),
+                    Some(group_key) => Ok(group_key.coerce_string()?),
                     None => Err(ShellError::CantFindColumn {
                         col_name: column_name.item.to_string(),
                         span: column_name.span,
@@ -145,7 +145,7 @@ pub fn split(
             data_split(values, Some(&block), span)
         }
         Grouper::ByColumn(None) => {
-            let block = move |_, row: &Value| row.as_string();
+            let block = move |_, row: &Value| row.coerce_string();
 
             data_split(values, Some(&block), span)
         }
@@ -164,7 +164,7 @@ fn data_group(
         let group_key = if let Some(ref grouper) = grouper {
             grouper(idx, &value)
         } else {
-            value.as_string()
+            value.coerce_string()
         };
 
         let group = groups.entry(group_key?).or_default();

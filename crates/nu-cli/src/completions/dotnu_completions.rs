@@ -54,7 +54,7 @@ impl Completer for DotNuCompletion {
                     .into_iter()
                     .flat_map(|it| {
                         it.iter().map(|x| {
-                            x.as_path()
+                            x.to_path()
                                 .expect("internal error: failed to convert lib path")
                         })
                     })

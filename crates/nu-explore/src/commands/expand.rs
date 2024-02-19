@@ -85,7 +85,7 @@ fn convert_value_to_string(value: Value, engine_state: &EngineState, stack: &mut
     let has_single_value = vals.len() == 1 && vals[0].len() == 1;
     if !has_no_head && has_single_value {
         let config = engine_state.get_config();
-        vals[0][0].into_abbreviated_string(config)
+        vals[0][0].to_abbreviated_string(config)
     } else {
         let ctrlc = engine_state.ctrlc.clone();
         let config = engine_state.get_config();

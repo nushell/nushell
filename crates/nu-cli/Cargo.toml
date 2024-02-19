@@ -29,19 +29,19 @@ reedline = { version = "0.29.0", features = ["bashisms", "sqlite"] }
 
 chrono = { default-features = false, features = ["std"], version = "0.4" }
 crossterm = "0.27"
-fancy-regex = "0.12"
+fancy-regex = "0.13"
 fuzzy-matcher = "0.3"
 is_executable = "1.0"
 log = "0.4"
-miette = { version = "7.0", features = ["fancy-no-backtrace"] }
+miette = { version = "7.1", features = ["fancy-no-backtrace"] }
 lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
 once_cell = "1.18"
 percent-encoding = "2"
 pathdiff = "0.2"
 sysinfo = "0.30"
-unicode-segmentation = "1.10"
+unicode-segmentation = "1.11"
 uuid = { version = "1.6.0", features = ["v4"] }
-which = "5.0.0"
+which = "6.0.0"
 
 [features]
 plugin = []

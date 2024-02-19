@@ -45,10 +45,9 @@ impl Command for NuHighlight {
         };
 
         input.map(
-            move |x| match x.as_string() {
+            move |x| match x.coerce_into_string() {
                 Ok(line) => {
                     let highlights = highlighter.highlight(&line, line.len());
-
                     Value::string(highlights.render_simple(), head)
                 }
                 Err(err) => Value::error(err, head),

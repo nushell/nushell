@@ -54,8 +54,8 @@ impl Command for FormatPattern {
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
-                let string_pattern = pattern.as_string()?;
                 let string_span = pattern.span();
+                let string_pattern = pattern.coerce_into_string()?;
                 // the string span is start as `"`, we don't need the character
                 // to generate proper span for sub expression.
                 let ops = extract_formatting_operations(
@@ -287,7 +287,7 @@ fn format_record(
                     .collect();
                 match data_as_value.clone().follow_cell_path(&path_members, false) {
                     Ok(value_at_column) => {
-                        output.push_str(value_at_column.into_string(", ", config).as_str())
+                        output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
                     }
                     Err(se) => return Err(se),
                 }
@@ -298,7 +298,7 @@ fn format_record(
                     None => {
                         let parsed_result = eval_expression(engine_state, stack, &exp);
                         if let Ok(val) = parsed_result {
-                            output.push_str(&val.into_abbreviated_string(config))
+                            output.push_str(&val.to_abbreviated_string(config))
                         }
                     }
                     Some(err) => {

@@ -117,7 +117,7 @@ impl Completer for CustomCompletion {
                                 },
                                 match_algorithm: match options.get("completion_algorithm") {
                                     Some(option) => option
-                                        .as_string()
+                                        .coerce_string()
                                         .ok()
                                         .and_then(|option| option.try_into().ok())
                                         .unwrap_or(MatchAlgorithm::Prefix),
