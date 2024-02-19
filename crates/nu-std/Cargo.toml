@@ -8,7 +8,7 @@ name = "nu-std"
 version = "0.90.2"
 
 [dependencies]
-miette = { version = "7.0", features = ["fancy-no-backtrace"] }
+miette = { version = "7.1", features = ["fancy-no-backtrace"] }
 nu-parser = { version = "0.90.2", path = "../nu-parser" }
 nu-protocol = { version = "0.90.2", path = "../nu-protocol" }
 nu-engine = { version = "0.90.2", path = "../nu-engine" }
