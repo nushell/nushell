@@ -238,43 +238,38 @@ fn move_record_columns(
     }
 
     let mut out = Record::with_capacity(record.len());
+    let before_or_after_str = match &before_or_after.item {
+        BeforeOrAfter::Before(before) => before,
+        BeforeOrAfter::After(after) => after
+    };
 
     for (i, (inp_col, inp_val)) in record.iter().enumerate() {
-        match &before_or_after.item {
-            BeforeOrAfter::After(after) if after == inp_col => {
-                out.push(inp_col.clone(), inp_val.clone());
 
-                for idx in column_idx.iter() {
-                    if let Some((col, val)) = record.get_index(*idx) {
-                        out.push(col.clone(), val.clone());
-                    } else {
-                        return Err(ShellError::NushellFailedSpanned {
-                            msg: "Error indexing input columns".to_string(),
-                            label: "originates from here".to_string(),
-                            span,
-                        });
-                    }
-                }
-            }
-            BeforeOrAfter::Before(before) if before == inp_col => {
-                for idx in column_idx.iter() {
-                    if let Some((col, val)) = record.get_index(*idx) {
-                        out.push(col.clone(), val.clone());
-                    } else {
-                        return Err(ShellError::NushellFailedSpanned {
-                            msg: "Error indexing input columns".to_string(),
-                            label: "originates from here".to_string(),
-                            span,
-                        });
-                    }
-                }
+        if(inp_col == before_or_after_str){
 
+            if matches!(&before_or_after.item, BeforeOrAfter::After(..)){
                 out.push(inp_col.clone(), inp_val.clone());
             }
-            _ => {
-                if !column_idx.contains(&i) {
-                    out.push(inp_col.clone(), inp_val.clone());
+
+            for idx in column_idx.iter() {
+                if let Some((col, val)) = record.get_index(*idx) {
+                    out.push(col.clone(), val.clone());
+                } else {
+                    return Err(ShellError::NushellFailedSpanned {
+                        msg: "Error indexing input columns".to_string(),
+                        label: "originates from here".to_string(),
+                        span,
+                    });
                 }
+            }
+
+            if matches!(&before_or_after.item, BeforeOrAfter::Before(..)){
+                out.push(inp_col.clone(), inp_val.clone());
+            }
+
+        }else{
+            if !column_idx.contains(&i) {
+                out.push(inp_col.clone(), inp_val.clone());
             }
         }
     }
