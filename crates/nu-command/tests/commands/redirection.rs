@@ -392,7 +392,7 @@ fn no_redirection_with_outerr_pipe() {
                 cwd: dirs.test(),
                 &format!("echo 3 {redirect_type} a.txt o+e>| str length")
             );
-            assert!(actual.err.contains("not allowed to use with redirection"));
+            assert!(actual.err.contains("Multiple redirections provided"));
             assert!(
                 !dirs.test().join("a.txt").exists(),
                 "No file should be created on error"
@@ -404,7 +404,7 @@ fn no_redirection_with_outerr_pipe() {
             cwd: dirs.test(),
             "echo 3 o> a.txt e> b.txt o+e>| str length"
         );
-        assert!(actual.err.contains("not allowed to use with redirection"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"
@@ -423,7 +423,7 @@ fn no_duplicate_redirection() {
             cwd: dirs.test(),
             "echo 3 o> a.txt o> a.txt"
         );
-        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"
@@ -432,7 +432,7 @@ fn no_duplicate_redirection() {
             cwd: dirs.test(),
             "echo 3 e> a.txt e> a.txt"
         );
-        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"

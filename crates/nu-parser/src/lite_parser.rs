@@ -59,30 +59,48 @@ impl LiteCommand {
         target: LiteRedirectionTarget,
     ) -> Result<(), ParseError> {
         let redirection = match (self.redirection.take(), source) {
-            (None, source) => LiteRedirection::Single { source, target },
+            (None, source) => Ok(LiteRedirection::Single { source, target }),
             (
                 Some(LiteRedirection::Single {
                     source: RedirectionSource::Stdout,
                     target: out,
                 }),
                 RedirectionSource::Stderr,
-            ) => LiteRedirection::Separate { out, err: target },
+            ) => Ok(LiteRedirection::Separate { out, err: target }),
             (
                 Some(LiteRedirection::Single {
                     source: RedirectionSource::Stderr,
                     target: err,
                 }),
                 RedirectionSource::Stdout,
-            ) => LiteRedirection::Separate { out: target, err },
-            (Some(redirection), _) => {
-                self.redirection = Some(redirection);
-                return Err(ParseError::LabeledError(
-                    "Redirection can be set only once".into(),
-                    "try to remove one".into(),
+            ) => Ok(LiteRedirection::Separate { out: target, err }),
+            (
+                Some(LiteRedirection::Single {
+                    source,
+                    target: first,
+                }),
+                _,
+            ) => Err(ParseError::MultipleRedirections(
+                source,
+                first.connector(),
+                target.connector(),
+            )),
+            (
+                Some(LiteRedirection::Separate { out, .. }),
+                RedirectionSource::Stdout | RedirectionSource::StdoutAndStderr,
+            ) => Err(ParseError::MultipleRedirections(
+                RedirectionSource::Stdout,
+                out.connector(),
+                target.connector(),
+            )),
+            (Some(LiteRedirection::Separate { err, .. }), RedirectionSource::Stderr) => {
+                Err(ParseError::MultipleRedirections(
+                    RedirectionSource::Stderr,
+                    err.connector(),
                     target.connector(),
-                ));
+                ))
             }
-        };
+        }?;
 
         self.redirection = Some(redirection);
 

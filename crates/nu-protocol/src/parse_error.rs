@@ -3,7 +3,7 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
-use crate::{did_you_mean, Span, Type};
+use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -84,6 +84,14 @@ pub enum ParseError {
         help("Nushell redirection will write all of stdout before stderr.")
     )]
     ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] Span),
+
+    #[error("Multiple redirections provided for {0}.")]
+    #[diagnostic(code(nu::parser::multiple_redirections))]
+    MultipleRedirections(
+        RedirectionSource,
+        #[label = "first redirection"] Span,
+        #[label = "second redirection"] Span,
+    ),
 
     #[error("{0} is not supported on values of type {3}")]
     #[diagnostic(code(nu::parser::unsupported_operation))]
@@ -540,6 +548,7 @@ impl ParseError {
             ParseError::ShellOrOr(s) => *s,
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
+            ParseError::MultipleRedirections(_, _, s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
