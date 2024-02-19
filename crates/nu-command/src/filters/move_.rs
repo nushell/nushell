@@ -194,13 +194,13 @@ fn move_record_columns(
 ) -> Result<Value, ShellError> {
     let mut column_idx: Vec<usize> = Vec::with_capacity(columns.len());
 
-    let before_or_after_str = match &before_or_after.item {
+    let pivot = match &before_or_after.item {
         BeforeOrAfter::Before(before) => before,
         BeforeOrAfter::After(after) => after,
     };
 
     // check if pivot exists
-    if !record.contains(before_or_after_str) {
+    if !record.contains(pivot) {
         return Err(ShellError::GenericError {
             error: "Cannot move columns".into(),
             msg: "column does not exist".into(),
@@ -212,9 +212,9 @@ fn move_record_columns(
 
     // Find indices of columns to be moved
     for column in columns.iter() {
-        let column_str = column.as_string()?;
+        let column_as_string = column.as_string()?;
 
-        if let Some(idx) = record.index_of(&column_str) {
+        if let Some(idx) = record.index_of(&column_as_string) {
             column_idx.push(idx);
         } else {
             return Err(ShellError::GenericError {
@@ -227,7 +227,7 @@ fn move_record_columns(
         }
 
         // check if column is also pivot
-        if &column_str == before_or_after_str {
+        if &column_as_string == pivot {
             return Err(ShellError::IncompatibleParameters {
                 left_message: "Column cannot be moved".to_string(),
                 left_span: column.span(),
@@ -240,7 +240,7 @@ fn move_record_columns(
     let mut out = Record::with_capacity(record.len());
 
     for (i, (inp_col, inp_val)) in record.iter().enumerate() {
-        if inp_col == before_or_after_str {
+        if inp_col == pivot {
             if matches!(&before_or_after.item, BeforeOrAfter::After(..)) {
                 out.push(inp_col.clone(), inp_val.clone());
             }
