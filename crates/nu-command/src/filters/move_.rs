@@ -194,30 +194,20 @@ fn move_record_columns(
 ) -> Result<Value, ShellError> {
     let mut column_idx: Vec<usize> = Vec::with_capacity(columns.len());
 
-    // Check if before/after column exist
-    match &before_or_after.item {
-        BeforeOrAfter::After(after) => {
-            if !record.contains(after) {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "column does not exist".into(),
-                    span: Some(before_or_after.span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-        }
-        BeforeOrAfter::Before(before) => {
-            if !record.contains(before) {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "column does not exist".into(),
-                    span: Some(before_or_after.span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-        }
+    let before_or_after_str = match &before_or_after.item {
+        BeforeOrAfter::Before(before) => before,
+        BeforeOrAfter::After(after) => after,
+    };
+
+    // check if pivot exists
+    if !record.contains(before_or_after_str) {
+        return Err(ShellError::GenericError {
+            error: "Cannot move columns".into(),
+            msg: "column does not exist".into(),
+            span: Some(before_or_after.span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     // Find indices of columns to be moved
@@ -235,19 +225,23 @@ fn move_record_columns(
                 inner: vec![],
             });
         }
+
+        // check if column is also pivot
+        if &column_str == before_or_after_str {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "Column cannot be moved".to_string(),
+                left_span: column.span(),
+                right_message: "relative to itself".to_string(),
+                right_span: before_or_after.span,
+            });
+        }
     }
 
     let mut out = Record::with_capacity(record.len());
-    let before_or_after_str = match &before_or_after.item {
-        BeforeOrAfter::Before(before) => before,
-        BeforeOrAfter::After(after) => after
-    };
 
     for (i, (inp_col, inp_val)) in record.iter().enumerate() {
-
-        if(inp_col == before_or_after_str){
-
-            if matches!(&before_or_after.item, BeforeOrAfter::After(..)){
+        if inp_col == before_or_after_str {
+            if matches!(&before_or_after.item, BeforeOrAfter::After(..)) {
                 out.push(inp_col.clone(), inp_val.clone());
             }
 
@@ -263,11 +257,10 @@ fn move_record_columns(
                 }
             }
 
-            if matches!(&before_or_after.item, BeforeOrAfter::Before(..)){
+            if matches!(&before_or_after.item, BeforeOrAfter::Before(..)) {
                 out.push(inp_col.clone(), inp_val.clone());
             }
-
-        }else{
+        } else {
             if !column_idx.contains(&i) {
                 out.push(inp_col.clone(), inp_val.clone());
             }
