@@ -394,7 +394,7 @@ pub(crate) fn run_repl_wrapped(
     })) {
         Ok(r) => r,
         Err(_) => {
-            let mut ctx = init(args_to_nushell, "", true)?;
+            let mut ctx = init(&[], "", true)?;
             run_repl_wrapped(
                 &mut ctx.engine_state,
                 ctx.parsed_nu_cli_args,
