@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, IoStream, PipelineData, Record, ShellError, Signature,
+    Type, Value,
 };
 
 use std::thread;
@@ -128,5 +129,9 @@ impl Command for Complete {
                 result: None,
             },
         ]
+    }
+
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+        (Some(IoStream::Capture), Some(IoStream::Capture))
     }
 }

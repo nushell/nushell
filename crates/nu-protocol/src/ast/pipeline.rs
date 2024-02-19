@@ -1,11 +1,26 @@
-use crate::{ast::Expression, engine::StateWorkingSet, Span};
+use crate::{
+    ast::Expression,
+    engine::{EngineState, StateWorkingSet},
+    IoStream, Span,
+};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub enum RedirectionSource {
     Stdout,
     Stderr,
     StdoutAndStderr,
+}
+
+impl Display for RedirectionSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RedirectionSource::Stdout => "stdout",
+            RedirectionSource::Stderr => "stderr",
+            RedirectionSource::StdoutAndStderr => "stdout and stderr",
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -118,6 +133,13 @@ impl PipelineElement {
             }
         }
     }
+
+    pub fn stdio_redirect(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<IoStream>, Option<IoStream>) {
+        self.expr.expr.stdio_redirect(engine_state)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,5 +178,16 @@ impl Pipeline {
 
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
+    }
+
+    pub fn stdio_redirect(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<IoStream>, Option<IoStream>) {
+        if let Some(first) = self.elements.first() {
+            first.stdio_redirect(engine_state)
+        } else {
+            (None, None)
+        }
     }
 }

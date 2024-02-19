@@ -1,5 +1,5 @@
 use super::Pipeline;
-use crate::{Signature, Span, Type, VarId};
+use crate::{engine::EngineState, IoStream, Signature, Span, Type, VarId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,6 +18,17 @@ impl Block {
 
     pub fn is_empty(&self) -> bool {
         self.pipelines.is_empty()
+    }
+
+    pub fn stdio_redirect(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<IoStream>, Option<IoStream>) {
+        if let Some(first) = self.pipelines.first() {
+            first.stdio_redirect(engine_state)
+        } else {
+            (None, None)
+        }
     }
 }
 

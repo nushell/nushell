@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, IoStream, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Ignore;
@@ -55,6 +57,10 @@ impl Command for Ignore {
             example: "echo done | ignore",
             result: Some(Value::nothing(Span::test_data())),
         }]
+    }
+
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+        (Some(IoStream::Null), None)
     }
 }
 

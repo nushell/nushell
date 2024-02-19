@@ -290,12 +290,16 @@ pub fn eval_expression_with_input(
             } => {
                 let block = engine_state.get_block(*block_id);
 
-                // FIXME: protect this collect with ctrl-c
-                input = eval_subexpression(engine_state, stack, block, input)?;
-                let value = input.into_value(*span);
-                input = value
-                    .follow_cell_path(&full_cell_path.tail, false)?
-                    .into_pipeline_data()
+                if !full_cell_path.tail.is_empty() {
+                    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
+                    // FIXME: protect this collect with ctrl-c
+                    input = eval_subexpression(engine_state, stack, block, input)?
+                        .into_value(*span)
+                        .follow_cell_path(&full_cell_path.tail, false)?
+                        .into_pipeline_data()
+                } else {
+                    input = eval_subexpression(engine_state, stack, block, input)?;
+                }
             }
             _ => {
                 input = eval_expression(engine_state, stack, expr)?.into_pipeline_data();
@@ -319,6 +323,7 @@ fn eval_redirection(
     engine_state: &EngineState,
     stack: &mut Stack,
     target: &RedirectionTarget,
+    next_out: Option<IoStream>,
 ) -> Result<IoStream, ShellError> {
     match target {
         RedirectionTarget::File { expr, append, .. } => {
@@ -333,11 +338,53 @@ fn eval_redirection(
             } else {
                 options.write(true).truncate(true);
             }
-            let file = options.create(true).open(path)?;
-
-            Ok(file.into())
+            Ok(options.create(true).open(path)?.into())
         }
-        RedirectionTarget::Pipe { .. } => Ok(IoStream::Pipe),
+        RedirectionTarget::Pipe { .. } => Ok(next_out.unwrap_or(IoStream::Pipe)),
+    }
+}
+
+fn eval_element_redirection(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    element_redirection: Option<&Redirection>,
+    (next_out, next_err): (Option<IoStream>, Option<IoStream>),
+) -> Result<(Option<IoStream>, Option<IoStream>), ShellError> {
+    if let Some(redirection) = element_redirection {
+        match redirection {
+            Redirection::Single {
+                source: RedirectionSource::Stdout,
+                target,
+            } => {
+                let stdout = eval_redirection(engine_state, stack, target, next_out)?;
+                Ok((Some(stdout), next_err))
+            }
+            Redirection::Single {
+                source: RedirectionSource::Stderr,
+                target,
+            } => {
+                let stderr = eval_redirection(engine_state, stack, target, next_err)?;
+                if matches!(stderr, IoStream::Pipe) {
+                    Ok((None, Some(stderr))) // e>| redirection, don't override current stack `stdout`
+                } else {
+                    Ok((next_out, Some(stderr)))
+                }
+            }
+            Redirection::Single {
+                source: RedirectionSource::StdoutAndStderr,
+                target,
+            } => {
+                let stream = eval_redirection(engine_state, stack, target, next_out)?;
+                Ok((Some(stream.clone()), Some(stream)))
+            }
+            Redirection::Separate { out, err } => {
+                let stdout = eval_redirection(engine_state, stack, out, None)?; // `out` cannot be `RedirectionTarget::Pipe`
+                let stderr = eval_redirection(engine_state, stack, err, next_out)?;
+                Ok((Some(stdout), Some(stderr)))
+            }
+        }
+    } else {
+        Ok((next_out, next_err))
     }
 }
 
@@ -347,44 +394,7 @@ fn eval_element_with_input(
     element: &PipelineElement,
     input: PipelineData,
 ) -> Result<(PipelineData, bool), ShellError> {
-    let mut stack = match &element.redirection {
-        Some(Redirection::Single {
-            source: RedirectionSource::Stdout,
-            target,
-        }) => {
-            let stdout = eval_redirection(engine_state, stack, target)?;
-            stack.with_stdout(stdout)
-        }
-        Some(Redirection::Single {
-            source: RedirectionSource::Stderr,
-            target,
-        }) => {
-            let stderr = eval_redirection(engine_state, stack, target)?;
-            if matches!(stderr, IoStream::Pipe) {
-                stack.with_stdio(IoStream::Null, stderr)
-            } else {
-                stack.with_stderr(stderr)
-            }
-        }
-        Some(Redirection::Single {
-            source: RedirectionSource::StdoutAndStderr,
-            target,
-        }) => {
-            let stream = eval_redirection(engine_state, stack, target)?;
-            stack.with_stdio(stream.clone(), stream)
-        }
-        Some(Redirection::Separate {
-            out: out_target,
-            err: err_target,
-        }) => {
-            let stdout = eval_redirection(engine_state, stack, out_target)?;
-            let stderr = eval_redirection(engine_state, stack, err_target)?;
-            stack.with_stdio(stdout, stderr)
-        }
-        None => stack.without_parent_stdio(),
-    };
-
-    let (data, ok) = eval_expression_with_input(engine_state, &mut stack, &element.expr, input)?;
+    let (data, ok) = eval_expression_with_input(engine_state, stack, &element.expr, input)?;
 
     let data = match (data, stack.stdout()) {
         (data @ (PipelineData::Value(..) | PipelineData::ListStream(..)), IoStream::File(_)) => {
@@ -419,41 +429,54 @@ pub fn eval_block(
         let last_pipeline = pipeline_idx >= num_pipelines - 1;
 
         let Some((last, elements)) = pipeline.elements.split_last() else {
+            debug_assert!(false, "pipelines should have a least one element");
             continue;
         };
 
-        {
-            let stack = &mut stack.with_stdout(IoStream::Pipe);
-            for element in elements {
-                let eval_result = eval_element_with_input(engine_state, stack, element, input);
+        for (i, element) in elements.iter().enumerate() {
+            let next = elements.get(i + 1).unwrap_or(last);
+            let (stdout, stderr) = eval_element_redirection(
+                engine_state,
+                stack,
+                element.redirection.as_ref(),
+                next.stdio_redirect(engine_state),
+            )?;
+            let stack = &mut stack.with_stdio(stdout.or(Some(IoStream::Pipe)), stderr);
+            let eval_result = eval_element_with_input(engine_state, stack, element, input);
 
-                // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-                match (eval_result, stack.stderr()) {
-                    (Err(error), IoStream::Pipe) => {
-                        // TODO: is this right? it will ignore control flow errors like `contine` and `break`
-                        input = PipelineData::Value(
-                            Value::error(
-                                error,
-                                Span::unknown(), // FIXME: where does this span come from?
-                            ),
-                            None,
-                        )
+            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
+            match (eval_result, stack.stderr()) {
+                (Err(error), IoStream::Pipe) => {
+                    // TODO: is this right? it will ignore control flow errors like `contine` and `break`
+                    input = PipelineData::Value(
+                        Value::error(
+                            error,
+                            Span::unknown(), // FIXME: where does this span come from?
+                        ),
+                        None,
+                    )
+                }
+                (output, _) => {
+                    let (output, failed) = output?;
+                    // external command may runs to failed
+                    // make early return so remaining commands will not be executed.
+                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
+                    if failed {
+                        return Ok(output);
                     }
-                    (output, _) => {
-                        let (output, failed) = output?;
-                        // external command may runs to failed
-                        // make early return so remaining commands will not be executed.
-                        // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
-                        if failed {
-                            return Ok(output);
-                        }
-                        input = output;
-                    }
+                    input = output;
                 }
             }
         }
 
         if last_pipeline {
+            let (stdout, stderr) = eval_element_redirection(
+                engine_state,
+                stack,
+                last.redirection.as_ref(),
+                (None, None),
+            )?;
+            let stack = &mut stack.with_stdio(stdout, stderr);
             let eval_result = eval_element_with_input(engine_state, stack, last, input);
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
@@ -482,10 +505,18 @@ pub fn eval_block(
             }
         } else {
             let out = match stack.stdout() {
-                IoStream::Pipe | IoStream::Null | IoStream::File(_) => IoStream::Null,
+                IoStream::Pipe | IoStream::Capture | IoStream::Null | IoStream::File(_) => {
+                    IoStream::Null
+                }
                 IoStream::Inherit => IoStream::Inherit,
             };
-            let stack = &mut stack.with_stdout(out);
+            let (stdout, stderr) = eval_element_redirection(
+                engine_state,
+                stack,
+                last.redirection.as_ref(),
+                (None, None),
+            )?;
+            let stack = &mut stack.with_stdio(stdout.or(Some(out)), stderr);
             let eval_result = eval_element_with_input(engine_state, stack, last, input);
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
@@ -540,7 +571,6 @@ pub fn eval_subexpression(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
     eval_block(engine_state, stack, block, input)
 }
 

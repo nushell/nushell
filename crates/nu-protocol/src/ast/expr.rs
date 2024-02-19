@@ -5,7 +5,10 @@ use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator,
     RangeOperator,
 };
-use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
+use crate::{
+    ast::ImportPattern, engine::EngineState, BlockId, IoStream, Signature, Span, Spanned, Unit,
+    VarId,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -50,6 +53,67 @@ pub enum Expr {
     Spread(Box<Expression>),
     Nothing,
     Garbage,
+}
+
+impl Expr {
+    pub fn stdio_redirect(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<IoStream>, Option<IoStream>) {
+        match self {
+            Expr::Bool(_)
+            | Expr::Int(_)
+            | Expr::Float(_)
+            | Expr::Binary(_)
+            | Expr::Range(_, _, _, _)
+            | Expr::ValueWithUnit(_, _)
+            | Expr::DateTime(_)
+            | Expr::Filepath(_, _)
+            | Expr::Directory(_, _)
+            | Expr::GlobPattern(_, _)
+            | Expr::String(_)
+            | Expr::CellPath(_)
+            | Expr::Nothing
+            | Expr::Garbage => {
+                // These expressions cannot have an `$in` variable
+                // and do not use the output of the pipeline in any meaningful way.
+                // So, we can discard the previous output by redirecting it to `Null`.
+                (Some(IoStream::Null), None)
+            }
+            Expr::Call(call) => engine_state.get_decl(call.decl_id).stdio_redirect(),
+            Expr::Subexpression(block_id) | Expr::Block(block_id) => engine_state
+                .get_block(*block_id)
+                .stdio_redirect(engine_state),
+            Expr::FullCellPath(cell_path) => {
+                if cell_path.tail.is_empty() {
+                    cell_path.head.expr.stdio_redirect(engine_state)
+                } else {
+                    (None, None)
+                }
+            }
+            Expr::Var(_)
+            | Expr::VarDecl(_)
+            | Expr::ExternalCall(_, _, _)
+            | Expr::Operator(_)
+            | Expr::RowCondition(_)
+            | Expr::UnaryNot(_)
+            | Expr::BinaryOp(_, _, _)
+            | Expr::Closure(_)
+            | Expr::MatchBlock(_)
+            | Expr::List(_)
+            | Expr::Table(_, _)
+            | Expr::Record(_)
+            | Expr::Keyword(_, _, _)
+            | Expr::ImportPattern(_)
+            | Expr::Overlay(_)
+            | Expr::Signature(_)
+            | Expr::StringInterpolation(_)
+            | Expr::Spread(_) => {
+                // Not sure about these expressions, let's return no redirection override for now.
+                (None, None)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

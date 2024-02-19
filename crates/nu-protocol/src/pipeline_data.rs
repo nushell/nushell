@@ -64,6 +64,15 @@ pub enum IoStream {
     ///
     /// The output pipe will be available in `PipelineData::ExternalStream::stdout`.
     Pipe,
+    /// Capture output for the next command in the pipeline
+    ///
+    /// This is almost exactly the same as `Pipe`.
+    /// The only difference is that both if `stdout` and `stderr` are set to `Pipe`,
+    /// then they will combined into one output stream.
+    /// If `stdout` and `stderr` are both `Capture` on the other hand,
+    /// then there will separate `stdout` and `stderr` streams.
+    /// This is used for the `complete` command and in `nu-explore`.
+    Capture,
     /// Ignore output
     Null,
     /// Inherit `stdout` or `stderr`
@@ -83,7 +92,7 @@ impl TryFrom<&IoStream> for Stdio {
 
     fn try_from(target: &IoStream) -> Result<Self, Self::Error> {
         match target {
-            IoStream::Pipe => Ok(Self::piped()),
+            IoStream::Pipe | IoStream::Capture => Ok(Self::piped()),
             IoStream::Null => Ok(Self::null()),
             IoStream::Inherit => Ok(Self::inherit()),
             IoStream::File(file) => Ok(file.try_clone()?.into()),
@@ -271,7 +280,7 @@ impl PipelineData {
                     io_stream: &IoStream,
                 ) -> Result<RawStream, Option<RawStream>> {
                     match (stream, io_stream) {
-                        (Some(stream), IoStream::Pipe) => Err(Some(stream)),
+                        (Some(stream), IoStream::Pipe | IoStream::Capture) => Err(Some(stream)),
                         (Some(stream), _) => Ok(stream),
                         (None, _) => Err(None),
                     }
@@ -324,7 +333,7 @@ impl PipelineData {
                     trim_end_newline,
                 })
             }
-            (data, IoStream::Pipe) => Ok(data),
+            (data, IoStream::Pipe | IoStream::Capture) => Ok(data),
             (PipelineData::Empty, _) => Ok(PipelineData::Empty),
             (PipelineData::Value(_, _), IoStream::Null) => Ok(PipelineData::Empty),
             (PipelineData::ListStream(stream, _), IoStream::Null) => {
@@ -1053,7 +1062,7 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
 fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {
-        IoStream::Pipe => {
+        IoStream::Pipe | IoStream::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
             // but IoStream::Pipe means to redirect output
             // into an OS pipe for *future use* (as input for another commmand).

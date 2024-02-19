@@ -227,7 +227,9 @@ impl Command for Do {
                 span,
                 metadata,
                 trim_end_newline,
-            }) if ignore_program_errors && !matches!(caller_stack.stdout(), IoStream::Pipe) => {
+            }) if ignore_program_errors
+                && !matches!(caller_stack.stdout(), IoStream::Pipe | IoStream::Capture) =>
+            {
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr,
