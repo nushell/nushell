@@ -42,7 +42,7 @@ dialoguer = { default-features = false, features = ["fuzzy-select"], version = "
 digest = { default-features = false, version = "0.10" }
 dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.12"
+fancy-regex = "0.13"
 filesize = "0.2"
 filetime = "0.2"
 fs_extra = "1.3"
