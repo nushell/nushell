@@ -1,4 +1,4 @@
-use crate::{DeclId, ModuleId, VarId};
+use nu_protocol::{DeclId, ModuleId, VarId};
 
 pub enum Exportable {
     Decl { name: Vec<u8>, id: DeclId },
