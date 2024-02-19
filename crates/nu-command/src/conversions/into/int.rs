@@ -327,48 +327,36 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
             let mut val = val.to_vec();
+            let size = val.len();
 
-            // round up to next largest int size
-            let size = match val.len() {
-                _ if !signed => 8,
-                0 | 1 => 1, // i8
-                2 => 2,     // i16
-                3 | 4 => 4, // i32
-                5..=8 => 8, // i64
-                size => {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: format!(
-                                "binary input is too large to convert to int ({size} bytes)"
-                            ),
-                            val_span,
-                            call_span: span,
-                        },
-                        span,
-                    )
-                }
-            };
+            if size > 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!("binary input is too large to convert to int ({size} bytes)"),
+                        val_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
 
-            if little_endian {
-                while val.len() < size {
-                    val.push(0);
-                }
-                val.resize(size, 0);
+            match (little_endian, signed) {
+                (true, true) => Value::int(LittleEndian::read_int(&val, size), span),
+                (false, true) => Value::int(BigEndian::read_int(&val, size), span),
+                (true, false) => {
+                    while val.len() < 8 {
+                        val.push(0);
+                    }
+                    val.resize(8, 0);
 
-                if signed {
-                    Value::int(LittleEndian::read_int(&val, size), span)
-                } else {
                     Value::int(LittleEndian::read_i64(&val), span)
                 }
-            } else {
-                while val.len() < size {
-                    val.insert(0, 0);
-                }
-                val.resize(size, 0);
+                (false, false) => {
+                    while val.len() < 8 {
+                        val.insert(0, 0);
+                    }
+                    val.resize(8, 0);
 
-                if signed {
-                    Value::int(BigEndian::read_int(&val, size), span)
-                } else {
                     Value::int(BigEndian::read_i64(&val), span)
                 }
             }
