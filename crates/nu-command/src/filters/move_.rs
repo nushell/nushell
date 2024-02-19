@@ -471,7 +471,7 @@ mod test {
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
-        assert!(!result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]
@@ -495,7 +495,7 @@ mod test {
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
-        assert!(!result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]
@@ -519,6 +519,6 @@ mod test {
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
-        assert!(!result.is_ok());
+        assert!(result.is_err());
     }
 }
