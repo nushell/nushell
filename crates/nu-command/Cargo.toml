@@ -84,7 +84,7 @@ tabled = { version = "0.14.0", features = ["color"], default-features = false }
 terminal_size = "0.3"
 titlecase = "2.0"
 toml = "0.8"
-unicode-segmentation = "1.10"
+unicode-segmentation = "1.11"
 ureq = { version = "2.9", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
 uu_mv = "0.0.23"
