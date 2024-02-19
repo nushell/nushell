@@ -209,8 +209,14 @@ impl FromValue for NuPath {
         // FIXME: we may want to fail a little nicer here
         match v {
             Value::CellPath { val, .. } => Ok(NuPath::UnQuoted(val.to_string())),
-            Value::String { val, .. } => Ok(NuPath::UnQuoted(val)),
-            Value::QuotedString { val, .. } => Ok(NuPath::Quoted(val)),
+            Value::String { val, .. } => Ok(NuPath::Quoted(val)),
+            Value::Glob { val, quoted, .. } => {
+                if quoted {
+                    Ok(NuPath::Quoted(val))
+                } else {
+                    Ok(NuPath::UnQuoted(val))
+                }
+            }
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: v.get_type().to_string(),
@@ -227,8 +233,14 @@ impl FromValue for Spanned<NuPath> {
         Ok(Spanned {
             item: match v {
                 Value::CellPath { val, .. } => NuPath::UnQuoted(val.to_string()),
-                Value::String { val, .. } => NuPath::UnQuoted(val),
-                Value::QuotedString { val, .. } => NuPath::Quoted(val),
+                Value::String { val, .. } => NuPath::Quoted(val),
+                Value::Glob { val, quoted, .. } => {
+                    if quoted {
+                        NuPath::Quoted(val)
+                    } else {
+                        NuPath::UnQuoted(val)
+                    }
+                }
                 v => {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),

@@ -288,11 +288,7 @@ pub trait Eval {
             Expr::GlobPattern(pattern, quoted) => {
                 // GlobPattern is similar to Filepath
                 // But we don't want to expand path during eval time, it's required for `nu_engine::glob_from` to run correctly
-                if *quoted {
-                    Ok(Value::quoted_string(pattern, expr.span))
-                } else {
-                    Ok(Value::string(pattern, expr.span))
-                }
+                Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)

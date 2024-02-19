@@ -213,13 +213,12 @@ pub mod users {
 ///
 /// It's similar to `call.rest`, except that it returns `Value::quoted_string` if input is
 /// a variable or string interpolation.  You can make it returns `Value::string` if the value
-/// of `glob_on_var` is false
+/// of `` is false
 pub fn get_rest_for_glob_pattern(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
     starting_pos: usize,
-    glob_on_var: bool,
 ) -> Result<Vec<Spanned<NuPath>>, ShellError> {
     let mut output = vec![];
 
@@ -236,27 +235,10 @@ pub fn get_rest_for_glob_pattern(
                         if matches!(
                             &expr.expr,
                             Expr::FullCellPath(_) | Expr::StringInterpolation(_)
-                        ) && expr.ty != Type::Glob =>
+                        ) =>
                     {
-                        // nushell thinks it's a quoted string.
-                        Ok(Value::quoted_string(val, span))
-                    }
-                    Value::List { vals, .. } => {
-                        // convert from string to quoted string.
-                        Ok(Value::list(
-                            vals.into_iter()
-                                .map(|v| {
-                                    let v_span = v.span();
-                                    match v {
-                                        Value::String { val, .. } => {
-                                            Value::quoted_string(val, v_span)
-                                        }
-                                        other => other,
-                                    }
-                                })
-                                .collect(),
-                            span,
-                        ))
+                        // should quote if given input type is not glob.
+                        Ok(Value::glob(val, expr.ty != Type::Glob, span))
                     }
                     other => Ok(other),
                 }
@@ -271,15 +253,13 @@ pub fn get_rest_for_glob_pattern(
 
 /// Get optional arguments from given `call` with position `pos`.
 ///
-/// It's similar to `call.opt`, except that it returns `Value::quoted_string` if input is
+/// It's similar to `call.opt`, except that it returns `` if input is
 /// a variable or string interpolation.  You can make it returns `Value::string` if the value
-/// of `glob_on_var` is false
 pub fn opt_for_glob_pattern(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
     pos: usize,
-    glob_on_var: bool,
 ) -> Result<Option<Spanned<NuPath>>, ShellError> {
     if let Some(expr) = call.positional_nth(pos) {
         let result = eval_expression(engine_state, stack, expr)?;
@@ -289,10 +269,10 @@ pub fn opt_for_glob_pattern(
                 if matches!(
                     &expr.expr,
                     Expr::FullCellPath(_) | Expr::StringInterpolation(_)
-                ) && !glob_on_var =>
+                ) =>
             {
-                // nushell thinks it's a quoted string.
-                Value::quoted_string(val, result_span)
+                // should quote if given input type is not glob.
+                Value::glob(val, expr.ty != Type::Glob, result_span)
             }
             other => other,
         };

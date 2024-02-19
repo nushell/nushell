@@ -493,7 +493,7 @@ fn lists_with_directory_flag() {
             r#"
                 cd dir_empty;
                 ['.' '././.' '..' '../dir_files' '../dir_files/*']
-                | each { |it| ls --glob --directory $it }
+                | each { |it| ls --directory $it }
                 | flatten
                 | get name
                 | to text

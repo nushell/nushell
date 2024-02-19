@@ -63,7 +63,6 @@ impl Command for Rm {
                 "ask user to confirm action only once",
                 Some('I'),
             )
-            .switch("glob", "expand the glob if input is variable", Some('g'))
             .category(Category::FileSystem)
     }
 
@@ -125,11 +124,10 @@ fn rm(
     let verbose = call.has_flag(engine_state, stack, "verbose")?;
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
-    let glob_on_var = call.has_flag(engine_state, stack, "glob")?;
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0, glob_on_var)?;
+    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
     if paths.is_empty() {
         return Err(ShellError::MissingParameter {
