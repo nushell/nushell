@@ -304,10 +304,7 @@ mod test {
             item: BeforeOrAfter::After("c".to_string()),
             span: test_span,
         };
-        let columns = [Value::String {
-            val: "a".to_string(),
-            internal_span: test_span,
-        }];
+        let columns = [Value::test_string("a")];
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move a --after c
         let result = move_record_columns(&test_record, &columns, &after, test_span);
@@ -331,16 +328,7 @@ mod test {
             item: BeforeOrAfter::After("c".to_string()),
             span: test_span,
         };
-        let columns = [
-            Value::String {
-                val: "b".to_string(),
-                internal_span: test_span,
-            },
-            Value::String {
-                val: "e".to_string(),
-                internal_span: test_span,
-            },
-        ];
+        let columns = [Value::test_string("b"), Value::test_string("e")];
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move b e --after c
         let result = move_record_columns(&test_record, &columns, &after, test_span);
@@ -365,10 +353,7 @@ mod test {
             item: BeforeOrAfter::Before("b".to_string()),
             span: test_span,
         };
-        let columns = [Value::String {
-            val: "d".to_string(),
-            internal_span: test_span,
-        }];
+        let columns = [Value::test_string("d")];
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move d --before b
         let result = move_record_columns(&test_record, &columns, &after, test_span);
@@ -392,16 +377,7 @@ mod test {
             item: BeforeOrAfter::Before("b".to_string()),
             span: test_span,
         };
-        let columns = [
-            Value::String {
-                val: "c".to_string(),
-                internal_span: test_span,
-            },
-            Value::String {
-                val: "e".to_string(),
-                internal_span: test_span,
-            },
-        ];
+        let columns = [Value::test_string("c"), Value::test_string("e")];
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c e --before b
         let result = move_record_columns(&test_record, &columns, &after, test_span);
@@ -427,18 +403,9 @@ mod test {
             span: test_span,
         };
         let columns = [
-            Value::String {
-                val: "d".to_string(),
-                internal_span: test_span,
-            },
-            Value::String {
-                val: "c".to_string(),
-                internal_span: test_span,
-            },
-            Value::String {
-                val: "a".to_string(),
-                internal_span: test_span,
-            },
+            Value::test_string("d"),
+            Value::test_string("c"),
+            Value::test_string("a"),
         ];
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move d c a --after e
@@ -464,10 +431,7 @@ mod test {
             item: BeforeOrAfter::Before("non-existent".to_string()),
             span: test_span,
         };
-        let columns = [Value::String {
-            val: "a".to_string(),
-            internal_span: test_span,
-        }];
+        let columns = [Value::test_string("a")];
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
@@ -482,16 +446,7 @@ mod test {
             item: BeforeOrAfter::Before("b".to_string()),
             span: test_span,
         };
-        let columns = [
-            Value::String {
-                val: "a".to_string(),
-                internal_span: test_span,
-            },
-            Value::String {
-                val: "non-existent".to_string(),
-                internal_span: test_span,
-            },
-        ];
+        let columns = [Value::test_string("a"), Value::test_string("non-existent")];
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
@@ -506,16 +461,7 @@ mod test {
             item: BeforeOrAfter::After("b".to_string()),
             span: test_span,
         };
-        let columns = [
-            Value::String {
-                val: "b".to_string(),
-                internal_span: test_span,
-            },
-            Value::String {
-                val: "d".to_string(),
-                internal_span: test_span,
-            },
-        ];
+        let columns = [Value::test_string("b"), Value::test_string("d")];
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
