@@ -112,7 +112,7 @@ procfs = "0.16.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true
-version = "3.1"
+version = "3.3"
 
 [target.'cfg(windows)'.dependencies.windows]
 features = [
