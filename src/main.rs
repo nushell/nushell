@@ -378,7 +378,6 @@ fn main() -> Result<()> {
             &mut ctx.engine_state,
             ctx.parsed_nu_cli_args,
             entire_start_time,
-            args_to_nushell.as_slice(),
         )
     }
 }
@@ -387,7 +386,6 @@ pub(crate) fn run_repl_wrapped(
     engine_state: &mut nu_protocol::engine::EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
-    args_to_nushell: &[String],
 ) -> Result<()> {
     match catch_unwind(AssertUnwindSafe(|| {
         run_repl(engine_state, parsed_nu_cli_args.clone(), entire_start_time)
@@ -399,7 +397,6 @@ pub(crate) fn run_repl_wrapped(
                 &mut ctx.engine_state,
                 ctx.parsed_nu_cli_args,
                 entire_start_time,
-                args_to_nushell,
             )
         }
     }
