@@ -90,6 +90,6 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    let stack = &mut stack.with_stdio(IoStream::Pipe, IoStream::Pipe);
+    let stack = &mut stack.with_stdio(Some(IoStream::Capture), Some(IoStream::Capture));
     eval_block(engine_state, stack, &block, input)
 }

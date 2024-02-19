@@ -24,7 +24,7 @@ pub fn get_full_help(
         brief: false,
     };
 
-    let stack = &mut stack.with_stdout(IoStream::Pipe);
+    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
 
     get_documentation(
         sig,

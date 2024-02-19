@@ -252,7 +252,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    let stack = &mut stack.with_stdout(IoStream::Pipe);
+    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
     <EvalRuntime as Eval>::eval(engine_state, stack, expr)
 }
 
@@ -540,7 +540,7 @@ pub fn eval_subexpression(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let stack = &mut stack.with_stdout(IoStream::Pipe);
+    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
     eval_block(engine_state, stack, block, input)
 }
 

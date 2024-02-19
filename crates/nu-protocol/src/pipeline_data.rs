@@ -362,7 +362,7 @@ impl PipelineData {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
                         let call = Call::new(Span::unknown());
-                        let stack = &mut stack.with_stdout(IoStream::Pipe);
+                        let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
                         let table = command.run(engine_state, stack, &call, data)?;
                         table.write_all_and_flush(engine_state, config, false, false)?;
                     }

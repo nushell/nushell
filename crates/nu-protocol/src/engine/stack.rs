@@ -430,27 +430,23 @@ impl Stack {
         self.parent_stderr.as_ref()
     }
 
-    pub fn with_stdout(&mut self, stdout: IoStream) -> StackIoGuard {
-        let stdout = self.push_stdout(stdout);
-        let stderr = self.parent_stderr.take();
-        StackIoGuard::new(self, stdout, stderr)
-    }
+    pub fn with_stdio(
+        &mut self,
+        stdout: Option<IoStream>,
+        stderr: Option<IoStream>,
+    ) -> StackIoGuard {
+        let stdout = if let Some(stdout) = stdout {
+            self.push_stdout(stdout)
+        } else {
+            self.parent_stdout.take()
+        };
 
-    pub fn with_stderr(&mut self, stderr: IoStream) -> StackIoGuard {
-        let stdout = self.parent_stdout.take();
-        let stderr = self.push_stderr(stderr);
-        StackIoGuard::new(self, stdout, stderr)
-    }
+        let stderr = if let Some(stderr) = stderr {
+            self.push_stderr(stderr)
+        } else {
+            self.parent_stderr.take()
+        };
 
-    pub fn with_stdio(&mut self, stdout: IoStream, stderr: IoStream) -> StackIoGuard {
-        let stdout = self.push_stdout(stdout);
-        let stderr = self.push_stderr(stderr);
-        StackIoGuard::new(self, stdout, stderr)
-    }
-
-    pub fn without_parent_stdio(&mut self) -> StackIoGuard {
-        let stdout = self.parent_stdout.take();
-        let stderr = self.parent_stderr.take();
         StackIoGuard::new(self, stdout, stderr)
     }
 

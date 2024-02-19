@@ -51,7 +51,7 @@ impl Command for TimeIt {
         let start_time = Instant::now();
 
         if let Some(command_to_run) = command_to_run {
-            let stack = &mut stack.with_stdout(IoStream::Pipe);
+            let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
             if let Some(block_id) = command_to_run.as_block() {
                 let block = engine_state.get_block(block_id);
                 eval_block(engine_state, stack, block, input)?
