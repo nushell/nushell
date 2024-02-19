@@ -212,10 +212,7 @@ fn move_record_columns(
 
     // Find indices of columns to be moved
     for column in columns.iter() {
-
-        let column_as_string = column.coerce_string()?;
-
-        if let Some(idx) = record.index_of(column_as_string) {
+        if let Some(idx) = record.index_of(column.coerce_string()?) {
             column_idx.push(idx);
         } else {
             return Err(ShellError::GenericError {
@@ -227,6 +224,7 @@ fn move_record_columns(
             });
         }
 
+        let column_as_string = column.coerce_string()?;
         // check if column is also pivot
         if &column_as_string == pivot {
             return Err(ShellError::IncompatibleParameters {
@@ -276,7 +274,7 @@ mod test {
     // helper
     fn get_test_record(columns: Vec<&str>, values: Vec<i64>) -> Record {
         let test_span = Span::test_data();
-        Record::from_raw_cols_vals_unchecked(
+        Record::from_raw_cols_vals(
             columns.iter().map(|col| col.to_string()).collect(),
             values
                 .iter()
@@ -285,7 +283,10 @@ mod test {
                     internal_span: test_span,
                 })
                 .collect(),
+            test_span,
+            test_span,
         )
+        .unwrap()
     }
 
     #[test]
