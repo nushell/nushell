@@ -276,13 +276,7 @@ mod test {
         let test_span = Span::test_data();
         Record::from_raw_cols_vals(
             columns.iter().map(|col| col.to_string()).collect(),
-            values
-                .iter()
-                .map(|val| Value::Int {
-                    val: *val,
-                    internal_span: test_span,
-                })
-                .collect(),
+            values.iter().map(|val| Value::test_int(*val)).collect(),
             test_span,
             test_span,
         )
