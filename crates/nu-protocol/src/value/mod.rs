@@ -20,6 +20,7 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
+use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 use nu_utils::{
     contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
 };
@@ -29,6 +30,7 @@ pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -844,21 +846,21 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        // These are already in locale format, so we don't need to localize them
-        let format = if ["%x", "%X", "%r"]
-            .iter()
-            .any(|item| formatter.contains(item))
+        let locale = if let Ok(l) =
+            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
         {
-            date_time.format(formatter)
+            let locale_str = l.split('.').next().unwrap_or("en_US");
+            locale_str.try_into().unwrap_or(Locale::en_US)
         } else {
-            let locale: Locale = get_system_locale_string()
+            // LC_ALL > LC_CTYPE > LANG else en_US
+            get_system_locale_string()
                 .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
                 .unwrap_or_else(|| String::from("en_US"))
                 .as_str()
                 .try_into()
-                .unwrap_or(Locale::en_US);
-            date_time.format_localized(formatter, locale)
+                .unwrap_or(Locale::en_US)
         };
+        let format = date_time.format_localized(formatter, locale);
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),
