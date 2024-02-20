@@ -110,7 +110,7 @@ fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         Value::String { val, .. } => Value::glob(val.to_string(), false, span),
         x => Value::error(
             ShellError::CantConvert {
-                to_type: String::from("cawtring"),
+                to_type: String::from("glob"),
                 from_type: x.get_type().to_string(),
                 span,
                 help: None,
