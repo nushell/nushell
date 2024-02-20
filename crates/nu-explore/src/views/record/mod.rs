@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    IoStream, Record, Value,
+    Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 
@@ -287,7 +287,7 @@ impl View for RecordView<'_> {
     fn collect_data(&self) -> Vec<NuText> {
         // Create a "dummy" style_computer.
         let dummy_engine_state = EngineState::new();
-        let dummy_stack = Stack::new(IoStream::Capture, IoStream::Inherit);
+        let dummy_stack = Stack::with_output_capture();
         let style_computer = StyleComputer::new(&dummy_engine_state, &dummy_stack, HashMap::new());
 
         let data = convert_records_to_string(

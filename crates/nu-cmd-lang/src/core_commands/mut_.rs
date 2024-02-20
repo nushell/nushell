@@ -63,7 +63,7 @@ impl Command for Mut {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
-        let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+        let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
         let pipeline_data = eval_block(engine_state, stack, block, input)?;
         stack.add_var(var_id, pipeline_data.into_value(call.head));
         Ok(PipelineData::empty())

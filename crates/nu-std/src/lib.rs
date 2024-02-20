@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
 use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
-use nu_protocol::{report_error, IoStream, PipelineData};
+use nu_protocol::{report_error, PipelineData};
 
 // Virtual std directory unlikely to appear in user's file system
 const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
@@ -90,7 +90,7 @@ use std pwd
     engine_state.merge_delta(delta)?;
 
     // We need to evaluate the module in order to run the `export-env` blocks.
-    let mut stack = Stack::new(IoStream::Inherit, IoStream::Inherit);
+    let mut stack = Stack::with_inherited_stdio();
     let pipeline_data = PipelineData::Empty;
     eval_block(engine_state, &mut stack, &block, pipeline_data)?;
 

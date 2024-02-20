@@ -69,7 +69,7 @@ impl CallExt for Call {
             if flag_name == name.0.item {
                 return if let Some(expr) = &name.2 {
                     // Check --flag=false
-                    let stack = &mut stack.with_parent_stdio();
+                    let stack = &mut stack.use_parent_stdio();
                     let result = eval_expression(engine_state, stack, expr)?;
                     match result {
                         Value::Bool { val, .. } => Ok(val),
@@ -96,7 +96,7 @@ impl CallExt for Call {
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
-            let stack = &mut stack.with_parent_stdio();
+            let stack = &mut stack.use_parent_stdio();
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
@@ -110,7 +110,7 @@ impl CallExt for Call {
         stack: &mut Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
-        let stack = &mut stack.with_parent_stdio();
+        let stack = &mut stack.use_parent_stdio();
         let mut output = vec![];
 
         for result in self.rest_iter_flattened(starting_pos, |expr| {
@@ -129,7 +129,7 @@ impl CallExt for Call {
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
-            let stack = &mut stack.with_parent_stdio();
+            let stack = &mut stack.use_parent_stdio();
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
@@ -157,7 +157,7 @@ impl CallExt for Call {
         pos: usize,
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
-            let stack = &mut stack.with_parent_stdio();
+            let stack = &mut stack.use_parent_stdio();
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(result)
         } else if self.positional_len() == 0 {
@@ -177,7 +177,7 @@ impl CallExt for Call {
         name: &str,
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.get_parser_info(name) {
-            let stack = &mut stack.with_parent_stdio();
+            let stack = &mut stack.use_parent_stdio();
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(result)
         } else if self.parser_info.is_empty() {

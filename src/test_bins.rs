@@ -232,7 +232,7 @@ pub fn nu_repl() {
     let source_lines = args();
 
     let mut engine_state = get_engine_state();
-    let mut stack = Stack::new(IoStream::Inherit, IoStream::Inherit);
+    let mut stack = Stack::with_inherited_stdio();
 
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -320,7 +320,7 @@ pub fn nu_repl() {
         let input = PipelineData::empty();
         let config = engine_state.get_config();
 
-        let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+        let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
         match eval_block(&engine_state, stack, &block, input) {
             Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                 Ok(s) => last_output = s,

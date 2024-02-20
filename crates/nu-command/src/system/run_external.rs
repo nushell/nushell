@@ -344,7 +344,7 @@ impl ExternalCommand {
                             let mut engine_state = engine_state.clone();
                             if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
                             {
-                                let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+                                let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
                                 if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
                                     eval_hook(
                                         &mut engine_state,
@@ -393,7 +393,7 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+                                let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
                                 // Attempt to render the input as a table before piping it to the external.
                                 // This is important for pagers like `less`;
                                 // they need to get Nu data rendered for display to users.

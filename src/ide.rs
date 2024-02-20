@@ -4,7 +4,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    report_error, DeclId, IoStream, ShellError, Span, Value, VarId, NU_VARIABLE_ID,
+    report_error, DeclId, ShellError, Span, Value, VarId, NU_VARIABLE_ID,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -597,7 +597,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
 }
 
 pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &Value) {
-    let stack = Stack::new(IoStream::Capture, IoStream::Inherit);
+    let stack = Stack::with_output_capture();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
     let file = std::fs::read(file_path)

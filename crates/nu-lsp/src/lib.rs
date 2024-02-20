@@ -20,7 +20,7 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, IoStream, Span, Value, VarId,
+    DeclId, Span, Value, VarId,
 };
 use reedline::Completer;
 use ropey::Rope;
@@ -545,7 +545,7 @@ impl LanguageServer {
             &params.text_document_position.text_document.uri,
         )?;
 
-        let stack = Stack::new(IoStream::Capture, IoStream::Inherit);
+        let stack = Stack::with_output_capture();
         let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
 
         let location =

@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use nu_cli::eval_source;
 use nu_parser::parse;
 use nu_plugin::{EncodingType, PluginResponse};
-use nu_protocol::{engine::EngineState, IoStream, PipelineData, Span, Value};
+use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
 use nu_utils::{get_default_config, get_default_env};
 use std::path::{Path, PathBuf};
 
@@ -64,7 +64,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new(IoStream::Inherit, IoStream::Inherit);
+            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
             eval_source(
                 &mut engine_state,
                 &mut stack,
@@ -78,7 +78,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new(IoStream::Inherit, IoStream::Inherit);
+            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
             eval_source(
                 &mut engine_state,
                 &mut stack,
@@ -103,7 +103,7 @@ fn eval_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new(IoStream::Inherit, IoStream::Inherit);
+            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
             eval_source(
                 &mut engine_state,
                 &mut stack,
@@ -117,7 +117,7 @@ fn eval_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new(IoStream::Inherit, IoStream::Inherit);
+            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
             eval_source(
                 &mut engine_state,
                 &mut stack,

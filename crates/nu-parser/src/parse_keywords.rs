@@ -3446,7 +3446,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     use nu_plugin::{get_signature, PluginDeclaration};
-    use nu_protocol::{engine::Stack, IoStream, PluginSignature};
+    use nu_protocol::{engine::Stack, PluginSignature};
 
     let cwd = working_set.get_cwd();
 
@@ -3573,7 +3573,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
     // We need the current environment variables for `python` based plugins
     // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
-    let stack = Stack::new(IoStream::Capture, IoStream::Inherit);
+    let stack = Stack::with_output_capture();
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
 

@@ -548,10 +548,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(
-            engine_state.into(),
-            Stack::new(IoStream::Capture, IoStream::Inherit),
-        );
+        let mut completer = NuCompleter::new(engine_state.into(), Stack::with_output_capture());
         let dataset = vec![
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),

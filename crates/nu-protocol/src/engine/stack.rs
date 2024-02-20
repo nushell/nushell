@@ -61,6 +61,14 @@ impl Stack {
         }
     }
 
+    pub fn with_inherited_stdio() -> Stack {
+        Self::new(IoStream::Inherit, IoStream::Inherit)
+    }
+
+    pub fn with_output_capture() -> Stack {
+        Self::new(IoStream::Capture, IoStream::Inherit)
+    }
+
     pub fn with_env(
         &mut self,
         env_vars: &[EnvVars],
@@ -430,7 +438,7 @@ impl Stack {
         self.parent_stderr.as_ref()
     }
 
-    pub fn with_stdio(
+    pub fn push_stdio(
         &mut self,
         stdout: Option<IoStream>,
         stderr: Option<IoStream>,
@@ -450,7 +458,7 @@ impl Stack {
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    pub fn with_parent_stdio(&mut self) -> StackParentIoGuard {
+    pub fn use_parent_stdio(&mut self) -> StackParentIoGuard {
         StackParentIoGuard::new(self)
     }
 

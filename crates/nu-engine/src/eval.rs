@@ -252,7 +252,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+    let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
     <EvalRuntime as Eval>::eval(engine_state, stack, expr)
 }
 
@@ -291,7 +291,7 @@ pub fn eval_expression_with_input(
                 let block = engine_state.get_block(*block_id);
 
                 if !full_cell_path.tail.is_empty() {
-                    let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+                    let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression(engine_state, stack, block, input)?
                         .into_value(*span)
@@ -476,7 +476,7 @@ pub fn eval_block(
                 element.redirection.as_ref(),
                 next.stdio_redirect(engine_state),
             )?;
-            let stack = &mut stack.with_stdio(stdout.or(Some(IoStream::Pipe)), stderr);
+            let stack = &mut stack.push_stdio(stdout.or(Some(IoStream::Pipe)), stderr);
             let eval_result = eval_element_with_input(engine_state, stack, element, input);
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
@@ -511,7 +511,7 @@ pub fn eval_block(
                 last.redirection.as_ref(),
                 (None, None),
             )?;
-            let stack = &mut stack.with_stdio(stdout, stderr);
+            let stack = &mut stack.push_stdio(stdout, stderr);
             let eval_result = eval_element_with_input(engine_state, stack, last, input);
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
@@ -551,7 +551,7 @@ pub fn eval_block(
                 last.redirection.as_ref(),
                 (None, None),
             )?;
-            let stack = &mut stack.with_stdio(stdout.or(Some(out)), stderr);
+            let stack = &mut stack.push_stdio(stdout.or(Some(out)), stderr);
             let eval_result = eval_element_with_input(engine_state, stack, last, input);
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.

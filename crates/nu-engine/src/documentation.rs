@@ -24,7 +24,7 @@ pub fn get_full_help(
         brief: false,
     };
 
-    let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
+    let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
 
     get_documentation(
         sig,
@@ -238,7 +238,7 @@ fn get_documentation(
                 ));
             }
 
-            let mut caller_stack = Stack::new(IoStream::Capture, IoStream::Inherit);
+            let mut caller_stack = Stack::with_output_capture();
             if let Ok(result) = eval_call(
                 engine_state,
                 &mut caller_stack,
@@ -341,7 +341,7 @@ fn get_ansi_color_for_component_or_default(
     default: &str,
 ) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
-        let mut caller_stack = Stack::new(IoStream::Capture, IoStream::Inherit);
+        let mut caller_stack = Stack::with_output_capture();
         let span = Span::unknown();
 
         let argument_opt = get_argument_for_color_value(engine_state, color, span);
