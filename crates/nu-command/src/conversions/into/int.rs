@@ -329,6 +329,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let mut val = val.to_vec();
             let size = val.len();
 
+            if size == 0 {
+                return Value::int(0, span);
+            }
+
             if size > 8 {
                 return Value::error(
                     ShellError::IncorrectValue {
