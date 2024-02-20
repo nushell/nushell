@@ -8,7 +8,7 @@ use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::NuPath;
+use nu_protocol::NuGlob;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
@@ -91,12 +91,12 @@ impl Command for Ls {
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 match path.item {
-                    NuPath::Quoted(p) => Some(Spanned {
-                        item: NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::Quoted(p) => Some(Spanned {
+                        item: NuGlob::Quoted(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
-                    NuPath::UnQuoted(p) => Some(Spanned {
-                        item: NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::UnQuoted(p) => Some(Spanned {
+                        item: NuGlob::UnQuoted(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
                 }
@@ -149,7 +149,7 @@ impl Command for Ls {
                     p,
                     p_tag,
                     absolute_path,
-                    matches!(pat.item, NuPath::Quoted(_)),
+                    matches!(pat.item, NuGlob::Quoted(_)),
                 )
             }
             None => {
@@ -187,7 +187,7 @@ impl Command for Ls {
 
         let glob_path = Spanned {
             // It needs to be un-quoted, the relative logic is handled previously
-            item: NuPath::UnQuoted(path.clone()),
+            item: NuGlob::UnQuoted(path.clone()),
             span: p_tag,
         };
 

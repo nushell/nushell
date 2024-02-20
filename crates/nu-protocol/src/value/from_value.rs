@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::NuPath;
+use super::NuGlob;
 use crate::ast::{CellPath, PathMember};
 use crate::engine::{Block, Closure};
 use crate::{Range, Record, ShellError, Spanned, Value};
@@ -204,17 +204,17 @@ impl FromValue for Spanned<String> {
     }
 }
 
-impl FromValue for NuPath {
+impl FromValue for NuGlob {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(NuPath::UnQuoted(val.to_string())),
-            Value::String { val, .. } => Ok(NuPath::Quoted(val)),
+            Value::CellPath { val, .. } => Ok(NuGlob::UnQuoted(val.to_string())),
+            Value::String { val, .. } => Ok(NuGlob::Quoted(val)),
             Value::Glob { val, quoted, .. } => {
                 if quoted {
-                    Ok(NuPath::Quoted(val))
+                    Ok(NuGlob::Quoted(val))
                 } else {
-                    Ok(NuPath::UnQuoted(val))
+                    Ok(NuGlob::UnQuoted(val))
                 }
             }
             v => Err(ShellError::CantConvert {
@@ -227,18 +227,18 @@ impl FromValue for NuPath {
     }
 }
 
-impl FromValue for Spanned<NuPath> {
+impl FromValue for Spanned<NuGlob> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         Ok(Spanned {
             item: match v {
-                Value::CellPath { val, .. } => NuPath::UnQuoted(val.to_string()),
-                Value::String { val, .. } => NuPath::Quoted(val),
+                Value::CellPath { val, .. } => NuGlob::UnQuoted(val.to_string()),
+                Value::String { val, .. } => NuGlob::Quoted(val),
                 Value::Glob { val, quoted, .. } => {
                     if quoted {
-                        NuPath::Quoted(val)
+                        NuGlob::Quoted(val)
                     } else {
-                        NuPath::UnQuoted(val)
+                        NuGlob::UnQuoted(val)
                     }
                 }
                 v => {

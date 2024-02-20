@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
+    Category, DataSource, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData,
     PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::io::BufReader;
@@ -77,7 +77,7 @@ impl Command for Open {
             };
 
             paths.push(Spanned {
-                item: NuPath::UnQuoted(filename),
+                item: NuGlob::UnQuoted(filename),
                 span,
             });
         }

@@ -15,7 +15,7 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
     Span, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -167,8 +167,8 @@ fn rm(
         }
         let corrected_path = Spanned {
             item: match path.item {
-                NuPath::Quoted(s) => NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
-                NuPath::UnQuoted(s) => NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuGlob::Quoted(s) => NuGlob::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuGlob::UnQuoted(s) => NuGlob::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
             },
             span: path.span,
         };

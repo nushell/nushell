@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     ShellError, Spanned, Value,
 };
-use nu_protocol::{FromValue, NuPath, Type};
+use nu_protocol::{FromValue, NuGlob, Type};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -219,7 +219,7 @@ pub fn get_rest_for_glob_pattern(
     stack: &mut Stack,
     call: &Call,
     starting_pos: usize,
-) -> Result<Vec<Spanned<NuPath>>, ShellError> {
+) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
     let mut output = vec![];
 
     for result in call.rest_iter_flattened(starting_pos, |expr| {
@@ -260,7 +260,7 @@ pub fn opt_for_glob_pattern(
     stack: &mut Stack,
     call: &Call,
     pos: usize,
-) -> Result<Option<Spanned<NuPath>>, ShellError> {
+) -> Result<Option<Spanned<NuGlob>>, ShellError> {
     if let Some(expr) = call.positional_nth(pos) {
         let result = eval_expression(engine_state, stack, expr)?;
         let result_span = result.span();
