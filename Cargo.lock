@@ -4644,7 +4644,7 @@ dependencies = [
  "compact_str",
  "crossterm",
  "indoc",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "lru",
  "paste",
  "stability",
@@ -6234,11 +6234,11 @@ dependencies = [
 [[package]]
 name = "uu_uname"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
+source = "git+https://github.com/uutils/coreutils.git?rev=4dba45d#4dba45d1da6497585b566f2358b2e9aac733b430"
 dependencies = [
  "clap",
  "platform-info",
- "uucore 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
+ "uucore 0.0.24 (git+https://github.com/uutils/coreutils.git?rev=4dba45d)",
 ]
 
 [[package]]
@@ -6276,14 +6276,14 @@ dependencies = [
 [[package]]
 name = "uucore"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
+source = "git+https://github.com/uutils/coreutils.git?rev=4dba45d#4dba45d1da6497585b566f2358b2e9aac733b430"
 dependencies = [
  "clap",
  "glob",
  "nix 0.27.1",
  "once_cell",
  "os_display",
- "uucore_procs 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
+ "uucore_procs 0.0.24 (git+https://github.com/uutils/coreutils.git?rev=4dba45d)",
  "wild",
 ]
 
@@ -6301,11 +6301,11 @@ dependencies = [
 [[package]]
 name = "uucore_procs"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
+source = "git+https://github.com/uutils/coreutils.git?rev=4dba45d#4dba45d1da6497585b566f2358b2e9aac733b430"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
+ "uuhelp_parser 0.0.24 (git+https://github.com/uutils/coreutils.git?rev=4dba45d)",
 ]
 
 [[package]]
@@ -6317,7 +6317,7 @@ checksum = "d841f8408028085ca65896cdd60b9925d4e407cb69989a64889f2bebbb51147b"
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#c00c9857623a57a54de90042596702397d9963fd"
+source = "git+https://github.com/uutils/coreutils.git?rev=4dba45d#4dba45d1da6497585b566f2358b2e9aac733b430"
 
 [[package]]
 name = "uuid"
