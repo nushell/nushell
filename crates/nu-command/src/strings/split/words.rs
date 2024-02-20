@@ -158,7 +158,7 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
         Value::Error { error, .. } => Value::error(*error.clone(), v_span),
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 // let splits = s.unicode_words();
                 // let words = trim_to_words(s);
                 // let words: Vec<&str> = s.split_whitespace().collect();

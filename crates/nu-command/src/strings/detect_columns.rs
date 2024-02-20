@@ -136,13 +136,11 @@ fn detect_columns(
         .map(move |x| {
             let row = find_columns(&x);
 
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
 
             if headers.len() == row.len() {
                 for (header, val) in headers.iter().zip(row.iter()) {
-                    cols.push(header.item.clone());
-                    vals.push(Value::string(val.item.clone(), name_span));
+                    record.push(&header.item, Value::string(&val.item, name_span));
                 }
             } else {
                 let mut pre_output = vec![];
@@ -176,8 +174,7 @@ fn detect_columns(
                 for header in &headers {
                     for pre_o in &pre_output {
                         if pre_o.0 == header.item {
-                            cols.push(header.item.clone());
-                            vals.push(pre_o.1.clone())
+                            record.push(&header.item, pre_o.1.clone());
                         }
                     }
                 }
@@ -187,25 +184,25 @@ fn detect_columns(
                 match nu_cmd_base::util::process_range(range) {
                     Ok((l_idx, r_idx)) => {
                         let l_idx = if l_idx < 0 {
-                            cols.len() as isize + l_idx
+                            record.len() as isize + l_idx
                         } else {
                             l_idx
                         };
 
                         let r_idx = if r_idx < 0 {
-                            cols.len() as isize + r_idx
+                            record.len() as isize + r_idx
                         } else {
                             r_idx
                         };
 
-                        if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
-                            return Value::record(
-                                Record::from_raw_cols_vals_unchecked(cols, vals),
-                                name_span,
-                            );
+                        if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (record.len() as isize))) {
+                            return Value::record(record, name_span);
                         }
 
-                        (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
+                        (
+                            l_idx.max(0) as usize,
+                            (r_idx as usize + 1).min(record.len()),
+                        )
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find range index", name_span);
@@ -213,8 +210,10 @@ fn detect_columns(
                     }
                 }
             } else {
-                return Value::record(Record::from_raw_cols_vals_unchecked(cols, vals), name_span);
+                return Value::record(record, name_span);
             };
+
+            let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
 
             // Merge Columns
             ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
@@ -227,15 +226,18 @@ fn detect_columns(
                 .iter()
                 .take(end_index)
                 .skip(start_index)
-                .map(|v| v.as_string().unwrap_or_default())
+                .map(|v| v.coerce_str().unwrap_or_default())
                 .join(" ");
             let binding = Value::string(combined, Span::unknown());
             let last_seg = vals.split_off(end_index);
             vals.truncate(start_index);
             vals.push(binding);
-            last_seg.into_iter().for_each(|v| vals.push(v));
+            vals.extend(last_seg);
 
-            Value::record(Record::from_raw_cols_vals_unchecked(cols, vals), name_span)
+            match Record::from_raw_cols_vals(cols, vals, Span::unknown(), name_span) {
+                Ok(record) => Value::record(record, name_span),
+                Err(err) => Value::error(err, name_span),
+            }
         })
         .into_pipeline_data(ctrlc))
     } else {

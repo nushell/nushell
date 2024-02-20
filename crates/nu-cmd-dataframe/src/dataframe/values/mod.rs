@@ -10,5 +10,5 @@ pub use nu_dataframe::{Axis, Column, NuDataFrame};
 pub use nu_expression::NuExpression;
 pub use nu_lazyframe::NuLazyFrame;
 pub use nu_lazygroupby::NuLazyGroupBy;
-pub use nu_schema::NuSchema;
+pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::NuWhen;

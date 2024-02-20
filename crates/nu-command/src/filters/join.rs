@@ -264,7 +264,7 @@ fn join_rows(
         } = this_row
         {
             if let Some(this_valkey) = this_record.get(this_join_key) {
-                if let Some(other_rows) = other.get(&this_valkey.into_string(sep, config)) {
+                if let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
                         for other_record in other_rows {
                             // `other` table contains rows matching `this` row on the join column
@@ -346,7 +346,7 @@ fn lookup_table<'a>(
     for row in rows {
         if let Value::Record { val: record, .. } = row {
             if let Some(val) = record.get(on) {
-                let valkey = val.into_string(sep, config);
+                let valkey = val.to_expanded_string(sep, config);
                 map.entry(valkey).or_default().push(record);
             }
         };

@@ -4,7 +4,7 @@ use std::io::{self, Result};
 use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    record, Record, Value,
+    record, Value,
 };
 use ratatui::layout::Rect;
 
@@ -165,10 +165,7 @@ fn help_frame_data(
 
             let (cols, mut vals) = help_manual_data(manual, aliases);
             let vals = vals.remove(0);
-            Value::record(
-                Record::from_raw_cols_vals_unchecked(cols, vals),
-                NuSpan::unknown(),
-            )
+            Value::record(cols.into_iter().zip(vals).collect(), NuSpan::unknown())
         })
         .collect();
     let commands = Value::list(commands, NuSpan::unknown());

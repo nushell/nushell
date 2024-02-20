@@ -280,7 +280,39 @@ fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
         roxmltree::Error::NamespacesLimitReached => {
             make_cant_convert_error("Namespace limit reached", span)
         }
-        roxmltree::Error::ParserError(_) => make_cant_convert_error("Parser error", span),
+        roxmltree::Error::UnexpectedDeclaration(_) => {
+            make_cant_convert_error("An XML document can have only one XML declaration and it must be at the start of the document.", span)
+        }
+        roxmltree::Error::InvalidName(_) => {
+            make_cant_convert_error("Invalid name found.", span)
+        }
+        roxmltree::Error::NonXmlChar(_, _) => {
+            make_cant_convert_error("A non-XML character has occurred. Valid characters are: <https://www.w3.org/TR/xml/#char32>", span)
+        }
+        roxmltree::Error::InvalidChar(_, _, _) => {
+            make_cant_convert_error("An invalid/unexpected character in XML.", span)
+        }
+        roxmltree::Error::InvalidChar2(_, _, _) => {
+            make_cant_convert_error("An invalid/unexpected character in XML.", span)
+        }
+        roxmltree::Error::InvalidString(_, _) => {
+            make_cant_convert_error("An invalid/unexpected string in XML.", span)
+        }
+        roxmltree::Error::InvalidExternalID(_) => {
+            make_cant_convert_error("An invalid ExternalID in the DTD.", span)
+        }
+        roxmltree::Error::InvalidComment(_) => {
+            make_cant_convert_error("A comment cannot contain `--` or end with `-`.", span)
+        }
+        roxmltree::Error::InvalidCharacterData(_) => {
+            make_cant_convert_error("A Character Data node contains an invalid data. Currently, only `]]>` is not allowed.", span)
+        }
+        roxmltree::Error::UnknownToken(_) => {
+            make_cant_convert_error("Unknown token in XML.", span)
+        }
+        roxmltree::Error::UnexpectedEndOfStream => {
+            make_cant_convert_error("Unexpected end of stream while parsing XML.", span)
+        }
     }
 }
 

@@ -9,7 +9,7 @@ pub const CMD_NAME: &str = "from ics";
 
 pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
     let span = input.span();
-    let input_string = input.as_string()?;
+    let input_string = input.coerce_str()?;
     let head = call.head;
 
     let input_string = input_string

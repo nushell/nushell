@@ -738,9 +738,9 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
         });
     }
     let code_string = if param_is_string {
-        code.as_string().expect("error getting code as string")
+        code.coerce_str().expect("error getting code as string")
     } else {
-        "".to_string()
+        "".into()
     };
     let param_is_valid_string = param_is_string && !code_string.is_empty();
     if (escape || osc) && (param_is_valid_string) {
@@ -798,9 +798,10 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
             }
         }
     } else {
+        let span = code.span();
         // This is a record that should look like
         // { fg: "#ff0000" bg: "#00ff00" attr: bli }
-        let record = code.as_record()?;
+        let record = code.into_record()?;
         // create a NuStyle to parse the information into
         let mut nu_style = nu_color_config::NuStyle {
             fg: None,
@@ -810,13 +811,13 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
         // Iterate and populate NuStyle with real values
         for (k, v) in record {
             match k.as_str() {
-                "fg" => nu_style.fg = Some(v.as_string()?),
-                "bg" => nu_style.bg = Some(v.as_string()?),
-                "attr" => nu_style.attr = Some(v.as_string()?),
+                "fg" => nu_style.fg = Some(v.coerce_into_string()?),
+                "bg" => nu_style.bg = Some(v.coerce_into_string()?),
+                "attr" => nu_style.attr = Some(v.coerce_into_string()?),
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
-                        span: code.span(),
+                        span,
                     })
                 }
             }

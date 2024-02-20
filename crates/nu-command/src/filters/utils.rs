@@ -39,7 +39,6 @@ pub fn boolean_fold(
     let orig_env_hidden = stack.env_hidden.clone();
 
     let ctrlc = engine_state.ctrlc.clone();
-    let engine_state = engine_state.clone();
 
     for value in input.into_interruptible_iter(ctrlc) {
         // with_env() is used here to ensure that each iteration uses
@@ -52,7 +51,7 @@ pub fn boolean_fold(
         }
 
         let eval = eval_block(
-            &engine_state,
+            engine_state,
             &mut stack,
             block,
             value.into_pipeline_data(),

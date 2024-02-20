@@ -150,7 +150,7 @@ pub fn eval_hook(
             // If it returns true (the default if a condition block is not specified), the hook should be run.
             let do_run_hook = if let Some(condition) = val.get("condition") {
                 let other_span = condition.span();
-                if let Ok(block_id) = condition.as_block() {
+                if let Ok(block_id) = condition.coerce_block() {
                     match run_hook_block(
                         engine_state,
                         stack,

@@ -49,19 +49,19 @@ impl Command for StrJoin {
         let config = engine_state.get_config();
 
         // let output = input.collect_string(&separator.unwrap_or_default(), &config)?;
-        // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
-        // which feels funny
+        // Hmm, not sure what we actually want.
+        // `to_formatted_string` formats dates as human readable which feels funny.
         let mut strings: Vec<String> = vec![];
 
         for value in input {
-            match value {
+            let str = match value {
                 Value::Error { error, .. } => {
                     return Err(*error);
                 }
-                value => {
-                    strings.push(value.debug_string("\n", config));
-                }
-            }
+                Value::Date { val, .. } => format!("{val:?}"),
+                value => value.to_expanded_string("\n", config),
+            };
+            strings.push(str);
         }
 
         let output = if let Some(separator) = separator {

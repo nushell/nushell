@@ -8,8 +8,8 @@ pub fn execute_json_query(
     input: &Value,
     query: Option<Spanned<String>>,
 ) -> Result<Value, LabeledError> {
-    let input_string = match &input.as_string() {
-        Ok(s) => s.clone(),
+    let input_string = match input.coerce_str() {
+        Ok(s) => s,
         Err(e) => {
             return Err(LabeledError {
                 span: Some(call.head),

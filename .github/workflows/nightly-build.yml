@@ -79,7 +79,7 @@ jobs:
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
         - armv7-unknown-linux-gnueabihf
-        # - riscv64gc-unknown-linux-gnu
+        - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
         - target: aarch64-apple-darwin
@@ -116,9 +116,9 @@ jobs:
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
           target_rustflags: ''
-        # - target: riscv64gc-unknown-linux-gnu
-        #   os: ubuntu-latest
-        #   target_rustflags: ''
+        - target: riscv64gc-unknown-linux-gnu
+          os: ubuntu-latest
+          target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
@@ -156,7 +156,7 @@ jobs:
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
-      uses: JasonEtco/create-an-issue@v2.9.1
+      uses: JasonEtco/create-an-issue@v2.9.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -268,7 +268,7 @@ jobs:
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
-      uses: JasonEtco/create-an-issue@v2.9.1
+      uses: JasonEtco/create-an-issue@v2.9.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:

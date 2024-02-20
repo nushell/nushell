@@ -70,9 +70,9 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 Value::Record { ref val, .. } => {
                     let mut row_vec = vec![];
                     for (k, v) in val {
-                        match v.as_string() {
+                        match v.coerce_string() {
                             Ok(s) => {
-                                row_vec.push((k.clone(), s.to_string()));
+                                row_vec.push((k.clone(), s));
                             }
                             _ => {
                                 return Err(ShellError::UnsupportedInput {

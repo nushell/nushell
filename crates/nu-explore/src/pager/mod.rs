@@ -1008,7 +1008,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
 }
 
 fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
-    match value.as_string() {
+    match value.coerce_str() {
         Ok(s) => {
             *style = lookup_ansi_color_style(&s);
             true
