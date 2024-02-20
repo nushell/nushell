@@ -302,6 +302,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoInt,
             IntoRecord,
             IntoString,
+            IntoGlob,
             IntoValue,
         };
 
