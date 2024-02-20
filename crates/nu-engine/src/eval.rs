@@ -363,9 +363,10 @@ fn eval_element_redirection(
                 source: RedirectionSource::Stderr,
                 target,
             } => {
-                let stderr = eval_redirection(engine_state, stack, target, next_err)?;
+                let stderr = eval_redirection(engine_state, stack, target, None)?;
                 if matches!(stderr, IoStream::Pipe) {
-                    Ok((None, Some(stderr))) // e>| redirection, don't override current stack `stdout`
+                    // e>| redirection, don't override current stack `stdout`
+                    Ok((None, Some(next_out.unwrap_or(stderr))))
                 } else {
                     Ok((next_out, Some(stderr)))
                 }
@@ -395,6 +396,40 @@ fn eval_element_with_input(
     input: PipelineData,
 ) -> Result<(PipelineData, bool), ShellError> {
     let (data, ok) = eval_expression_with_input(engine_state, stack, &element.expr, input)?;
+
+    match (
+        &data,
+        element
+            .redirection
+            .as_ref()
+            .and_then(Redirection::pipe_redirection),
+    ) {
+        (
+            PipelineData::Value(..) | PipelineData::ListStream(..) | PipelineData::Empty,
+            Some((RedirectionSource::Stderr, span)),
+        ) => {
+            return Err(ShellError::GenericError {
+                error: "`e>|` only works with external streams".into(),
+                msg: "`e>|` only works on external streams".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
+        }
+        (
+            PipelineData::Value(..) | PipelineData::ListStream(..) | PipelineData::Empty,
+            Some((RedirectionSource::StdoutAndStderr, span)),
+        ) => {
+            return Err(ShellError::GenericError {
+                error: "`o+e>|` only works with external streams".into(),
+                msg: "`o+e>|` only works on external streams".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
+        }
+        _ => {}
+    }
 
     let data = match (data, stack.stdout()) {
         (data @ (PipelineData::Value(..) | PipelineData::ListStream(..)), IoStream::File(_)) => {
