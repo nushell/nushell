@@ -60,56 +60,62 @@ impl Expr {
         &self,
         engine_state: &EngineState,
     ) -> (Option<IoStream>, Option<IoStream>) {
+        // Usages of `$in` will be wrapped by a `collect` call by the parser,
+        // so we do not have to worry about that when considering
+        // which of the expressions below may consume pipeline output.
         match self {
+            Expr::Call(call) => engine_state.get_decl(call.decl_id).stdio_redirect(),
+            Expr::Subexpression(block_id) | Expr::Block(block_id) => engine_state
+                .get_block(*block_id)
+                .stdio_redirect(engine_state),
+            Expr::FullCellPath(cell_path) => cell_path.head.expr.stdio_redirect(engine_state),
             Expr::Bool(_)
             | Expr::Int(_)
             | Expr::Float(_)
             | Expr::Binary(_)
             | Expr::Range(_, _, _, _)
-            | Expr::ValueWithUnit(_, _)
-            | Expr::DateTime(_)
-            | Expr::Filepath(_, _)
-            | Expr::Directory(_, _)
-            | Expr::GlobPattern(_, _)
-            | Expr::String(_)
-            | Expr::CellPath(_)
-            | Expr::Nothing
-            | Expr::Garbage => {
-                // These expressions cannot have an `$in` variable
-                // and do not use the output of the pipeline in any meaningful way.
-                // So, we can discard the previous output by redirecting it to `Null`.
-                (Some(IoStream::Null), None)
-            }
-            Expr::Call(call) => engine_state.get_decl(call.decl_id).stdio_redirect(),
-            Expr::Subexpression(block_id) | Expr::Block(block_id) => engine_state
-                .get_block(*block_id)
-                .stdio_redirect(engine_state),
-            Expr::FullCellPath(cell_path) => {
-                if cell_path.tail.is_empty() {
-                    cell_path.head.expr.stdio_redirect(engine_state)
-                } else {
-                    (None, None)
-                }
-            }
-            Expr::Var(_)
-            | Expr::VarDecl(_)
-            | Expr::ExternalCall(_, _, _)
-            | Expr::Operator(_)
-            | Expr::RowCondition(_)
+            | Expr::Var(_)
             | Expr::UnaryNot(_)
             | Expr::BinaryOp(_, _, _)
-            | Expr::Closure(_)
-            | Expr::MatchBlock(_)
+            | Expr::Closure(_) // piping into a closure value, not into a closure call
             | Expr::List(_)
             | Expr::Table(_, _)
             | Expr::Record(_)
-            | Expr::Keyword(_, _, _)
+            | Expr::ValueWithUnit(_, _)
+            | Expr::DateTime(_)
+            | Expr::String(_)
+            | Expr::CellPath(_)
+            | Expr::StringInterpolation(_)
+            | Expr::Nothing => {
+                // These expressions do not use the output of the pipeline in any meaningful way,
+                // so we can discard the previous output by redirecting it to `Null`.
+                (Some(IoStream::Null), None)
+            }
+            Expr::VarDecl(_)
+            | Expr::Operator(_)
+            | Expr::Filepath(_, _)
+            | Expr::Directory(_, _)
+            | Expr::GlobPattern(_, _)
             | Expr::ImportPattern(_)
             | Expr::Overlay(_)
             | Expr::Signature(_)
-            | Expr::StringInterpolation(_)
-            | Expr::Spread(_) => {
-                // Not sure about these expressions, let's return no redirection override for now.
+            | Expr::Spread(_)
+            | Expr::Garbage => {
+                // These should be impossible to pipe to,
+                // but even it is, the pipeline output is not used in any way.
+                (Some(IoStream::Null), None)
+            }
+            Expr::RowCondition(_) | Expr::MatchBlock(_) => {
+                // These should be impossible to pipe to,
+                // but if they are, then the pipeline output could be used.
+                (None, None)
+            }
+            Expr::ExternalCall(_, _, _) => {
+                // No override necessary, pipes will always be created in eval
+                (None, None)
+            }
+            Expr::Keyword(_, _, _) => {
+                // Not sure about this; let's return no redirection override for now.
                 (None, None)
             }
         }
