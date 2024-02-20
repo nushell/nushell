@@ -1,4 +1,3 @@
-use super::util::get_rest_for_glob_pattern;
 use super::util::opt_for_glob_pattern;
 use crate::DirBuilder;
 use crate::DirInfo;
@@ -88,7 +87,7 @@ impl Command for Ls {
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 match path.item {
