@@ -63,15 +63,16 @@ pub enum IoStream {
     /// Redirect output to the next command in the pipeline
     ///
     /// The output pipe will be available in `PipelineData::ExternalStream::stdout`.
-    Pipe,
-    /// Capture output for the next command in the pipeline
     ///
-    /// This is almost exactly the same as `Pipe`.
-    /// The only difference is that both if `stdout` and `stderr` are set to `Pipe`,
-    /// then they will combined into one output stream.
-    /// If `stdout` and `stderr` are both `Capture` on the other hand,
-    /// then there will separate `stdout` and `stderr` streams.
-    /// This is used for the `complete` command and in `nu-explore`.
+    /// If both `stdout` and `stderr` are set to `Pipe`,
+    /// then they will combined into `ExternalStream::stdout`.
+    Pipe,
+    /// Capture output to later be collected into a [`Value`], `Vec`, or some other data structure
+    ///
+    /// The output stream(s) will be available in
+    /// `PipelineData::ExternalStream::stdout` or `PipelineData::ExternalStream::stderr`.
+    ///
+    /// This is similar to `Pipe` but will never combine `stdout` and `stderr`.
     Capture,
     /// Ignore output
     Null,
@@ -371,7 +372,7 @@ impl PipelineData {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
                         let call = Call::new(Span::unknown());
-                        let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
+                        let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
                         let table = command.run(engine_state, stack, &call, data)?;
                         table.write_all_and_flush(engine_state, config, false, false)?;
                     }

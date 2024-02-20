@@ -252,7 +252,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
+    let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
     <EvalRuntime as Eval>::eval(engine_state, stack, expr)
 }
 
@@ -291,7 +291,7 @@ pub fn eval_expression_with_input(
                 let block = engine_state.get_block(*block_id);
 
                 if !full_cell_path.tail.is_empty() {
-                    let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
+                    let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression(engine_state, stack, block, input)?
                         .into_value(*span)

@@ -172,7 +172,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
-            stdout: IoStream::Pipe,
+            stdout: IoStream::Capture,
             stderr: self.stderr.clone(),
             parent_stdout: None,
             parent_stderr: None,
@@ -528,7 +528,7 @@ pub struct StackParentIoGuard<'a> {
 
 impl<'a> StackParentIoGuard<'a> {
     fn new(stack: &'a mut Stack) -> Self {
-        let old_stdout = Some(mem::replace(&mut stack.stdout, IoStream::Pipe));
+        let old_stdout = Some(mem::replace(&mut stack.stdout, IoStream::Capture));
 
         let old_stderr = stack
             .parent_stderr

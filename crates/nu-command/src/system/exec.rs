@@ -63,7 +63,7 @@ fn exec(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     stack.reset_stdio(IoStream::Inherit, IoStream::Inherit);
-    let external_command = create_external_command(engine_state, stack, call, false, false)?;
+    let external_command = create_external_command(engine_state, stack, call, false)?;
 
     let cwd = current_dir(engine_state, stack)?;
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;

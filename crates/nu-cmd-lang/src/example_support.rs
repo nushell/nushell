@@ -111,7 +111,7 @@ pub fn eval_block(
         .merge_delta(delta)
         .expect("Error merging delta");
 
-    let mut stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
+    let mut stack = Stack::new(IoStream::Capture, IoStream::Inherit);
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
@@ -126,7 +126,7 @@ pub fn check_example_evaluates_to_expected_output(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) {
-    let mut stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
+    let mut stack = Stack::new(IoStream::Capture, IoStream::Inherit);
 
     // Set up PWD
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));

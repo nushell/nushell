@@ -71,8 +71,7 @@ impl Command for External {
             });
         }
 
-        let command =
-            create_external_command(engine_state, stack, call, combine_out_err, trim_end_newline)?;
+        let command = create_external_command(engine_state, stack, call, trim_end_newline)?;
 
         command.run_with_input(engine_state, stack, input, false)
     }
@@ -98,7 +97,6 @@ pub fn create_external_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    combine_out_err: bool,
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -160,18 +158,12 @@ pub fn create_external_command(
         }
     }
 
-    let (out, err) = if combine_out_err {
-        (IoStream::Pipe, IoStream::Pipe)
-    } else {
-        (stack.stdout().clone(), stack.stderr().clone())
-    };
-
     Ok(ExternalCommand {
         name,
         args: spanned_args,
         arg_keep_raw,
-        out,
-        err,
+        out: stack.stdout().clone(),
+        err: stack.stderr().clone(),
         env_vars: env_vars_str,
         trim_end_newline,
     })
@@ -352,7 +344,7 @@ impl ExternalCommand {
                             let mut engine_state = engine_state.clone();
                             if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
                             {
-                                let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
+                                let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
                                 if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
                                     eval_hook(
                                         &mut engine_state,
@@ -401,7 +393,7 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                let stack = &mut stack.with_stdio(Some(IoStream::Pipe), None);
+                                let stack = &mut stack.with_stdio(Some(IoStream::Capture), None);
                                 // Attempt to render the input as a table before piping it to the external.
                                 // This is important for pagers like `less`;
                                 // they need to get Nu data rendered for display to users.

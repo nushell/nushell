@@ -364,7 +364,10 @@ fn handle_table_command(
     match input.data {
         PipelineData::ExternalStream { .. } => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let stream_list = if matches!(input.stack.stdout(), IoStream::Pipe | IoStream::Null) {
+            let stream_list = if matches!(
+                input.stack.stdout(),
+                IoStream::Pipe | IoStream::Capture | IoStream::Null
+            ) {
                 vec![Ok(val)]
             } else {
                 let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))

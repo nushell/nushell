@@ -545,7 +545,7 @@ impl LanguageServer {
             &params.text_document_position.text_document.uri,
         )?;
 
-        let stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
+        let stack = Stack::new(IoStream::Capture, IoStream::Inherit);
         let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
 
         let location =

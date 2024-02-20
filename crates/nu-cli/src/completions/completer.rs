@@ -21,7 +21,7 @@ pub struct NuCompleter {
 
 impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, mut stack: Stack) -> Self {
-        stack.reset_stdio(IoStream::Pipe, IoStream::Inherit);
+        stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
         Self {
             engine_state,
             stack,
@@ -550,7 +550,7 @@ mod completer_tests {
 
         let mut completer = NuCompleter::new(
             engine_state.into(),
-            Stack::new(IoStream::Pipe, IoStream::Inherit),
+            Stack::new(IoStream::Capture, IoStream::Inherit),
         );
         let dataset = vec![
             ("sudo", false, "", Vec::new()),

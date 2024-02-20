@@ -3573,7 +3573,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
     // We need the current environment variables for `python` based plugins
     // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
-    let stack = Stack::new(IoStream::Pipe, IoStream::Inherit);
+    let stack = Stack::new(IoStream::Capture, IoStream::Inherit);
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
 
