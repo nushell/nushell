@@ -430,14 +430,6 @@ impl Stack {
         &self.stderr
     }
 
-    pub fn parent_stdout(&self) -> Option<&IoStream> {
-        self.parent_stdout.as_ref()
-    }
-
-    pub fn parent_stderr(&self) -> Option<&IoStream> {
-        self.parent_stderr.as_ref()
-    }
-
     pub fn push_stdio(
         &mut self,
         stdout: Option<IoStream>,
@@ -458,11 +450,11 @@ impl Stack {
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    pub fn use_parent_stdio(&mut self) -> StackParentIoGuard {
-        StackParentIoGuard::new(self)
+    pub fn use_call_arg_stdio(&mut self) -> StackCallArgIoGuard {
+        StackCallArgIoGuard::new(self)
     }
 
-    pub fn reset_stdio(&mut self, stdout: IoStream, stderr: IoStream) {
+    pub fn set_stdio(&mut self, stdout: IoStream, stderr: IoStream) {
         self.parent_stdout = None;
         self.parent_stderr = None;
         self.stdout = stdout;
@@ -528,13 +520,13 @@ impl Drop for StackIoGuard<'_> {
     }
 }
 
-pub struct StackParentIoGuard<'a> {
+pub struct StackCallArgIoGuard<'a> {
     stack: &'a mut Stack,
     old_stdout: Option<IoStream>,
     old_stderr: Option<IoStream>,
 }
 
-impl<'a> StackParentIoGuard<'a> {
+impl<'a> StackCallArgIoGuard<'a> {
     fn new(stack: &'a mut Stack) -> Self {
         let old_stdout = Some(mem::replace(&mut stack.stdout, IoStream::Capture));
 
@@ -551,7 +543,7 @@ impl<'a> StackParentIoGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackParentIoGuard<'a> {
+impl<'a> Deref for StackCallArgIoGuard<'a> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -559,13 +551,13 @@ impl<'a> Deref for StackParentIoGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackParentIoGuard<'a> {
+impl<'a> DerefMut for StackCallArgIoGuard<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }
 }
 
-impl Drop for StackParentIoGuard<'_> {
+impl Drop for StackCallArgIoGuard<'_> {
     fn drop(&mut self) {
         if let Some(stdout) = self.old_stdout.take() {
             self.stdout = stdout;

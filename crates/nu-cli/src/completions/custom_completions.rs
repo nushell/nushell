@@ -27,7 +27,7 @@ impl CustomCompletion {
         decl_id: usize,
         line: String,
     ) -> Self {
-        stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
+        stack.set_stdio(IoStream::Capture, IoStream::Inherit);
         Self {
             engine_state,
             stack,

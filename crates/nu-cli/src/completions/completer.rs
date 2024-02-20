@@ -21,7 +21,7 @@ pub struct NuCompleter {
 
 impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, mut stack: Stack) -> Self {
-        stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
+        stack.set_stdio(IoStream::Capture, IoStream::Inherit);
         Self {
             engine_state,
             stack,

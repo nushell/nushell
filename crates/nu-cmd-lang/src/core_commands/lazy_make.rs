@@ -86,7 +86,7 @@ impl Command for LazyMake {
         }
 
         let mut stack = stack.clone();
-        stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
+        stack.set_stdio(IoStream::Capture, IoStream::Inherit);
 
         Ok(Value::lazy_record(
             Box::new(NuLazyRecord {

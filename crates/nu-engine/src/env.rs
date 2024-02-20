@@ -383,7 +383,7 @@ fn get_converted_value(
 
                 if let Some(var) = block.signature.get_positional(0) {
                     let mut stack = stack.gather_captures(engine_state, &block.captures);
-                    stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
+                    stack.set_stdio(IoStream::Capture, IoStream::Inherit);
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, orig_val.clone());
                     }

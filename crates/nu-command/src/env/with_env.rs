@@ -88,7 +88,7 @@ fn with_env(
     let out = stack.stdout().clone();
     let err = stack.stderr().clone();
     let mut stack = stack.captures_to_stack(capture_block.captures);
-    stack.reset_stdio(out, err);
+    stack.set_stdio(out, err);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 

@@ -24,7 +24,7 @@ impl NuMenuCompleter {
         engine_state: Arc<EngineState>,
         only_buffer_difference: bool,
     ) -> Self {
-        stack.reset_stdio(IoStream::Capture, IoStream::Inherit);
+        stack.set_stdio(IoStream::Capture, IoStream::Inherit);
         Self {
             block_id,
             span,

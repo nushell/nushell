@@ -41,7 +41,7 @@ pub fn eval_call(
         let block = engine_state.get_block(block_id);
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
-        callee_stack.reset_stdio(callee_stack.stdout().clone(), callee_stack.stderr().clone());
+        callee_stack.set_stdio(callee_stack.stdout().clone(), callee_stack.stderr().clone());
 
         // Rust does not check recursion limits outside of const evaluation.
         // But nu programs run in the same process as the shell.
