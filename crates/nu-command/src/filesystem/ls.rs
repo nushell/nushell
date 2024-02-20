@@ -1,3 +1,4 @@
+use super::util::get_rest_for_glob_pattern;
 use super::util::opt_for_glob_pattern;
 use crate::DirBuilder;
 use crate::DirInfo;
@@ -42,7 +43,7 @@ impl Command for Ls {
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .optional("pattern", SyntaxShape::GlobPattern, "The glob pattern to use.")
+            .rest("pattern", SyntaxShape::GlobPattern, "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -87,7 +88,7 @@ impl Command for Ls {
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
+        let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 match path.item {

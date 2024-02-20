@@ -211,9 +211,8 @@ pub mod users {
 
 /// Get rest arguments from given `call`, starts with `starting_pos`.
 ///
-/// It's similar to `call.rest`, except that it returns `Value::quoted_string` if input is
-/// a variable or string interpolation.  You can make it returns `Value::string` if the value
-/// of `` is false
+/// It's similar to `call.rest`, except that it always returns NuGlob.  And if input argument has
+/// Type::Glob, the NuGlob is unquoted, which means it's required to expand.
 pub fn get_rest_for_glob_pattern(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -253,8 +252,7 @@ pub fn get_rest_for_glob_pattern(
 
 /// Get optional arguments from given `call` with position `pos`.
 ///
-/// It's similar to `call.opt`, except that it returns `` if input is
-/// a variable or string interpolation.  You can make it returns `Value::string` if the value
+/// It's similar to `call.opt`, except that it always returns NuGlob.
 pub fn opt_for_glob_pattern(
     engine_state: &EngineState,
     stack: &mut Stack,
