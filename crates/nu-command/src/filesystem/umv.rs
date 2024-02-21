@@ -121,7 +121,10 @@ impl Command for UMv {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
