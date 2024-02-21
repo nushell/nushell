@@ -308,22 +308,25 @@ fn main() -> Result<()> {
     // let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
     let input = if should_process_stdin_as_script {
         // eprintln!("redirect stdin");
-        let redirect_stdin = parsed_nu_cli_args.redirect_stdin.as_ref().unwrap();
-        let stdin = std::io::stdin();
-        let buf_reader = BufReader::new(stdin);
+        if let Some(redirect_stdin) = parsed_nu_cli_args.redirect_stdin.as_ref() {
+            let stdin = std::io::stdin();
+            let buf_reader = BufReader::new(stdin);
 
-        PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(
-                Box::new(BufferedReader::new(buf_reader)),
-                Some(ctrlc),
-                redirect_stdin.span,
-                None,
-            )),
-            stderr: None,
-            exit_code: None,
-            span: redirect_stdin.span,
-            metadata: None,
-            trim_end_newline: false,
+            PipelineData::ExternalStream {
+                stdout: Some(RawStream::new(
+                    Box::new(BufferedReader::new(buf_reader)),
+                    Some(ctrlc),
+                    redirect_stdin.span,
+                    None,
+                )),
+                stderr: None,
+                exit_code: None,
+                span: redirect_stdin.span,
+                metadata: None,
+                trim_end_newline: false,
+            }
+        } else {
+            PipelineData::empty()
         }
     } else {
         PipelineData::empty()
