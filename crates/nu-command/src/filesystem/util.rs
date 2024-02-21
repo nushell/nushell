@@ -236,7 +236,7 @@ pub fn get_rest_for_glob_pattern(
                             Expr::FullCellPath(_) | Expr::StringInterpolation(_)
                         ) =>
                     {
-                        // should quote if given input type is not glob.
+                        // should not expand if given input type is not glob.
                         Ok(Value::glob(val, expr.ty != Type::Glob, span))
                     }
                     other => Ok(other),

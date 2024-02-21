@@ -1,8 +1,8 @@
 mod custom_value;
 mod from;
 mod from_value;
+mod glob;
 mod lazy_record;
-mod path;
 mod range;
 mod stream;
 mod unit;
@@ -19,13 +19,13 @@ use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
+pub use glob::*;
 pub use lazy_record::LazyRecord;
 use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 use nu_utils::{
     contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
 };
 use num_format::ToFormattedString;
-pub use path::*;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
@@ -95,7 +95,7 @@ pub enum Value {
     },
     Glob {
         val: String,
-        quoted: bool,
+        no_expand: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         internal_span: Span,
@@ -191,11 +191,11 @@ impl Clone for Value {
             },
             Value::Glob {
                 val,
-                quoted,
+                no_expand: quoted,
                 internal_span,
             } => Value::Glob {
                 val: val.clone(),
-                quoted: *quoted,
+                no_expand: *quoted,
                 internal_span: *internal_span,
             },
             Value::Record { val, internal_span } => Value::Record {
@@ -1897,10 +1897,10 @@ impl Value {
         }
     }
 
-    pub fn glob(val: impl Into<String>, quoted: bool, span: Span) -> Value {
+    pub fn glob(val: impl Into<String>, no_expand: bool, span: Span) -> Value {
         Value::Glob {
             val: val.into(),
-            quoted,
+            no_expand,
             internal_span: span,
         }
     }

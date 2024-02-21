@@ -730,9 +730,9 @@ fn trim_expand_and_apply_arg(
     }
     let cwd = PathBuf::from(cwd);
     if arg.item.contains('*') && run_glob_expansion {
-        // we need to run glob expansion, so it's unquoted.
+        // we need to run glob expansion, so it's NeedExpand.
         let path = Spanned {
-            item: NuGlob::UnQuoted(arg.item.clone()),
+            item: NuGlob::NeedExpand(arg.item.clone()),
             span: arg.span,
         };
         if let Ok((prefix, matches)) = nu_engine::glob_from(&path, &cwd, arg.span, None) {

@@ -208,13 +208,17 @@ impl FromValue for NuGlob {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(NuGlob::UnQuoted(val.to_string())),
-            Value::String { val, .. } => Ok(NuGlob::Quoted(val)),
-            Value::Glob { val, quoted, .. } => {
+            Value::CellPath { val, .. } => Ok(NuGlob::NeedExpand(val.to_string())),
+            Value::String { val, .. } => Ok(NuGlob::NoExpand(val)),
+            Value::Glob {
+                val,
+                no_expand: quoted,
+                ..
+            } => {
                 if quoted {
-                    Ok(NuGlob::Quoted(val))
+                    Ok(NuGlob::NoExpand(val))
                 } else {
-                    Ok(NuGlob::UnQuoted(val))
+                    Ok(NuGlob::NeedExpand(val))
                 }
             }
             v => Err(ShellError::CantConvert {
@@ -232,13 +236,17 @@ impl FromValue for Spanned<NuGlob> {
         let span = v.span();
         Ok(Spanned {
             item: match v {
-                Value::CellPath { val, .. } => NuGlob::UnQuoted(val.to_string()),
-                Value::String { val, .. } => NuGlob::Quoted(val),
-                Value::Glob { val, quoted, .. } => {
+                Value::CellPath { val, .. } => NuGlob::NeedExpand(val.to_string()),
+                Value::String { val, .. } => NuGlob::NoExpand(val),
+                Value::Glob {
+                    val,
+                    no_expand: quoted,
+                    ..
+                } => {
                     if quoted {
-                        NuGlob::Quoted(val)
+                        NuGlob::NoExpand(val)
                     } else {
-                        NuGlob::UnQuoted(val)
+                        NuGlob::NeedExpand(val)
                     }
                 }
                 v => {

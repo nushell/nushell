@@ -167,8 +167,10 @@ fn rm(
         }
         let corrected_path = Spanned {
             item: match path.item {
-                NuGlob::Quoted(s) => NuGlob::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
-                NuGlob::UnQuoted(s) => NuGlob::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuGlob::NoExpand(s) => NuGlob::NoExpand(nu_utils::strip_ansi_string_unlikely(s)),
+                NuGlob::NeedExpand(s) => {
+                    NuGlob::NeedExpand(nu_utils::strip_ansi_string_unlikely(s))
+                }
             },
             span: path.span,
         };

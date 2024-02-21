@@ -77,7 +77,7 @@ impl Command for Open {
             };
 
             paths.push(Spanned {
-                item: NuGlob::UnQuoted(filename),
+                item: NuGlob::NeedExpand(filename),
                 span,
             });
         }

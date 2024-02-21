@@ -120,7 +120,7 @@ impl Command for Du {
             // The * pattern should never fail.
             None => nu_engine::glob_from(
                 &Spanned {
-                    item: NuGlob::UnQuoted("*".into()),
+                    item: NuGlob::NeedExpand("*".into()),
                     span: Span::unknown(),
                 },
                 &current_dir,

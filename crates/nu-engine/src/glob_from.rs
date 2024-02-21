@@ -29,7 +29,7 @@ pub fn glob_from(
     ),
     ShellError,
 > {
-    let no_glob_for_pattern = matches!(pattern.item, NuGlob::Quoted(_));
+    let no_glob_for_pattern = matches!(pattern.item, NuGlob::NoExpand(_));
     let (prefix, pattern) = if pattern.item.as_ref().contains(GLOB_CHARS) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();

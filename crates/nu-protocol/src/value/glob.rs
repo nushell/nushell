@@ -1,11 +1,15 @@
 use serde::Deserialize;
 use std::fmt::Display;
 
+// Introduce this `NuGlob` enum rather than using `Value::Glob` directlry
+// So we can handle glob easily without considering too much variant of `Value` enum.
 #[derive(Debug, Clone, Deserialize)]
 pub enum NuGlob {
-    /// A quoted path(except backtick), in this case, nushell shouldn't auto-expand path.
+    /// Don't expand the glob pattern, normally it includes a quoted string(except backtick)
+    /// And a variable that doesn't annotated with `glob` type
     NoExpand(String),
-    /// An unquoted path, in this case, nushell should auto-expand path.
+    /// A glob pattern that is required to expand, it includes bare word
+    /// And a variable which is annotated with `glob` type
     NeedExpand(String),
 }
 
