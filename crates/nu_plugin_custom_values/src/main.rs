@@ -2,7 +2,7 @@ mod cool_custom_value;
 mod second_custom_value;
 
 use cool_custom_value::CoolCustomValue;
-use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
+use nu_plugin::{serve_plugin, EngineInterface, MsgPackSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{Category, PluginSignature, ShellError, SyntaxShape, Value};
 use second_custom_value::SecondCustomValue;
@@ -33,9 +33,9 @@ impl Plugin for CustomValuePlugin {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        _config: &Option<Value>,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
@@ -54,15 +54,15 @@ impl Plugin for CustomValuePlugin {
 }
 
 impl CustomValuePlugin {
-    fn generate(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+    fn generate(&self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
         Ok(CoolCustomValue::new("abc").into_value(call.head))
     }
 
-    fn generate2(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+    fn generate2(&self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
         Ok(SecondCustomValue::new("xyz").into_value(call.head))
     }
 
-    fn update(&mut self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    fn update(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
         if let Ok(mut value) = CoolCustomValue::try_from_value(input) {
             value.cool += "xyz";
             return Ok(value.into_value(call.head));
@@ -84,5 +84,5 @@ impl CustomValuePlugin {
 }
 
 fn main() {
-    serve_plugin(&mut CustomValuePlugin, MsgPackSerializer {})
+    serve_plugin(&CustomValuePlugin, MsgPackSerializer {})
 }

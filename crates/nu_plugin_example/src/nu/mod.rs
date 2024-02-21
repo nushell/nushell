@@ -1,5 +1,5 @@
 use crate::Example;
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Type, Value};
 
 impl Plugin for Example {
@@ -52,9 +52,9 @@ impl Plugin for Example {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
@@ -63,7 +63,7 @@ impl Plugin for Example {
             "nu-example-1" => self.test1(call, input),
             "nu-example-2" => self.test2(call, input),
             "nu-example-3" => self.test3(call, input),
-            "nu-example-config" => self.config(config, call),
+            "nu-example-config" => self.config(engine, call),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
                 msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),

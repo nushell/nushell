@@ -9,19 +9,22 @@ mod tests;
 pub(crate) mod test_util;
 
 pub use evaluated_call::EvaluatedCall;
-use nu_protocol::{PluginSignature, RawStream, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError, Span, Spanned,
+    Value,
+};
 pub use plugin_custom_value::PluginCustomValue;
-pub(crate) use protocol_info::ProtocolInfo;
+pub use protocol_info::{Feature, Protocol, ProtocolInfo};
 use serde::{Deserialize, Serialize};
-
-#[cfg(test)]
-pub(crate) use protocol_info::Protocol;
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
 
 /// A sequential identifier for a [`PluginCall`]
 pub type PluginCallId = usize;
+
+/// A sequential identifier for an [`EngineCall`]
+pub type EngineCallId = usize;
 
 /// Information about a plugin command invocation. This includes an [`EvaluatedCall`] as a
 /// serializable representation of [`nu_protocol::ast::Call`]. The type parameter determines
@@ -34,8 +37,6 @@ pub struct CallInfo<D> {
     pub call: EvaluatedCall,
     /// Pipeline input. This is usually [`nu_protocol::PipelineData`] or [`PipelineDataHeader`]
     pub input: D,
-    /// Plugin configuration, if available
-    pub config: Option<Value>,
 }
 
 /// The initial (and perhaps only) part of any [`nu_protocol::PipelineData`] sent over the wire.
@@ -55,6 +56,30 @@ pub enum PipelineDataHeader {
     ///
     /// Items are sent via [`StreamData`]
     ExternalStream(ExternalStreamInfo),
+}
+
+impl PipelineDataHeader {
+    /// Return a list of stream IDs embedded in the header
+    pub(crate) fn stream_ids(&self) -> Vec<StreamId> {
+        match self {
+            PipelineDataHeader::Empty => vec![],
+            PipelineDataHeader::Value(_) => vec![],
+            PipelineDataHeader::ListStream(info) => vec![info.id],
+            PipelineDataHeader::ExternalStream(info) => {
+                let mut out = vec![];
+                if let Some(stdout) = &info.stdout {
+                    out.push(stdout.id);
+                }
+                if let Some(stderr) = &info.stderr {
+                    out.push(stderr.id);
+                }
+                if let Some(exit_code) = &info.exit_code {
+                    out.push(exit_code.id);
+                }
+                out
+            }
+        }
+    }
 }
 
 /// Additional information about list (value) streams
@@ -117,6 +142,9 @@ pub enum PluginInput {
     /// Don't expect any more plugin calls. Exit after all currently executing plugin calls are
     /// finished.
     Goodbye,
+    /// Response to an [`EngineCall`]. The ID should be the same one sent with the engine call this
+    /// is responding to
+    EngineCallResponse(EngineCallId, EngineCallResponse<PipelineDataHeader>),
     /// Stream control or data message. Untagged to keep them as small as possible.
     ///
     /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
@@ -301,6 +329,15 @@ pub enum PluginOutput {
     /// A response to a [`PluginCall`]. The ID should be the same sent with the plugin call this
     /// is a response to
     CallResponse(PluginCallId, PluginCallResponse<PipelineDataHeader>),
+    /// Execute an [`EngineCall`]. Engine calls must be executed within the `context` of a plugin
+    /// call, and the `id` should not have been used before
+    EngineCall {
+        /// The plugin call (by ID) to execute in the context of
+        context: PluginCallId,
+        /// A new identifier for this engine call. The response will reference this ID
+        id: EngineCallId,
+        call: EngineCall<PipelineDataHeader>,
+    },
     /// Stream control or data message. Untagged to keep them as small as possible.
     ///
     /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
@@ -322,5 +359,63 @@ impl TryFrom<PluginOutput> for StreamMessage {
 impl From<StreamMessage> for PluginOutput {
     fn from(stream_msg: StreamMessage) -> PluginOutput {
         PluginOutput::Stream(stream_msg)
+    }
+}
+
+/// A remote call back to the engine during the plugin's execution.
+///
+/// The type parameter determines the input type, for calls that take pipeline data.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EngineCall<D> {
+    /// Get the full engine configuration
+    GetConfig,
+    /// Get the plugin-specific configuration (`$env.config.plugins.NAME`)
+    GetPluginConfig,
+    /// Evaluate a closure with stream input/output
+    EvalClosure {
+        /// The closure to call.
+        ///
+        /// This may come from a [`Value::Closure`] passed in as an argument to the plugin.
+        closure: Spanned<Closure>,
+        /// Positional arguments to add to the closure call
+        positional: Vec<Value>,
+        /// Input to the closure
+        input: D,
+        /// Whether to redirect stdout from external commands
+        redirect_stdout: bool,
+        /// Whether to redirect stderr from external commands
+        redirect_stderr: bool,
+    },
+}
+
+impl<D> EngineCall<D> {
+    /// Get the name of the engine call so it can be embedded in things like error messages
+    pub fn name(&self) -> &'static str {
+        match self {
+            EngineCall::GetConfig => "GetConfig",
+            EngineCall::GetPluginConfig => "GetPluginConfig",
+            EngineCall::EvalClosure { .. } => "EvalClosure",
+        }
+    }
+}
+
+/// The response to an [EngineCall]. The type parameter determines the output type for pipeline
+/// data.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EngineCallResponse<D> {
+    Error(ShellError),
+    PipelineData(D),
+    Config(Box<Config>),
+}
+
+impl EngineCallResponse<PipelineData> {
+    /// Build an [`EngineCallResponse::PipelineData`] from a [`Value`]
+    pub(crate) fn value(value: Value) -> EngineCallResponse<PipelineData> {
+        EngineCallResponse::PipelineData(PipelineData::Value(value, None))
+    }
+
+    /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::Empty`]
+    pub(crate) const fn empty() -> EngineCallResponse<PipelineData> {
+        EngineCallResponse::PipelineData(PipelineData::Empty)
     }
 }

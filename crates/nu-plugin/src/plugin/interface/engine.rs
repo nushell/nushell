@@ -1,16 +1,19 @@
 //! Interface used by the plugin to communicate with the engine.
 
-use std::sync::{mpsc, Arc};
+use std::{
+    collections::{btree_map, BTreeMap},
+    sync::{mpsc, Arc},
+};
 
 use nu_protocol::{
-    IntoInterruptiblePipelineData, ListStream, PipelineData, PluginSignature, ShellError, Spanned,
-    Value,
+    engine::Closure, Config, IntoInterruptiblePipelineData, ListStream, PipelineData,
+    PluginSignature, ShellError, Spanned, Value,
 };
 
 use crate::{
     protocol::{
-        CallInfo, CustomValueOp, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
-        PluginInput, ProtocolInfo,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
+        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, ProtocolInfo,
     },
     LabeledError, PluginOutput,
 };
@@ -47,8 +50,13 @@ mod tests;
 
 /// Internal shared state between the manager and each interface.
 struct EngineInterfaceState {
+    /// Sequence for generating engine call ids
+    engine_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
     stream_id_sequence: Sequence,
+    /// Sender to subscribe to an engine call response
+    engine_call_subscription_sender:
+        mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
 }
@@ -56,7 +64,12 @@ struct EngineInterfaceState {
 impl std::fmt::Debug for EngineInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EngineInterfaceState")
+            .field("engine_call_id_sequence", &self.engine_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
+            .field(
+                "engine_call_subscription_sender",
+                &self.engine_call_subscription_sender,
+            )
             .finish_non_exhaustive()
     }
 }
@@ -70,6 +83,12 @@ pub(crate) struct EngineInterfaceManager {
     plugin_call_sender: Option<mpsc::Sender<ReceivedPluginCall>>,
     /// Receiver for PluginCalls. This is usually taken after initialization
     plugin_call_receiver: Option<mpsc::Receiver<ReceivedPluginCall>>,
+    /// Subscriptions for engine call responses
+    engine_call_subscriptions:
+        BTreeMap<EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>>,
+    /// Receiver for engine call subscriptions
+    engine_call_subscription_receiver:
+        mpsc::Receiver<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
     /// Protocol version info, set after `Hello` received
@@ -79,14 +98,19 @@ pub(crate) struct EngineInterfaceManager {
 impl EngineInterfaceManager {
     pub(crate) fn new(writer: impl PluginWrite<PluginOutput> + 'static) -> EngineInterfaceManager {
         let (plug_tx, plug_rx) = mpsc::channel();
+        let (subscription_tx, subscription_rx) = mpsc::channel();
 
         EngineInterfaceManager {
             state: Arc::new(EngineInterfaceState {
+                engine_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
+                engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
             }),
             plugin_call_sender: Some(plug_tx),
             plugin_call_receiver: Some(plug_rx),
+            engine_call_subscriptions: BTreeMap::new(),
+            engine_call_subscription_receiver: subscription_rx,
             stream_manager: StreamManager::new(),
             protocol_info: None,
         }
@@ -122,6 +146,38 @@ impl EngineInterfaceManager {
             })
     }
 
+    /// Flush any remaining subscriptions in the receiver into the map
+    fn receive_engine_call_subscriptions(&mut self) {
+        for (id, subscription) in self.engine_call_subscription_receiver.try_iter() {
+            if let btree_map::Entry::Vacant(e) = self.engine_call_subscriptions.entry(id) {
+                e.insert(subscription);
+            } else {
+                log::warn!("Duplicate engine call ID ignored: {id}")
+            }
+        }
+    }
+
+    /// Send a [`EngineCallResponse`] to the appropriate sender
+    fn send_engine_call_response(
+        &mut self,
+        id: EngineCallId,
+        response: EngineCallResponse<PipelineData>,
+    ) -> Result<(), ShellError> {
+        // Ensure all of the subscriptions have been flushed out of the receiver
+        self.receive_engine_call_subscriptions();
+        // Remove the sender - there is only one response per engine call
+        if let Some(sender) = self.engine_call_subscriptions.remove(&id) {
+            if sender.send(response).is_err() {
+                log::warn!("Received an engine call response for id={id}, but the caller hung up");
+            }
+            Ok(())
+        } else {
+            Err(ShellError::PluginFailedToDecode {
+                msg: format!("Unknown engine call ID: {id}"),
+            })
+        }
+    }
+
     /// True if there are no other copies of the state (which would mean there are no interfaces
     /// and no stream readers/writers)
     pub(crate) fn is_finished(&self) -> bool {
@@ -141,7 +197,13 @@ impl EngineInterfaceManager {
             }
 
             if let Err(err) = msg.and_then(|msg| self.consume(msg)) {
+                // Error to streams
                 let _ = self.stream_manager.broadcast_read_error(err.clone());
+                // Error to engine call waiters
+                self.receive_engine_call_subscriptions();
+                for sender in std::mem::take(&mut self.engine_call_subscriptions).into_values() {
+                    let _ = sender.send(EngineCallResponse::Error(err.clone()));
+                }
                 return Err(err);
             }
         }
@@ -200,7 +262,6 @@ impl InterfaceManager for EngineInterfaceManager {
                     name,
                     mut call,
                     input,
-                    config,
                 }) => {
                     let interface = self.interface_for_context(id);
                     // If there's an error with initialization of the input stream, just send
@@ -214,12 +275,7 @@ impl InterfaceManager for EngineInterfaceManager {
                             // Send the plugin call to the receiver
                             self.send_plugin_call(ReceivedPluginCall::Run {
                                 engine: interface,
-                                call: CallInfo {
-                                    name,
-                                    call,
-                                    input,
-                                    config,
-                                },
+                                call: CallInfo { name, call, input },
                             })
                         }
                         err @ Err(_) => interface.write_response(err)?.write(),
@@ -238,6 +294,21 @@ impl InterfaceManager for EngineInterfaceManager {
                 // Remove the plugin call sender so it hangs up
                 drop(self.plugin_call_sender.take());
                 Ok(())
+            }
+            PluginInput::EngineCallResponse(id, response) => {
+                let response = match response {
+                    EngineCallResponse::Error(err) => EngineCallResponse::Error(err),
+                    EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
+                    EngineCallResponse::PipelineData(header) => {
+                        // If there's an error with initializing this stream, change it to an engine
+                        // call error response, but send it anyway
+                        match self.read_pipeline_data(header, None) {
+                            Ok(data) => EngineCallResponse::PipelineData(data),
+                            Err(err) => EngineCallResponse::Error(err),
+                        }
+                    }
+                };
+                self.send_engine_call_response(id, response)
             }
         }
     }
@@ -340,6 +411,259 @@ impl EngineInterface {
         let response = PluginCallResponse::Signature(signature);
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
+    }
+
+    /// Write an engine call message. Returns the writer for the stream, and the receiver for
+    /// the response to the engine call.
+    fn write_engine_call(
+        &self,
+        call: EngineCall<PipelineData>,
+    ) -> Result<
+        (
+            PipelineDataWriter<Self>,
+            mpsc::Receiver<EngineCallResponse<PipelineData>>,
+        ),
+        ShellError,
+    > {
+        let context = self.context()?;
+        let id = self.state.engine_call_id_sequence.next()?;
+        let (tx, rx) = mpsc::channel();
+
+        // Convert the call into one with a header and handle the stream, if necessary
+        let (call, writer) = match call {
+            EngineCall::EvalClosure {
+                closure,
+                positional,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => {
+                let (header, writer) = self.init_write_pipeline_data(input)?;
+                (
+                    EngineCall::EvalClosure {
+                        closure,
+                        positional,
+                        input: header,
+                        redirect_stdout,
+                        redirect_stderr,
+                    },
+                    writer,
+                )
+            }
+            // These calls have no pipeline data, so they're just the same on both sides
+            EngineCall::GetConfig => (EngineCall::GetConfig, Default::default()),
+            EngineCall::GetPluginConfig => (EngineCall::GetPluginConfig, Default::default()),
+        };
+
+        // Register the channel
+        self.state
+            .engine_call_subscription_sender
+            .send((id, tx))
+            .map_err(|_| ShellError::NushellFailed {
+                msg: "EngineInterfaceManager hung up and is no longer accepting engine calls"
+                    .into(),
+            })?;
+
+        // Write request
+        self.write(PluginOutput::EngineCall { context, id, call })?;
+        self.flush()?;
+
+        Ok((writer, rx))
+    }
+
+    /// Perform an engine call. Input and output streams are handled.
+    fn engine_call(
+        &self,
+        call: EngineCall<PipelineData>,
+    ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
+        let (writer, rx) = self.write_engine_call(call)?;
+
+        // Finish writing stream in the background
+        writer.write_background()?;
+
+        // Wait on receiver to get the response
+        rx.recv().map_err(|_| ShellError::NushellFailed {
+            msg: "Failed to get response to engine call because the channel was closed".into(),
+        })
+    }
+
+    /// Get the full shell configuration from the engine. As this is quite a large object, it is
+    /// provided on request only.
+    ///
+    /// # Example
+    ///
+    /// Format a value in the user's preferred way:
+    ///
+    /// ```
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface, value: &Value) -> Result<(), ShellError> {
+    /// let config = engine.get_config()?;
+    /// eprintln!("{}", value.to_expanded_string(", ", &config));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_config(&self) -> Result<Box<Config>, ShellError> {
+        match self.engine_call(EngineCall::GetConfig)? {
+            EngineCallResponse::Config(config) => Ok(config),
+            EngineCallResponse::Error(err) => Err(err),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response for EngineCall::GetConfig".into(),
+            }),
+        }
+    }
+
+    /// Get the plugin-specific configuration from the engine. This lives in
+    /// `$env.config.plugins.NAME` for a plugin named `NAME`. If the config is set to a closure,
+    /// it is automatically evaluated each time.
+    ///
+    /// # Example
+    ///
+    /// Print this plugin's config:
+    ///
+    /// ```
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface, value: &Value) -> Result<(), ShellError> {
+    /// let config = engine.get_plugin_config()?;
+    /// eprintln!("{:?}", config);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
+        match self.engine_call(EngineCall::GetPluginConfig)? {
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineData::Value(value, _)) => Ok(Some(value)),
+            EngineCallResponse::Error(err) => Err(err),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response for EngineCall::GetConfig".into(),
+            }),
+        }
+    }
+
+    /// Ask the engine to evaluate a closure. Input to the closure is passed as a stream, and the
+    /// output is available as a stream.
+    ///
+    /// Set `redirect_stdout` to `true` to capture the standard output stream of an external
+    /// command, if the closure results in an external command.
+    ///
+    /// Set `redirect_stderr` to `true` to capture the standard error stream of an external command,
+    /// if the closure results in an external command.
+    ///
+    /// # Example
+    ///
+    /// Invoked as:
+    ///
+    /// ```nushell
+    /// my_command { seq 1 $in | each { |n| $"Hello, ($n)" } }
+    /// ```
+    ///
+    /// ```
+    /// # use nu_protocol::{Value, ShellError, PipelineData};
+    /// # use nu_plugin::{EngineInterface, EvaluatedCall};
+    /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<(), ShellError> {
+    /// let closure = call.req(0)?;
+    /// let input = PipelineData::Value(Value::int(4, call.head), None);
+    /// let output = engine.eval_closure_with_stream(
+    ///     &closure,
+    ///     vec![],
+    ///     input,
+    ///     true,
+    ///     false,
+    /// )?;
+    /// for value in output {
+    ///     eprintln!("Closure says: {}", value.as_str()?);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Output:
+    ///
+    /// ```text
+    /// Closure says: Hello, 1
+    /// Closure says: Hello, 2
+    /// Closure says: Hello, 3
+    /// Closure says: Hello, 4
+    /// ```
+    pub fn eval_closure_with_stream(
+        &self,
+        closure: &Spanned<Closure>,
+        positional: Vec<Value>,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        let call = EngineCall::EvalClosure {
+            closure: closure.clone(),
+            positional,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        };
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(error) => Err(error),
+            EngineCallResponse::PipelineData(data) => Ok(data),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::EvalClosure".into(),
+            }),
+        }
+    }
+
+    /// Ask the engine to evaluate a closure. Input is optionally passed as a [`Value`], and output
+    /// of the closure is collected to a [`Value`] even if it is a stream.
+    ///
+    /// If the closure results in an external command, the return value will be a collected string
+    /// or binary value of the standard output stream of that command, similar to calling
+    /// [`eval_closure_with_stream()`](Self::eval_closure_with_stream) with `redirect_stdout` =
+    /// `true` and `redirect_stderr` = `false`.
+    ///
+    /// Use [`eval_closure_with_stream()`](Self::eval_closure_with_stream) if more control over the
+    /// input and output is desired.
+    ///
+    /// # Example
+    ///
+    /// Invoked as:
+    ///
+    /// ```nushell
+    /// my_command { |number| $number + 1}
+    /// ```
+    ///
+    /// ```
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::{EngineInterface, EvaluatedCall};
+    /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<(), ShellError> {
+    /// let closure = call.req(0)?;
+    /// for n in 0..4 {
+    ///     let result = engine.eval_closure(&closure, vec![Value::int(n, call.head)], None)?;
+    ///     eprintln!("{} => {}", n, result.as_int()?);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Output:
+    ///
+    /// ```text
+    /// 0 => 1
+    /// 1 => 2
+    /// 2 => 3
+    /// 3 => 4
+    /// ```
+    pub fn eval_closure(
+        &self,
+        closure: &Spanned<Closure>,
+        positional: Vec<Value>,
+        input: Option<Value>,
+    ) -> Result<Value, ShellError> {
+        let input = input.map_or_else(|| PipelineData::Empty, |v| PipelineData::Value(v, None));
+        let output = self.eval_closure_with_stream(closure, positional, input, true, false)?;
+        // Unwrap an error value
+        match output.into_value(closure.span) {
+            Value::Error { error, .. } => Err(*error),
+            value => Ok(value),
+        }
     }
 }
 
