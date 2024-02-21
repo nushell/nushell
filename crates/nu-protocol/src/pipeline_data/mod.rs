@@ -1,5 +1,7 @@
+mod metadata;
 mod stream;
 
+pub use metadata::*;
 pub use stream::*;
 
 use crate::{
@@ -56,18 +58,6 @@ pub enum PipelineData {
         trim_end_newline: bool,
     },
     Empty,
-}
-
-#[derive(Debug, Clone)]
-pub struct PipelineMetadata {
-    pub data_source: DataSource,
-}
-
-#[derive(Debug, Clone)]
-pub enum DataSource {
-    Ls,
-    HtmlThemes,
-    FilePath(PathBuf),
 }
 
 impl PipelineData {
