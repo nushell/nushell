@@ -477,31 +477,13 @@ pub fn eval_block(
                 next.stdio_redirect(engine_state),
             )?;
             let stack = &mut stack.push_stdio(stdout.or(Some(IoStream::Pipe)), stderr);
-            let eval_result = eval_element_with_input(engine_state, stack, element, input);
-
-            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-            match (eval_result, stack.stderr()) {
-                (Err(error), IoStream::Pipe) => {
-                    // TODO: is this right? it will ignore control flow errors like `contine` and `break`
-                    input = PipelineData::Value(
-                        Value::error(
-                            error,
-                            Span::unknown(), // FIXME: where does this span come from?
-                        ),
-                        None,
-                    )
-                }
-                (output, _) => {
-                    let (output, failed) = output?;
-                    // external command may runs to failed
-                    // make early return so remaining commands will not be executed.
-                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
-                    if failed {
-                        return Ok(output);
-                    }
-                    input = output;
-                }
+            let (output, failed) = eval_element_with_input(engine_state, stack, element, input)?;
+            if failed {
+                // External command failed.
+                // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
+                return Ok(output);
             }
+            input = output;
         }
 
         if last_pipeline {
@@ -512,32 +494,13 @@ pub fn eval_block(
                 (None, None),
             )?;
             let stack = &mut stack.push_stdio(stdout, stderr);
-            let eval_result = eval_element_with_input(engine_state, stack, last, input);
-
-            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-            match (eval_result, stack.stderr()) {
-                (Err(error), IoStream::Pipe) => {
-                    // TODO: is this right? it will ignore control flow errors like `contine` and `break`
-                    input = PipelineData::Value(
-                        Value::error(
-                            error,
-                            Span::unknown(), // FIXME: where does this span come from?
-                        ),
-                        None,
-                    )
-                }
-                (output, _) => {
-                    let (output, failed) = output?;
-                    // external command may runs to failed
-                    // make early return so remaining commands will not be executed.
-                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
-                    if failed {
-                        return Ok(output);
-                    }
-                    // TODO: handle exit code
-                    input = output;
-                }
+            let (output, failed) = eval_element_with_input(engine_state, stack, last, input)?;
+            if failed {
+                // External command failed.
+                // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
+                return Ok(output);
             }
+            input = output;
         } else {
             let out = match stack.stdout() {
                 IoStream::Pipe | IoStream::Capture | IoStream::Null | IoStream::File(_) => {
@@ -552,47 +515,28 @@ pub fn eval_block(
                 (None, None),
             )?;
             let stack = &mut stack.push_stdio(stdout.or(Some(out)), stderr);
-            let eval_result = eval_element_with_input(engine_state, stack, last, input);
-
-            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-            match (eval_result, stack.stderr()) {
-                (Err(error), IoStream::Pipe) => {
-                    // TODO: is this right? it will ignore control flow errors like `contine` and `break`
-                    input = PipelineData::Value(
-                        Value::error(
-                            error,
-                            Span::unknown(), // FIXME: where does this span come from?
-                        ),
-                        None,
-                    )
-                }
-                (output, _) => {
-                    let (output, failed) = output?;
-                    // external command may runs to failed
-                    // make early return so remaining commands will not be executed.
-                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
-                    if failed {
-                        return Ok(output);
-                    } else {
-                        input = PipelineData::Empty;
-                        match output {
-                            stream @ PipelineData::ExternalStream { .. } => {
-                                let exit_code = stream.drain_with_exit_code()?;
-                                stack.add_env_var(
-                                    "LAST_EXIT_CODE".into(),
-                                    Value::int(exit_code, last.expr.span),
-                                );
-                                if exit_code != 0 {
-                                    break;
-                                }
-                            }
-                            PipelineData::ListStream(stream, _) => {
-                                stream.drain()?;
-                            }
-                            PipelineData::Value(..) | PipelineData::Empty => {}
-                        }
+            let (output, failed) = eval_element_with_input(engine_state, stack, last, input)?;
+            if failed {
+                // External command failed.
+                // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
+                return Ok(output);
+            }
+            input = PipelineData::Empty;
+            match output {
+                stream @ PipelineData::ExternalStream { .. } => {
+                    let exit_code = stream.drain_with_exit_code()?;
+                    stack.add_env_var(
+                        "LAST_EXIT_CODE".into(),
+                        Value::int(exit_code, last.expr.span),
+                    );
+                    if exit_code != 0 {
+                        break;
                     }
                 }
+                PipelineData::ListStream(stream, _) => {
+                    stream.drain()?;
+                }
+                PipelineData::Value(..) | PipelineData::Empty => {}
             }
         }
     }
