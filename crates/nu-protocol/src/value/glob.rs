@@ -7,17 +7,17 @@ use std::fmt::Display;
 pub enum NuGlob {
     /// Don't expand the glob pattern, normally it includes a quoted string(except backtick)
     /// And a variable that doesn't annotated with `glob` type
-    NoExpand(String),
+    DoNotExpand(String),
     /// A glob pattern that is required to expand, it includes bare word
     /// And a variable which is annotated with `glob` type
-    NeedExpand(String),
+    Expand(String),
 }
 
 impl NuGlob {
     pub fn strip_ansi_string_unlikely(self) -> Self {
         match self {
-            NuGlob::NoExpand(s) => NuGlob::NoExpand(nu_utils::strip_ansi_string_unlikely(s)),
-            NuGlob::NeedExpand(s) => NuGlob::NeedExpand(nu_utils::strip_ansi_string_unlikely(s)),
+            NuGlob::DoNotExpand(s) => NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s)),
+            NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
         }
     }
 }
@@ -25,7 +25,7 @@ impl NuGlob {
 impl AsRef<str> for NuGlob {
     fn as_ref(&self) -> &str {
         match self {
-            NuGlob::NoExpand(s) | NuGlob::NeedExpand(s) => s,
+            NuGlob::DoNotExpand(s) | NuGlob::Expand(s) => s,
         }
     }
 }

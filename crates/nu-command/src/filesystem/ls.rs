@@ -91,12 +91,12 @@ impl Command for Ls {
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 match path.item {
-                    NuGlob::NoExpand(p) => Some(Spanned {
-                        item: NuGlob::NoExpand(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::DoNotExpand(p) => Some(Spanned {
+                        item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
-                    NuGlob::NeedExpand(p) => Some(Spanned {
-                        item: NuGlob::NeedExpand(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::Expand(p) => Some(Spanned {
+                        item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
                 }
@@ -149,7 +149,7 @@ impl Command for Ls {
                     p,
                     p_tag,
                     absolute_path,
-                    matches!(pat.item, NuGlob::NoExpand(_)),
+                    matches!(pat.item, NuGlob::DoNotExpand(_)),
                 )
             }
             None => {
@@ -187,7 +187,7 @@ impl Command for Ls {
 
         let glob_path = Spanned {
             // use NeedExpand, the relative escaping logic is handled previously
-            item: NuGlob::NeedExpand(path.clone()),
+            item: NuGlob::Expand(path.clone()),
             span: p_tag,
         };
 
