@@ -81,6 +81,7 @@ impl Command for Mv {
 
         if sources.is_empty() {
             return Err(ShellError::FileNotFound {
+                file: spanned_source.item.to_string(),
                 span: spanned_source.span,
             });
         }
