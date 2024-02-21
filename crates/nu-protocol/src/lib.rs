@@ -23,7 +23,6 @@ mod syntax_shape;
 mod ty;
 pub mod util;
 mod value;
-mod variable;
 
 pub use alias::*;
 pub use ast::Unit;
@@ -47,4 +46,3 @@ pub use syntax_shape::*;
 pub use ty::*;
 pub use util::BufferedReader;
 pub use value::*;
-pub use variable::*;
