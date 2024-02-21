@@ -122,14 +122,18 @@ pub fn evaluate_repl(
 
     kitty_protocol_healthcheck(engine_state);
 
+    // Setup initial engine_state and stack state
     let mut previous_engine_state = engine_state.clone();
     let mut previous_stack = stack.clone();
     loop {
+        // clone these values so that they can be moved by AssertUnwindSafe
+        // If there is a panic within this iteration the last engine_state and stack
+        // will be used
         let mut current_engine_state = previous_engine_state.clone();
         let mut current_stack = previous_stack.clone();
-
         let temp_file_cloned = temp_file.clone();
         let mut nu_prompt_cloned = nu_prompt.clone();
+
         match catch_unwind(AssertUnwindSafe(move || {
             match loop_iteration(
                 &mut current_engine_state,
@@ -140,6 +144,7 @@ pub fn evaluate_repl(
                 use_color,
                 &mut entry_num,
             ) {
+                // pass the most recent version of the line_editor back
                 Ok((continue_loop, line_editor)) => (
                     Ok(continue_loop),
                     current_engine_state,
@@ -155,6 +160,7 @@ pub fn evaluate_repl(
             }
         })) {
             Ok((result, es, s, le)) => {
+                // setup state for the next iteration of the repl loop
                 previous_engine_state = es;
                 previous_stack = s;
                 line_editor = le;
@@ -169,6 +175,7 @@ pub fn evaluate_repl(
                 }
             }
             Err(_) => {
+                // line_editor is lost in the error case so reconstruct a new one
                 line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
             }
         }
