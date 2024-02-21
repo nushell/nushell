@@ -10,9 +10,9 @@ use crate::{
     format_error, Config, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
+use std::io::Write;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
-use std::{io::Write, path::PathBuf};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
