@@ -3692,6 +3692,8 @@ fn reorder_record_inner(record: &Record) -> (Vec<&String>, Vec<&Value>) {
     kv_pairs.into_iter().unzip()
 }
 
+// TODO: The name of this function is overly broad with partial compatibility
+// Should be replaced by an explicitly named helper on `Type` (take `Any` into account)
 fn type_compatible(a: Type, b: Type) -> bool {
     if a == b {
         return true;
