@@ -16,7 +16,8 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Define string representation of the custom value
     fn value_string(&self) -> String;
 
-    /// Converts the custom value to a base nushell value
+    /// Converts the custom value to a base nushell value.
+    ///
     /// This imposes the requirement that you can represent the custom value in some form using the
     /// Value representations that already exist in nushell
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError>;
@@ -47,8 +48,10 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
 
     /// Definition of an operation between the object that implements the trait
     /// and another Value.
-    /// The Operator enum is used to indicate the expected operation
-    /// Default impl raises [`ShellError::UnuspportedOperator`])
+    ///
+    /// The Operator enum is used to indicate the expected operation.
+    ///
+    /// Default impl raises [`ShellError::UnsupportedOperator`].
     fn operation(
         &self,
         _lhs_span: Span,
