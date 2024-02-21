@@ -8,6 +8,14 @@ mod lazy_record;
 mod range;
 
 pub mod record;
+pub use custom_value::CustomValue;
+pub use duration::*;
+pub use filesize::*;
+pub use from_value::FromValue;
+pub use glob::*;
+pub use lazy_record::LazyRecord;
+pub use range::*;
+pub use record::Record;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
 use crate::engine::{Closure, EngineState};
@@ -15,17 +23,9 @@ use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
 
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
-pub use custom_value::CustomValue;
-pub use duration::*;
 use fancy_regex::Regex;
-pub use filesize::*;
-pub use from_value::FromValue;
-pub use glob::*;
-pub use lazy_record::LazyRecord;
 use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 use nu_utils::{contains_emoji, locale::get_system_locale_string, IgnoreCaseExt};
-pub use range::*;
-pub use record::Record;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
