@@ -10,7 +10,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
 mod test_examples {
     use super::super::{
         Ansi, Date, Enumerate, Filter, First, Flatten, From, Get, Into, IntoDatetime, IntoString,
-        Math, MathRound, ParEach, Path, PathParse, Random, Sort, SortBy, Split, SplitColumn,
+        Math, MathRound, ParEach, Path, PathParse, Random, Seq, Sort, SortBy, Split, SplitColumn,
         SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
@@ -87,6 +87,7 @@ mod test_examples {
             working_set.add_decl(Box::new(PathParse));
             working_set.add_decl(Box::new(ParEach));
             working_set.add_decl(Box::new(Random));
+            working_set.add_decl(Box::new(Seq));
             working_set.add_decl(Box::new(Sort));
             working_set.add_decl(Box::new(SortBy));
             working_set.add_decl(Box::new(Split));
