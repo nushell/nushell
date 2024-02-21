@@ -1,1 +1,0 @@
-def main [...rest] { $rest | str join " " }
