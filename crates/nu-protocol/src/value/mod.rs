@@ -4,7 +4,6 @@ mod from_value;
 mod glob;
 mod lazy_record;
 mod range;
-mod stream;
 
 pub mod record;
 
@@ -36,7 +35,6 @@ use std::{
     path::PathBuf,
     {cmp::Ordering, fmt::Debug},
 };
-pub use stream::*;
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the

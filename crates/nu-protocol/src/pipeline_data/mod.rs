@@ -1,7 +1,11 @@
+mod stream;
+
+pub use stream::*;
+
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, ListStream, RawStream, ShellError, Span, Value,
+    format_error, Config, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
