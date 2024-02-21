@@ -66,8 +66,11 @@ impl Command for Let {
 
         let pipeline_data = eval_block(engine_state, stack, block, input, true, false)?;
         let mut value = pipeline_data.into_value(call.head);
+
         // if given variable type is Glob, and our result is string
-        // then we need to convert from Value::String to Value::Glob
+        // then nushell need to convert from Value::String to Value::Glob
+        // it's assigned by demand, then it's not quoted, and it's required to expand
+        // if we pass it to other commands.
         let var_type = &engine_state.get_var(var_id).ty;
         let val_span = value.span();
         match value {
