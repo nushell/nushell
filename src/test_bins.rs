@@ -16,6 +16,11 @@ pub fn echo_env(to_stdout: bool) {
     }
 }
 
+pub fn echo_env_and_fail(to_stdout: bool) {
+    echo_env(to_stdout);
+    fail();
+}
+
 fn echo_one_env(arg: &str, to_stdout: bool) {
     if let Ok(v) = std::env::var(arg) {
         if to_stdout {
