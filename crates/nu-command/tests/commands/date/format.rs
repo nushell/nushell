@@ -15,7 +15,7 @@ fn fails_without_input() {
         format date "%c"
         "#);
 
-    assert!(actual.err.contains("Pipeline empty"));
+    assert!(actual.err.contains("no input value was piped in"));
 }
 
 #[test]

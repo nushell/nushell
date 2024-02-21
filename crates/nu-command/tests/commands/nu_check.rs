@@ -48,7 +48,7 @@ fn parse_script_with_wrong_type() {
             "
         ));
 
-        assert!(actual.err.contains("Failed to parse content"));
+        assert!(actual.err.contains("Expected keyword"));
     })
 }
 #[test]
@@ -130,7 +130,7 @@ fn parse_module_with_wrong_type() {
             "
         ));
 
-        assert!(actual.err.contains("Failed to parse content"));
+        assert!(actual.err.contains("Unexpected end of code"));
     })
 }
 #[test]
