@@ -172,6 +172,22 @@ fn redirection_keep_exit_codes() {
 }
 
 #[test]
+fn redirection_stderr_with_failed_program() {
+    Playground::setup("redirection stderr with failed program", |dirs, _| {
+        let out = nu!(
+            cwd: dirs.test(),
+            r#"$env.FOO = "bar"; nu --testbin echo_env_stderr_fail FOO e> file.txt; echo 3"#
+        );
+        // firstly echo 3 shouldn't run, because previous command runs to failed.
+        // second `file.txt` should contain "bar".
+        assert!(!out.out.contains('3'));
+        let expected_file = dirs.test().join("file.txt");
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "bar\n");
+    });
+}
+
+#[test]
 fn redirection_with_non_zero_exit_code_should_stop_from_running() {
     Playground::setup("redirection with non zero exit code", |dirs, _| {
         for redirection in ["o>", "o>>", "e>", "e>>", "o+e>", "o+e>>"] {

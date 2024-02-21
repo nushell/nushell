@@ -441,15 +441,15 @@ fn prepared_statement_to_nu_list(
 ) -> Result<Value, SqliteError> {
     let column_names = stmt
         .column_names()
-        .iter()
-        .map(|c| c.to_string())
+        .into_iter()
+        .map(String::from)
         .collect::<Vec<String>>();
 
     let row_results = stmt.query_map([], |row| {
         Ok(convert_sqlite_row_to_nu_value(
             row,
             call_span,
-            column_names.clone(),
+            &column_names,
         ))
     })?;
 
@@ -491,18 +491,19 @@ fn read_entire_sqlite_db(
     Ok(Value::record(tables, call_span))
 }
 
-pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<String>) -> Value {
-    let mut vals = Vec::with_capacity(column_names.len());
+pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: &[String]) -> Value {
+    let record = column_names
+        .iter()
+        .enumerate()
+        .map(|(i, col)| {
+            (
+                col.clone(),
+                convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span),
+            )
+        })
+        .collect();
 
-    for i in 0..column_names.len() {
-        let val = convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span);
-        vals.push(val);
-    }
-
-    Value::record(
-        Record::from_raw_cols_vals_unchecked(column_names, vals),
-        span,
-    )
+    Value::record(record, span)
 }
 
 pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {

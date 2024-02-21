@@ -158,6 +158,14 @@ fn basic_outerr_pipe_works() {
     assert_eq!(actual.out, "8");
 }
 
+#[test]
+fn err_pipe_with_failed_external_works() {
+    let actual =
+        nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
+    // there is a `newline` output from nu --testbin
+    assert_eq!(actual.out, "4");
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

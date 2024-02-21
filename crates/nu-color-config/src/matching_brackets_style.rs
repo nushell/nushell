@@ -6,7 +6,7 @@ pub fn get_matching_brackets_style(default_style: Style, conf: &Config) -> Style
     const MATCHING_BRACKETS_CONFIG_KEY: &str = "shape_matching_brackets";
 
     match conf.color_config.get(MATCHING_BRACKETS_CONFIG_KEY) {
-        Some(int_color) => match int_color.as_string() {
+        Some(int_color) => match int_color.coerce_str() {
             Ok(int_color) => merge_styles(default_style, lookup_ansi_color_style(&int_color)),
             Err(_) => default_style,
         },

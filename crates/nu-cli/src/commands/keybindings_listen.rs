@@ -112,7 +112,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         let o = match v {
             Value::Record { val, .. } => val
                 .iter()
-                .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
+                .map(|(x, y)| format!("{}: {}", x, y.to_expanded_string("", config)))
                 .collect::<Vec<String>>()
                 .join(", "),
 

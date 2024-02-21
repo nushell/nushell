@@ -320,7 +320,7 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.as_block() {
+                                                            if let Ok(v) = value.coerce_block() {
                                                                 config.external_completer = Some(v)
                                                             } else {
                                                                 match value {
@@ -539,7 +539,7 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_str() {
                                         config.filesize_format = v.to_lowercase();
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
@@ -707,14 +707,14 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                 "normal" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_normal_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
                                     }
                                 }
                                 "table" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_table_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);

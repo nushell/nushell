@@ -141,9 +141,19 @@ impl Command for UCp {
         } else {
             uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
         };
-        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        ))]
         let reflink_mode = uu_cp::ReflinkMode::Auto;
-        #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
         let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
         if paths.is_empty() {
@@ -195,7 +205,10 @@ impl Command for UCp {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -283,6 +296,7 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
         let mut attributes = uu_cp::Attributes {
             #[cfg(any(
                 target_os = "linux",
+                target_os = "freebsd",
                 target_os = "android",
                 target_os = "macos",
                 target_os = "netbsd"
@@ -303,6 +317,7 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
             mode: ATTR_SET,
             #[cfg(any(
                 target_os = "linux",
+                target_os = "freebsd",
                 target_os = "android",
                 target_os = "macos",
                 target_os = "netbsd"
@@ -344,6 +359,7 @@ fn parse_and_set_attribute(
                 "mode" => &mut attribute.mode,
                 #[cfg(any(
                     target_os = "linux",
+                    target_os = "freebsd",
                     target_os = "android",
                     target_os = "macos",
                     target_os = "netbsd"

@@ -251,7 +251,7 @@ pub(super) fn try_parse_trim_strategy(
         }
         TrimStrategy::Truncate { suffix } => {
             if let Some(value) = map.get("truncating_suffix") {
-                if let Ok(v) = value.as_string() {
+                if let Ok(v) = value.coerce_string() {
                     *suffix = Some(v);
                 } else {
                     errors.push(ShellError::GenericError {
@@ -272,7 +272,7 @@ pub(super) fn try_parse_trim_strategy(
 }
 
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    if let Ok(value) = value.as_string() {
+    if let Ok(value) = value.coerce_str() {
         match value.to_lowercase().as_str() {
         "wrapping" => {
             return Some(TrimStrategy::Wrap {

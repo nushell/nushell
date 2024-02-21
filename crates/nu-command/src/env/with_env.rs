@@ -115,7 +115,7 @@ fn with_env(
                 // primitive values([X Y W Z])
                 for row in table.chunks(2) {
                     if row.len() == 2 {
-                        env.insert(row[0].as_string()?, row[1].clone());
+                        env.insert(row[0].coerce_string()?, row[1].clone());
                     }
                     // TODO: else error?
                 }

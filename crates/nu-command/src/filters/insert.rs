@@ -136,7 +136,7 @@ fn insert(
 
     match input {
         PipelineData::Value(mut value, metadata) => {
-            if replacement.as_block().is_ok() {
+            if replacement.coerce_block().is_ok() {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let span = replacement.span();
@@ -200,7 +200,7 @@ fn insert(
                 }
 
                 if path.is_empty() {
-                    if replacement.as_block().is_ok() {
+                    if replacement.coerce_block().is_ok() {
                         let span = replacement.span();
                         let value = stream.next();
                         let end_of_stream = value.is_none();
@@ -232,7 +232,7 @@ fn insert(
                         pre_elems.push(replacement);
                     }
                 } else if let Some(mut value) = stream.next() {
-                    if replacement.as_block().is_ok() {
+                    if replacement.coerce_block().is_ok() {
                         insert_single_value_by_closure(
                             &mut value,
                             replacement,
@@ -258,7 +258,7 @@ fn insert(
                     .into_iter()
                     .chain(stream)
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
-            } else if replacement.as_block().is_ok() {
+            } else if replacement.coerce_block().is_ok() {
                 let engine_state = engine_state.clone();
                 let replacement_span = replacement.span();
                 let capture_block = Closure::from_value(replacement)?;

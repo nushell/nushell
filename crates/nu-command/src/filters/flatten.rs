@@ -201,13 +201,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             if need_flatten {
                                 let records = vals
                                     .into_iter()
-                                    .filter_map(|v| {
-                                        if let Value::Record { val, .. } = v {
-                                            Some(val)
-                                        } else {
-                                            None
-                                        }
-                                    })
+                                    .filter_map(|v| v.into_record().ok())
                                     .collect();
 
                                 inner_table = Some(TableInside::FlattenedRows {

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use nu_protocol::{Record, ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{DataType, Field, Schema, SchemaRef, TimeUnit};
 
 #[derive(Debug, Clone)]
@@ -37,15 +37,14 @@ impl From<NuSchema> for SchemaRef {
 }
 
 fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
-    let (cols, vals) = fields
+    let record = fields
         .map(|field| {
-            let val = dtype_to_value(field.data_type(), span);
             let col = field.name().to_string();
+            let val = dtype_to_value(field.data_type(), span);
             (col, val)
         })
-        .unzip();
+        .collect();
 
-    let record = Record::from_raw_cols_vals_unchecked(cols, vals);
     Value::record(record, Span::unknown())
 }
 
@@ -73,7 +72,7 @@ fn value_to_fields(value: &Value, span: Span) -> Result<Vec<Field>, ShellError> 
                 Ok(Field::new(col, dtype))
             }
             _ => {
-                let dtype = str_to_dtype(&val.as_string()?, span)?;
+                let dtype = str_to_dtype(&val.coerce_string()?, span)?;
                 Ok(Field::new(col, dtype))
             }
         })
@@ -188,42 +187,23 @@ fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError>
 #[cfg(test)]
 mod test {
 
+    use nu_protocol::record;
+
     use super::*;
 
     #[test]
     fn test_value_to_schema() {
-        let value = Value::Record {
-            val: Record::from_raw_cols_vals_unchecked(
-                vec!["name".into(), "age".into(), "address".into()],
-                vec![
-                    Value::String {
-                        val: "str".into(),
-                        internal_span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "i32".into(),
-                        internal_span: Span::test_data(),
-                    },
-                    Value::Record {
-                        val: Record::from_raw_cols_vals_unchecked(
-                            vec!["street".into(), "city".into()],
-                            vec![
-                                Value::String {
-                                    val: "str".into(),
-                                    internal_span: Span::test_data(),
-                                },
-                                Value::String {
-                                    val: "str".into(),
-                                    internal_span: Span::test_data(),
-                                },
-                            ],
-                        ),
-                        internal_span: Span::test_data(),
-                    },
-                ],
-            ),
-            internal_span: Span::test_data(),
+        let address = record! {
+            "street" => Value::test_string("str"),
+            "city" => Value::test_string("str"),
         };
+
+        let value = Value::test_record(record! {
+            "name" => Value::test_string("str"),
+            "age" => Value::test_string("i32"),
+            "address" => Value::test_record(address)
+        });
+
         let schema = value_to_schema(&value, Span::unknown()).unwrap();
         let expected = Schema::from_iter(vec![
             Field::new("name", DataType::String),

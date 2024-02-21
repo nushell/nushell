@@ -207,7 +207,7 @@ fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize)
     match item {
         Value::Record { val, .. } => val
             .get(INDEX_COLUMN_NAME)
-            .map(|value| value.into_string("", config))
+            .map(|value| value.to_expanded_string("", config))
             .unwrap_or_else(|| (row + offset).to_string()),
         _ => (row + offset).to_string(),
     }

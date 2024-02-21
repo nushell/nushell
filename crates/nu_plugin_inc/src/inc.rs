@@ -119,7 +119,7 @@ impl Inc {
             Value::Int { val, .. } => Ok(Value::int(val + 1, head)),
             Value::String { val, .. } => Ok(self.apply(val, head)),
             x => {
-                let msg = x.as_string().map_err(|e| LabeledError {
+                let msg = x.coerce_string().map_err(|e| LabeledError {
                     label: "Unable to extract string".into(),
                     msg: format!("value cannot be converted to string {x:?} - {e}"),
                     span: Some(head),

@@ -1,7 +1,6 @@
 use super::Pipeline;
 use crate::{ast::PipelineElement, Signature, Span, Type, VarId};
 use serde::{Deserialize, Serialize};
-use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -19,20 +18,6 @@ impl Block {
 
     pub fn is_empty(&self) -> bool {
         self.pipelines.is_empty()
-    }
-}
-
-impl Index<usize> for Block {
-    type Output = Pipeline;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.pipelines[index]
-    }
-}
-
-impl IndexMut<usize> for Block {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.pipelines[index]
     }
 }
 

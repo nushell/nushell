@@ -111,6 +111,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             target_os = "freebsd",
             target_os = "openbsd",
             target_os = "linux",
+            target_os = "freebsd",
             target_os = "netbsd"
         ))]
         (
@@ -126,6 +127,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "linux",
+            target_os = "freebsd",
             target_os = "aix",
         ))]
         (
@@ -178,6 +180,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "linux",
+            target_os = "freebsd",
             target_os = "aix",
         ))]
         (
