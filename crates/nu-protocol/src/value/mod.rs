@@ -20,6 +20,7 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
+use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 use nu_utils::{
     contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
 };
@@ -29,6 +30,7 @@ pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -362,7 +364,7 @@ impl Value {
         }
     }
 
-    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    /// Returns this `Value` converted to a `str` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Int`
@@ -371,8 +373,55 @@ impl Value {
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
-    /// Prefer [`coerce_into_string`](Self::coerce_into_string)
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_str().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Binary { val, .. } => match std::str::from_utf8(val) {
+                Ok(s) => Ok(Cow::Borrowed(s)),
+                Err(_) => self.cant_convert_to("string"),
+            },
+            Value::Date { val, .. } => Ok(Cow::Owned(
+                val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            )),
+            val => val.cant_convert_to("string"),
+        }
+    }
+
+    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    ///
+    /// # Note
+    /// This function is equivalent to `value.coerce_str().map(Cow::into_owned)`
+    /// which might allocate a new `String`.
+    ///
+    /// To avoid this allocation, prefer [`coerce_str`](Self::coerce_str)
+    /// if you do not need an owned `String`,
+    /// or [`coerce_into_string`](Self::coerce_into_string)
     /// if you do not need to keep the original `Value` around.
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
     ///
     /// ```
     /// # use nu_protocol::Value;
@@ -391,17 +440,7 @@ impl Value {
     /// }
     /// ```
     pub fn coerce_string(&self) -> Result<String, ShellError> {
-        match self {
-            Value::Int { val, .. } => Ok(val.to_string()),
-            Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.clone()),
-            Value::Binary { val, .. } => match std::str::from_utf8(val) {
-                Ok(s) => Ok(s.to_string()),
-                Err(_) => self.cant_convert_to("string"),
-            },
-            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            val => val.cant_convert_to("string"),
-        }
+        self.coerce_str().map(Cow::into_owned)
     }
 
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
@@ -576,12 +615,12 @@ impl Value {
 
     /// Returns this `Value` as a `u8` slice or an error if it cannot be converted
     ///
+    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
+    /// if you do not need to keep the original `Value` around.
+    ///
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Binary`
     /// - `String`
-    ///
-    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
-    /// if you do not need to keep the original `Value` around.
     ///
     /// ```
     /// # use nu_protocol::Value;
@@ -813,21 +852,21 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        // These are already in locale format, so we don't need to localize them
-        let format = if ["%x", "%X", "%r"]
-            .iter()
-            .any(|item| formatter.contains(item))
+        let locale = if let Ok(l) =
+            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
         {
-            date_time.format(formatter)
+            let locale_str = l.split('.').next().unwrap_or("en_US");
+            locale_str.try_into().unwrap_or(Locale::en_US)
         } else {
-            let locale: Locale = get_system_locale_string()
+            // LC_ALL > LC_CTYPE > LANG else en_US
+            get_system_locale_string()
                 .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
                 .unwrap_or_else(|| String::from("en_US"))
                 .as_str()
                 .try_into()
-                .unwrap_or(Locale::en_US);
-            date_time.format_localized(formatter, locale)
+                .unwrap_or(Locale::en_US)
         };
+        let format = date_time.format_localized(formatter, locale);
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),

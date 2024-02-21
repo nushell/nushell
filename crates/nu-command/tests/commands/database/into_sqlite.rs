@@ -1,7 +1,7 @@
 use std::{io::Write, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime, Offset};
-use nu_protocol::{ast::PathMember, Record, Span, Value};
+use nu_protocol::{ast::PathMember, record, Span, Value};
 use nu_test_support::{
     fs::{line_ending, Stub},
     nu, pipeline,
@@ -234,22 +234,16 @@ impl TestRow {
 impl From<TestRow> for Value {
     fn from(row: TestRow) -> Self {
         Value::record(
-            Record::from_iter(vec![
-                ("somebool".into(), Value::bool(row.0, Span::unknown())),
-                ("someint".into(), Value::int(row.1, Span::unknown())),
-                ("somefloat".into(), Value::float(row.2, Span::unknown())),
-                (
-                    "somefilesize".into(),
-                    Value::filesize(row.3, Span::unknown()),
-                ),
-                (
-                    "someduration".into(),
-                    Value::duration(row.4, Span::unknown()),
-                ),
-                ("somedate".into(), Value::date(row.5, Span::unknown())),
-                ("somestring".into(), Value::string(row.6, Span::unknown())),
-                ("somebinary".into(), Value::binary(row.7, Span::unknown())),
-            ]),
+            record! {
+                "somebool" => Value::bool(row.0, Span::unknown()),
+                "someint" => Value::int(row.1, Span::unknown()),
+                "somefloat" => Value::float(row.2, Span::unknown()),
+                "somefilesize" => Value::filesize(row.3, Span::unknown()),
+                "someduration" => Value::duration(row.4, Span::unknown()),
+                "somedate" => Value::date(row.5, Span::unknown()),
+                "somestring" => Value::string(row.6, Span::unknown()),
+                "somebinary" => Value::binary(row.7, Span::unknown()),
+            },
             Span::unknown(),
         )
     }

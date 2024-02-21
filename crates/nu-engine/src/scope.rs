@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    record, ModuleId, Record, Signature, Span, SyntaxShape, Type, Value,
+    record, ModuleId, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -185,101 +185,81 @@ impl<'e, 's> ScopeData<'e, 's> {
     ) -> Vec<Value> {
         let mut sig_records = vec![];
 
-        let sig_cols = vec![
-            "parameter_name".to_string(),
-            "parameter_type".to_string(),
-            "syntax_shape".to_string(),
-            "is_optional".to_string(),
-            "short_flag".to_string(),
-            "description".to_string(),
-            "custom_completion".to_string(),
-            "parameter_default".to_string(),
-        ];
-
         // input
         sig_records.push(Value::record(
-            Record::from_raw_cols_vals_unchecked(
-                sig_cols.clone(),
-                vec![
-                    Value::nothing(span),
-                    Value::string("input", span),
-                    Value::string(input_type.to_shape().to_string(), span),
-                    Value::bool(false, span),
-                    Value::nothing(span),
-                    Value::nothing(span),
-                    Value::nothing(span),
-                    Value::nothing(span),
-                ],
-            ),
+            record! {
+                "parameter_name" => Value::nothing(span),
+                "parameter_type" => Value::string("input", span),
+                "syntax_shape" => Value::string(input_type.to_shape().to_string(), span),
+                "is_optional" => Value::bool(false, span),
+                "short_flag" => Value::nothing(span),
+                "description" => Value::nothing(span),
+                "custom_completion" => Value::nothing(span),
+                "parameter_default" => Value::nothing(span),
+            },
             span,
         ));
 
         // required_positional
         for req in &signature.required_positional {
-            let sig_vals = vec![
-                Value::string(&req.name, span),
-                Value::string("positional", span),
-                Value::string(req.shape.to_string(), span),
-                Value::bool(false, span),
-                Value::nothing(span),
-                Value::string(&req.desc, span),
-                Value::string(
-                    extract_custom_completion_from_arg(self.engine_state, &req.shape),
-                    span,
-                ),
-                Value::nothing(span),
-            ];
+            let custom = extract_custom_completion_from_arg(self.engine_state, &req.shape);
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
+                record! {
+                    "parameter_name" => Value::string(&req.name, span),
+                    "parameter_type" => Value::string("positional", span),
+                    "syntax_shape" => Value::string(req.shape.to_string(), span),
+                    "is_optional" => Value::bool(false, span),
+                    "short_flag" => Value::nothing(span),
+                    "description" => Value::string(&req.desc, span),
+                    "custom_completion" => Value::string(custom, span),
+                    "parameter_default" => Value::nothing(span),
+                },
                 span,
             ));
         }
 
         // optional_positional
         for opt in &signature.optional_positional {
-            let sig_vals = vec![
-                Value::string(&opt.name, span),
-                Value::string("positional", span),
-                Value::string(opt.shape.to_string(), span),
-                Value::bool(true, span),
-                Value::nothing(span),
-                Value::string(&opt.desc, span),
-                Value::string(
-                    extract_custom_completion_from_arg(self.engine_state, &opt.shape),
-                    span,
-                ),
-                if let Some(val) = &opt.default_value {
-                    val.clone()
-                } else {
-                    Value::nothing(span)
-                },
-            ];
+            let custom = extract_custom_completion_from_arg(self.engine_state, &opt.shape);
+            let default = if let Some(val) = &opt.default_value {
+                val.clone()
+            } else {
+                Value::nothing(span)
+            };
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
+                record! {
+                    "parameter_name" => Value::string(&opt.name, span),
+                    "parameter_type" => Value::string("positional", span),
+                    "syntax_shape" => Value::string(opt.shape.to_string(), span),
+                    "is_optional" => Value::bool(true, span),
+                    "short_flag" => Value::nothing(span),
+                    "description" => Value::string(&opt.desc, span),
+                    "custom_completion" => Value::string(custom, span),
+                    "parameter_default" => default,
+                },
                 span,
             ));
         }
 
         // rest_positional
         if let Some(rest) = &signature.rest_positional {
-            let sig_vals = vec![
-                Value::string(if rest.name == "rest" { "" } else { &rest.name }, span),
-                Value::string("rest", span),
-                Value::string(rest.shape.to_string(), span),
-                Value::bool(true, span),
-                Value::nothing(span),
-                Value::string(&rest.desc, span),
-                Value::string(
-                    extract_custom_completion_from_arg(self.engine_state, &rest.shape),
-                    span,
-                ),
-                Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
-            ];
+            let name = if rest.name == "rest" { "" } else { &rest.name };
+            let custom = extract_custom_completion_from_arg(self.engine_state, &rest.shape);
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
+                record! {
+                    "parameter_name" => Value::string(name, span),
+                    "parameter_type" => Value::string("rest", span),
+                    "syntax_shape" => Value::string(rest.shape.to_string(), span),
+                    "is_optional" => Value::bool(true, span),
+                    "short_flag" => Value::nothing(span),
+                    "description" => Value::string(&rest.desc, span),
+                    "custom_completion" => Value::string(custom, span),
+                    // rest_positional does have default, but parser prohibits specifying it?!
+                    "parameter_default" => Value::nothing(span),
+                },
                 span,
             ));
         }
@@ -310,42 +290,39 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span)
             };
 
-            let sig_vals = vec![
-                Value::string(&named.long, span),
-                flag_type,
-                shape,
-                Value::bool(!named.required, span),
-                short_flag,
-                Value::string(&named.desc, span),
-                Value::string(custom_completion_command_name, span),
-                if let Some(val) = &named.default_value {
-                    val.clone()
-                } else {
-                    Value::nothing(span)
-                },
-            ];
+            let default = if let Some(val) = &named.default_value {
+                val.clone()
+            } else {
+                Value::nothing(span)
+            };
 
             sig_records.push(Value::record(
-                Record::from_raw_cols_vals_unchecked(sig_cols.clone(), sig_vals),
+                record! {
+                    "parameter_name" => Value::string(&named.long, span),
+                    "parameter_type" => flag_type,
+                    "syntax_shape" => shape,
+                    "is_optional" => Value::bool(!named.required, span),
+                    "short_flag" => short_flag,
+                    "description" => Value::string(&named.desc, span),
+                    "custom_completion" => Value::string(custom_completion_command_name, span),
+                    "parameter_default" => default,
+                },
                 span,
             ));
         }
 
         // output
         sig_records.push(Value::record(
-            Record::from_raw_cols_vals_unchecked(
-                sig_cols,
-                vec![
-                    Value::nothing(span),
-                    Value::string("output", span),
-                    Value::string(output_type.to_shape().to_string(), span),
-                    Value::bool(false, span),
-                    Value::nothing(span),
-                    Value::nothing(span),
-                    Value::nothing(span),
-                    Value::nothing(span),
-                ],
-            ),
+            record! {
+                "parameter_name" => Value::nothing(span),
+                "parameter_type" => Value::string("output", span),
+                "syntax_shape" => Value::string(output_type.to_shape().to_string(), span),
+                "is_optional" => Value::bool(false, span),
+                "short_flag" => Value::nothing(span),
+                "description" => Value::nothing(span),
+                "custom_completion" => Value::nothing(span),
+                "parameter_default" => Value::nothing(span),
+            },
             span,
         ));
 

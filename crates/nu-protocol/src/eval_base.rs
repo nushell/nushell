@@ -119,13 +119,12 @@ pub trait Eval {
 
                 let mut output_rows = vec![];
                 for val in vals {
-                    let mut row = vec![];
-                    for expr in val {
-                        row.push(Self::eval(state, mut_state, expr)?);
-                    }
-                    // length equality already ensured in parser
+                    let record = output_headers.iter().zip(val).map(|(col, expr)| {
+                        Self::eval(state, mut_state, expr).map(|val| (col.clone(), val))
+                    }).collect::<Result<_,_>>()?;
+
                     output_rows.push(Value::record(
-                        Record::from_raw_cols_vals_unchecked(output_headers.clone(), row),
+                        record,
                         expr.span,
                     ));
                 }

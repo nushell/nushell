@@ -539,7 +539,7 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.coerce_string() {
+                                    if let Ok(v) = value.coerce_str() {
                                         config.filesize_format = v.to_lowercase();
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);

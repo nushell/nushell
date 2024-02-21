@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 fn from_delimited_string_to_value(
     DelimitedReaderConfig {
@@ -36,28 +36,28 @@ fn from_delimited_string_to_value(
     let mut rows = vec![];
     for row in reader.records() {
         let row = row?;
-        let output_row = (0..headers.len())
-            .map(|i| {
-                row.get(i)
-                    .map(|value| {
-                        if no_infer {
-                            Value::string(value.to_string(), span)
-                        } else if let Ok(i) = value.parse::<i64>() {
-                            Value::int(i, span)
-                        } else if let Ok(f) = value.parse::<f64>() {
-                            Value::float(f, span)
-                        } else {
-                            Value::string(value.to_string(), span)
-                        }
-                    })
-                    .unwrap_or(Value::nothing(span))
+        let columns = headers.iter().cloned();
+        let values = row
+            .into_iter()
+            .map(|s| {
+                if no_infer {
+                    Value::string(s, span)
+                } else if let Ok(i) = s.parse() {
+                    Value::int(i, span)
+                } else if let Ok(f) = s.parse() {
+                    Value::float(f, span)
+                } else {
+                    Value::string(s, span)
+                }
             })
-            .collect::<Vec<Value>>();
+            .chain(std::iter::repeat(Value::nothing(span)));
 
-        rows.push(Value::record(
-            Record::from_raw_cols_vals_unchecked(headers.clone(), output_row),
-            span,
-        ));
+        // If there are more values than the number of headers,
+        // then the remaining values are ignored.
+        //
+        // Otherwise, if there are less values than headers,
+        // then `Value::nothing(span)` is used to fill the remaining columns.
+        rows.push(Value::record(columns.zip(values).collect(), span));
     }
 
     Ok(Value::list(rows, span))

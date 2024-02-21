@@ -18,12 +18,12 @@ nu-path = { path = "../nu-path", version = "0.90.2" }
 nu-system = { path = "../nu-system", version = "0.90.2" }
 
 byte-unit = { version = "5.1", features = [ "serde" ] }
-chrono = { version = "0.4", features = [ "serde", "std", "unstable-locales" ], default-features = false }
+chrono = { version = "0.4.34", features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = "0.2"
-fancy-regex = "0.12"
+fancy-regex = "0.13"
 indexmap = "2.2"
 lru = "0.12"
-miette = { version = "7.0", features = ["fancy-no-backtrace"] }
+miette = { version = "7.1", features = ["fancy-no-backtrace"] }
 num-format = "0.4"
 serde = { version = "1.0", default-features = false }
 serde_json = { version = "1.0", optional = true }
