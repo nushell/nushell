@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// A sequential identifier for a stream
 pub type StreamId = usize;
 
-/// A sequential identifer for a [`PluginCall`]
+/// A sequential identifier for a [`PluginCall`]
 pub type PluginCallId = usize;
 
 /// Information about a plugin command invocation. This includes an [`EvaluatedCall`] as a
