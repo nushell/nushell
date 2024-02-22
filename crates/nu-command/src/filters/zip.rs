@@ -1,4 +1,4 @@
-use nu_engine::CallExt;
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -72,6 +72,14 @@ impl Command for Zip {
                 example: "1..3 | zip 4..6",
                 description: "Zip two ranges",
                 result: Some(Value::list(
+                    vec![test_row_1.clone(), test_row_2.clone(), test_row_3.clone()],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                example: "seq 1 3 | zip { seq 4 600000000 }",
+                description: "Zip two streams",
+                result: Some(Value::list(
                     vec![test_row_1, test_row_2, test_row_3],
                     Span::test_data(),
                 )),
@@ -91,14 +99,31 @@ impl Command for Zip {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let other: Value = call.req(engine_state, stack, 0)?;
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
+        let other: PipelineData = match call.req(engine_state, stack, 0)? {
+            // If a closure was provided, evaluate it and consume its stream output
+            Value::Closure { val, .. } => {
+                let block = engine_state.get_block(val.block_id);
+                let mut stack = stack.captures_to_stack(val.captures);
+                eval_block_with_early_return(
+                    engine_state,
+                    &mut stack,
+                    block,
+                    PipelineData::Empty,
+                    true,
+                    false,
+                )?
+            }
+            // If any other value, use it as-is.
+            val => val.into_pipeline_data(),
+        };
+
         Ok(input
             .into_iter()
-            .zip(other.into_pipeline_data())
+            .zip(other)
             .map(move |(x, y)| Value::list(vec![x, y], head))
             .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
