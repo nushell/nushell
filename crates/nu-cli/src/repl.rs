@@ -151,12 +151,15 @@ pub fn evaluate_repl(
                     current_stack,
                     line_editor,
                 ),
-                Err(e) => (
-                    Err(e),
-                    current_engine_state,
-                    current_stack,
-                    Reedline::create(),
-                ),
+                Err(e) => {
+                    current_engine_state.recover_from_panic();
+                    (
+                        Err(e),
+                        current_engine_state,
+                        current_stack,
+                        Reedline::create(),
+                    )
+                }
             }
         })) {
             Ok((result, es, s, le)) => {
