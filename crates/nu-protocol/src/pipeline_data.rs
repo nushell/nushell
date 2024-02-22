@@ -309,7 +309,7 @@ impl PipelineData {
                         if let Ok(result) = err_thread?.join() {
                             result?;
                         } else {
-                            // thread paniced, which should not happen
+                            // thread panicked, which should not happen
                             debug_assert!(false)
                         }
 
@@ -1069,7 +1069,7 @@ fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io
         IoStream::Pipe | IoStream::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
             // but IoStream::Pipe means to redirect output
-            // into an OS pipe for *future use* (as input for another commmand).
+            // into an OS pipe for *future use* (as input for another command).
             // So, this branch makes no sense, and will simply drop `output` instead of draining it.
             // This could trigger a `SIGPIPE` for the external command,
             // since there will be no reader for its pipe.
