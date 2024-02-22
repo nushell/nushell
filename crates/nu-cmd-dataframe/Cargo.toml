@@ -71,4 +71,3 @@ default = []
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.90.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
