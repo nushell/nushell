@@ -28,4 +28,3 @@ nu-command = { path = "../nu-command", version = "0.90.2" }
 nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
 
 assert-json-diff = "2.0"
-tempfile = "3.2"

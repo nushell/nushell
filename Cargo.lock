@@ -2797,27 +2797,20 @@ dependencies = [
  "miette",
  "mimalloc",
  "nix 0.27.1",
- "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
- "nu-color-config",
  "nu-command",
  "nu-engine",
  "nu-explore",
- "nu-json",
  "nu-lsp",
  "nu-parser",
  "nu-path",
  "nu-plugin",
- "nu-pretty-hex",
  "nu-protocol",
  "nu-std",
- "nu-system",
- "nu-table",
- "nu-term-grid",
  "nu-test-support",
  "nu-utils",
  "openssl",
@@ -2882,13 +2875,9 @@ dependencies = [
  "indexmap",
  "miette",
  "nu-engine",
- "nu-glob",
  "nu-parser",
  "nu-path",
  "nu-protocol",
- "nu-test-support",
- "nu-utils",
- "rstest",
 ]
 
 [[package]]
@@ -2903,7 +2892,6 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "nu-test-support",
  "num 0.4.1",
  "polars",
  "polars-arrow",
@@ -2919,7 +2907,6 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.90.2"
 dependencies = [
- "ahash 0.8.7",
  "fancy-regex",
  "heck",
  "nu-ansi-term",
@@ -2944,9 +2931,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.90.2"
 dependencies = [
- "fancy-regex",
  "itertools 0.12.0",
- "nu-ansi-term",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -2963,7 +2948,6 @@ dependencies = [
  "nu-json",
  "nu-protocol",
  "nu-test-support",
- "nu-utils",
  "serde",
 ]
 
@@ -3000,7 +2984,6 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
- "miette",
  "mime",
  "mime_guess",
  "mockito",
@@ -3023,7 +3006,6 @@ dependencies = [
  "nu-term-grid",
  "nu-test-support",
  "nu-utils",
- "num 0.4.1",
  "num-format",
  "num-traits",
  "once_cell",
@@ -3137,7 +3119,6 @@ dependencies = [
  "ropey",
  "serde",
  "serde_json",
- "tempfile",
 ]
 
 [[package]]
