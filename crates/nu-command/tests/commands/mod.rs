@@ -105,6 +105,7 @@ mod split_row;
 mod str_;
 mod table;
 mod take;
+mod tee;
 mod terminal;
 mod to_text;
 mod touch;
