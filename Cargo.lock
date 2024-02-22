@@ -1333,16 +1333,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_logger"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
-dependencies = [
- "log",
- "regex",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2797,27 +2787,20 @@ dependencies = [
  "miette",
  "mimalloc",
  "nix 0.27.1",
- "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
- "nu-color-config",
  "nu-command",
  "nu-engine",
  "nu-explore",
- "nu-json",
  "nu-lsp",
  "nu-parser",
  "nu-path",
  "nu-plugin",
- "nu-pretty-hex",
  "nu-protocol",
  "nu-std",
- "nu-system",
- "nu-table",
- "nu-term-grid",
  "nu-test-support",
  "nu-utils",
  "openssl",
@@ -2882,13 +2865,9 @@ dependencies = [
  "indexmap",
  "miette",
  "nu-engine",
- "nu-glob",
  "nu-parser",
  "nu-path",
  "nu-protocol",
- "nu-test-support",
- "nu-utils",
- "rstest",
 ]
 
 [[package]]
@@ -2903,7 +2882,6 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "nu-test-support",
  "num 0.4.1",
  "polars",
  "polars-arrow",
@@ -2919,7 +2897,6 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.90.2"
 dependencies = [
- "ahash 0.8.7",
  "fancy-regex",
  "heck",
  "nu-ansi-term",
@@ -2944,9 +2921,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.90.2"
 dependencies = [
- "fancy-regex",
  "itertools 0.12.0",
- "nu-ansi-term",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -2963,7 +2938,6 @@ dependencies = [
  "nu-json",
  "nu-protocol",
  "nu-test-support",
- "nu-utils",
  "serde",
 ]
 
@@ -3000,7 +2974,6 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
- "miette",
  "mime",
  "mime_guess",
  "mockito",
@@ -3023,7 +2996,6 @@ dependencies = [
  "nu-term-grid",
  "nu-test-support",
  "nu-utils",
- "num 0.4.1",
  "num-format",
  "num-traits",
  "once_cell",
@@ -3034,7 +3006,6 @@ dependencies = [
  "print-positions",
  "procfs",
  "quick-xml",
- "quickcheck",
  "quickcheck_macros",
  "rand",
  "rayon",
@@ -3137,7 +3108,6 @@ dependencies = [
  "ropey",
  "serde",
  "serde_json",
- "tempfile",
 ]
 
 [[package]]
@@ -4548,17 +4518,6 @@ checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
 dependencies = [
  "encoding_rs",
  "memchr",
-]
-
-[[package]]
-name = "quickcheck"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
-dependencies = [
- "env_logger",
- "log",
- "rand",
 ]
 
 [[package]]

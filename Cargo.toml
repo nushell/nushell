@@ -55,7 +55,6 @@ members = [
 
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.90.2" }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.90.2" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.90.2" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.90.2" }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.90.2", features = [
@@ -65,20 +64,14 @@ nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.90.2", optional = 
 nu-command = { path = "./crates/nu-command", version = "0.90.2" }
 nu-engine = { path = "./crates/nu-engine", version = "0.90.2" }
 nu-explore = { path = "./crates/nu-explore", version = "0.90.2" }
-nu-json = { path = "./crates/nu-json", version = "0.90.2" }
 nu-lsp = { path = "./crates/nu-lsp/", version = "0.90.2" }
 nu-parser = { path = "./crates/nu-parser", version = "0.90.2" }
 nu-path = { path = "./crates/nu-path", version = "0.90.2" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.90.2" }
-nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.90.2" }
 nu-protocol = { path = "./crates/nu-protocol", version = "0.90.2" }
-nu-system = { path = "./crates/nu-system", version = "0.90.2" }
-nu-table = { path = "./crates/nu-table", version = "0.90.2" }
-nu-term-grid = { path = "./crates/nu-term-grid", version = "0.90.2" }
 nu-std = { path = "./crates/nu-std", version = "0.90.2" }
 nu-utils = { path = "./crates/nu-utils", version = "0.90.2" }
 
-nu-ansi-term = "0.50.0"
 reedline = { version = "0.29.0", features = ["bashisms", "sqlite"] }
 
 crossterm = "0.27"
