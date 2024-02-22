@@ -643,17 +643,20 @@ fn start_fake_plugin_call_responder(
     take: usize,
     mut f: impl FnMut(PluginCallId) -> Vec<ReceivedPluginCallMessage> + Send + 'static,
 ) {
-    std::thread::spawn(move || {
-        for (id, sub) in manager
-            .plugin_call_subscription_receiver
-            .into_iter()
-            .take(take)
-        {
-            for message in f(id) {
-                sub.sender.send(message).expect("failed to send");
+    std::thread::Builder::new()
+        .name("fake plugin call responder".into())
+        .spawn(move || {
+            for (id, sub) in manager
+                .plugin_call_subscription_receiver
+                .into_iter()
+                .take(take)
+            {
+                for message in f(id) {
+                    sub.sender.send(message).expect("failed to send");
+                }
             }
-        }
-    });
+        })
+        .expect("failed to spawn thread");
 }
 
 #[test]

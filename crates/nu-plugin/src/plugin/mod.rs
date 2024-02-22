@@ -146,15 +146,18 @@ fn make_plugin_interface(
     interface.hello()?;
 
     // Spawn the reader on a new thread
-    std::thread::spawn(move || {
-        if let Err(err) = manager.consume_all((reader, encoder)) {
-            log::warn!("Error in PluginInterfaceManager: {err}");
-        }
-        // If the loop has ended, drop the manager so everyone disconnects and then wait for the
-        // child to exit
-        drop(manager);
-        let _ = child.wait();
-    });
+    std::thread::Builder::new()
+        .name("plugin interface reader".into())
+        .spawn(move || {
+            if let Err(err) = manager.consume_all((reader, encoder)) {
+                log::warn!("Error in PluginInterfaceManager: {err}");
+            }
+            // If the loop has ended, drop the manager so everyone disconnects and then wait for the
+            // child to exit
+            drop(manager);
+            let _ = child.wait();
+        })
+        .expect("failed to spawn thread");
 
     Ok(interface)
 }
@@ -442,28 +445,31 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
     try_or_report!(interface, interface.hello());
 
     // Spawn the reader thread
-    std::thread::spawn(move || {
-        if let Err(err) = manager.consume_all((std::io::stdin().lock(), encoder)) {
-            // Do our best to report the read error. Most likely there is some kind of
-            // incompatibility between the plugin and nushell, so it makes more sense to try to
-            // report it on stderr than to send something.
-            let exe = std::env::current_exe().ok();
+    std::thread::Builder::new()
+        .name("engine interface reader".into())
+        .spawn(move || {
+            if let Err(err) = manager.consume_all((std::io::stdin().lock(), encoder)) {
+                // Do our best to report the read error. Most likely there is some kind of
+                // incompatibility between the plugin and nushell, so it makes more sense to try to
+                // report it on stderr than to send something.
+                let exe = std::env::current_exe().ok();
 
-            let plugin_name: String = exe
-                .as_ref()
-                .and_then(|path| path.file_stem())
-                .map(|stem| stem.to_string_lossy().into_owned())
-                .map(|stem| {
-                    stem.strip_prefix("nu_plugin_")
-                        .map(|s| s.to_owned())
-                        .unwrap_or(stem)
-                })
-                .unwrap_or_else(|| "(unknown)".into());
+                let plugin_name: String = exe
+                    .as_ref()
+                    .and_then(|path| path.file_stem())
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .map(|stem| {
+                        stem.strip_prefix("nu_plugin_")
+                            .map(|s| s.to_owned())
+                            .unwrap_or(stem)
+                    })
+                    .unwrap_or_else(|| "(unknown)".into());
 
-            eprintln!("Plugin `{plugin_name}` read error: {err}");
-            std::process::exit(1);
-        }
-    });
+                eprintln!("Plugin `{plugin_name}` read error: {err}");
+                std::process::exit(1);
+            }
+        })
+        .expect("failed to spawn thread");
 
     for plugin_call in call_receiver {
         match plugin_call {

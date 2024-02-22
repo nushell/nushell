@@ -405,15 +405,20 @@ where
     ) -> Option<std::thread::JoinHandle<Result<(), ShellError>>> {
         match self {
             PipelineDataWriter::None => None,
-            _ => Some(std::thread::spawn(move || {
-                let result = self.write();
-                if let Err(ref err) = result {
-                    // Assume that the background thread error probably won't be handled and log it
-                    // here just in case.
-                    log::warn!("Error while writing pipeline in background: {err}");
-                }
-                result
-            })),
+            _ => Some(
+                std::thread::Builder::new()
+                    .name("plugin stream background writer".into())
+                    .spawn(move || {
+                        let result = self.write();
+                        if let Err(ref err) = result {
+                            // Assume that the background thread error probably won't be handled and log it
+                            // here just in case.
+                            log::warn!("Error while writing pipeline in background: {err}");
+                        }
+                        result
+                    })
+                    .expect("failed to spawn thread"),
+            ),
         }
     }
 }
