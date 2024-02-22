@@ -915,6 +915,20 @@ impl EngineState {
     pub fn set_startup_time(&mut self, startup_time: i64) {
         self.startup_time = startup_time;
     }
+
+    pub fn recover_from_panic(&mut self) {
+        if Mutex::is_poisoned(&self.repl_state) {
+            self.repl_state = Arc::new(Mutex::new(ReplState {
+                buffer: "".to_string(),
+                cursor_pos: 0,
+            }));
+        }
+        if Mutex::is_poisoned(&self.regex_cache) {
+            self.regex_cache = Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
+            )));
+        }
+    }
 }
 
 impl Default for EngineState {
