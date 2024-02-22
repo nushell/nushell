@@ -23,17 +23,19 @@ impl PluginIdentity {
         let filename = filename.into();
         // `C:\nu_plugin_inc.exe` becomes `inc`
         // `/home/nu/.cargo/bin/nu_plugin_inc` becomes `inc`
-        // `/home/nu/other_inc` becomes `other_inc` as a fallback
-        // a path not having a file stem, like an empty path, becomes `<unknown>`
+        // any other path, including if it doesn't start with nu_plugin_, becomes
+        // `<invalid plugin name>`
         let plugin_name = filename
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
-            .map(|stem| {
-                stem.strip_prefix("nu_plugin_")
-                    .map(|s| s.to_owned())
-                    .unwrap_or(stem)
-            })
-            .unwrap_or_else(|| "<unknown>".into());
+            .and_then(|stem| stem.strip_prefix("nu_plugin_").map(|s| s.to_owned()))
+            .unwrap_or_else(|| {
+                log::warn!(
+                    "filename `{}` is not a valid plugin name, must start with nu_plugin_",
+                    filename.display()
+                );
+                "<invalid plugin name>".into()
+            });
         PluginIdentity {
             filename,
             shell,
@@ -97,6 +99,12 @@ impl PluginIdentity {
 #[test]
 fn parses_name_from_path() {
     assert_eq!("test", PluginIdentity::new_fake("test").plugin_name);
-    assert_eq!("other", PluginIdentity::new("other", None).plugin_name);
-    assert_eq!("<unknown>", PluginIdentity::new("", None).plugin_name);
+    assert_eq!(
+        "<invalid plugin name>",
+        PluginIdentity::new("other", None).plugin_name
+    );
+    assert_eq!(
+        "<invalid plugin name>",
+        PluginIdentity::new("", None).plugin_name
+    );
 }
