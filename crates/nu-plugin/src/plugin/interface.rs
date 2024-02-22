@@ -6,6 +6,7 @@ use std::{
         atomic::{AtomicBool, Ordering::Relaxed},
         Arc, Mutex,
     },
+    thread,
 };
 
 use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
@@ -368,12 +369,19 @@ where
                 stderr,
                 exit_code,
             } => {
-                std::thread::scope(|scope| {
+                thread::scope(|scope| {
                     let stderr_thread = stderr.map(|(mut writer, stream)| {
-                        scope.spawn(move || writer.write_all(raw_stream_iter(stream)))
+                        thread::Builder::new()
+                            .name("plugin stderr writer".into())
+                            .spawn_scoped(scope, move || writer.write_all(raw_stream_iter(stream)))
+                            .expect("failed to spawn thread")
                     });
-                    let exit_code_thread = exit_code
-                        .map(|(mut writer, stream)| scope.spawn(move || writer.write_all(stream)));
+                    let exit_code_thread = exit_code.map(|(mut writer, stream)| {
+                        thread::Builder::new()
+                            .name("plugin exit_code writer".into())
+                            .spawn_scoped(scope, move || writer.write_all(stream))
+                            .expect("failed to spawn thread")
+                    });
                     // Optimize for stdout: if only stdout is present, don't spawn any other
                     // threads.
                     if let Some((mut writer, stream)) = stdout {
@@ -400,13 +408,11 @@ where
 
     /// Write all of the data in each of the streams. This method returns immediately; any necessary
     /// write will happen in the background. If a thread was spawned, its handle is returned.
-    pub(crate) fn write_background(
-        self,
-    ) -> Option<std::thread::JoinHandle<Result<(), ShellError>>> {
+    pub(crate) fn write_background(self) -> Option<thread::JoinHandle<Result<(), ShellError>>> {
         match self {
             PipelineDataWriter::None => None,
             _ => Some(
-                std::thread::Builder::new()
+                thread::Builder::new()
                     .name("plugin stream background writer".into())
                     .spawn(move || {
                         let result = self.write();
