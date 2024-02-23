@@ -627,7 +627,7 @@ fn prepare_history_metadata(
             })
             .into_diagnostic();
         if let Err(e) = result {
-            warn!("Could not prepare history metatdata: {e}");
+            warn!("Could not prepare history metadata: {e}");
         }
     }
 }
