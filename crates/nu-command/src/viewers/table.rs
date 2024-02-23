@@ -861,7 +861,7 @@ fn stream_collect(
             break;
         }
 
-        if i == size {
+        if i + 1 == size {
             end = false;
             break;
         }
