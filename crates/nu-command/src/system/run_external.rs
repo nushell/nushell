@@ -164,7 +164,7 @@ pub fn create_external_command(
                         // the expression type of $variable_name, $"($variable_name)"
                         // will be Expr::StringInterpolation, Expr::FullCellPath
                         Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
-                            arg_keep_raw.push(true);
+                            arg_keep_raw.push(true)
                         }
                         _ => arg_keep_raw.push(false),
                     }

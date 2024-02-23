@@ -176,9 +176,24 @@ fn dont_run_glob_if_pass_variable_to_external() {
             EmptyFile("andres_likes_arepas.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nuou $f"#);
+        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nonu $f"#);
 
         assert_eq!(actual.out, "*.txt");
+    })
+}
+
+#[test]
+fn run_glob_if_pass_variable_to_external() {
+    Playground::setup("run_glob_on_external", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("jt_likes_cake.txt"),
+            EmptyFile("andres_likes_arepas.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nonu ...(glob $f)"#);
+
+        assert!(actual.out.contains("jt_likes_cake.txt"));
+        assert!(actual.out.contains("andres_likes_arepas.txt"));
     })
 }
 
