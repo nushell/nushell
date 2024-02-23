@@ -47,6 +47,7 @@ mod help;
 mod histogram;
 mod insert;
 mod inspect;
+mod interleave;
 mod into_datetime;
 mod into_filesize;
 mod into_int;
