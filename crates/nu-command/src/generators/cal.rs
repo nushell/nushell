@@ -109,7 +109,7 @@ pub fn cal(
         week_start: call.get_flag(engine_state, stack, "week-start")?,
     };
 
-    let style_computer = &StyleComputer::from_config(&engine_state, stack);
+    let style_computer = &StyleComputer::from_config(engine_state, stack);
 
     let mut selected_year: i32 = current_year;
     let mut current_day_option: Option<u32> = Some(current_day);
@@ -203,6 +203,7 @@ fn get_current_date() -> (i32, u32, u32) {
     (current_year, current_month, current_day)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_months_of_year_to_table(
     arguments: &Arguments,
     calendar_vec_deque: &mut VecDeque<Value>,
