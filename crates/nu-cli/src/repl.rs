@@ -6,7 +6,7 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
-use log::{trace, warn};
+use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_cmd_base::{hook::eval_hook, util::get_editor};
@@ -26,6 +26,7 @@ use reedline::{
     Reedline, SqliteBackedHistory, Vi,
 };
 use std::{
+    collections::HashMap,
     env::temp_dir,
     io::{self, IsTerminal, Write},
     panic::{catch_unwind, AssertUnwindSafe},
@@ -135,46 +136,32 @@ pub fn evaluate_repl(
         let mut nu_prompt_cloned = nu_prompt.clone();
 
         match catch_unwind(AssertUnwindSafe(move || {
-            match loop_iteration(
-                &mut current_engine_state,
-                &mut current_stack,
+            let (continue_loop, line_editor) = loop_iteration(LoopContext {
+                engine_state: &mut current_engine_state,
+                stack: &mut current_stack,
                 line_editor,
-                &mut nu_prompt_cloned,
-                &temp_file_cloned,
+                nu_prompt: &mut nu_prompt_cloned,
+                temp_file: &temp_file_cloned,
                 use_color,
-                &mut entry_num,
-            ) {
-                // pass the most recent version of the line_editor back
-                Ok((continue_loop, line_editor)) => (
-                    Ok(continue_loop),
-                    current_engine_state,
-                    current_stack,
-                    line_editor,
-                ),
-                Err(e) => {
-                    current_engine_state.recover_from_panic();
-                    (
-                        Err(e),
-                        current_engine_state,
-                        current_stack,
-                        Reedline::create(),
-                    )
-                }
-            }
+                entry_num: &mut entry_num,
+                nushell_path,
+            });
+
+            // pass the most recent version of the line_editor back
+            (
+                continue_loop,
+                current_engine_state,
+                current_stack,
+                line_editor,
+            )
         })) {
-            Ok((result, es, s, le)) => {
+            Ok((continue_loop, es, s, le)) => {
                 // setup state for the next iteration of the repl loop
                 previous_engine_state = es;
                 previous_stack = s;
                 line_editor = le;
-                match result {
-                    Ok(false) => {
-                        break;
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                    _ => (),
+                if !continue_loop {
+                    break;
                 }
             }
             Err(_) => {
@@ -223,30 +210,32 @@ fn get_line_editor(
     Ok(line_editor)
 }
 
-///
+struct LoopContext<'a> {
+    engine_state: &'a mut EngineState,
+    stack: &'a mut Stack,
+    line_editor: Reedline,
+    nu_prompt: &'a mut NushellPrompt,
+    temp_file: &'a Path,
+    use_color: bool,
+    entry_num: &'a mut usize,
+    nushell_path: &'a str,
+}
+
 /// Perform one iteration of the REPL loop
 /// Result is bool: continue loop, current reedline
 #[inline]
-fn loop_iteration(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    line_editor: Reedline,
-    nu_prompt: &mut NushellPrompt,
-    temp_file: &Path,
-    use_color: bool,
-    entry_num: &mut usize,
-) -> Result<(bool, Reedline)> {
+fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
     use nu_cmd_base::hook;
     use reedline::Signal;
     let loop_start_time = std::time::Instant::now();
 
-    let cwd = get_guaranteed_cwd(engine_state, stack);
+    let cwd = get_guaranteed_cwd(ctx.engine_state, ctx.stack);
 
     let mut start_time = std::time::Instant::now();
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.
-    if let Err(err) = engine_state.merge_env(stack, cwd) {
-        report_error_new(engine_state, &err);
+    if let Err(err) = ctx.engine_state.merge_env(ctx.stack, cwd) {
+        report_error_new(ctx.engine_state, &err);
     }
     perf(
         "merge env",
@@ -254,12 +243,12 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
     //Reset the ctrl-c handler
-    if let Some(ctrlc) = &mut engine_state.ctrlc {
+    if let Some(ctrlc) = &mut ctx.engine_state.ctrlc {
         ctrlc.store(false, Ordering::SeqCst);
     }
     perf(
@@ -268,13 +257,13 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
-    let config = engine_state.get_config();
+    let config = ctx.engine_state.get_config();
 
-    let engine_reference = std::sync::Arc::new(engine_state.clone());
+    let engine_reference = std::sync::Arc::new(ctx.engine_state.clone());
 
     // Find the configured cursor shapes for each mode
     let cursor_config = CursorConfig {
@@ -288,19 +277,20 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
 
-    let mut line_editor = line_editor
+    let mut line_editor = ctx
+        .line_editor
         .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
         .with_highlighter(Box::new(NuHighlighter {
             engine_state: engine_reference.clone(),
-            stack: std::sync::Arc::new(stack.clone()),
+            stack: std::sync::Arc::new(ctx.stack.clone()),
             config: config.clone(),
         }))
         .with_validator(Box::new(NuValidator {
@@ -308,7 +298,7 @@ fn loop_iteration(
         }))
         .with_completer(Box::new(NuCompleter::new(
             engine_reference.clone(),
-            stack.clone(),
+            ctx.stack.clone(),
         )))
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
@@ -320,10 +310,10 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
-    let style_computer = StyleComputer::from_config(engine_state, stack);
+    let style_computer = StyleComputer::from_config(ctx.engine_state, ctx.stack);
 
     start_time = std::time::Instant::now();
     line_editor = if config.use_ansi_coloring {
@@ -341,12 +331,12 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
-    line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
-        report_error_new(engine_state, &e);
+    line_editor = add_menus(line_editor, engine_reference, ctx.stack, config).unwrap_or_else(|e| {
+        report_error_new(ctx.engine_state, &e);
         Reedline::create()
     });
     perf(
@@ -355,18 +345,20 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
-    let buffer_editor = get_editor(engine_state, stack, Span::unknown());
+    let buffer_editor = get_editor(ctx.engine_state, ctx.stack, Span::unknown());
 
     line_editor = if let Ok((cmd, args)) = buffer_editor {
         let mut command = std::process::Command::new(cmd);
-        command
-            .args(args)
-            .envs(env_to_strings(engine_state, stack)?);
-        line_editor.with_buffer_editor(command, temp_file.to_path_buf())
+        let envs = env_to_strings(ctx.engine_state, ctx.stack).unwrap_or_else(|e| {
+            warn!("Couldn't convert environment variable values to strings: {e}");
+            HashMap::default()
+        });
+        command.args(args).envs(envs);
+        line_editor.with_buffer_editor(command, ctx.temp_file.to_path_buf())
     } else {
         line_editor
     };
@@ -376,10 +368,10 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
-    if let Some(history) = engine_state.history_config() {
+    if let Some(history) = ctx.engine_state.history_config() {
         start_time = std::time::Instant::now();
         if history.sync_on_enter {
             if let Err(e) = line_editor.sync_history() {
@@ -392,28 +384,35 @@ fn loop_iteration(
             file!(),
             line!(),
             column!(),
-            use_color,
+            ctx.use_color,
         );
     }
 
     start_time = std::time::Instant::now();
     // Changing the line editor based on the found keybindings
-    line_editor = setup_keybindings(engine_state, line_editor);
+    line_editor = setup_keybindings(ctx.engine_state, line_editor);
     perf(
         "keybindings",
         start_time,
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
     // Right before we start our prompt and take input from the user,
     // fire the "pre_prompt" hook
     if let Some(hook) = config.hooks.pre_prompt.clone() {
-        if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
-            report_error_new(engine_state, &err);
+        if let Err(err) = eval_hook(
+            ctx.engine_state,
+            ctx.stack,
+            None,
+            vec![],
+            &hook,
+            "pre_prompt",
+        ) {
+            report_error_new(ctx.engine_state, &err);
         }
     }
     perf(
@@ -422,17 +421,17 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
     // Next, check all the environment variables they ask for
     // fire the "env_change" hook
-    let config = engine_state.get_config();
+    let config = ctx.engine_state.get_config();
     if let Err(error) =
-        hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
+        hook::eval_env_change_hook(config.hooks.env_change.clone(), ctx.engine_state, ctx.stack)
     {
-        report_error_new(engine_state, &error)
+        report_error_new(ctx.engine_state, &error)
     }
     perf(
         "env-change hook",
@@ -440,123 +439,167 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     start_time = std::time::Instant::now();
-    let config = &engine_state.get_config().clone();
-    prompt_update::update_prompt(config, engine_state, stack, nu_prompt);
+    let config = &ctx.engine_state.get_config().clone();
+    prompt_update::update_prompt(config, ctx.engine_state, ctx.stack, ctx.nu_prompt);
     let transient_prompt =
-        prompt_update::make_transient_prompt(config, engine_state, stack, nu_prompt);
+        prompt_update::make_transient_prompt(config, ctx.engine_state, ctx.stack, ctx.nu_prompt);
     perf(
         "update_prompt",
         start_time,
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
-    *entry_num += 1;
+    *ctx.entry_num += 1;
 
     start_time = std::time::Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
-    let input = line_editor.read_line(nu_prompt);
+    let input = line_editor.read_line(ctx.nu_prompt);
     let shell_integration = config.shell_integration;
 
     match input {
         Ok(Signal::Success(s)) => {
             let hostname = System::host_name();
             let history_supports_meta = matches!(
-                engine_state.history_config().map(|h| h.file_format),
+                ctx.engine_state.history_config().map(|h| h.file_format),
                 Some(HistoryFileFormat::Sqlite)
             );
 
             if history_supports_meta {
-                prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor)?;
+                if let Err(e) =
+                    prepare_history_metadata(&s, &hostname, ctx.engine_state, &mut line_editor)
+                {
+                    warn!("Could not prepare history metadata: {e}");
+                }
             }
 
             // Right before we start running the code the user gave us, fire the `pre_execution`
             // hook
             if let Some(hook) = config.hooks.pre_execution.clone() {
                 // Set the REPL buffer to the current command for the "pre_execution" hook
-                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                let mut repl = ctx
+                    .engine_state
+                    .repl_state
+                    .lock()
+                    .expect("repl state mutex");
                 repl.buffer = s.to_string();
                 drop(repl);
 
-                if let Err(err) =
-                    eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
-                {
-                    report_error_new(engine_state, &err);
+                if let Err(err) = eval_hook(
+                    ctx.engine_state,
+                    ctx.stack,
+                    None,
+                    vec![],
+                    &hook,
+                    "pre_execution",
+                ) {
+                    report_error_new(ctx.engine_state, &err);
                 }
             }
 
-            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+            let mut repl = ctx
+                .engine_state
+                .repl_state
+                .lock()
+                .expect("repl state mutex");
             repl.cursor_pos = line_editor.current_insertion_point();
             repl.buffer = line_editor.current_buffer_contents().to_string();
             drop(repl);
 
             if shell_integration {
-                run_ansi_sequence(PRE_EXECUTE_MARKER)?;
+                if let Err(e) = run_ansi_sequence(PRE_EXECUTE_MARKER) {
+                    warn!("Could not run ansi sequence: {e}");
+                }
             }
 
             // Actual command execution logic starts from here
             let start_time = Instant::now();
 
-            match parse_operation(s.clone(), engine_state, stack)? {
-                ReplOperation::AutoCd { cwd, target, span } => {
-                    do_auto_cd(target, cwd, stack, engine_state, span);
-                }
-                ReplOperation::RunCommand(cmd) => {
-                    line_editor = do_run_cmd(
-                        &cmd,
-                        stack,
-                        engine_state,
-                        line_editor,
-                        shell_integration,
-                        *entry_num,
-                    )?;
-                }
-                // as the name implies, we do nothing in this case
-                ReplOperation::DoNothing => {}
+            match parse_operation(s.clone(), ctx.engine_state, ctx.stack) {
+                Ok(operation) => match operation {
+                    ReplOperation::AutoCd { cwd, target, span } => {
+                        do_auto_cd(target, cwd, ctx.stack, ctx.engine_state, span);
+                    }
+                    ReplOperation::RunCommand(cmd) => {
+                        line_editor = do_run_cmd(
+                            &cmd,
+                            ctx.stack,
+                            ctx.engine_state,
+                            line_editor,
+                            shell_integration,
+                            *ctx.entry_num,
+                        )
+                        .unwrap_or_else(|e| {
+                            error!("Could not run command: {e}");
+                            get_line_editor(ctx.engine_state, ctx.nushell_path, ctx.use_color)
+                                .unwrap_or_else(|e| {
+                                    error!("Could not get line editor, using default: {e}");
+                                    Reedline::create()
+                                })
+                        });
+                    }
+                    // as the name implies, we do nothing in this case
+                    ReplOperation::DoNothing => {}
+                },
+                Err(ref e) => error!("Error parsing operation: {e}"),
             }
 
             let cmd_duration = start_time.elapsed();
 
-            stack.add_env_var(
+            ctx.stack.add_env_var(
                 "CMD_DURATION_MS".into(),
                 Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
             );
 
             if history_supports_meta {
-                fill_in_result_related_history_metadata(
+                if let Err(e) = fill_in_result_related_history_metadata(
                     &s,
-                    engine_state,
+                    ctx.engine_state,
                     cmd_duration,
-                    stack,
+                    ctx.stack,
                     &mut line_editor,
-                )?;
+                ) {
+                    warn!("Could not fill in result related history metadata: {e}");
+                }
             }
 
             if shell_integration {
-                do_shell_integration_finalize_command(hostname, engine_state, stack)?;
+                if let Err(e) =
+                    do_shell_integration_finalize_command(hostname, ctx.engine_state, ctx.stack)
+                {
+                    warn!("Could not finalize shell integration: {e}");
+                }
             }
 
-            flush_engine_state_repl_buffer(engine_state, &mut line_editor);
+            flush_engine_state_repl_buffer(ctx.engine_state, &mut line_editor);
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
             if shell_integration {
-                run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                if let Err(e) =
+                    run_ansi_sequence(&get_command_finished_marker(ctx.stack, ctx.engine_state))
+                {
+                    warn!("Could not run ansi sequence: {e}");
+                }
             }
         }
         Ok(Signal::CtrlD) => {
             // When exiting clear to a new line
             if shell_integration {
-                run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                if let Err(e) =
+                    run_ansi_sequence(&get_command_finished_marker(ctx.stack, ctx.engine_state))
+                {
+                    warn!("Could not run ansi sequence: {e}");
+                }
             }
             println!();
-            return Ok((false, line_editor));
+            return (false, line_editor);
         }
         Err(err) => {
             let message = err.to_string();
@@ -568,7 +611,11 @@ fn loop_iteration(
                 // Alternatively only allow that expected failures let the REPL loop
             }
             if shell_integration {
-                run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                if let Err(e) =
+                    run_ansi_sequence(&get_command_finished_marker(ctx.stack, ctx.engine_state))
+                {
+                    warn!("Could not run ansi sequence: {e}");
+                }
             }
         }
     }
@@ -578,7 +625,7 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
     perf(
@@ -587,10 +634,10 @@ fn loop_iteration(
         file!(),
         line!(),
         column!(),
-        use_color,
+        ctx.use_color,
     );
 
-    Ok((true, line_editor))
+    (true, line_editor)
 }
 
 ///
