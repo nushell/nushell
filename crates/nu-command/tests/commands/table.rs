@@ -2819,7 +2819,10 @@ fn table_abbreviation_cut() {
     assert_eq!(actual.out, "");
 
     let actual = nu!(r#"0..2000 | table --width=80 -a 1"#);
-    assert_eq!(actual.out, "╭───┬──────╮│ 0 │    0 ││ 1 │ ...  ││ 2 │ 2000 │╰───┴──────╯");
+    assert_eq!(
+        actual.out,
+        "╭───┬──────╮│ 0 │    0 ││ 1 │ ...  ││ 2 │ 2000 │╰───┴──────╯"
+    );
 
     let actual = nu!(r#"0..2000 | table --width=80 -a 3"#);
     assert_eq!(actual.out, "╭───┬──────╮│ 0 │    0 ││ 1 │    1 ││ 2 │    2 ││ 3 │ ...  ││ 4 │ 1998 ││ 5 │ 1999 ││ 6 │ 2000 │╰───┴──────╯");
