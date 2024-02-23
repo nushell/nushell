@@ -1034,6 +1034,23 @@ where
 {
     let vec = to_vec(value)?;
     let string = String::from_utf8(vec)?;
-    let output = string.lines().map(str::trim).collect();
+
+    let mut inside_quotes = false;
+    let mut last_char = 'p'; // 'p' is just a placeholder, can be anything except for '\\'
+    let output = string
+        .chars()
+        .filter(|c| -> bool {
+            if *c == '\"' && last_char != '\\' {
+                inside_quotes = !inside_quotes;
+            }
+            last_char = *c;
+
+            if inside_quotes {
+                true
+            } else {
+                !c.is_whitespace()
+            }
+        })
+        .collect();
     Ok(output)
 }

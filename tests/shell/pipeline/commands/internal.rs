@@ -587,7 +587,7 @@ fn index_row() {
         let foo = [[name]; [joe] [bob]]; echo $foo.1 | to json --raw
         ");
 
-    assert_eq!(actual.out, r#"{"name": "bob"}"#);
+    assert_eq!(actual.out, r#"{"name":"bob"}"#);
 }
 
 #[test]
