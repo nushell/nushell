@@ -134,6 +134,7 @@ pub fn create_external_command(
 
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
+    let mut arg_run_glob = vec![];
     for (arg, spread) in call.rest_iter(1) {
         match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
@@ -145,6 +146,13 @@ pub fn create_external_command(
                         spanned_args.push(value_as_spanned(v)?);
                         // for arguments in list, it's always treated as a whole arguments
                         arg_keep_raw.push(true);
+                        arg_run_glob.push(matches!(
+                            v,
+                            Value::Glob {
+                                no_expand: false,
+                                ..
+                            }
+                        ))
                     }
                 } else {
                     return Err(ShellError::CannotPassListToExternal {
@@ -164,9 +172,20 @@ pub fn create_external_command(
                         // the expression type of $variable_name, $"($variable_name)"
                         // will be Expr::StringInterpolation, Expr::FullCellPath
                         Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
-                            arg_keep_raw.push(true)
+                            arg_keep_raw.push(true);
+                            arg_run_glob.push(matches!(
+                                val,
+                                Value::Glob {
+                                    no_expand: false,
+                                    ..
+                                }
+                            ));
                         }
-                        _ => arg_keep_raw.push(false),
+
+                        _ => {
+                            arg_run_glob.push(true);
+                            arg_keep_raw.push(false);
+                        }
                     }
                 }
             }
@@ -177,6 +196,7 @@ pub fn create_external_command(
         name,
         args: spanned_args,
         arg_keep_raw,
+        arg_run_glob,
         redirect_stdout,
         redirect_stderr,
         redirect_combine,
@@ -190,6 +210,7 @@ pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
     pub arg_keep_raw: Vec<bool>,
+    pub arg_run_glob: Vec<bool>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     pub redirect_combine: bool,
@@ -669,8 +690,13 @@ impl ExternalCommand {
 
         let mut process = std::process::Command::new(head);
 
-        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
-            trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
+        for (arg, arg_keep_raw, arg_run_glob) in self
+            .args
+            .iter()
+            .zip(self.arg_keep_raw.iter())
+            .zip(self.arg_run_glob.iter())
+        {
+            trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, arg_run_glob, cwd);
         }
 
         Ok(process)
@@ -706,14 +732,17 @@ fn trim_expand_and_apply_arg(
     process: &mut CommandSys,
     arg: &Spanned<String>,
     arg_keep_raw: &bool,
+    arg_run_glob: &bool,
     cwd: &str,
 ) {
     // if arg is quoted, like "aa", 'aa', `aa`, or:
     // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
     // `as_a_whole` will be true, so nu won't remove the inner quotes.
-    let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+    let (trimmed_args, mut run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
     if *arg_keep_raw {
         keep_raw = true;
+        // it's a list or a variable, don't run glob expansion either
+        run_glob_expansion = false;
     }
     let mut arg = Spanned {
         item: if keep_raw {
