@@ -45,3 +45,11 @@ fn to_json_escaped() -> TestResult {
         r#"{"foo":{"bar":"[{\"a\":\"b\",\"c\": 2}]"}}"#,
     )
 }
+
+#[test]
+fn to_json_raw_backslash_in_quotes() -> TestResult {
+    run_test(
+        r#"{a: '\', b: 'some text'} | to json -r"#,
+        r#"{"a":"\\","b":"some text"}"#,
+    )
+}

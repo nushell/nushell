@@ -1036,14 +1036,15 @@ where
     let string = String::from_utf8(vec)?;
 
     let mut inside_quotes = false;
-    let mut last_char = 'p'; // 'p' is just a placeholder, can be anything except for '\\'
+    let mut current_char_escaped = false;
     let output = string
         .chars()
         .filter(|c| -> bool {
-            if *c == '\"' && last_char != '\\' {
+            if *c == '\"' && !current_char_escaped {
                 inside_quotes = !inside_quotes;
             }
-            last_char = *c;
+
+            current_char_escaped = *c == '\\' && !current_char_escaped;
 
             if inside_quotes {
                 true
