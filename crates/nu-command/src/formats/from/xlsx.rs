@@ -1,4 +1,5 @@
 use calamine::*;
+use chrono::{DateTime, FixedOffset};
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -145,6 +146,12 @@ fn from_xlsx(
                             Data::Float(f) => Value::float(*f, head),
                             Data::Int(i) => Value::int(*i, head),
                             Data::Bool(b) => Value::bool(*b, head),
+                            Data::DateTime(d) => d
+                                .as_datetime()
+                                .and_then(|d| FixedOffset::east_opt(0).map(|o| (d, o)))
+                                .map(|(d, o)| DateTime::from_naive_utc_and_offset(d, o))
+                                .map(|d| Value::date(d, head))
+                                .unwrap_or(Value::nothing(head)),
                             _ => Value::nothing(head),
                         };
 
