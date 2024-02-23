@@ -2,14 +2,12 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::eval_expression;
 use nu_engine::CallExt;
-use nu_protocol::IoStream;
-use nu_protocol::NuPath;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IoStream, ListStream, NuGlob, PipelineData, RawStream, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -681,9 +679,9 @@ fn trim_expand_and_apply_arg(
     }
     let cwd = PathBuf::from(cwd);
     if arg.item.contains('*') && run_glob_expansion {
-        // we need to run glob expansion, so it's unquoted.
+        // we need to run glob expansion, so it's NeedExpand.
         let path = Spanned {
-            item: NuPath::UnQuoted(arg.item.clone()),
+            item: NuGlob::Expand(arg.item.clone()),
             span: arg.span,
         };
         if let Ok((prefix, matches)) = nu_engine::glob_from(&path, &cwd, arg.span, None) {

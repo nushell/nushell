@@ -6,7 +6,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
     Span, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -62,7 +62,7 @@ impl Command for Mv {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let mut spanned_source: Spanned<NuPath> = call.req(engine_state, stack, 0)?;
+        let mut spanned_source: Spanned<NuGlob> = call.req(engine_state, stack, 0)?;
         spanned_source.item = spanned_source.item.strip_ansi_string_unlikely();
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;

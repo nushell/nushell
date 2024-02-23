@@ -1,9 +1,9 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::NuPath;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -155,7 +155,7 @@ impl Command for UCp {
             target_os = "macos"
         )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),

@@ -325,6 +325,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "backtrace-ext"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "537beee3be4a18fb023b570f80e3ae28003db9167a751266b259926e25539d50"
+dependencies = [
+ "backtrace",
+]
+
+[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2552,6 +2561,8 @@ version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baed61d13cc3723ee6dbed730a82bfacedc60a85d81da2d77e9c3e8ebc0b504a"
 dependencies = [
+ "backtrace",
+ "backtrace-ext",
  "miette-derive",
  "owo-colors",
  "supports-color",
@@ -2786,27 +2797,20 @@ dependencies = [
  "miette",
  "mimalloc",
  "nix 0.27.1",
- "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
- "nu-color-config",
  "nu-command",
  "nu-engine",
  "nu-explore",
- "nu-json",
  "nu-lsp",
  "nu-parser",
  "nu-path",
  "nu-plugin",
- "nu-pretty-hex",
  "nu-protocol",
  "nu-std",
- "nu-system",
- "nu-table",
- "nu-term-grid",
  "nu-test-support",
  "nu-utils",
  "openssl",
@@ -2871,13 +2875,9 @@ dependencies = [
  "indexmap",
  "miette",
  "nu-engine",
- "nu-glob",
  "nu-parser",
  "nu-path",
  "nu-protocol",
- "nu-test-support",
- "nu-utils",
- "rstest",
 ]
 
 [[package]]
@@ -2892,7 +2892,6 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "nu-test-support",
  "num 0.4.1",
  "polars",
  "polars-arrow",
@@ -2908,7 +2907,6 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.90.2"
 dependencies = [
- "ahash 0.8.7",
  "fancy-regex",
  "heck",
  "nu-ansi-term",
@@ -2933,9 +2931,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.90.2"
 dependencies = [
- "fancy-regex",
  "itertools 0.12.0",
- "nu-ansi-term",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -2952,7 +2948,6 @@ dependencies = [
  "nu-json",
  "nu-protocol",
  "nu-test-support",
- "nu-utils",
  "serde",
 ]
 
@@ -2989,7 +2984,6 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
- "miette",
  "mime",
  "mime_guess",
  "mockito",
@@ -3012,7 +3006,6 @@ dependencies = [
  "nu-term-grid",
  "nu-test-support",
  "nu-utils",
- "num 0.4.1",
  "num-format",
  "num-traits",
  "once_cell",
@@ -3126,7 +3119,6 @@ dependencies = [
  "ropey",
  "serde",
  "serde_json",
- "tempfile",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ use std::{
 
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{NuPath, ShellError, Span, Spanned};
+use nu_protocol::{NuGlob, ShellError, Span, Spanned};
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 
@@ -18,7 +18,7 @@ const GLOB_CHARS: &[char] = &['*', '?', '['];
 /// The second of the two values is an iterator over the matching filepaths.
 #[allow(clippy::type_complexity)]
 pub fn glob_from(
-    pattern: &Spanned<NuPath>,
+    pattern: &Spanned<NuGlob>,
     cwd: &Path,
     span: Span,
     options: Option<MatchOptions>,
@@ -29,7 +29,7 @@ pub fn glob_from(
     ),
     ShellError,
 > {
-    let no_glob_for_pattern = matches!(pattern.item, NuPath::Quoted(_));
+    let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
     let (prefix, pattern) = if pattern.item.as_ref().contains(GLOB_CHARS) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();

@@ -584,6 +584,32 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
     });
 }
 
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
+    Playground::setup("umv_test_18", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; umv $f {}",
+            src.display(),
+            "hello_world_dest"
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join("hello_world_dest").exists());
+    });
+}
+
 #[cfg(not(windows))]
 #[rstest]
 #[case("a]?c")]
@@ -591,6 +617,7 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 // windows doesn't allow filename with `*`.
 fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) {
     mv_files_with_glob_metachars(src_name);
+    mv_files_with_glob_metachars_when_input_are_variables(src_name);
 }
 
 #[test]
