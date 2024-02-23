@@ -32,6 +32,7 @@ mod return_;
 mod scope;
 mod try_;
 mod use_;
+mod var;
 mod version;
 mod while_;
 
@@ -69,6 +70,7 @@ pub use return_::Return;
 pub use scope::*;
 pub use try_::Try;
 pub use use_::Use;
+pub use var::Var;
 pub use version::Version;
 pub use while_::While;
 //#[cfg(feature = "plugin")]

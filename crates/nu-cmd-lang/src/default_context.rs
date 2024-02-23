@@ -62,6 +62,7 @@ pub fn create_default_context() -> EngineState {
             Use,
             Version,
             While,
+            Var,
         };
 
         //#[cfg(feature = "plugin")]
