@@ -357,6 +357,15 @@ fn open_files_with_glob_metachars(#[case] src_name: &str) {
 
         assert!(actual.err.is_empty());
         assert!(actual.out.contains("hello"));
+
+        // also test for variables.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; open $f",
+            src.display(),
+        );
+        assert!(actual.err.is_empty());
+        assert!(actual.out.contains("hello"));
     });
 }
 

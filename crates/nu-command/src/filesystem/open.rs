@@ -1,10 +1,11 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
+    Category, DataSource, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData,
     PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::io::BufReader;
@@ -58,7 +59,7 @@ impl Command for Open {
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = call.rest::<Spanned<NuPath>>(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args
@@ -76,7 +77,7 @@ impl Command for Open {
             };
 
             paths.push(Spanned {
-                item: NuPath::UnQuoted(filename),
+                item: NuGlob::Expand(filename),
                 span,
             });
         }

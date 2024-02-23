@@ -36,6 +36,7 @@ impl Command for SubCommand {
                 (Type::Int, Type::String),
                 (Type::Number, Type::String),
                 (Type::String, Type::String),
+                (Type::Glob, Type::String),
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
@@ -202,6 +203,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
         Value::String { val, .. } => Value::string(val.to_string(), span),
+        Value::Glob { val, .. } => Value::string(val.to_string(), span),
 
         Value::Filesize { val: _, .. } => {
             Value::string(input.to_expanded_string(", ", config), span)
