@@ -503,9 +503,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
             drop(repl);
 
             if shell_integration {
-                if let Err(e) = run_ansi_sequence(PRE_EXECUTE_MARKER) {
-                    warn!("Could not run ansi sequence: {e}");
-                }
+                run_ansi_sequence(PRE_EXECUTE_MARKER);
             }
 
             // Actual command execution logic starts from here
@@ -572,19 +570,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
             if shell_integration {
-                if let Err(e) = run_ansi_sequence(&get_command_finished_marker(stack, engine_state))
-                {
-                    warn!("Could not run ansi sequence: {e}");
-                }
+                run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
             }
         }
         Ok(Signal::CtrlD) => {
             // When exiting clear to a new line
             if shell_integration {
-                if let Err(e) = run_ansi_sequence(&get_command_finished_marker(stack, engine_state))
-                {
-                    warn!("Could not run ansi sequence: {e}");
-                }
+                run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
             }
             println!();
             return (false, line_editor);
@@ -599,10 +591,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
                 // Alternatively only allow that expected failures let the REPL loop
             }
             if shell_integration {
-                if let Err(e) = run_ansi_sequence(&get_command_finished_marker(stack, engine_state))
-                {
-                    warn!("Could not run ansi sequence: {e}");
-                }
+                run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
             }
         }
     }
@@ -837,7 +826,7 @@ fn do_run_cmd(
             let binary_name = s.split_whitespace().next();
 
             if let Some(binary_name) = binary_name {
-                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"))?;
+                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"));
             }
         }
     }
@@ -863,7 +852,7 @@ fn do_shell_integration_finalize_command(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<()> {
-    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+    run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
         let path = cwd.coerce_into_string()?;
 
@@ -872,7 +861,7 @@ fn do_shell_integration_finalize_command(
         if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
             // If we're in vscode, run their specific ansi escape sequence.
             // This is helpful for ctrl+g to change directories in the terminal.
-            run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path))?;
+            run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path));
         } else {
             // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
             run_ansi_sequence(&format!(
@@ -883,7 +872,7 @@ fn do_shell_integration_finalize_command(
                 ),
                 if path.starts_with('/') { "" } else { "/" },
                 percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-            ))?;
+            ));
         }
 
         // Try to abbreviate string for windows title
@@ -898,9 +887,9 @@ fn do_shell_integration_finalize_command(
         // ESC]0;stringBEL -- Set icon name and window title to string
         // ESC]1;stringBEL -- Set icon name to string
         // ESC]2;stringBEL -- Set window title to string
-        run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"))?;
+        run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"));
     }
-    run_ansi_sequence(RESET_APPLICATION_MODE)?;
+    run_ansi_sequence(RESET_APPLICATION_MODE);
     Ok(())
 }
 
@@ -1055,23 +1044,12 @@ fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> Str
     format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
 }
 
-fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    io::stdout()
-        .write_all(seq.as_bytes())
-        .map_err(|e| ShellError::GenericError {
-            error: "Error writing ansi sequence".into(),
-            msg: e.to_string(),
-            span: Some(Span::unknown()),
-            help: None,
-            inner: vec![],
-        })?;
-    io::stdout().flush().map_err(|e| ShellError::GenericError {
-        error: "Error flushing stdio".into(),
-        msg: e.to_string(),
-        span: Some(Span::unknown()),
-        help: None,
-        inner: vec![],
-    })
+fn run_ansi_sequence(seq: &str) {
+    if let Err(e) = io::stdout().write_all(seq.as_bytes()) {
+        warn!("Error writing ansi sequence {e}");
+    } else if let Err(e) = io::stdout().flush() {
+        warn!("Error flushing stdio {e}");
+    }
 }
 
 // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
