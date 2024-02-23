@@ -605,7 +605,7 @@ impl PipelineData {
                     .map(|bytes| bytes.item)
                     .unwrap_or_default();
                 RawStream::new(
-                    Box::new(vec![Ok(stderr_bytes)].into_iter()),
+                    Box::new(std::iter::once(Ok(stderr_bytes))),
                     stderr_ctrlc,
                     stderr_span,
                     None,

@@ -550,7 +550,7 @@ fn eval_element_with_input(
                                     // so nushell knows this result is not the last part of a command.
                                     (
                                         Some(RawStream::new(
-                                            Box::new(vec![].into_iter()),
+                                            Box::new(std::iter::empty()),
                                             None,
                                             *span,
                                             Some(0),
