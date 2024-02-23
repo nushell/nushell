@@ -84,7 +84,7 @@ pub(crate) fn add_menus(
     }
 
     // Checking if the default menus have been added from the config file
-    let default_menus = vec![
+    let default_menus = [
         ("completion_menu", DEFAULT_COMPLETION_MENU),
         ("history_menu", DEFAULT_HISTORY_MENU),
         ("help_menu", DEFAULT_HELP_MENU),
