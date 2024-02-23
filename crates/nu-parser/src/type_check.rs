@@ -63,6 +63,8 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
             is_compatible(lhs, rhs)
         }
+        (Type::Glob, Type::String) => true,
+        (Type::String, Type::Glob) => true,
         (lhs, rhs) => lhs == rhs,
     }
 }

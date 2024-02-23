@@ -1,7 +1,9 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Let;
@@ -61,8 +63,24 @@ impl Command for Let {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
+
         let pipeline_data = eval_block(engine_state, stack, block, input, true, false)?;
-        stack.add_var(var_id, pipeline_data.into_value(call.head));
+        let mut value = pipeline_data.into_value(call.head);
+
+        // if given variable type is Glob, and our result is string
+        // then nushell need to convert from Value::String to Value::Glob
+        // it's assigned by demand, then it's not quoted, and it's required to expand
+        // if we pass it to other commands.
+        let var_type = &engine_state.get_var(var_id).ty;
+        let val_span = value.span();
+        match value {
+            Value::String { val, .. } if var_type == &Type::Glob => {
+                value = Value::glob(val, false, val_span);
+            }
+            _ => {}
+        }
+
+        stack.add_var(var_id, value);
         Ok(PipelineData::empty())
     }
 

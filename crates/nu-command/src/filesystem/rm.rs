@@ -5,6 +5,7 @@ use std::io::ErrorKind;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
+use super::util::get_rest_for_glob_pattern;
 use super::util::try_interaction;
 
 use nu_engine::env::current_dir;
@@ -14,7 +15,7 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
     Span, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -126,7 +127,7 @@ fn rm(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
     if paths.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -166,8 +167,10 @@ fn rm(
         }
         let corrected_path = Spanned {
             item: match path.item {
-                NuPath::Quoted(s) => NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
-                NuPath::UnQuoted(s) => NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuGlob::DoNotExpand(s) => {
+                    NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s))
+                }
+                NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
             },
             span: path.span,
         };
