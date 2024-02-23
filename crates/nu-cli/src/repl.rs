@@ -559,10 +559,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
             }
 
             if shell_integration {
-                if let Err(e) = do_shell_integration_finalize_command(hostname, engine_state, stack)
-                {
-                    warn!("Could not finalize shell integration: {e}");
-                }
+                do_shell_integration_finalize_command(hostname, engine_state, stack);
             }
 
             flush_engine_state_repl_buffer(engine_state, &mut line_editor);
@@ -851,46 +848,52 @@ fn do_shell_integration_finalize_command(
     hostname: Option<String>,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<()> {
+) {
     run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        let path = cwd.coerce_into_string()?;
+        match cwd.coerce_into_string() {
+            Ok(path) => {
+                // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
+                // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
+                if stack.get_env_var(engine_state, "TERM_PROGRAM")
+                    == Some(Value::test_string("vscode"))
+                {
+                    // If we're in vscode, run their specific ansi escape sequence.
+                    // This is helpful for ctrl+g to change directories in the terminal.
+                    run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path));
+                } else {
+                    // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                    run_ansi_sequence(&format!(
+                        "\x1b]7;file://{}{}{}\x1b\\",
+                        percent_encoding::utf8_percent_encode(
+                            &hostname.unwrap_or_else(|| "localhost".to_string()),
+                            percent_encoding::CONTROLS
+                        ),
+                        if path.starts_with('/') { "" } else { "/" },
+                        percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+                    ));
+                }
 
-        // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
-        // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
-            // If we're in vscode, run their specific ansi escape sequence.
-            // This is helpful for ctrl+g to change directories in the terminal.
-            run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path));
-        } else {
-            // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-            run_ansi_sequence(&format!(
-                "\x1b]7;file://{}{}{}\x1b\\",
-                percent_encoding::utf8_percent_encode(
-                    &hostname.unwrap_or_else(|| "localhost".to_string()),
-                    percent_encoding::CONTROLS
-                ),
-                if path.starts_with('/') { "" } else { "/" },
-                percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-            ));
+                // Try to abbreviate string for windows title
+                let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                    path.replace(&p.as_path().display().to_string(), "~")
+                } else {
+                    path
+                };
+
+                // Set window title too
+                // https://tldp.org/HOWTO/Xterm-Title-3.html
+                // ESC]0;stringBEL -- Set icon name and window title to string
+                // ESC]1;stringBEL -- Set icon name to string
+                // ESC]2;stringBEL -- Set window title to string
+                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"));
+            }
+            Err(e) => {
+                warn!("Could not coerce working directory to string {e}");
+            }
         }
-
-        // Try to abbreviate string for windows title
-        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            path.replace(&p.as_path().display().to_string(), "~")
-        } else {
-            path
-        };
-
-        // Set window title too
-        // https://tldp.org/HOWTO/Xterm-Title-3.html
-        // ESC]0;stringBEL -- Set icon name and window title to string
-        // ESC]1;stringBEL -- Set icon name to string
-        // ESC]2;stringBEL -- Set window title to string
-        run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"));
     }
     run_ansi_sequence(RESET_APPLICATION_MODE);
-    Ok(())
 }
 
 ///
