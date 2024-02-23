@@ -884,6 +884,10 @@ fn stream_collect_abbriviated(
     let mut head = Vec::with_capacity(size);
     let mut tail = VecDeque::with_capacity(size);
 
+    if size == 0 {
+        return (vec![], 0, false);
+    }
+
     for item in stream.by_ref() {
         read += 1;
 
