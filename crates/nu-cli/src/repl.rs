@@ -474,13 +474,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
                 Some(HistoryFileFormat::Sqlite)
             );
 
-            if history_supports_meta {
-                if let Err(e) =
-                    prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor)
-                {
-                    warn!("Could not prepare history metadata: {e}");
-                }
-            }
+            prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor);
 
             // Right before we start running the code the user gave us, fire the `pre_execution`
             // hook
@@ -621,9 +615,9 @@ fn prepare_history_metadata(
     hostname: &Option<String>,
     engine_state: &EngineState,
     line_editor: &mut Reedline,
-) -> Result<()> {
+) {
     if !s.is_empty() && line_editor.has_last_command_context() {
-        line_editor
+        let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
                 c.hostname = hostname.clone();
@@ -631,9 +625,11 @@ fn prepare_history_metadata(
                 c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                 c
             })
-            .into_diagnostic()?; // todo: don't stop repl if error here?
+            .into_diagnostic();
+        if let Err(e) = result {
+            warn!("Could not prepare history metatdata: {e}");
+        }
     }
-    Ok(())
 }
 
 ///
