@@ -13,6 +13,7 @@ mod config_nu_default;
 mod continue_;
 mod conversions;
 mod cp;
+#[cfg(feature = "sqlite")]
 mod database;
 mod date;
 mod debug_info;
