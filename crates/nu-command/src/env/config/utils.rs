@@ -31,7 +31,7 @@ pub(crate) fn gen_command(
     ExternalCommand {
         name,
         args,
-        arg_keep_raw: vec![false; number_of_args],
+        arg_constraints: vec![(false, false); number_of_args],
         redirect_stdout: false,
         redirect_stderr: false,
         redirect_combine: false,

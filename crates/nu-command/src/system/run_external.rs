@@ -104,6 +104,16 @@ impl Command for External {
     }
 }
 
+fn is_glob_val(v: &Value) -> bool {
+    matches!(
+        v,
+        Value::Glob {
+            no_expand: false,
+            ..
+        }
+    )
+}
+
 /// Creates ExternalCommand from a call
 pub fn create_external_command(
     engine_state: &EngineState,
@@ -133,7 +143,7 @@ pub fn create_external_command(
     }
 
     let mut spanned_args = vec![];
-    let mut arg_keep_raw = vec![];
+    let mut arg_keep_raw_and_expand_glob = vec![];
     for (arg, spread) in call.rest_iter(1) {
         match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
@@ -142,9 +152,9 @@ pub fn create_external_command(
                     // Example: one_arg may be something like ["ls" "-a"]
                     // convert it to "ls" "-a"
                     for v in vals {
-                        spanned_args.push(value_as_spanned(v)?);
                         // for arguments in list, it's always treated as a whole arguments
-                        arg_keep_raw.push(true);
+                        arg_keep_raw_and_expand_glob.push((true, is_glob_val(&v)));
+                        spanned_args.push(value_as_spanned(v)?);
                     }
                 } else {
                     return Err(ShellError::CannotPassListToExternal {
@@ -158,16 +168,16 @@ pub fn create_external_command(
                 if spread {
                     return Err(ShellError::CannotSpreadAsList { span: arg.span });
                 } else {
-                    spanned_args.push(value_as_spanned(val)?);
                     match arg.expr {
                         // refer to `parse_dollar_expr` function
                         // the expression type of $variable_name, $"($variable_name)"
                         // will be Expr::StringInterpolation, Expr::FullCellPath
                         Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
-                            arg_keep_raw.push(true)
+                            arg_keep_raw_and_expand_glob.push((true, is_glob_val(&val)))
                         }
-                        _ => arg_keep_raw.push(false),
+                        _ => arg_keep_raw_and_expand_glob.push((false, false)),
                     }
+                    spanned_args.push(value_as_spanned(val)?);
                 }
             }
         }
@@ -176,7 +186,7 @@ pub fn create_external_command(
     Ok(ExternalCommand {
         name,
         args: spanned_args,
-        arg_keep_raw,
+        arg_constraints: arg_keep_raw_and_expand_glob,
         redirect_stdout,
         redirect_stderr,
         redirect_combine,
@@ -189,7 +199,7 @@ pub fn create_external_command(
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
-    pub arg_keep_raw: Vec<bool>,
+    pub arg_constraints: Vec<(bool, bool)>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     pub redirect_combine: bool,
@@ -669,8 +679,9 @@ impl ExternalCommand {
 
         let mut process = std::process::Command::new(head);
 
-        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
-            trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
+        for (arg, (arg_keep_raw, is_glob_val)) in self.args.iter().zip(self.arg_constraints.iter())
+        {
+            trim_expand_and_apply_arg(&mut process, arg, *arg_keep_raw, *is_glob_val, cwd);
         }
 
         Ok(process)
@@ -687,7 +698,8 @@ impl ExternalCommand {
 
         process.arg("/c");
         process.arg(&self.name.item);
-        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
+        for (arg, (arg_keep_raw, is_glob_val)) in self.args.iter().zip(self.arg_constraints.iter())
+        {
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
             let arg = Spanned {
@@ -695,7 +707,7 @@ impl ExternalCommand {
                 span: arg.span,
             };
 
-            trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
+            trim_expand_and_apply_arg(&mut process, &arg, *arg_keep_raw, *is_glob_val, cwd)
         }
 
         process
@@ -705,17 +717,17 @@ impl ExternalCommand {
 fn trim_expand_and_apply_arg(
     process: &mut CommandSys,
     arg: &Spanned<String>,
-    arg_keep_raw: &bool,
+    arg_keep_raw: bool,
+    is_glob_val: bool,
     cwd: &str,
 ) {
     // if arg is quoted, like "aa", 'aa', `aa`, or:
     // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
     // `as_a_whole` will be true, so nu won't remove the inner quotes.
     let (trimmed_args, mut run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
-    if *arg_keep_raw {
+    if arg_keep_raw {
         keep_raw = true;
-        // it's a list or a variable, don't run glob expansion either
-        run_glob_expansion = false;
+        run_glob_expansion = is_glob_val;
     }
     let mut arg = Spanned {
         item: if keep_raw {
