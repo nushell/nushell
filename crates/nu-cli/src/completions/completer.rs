@@ -564,7 +564,7 @@ mod completer_tests {
         );
 
         let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
-        let dataset = vec![
+        let dataset = [
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
             (" sudo", false, "", Vec::new()),
