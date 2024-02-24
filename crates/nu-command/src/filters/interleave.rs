@@ -4,7 +4,7 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
 
@@ -67,26 +67,25 @@ Note that the order of rows with 'a' columns and rows with 'b' columns is arbitr
                 result: None,
             },
             Example {
-                example: "seq 1 3 | wrap a | interleave { seq 1 3 | wrap b } | sort",
+                example: "seq 1 3 | interleave { seq 4 6 } | sort",
                 description: "Read two sequences of numbers, one from input. Sort for consistency.",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record! { "a" => Value::test_int(1) }),
-                    Value::test_record(record! { "a" => Value::test_int(2) }),
-                    Value::test_record(record! { "a" => Value::test_int(3) }),
-                    Value::test_record(record! { "b" => Value::test_int(1) }),
-                    Value::test_record(record! { "b" => Value::test_int(2) }),
-                    Value::test_record(record! { "b" => Value::test_int(3) }),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(5),
+                    Value::test_int(6),
                 ])),
             },
             Example {
-                example:
-                    "interleave { [foo, bar] | wrap foobar } { [baz, quux] | wrap bazquux } | sort",
+                example: r#"interleave { "foo\nbar\n" | lines } { "baz\nquux\n" | lines } | sort"#,
                 description: "Read two sequences, but without any input. Sort for consistency.",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record! { "foobar" => Value::test_string("bar") }),
-                    Value::test_record(record! { "foobar" => Value::test_string("foo") }),
-                    Value::test_record(record! { "bazquux" => Value::test_string("baz") }),
-                    Value::test_record(record! { "bazquux" => Value::test_string("quux") }),
+                    Value::test_string("bar"),
+                    Value::test_string("baz"),
+                    Value::test_string("foo"),
+                    Value::test_string("quux"),
                 ])),
             },
             Example {
