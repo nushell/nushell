@@ -136,7 +136,7 @@ interleave
                     false,
                 )
             }))
-            .map(|stream| {
+            .try_for_each(|stream| {
                 stream.map(|stream| {
                     // Then take the stream and spawn a thread to send it to our channel
                     let tx = tx.clone();
@@ -152,8 +152,7 @@ interleave
                         })
                         .expect("failed to create thread");
                 })
-            })
-            .collect::<Result<(), ShellError>>()?;
+            })?;
 
         // Now that threads are writing to the channel, we just return it as a stream
         Ok(rx
