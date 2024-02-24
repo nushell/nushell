@@ -144,7 +144,6 @@ pub fn evaluate_repl(
                 temp_file: &temp_file_cloned,
                 use_color,
                 entry_num: &mut entry_num,
-                nushell_path,
             });
 
             // pass the most recent version of the line_editor back
@@ -218,7 +217,6 @@ struct LoopContext<'a> {
     temp_file: &'a Path,
     use_color: bool,
     entry_num: &'a mut usize,
-    nushell_path: &'a str,
 }
 
 /// Perform one iteration of the REPL loop
@@ -237,7 +235,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
         temp_file,
         use_color,
         entry_num,
-        nushell_path,
     } = ctx;
 
     let cwd = get_guaranteed_cwd(engine_state, stack);
@@ -474,7 +471,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
                 Some(HistoryFileFormat::Sqlite)
             );
 
-            prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor);
+            if history_supports_meta {
+                prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor);
+            }
 
             // Right before we start running the code the user gave us, fire the `pre_execution`
             // hook
@@ -517,15 +516,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
                             shell_integration,
                             *entry_num,
                         )
-                        .unwrap_or_else(|e| {
-                            error!("Could not run command: {e}");
-                            get_line_editor(engine_state, nushell_path, use_color).unwrap_or_else(
-                                |e| {
-                                    error!("Could not get line editor, using default: {e}");
-                                    Reedline::create()
-                                },
-                            )
-                        });
                     }
                     // as the name implies, we do nothing in this case
                     ReplOperation::DoNothing => {}
@@ -782,7 +772,7 @@ fn do_run_cmd(
     line_editor: Reedline,
     shell_integration: bool,
     entry_num: usize,
-) -> Result<Reedline> {
+) -> Reedline {
     trace!("eval source: {}", s);
 
     let mut cmds = s.split_whitespace();
@@ -808,18 +798,25 @@ fn do_run_cmd(
 
     if shell_integration {
         if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-            let path = cwd.coerce_into_string()?;
+            match cwd.coerce_into_string() {
+                Ok(path) => {
+                    // Try to abbreviate string for windows title
+                    let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                        path.replace(&p.as_path().display().to_string(), "~")
+                    } else {
+                        path
+                    };
+                    let binary_name = s.split_whitespace().next();
 
-            // Try to abbreviate string for windows title
-            let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                path.replace(&p.as_path().display().to_string(), "~")
-            } else {
-                path
-            };
-            let binary_name = s.split_whitespace().next();
-
-            if let Some(binary_name) = binary_name {
-                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"));
+                    if let Some(binary_name) = binary_name {
+                        run_ansi_sequence(&format!(
+                            "\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"
+                        ));
+                    }
+                }
+                Err(e) => {
+                    warn!("Could not coerce working directory to string {e}");
+                }
             }
         }
     }
@@ -833,7 +830,7 @@ fn do_run_cmd(
         false,
     );
 
-    Ok(line_editor)
+    line_editor
 }
 
 ///
