@@ -19,6 +19,7 @@ use nu_table::{
     TableOutput,
 };
 use nu_utils::get_ls_colors;
+use std::collections::VecDeque;
 use std::io::IsTerminal;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -270,9 +271,14 @@ fn parse_table_config(
     let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
-    let cfg = TableConfig::new(table_view, term_width, theme, abbrivation, index);
 
-    Ok(cfg)
+    Ok(TableConfig::new(
+        table_view,
+        term_width,
+        theme,
+        abbrivation,
+        index,
+    ))
 }
 
 fn get_index_flag(
@@ -788,37 +794,26 @@ impl Iterator for PagingTableCreator {
     type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut batch = vec![];
+        let batch;
+        let end;
 
-        let start_time = Instant::now();
-
-        let mut idx = 0;
-        let mut reached_end = true;
-
-        // Pull from stream until time runs out or we have enough items
-        for item in self.stream.by_ref() {
-            batch.push(item);
-            idx += 1;
-
-            // If we've been buffering over a second, go ahead and send out what we have so far
-            if (Instant::now() - start_time).as_secs() >= 1 {
-                reached_end = false;
-                break;
+        match self.cfg.abbreviation {
+            Some(abbr) => {
+                (batch, _, end) =
+                    stream_collect_abbriviated(&mut self.stream, abbr, self.ctrlc.clone());
             }
-
-            if idx == STREAM_PAGE_SIZE {
-                reached_end = false;
-                break;
-            }
-
-            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                break;
+            None => {
+                // Pull from stream until time runs out or we have enough items
+                (batch, end) =
+                    stream_collect(&mut self.stream, STREAM_PAGE_SIZE, self.ctrlc.clone());
             }
         }
 
+        let batch_size = batch.len();
+
         // Count how much elements were displayed and if end of stream was reached
-        self.elements_displayed += idx;
-        self.reached_end = self.reached_end || reached_end;
+        self.elements_displayed += batch_size;
+        self.reached_end = self.reached_end || end;
 
         if batch.is_empty() {
             // If this iterator has not displayed a single entry and reached its end (no more elements
@@ -839,50 +834,111 @@ impl Iterator for PagingTableCreator {
             };
         }
 
-        if let Some(limit) = self.cfg.abbreviation {
-            // todo: could be optimized cause we already consumed the list there's no point in goint back to pagination;
-
-            if batch.len() > limit * 2 + 1 {
-                batch = abbreviate_list(
-                    &batch,
-                    limit,
-                    Value::string(String::from("..."), Span::unknown()),
-                );
-
-                let is_record_list = batch[..limit]
-                    .iter()
-                    .all(|value| matches!(value, Value::Record { .. }))
-                    && batch[limit + 1..]
-                        .iter()
-                        .all(|value| matches!(value, Value::Record { .. }));
-
-                if limit > 0 && is_record_list {
-                    // in case it's a record list we set a default text to each column instead of a single value.
-
-                    let dummy: Record = batch[0]
-                        .as_record()
-                        .expect("ok")
-                        .columns()
-                        .map(|k| {
-                            (
-                                k.to_owned(),
-                                Value::string(String::from("..."), Span::unknown()),
-                            )
-                        })
-                        .collect();
-
-                    batch[limit] = Value::record(dummy, Span::unknown());
-                }
-            }
-        }
-
         let table = self.build_table(batch);
 
-        self.row_offset += idx;
+        self.row_offset += batch_size;
 
         let config = get_config(&self.engine_state, &self.stack);
         convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
     }
+}
+
+fn stream_collect(
+    stream: &mut ListStream,
+    size: usize,
+    ctrlc: Option<Arc<AtomicBool>>,
+) -> (Vec<Value>, bool) {
+    let start_time = Instant::now();
+    let mut end = true;
+
+    let mut batch = Vec::with_capacity(size);
+    for (i, item) in stream.by_ref().enumerate() {
+        batch.push(item);
+
+        // If we've been buffering over a second, go ahead and send out what we have so far
+        if (Instant::now() - start_time).as_secs() >= 1 {
+            end = false;
+            break;
+        }
+
+        if i + 1 == size {
+            end = false;
+            break;
+        }
+
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            break;
+        }
+    }
+
+    (batch, end)
+}
+
+fn stream_collect_abbriviated(
+    stream: &mut ListStream,
+    size: usize,
+    ctrlc: Option<Arc<AtomicBool>>,
+) -> (Vec<Value>, usize, bool) {
+    let mut end = true;
+    let mut read = 0;
+    let mut head = Vec::with_capacity(size);
+    let mut tail = VecDeque::with_capacity(size);
+
+    if size == 0 {
+        return (vec![], 0, false);
+    }
+
+    for item in stream.by_ref() {
+        read += 1;
+
+        if read <= size {
+            head.push(item);
+        } else if tail.len() < size {
+            tail.push_back(item);
+        } else {
+            let _ = tail.pop_front();
+            tail.push_back(item);
+        }
+
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            end = false;
+            break;
+        }
+    }
+
+    let have_filled_list = head.len() == size && tail.len() == size;
+    if have_filled_list {
+        let dummy = get_abbriviated_dummy(&head, &tail);
+        head.insert(size, dummy)
+    }
+
+    head.extend(tail);
+
+    (head, read, end)
+}
+
+fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
+    let dummy = || Value::string(String::from("..."), Span::unknown());
+    let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
+
+    if is_record_list {
+        // in case it's a record list we set a default text to each column instead of a single value.
+        Value::record(
+            head[0]
+                .as_record()
+                .expect("ok")
+                .columns()
+                .map(|key| (key.clone(), dummy()))
+                .collect(),
+            Span::unknown(),
+        )
+    } else {
+        dummy()
+    }
+}
+
+fn is_record_list<'a>(mut batch: impl Iterator<Item = &'a Value> + ExactSizeIterator) -> bool {
+    batch.len() > 0 && batch.all(|value| matches!(value, Value::Record { .. }))
 }
 
 fn render_path_name(
@@ -998,21 +1054,6 @@ fn convert_table_to_output(
         }
         Err(err) => Some(Err(err)),
     }
-}
-
-fn abbreviate_list<T>(list: &[T], limit: usize, text: T) -> Vec<T>
-where
-    T: Clone,
-{
-    let head = &list[..limit];
-    let tail = &list[list.len() - limit..];
-
-    let mut out = Vec::with_capacity(limit * 2 + 1);
-    out.extend(head.iter().cloned());
-    out.push(text);
-    out.extend(tail.iter().cloned());
-
-    out
 }
 
 fn supported_table_modes() -> Vec<Value> {
