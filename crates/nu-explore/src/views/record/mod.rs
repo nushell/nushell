@@ -331,8 +331,8 @@ impl View for RecordView<'_> {
         if let Some(hm) = cfg.config.get("table").and_then(create_map) {
             self.theme = theme_from_config(&hm);
 
-            if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
-                let orientation = match orientation.as_str() {
+            if let Some(orientation) = hm.get("orientation").and_then(|v| v.coerce_str().ok()) {
+                let orientation = match orientation.as_ref() {
                     "left" => Some(Orientation::Left),
                     "top" => Some(Orientation::Top),
                     _ => None,
@@ -648,7 +648,7 @@ fn convert_records_to_string(
         .map(|row| {
             row.iter()
                 .map(|value| {
-                    let text = value.clone().into_abbreviated_string(cfg);
+                    let text = value.clone().to_abbreviated_string(cfg);
                     let float_precision = cfg.float_precision as usize;
 
                     make_styled_string(style_computer, text, Some(value), float_precision)
@@ -701,16 +701,13 @@ fn build_last_value(v: &RecordView) -> Value {
 fn build_table_as_list(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
-    let headers = layer.columns.to_vec();
+    let cols = &layer.columns;
     let vals = layer
         .records
         .iter()
-        .cloned()
         .map(|vals| {
-            Value::record(
-                Record::from_raw_cols_vals_unchecked(headers.clone(), vals),
-                NuSpan::unknown(),
-            )
+            let record = cols.iter().cloned().zip(vals.iter().cloned()).collect();
+            Value::record(record, NuSpan::unknown())
         })
         .collect();
 
@@ -720,13 +717,18 @@ fn build_table_as_list(v: &RecordView) -> Value {
 fn build_table_as_record(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
-    let cols = layer.columns.to_vec();
-    let vals = layer.records.first().map_or(Vec::new(), |row| row.clone());
+    let record = if let Some(row) = layer.records.first() {
+        layer
+            .columns
+            .iter()
+            .cloned()
+            .zip(row.iter().cloned())
+            .collect()
+    } else {
+        Record::new()
+    };
 
-    Value::record(
-        Record::from_raw_cols_vals_unchecked(cols, vals),
-        NuSpan::unknown(),
-    )
+    Value::record(record, NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
@@ -857,7 +859,7 @@ fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
 fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
     config
         .get(key)
-        .and_then(|v| v.as_string().ok())
+        .and_then(|v| v.coerce_str().ok())
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(default)
 }

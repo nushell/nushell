@@ -4,7 +4,7 @@ mod roll_left;
 mod roll_right;
 mod roll_up;
 
-use nu_protocol::{Record, ShellError, Value};
+use nu_protocol::{ShellError, Value};
 pub use roll_::Roll;
 pub use roll_down::RollDown;
 pub use roll_left::RollLeft;
@@ -70,10 +70,8 @@ fn horizontal_rotate_value(
                 HorizontalDirection::Left => vals.rotate_left(rotations),
             }
 
-            Ok(Value::record(
-                Record::from_raw_cols_vals_unchecked(cols, vals),
-                span,
-            ))
+            let record = cols.into_iter().zip(vals).collect();
+            Ok(Value::record(record, span))
         }
         Value::List { vals, .. } => {
             let values = vals

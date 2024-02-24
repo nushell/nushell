@@ -150,7 +150,8 @@ fn operate(
             let mut parsed: Vec<Value> = Vec::new();
 
             for v in input {
-                match v.as_string() {
+                let v_span = v.span();
+                match v.coerce_into_string() {
                     Ok(s) => {
                         let results = regex_pattern.captures_iter(&s);
 
@@ -168,7 +169,6 @@ fn operate(
                                 }
                             };
 
-                            let v_span = v.span();
                             let record = columns
                                 .iter()
                                 .zip(captures.iter().skip(1))
@@ -185,7 +185,7 @@ fn operate(
                         return Err(ShellError::PipelineMismatch {
                             exp_input_type: "string".into(),
                             dst_span: head,
-                            src_span: v.span(),
+                            src_span: v_span,
                         })
                     }
                 }
@@ -322,21 +322,22 @@ impl Iterator for ParseStreamer {
             }
 
             let v = self.stream.next()?;
+            let span = v.span();
 
-            let Ok(s) = v.as_string() else {
+            let Ok(s) = v.coerce_into_string() else {
                 return Some(Value::error(
                     ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
-                        src_span: v.span(),
+                        src_span: span,
                     },
-                    v.span(),
+                    span,
                 ));
             };
 
             let parsed = stream_helper(
                 self.regex.clone(),
-                v.span(),
+                span,
                 s,
                 self.columns.clone(),
                 &mut self.excess,

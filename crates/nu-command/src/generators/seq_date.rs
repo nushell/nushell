@@ -7,6 +7,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct SeqDate;
@@ -204,7 +205,7 @@ pub fn run_seq_dates(
     }
 
     let in_format = match input_format {
-        Some(i) => match i.as_string() {
+        Some(i) => match i.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -220,7 +221,7 @@ pub fn run_seq_dates(
     };
 
     let out_format = match output_format {
-        Some(i) => match i.as_string() {
+        Some(o) => match o.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -315,7 +316,19 @@ pub fn run_seq_dates(
 
     let mut ret = vec![];
     loop {
-        let date_string = &next.format(&out_format).to_string();
+        let mut date_string = String::new();
+        match write!(date_string, "{}", next.format(&out_format)) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(ShellError::GenericError {
+                    error: "Invalid output format".into(),
+                    msg: e.to_string(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+        }
         ret.push(Value::string(date_string, call_span));
         next += Duration::days(step_size);
 

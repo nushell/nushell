@@ -1,6 +1,5 @@
 use crate::{ast::Expression, engine::StateWorkingSet, Span};
 use serde::{Deserialize, Serialize};
-use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum Redirection {
@@ -157,19 +156,5 @@ impl Pipeline {
 
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
-    }
-}
-
-impl Index<usize> for Pipeline {
-    type Output = PipelineElement;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.elements[index]
-    }
-}
-
-impl IndexMut<usize> for Pipeline {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.elements[index]
     }
 }

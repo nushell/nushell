@@ -2,7 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::eval_expression;
 use nu_engine::CallExt;
-use nu_protocol::NuPath;
+use nu_protocol::NuGlob;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
@@ -123,7 +123,7 @@ pub fn create_external_command(
         let span = value.span();
 
         value
-            .as_string()
+            .coerce_string()
             .map(|item| Spanned { item, span })
             .map_err(|_| ShellError::ExternalCommand {
                 label: format!("Cannot convert {} to a string", value.get_type()),
@@ -135,29 +135,23 @@ pub fn create_external_command(
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
     for (arg, spread) in call.rest_iter(1) {
-        // TODO: Disallow automatic spreading entirely later. This match block will
-        // have to be refactored, and lists will have to be disallowed in the parser too
         match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
-                if !spread {
-                    nu_protocol::report_error_new(
-                        engine_state,
-                        &ShellError::GenericError {
-                            error: "Automatically spreading lists is deprecated".into(),
-                            msg: "Spreading lists automatically when calling external commands is deprecated and will be removed in 0.91.".into(),
-                            span: Some(arg.span),
-                            help: Some("Use the spread operator (put a '...' before the argument)".into()),
-                            inner: vec![],
-                        },
-                    );
-                }
-                // turn all the strings in the array into params.
-                // Example: one_arg may be something like ["ls" "-a"]
-                // convert it to "ls" "-a"
-                for v in vals {
-                    spanned_args.push(value_as_spanned(v)?);
-                    // for arguments in list, it's always treated as a whole arguments
-                    arg_keep_raw.push(true);
+                if spread {
+                    // turn all the strings in the array into params.
+                    // Example: one_arg may be something like ["ls" "-a"]
+                    // convert it to "ls" "-a"
+                    for v in vals {
+                        spanned_args.push(value_as_spanned(v)?);
+                        // for arguments in list, it's always treated as a whole arguments
+                        arg_keep_raw.push(true);
+                    }
+                } else {
+                    return Err(ShellError::CannotPassListToExternal {
+                        arg: String::from_utf8_lossy(engine_state.get_span_contents(arg.span))
+                            .into(),
+                        span: arg.span,
+                    });
                 }
             }
             val => {
@@ -736,9 +730,9 @@ fn trim_expand_and_apply_arg(
     }
     let cwd = PathBuf::from(cwd);
     if arg.item.contains('*') && run_glob_expansion {
-        // we need to run glob expansion, so it's unquoted.
+        // we need to run glob expansion, so it's NeedExpand.
         let path = Spanned {
-            item: NuPath::UnQuoted(arg.item.clone()),
+            item: NuGlob::Expand(arg.item.clone()),
             span: arg.span,
         };
         if let Ok((prefix, matches)) = nu_engine::glob_from(&path, &cwd, arg.span, None) {

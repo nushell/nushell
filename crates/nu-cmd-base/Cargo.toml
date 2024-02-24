@@ -11,15 +11,11 @@ version = "0.90.2"
 
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.90.2" }
-nu-glob = { path = "../nu-glob", version = "0.90.2" }
 nu-parser = { path = "../nu-parser", version = "0.90.2" }
 nu-path = { path = "../nu-path", version = "0.90.2" }
 nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
-nu-utils = { path = "../nu-utils", version = "0.90.2" }
 
 indexmap = "2.2"
-miette = "7.0.0"
+miette = "7.1.0"
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
-rstest = "0.18.2"

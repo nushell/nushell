@@ -59,7 +59,7 @@ pub trait Eval {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
-                            let col_name = Self::eval(state, mut_state, col)?.as_string()?;
+                            let col_name = Self::eval(state, mut_state, col)?.coerce_into_string()?;
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
@@ -102,7 +102,7 @@ pub trait Eval {
             Expr::Table(headers, vals) => {
                 let mut output_headers = vec![];
                 for expr in headers {
-                    let header = Self::eval(state, mut_state, expr)?.as_string()?;
+                    let header = Self::eval(state, mut_state, expr)?.coerce_into_string()?;
                     if let Some(idx) = output_headers
                         .iter()
                         .position(|existing| existing == &header)
@@ -119,13 +119,12 @@ pub trait Eval {
 
                 let mut output_rows = vec![];
                 for val in vals {
-                    let mut row = vec![];
-                    for expr in val {
-                        row.push(Self::eval(state, mut_state, expr)?);
-                    }
-                    // length equality already ensured in parser
+                    let record = output_headers.iter().zip(val).map(|(col, expr)| {
+                        Self::eval(state, mut_state, expr).map(|val| (col.clone(), val))
+                    }).collect::<Result<_,_>>()?;
+
                     output_rows.push(Value::record(
-                        Record::from_raw_cols_vals_unchecked(output_headers.clone(), row),
+                        record,
                         expr.span,
                     ));
                 }
@@ -288,11 +287,7 @@ pub trait Eval {
             Expr::GlobPattern(pattern, quoted) => {
                 // GlobPattern is similar to Filepath
                 // But we don't want to expand path during eval time, it's required for `nu_engine::glob_from` to run correctly
-                if *quoted {
-                    Ok(Value::quoted_string(pattern, expr.span))
-                } else {
-                    Ok(Value::string(pattern, expr.span))
-                }
+                Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)

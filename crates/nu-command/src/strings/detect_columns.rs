@@ -128,116 +128,120 @@ fn detect_columns(
             }
         }
 
-        Ok((if noheader {
-            vec![orig_headers].into_iter().chain(input)
-        } else {
-            vec![].into_iter().chain(input)
-        })
-        .map(move |x| {
-            let row = find_columns(&x);
+        Ok(noheader
+            .then_some(orig_headers)
+            .into_iter()
+            .chain(input)
+            .map(move |x| {
+                let row = find_columns(&x);
 
-            let mut cols = vec![];
-            let mut vals = vec![];
+                let mut record = Record::new();
 
-            if headers.len() == row.len() {
-                for (header, val) in headers.iter().zip(row.iter()) {
-                    cols.push(header.item.clone());
-                    vals.push(Value::string(val.item.clone(), name_span));
-                }
-            } else {
-                let mut pre_output = vec![];
+                if headers.len() == row.len() {
+                    for (header, val) in headers.iter().zip(row.iter()) {
+                        record.push(&header.item, Value::string(&val.item, name_span));
+                    }
+                } else {
+                    let mut pre_output = vec![];
 
-                // column counts don't line up, so see if we can figure out why
-                for cell in row {
+                    // column counts don't line up, so see if we can figure out why
+                    for cell in row {
+                        for header in &headers {
+                            if cell.span.start <= header.span.end
+                                && cell.span.end > header.span.start
+                            {
+                                pre_output.push((
+                                    header.item.to_string(),
+                                    Value::string(&cell.item, name_span),
+                                ));
+                            }
+                        }
+                    }
+
                     for header in &headers {
-                        if cell.span.start <= header.span.end && cell.span.end > header.span.start {
-                            pre_output.push((
-                                header.item.to_string(),
-                                Value::string(&cell.item, name_span),
-                            ));
+                        let mut found = false;
+                        for pre_o in &pre_output {
+                            if pre_o.0 == header.item {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if !found {
+                            pre_output.push((header.item.to_string(), Value::nothing(name_span)));
+                        }
+                    }
+
+                    for header in &headers {
+                        for pre_o in &pre_output {
+                            if pre_o.0 == header.item {
+                                record.push(&header.item, pre_o.1.clone());
+                            }
                         }
                     }
                 }
 
-                for header in &headers {
-                    let mut found = false;
-                    for pre_o in &pre_output {
-                        if pre_o.0 == header.item {
-                            found = true;
-                            break;
+                let (start_index, end_index) = if let Some(range) = &range {
+                    match nu_cmd_base::util::process_range(range) {
+                        Ok((l_idx, r_idx)) => {
+                            let l_idx = if l_idx < 0 {
+                                record.len() as isize + l_idx
+                            } else {
+                                l_idx
+                            };
+
+                            let r_idx = if r_idx < 0 {
+                                record.len() as isize + r_idx
+                            } else {
+                                r_idx
+                            };
+
+                            if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (record.len() as isize)))
+                            {
+                                return Value::record(record, name_span);
+                            }
+
+                            (
+                                l_idx.max(0) as usize,
+                                (r_idx as usize + 1).min(record.len()),
+                            )
+                        }
+                        Err(processing_error) => {
+                            let err = processing_error("could not find range index", name_span);
+                            return Value::error(err, name_span);
                         }
                     }
+                } else {
+                    return Value::record(record, name_span);
+                };
 
-                    if !found {
-                        pre_output.push((header.item.to_string(), Value::nothing(name_span)));
-                    }
+                let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+
+                // Merge Columns
+                ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
+                    cols.swap(idx, end_index - start_index - 1 + idx);
+                });
+                cols.truncate(cols.len() - end_index + start_index + 1);
+
+                // Merge Values
+                let combined = vals
+                    .iter()
+                    .take(end_index)
+                    .skip(start_index)
+                    .map(|v| v.coerce_str().unwrap_or_default())
+                    .join(" ");
+                let binding = Value::string(combined, Span::unknown());
+                let last_seg = vals.split_off(end_index);
+                vals.truncate(start_index);
+                vals.push(binding);
+                vals.extend(last_seg);
+
+                match Record::from_raw_cols_vals(cols, vals, Span::unknown(), name_span) {
+                    Ok(record) => Value::record(record, name_span),
+                    Err(err) => Value::error(err, name_span),
                 }
-
-                for header in &headers {
-                    for pre_o in &pre_output {
-                        if pre_o.0 == header.item {
-                            cols.push(header.item.clone());
-                            vals.push(pre_o.1.clone())
-                        }
-                    }
-                }
-            }
-
-            let (start_index, end_index) = if let Some(range) = &range {
-                match nu_cmd_base::util::process_range(range) {
-                    Ok((l_idx, r_idx)) => {
-                        let l_idx = if l_idx < 0 {
-                            cols.len() as isize + l_idx
-                        } else {
-                            l_idx
-                        };
-
-                        let r_idx = if r_idx < 0 {
-                            cols.len() as isize + r_idx
-                        } else {
-                            r_idx
-                        };
-
-                        if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
-                            return Value::record(
-                                Record::from_raw_cols_vals_unchecked(cols, vals),
-                                name_span,
-                            );
-                        }
-
-                        (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
-                    }
-                    Err(processing_error) => {
-                        let err = processing_error("could not find range index", name_span);
-                        return Value::error(err, name_span);
-                    }
-                }
-            } else {
-                return Value::record(Record::from_raw_cols_vals_unchecked(cols, vals), name_span);
-            };
-
-            // Merge Columns
-            ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
-                cols.swap(idx, end_index - start_index - 1 + idx);
-            });
-            cols.truncate(cols.len() - end_index + start_index + 1);
-
-            // Merge Values
-            let combined = vals
-                .iter()
-                .take(end_index)
-                .skip(start_index)
-                .map(|v| v.as_string().unwrap_or_default())
-                .join(" ");
-            let binding = Value::string(combined, Span::unknown());
-            let last_seg = vals.split_off(end_index);
-            vals.truncate(start_index);
-            vals.push(binding);
-            last_seg.into_iter().for_each(|v| vals.push(v));
-
-            Value::record(Record::from_raw_cols_vals_unchecked(cols, vals), name_span)
-        })
-        .into_pipeline_data(ctrlc))
+            })
+            .into_pipeline_data(ctrlc))
     } else {
         Ok(PipelineData::empty())
     }

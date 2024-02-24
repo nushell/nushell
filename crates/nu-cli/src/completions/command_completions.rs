@@ -43,9 +43,9 @@ impl CommandCompletion {
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
                 for path in paths {
-                    let path = path.as_string().unwrap_or_default();
+                    let path = path.coerce_str().unwrap_or_default();
 
-                    if let Ok(mut contents) = std::fs::read_dir(path) {
+                    if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
                         while let Some(Ok(item)) = contents.next() {
                             if self.engine_state.config.max_external_completion_results
                                 > executables.len() as i64
@@ -253,7 +253,7 @@ mod command_completions_tests {
 
     #[test]
     fn test_find_non_whitespace_index() {
-        let commands = vec![
+        let commands = [
             ("    hello", 4),
             ("sudo ", 0),
             (" 	sudo ", 2),
@@ -273,7 +273,7 @@ mod command_completions_tests {
 
     #[test]
     fn test_is_last_command_passthrough() {
-        let commands = vec![
+        let commands = [
             ("    hello", false),
             ("    sudo ", true),
             ("sudo ", true),

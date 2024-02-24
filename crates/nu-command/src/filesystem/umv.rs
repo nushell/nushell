@@ -1,11 +1,10 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, NuPath, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use uu_mv::{BackupMode, UpdateMode};
@@ -83,7 +82,7 @@ impl Command for UMv {
         };
 
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -121,7 +120,10 @@ impl Command for UMv {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {

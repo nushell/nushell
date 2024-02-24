@@ -383,7 +383,21 @@ pub fn eval_expression_with_input(
         }
     };
 
-    Ok(might_consume_external_result(input))
+    // Given input is PipelineData::ExternalStream
+    // `might_consume_external_result` will consume `stderr` stream if `stdout` is empty.
+    // it's not intended if user want to redirect stderr message.
+    //
+    // e.g:
+    // 1. cargo check e>| less
+    // 2. cargo check e> result.txt
+    //
+    // In these two cases, stdout will be empty, but nushell shouldn't consume the `stderr`
+    // stream it needs be passed to next command.
+    if !redirect_stderr {
+        Ok(might_consume_external_result(input))
+    } else {
+        Ok((input, false))
+    }
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -536,7 +550,7 @@ fn eval_element_with_input(
                                     // so nushell knows this result is not the last part of a command.
                                     (
                                         Some(RawStream::new(
-                                            Box::new(vec![].into_iter()),
+                                            Box::new(std::iter::empty()),
                                             None,
                                             *span,
                                             Some(0),

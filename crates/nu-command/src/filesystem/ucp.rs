@@ -1,9 +1,9 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::NuPath;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -141,11 +141,21 @@ impl Command for UCp {
         } else {
             uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
         };
-        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        ))]
         let reflink_mode = uu_cp::ReflinkMode::Auto;
-        #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -195,7 +205,10 @@ impl Command for UCp {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -281,7 +294,13 @@ const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::Yes { required: true };
 fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellError> {
     if let Some(preserve) = preserve {
         let mut attributes = uu_cp::Attributes {
-            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "netbsd"
+            ))]
             ownership: ATTR_UNSET,
             mode: ATTR_UNSET,
             timestamps: ATTR_UNSET,
@@ -296,7 +315,13 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
         // By default preseerve only mode
         Ok(uu_cp::Attributes {
             mode: ATTR_SET,
-            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "netbsd"
+            ))]
             ownership: ATTR_UNSET,
             timestamps: ATTR_UNSET,
             context: ATTR_UNSET,
@@ -332,7 +357,13 @@ fn parse_and_set_attribute(
         Value::String { val, .. } => {
             let attribute = match val.as_str() {
                 "mode" => &mut attribute.mode,
-                #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "freebsd",
+                    target_os = "android",
+                    target_os = "macos",
+                    target_os = "netbsd"
+                ))]
                 "ownership" => &mut attribute.ownership,
                 "timestamps" => &mut attribute.timestamps,
                 "context" => &mut attribute.context,

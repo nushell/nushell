@@ -75,7 +75,7 @@ impl Command for SubCommand {
 }
 
 fn get_url_string(value: &Value, engine_state: &EngineState) -> String {
-    value.into_string("", engine_state.get_config())
+    value.to_expanded_string("", engine_state.get_config())
 }
 
 fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<PipelineData, ShellError> {

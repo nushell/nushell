@@ -100,7 +100,7 @@ fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue 
             }
         }
         value => {
-            let mut text = value.into_abbreviated_string(config);
+            let mut text = value.to_abbreviated_string(config);
             if string_width(&text) > 50 {
                 text = string_wrap(&text, 30, false);
             }

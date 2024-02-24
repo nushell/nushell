@@ -727,8 +727,9 @@ pub enum ShellError {
     ///
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found))]
+    #[diagnostic(code(nu::shell::file_not_found), help("{file} does not exist"))]
     FileNotFound {
+        file: String,
         #[label("file not found")]
         span: Span,
     },
@@ -808,32 +809,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Permission for an operation was denied.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("Permission Denied")]
-    #[diagnostic(code(nu::shell::permission_denied))]
-    PermissionDeniedError {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Out of memory.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("Out of memory")]
-    #[diagnostic(code(nu::shell::out_of_memory))]
-    OutOfMemoryError {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
@@ -859,19 +834,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Attempted to perform an operation on a directory that doesn't exist.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the directory in the error message actually exists before trying again.
-    #[error("Directory not found")]
-    #[diagnostic(code(nu::shell::directory_not_found_custom))]
-    DirectoryNotFoundCustom {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// The requested move operation cannot be completed. This is typically because both paths exist,
     /// but are of different types. For example, you might be trying to overwrite an existing file with
     /// a directory.
@@ -888,22 +850,6 @@ pub enum ShellError {
         destination_message: String,
         #[label("{destination_message}")]
         destination_span: Span,
-    },
-
-    /// The requested move operation cannot be completed. This is typically because both paths exist,
-    /// but are of different types. For example, you might be trying to overwrite an existing file with
-    /// a directory.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the destination path does not exist before moving a directory.
-    #[error("Move not possible")]
-    #[diagnostic(code(nu::shell::move_not_possible_single))]
-    // NOTE: Currently not actively used.
-    MoveNotPossibleSingle {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
     },
 
     /// Failed to create either a file or directory.
@@ -1115,15 +1061,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Non-Unicode input received.
-    ///
-    /// ## Resolution
-    ///
-    /// Check that your path is UTF-8 compatible.
-    #[error("Non-Unicode input received.")]
-    #[diagnostic(code(nu::shell::non_unicode_input))]
-    NonUnicodeInput,
-
     // It should be only used by commands accepts block, and accept inputs from pipeline.
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
@@ -1305,6 +1242,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     CannotSpreadAsRecord {
         #[label = "cannot spread value"]
+        span: Span,
+    },
+
+    /// Lists are not automatically spread when calling external commands
+    ///
+    /// ## Resolution
+    ///
+    /// Use the spread operator (put a '...' before the argument)
+    #[error("Lists are not automatically spread when calling external commands")]
+    #[diagnostic(
+        code(nu::shell::cannot_pass_list_to_external),
+        help("Either convert the list to a string or use the spread operator, like so: ...{arg}")
+    )]
+    CannotPassListToExternal {
+        arg: String,
+        #[label = "Spread operator (...) is necessary to spread lists"]
         span: Span,
     },
 

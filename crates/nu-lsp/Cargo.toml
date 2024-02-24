@@ -17,7 +17,7 @@ reedline = { version = "0.29" }
 crossbeam-channel = "0.5.8"
 lsp-types = "0.95.0"
 lsp-server = "0.7.5"
-miette = "7.0"
+miette = "7.1"
 ropey = "1.6.1"
 serde = "1.0"
 serde_json = "1.0"
@@ -28,4 +28,3 @@ nu-command = { path = "../nu-command", version = "0.90.2" }
 nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
 
 assert-json-diff = "2.0"
-tempfile = "3.2"

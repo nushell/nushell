@@ -1,19 +1,17 @@
 mod custom_value;
 mod from;
 mod from_value;
+mod glob;
 mod lazy_record;
-mod path;
 mod range;
 mod stream;
 mod unit;
 
 pub mod record;
 
-use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
-use crate::ast::{Math, Operator};
+use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
 use crate::engine::{Closure, EngineState};
-use crate::ShellError;
-use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type};
+use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
 
 use byte_unit::UnitType;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
@@ -21,16 +19,18 @@ use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
+pub use glob::*;
 pub use lazy_record::LazyRecord;
+use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 use nu_utils::{
     contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
 };
 use num_format::ToFormattedString;
-pub use path::*;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -93,8 +93,9 @@ pub enum Value {
         // please use .span() instead of matching this span value
         internal_span: Span,
     },
-    QuotedString {
+    Glob {
         val: String,
+        no_expand: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         internal_span: Span,
@@ -188,8 +189,13 @@ impl Clone for Value {
                 val: val.clone(),
                 internal_span: *internal_span,
             },
-            Value::QuotedString { val, internal_span } => Value::QuotedString {
+            Value::Glob {
+                val,
+                no_expand: quoted,
+                internal_span,
+            } => Value::Glob {
                 val: val.clone(),
+                no_expand: *quoted,
                 internal_span: *internal_span,
             },
             Value::Record { val, internal_span } => Value::Record {
@@ -236,278 +242,477 @@ impl Clone for Value {
 }
 
 impl Value {
+    fn cant_convert_to<T>(&self, typ: &str) -> Result<T, ShellError> {
+        Err(ShellError::CantConvert {
+            to_type: typ.into(),
+            from_type: self.get_type().to_string(),
+            span: self.span(),
+            help: None,
+        })
+    }
+
+    /// Returns the inner `bool` value or an error if this `Value` is not a bool
     pub fn as_bool(&self) -> Result<bool, ShellError> {
-        match self {
-            Value::Bool { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "boolean".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Bool { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("boolean")
         }
     }
 
+    /// Returns the inner `i64` value or an error if this `Value` is not an int
     pub fn as_int(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Int { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Int { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("int")
         }
     }
 
+    /// Returns the inner `f64` value or an error if this `Value` is not a float
     pub fn as_float(&self) -> Result<f64, ShellError> {
+        if let Value::Float { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("float")
+        }
+    }
+
+    /// Returns this `Value` converted to a `f64` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Float { .. } | Value::Int { .. }),
+    ///         val.coerce_float().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_float(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
-            x => Err(ShellError::CantConvert {
-                to_type: "float".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            val => val.cant_convert_to("float"),
         }
     }
 
+    /// Returns the inner `i64` filesize value or an error if this `Value` is not a filesize
     pub fn as_filesize(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Filesize { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "filesize".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Filesize { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("filesize")
         }
     }
 
+    /// Returns the inner `i64` duration value or an error if this `Value` is not a duration
     pub fn as_duration(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Duration { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "duration".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Duration { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("duration")
         }
     }
 
+    /// Returns the inner [`DateTime`] value or an error if this `Value` is not a date
     pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
-        match self {
-            Value::Date { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "date".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Date { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("date")
         }
     }
 
+    /// Returns a reference to the inner [`Range`] value or an error if this `Value` is not a range
     pub fn as_range(&self) -> Result<&Range, ShellError> {
-        match self {
-            Value::Range { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "range".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Range { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("range")
         }
     }
 
-    /// Converts into string values that can be changed into string natively
-    pub fn as_string(&self) -> Result<String, ShellError> {
+    /// Unwraps the inner [`Range`] value or returns an error if this `Value` is not a range
+    pub fn into_range(self) -> Result<Range, ShellError> {
+        if let Value::Range { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("range")
+        }
+    }
+
+    /// Returns a reference to the inner `str` value or an error if this `Value` is not a string
+    pub fn as_str(&self) -> Result<&str, ShellError> {
+        if let Value::String { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("string")
+        }
+    }
+
+    /// Unwraps the inner `String` value or returns an error if this `Value` is not a string
+    pub fn into_string(self) -> Result<String, ShellError> {
+        if let Value::String { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("string")
+        }
+    }
+
+    /// Returns this `Value` converted to a `str` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_str().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Binary { val, .. } => match std::str::from_utf8(val) {
+                Ok(s) => Ok(Cow::Borrowed(s)),
+                Err(_) => self.cant_convert_to("string"),
+            },
+            Value::Date { val, .. } => Ok(Cow::Owned(
+                val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            )),
+            val => val.cant_convert_to("string"),
+        }
+    }
+
+    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    ///
+    /// # Note
+    /// This function is equivalent to `value.coerce_str().map(Cow::into_owned)`
+    /// which might allocate a new `String`.
+    ///
+    /// To avoid this allocation, prefer [`coerce_str`](Self::coerce_str)
+    /// if you do not need an owned `String`,
+    /// or [`coerce_into_string`](Self::coerce_into_string)
+    /// if you do not need to keep the original `Value` around.
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_string().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_string(&self) -> Result<String, ShellError> {
+        self.coerce_str().map(Cow::into_owned)
+    }
+
+    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_into_string().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_into_string(self) -> Result<String, ShellError> {
+        let span = self.span();
         match self {
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.to_string()),
-            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
-                Ok(s) => s.to_string(),
-                Err(_) => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "binary".into(),
-                        span: self.span(),
-                        help: None,
-                    });
-                }
-            }),
+            Value::String { val, .. } => Ok(val),
+            Value::Binary { val, .. } => match String::from_utf8(val) {
+                Ok(s) => Ok(s),
+                Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
+            },
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            x => Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            val => val.cant_convert_to("string"),
         }
     }
 
-    pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
-        let span = self.span();
-        match self {
-            Value::String { val, .. } => Ok(Spanned {
-                item: val.to_string(),
-                span,
-            }),
-            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
-                Ok(s) => Spanned {
-                    item: s.to_string(),
-                    span,
-                },
-                Err(_) => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "binary".into(),
-                        span: self.span(),
-                        help: None,
-                    })
-                }
-            }),
-            x => Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
-        }
-    }
-
+    /// Returns this `Value` as a `char` or an error if it is not a single character string
     pub fn as_char(&self) -> Result<char, ShellError> {
         let span = self.span();
-
-        match self {
-            Value::String { val, .. } => {
-                let mut chars = val.chars();
-                match (chars.next(), chars.next()) {
-                    (Some(c), None) => Ok(c),
-                    _ => Err(ShellError::MissingParameter {
-                        param_name: "single character separator".into(),
-                        span,
-                    }),
-                }
+        if let Value::String { val, .. } = self {
+            let mut chars = val.chars();
+            match (chars.next(), chars.next()) {
+                (Some(c), None) => Ok(c),
+                _ => Err(ShellError::MissingParameter {
+                    param_name: "single character separator".into(),
+                    span,
+                }),
             }
-            x => Err(ShellError::CantConvert {
-                to_type: "char".into(),
-                from_type: x.get_type().to_string(),
-                span,
-                help: None,
-            }),
+        } else {
+            self.cant_convert_to("char")
         }
     }
 
-    pub fn as_path(&self) -> Result<PathBuf, ShellError> {
-        match self {
-            Value::String { val, .. } => Ok(PathBuf::from(val)),
-            x => Err(ShellError::CantConvert {
-                to_type: "path".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+    /// Converts this `Value` to a `PathBuf` or returns an error if it is not a string
+    pub fn to_path(&self) -> Result<PathBuf, ShellError> {
+        if let Value::String { val, .. } = self {
+            Ok(PathBuf::from(val))
+        } else {
+            self.cant_convert_to("path")
         }
     }
 
+    /// Returns a reference to the inner [`Record`] value or an error if this `Value` is not a record
     pub fn as_record(&self) -> Result<&Record, ShellError> {
-        match self {
-            Value::Record { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "record".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Record { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("record")
         }
     }
 
+    /// Unwraps the inner [`Record`] value or returns an error if this `Value` is not a record
+    pub fn into_record(self) -> Result<Record, ShellError> {
+        if let Value::Record { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("record")
+        }
+    }
+
+    /// Returns a reference to the inner list slice or an error if this `Value` is not a list
     pub fn as_list(&self) -> Result<&[Value], ShellError> {
-        match self {
-            Value::List { vals, .. } => Ok(vals),
-            x => Err(ShellError::CantConvert {
-                to_type: "list".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::List { vals, .. } = self {
+            Ok(vals)
+        } else {
+            self.cant_convert_to("list")
         }
     }
 
+    /// Unwraps the inner list `Vec` or returns an error if this `Value` is not a list
+    pub fn into_list(self) -> Result<Vec<Value>, ShellError> {
+        if let Value::List { vals, .. } = self {
+            Ok(vals)
+        } else {
+            self.cant_convert_to("list")
+        }
+    }
+
+    /// Returns the inner [`BlockId`] or an error if this `Value` is not a block
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
+        if let Value::Block { val, .. } = self {
+            Ok(*val)
+        } else {
+            self.cant_convert_to("block")
+        }
+    }
+
+    /// Returns this `Value`'s [`BlockId`] or an error if it does not have one
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Block`
+    /// - `Closure`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Block { .. } | Value::Closure { .. }),
+    ///         val.coerce_block().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
             Value::Closure { val, .. } => Ok(val.block_id),
-            x => Err(ShellError::CantConvert {
-                to_type: "block".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            val => val.cant_convert_to("block"),
         }
     }
 
+    /// Returns a reference to the inner [`Closure`] value or an error if this `Value` is not a closure
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
-        match self {
-            Value::Closure { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "closure".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::Closure { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("closure")
         }
     }
 
+    /// Unwraps the inner [`Closure`] value or returns an error if this `Value` is not a closure
+    pub fn into_closure(self) -> Result<Closure, ShellError> {
+        if let Value::Closure { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("closure")
+        }
+    }
+
+    /// Returns a reference to the inner binary slice or an error if this `Value` is not a binary value
     pub fn as_binary(&self) -> Result<&[u8], ShellError> {
+        if let Value::Binary { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("binary")
+        }
+    }
+
+    /// Unwraps the inner binary `Vec` or returns an error if this `Value` is not a binary value
+    pub fn into_binary(self) -> Result<Vec<u8>, ShellError> {
+        if let Value::Binary { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("binary")
+        }
+    }
+
+    /// Returns this `Value` as a `u8` slice or an error if it cannot be converted
+    ///
+    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
+    /// if you do not need to keep the original `Value` around.
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Binary`
+    /// - `String`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Binary { .. } | Value::String { .. }),
+    ///         val.coerce_binary().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_binary(&self) -> Result<&[u8], ShellError> {
         match self {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.as_bytes()),
-            x => Err(ShellError::CantConvert {
-                to_type: "binary".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+            val => val.cant_convert_to("binary"),
         }
     }
 
+    /// Returns this `Value` as a `Vec<u8>` or an error if it cannot be converted
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Binary`
+    /// - `String`
+    ///
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(val, Value::Binary { .. } | Value::String { .. }),
+    ///         val.coerce_into_binary().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_into_binary(self) -> Result<Vec<u8>, ShellError> {
+        match self {
+            Value::Binary { val, .. } => Ok(val),
+            Value::String { val, .. } => Ok(val.into_bytes()),
+            val => val.cant_convert_to("binary"),
+        }
+    }
+
+    /// Returns a reference to the inner [`CellPath`] value or an error if this `Value` is not a cell path
     pub fn as_cell_path(&self) -> Result<&CellPath, ShellError> {
-        match self {
-            Value::CellPath { val, .. } => Ok(val),
-            x => Err(ShellError::CantConvert {
-                to_type: "cell path".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::CellPath { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("cell path")
         }
     }
 
+    /// Unwraps the inner [`CellPath`] value or returns an error if this `Value` is not a cell path
+    pub fn into_cell_path(self) -> Result<CellPath, ShellError> {
+        if let Value::CellPath { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("cell path")
+        }
+    }
+
+    /// Returns a reference to the inner [`CustomValue`] trait object or an error if this `Value` is not a custom value
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
-        match self {
-            Value::CustomValue { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "custom value".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::CustomValue { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("custom value")
         }
     }
 
+    /// Unwraps the inner [`CustomValue`] trait object or returns an error if this `Value` is not a custom value
+    pub fn into_custom_value(self) -> Result<Box<dyn CustomValue>, ShellError> {
+        if let Value::CustomValue { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("custom value")
+        }
+    }
+
+    /// Returns a reference to the inner [`LazyRecord`] trait object or an error if this `Value` is not a lazy record
     pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
-        match self {
-            Value::LazyRecord { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "lazy record".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
+        if let Value::LazyRecord { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("lazy record")
+        }
+    }
+
+    /// Unwraps the inner [`LazyRecord`] trait object or returns an error if this `Value` is not a lazy record
+    pub fn into_lazy_record(self) -> Result<Box<dyn for<'a> LazyRecord<'a>>, ShellError> {
+        if let Value::LazyRecord { val, .. } = self {
+            Ok(val)
+        } else {
+            self.cant_convert_to("lazy record")
         }
     }
 
@@ -522,7 +727,7 @@ impl Value {
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
-            | Value::QuotedString { internal_span, .. }
+            | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Block { internal_span, .. }
@@ -547,7 +752,7 @@ impl Value {
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
-            | Value::QuotedString { internal_span, .. }
+            | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::LazyRecord { internal_span, .. }
             | Value::List { internal_span, .. }
@@ -574,7 +779,7 @@ impl Value {
             Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
-            Value::QuotedString { .. } => Type::String,
+            Value::Glob { .. } => Type::Glob,
             Value::Record { val, .. } => {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
@@ -642,30 +847,46 @@ impl Value {
         }
     }
 
-    // Convert Value into String, but propagate errors.
-    pub fn nonerror_into_string(
-        &self,
-        separator: &str,
-        config: &Config,
-    ) -> Result<String, ShellError> {
-        if let Value::Error { error, .. } = self {
-            Err(*error.to_owned())
+    fn format_datetime<Tz: TimeZone>(&self, date_time: &DateTime<Tz>, formatter: &str) -> String
+    where
+        Tz::Offset: Display,
+    {
+        let mut formatter_buf = String::new();
+        let locale = if let Ok(l) =
+            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
+        {
+            let locale_str = l.split('.').next().unwrap_or("en_US");
+            locale_str.try_into().unwrap_or(Locale::en_US)
         } else {
-            Ok(self.into_string(separator, config))
+            // LC_ALL > LC_CTYPE > LANG else en_US
+            get_system_locale_string()
+                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
+                .unwrap_or_else(|| String::from("en_US"))
+                .as_str()
+                .try_into()
+                .unwrap_or(Locale::en_US)
+        };
+        let format = date_time.format_localized(formatter, locale);
+
+        match formatter_buf.write_fmt(format_args!("{format}")) {
+            Ok(_) => (),
+            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
         }
+        formatter_buf
     }
 
-    /// Convert Value into string. Note that Streams will be consumed.
-    pub fn into_string(&self, separator: &str, config: &Config) -> String {
+    /// Converts this `Value` to a string according to the given [`Config`] and separator
+    ///
+    /// This functions recurses into records and lists,
+    /// returning a string that contains the stringified form of all nested `Value`s.
+    pub fn to_expanded_string(&self, separator: &str, config: &Config) -> String {
         let span = self.span();
-
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-
             Value::Date { val, .. } => match &config.datetime_normal_format {
                 Some(format) => self.format_datetime(val, format),
                 None => {
@@ -683,36 +904,30 @@ impl Value {
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
+                    val.from.to_expanded_string(", ", config),
+                    val.to.to_expanded_string(", ", config)
                 )
             }
             Value::String { val, .. } => val.clone(),
-            Value::QuotedString { val, .. } => val.clone(),
+            Value::Glob { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
-                    .map(|x| x.into_string(", ", config))
+                    .map(|x| x.to_expanded_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
             Value::Record { val, .. } => format!(
                 "{{{}}}",
                 val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.to_expanded_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::LazyRecord { val, .. } => {
-                let collected = match val.collect() {
-                    Ok(val) => val,
-                    Err(error) => Value::Error {
-                        error: Box::new(error),
-                        internal_span: span,
-                    },
-                };
-                collected.into_string(separator, config)
-            }
+            Value::LazyRecord { val, .. } => val
+                .collect()
+                .unwrap_or_else(|err| Value::error(err, span))
+                .to_expanded_string(separator, config),
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
@@ -723,27 +938,20 @@ impl Value {
         }
     }
 
-    /// Convert Value into string. Note that Streams will be consumed.
-    pub fn into_abbreviated_string(&self, config: &Config) -> String {
+    /// Converts this `Value` to a string according to the given [`Config`]
+    ///
+    /// This functions does not recurse into records and lists.
+    /// Instead, it will shorten the first list or record it finds like so:
+    /// - "[table {n} rows]"
+    /// - "[list {n} items]"
+    /// - "[record {n} fields]"
+    pub fn to_abbreviated_string(&self, config: &Config) -> String {
+        let span = self.span();
         match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_table_format {
                 Some(format) => self.format_datetime(val, format),
                 None => HumanTime::from(*val).to_string(),
             },
-            Value::Range { val, .. } => {
-                format!(
-                    "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
-                )
-            }
-            Value::String { val, .. } => val.to_string(),
-            Value::QuotedString { val, .. } => val.to_string(),
             Value::List { ref vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
                     format!(
@@ -764,50 +972,52 @@ impl Value {
                 val.len(),
                 if val.len() == 1 { "" } else { "s" }
             ),
-            Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.into_abbreviated_string(config),
-                Err(error) => format!("{error:?}"),
-            },
-            Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error, .. } => format!("{error:?}"),
-            Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.to_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
+            Value::LazyRecord { val, .. } => val
+                .collect()
+                .unwrap_or_else(|err| Value::error(err, span))
+                .to_abbreviated_string(config),
+            val => val.to_expanded_string(", ", config),
         }
     }
 
-    fn format_datetime<Tz: TimeZone>(&self, date_time: &DateTime<Tz>, formatter: &str) -> String
-    where
-        Tz::Offset: Display,
-    {
-        let mut formatter_buf = String::new();
-        // These are already in locale format, so we don't need to localize them
-        let format = if ["%x", "%X", "%r"]
-            .iter()
-            .any(|item| formatter.contains(item))
-        {
-            date_time.format(formatter)
-        } else {
-            let locale: Locale = get_system_locale_string()
-                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US);
-            date_time.format_localized(formatter, locale)
-        };
-
-        match formatter_buf.write_fmt(format_args!("{format}")) {
-            Ok(_) => (),
-            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
+    /// Converts this `Value` to a string according to the given [`Config`] and separator
+    ///
+    /// This function adds quotes around strings,
+    /// so that the returned string can be parsed by nushell.
+    /// The other `Value` cases are already parsable when converted strings
+    /// or are not yet handled by this function.
+    ///
+    /// This functions behaves like [`to_formatted_string`](Self::to_formatted_string)
+    /// and will recurse into records and lists.
+    pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
+        match self {
+            // give special treatment to the simple types to make them parsable
+            Value::String { val, .. } => format!("'{}'", val),
+            // recurse back into this function for recursive formatting
+            Value::List { vals: val, .. } => format!(
+                "[{}]",
+                val.iter()
+                    .map(|x| x.to_parsable_string(", ", config))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+            Value::Record { val, .. } => format!(
+                "{{{}}}",
+                val.iter()
+                    .map(|(x, y)| format!("{}: {}", x, y.to_parsable_string(", ", config)))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+            // defer to standard handling for types where standard representation is parsable
+            _ => self.to_expanded_string(separator, config),
         }
-        formatter_buf
     }
 
-    /// Convert Value into a debug string
-    pub fn debug_value(&self) -> String {
+    /// Convert this `Value` to a debug string
+    ///
+    /// In general, this function should only be used for debug purposes,
+    /// and the resulting string should not be displayed to the user (not even in an error).
+    pub fn to_debug_string(&self) -> String {
         match self {
             Value::String { val, .. } => {
                 if contains_emoji(val) {
@@ -821,81 +1031,6 @@ impl Value {
                 }
             }
             _ => format!("{self:#?}"),
-        }
-    }
-
-    /// Convert Value into a parsable string (quote strings)
-    /// bugbug other, rarer types not handled
-
-    pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
-        match self {
-            // give special treatment to the simple types to make them parsable
-            Value::String { val, .. } => format!("'{}'", val),
-
-            // recurse back into this function for recursive formatting
-            Value::List { vals: val, .. } => format!(
-                "[{}]",
-                val.iter()
-                    .map(|x| x.into_string_parsable(", ", config))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::Record { val, .. } => format!(
-                "{{{}}}",
-                val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.into_string_parsable(", ", config)))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-
-            // defer to standard handling for types where standard representation is parsable
-            _ => self.into_string(separator, config),
-        }
-    }
-
-    /// Convert Value into string. Note that Streams will be consumed.
-    pub fn debug_string(&self, separator: &str, config: &Config) -> String {
-        match self {
-            Value::Bool { val, .. } => val.to_string(),
-            Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => format!("{val:?}"),
-            Value::Range { val, .. } => {
-                format!(
-                    "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
-                )
-            }
-            Value::String { val, .. } => val.clone(),
-            Value::QuotedString { val, .. } => val.clone(),
-            Value::List { vals: val, .. } => format!(
-                "[{}]",
-                val.iter()
-                    .map(|x| x.into_string(", ", config))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::Record { val, .. } => format!(
-                "{{{}}}",
-                val.iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
-                    .collect::<Vec<_>>()
-                    .join(separator)
-            ),
-            Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.debug_string(separator, config),
-                Err(error) => format!("{error:?}"),
-            },
-            Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
-            Value::Nothing { .. } => String::new(),
-            Value::Error { error, .. } => format!("{error:?}"),
-            Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.to_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
         }
     }
 
@@ -1762,9 +1897,10 @@ impl Value {
         }
     }
 
-    pub fn quoted_string(val: impl Into<String>, span: Span) -> Value {
-        Value::QuotedString {
+    pub fn glob(val: impl Into<String>, no_expand: bool, span: Span) -> Value {
+        Value::Glob {
             val: val.into(),
+            no_expand,
             internal_span: span,
         }
     }
@@ -1940,6 +2076,47 @@ impl Value {
     pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
         Value::lazy_record(val, Span::test_data())
     }
+
+    /// Note: Only use this for test data, *not* live data,
+    /// as it will point into unknown source when used in errors.
+    ///
+    /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
+    /// except for `Value::LazyRecord` and `Value::CustomValue`.
+    pub fn test_values() -> Vec<Value> {
+        vec![
+            Value::test_bool(false),
+            Value::test_int(0),
+            Value::test_filesize(0),
+            Value::test_duration(0),
+            Value::test_date(DateTime::UNIX_EPOCH.into()),
+            Value::test_range(Range {
+                from: Value::test_nothing(),
+                incr: Value::test_nothing(),
+                to: Value::test_nothing(),
+                inclusion: RangeInclusion::Inclusive,
+            }),
+            Value::test_float(0.0),
+            Value::test_string(String::new()),
+            Value::test_record(Record::new()),
+            // Value::test_lazy_record(Box::new(todo!())),
+            Value::test_list(Vec::new()),
+            Value::test_block(0),
+            Value::test_closure(Closure {
+                block_id: 0,
+                captures: Vec::new(),
+            }),
+            Value::test_nothing(),
+            Value::error(
+                ShellError::NushellFailed { msg: String::new() },
+                Span::test_data(),
+            ),
+            Value::test_binary(Vec::new()),
+            Value::test_cell_path(CellPath {
+                members: Vec::new(),
+            }),
+            // Value::test_custom_value(Box::new(todo!())),
+        ]
+    }
 }
 
 impl Default for Value {
@@ -1974,7 +2151,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -1995,7 +2172,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2016,7 +2193,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2037,7 +2214,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2058,7 +2235,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2079,7 +2256,7 @@ impl PartialOrd for Value {
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2100,7 +2277,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2121,7 +2298,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2133,7 +2310,7 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::QuotedString { val: lhs, .. }, rhs) => match rhs {
+            (Value::Glob { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -2142,7 +2319,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2163,7 +2340,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
@@ -2203,7 +2380,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2224,7 +2401,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
@@ -2245,7 +2422,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2266,7 +2443,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2287,7 +2464,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2308,7 +2485,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2329,7 +2506,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -3869,7 +4046,7 @@ mod tests {
                 NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ))
-            .into_string("", &Default::default());
+            .to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
@@ -3883,7 +4060,7 @@ mod tests {
                 NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ))
-            .into_string("", &Default::default());
+            .to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.

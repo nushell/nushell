@@ -474,7 +474,7 @@ pub fn map_value_completions<'a>(
 ) -> Vec<Suggestion> {
     list.filter_map(move |x| {
         // Match for string values
-        if let Ok(s) = x.as_string() {
+        if let Ok(s) = x.coerce_string() {
             return Some(Suggestion {
                 value: s,
                 description: None,
@@ -507,7 +507,7 @@ pub fn map_value_completions<'a>(
                 // Match `value` column
                 if it.0 == "value" {
                     // Convert the value to string
-                    if let Ok(val_str) = it.1.as_string() {
+                    if let Ok(val_str) = it.1.coerce_string() {
                         // Update the suggestion value
                         suggestion.value = val_str;
                     }
@@ -516,7 +516,7 @@ pub fn map_value_completions<'a>(
                 // Match `description` column
                 if it.0 == "description" {
                     // Convert the value to string
-                    if let Ok(desc_str) = it.1.as_string() {
+                    if let Ok(desc_str) = it.1.coerce_string() {
                         // Update the suggestion value
                         suggestion.description = Some(desc_str);
                     }
@@ -564,7 +564,7 @@ mod completer_tests {
         );
 
         let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
-        let dataset = vec![
+        let dataset = [
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
             (" sudo", false, "", Vec::new()),

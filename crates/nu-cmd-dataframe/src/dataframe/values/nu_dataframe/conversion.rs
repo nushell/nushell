@@ -342,7 +342,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
             }
             DataType::String => {
                 let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_string()).collect();
+                    column.values.iter().map(|v| v.coerce_string()).collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Object(_, _) => value_to_series(name, &column.values),
@@ -561,7 +561,7 @@ fn input_type_list_to_series(
                 let value_list = v
                     .as_list()?
                     .iter()
-                    .map(|v| v.as_string())
+                    .map(|v| v.coerce_string())
                     .collect::<Result<Vec<String>, _>>()
                     .map_err(inconsistent_error)?;
                 builder.append_values_iter(value_list.iter().map(AsRef::as_ref));
@@ -1033,15 +1033,14 @@ fn series_to_values(
                     Either::Right(it)
                 }
                 .map(|any_values| {
-                    let vals: Result<Vec<Value>, ShellError> = any_values
+                    let record = polar_fields
                         .iter()
-                        .map(|v| any_value_to_value(v, span))
-                        .collect();
-                    let cols: Vec<String> = polar_fields
-                        .iter()
-                        .map(|field| field.name.to_string())
-                        .collect();
-                    let record = Record::from_raw_cols_vals_unchecked(cols, vals?);
+                        .zip(any_values)
+                        .map(|(field, val)| {
+                            any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                        })
+                        .collect::<Result<_, _>>()?;
+
                     Ok(Value::record(record, span))
                 })
                 .collect();
@@ -1138,20 +1137,16 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
             any_value_to_value(&static_value, span)
         }
         AnyValue::StructOwned(struct_tuple) => {
-            let values: Result<Vec<Value>, ShellError> = struct_tuple
-                .0
-                .iter()
-                .map(|s| any_value_to_value(s, span))
-                .collect();
-            let fields = struct_tuple
+            let record = struct_tuple
                 .1
                 .iter()
-                .map(|f| f.name().to_string())
-                .collect();
-            Ok(Value::Record {
-                val: Record::from_raw_cols_vals_unchecked(fields, values?),
-                internal_span: span,
-            })
+                .zip(&struct_tuple.0)
+                .map(|(field, val)| {
+                    any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                })
+                .collect::<Result<_, _>>()?;
+
+            Ok(Value::record(record, span))
         }
         AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
@@ -1426,7 +1421,7 @@ mod tests {
         let test_int_arr = PrimitiveArray::from([Some(1_i32)]);
         let test_bool_arr = BooleanArray::from([Some(true)]);
         let test_struct_arr = StructArray::new(
-            DataType::Struct(fields.clone()).to_arrow(),
+            DataType::Struct(fields.clone()).to_arrow(true),
             vec![Box::new(test_int_arr), Box::new(test_bool_arr)],
             None,
         );

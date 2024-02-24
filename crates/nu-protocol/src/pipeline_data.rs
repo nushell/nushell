@@ -4,9 +4,9 @@ use crate::{
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
+use std::{io::Write, path::PathBuf};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -176,7 +176,7 @@ impl PipelineData {
                 if s.is_binary {
                     let mut output = vec![];
                     for item in items {
-                        match item.as_binary() {
+                        match item.coerce_into_binary() {
                             Ok(item) => {
                                 output.extend(item);
                             }
@@ -192,7 +192,7 @@ impl PipelineData {
                 } else {
                     let mut output = String::new();
                     for item in items {
-                        match item.as_string() {
+                        match item.coerce_into_string() {
                             Ok(s) => output.push_str(&s),
                             Err(err) => {
                                 return Value::error(err, span);
@@ -319,7 +319,7 @@ impl PipelineData {
     pub fn collect_string(self, separator: &str, config: &Config) -> Result<String, ShellError> {
         match self {
             PipelineData::Empty => Ok(String::new()),
-            PipelineData::Value(v, ..) => Ok(v.into_string(separator, config)),
+            PipelineData::Value(v, ..) => Ok(v.to_expanded_string(separator, config)),
             PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(String::new()),
             PipelineData::ExternalStream {
@@ -330,7 +330,7 @@ impl PipelineData {
                 let mut output = String::new();
 
                 for val in s {
-                    output.push_str(&val?.as_string()?);
+                    output.push_str(&val?.coerce_into_string()?);
                 }
                 if trim_end_newline {
                     output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
@@ -605,7 +605,7 @@ impl PipelineData {
                     .map(|bytes| bytes.item)
                     .unwrap_or_default();
                 RawStream::new(
-                    Box::new(vec![Ok(stderr_bytes)].into_iter()),
+                    Box::new(std::iter::once(Ok(stderr_bytes))),
                     stderr_ctrlc,
                     stderr_span,
                     None,
@@ -783,9 +783,9 @@ impl PipelineData {
                 is_err = true;
                 format_error(&working_set, &*error)
             } else if no_newline {
-                item.into_string("", config)
+                item.to_expanded_string("", config)
             } else {
-                item.into_string("\n", config)
+                item.to_expanded_string("\n", config)
             };
 
             if !no_newline {
@@ -846,25 +846,41 @@ pub fn print_if_stream(
     to_stderr: bool,
     exit_code: Option<ListStream>,
 ) -> Result<i64, ShellError> {
-    // NOTE: currently we don't need anything from stderr
-    // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
-
     if let Some(stderr_stream) = stderr_stream {
+        // Write stderr to our stderr, if it's present
         thread::Builder::new()
             .name("stderr consumer".to_string())
-            .spawn(move || stderr_stream.into_bytes())
+            .spawn(move || {
+                let RawStream {
+                    stream,
+                    leftover,
+                    ctrlc,
+                    ..
+                } = stderr_stream;
+                let mut stderr = std::io::stderr();
+                let _ = stderr.write_all(&leftover);
+                drop(leftover);
+                for bytes in stream {
+                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        break;
+                    }
+                    if let Ok(bytes) = bytes {
+                        let _ = stderr.write_all(&bytes);
+                    }
+                }
+            })
             .expect("could not create thread");
     }
 
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;
-            let bin_output = s_live.as_binary()?;
+            let bin_output = s_live.coerce_into_binary()?;
 
             if !to_stderr {
-                stdout_write_all_and_flush(bin_output)?
+                stdout_write_all_and_flush(&bin_output)?
             } else {
-                stderr_write_all_and_flush(bin_output)?
+                stderr_write_all_and_flush(&bin_output)?
             }
         }
     }

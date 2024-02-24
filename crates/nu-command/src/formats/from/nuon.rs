@@ -310,7 +310,8 @@ fn convert_to_value(
             ))
         }
         Expr::Record(key_vals) => {
-            let mut record = Record::new();
+            let mut record = Record::with_capacity(key_vals.len());
+            let mut key_spans = Vec::with_capacity(key_vals.len());
 
             for key_val in key_vals {
                 match key_val {
@@ -327,9 +328,16 @@ fn convert_to_value(
                             }
                         };
 
-                        let value = convert_to_value(val, span, original_text)?;
-
-                        record.push(key_str, value);
+                        if let Some(i) = record.index_of(&key_str) {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                col_name: key_str,
+                                second_use: key.span,
+                                first_use: key_spans[i],
+                            });
+                        } else {
+                            key_spans.push(key.span);
+                            record.push(key_str, convert_to_value(val, span, original_text)?);
+                        }
                     }
                     RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError {
@@ -413,15 +421,16 @@ fn convert_to_value(
                         span: expr.span,
                     });
                 }
-                let vals: Vec<Value> = row
-                    .into_iter()
-                    .map(|cell| convert_to_value(cell, span, original_text))
+
+                let record = cols
+                    .iter()
+                    .zip(row)
+                    .map(|(col, cell)| {
+                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
+                    })
                     .collect::<Result<_, _>>()?;
 
-                output.push(Value::record(
-                    Record::from_raw_cols_vals_unchecked(cols.clone(), vals),
-                    span,
-                ));
+                output.push(Value::record(record, span));
             }
 
             Ok(Value::list(output, span))

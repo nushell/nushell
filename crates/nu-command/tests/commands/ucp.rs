@@ -903,7 +903,7 @@ fn test_cp_debug_default() {
         {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if !actual
             .out
             .contains("copy offload: unknown, reflink: unsupported, sparse detection: no")
@@ -1019,6 +1019,40 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
     });
 }
 
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn copies_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        // -- open command doesn't like file name
+        //// Get the hash of the file content to check integrity after copy.
+        //let src_hash = get_file_hash(src.display());
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; cp $f {}",
+            src.display(),
+            TEST_HELLO_WORLD_DEST
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+
+        //// Get the hash of the copied file content to check against first_hash.
+        //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
+        //assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
 #[cfg(not(windows))]
 #[rstest]
 #[case(r#"'a]?c'"#)]
@@ -1026,6 +1060,7 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 // windows doesn't allow filename with `*`.
 fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
     copies_files_with_glob_metachars(src_name);
+    copies_files_with_glob_metachars_when_input_are_variables(src_name);
 }
 
 #[cfg(not(windows))]

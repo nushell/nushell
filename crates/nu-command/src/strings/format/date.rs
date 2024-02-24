@@ -7,7 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
 };
-use nu_utils::locale::get_system_locale_string;
+use nu_utils::locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR};
 use std::fmt::{Display, Write};
 
 use crate::{generate_strftime_list, parse_date_from_string};
@@ -118,21 +118,23 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    // These are already in locale format, so we don't need to localize them
-    let format = if ["%x", "%X", "%r"]
-        .iter()
-        .any(|item| formatter.contains(item))
+    // Format using locale LC_TIME
+    let locale = if let Ok(l) =
+        std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
     {
-        date_time.format(formatter)
+        let locale_str = l.split('.').next().unwrap_or("en_US");
+        locale_str.try_into().unwrap_or(Locale::en_US)
     } else {
-        let locale: Locale = get_system_locale_string()
+        // LC_ALL > LC_CTYPE > LANG
+        // Not locale present, default to en_US
+        get_system_locale_string()
             .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
             .unwrap_or_else(|| String::from("en_US"))
             .as_str()
             .try_into()
-            .unwrap_or(Locale::en_US);
-        date_time.format_localized(formatter, locale)
+            .unwrap_or(Locale::en_US)
     };
+    let format = date_time.format_localized(formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::string(formatter_buf, span),
@@ -159,7 +161,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.debug_value(),
+                msg: value.to_debug_string(),
                 span: head_span,
             },
             head_span,
@@ -180,7 +182,7 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.debug_value(),
+                msg: value.to_debug_string(),
                 span,
             },
             span,

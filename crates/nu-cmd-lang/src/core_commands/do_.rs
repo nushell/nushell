@@ -154,9 +154,9 @@ impl Command for Do {
                             let ctrlc = stdout_stream.ctrlc.clone();
                             let span = stdout_stream.span;
                             RawStream::new(
-                                Box::new(
-                                    vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter(),
-                                ),
+                                Box::new(std::iter::once(
+                                    stdout_stream.into_bytes().map(|s| s.item),
+                                )),
                                 ctrlc,
                                 span,
                                 None,
@@ -213,7 +213,7 @@ impl Command for Do {
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr: Some(RawStream::new(
-                        Box::new(vec![Ok(stderr_msg.into_bytes())].into_iter()),
+                        Box::new(std::iter::once(Ok(stderr_msg.into_bytes()))),
                         stderr_ctrlc,
                         span,
                         None,

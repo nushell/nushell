@@ -42,7 +42,7 @@ fn test_duration_to_string(#[case] in_ns: i64, #[case] expected: &str) {
     let dur = Value::test_duration(in_ns);
     assert_eq!(
         expected,
-        dur.into_string("", &Config::default()),
+        dur.to_expanded_string("", &Config::default()),
         "expected != observed"
     );
 }

@@ -296,13 +296,13 @@ fn no_expand_does_not_expand() {
 
     // normally we do expand
     let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
-    assert!(nu_val_expanded.as_string().is_ok());
-    assert_ne!(nu_val_expanded.as_string().unwrap(), unexpanded);
+    assert!(nu_val_expanded.coerce_string().is_ok());
+    assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
 
     // unless we skip expansion
     let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
-    assert!(nu_val_skip_expand.as_string().is_ok());
-    assert_eq!(nu_val_skip_expand.as_string().unwrap(), unexpanded);
+    assert!(nu_val_skip_expand.coerce_string().is_ok());
+    assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
 }
 
 fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
