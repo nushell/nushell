@@ -97,6 +97,11 @@ interleave
                 description: "Run two commands in parallel and annotate their output.",
                 result: None,
             },
+            Example {
+                example: "seq 1 20000 | interleave --buffer-size 16 { seq 1 20000 } | math sum",
+                description: "Use a buffer to increase the performance of high-volume streams.",
+                result: None,
+            },
         ]
     }
 
