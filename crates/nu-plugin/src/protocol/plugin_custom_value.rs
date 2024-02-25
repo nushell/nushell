@@ -154,7 +154,7 @@ impl PluginCustomValue {
             | Value::Duration { .. }
             | Value::Date { .. }
             | Value::String { .. }
-            | Value::QuotedString { .. }
+            | Value::Glob { .. }
             | Value::Block { .. }
             | Value::Closure { .. }
             | Value::Nothing { .. }
@@ -222,7 +222,7 @@ impl PluginCustomValue {
             | Value::Duration { .. }
             | Value::Date { .. }
             | Value::String { .. }
-            | Value::QuotedString { .. }
+            | Value::Glob { .. }
             | Value::Block { .. }
             | Value::Closure { .. }
             | Value::Nothing { .. }
@@ -274,7 +274,7 @@ impl PluginCustomValue {
             | Value::Duration { .. }
             | Value::Date { .. }
             | Value::String { .. }
-            | Value::QuotedString { .. }
+            | Value::Glob { .. }
             | Value::Block { .. }
             | Value::Closure { .. }
             | Value::Nothing { .. }
@@ -324,7 +324,7 @@ impl PluginCustomValue {
             | Value::Duration { .. }
             | Value::Date { .. }
             | Value::String { .. }
-            | Value::QuotedString { .. }
+            | Value::Glob { .. }
             | Value::Block { .. }
             | Value::Closure { .. }
             | Value::Nothing { .. }
