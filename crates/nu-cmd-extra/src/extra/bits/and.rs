@@ -126,7 +126,12 @@ impl Command for BitsAnd {
                 description:
                     "Apply bitwise and to binary data of varying lengths with specified endianness",
                 example: "0x[c0 ff ee] | bits and 0x[ff] --endian big",
-                result: Some(Value::test_binary(vec![0xc0, 0x00, 0x00])),
+                result: Some(Value::test_binary(vec![0x00, 0x00, 0xee])),
+            },
+            Example {
+                description: "Apply bitwise and to input binary data smaller than the operand",
+                example: "0x[ff] | bits and 0x[12 34 56] --endian little",
+                result: Some(Value::test_binary(vec![0x12, 0x00, 0x00])),
             },
         ]
     }

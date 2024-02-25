@@ -119,7 +119,12 @@ impl Command for BitsXor {
                 description:
                     "Apply bitwise xor to binary data of varying lengths with specified endianness",
                 example: "0x[ca fe] | bits xor 0x[aa] --endian big",
-                result: Some(Value::test_binary(vec![0x60, 0xfe])),
+                result: Some(Value::test_binary(vec![0xca, 0x54])),
+            },
+            Example {
+                description: "Apply bitwise xor to input binary data smaller than the operand",
+                example: "0x[ff] | bits xor 0x[12 34 56] --endian little",
+                result: Some(Value::test_binary(vec![0xed, 0x34, 0x56])),
             },
         ]
     }

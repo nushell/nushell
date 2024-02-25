@@ -116,7 +116,7 @@ where
         (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
             let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
                 (max, min) if max > min => (lhs, rhs, max, min),
-                (min, max) => (rhs, lhs, min, max),
+                (min, max) => (rhs, lhs, max, min),
             };
 
             let pad = iter::repeat(0).take(max_len - min_len);
@@ -125,10 +125,10 @@ where
             let mut b;
 
             let padded: &mut dyn Iterator<Item = u8> = if little_endian {
-                a = pad.chain(rhs.iter().copied());
+                a = rhs.iter().copied().chain(pad);
                 &mut a
             } else {
-                b = rhs.iter().copied().chain(pad);
+                b = pad.chain(rhs.iter().copied());
                 &mut b
             };
 

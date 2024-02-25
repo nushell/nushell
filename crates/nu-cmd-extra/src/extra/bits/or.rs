@@ -118,8 +118,13 @@ impl Command for BitsOr {
             Example {
                 description:
                     "Apply bitwise or to binary data of varying lengths with specified endianness",
-                example: "0x[c0 ff ee] | bits or 0x[aa] --endian big",
-                result: Some(Value::test_binary(vec![0xea, 0xff, 0xee])),
+                example: "0x[c0 ff ee] | bits or 0x[ff] --endian big",
+                result: Some(Value::test_binary(vec![0xc0, 0xff, 0xff])),
+            },
+            Example {
+                description: "Apply bitwise or to input binary data smaller than the operor",
+                example: "0x[ff] | bits or 0x[12 34 56] --endian little",
+                result: Some(Value::test_binary(vec![0xff, 0x34, 0x56])),
             },
         ]
     }
