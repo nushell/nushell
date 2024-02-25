@@ -142,16 +142,16 @@ def process_call(id, plugin_call):
                                     {
                                         "Int": {
                                             "val": x * y,
-                                            "internal_span": span
+                                            "span": span
                                         }
                                     } for y in [0, 1, 2]
                                 ]
                             },
-                            "internal_span": span
+                            "span": span
                         }
                     } for x in range(0, 10)
                 ],
-                "internal_span": span
+                "span": span
             }
         }
     }
