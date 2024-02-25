@@ -11,8 +11,11 @@ pub(crate) mod test_util;
 pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{PluginSignature, RawStream, ShellError, Span, Spanned, Value};
 pub use plugin_custom_value::PluginCustomValue;
-pub use protocol_info::{Feature, Protocol, ProtocolInfo};
+pub(crate) use protocol_info::ProtocolInfo;
 use serde::{Deserialize, Serialize};
+
+#[cfg(test)]
+pub(crate) use protocol_info::Protocol;
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;

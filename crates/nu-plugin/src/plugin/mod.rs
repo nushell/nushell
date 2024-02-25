@@ -17,7 +17,6 @@ use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 use nu_protocol::{PipelineData, PluginSignature, ShellError, Value};
 
 mod interface;
-pub use interface::EngineInterface;
 pub(crate) use interface::PluginInterface;
 
 mod context;
