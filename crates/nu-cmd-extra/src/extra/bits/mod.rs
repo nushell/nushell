@@ -104,7 +104,7 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
     }
 }
 
-fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F) -> Value
+fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F, head: Span) -> Value
 where
     F: Fn((i64, i64)) -> i64,
 {
@@ -158,8 +158,8 @@ where
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: other.span(),
-                src_span: span,
+                dst_span: head,
+                src_span: other.span(),
             },
             span,
         ),

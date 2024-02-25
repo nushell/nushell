@@ -88,7 +88,7 @@ impl Command for BitsAnd {
         }
 
         input.map(
-            move |value| binary_op(&value, &target, little_endian, |(l, r)| l & r),
+            move |value| binary_op(&value, &target, little_endian, |(l, r)| l & r, head),
             engine_state.ctrlc.clone(),
         )
     }
