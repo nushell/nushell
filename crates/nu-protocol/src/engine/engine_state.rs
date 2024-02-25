@@ -833,11 +833,6 @@ impl EngineState {
             .expect("internal error: missing block")
     }
 
-    /// Optionally get a block by id, if it exists
-    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Block> {
-        self.blocks.get(block_id)
-    }
-
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
         self.modules
             .get(module_id)
