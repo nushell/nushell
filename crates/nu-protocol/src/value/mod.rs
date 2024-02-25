@@ -49,48 +49,56 @@ pub enum Value {
         val: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Int {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Float {
         val: f64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Filesize {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Duration {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Date {
         val: DateTime<FixedOffset>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Range {
         val: Box<Range>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     String {
         val: String,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Glob {
@@ -98,53 +106,62 @@ pub enum Value {
         no_expand: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Record {
         val: Record,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     List {
         vals: Vec<Value>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Block {
         val: BlockId,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Closure {
         val: Closure,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Nothing {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Error {
         error: Box<ShellError>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Binary {
         val: Vec<u8>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     CellPath {
         val: CellPath,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[serde(skip_serializing)]
@@ -152,6 +169,7 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[serde(skip)]
