@@ -145,7 +145,9 @@ fn make_plugin_interface(
     let interface = manager.get_interface();
     interface.hello()?;
 
-    // Spawn the reader on a new thread
+    // Spawn the reader on a new thread. We need to be able to read messages at the same time that
+    // we write, because we are expected to be able to handle multiple messages coming in from the
+    // plugin at any time, including stream messages like `Drop`.
     std::thread::Builder::new()
         .name("plugin interface reader".into())
         .spawn(move || {
