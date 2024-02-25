@@ -64,7 +64,6 @@ impl Type {
                 is_subtype_collection(this, that)
             }
             (Type::Table(_), Type::List(_)) => true,
-            (Type::Glob, Type::String) => true,
             (Type::String, Type::Glob) => true,
             _ => false,
         }

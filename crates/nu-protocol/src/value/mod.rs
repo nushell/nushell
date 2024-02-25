@@ -2042,6 +2042,12 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
+    pub fn test_glob(val: impl Into<String>) -> Value {
+        Value::glob(val, false, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_record(val: Record) -> Value {
         Value::record(val, Span::test_data())
     }
