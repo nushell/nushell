@@ -131,40 +131,37 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Int { val, .. } => {
             use InputNumType::*;
             let val = *val;
-            let bits = bits as u64;
+            let bits = bits as u32;
             let input_num_type = get_input_num_type(val, signed, number_size);
-            match input_num_type {
-                One if bits <= 0xff => {
-                    Value::int((val as u8).rotate_left(bits as u32) as i64, span)
+
+            let int = match input_num_type {
+                One => (val as u8).rotate_left(bits) as i64,
+                Two => (val as u16).rotate_left(bits) as i64,
+                Four => (val as u32).rotate_left(bits) as i64,
+                Eight => {
+                    let Ok(i) = i64::try_from((val as u64).rotate_left(bits)) else {
+                        return Value::error(
+                            ShellError::GenericError {
+                                error: "result out of range for specified number".into(),
+                                msg: format!(
+                                    "rotating left by {bits} is out of range for the value {val}"
+                                ),
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            },
+                            span,
+                        );
+                    };
+                    i
                 }
-                Two if bits <= 0xffff => {
-                    Value::int((val as u16).rotate_left(bits as u32) as i64, span)
-                }
-                Four if bits <= 0xffff_ffff => {
-                    Value::int((val as u32).rotate_left(bits as u32) as i64, span)
-                }
-                Eight => Value::int((val as u64).rotate_left(bits as u32) as i64, span),
-                SignedOne if bits <= 0xff => {
-                    Value::int((val as i8).rotate_left(bits as u32) as i64, span)
-                }
-                SignedTwo if bits <= 0xffff => {
-                    Value::int((val as i16).rotate_left(bits as u32) as i64, span)
-                }
-                SignedFour if bits <= 0xffff_ffff => {
-                    Value::int((val as i32).rotate_left(bits as u32) as i64, span)
-                }
-                SignedEight => Value::int(val.rotate_left(bits as u32), span),
-                _ => Value::error(
-                    ShellError::GenericError {
-                        error: "result out of range for specified number".into(),
-                        msg: format!("rotating left by {bits} is out of range for the value {val}"),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    },
-                    span,
-                ),
-            }
+                SignedOne => (val as i8).rotate_left(bits) as i64,
+                SignedTwo => (val as i16).rotate_left(bits) as i64,
+                SignedFour => (val as i32).rotate_left(bits) as i64,
+                SignedEight => val.rotate_left(bits),
+            };
+
+            Value::int(int, span)
         }
         Value::Binary { val, .. } => {
             let Ok(byte_shift): Result<usize, _> = (bits / 8).try_into() else {
@@ -194,8 +191,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int or binary".into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: other.span(),
-                src_span: span,
+                dst_span: span,
+                src_span: other.span(),
             },
             span,
         ),
