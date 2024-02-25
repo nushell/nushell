@@ -164,7 +164,6 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
-    #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
         // note: spans are being refactored out of Value

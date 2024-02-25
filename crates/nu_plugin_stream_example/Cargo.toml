@@ -1,0 +1,19 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "An example of stream handling in nushell plugins"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_stream_example"
+edition = "2021"
+license = "MIT"
+name = "nu_plugin_stream_example"
+version = "0.90.2"
+
+[[bin]]
+name = "nu_plugin_stream_example"
+bench = false
+
+[lib]
+bench = false
+
+[dependencies]
+nu-plugin = { path = "../nu-plugin", version = "0.90.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.90.2", features = ["plugin"] }
