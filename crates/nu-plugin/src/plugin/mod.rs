@@ -141,7 +141,7 @@ fn make_plugin_interface(
 
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
 
-    let mut manager = PluginInterfaceManager::new(identity, (Mutex::new(stdin), encoder.clone()));
+    let mut manager = PluginInterfaceManager::new(identity, (Mutex::new(stdin), encoder));
     let interface = manager.get_interface();
     interface.hello()?;
 

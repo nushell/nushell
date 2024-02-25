@@ -11,7 +11,7 @@ use serde::Deserialize;
 /// serialized data.
 ///
 /// Each message is written as a MessagePack object. There is no message envelope or separator.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct MsgPackSerializer;
 
 impl PluginEncoder for MsgPackSerializer {

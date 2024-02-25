@@ -8,7 +8,7 @@ pub mod msgpack;
 mod tests;
 
 #[doc(hidden)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum EncodingType {
     Json(json::JsonSerializer),
     MsgPack(msgpack::MsgPackSerializer),

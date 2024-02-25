@@ -11,7 +11,7 @@ use serde::Deserialize;
 /// Each message in the stream is followed by a newline when serializing, but is not required for
 /// deserialization. The output is not pretty printed and each object does not contain newlines.
 /// If it is more convenient, a plugin may choose to separate messages by newline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct JsonSerializer;
 
 impl PluginEncoder for JsonSerializer {
