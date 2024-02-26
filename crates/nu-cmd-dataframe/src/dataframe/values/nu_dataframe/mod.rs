@@ -514,7 +514,7 @@ impl NuDataFrame {
     }
 }
 
-fn add_missing_columns<'a>(
+fn add_missing_columns(
     df: NuDataFrame,
     maybe_schema: &Option<NuSchema>,
     span: Span,
