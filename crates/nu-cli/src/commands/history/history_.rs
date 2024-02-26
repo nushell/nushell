@@ -131,10 +131,7 @@ impl Command for History {
                 }
             }
         } else {
-            Err(ShellError::FileNotFound {
-                file: "history file".into(),
-                span: head,
-            })
+            Err(ShellError::ConfigDirNotFound { span: Some(head) })
         }
     }
 
