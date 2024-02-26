@@ -2115,9 +2115,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
 dependencies = [
  "either",
 ]
@@ -2910,7 +2910,7 @@ dependencies = [
  "ahash 0.8.7",
  "fancy-regex",
  "heck",
- "itertools 0.12.1",
+ "itertools 0.12.0",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -2934,7 +2934,7 @@ name = "nu-cmd-lang"
 version = "0.90.2"
 dependencies = [
  "fancy-regex",
- "itertools 0.12.1",
+ "itertools 0.12.0",
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
@@ -2984,7 +2984,7 @@ dependencies = [
  "human-date-parser",
  "indexmap",
  "indicatif",
- "itertools 0.12.1",
+ "itertools 0.12.0",
  "libc",
  "log",
  "lscolors",
@@ -3135,7 +3135,7 @@ version = "0.90.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.12.1",
+ "itertools 0.12.0",
  "log",
  "nu-engine",
  "nu-path",
@@ -4633,7 +4633,7 @@ dependencies = [
  "compact_str",
  "crossterm",
  "indoc",
- "itertools 0.12.1",
+ "itertools 0.12.0",
  "lru",
  "paste",
  "stability",
@@ -4691,7 +4691,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "fd-lock",
- "itertools 0.12.1",
+ "itertools 0.12.0",
  "nu-ansi-term",
  "rusqlite",
  "serde",
