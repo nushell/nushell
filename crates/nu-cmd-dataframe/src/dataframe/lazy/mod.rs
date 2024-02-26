@@ -20,7 +20,7 @@ use crate::dataframe::lazy::aggregate::LazyAggregate;
 pub use crate::dataframe::lazy::collect::LazyCollect;
 use crate::dataframe::lazy::fetch::LazyFetch;
 use crate::dataframe::lazy::fill_nan::LazyFillNA;
-use crate::dataframe::lazy::fill_null::LazyFillNull;
+pub use crate::dataframe::lazy::fill_null::LazyFillNull;
 use crate::dataframe::lazy::filter::LazyFilter;
 use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 use crate::dataframe::lazy::join::LazyJoin;
