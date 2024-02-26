@@ -342,7 +342,7 @@ fn add_month_to_table(
                     if current_day == adjusted_day_number {
                         // This colors the current day
                         let header_style =
-                            style_computer.compute("header", &Value::string("search result", tag));
+                            style_computer.compute("header", &Value::nothing(Span::unknown()));
 
                         value = Value::string(
                             header_style
