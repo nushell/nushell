@@ -103,7 +103,7 @@ winreg = "0.52"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-nix = { version = "0.27", default-features = false, features = ["user", "resource"] }
+nix = { version = "0.28", default-features = false, features = ["user", "resource"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = "0.16.0"

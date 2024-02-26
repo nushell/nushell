@@ -18,7 +18,7 @@ log = "0.4"
 sysinfo = "0.30"
 
 [target.'cfg(target_family = "unix")'.dependencies]
-nix = { version = "0.27", default-features = false, features = ["fs", "term", "process", "signal"] }
+nix = { version = "0.28", default-features = false, features = ["fs", "term", "process", "signal"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = "0.16"
