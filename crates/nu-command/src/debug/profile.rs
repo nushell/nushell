@@ -21,11 +21,11 @@ impl Command for DebugProfile {
                 SyntaxShape::Closure(None),
                 "The closure to profile.",
             )
-            .switch("no-spans", "Do not collect spans", Some('n'))
-            .switch("source", "Collect pipeline element sources", Some('s'))
+            .switch("spans", "Collect spans", Some('s'))
+            .switch("expand-source", "Collect full source fragments", Some('e'))
             .switch(
                 "values",
-                "Collect pipeline element output values",
+                "Collect pipeline output values of pipeline elements",
                 Some('v'),
             )
             .named(
@@ -58,14 +58,21 @@ impl Command for DebugProfile {
         let block = engine_state.get_block(closure.block_id);
 
         let default_max_depth = 2;
-        let no_collect_spans = call.has_flag(engine_state, caller_stack, "no-spans")?;
-        let collect_source = call.has_flag(engine_state, caller_stack, "source")?;
+        let collect_spans = call.has_flag(engine_state, caller_stack, "spans")?;
+        let collect_expanded_source =
+            call.has_flag(engine_state, caller_stack, "expanded-source")?;
         let collect_values = call.has_flag(engine_state, caller_stack, "values")?;
         let max_depth = call
             .get_flag(engine_state, caller_stack, "max-depth")?
             .unwrap_or(default_max_depth);
 
-        let profiler = Profiler::new(max_depth, !no_collect_spans, collect_source, collect_values);
+        let profiler = Profiler::new(
+            max_depth,
+            collect_spans,
+            true,
+            collect_expanded_source,
+            collect_values,
+        );
 
         let lock_err = {
             |_| ShellError::GenericError {

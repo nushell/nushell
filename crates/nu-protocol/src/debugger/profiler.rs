@@ -23,6 +23,7 @@ pub struct Profiler {
     element_durations_sec: Vec<(ProfilerInfo, f64)>,
     collect_spans: bool,
     collect_source: bool,
+    collect_expanded_source: bool,
     collect_values: bool,
 }
 
@@ -31,6 +32,7 @@ impl Profiler {
         max_depth: i64,
         collect_spans: bool,
         collect_source: bool,
+        collect_expanded_source: bool,
         collect_values: bool,
     ) -> Self {
         Profiler {
@@ -41,6 +43,7 @@ impl Profiler {
             element_durations_sec: vec![],
             collect_spans,
             collect_source,
+            collect_expanded_source,
             collect_values,
         }
     }
@@ -155,7 +158,22 @@ impl Debugger for Profiler {
                     ));
                 };
 
-                row.push("source", Value::string(val, profiler_span));
+                let val = val.trim();
+                let nlines = val.lines().count();
+
+                let fragment = if self.collect_expanded_source {
+                    val.to_string()
+                } else {
+                    let mut first_line = val.lines().next().unwrap_or("").to_string();
+
+                    if nlines > 1 {
+                        first_line.push_str(" ...");
+                    }
+
+                    first_line
+                };
+
+                row.push("source", Value::string(fragment, profiler_span));
             }
 
             if let Some(val) = &info.element_input {
