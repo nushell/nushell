@@ -15,7 +15,7 @@ pub(super) fn process_string_enum<T, E>(
     E: Display,
 {
     let span = value.span();
-    if let Ok(v) = value.as_string() {
+    if let Ok(v) = value.coerce_str() {
         match v.parse() {
             Ok(format) => {
                 *config_point = format;

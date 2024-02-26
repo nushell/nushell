@@ -16,6 +16,11 @@ pub fn echo_env(to_stdout: bool) {
     }
 }
 
+pub fn echo_env_and_fail(to_stdout: bool) {
+    echo_env(to_stdout);
+    fail();
+}
+
 fn echo_one_env(arg: &str, to_stdout: bool) {
     if let Ok(v) = std::env::var(arg) {
         if to_stdout {
@@ -325,9 +330,9 @@ pub fn nu_repl() {
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
             let path = cwd
-                .as_string()
+                .coerce_str()
                 .unwrap_or_else(|err| outcome_err(&engine_state, &err));
-            let _ = std::env::set_current_dir(path);
+            let _ = std::env::set_current_dir(path.as_ref());
             engine_state.add_env_var("PWD".into(), cwd);
         }
     }

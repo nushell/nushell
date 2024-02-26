@@ -56,6 +56,7 @@ impl Command for SourceEnv {
             PathBuf::from(&path)
         } else {
             return Err(ShellError::FileNotFound {
+                file: source_filename.item,
                 span: source_filename.span,
             });
         };

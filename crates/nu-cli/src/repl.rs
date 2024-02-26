@@ -6,7 +6,7 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
-use log::{trace, warn};
+use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_cmd_base::{hook::eval_hook, util::get_editor};
@@ -26,8 +26,11 @@ use reedline::{
     Reedline, SqliteBackedHistory, Vi,
 };
 use std::{
+    collections::HashMap,
     env::temp_dir,
     io::{self, IsTerminal, Write},
+    panic::{catch_unwind, AssertUnwindSafe},
+    path::Path,
     path::PathBuf,
     sync::atomic::Ordering,
     time::{Duration, Instant},
@@ -55,8 +58,6 @@ pub fn evaluate_repl(
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
-    use nu_cmd_base::hook;
-    use reedline::Signal;
     let config = engine_state.get_config();
     let use_color = config.use_ansi_coloring;
 
@@ -64,7 +65,7 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let mut nu_prompt = NushellPrompt::new(config.shell_integration);
+    let nu_prompt = NushellPrompt::new(config.shell_integration);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -88,35 +89,8 @@ pub fn evaluate_repl(
 
     stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
-    let mut start_time = std::time::Instant::now();
-    let mut line_editor = Reedline::create();
+    let mut line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
-
-    // Now that reedline is created, get the history session id and store it in engine_state
-    store_history_id_in_engine(engine_state, &line_editor);
-    perf(
-        "setup reedline",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    if let Some(history) = engine_state.history_config() {
-        start_time = std::time::Instant::now();
-
-        line_editor = setup_history(nushell_path, engine_state, line_editor, history)?;
-
-        perf(
-            "setup history",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-    }
 
     if let Some(s) = prerun_command {
         eval_source(
@@ -149,273 +123,387 @@ pub fn evaluate_repl(
 
     kitty_protocol_healthcheck(engine_state);
 
+    // Setup initial engine_state and stack state
+    let mut previous_engine_state = engine_state.clone();
+    let mut previous_stack = stack.clone();
     loop {
-        let loop_start_time = std::time::Instant::now();
+        // clone these values so that they can be moved by AssertUnwindSafe
+        // If there is a panic within this iteration the last engine_state and stack
+        // will be used
+        let mut current_engine_state = previous_engine_state.clone();
+        let mut current_stack = previous_stack.clone();
+        let temp_file_cloned = temp_file.clone();
+        let mut nu_prompt_cloned = nu_prompt.clone();
 
-        let cwd = get_guaranteed_cwd(engine_state, stack);
+        match catch_unwind(AssertUnwindSafe(move || {
+            let (continue_loop, line_editor) = loop_iteration(LoopContext {
+                engine_state: &mut current_engine_state,
+                stack: &mut current_stack,
+                line_editor,
+                nu_prompt: &mut nu_prompt_cloned,
+                temp_file: &temp_file_cloned,
+                use_color,
+                entry_num: &mut entry_num,
+            });
 
+            // pass the most recent version of the line_editor back
+            (
+                continue_loop,
+                current_engine_state,
+                current_stack,
+                line_editor,
+            )
+        })) {
+            Ok((continue_loop, es, s, le)) => {
+                // setup state for the next iteration of the repl loop
+                previous_engine_state = es;
+                previous_stack = s;
+                line_editor = le;
+                if !continue_loop {
+                    break;
+                }
+            }
+            Err(_) => {
+                // line_editor is lost in the error case so reconstruct a new one
+                line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn get_line_editor(
+    engine_state: &mut EngineState,
+    nushell_path: &str,
+    use_color: bool,
+) -> Result<Reedline> {
+    let mut start_time = std::time::Instant::now();
+    let mut line_editor = Reedline::create();
+
+    // Now that reedline is created, get the history session id and store it in engine_state
+    store_history_id_in_engine(engine_state, &line_editor);
+    perf(
+        "setup reedline",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
-        // Before doing anything, merge the environment from the previous REPL iteration into the
-        // permanent state.
-        if let Err(err) = engine_state.merge_env(stack, cwd) {
+
+        line_editor = setup_history(nushell_path, engine_state, line_editor, history)?;
+
+        perf(
+            "setup history",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
+    Ok(line_editor)
+}
+
+struct LoopContext<'a> {
+    engine_state: &'a mut EngineState,
+    stack: &'a mut Stack,
+    line_editor: Reedline,
+    nu_prompt: &'a mut NushellPrompt,
+    temp_file: &'a Path,
+    use_color: bool,
+    entry_num: &'a mut usize,
+}
+
+/// Perform one iteration of the REPL loop
+/// Result is bool: continue loop, current reedline
+#[inline]
+fn loop_iteration(ctx: LoopContext) -> (bool, Reedline) {
+    use nu_cmd_base::hook;
+    use reedline::Signal;
+    let loop_start_time = std::time::Instant::now();
+
+    let LoopContext {
+        engine_state,
+        stack,
+        line_editor,
+        nu_prompt,
+        temp_file,
+        use_color,
+        entry_num,
+    } = ctx;
+
+    let cwd = get_guaranteed_cwd(engine_state, stack);
+
+    let mut start_time = std::time::Instant::now();
+    // Before doing anything, merge the environment from the previous REPL iteration into the
+    // permanent state.
+    if let Err(err) = engine_state.merge_env(stack, cwd) {
+        report_error_new(engine_state, &err);
+    }
+    perf(
+        "merge env",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+    //Reset the ctrl-c handler
+    if let Some(ctrlc) = &mut engine_state.ctrlc {
+        ctrlc.store(false, Ordering::SeqCst);
+    }
+    perf(
+        "reset ctrlc",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+    let config = engine_state.get_config();
+
+    let engine_reference = std::sync::Arc::new(engine_state.clone());
+
+    // Find the configured cursor shapes for each mode
+    let cursor_config = CursorConfig {
+        vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
+        vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
+        emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
+    };
+    perf(
+        "get config/cursor config",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+
+    let mut line_editor = line_editor
+        .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
+        // try to enable bracketed paste
+        // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+        .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
+        .with_highlighter(Box::new(NuHighlighter {
+            engine_state: engine_reference.clone(),
+            stack: std::sync::Arc::new(stack.clone()),
+            config: config.clone(),
+        }))
+        .with_validator(Box::new(NuValidator {
+            engine_state: engine_reference.clone(),
+        }))
+        .with_completer(Box::new(NuCompleter::new(
+            engine_reference.clone(),
+            stack.clone(),
+        )))
+        .with_quick_completions(config.quick_completions)
+        .with_partial_completions(config.partial_completions)
+        .with_ansi_colors(config.use_ansi_coloring)
+        .with_cursor_config(cursor_config);
+    perf(
+        "reedline builder",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    let style_computer = StyleComputer::from_config(engine_state, stack);
+
+    start_time = std::time::Instant::now();
+    line_editor = if config.use_ansi_coloring {
+        line_editor.with_hinter(Box::new({
+            // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+            let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+            CwdAwareHinter::default().with_style(style)
+        }))
+    } else {
+        line_editor.disable_hints()
+    };
+    perf(
+        "reedline coloring/style_computer",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+    line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
+        report_error_new(engine_state, &e);
+        Reedline::create()
+    });
+    perf(
+        "reedline menus",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+    let buffer_editor = get_editor(engine_state, stack, Span::unknown());
+
+    line_editor = if let Ok((cmd, args)) = buffer_editor {
+        let mut command = std::process::Command::new(cmd);
+        let envs = env_to_strings(engine_state, stack).unwrap_or_else(|e| {
+            warn!("Couldn't convert environment variable values to strings: {e}");
+            HashMap::default()
+        });
+        command.args(args).envs(envs);
+        line_editor.with_buffer_editor(command, temp_file.to_path_buf())
+    } else {
+        line_editor
+    };
+    perf(
+        "reedline buffer_editor",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    if let Some(history) = engine_state.history_config() {
+        start_time = std::time::Instant::now();
+        if history.sync_on_enter {
+            if let Err(e) = line_editor.sync_history() {
+                warn!("Failed to sync history: {}", e);
+            }
+        }
+        perf(
+            "sync_history",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
+
+    start_time = std::time::Instant::now();
+    // Changing the line editor based on the found keybindings
+    line_editor = setup_keybindings(engine_state, line_editor);
+    perf(
+        "keybindings",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+    // Right before we start our prompt and take input from the user,
+    // fire the "pre_prompt" hook
+    if let Some(hook) = config.hooks.pre_prompt.clone() {
+        if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
             report_error_new(engine_state, &err);
         }
-        perf(
-            "merge env",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+    }
+    perf(
+        "pre-prompt hook",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-        start_time = std::time::Instant::now();
-        //Reset the ctrl-c handler
-        if let Some(ctrlc) = &mut engine_state.ctrlc {
-            ctrlc.store(false, Ordering::SeqCst);
-        }
-        perf(
-            "reset ctrlc",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+    start_time = std::time::Instant::now();
+    // Next, check all the environment variables they ask for
+    // fire the "env_change" hook
+    let config = engine_state.get_config();
+    if let Err(error) =
+        hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
+    {
+        report_error_new(engine_state, &error)
+    }
+    perf(
+        "env-change hook",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-        start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
+    start_time = std::time::Instant::now();
+    let config = &engine_state.get_config().clone();
+    prompt_update::update_prompt(config, engine_state, stack, nu_prompt);
+    let transient_prompt =
+        prompt_update::make_transient_prompt(config, engine_state, stack, nu_prompt);
+    perf(
+        "update_prompt",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-        let engine_reference = std::sync::Arc::new(engine_state.clone());
+    *entry_num += 1;
 
-        // Find the configured cursor shapes for each mode
-        let cursor_config = CursorConfig {
-            vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
-            vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
-            emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
-        };
-        perf(
-            "get config/cursor config",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+    start_time = std::time::Instant::now();
+    line_editor = line_editor.with_transient_prompt(transient_prompt);
+    let input = line_editor.read_line(nu_prompt);
+    let shell_integration = config.shell_integration;
 
-        start_time = std::time::Instant::now();
-
-        line_editor = line_editor
-            .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
-            // try to enable bracketed paste
-            // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
-            .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-            .with_highlighter(Box::new(NuHighlighter {
-                engine_state: engine_reference.clone(),
-                stack: std::sync::Arc::new(stack.clone()),
-                config: config.clone(),
-            }))
-            .with_validator(Box::new(NuValidator {
-                engine_state: engine_reference.clone(),
-            }))
-            .with_completer(Box::new(NuCompleter::new(
-                engine_reference.clone(),
-                stack.clone(),
-            )))
-            .with_quick_completions(config.quick_completions)
-            .with_partial_completions(config.partial_completions)
-            .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config);
-        perf(
-            "reedline builder",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        let style_computer = StyleComputer::from_config(engine_state, stack);
-
-        start_time = std::time::Instant::now();
-        line_editor = if config.use_ansi_coloring {
-            line_editor.with_hinter(Box::new({
-                // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-                CwdAwareHinter::default().with_style(style)
-            }))
-        } else {
-            line_editor.disable_hints()
-        };
-        perf(
-            "reedline coloring/style_computer",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
-        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
-            report_error_new(engine_state, &e);
-            Reedline::create()
-        });
-        perf(
-            "reedline menus",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
-        let buffer_editor = get_editor(engine_state, stack, Span::unknown());
-
-        line_editor = if let Ok((cmd, args)) = buffer_editor {
-            let mut command = std::process::Command::new(&cmd);
-            command
-                .args(args)
-                .envs(env_to_strings(engine_state, stack)?);
-            line_editor.with_buffer_editor(command, temp_file.clone())
-        } else {
-            line_editor
-        };
-        perf(
-            "reedline buffer_editor",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        if let Some(history) = engine_state.history_config() {
-            start_time = std::time::Instant::now();
-            if history.sync_on_enter {
-                if let Err(e) = line_editor.sync_history() {
-                    warn!("Failed to sync history: {}", e);
-                }
-            }
-            perf(
-                "sync_history",
-                start_time,
-                file!(),
-                line!(),
-                column!(),
-                use_color,
+    match input {
+        Ok(Signal::Success(s)) => {
+            let hostname = System::host_name();
+            let history_supports_meta = matches!(
+                engine_state.history_config().map(|h| h.file_format),
+                Some(HistoryFileFormat::Sqlite)
             );
-        }
 
-        start_time = std::time::Instant::now();
-        // Changing the line editor based on the found keybindings
-        line_editor = setup_keybindings(engine_state, line_editor);
-        perf(
-            "keybindings",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
-        // Right before we start our prompt and take input from the user,
-        // fire the "pre_prompt" hook
-        if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
-                report_error_new(engine_state, &err);
+            if history_supports_meta {
+                prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor);
             }
-        }
-        perf(
-            "pre-prompt hook",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
 
-        start_time = std::time::Instant::now();
-        // Next, check all the environment variables they ask for
-        // fire the "env_change" hook
-        let config = engine_state.get_config();
-        if let Err(error) =
-            hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
-        {
-            report_error_new(engine_state, &error)
-        }
-        perf(
-            "env-change hook",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
-        let config = &engine_state.get_config().clone();
-        prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
-        let transient_prompt =
-            prompt_update::make_transient_prompt(config, engine_state, stack, &nu_prompt);
-        perf(
-            "update_prompt",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        entry_num += 1;
-
-        start_time = std::time::Instant::now();
-        line_editor = line_editor.with_transient_prompt(transient_prompt);
-        let input = line_editor.read_line(&nu_prompt);
-        let shell_integration = config.shell_integration;
-
-        match input {
-            Ok(Signal::Success(s)) => {
-                let hostname = System::host_name();
-                let history_supports_meta = matches!(
-                    engine_state.history_config().map(|h| h.file_format),
-                    Some(HistoryFileFormat::Sqlite)
-                );
-
-                if history_supports_meta {
-                    prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor)?;
-                }
-
-                // Right before we start running the code the user gave us, fire the `pre_execution`
-                // hook
-                if let Some(hook) = config.hooks.pre_execution.clone() {
-                    // Set the REPL buffer to the current command for the "pre_execution" hook
-                    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-                    repl.buffer = s.to_string();
-                    drop(repl);
-
-                    if let Err(err) =
-                        eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
-                    {
-                        report_error_new(engine_state, &err);
-                    }
-                }
-
+            // Right before we start running the code the user gave us, fire the `pre_execution`
+            // hook
+            if let Some(hook) = config.hooks.pre_execution.clone() {
+                // Set the REPL buffer to the current command for the "pre_execution" hook
                 let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-                repl.cursor_pos = line_editor.current_insertion_point();
-                repl.buffer = line_editor.current_buffer_contents().to_string();
+                repl.buffer = s.to_string();
                 drop(repl);
 
-                if shell_integration {
-                    run_ansi_sequence(PRE_EXECUTE_MARKER)?;
+                if let Err(err) =
+                    eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
+                {
+                    report_error_new(engine_state, &err);
                 }
+            }
 
-                // Actual command execution logic starts from here
-                let start_time = Instant::now();
+            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+            repl.cursor_pos = line_editor.current_insertion_point();
+            repl.buffer = line_editor.current_buffer_contents().to_string();
+            drop(repl);
 
-                match parse_operation(s.clone(), engine_state, stack)? {
+            if shell_integration {
+                run_ansi_sequence(PRE_EXECUTE_MARKER);
+            }
+
+            // Actual command execution logic starts from here
+            let start_time = Instant::now();
+
+            match parse_operation(s.clone(), engine_state, stack) {
+                Ok(operation) => match operation {
                     ReplOperation::AutoCd { cwd, target, span } => {
                         do_auto_cd(target, cwd, stack, engine_state, span);
                     }
@@ -426,84 +514,87 @@ pub fn evaluate_repl(
                             engine_state,
                             line_editor,
                             shell_integration,
-                            entry_num,
-                        )?;
+                            *entry_num,
+                        )
                     }
                     // as the name implies, we do nothing in this case
                     ReplOperation::DoNothing => {}
-                }
-
-                let cmd_duration = start_time.elapsed();
-
-                stack.add_env_var(
-                    "CMD_DURATION_MS".into(),
-                    Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
-                );
-
-                if history_supports_meta {
-                    fill_in_result_related_history_metadata(
-                        &s,
-                        engine_state,
-                        cmd_duration,
-                        stack,
-                        &mut line_editor,
-                    )?;
-                }
-
-                if shell_integration {
-                    do_shell_integration_finalize_command(hostname, engine_state, stack)?;
-                }
-
-                flush_engine_state_repl_buffer(engine_state, &mut line_editor);
+                },
+                Err(ref e) => error!("Error parsing operation: {e}"),
             }
-            Ok(Signal::CtrlC) => {
-                // `Reedline` clears the line content. New prompt is shown
-                if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+
+            let cmd_duration = start_time.elapsed();
+
+            stack.add_env_var(
+                "CMD_DURATION_MS".into(),
+                Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
+            );
+
+            if history_supports_meta {
+                if let Err(e) = fill_in_result_related_history_metadata(
+                    &s,
+                    engine_state,
+                    cmd_duration,
+                    stack,
+                    &mut line_editor,
+                ) {
+                    warn!("Could not fill in result related history metadata: {e}");
                 }
             }
-            Ok(Signal::CtrlD) => {
-                // When exiting clear to a new line
-                if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
-                }
-                println!();
-                break;
+
+            if shell_integration {
+                do_shell_integration_finalize_command(hostname, engine_state, stack);
             }
-            Err(err) => {
-                let message = err.to_string();
-                if !message.contains("duration") {
-                    eprintln!("Error: {err:?}");
-                    // TODO: Identify possible error cases where a hard failure is preferable
-                    // Ignoring and reporting could hide bigger problems
-                    // e.g. https://github.com/nushell/nushell/issues/6452
-                    // Alternatively only allow that expected failures let the REPL loop
-                }
-                if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
-                }
+
+            flush_engine_state_repl_buffer(engine_state, &mut line_editor);
+        }
+        Ok(Signal::CtrlC) => {
+            // `Reedline` clears the line content. New prompt is shown
+            if shell_integration {
+                run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
             }
         }
-        perf(
-            "processing line editor input",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        perf(
-            "finished repl loop",
-            loop_start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        Ok(Signal::CtrlD) => {
+            // When exiting clear to a new line
+            if shell_integration {
+                run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
+            }
+            println!();
+            return (false, line_editor);
+        }
+        Err(err) => {
+            let message = err.to_string();
+            if !message.contains("duration") {
+                eprintln!("Error: {err:?}");
+                // TODO: Identify possible error cases where a hard failure is preferable
+                // Ignoring and reporting could hide bigger problems
+                // e.g. https://github.com/nushell/nushell/issues/6452
+                // Alternatively only allow that expected failures let the REPL loop
+            }
+            if shell_integration {
+                run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
+            }
+        }
     }
+    perf(
+        "processing line editor input",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-    Ok(())
+    perf(
+        "finished repl loop",
+        loop_start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    (true, line_editor)
 }
 
 ///
@@ -514,9 +605,9 @@ fn prepare_history_metadata(
     hostname: &Option<String>,
     engine_state: &EngineState,
     line_editor: &mut Reedline,
-) -> Result<()> {
+) {
     if !s.is_empty() && line_editor.has_last_command_context() {
-        line_editor
+        let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
                 c.hostname = hostname.clone();
@@ -524,9 +615,11 @@ fn prepare_history_metadata(
                 c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                 c
             })
-            .into_diagnostic()?; // todo: don't stop repl if error here?
+            .into_diagnostic();
+        if let Err(e) = result {
+            warn!("Could not prepare history metadata: {e}");
+        }
     }
-    Ok(())
 }
 
 ///
@@ -638,9 +731,7 @@ fn do_auto_cd(
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.as_list()
-            .map(|x| x.to_vec())
-            .unwrap_or_else(|_| vec![cwd])
+        v.into_list().unwrap_or_else(|_| vec![cwd])
     } else {
         vec![cwd]
     };
@@ -681,7 +772,7 @@ fn do_run_cmd(
     line_editor: Reedline,
     shell_integration: bool,
     entry_num: usize,
-) -> Result<Reedline> {
+) -> Reedline {
     trace!("eval source: {}", s);
 
     let mut cmds = s.split_whitespace();
@@ -707,18 +798,25 @@ fn do_run_cmd(
 
     if shell_integration {
         if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-            let path = cwd.as_string()?;
+            match cwd.coerce_into_string() {
+                Ok(path) => {
+                    // Try to abbreviate string for windows title
+                    let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                        path.replace(&p.as_path().display().to_string(), "~")
+                    } else {
+                        path
+                    };
+                    let binary_name = s.split_whitespace().next();
 
-            // Try to abbreviate string for windows title
-            let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                path.replace(&p.as_path().display().to_string(), "~")
-            } else {
-                path
-            };
-            let binary_name = s.split_whitespace().next();
-
-            if let Some(binary_name) = binary_name {
-                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"))?;
+                    if let Some(binary_name) = binary_name {
+                        run_ansi_sequence(&format!(
+                            "\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"
+                        ));
+                    }
+                }
+                Err(e) => {
+                    warn!("Could not coerce working directory to string {e}");
+                }
             }
         }
     }
@@ -732,7 +830,7 @@ fn do_run_cmd(
         false,
     );
 
-    Ok(line_editor)
+    line_editor
 }
 
 ///
@@ -743,46 +841,52 @@ fn do_shell_integration_finalize_command(
     hostname: Option<String>,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<()> {
-    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+) {
+    run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        let path = cwd.as_string()?;
+        match cwd.coerce_into_string() {
+            Ok(path) => {
+                // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
+                // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
+                if stack.get_env_var(engine_state, "TERM_PROGRAM")
+                    == Some(Value::test_string("vscode"))
+                {
+                    // If we're in vscode, run their specific ansi escape sequence.
+                    // This is helpful for ctrl+g to change directories in the terminal.
+                    run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path));
+                } else {
+                    // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                    run_ansi_sequence(&format!(
+                        "\x1b]7;file://{}{}{}\x1b\\",
+                        percent_encoding::utf8_percent_encode(
+                            &hostname.unwrap_or_else(|| "localhost".to_string()),
+                            percent_encoding::CONTROLS
+                        ),
+                        if path.starts_with('/') { "" } else { "/" },
+                        percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+                    ));
+                }
 
-        // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
-        // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
-            // If we're in vscode, run their specific ansi escape sequence.
-            // This is helpful for ctrl+g to change directories in the terminal.
-            run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path))?;
-        } else {
-            // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-            run_ansi_sequence(&format!(
-                "\x1b]7;file://{}{}{}\x1b\\",
-                percent_encoding::utf8_percent_encode(
-                    &hostname.unwrap_or_else(|| "localhost".to_string()),
-                    percent_encoding::CONTROLS
-                ),
-                if path.starts_with('/') { "" } else { "/" },
-                percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-            ))?;
+                // Try to abbreviate string for windows title
+                let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                    path.replace(&p.as_path().display().to_string(), "~")
+                } else {
+                    path
+                };
+
+                // Set window title too
+                // https://tldp.org/HOWTO/Xterm-Title-3.html
+                // ESC]0;stringBEL -- Set icon name and window title to string
+                // ESC]1;stringBEL -- Set icon name to string
+                // ESC]2;stringBEL -- Set window title to string
+                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"));
+            }
+            Err(e) => {
+                warn!("Could not coerce working directory to string {e}");
+            }
         }
-
-        // Try to abbreviate string for windows title
-        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            path.replace(&p.as_path().display().to_string(), "~")
-        } else {
-            path
-        };
-
-        // Set window title too
-        // https://tldp.org/HOWTO/Xterm-Title-3.html
-        // ESC]0;stringBEL -- Set icon name and window title to string
-        // ESC]1;stringBEL -- Set icon name to string
-        // ESC]2;stringBEL -- Set window title to string
-        run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"))?;
     }
-    run_ansi_sequence(RESET_APPLICATION_MODE)?;
-    Ok(())
+    run_ansi_sequence(RESET_APPLICATION_MODE);
 }
 
 ///
@@ -936,23 +1040,12 @@ fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> Str
     format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
 }
 
-fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    io::stdout()
-        .write_all(seq.as_bytes())
-        .map_err(|e| ShellError::GenericError {
-            error: "Error writing ansi sequence".into(),
-            msg: e.to_string(),
-            span: Some(Span::unknown()),
-            help: None,
-            inner: vec![],
-        })?;
-    io::stdout().flush().map_err(|e| ShellError::GenericError {
-        error: "Error flushing stdio".into(),
-        msg: e.to_string(),
-        span: Some(Span::unknown()),
-        help: None,
-        inner: vec![],
-    })
+fn run_ansi_sequence(seq: &str) {
+    if let Err(e) = io::stdout().write_all(seq.as_bytes()) {
+        warn!("Error writing ansi sequence {e}");
+    } else if let Err(e) = io::stdout().flush() {
+        warn!("Error flushing stdio {e}");
+    }
 }
 
 // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'

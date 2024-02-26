@@ -871,7 +871,7 @@ impl EngineState {
 
     pub fn get_cwd(&self) -> Option<String> {
         if let Some(pwd_value) = self.get_env_var(PWD_ENV) {
-            pwd_value.as_string().ok()
+            pwd_value.coerce_string().ok()
         } else {
             None
         }
@@ -900,7 +900,7 @@ impl EngineState {
 
     pub fn current_work_dir(&self) -> String {
         self.get_env_var("PWD")
-            .map(|d| d.as_string().unwrap_or_default())
+            .map(|d| d.coerce_string().unwrap_or_default())
             .unwrap_or_default()
     }
 
@@ -914,6 +914,20 @@ impl EngineState {
 
     pub fn set_startup_time(&mut self, startup_time: i64) {
         self.startup_time = startup_time;
+    }
+
+    pub fn recover_from_panic(&mut self) {
+        if Mutex::is_poisoned(&self.repl_state) {
+            self.repl_state = Arc::new(Mutex::new(ReplState {
+                buffer: "".to_string(),
+                cursor_pos: 0,
+            }));
+        }
+        if Mutex::is_poisoned(&self.regex_cache) {
+            self.regex_cache = Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
+            )));
+        }
     }
 }
 

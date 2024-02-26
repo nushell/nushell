@@ -281,7 +281,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &sig, &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage(spans[0]);
             };
 
@@ -448,21 +448,16 @@ pub fn parse_def(
             if let Some(arg) = call.positional_nth(2) {
                 match arg {
                     Expression {
-                        expr: Expr::Block(block_id),
-                        ..
-                    }
-                    | Expression {
                         expr: Expr::Closure(block_id),
-                        ..
-                    }
-                    | Expression {
-                        expr: Expr::RowCondition(block_id),
                         ..
                     } => {
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => {}
+                    _ => working_set.parse_errors.push(ParseError::Expected(
+                        "definition body closure { ... }",
+                        arg.span,
+                    )),
                 }
             }
 
@@ -470,7 +465,7 @@ pub fn parse_def(
             check_call(working_set, call_span, &sig, &call);
             working_set.parse_errors.append(&mut new_errors);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), None);
             };
 
@@ -490,10 +485,10 @@ pub fn parse_def(
         }
     };
 
-    let Ok(has_env) = has_flag_wrapped(working_set, &call, "env") else {
+    let Ok(has_env) = has_flag_const(working_set, &call, "env") else {
         return (garbage_pipeline(spans), None);
     };
-    let Ok(has_wrapped) = has_flag_wrapped(working_set, &call, "wrapped") else {
+    let Ok(has_wrapped) = has_flag_const(working_set, &call, "wrapped") else {
         return (garbage_pipeline(spans), None);
     };
 
@@ -603,8 +598,6 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let block = working_set.get_block_mut(block_id);
-            let calls_itself = block_calls_itself(block, decl_id);
-            block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = has_env;
 
@@ -763,10 +756,7 @@ pub fn parse_extern(
                     } else {
                         *declaration = signature.clone().into_block_command(block_id);
 
-                        let block = working_set.get_block_mut(block_id);
-                        let calls_itself = block_calls_itself(block, decl_id);
-                        block.recursive = Some(calls_itself);
-                        block.signature = signature;
+                        working_set.get_block_mut(block_id).signature = signature;
                     }
                 } else {
                     let decl = KnownExternal {
@@ -802,43 +792,6 @@ pub fn parse_extern(
         ty: Type::Any,
         custom_completion: None,
     }])
-}
-
-fn block_calls_itself(block: &Block, decl_id: usize) -> bool {
-    block.pipelines.iter().any(|pipeline| {
-        pipeline
-            .elements
-            .iter()
-            .any(|pipe_element| match pipe_element {
-                PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(call_expr),
-                        ..
-                    },
-                ) => {
-                    if call_expr.decl_id == decl_id {
-                        return true;
-                    }
-                    call_expr.arguments.iter().any(|arg| match arg {
-                        Argument::Positional(Expression { expr, .. }) => match expr {
-                            Expr::Keyword(.., expr) => {
-                                let expr = expr.as_ref();
-                                let Expression { expr, .. } = expr;
-                                match expr {
-                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                    _ => false,
-                                }
-                            }
-                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                            _ => false,
-                        },
-                        _ => false,
-                    })
-                }
-                _ => false,
-            })
-    })
 }
 
 pub fn parse_alias(
@@ -884,7 +837,7 @@ pub fn parse_alias(
             .parse_errors
             .truncate(original_starting_error_count);
 
-        let Ok(has_help_flag) = has_flag_wrapped(working_set, &alias_call, "help") else {
+        let Ok(has_help_flag) = has_flag_const(working_set, &alias_call, "help") else {
             return garbage_pipeline(spans);
         };
 
@@ -1139,7 +1092,7 @@ pub fn parse_export_in_block(
         let starting_error_count = working_set.parse_errors.len();
         check_call(working_set, call_span, &decl.signature(), &call);
 
-        let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+        let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
             return garbage_pipeline(&lite_command.parts);
         };
 
@@ -1628,7 +1581,7 @@ pub fn parse_export_env(
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), None);
             };
 
@@ -1749,7 +1702,9 @@ pub fn parse_module_block(
     for pipeline in output.block.iter() {
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
-                LiteElement::Command(_, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::ErrPipedCommand(_, command)
+                | LiteElement::OutErrPipedCommand(_, command) => {
                     let name = working_set.get_span_contents(command.parts[0]);
 
                     match name {
@@ -2134,7 +2089,7 @@ pub fn parse_module(
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), None);
             };
 
@@ -2334,7 +2289,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return (garbage_pipeline(spans), vec![]);
             };
 
@@ -2524,7 +2479,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage_pipeline(spans);
             };
 
@@ -2691,7 +2646,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match val.as_string() {
+            Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2740,7 +2695,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match val.as_string() {
+            Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2763,7 +2718,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
         if let Some(new_name_expression) = kw_expression.as_keyword() {
             match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match val.as_string() {
+                Ok(val) => match val.coerce_into_string() {
                     Ok(s) => Some(Spanned {
                         item: s,
                         span: new_name_expression.span,
@@ -2789,10 +2744,10 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         None
     };
 
-    let Ok(has_prefix) = has_flag_wrapped(working_set, &call, "prefix") else {
+    let Ok(has_prefix) = has_flag_const(working_set, &call, "prefix") else {
         return garbage_pipeline(&[call_span]);
     };
-    let Ok(do_reload) = has_flag_wrapped(working_set, &call, "reload") else {
+    let Ok(do_reload) = has_flag_const(working_set, &call, "reload") else {
         return garbage_pipeline(&[call_span]);
     };
 
@@ -2961,7 +2916,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match val.as_string() {
+            Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2980,7 +2935,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
         )
     };
 
-    let Ok(keep_custom) = has_flag_wrapped(working_set, &call, "keep-custom") else {
+    let Ok(keep_custom) = has_flag_const(working_set, &call, "keep-custom") else {
         return garbage_pipeline(&[call_span]);
     };
 
@@ -3398,7 +3353,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage_pipeline(spans);
             };
 
@@ -3428,7 +3383,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                     }
                 };
 
-                let filename = match val.as_string() {
+                let filename = match val.coerce_into_string() {
                     Ok(s) => s,
                     Err(err) => {
                         working_set.error(err.wrap(working_set, span(&spans[1..])));
@@ -3536,7 +3491,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage(span(spans));
             };
 
@@ -3611,7 +3566,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
-            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
                 return garbage_pipeline(spans);
             };
 
@@ -3635,7 +3590,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             let val =
                 eval_constant(working_set, expr).map_err(|err| err.wrap(working_set, call.head))?;
             let filename = val
-                .as_string()
+                .coerce_into_string()
                 .map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
@@ -3845,7 +3800,7 @@ pub fn find_in_dirs(
             .ok()?
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.as_path().ok()?;
+                let dir = lib_dir.to_path().ok()?;
                 let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
                 canonicalize_with(filename, dir_abs).ok()
             })
@@ -3878,7 +3833,7 @@ pub fn find_in_dirs(
                 if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
                     if let Ok(dirs) = lib_dirs.as_list() {
                         for lib_dir in dirs {
-                            if let Ok(dir) = lib_dir.as_path() {
+                            if let Ok(dir) = lib_dir.to_path() {
                                 // make sure the dir is absolute path
                                 if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd) {
                                     if let Ok(path) = canonicalize_with(filename, dir_abs) {
@@ -3939,11 +3894,7 @@ fn detect_params_in_name(
 }
 
 /// Run has_flag_const and and push possible error to working_set
-fn has_flag_wrapped(
-    working_set: &mut StateWorkingSet,
-    call: &Call,
-    name: &str,
-) -> Result<bool, ()> {
+fn has_flag_const(working_set: &mut StateWorkingSet, call: &Call, name: &str) -> Result<bool, ()> {
     call.has_flag_const(working_set, name).map_err(|err| {
         working_set.error(err.wrap(working_set, call.span()));
     })

@@ -193,7 +193,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Window { .. }
         | Expr::Wildcard
         | Expr::RenameAlias { .. }
-        | Expr::Count
+        | Expr::Len
         | Expr::Nth(_)
         | Expr::SubPlan(_, _)
         | Expr::Selector(_) => None,

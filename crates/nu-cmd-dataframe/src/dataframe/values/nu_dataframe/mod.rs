@@ -154,15 +154,13 @@ impl NuDataFrame {
             match value {
                 Value::CustomValue { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
-                    let cols = (0..vals.len())
-                        .map(|i| format!("{i}"))
-                        .collect::<Vec<String>>();
+                    let record = vals
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, val)| (format!("{i}"), val))
+                        .collect();
 
-                    conversion::insert_record(
-                        &mut column_values,
-                        Record::from_raw_cols_vals(cols, vals),
-                        &maybe_schema,
-                    )?
+                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
                 Value::Record { val: record, .. } => {
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?

@@ -436,19 +436,19 @@ fn mv_change_case_of_directory() {
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         assert!(
             !_files_in_test_directory.contains(&original_dir)
                 && _files_in_test_directory.contains(&new_dir)
         );
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         assert!(files_exist_at(
             vec!["somefile.txt",],
             dirs.test().join(new_dir)
         ));
 
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         _actual.err.contains("to a subdirectory of itself");
     })
 }
@@ -474,12 +474,12 @@ fn mv_change_case_of_file() {
             .unwrap()
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         assert!(
             !_files_in_test_directory.contains(&original_file_name)
                 && _files_in_test_directory.contains(&new_file_name)
         );
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         _actual.err.contains("are the same file");
     })
 }
@@ -584,6 +584,32 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
     });
 }
 
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
+    Playground::setup("umv_test_18", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; umv $f {}",
+            src.display(),
+            "hello_world_dest"
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join("hello_world_dest").exists());
+    });
+}
+
 #[cfg(not(windows))]
 #[rstest]
 #[case("a]?c")]
@@ -591,6 +617,7 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 // windows doesn't allow filename with `*`.
 fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) {
     mv_files_with_glob_metachars(src_name);
+    mv_files_with_glob_metachars_when_input_are_variables(src_name);
 }
 
 #[test]

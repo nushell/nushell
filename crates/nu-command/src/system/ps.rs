@@ -16,6 +16,7 @@ use nu_protocol::{
 };
 #[cfg(all(
     unix,
+    not(target_os = "freebsd"),
     not(target_os = "macos"),
     not(target_os = "windows"),
     not(target_os = "android"),
@@ -27,6 +28,7 @@ use std::time::Duration;
 #[derive(Clone)]
 pub struct Ps;
 
+#[cfg(not(target_os = "freebsd"))]
 impl Command for Ps {
     fn name(&self) -> &str {
         "ps"
@@ -93,6 +95,7 @@ impl Command for Ps {
     }
 }
 
+#[cfg(not(target_os = "freebsd"))]
 fn run_ps(
     engine_state: &EngineState,
     stack: &mut Stack,

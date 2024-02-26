@@ -493,7 +493,7 @@ fn lists_with_directory_flag() {
             r#"
                 cd dir_empty;
                 ['.' '././.' '..' '../dir_files' '../dir_files/*']
-                | each { |it| ls --directory $it }
+                | each { |it| ls --directory ($it | into glob) }
                 | flatten
                 | get name
                 | to text
@@ -603,7 +603,7 @@ fn list_a_directory_not_exists() {
     })
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[test]
 fn list_directory_contains_invalid_utf8() {
     use std::ffi::OsStr;

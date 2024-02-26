@@ -4,7 +4,7 @@ mod second_custom_value;
 use cool_custom_value::CoolCustomValue;
 use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, PluginSignature, ShellError, Value};
+use nu_protocol::{Category, PluginSignature, ShellError, SyntaxShape, Value};
 use second_custom_value::SecondCustomValue;
 
 struct CustomValuePlugin;
@@ -21,6 +21,14 @@ impl Plugin for CustomValuePlugin {
             PluginSignature::build("custom-value update")
                 .usage("PluginSignature for a plugin that updates a custom value")
                 .category(Category::Experimental),
+            PluginSignature::build("custom-value update-arg")
+                .usage("PluginSignature for a plugin that updates a custom value as an argument")
+                .required(
+                    "custom_value",
+                    SyntaxShape::Any,
+                    "the custom value to update",
+                )
+                .category(Category::Experimental),
         ]
     }
 
@@ -35,6 +43,7 @@ impl Plugin for CustomValuePlugin {
             "custom-value generate" => self.generate(call, input),
             "custom-value generate2" => self.generate2(call, input),
             "custom-value update" => self.update(call, input),
+            "custom-value update-arg" => self.update(call, &call.req(0)?),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
                 msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),

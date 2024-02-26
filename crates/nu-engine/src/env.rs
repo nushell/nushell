@@ -98,10 +98,10 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.as_string()?),
+        ConversionResult::Ok(v) => Ok(v.coerce_into_string()?),
         ConversionResult::ConversionError(e) => Err(e),
         ConversionResult::GeneralError(e) => Err(e),
-        ConversionResult::CellPathError => match value.as_string() {
+        ConversionResult::CellPathError => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
                 if env_name == ENV_PATH_NAME {
@@ -110,10 +110,10 @@ pub fn env_to_string(
                         Value::List { vals, .. } => {
                             let paths = vals
                                 .iter()
-                                .map(|v| v.as_string())
+                                .map(Value::coerce_str)
                                 .collect::<Result<Vec<_>, _>>()?;
 
-                            match std::env::join_paths(paths) {
+                            match std::env::join_paths(paths.iter().map(AsRef::as_ref)) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
                                 Err(_) => Err(ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
@@ -333,7 +333,7 @@ pub fn find_in_dirs_env(
             .ok()?
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.as_path().ok()?;
+                let dir = lib_dir.to_path().ok()?;
                 let dir_abs = canonicalize_with(dir, &cwd).ok()?;
                 canonicalize_with(filename, dir_abs).ok()
             })

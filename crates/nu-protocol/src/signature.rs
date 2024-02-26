@@ -471,7 +471,7 @@ impl Signature {
     /// Panics if one of them is found
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
         let s = short.map(|c| {
-            debug_assert!(
+            assert!(
                 !self.get_shorts().contains(&c),
                 "There may be duplicate short flags for '-{}'",
                 c
@@ -481,7 +481,7 @@ impl Signature {
 
         let name = {
             let name: String = name.into();
-            debug_assert!(
+            assert!(
                 !self.get_names().contains(&name.as_str()),
                 "There may be duplicate name flags for '--{}'",
                 name

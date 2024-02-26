@@ -6,6 +6,8 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    ErrGreaterPipe,
+    OutErrGreaterPipe,
     Semicolon,
     OutGreaterThan,
     OutGreaterGreaterThan,
@@ -485,8 +487,14 @@ fn lex_internal(
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
-            // Otherwise, try to consume an unclassified token.
+            let token = try_lex_special_piped_item(input, &mut curr_offset, span_offset);
+            if let Some(token) = token {
+                output.push(token);
+                is_complete = false;
+                continue;
+            }
 
+            // Otherwise, try to consume an unclassified token.
             let (token, err) = lex_item(
                 input,
                 &mut curr_offset,
@@ -503,4 +511,50 @@ fn lex_internal(
         }
     }
     (output, error)
+}
+
+/// trying to lex for the following item:
+/// e>|, e+o>|, o+e>|
+///
+/// It returns Some(token) if we find the item, or else return None.
+fn try_lex_special_piped_item(
+    input: &[u8],
+    curr_offset: &mut usize,
+    span_offset: usize,
+) -> Option<Token> {
+    let c = input[*curr_offset];
+    let e_pipe_len = 3;
+    let eo_pipe_len = 5;
+    let offset = *curr_offset;
+    if c == b'e' {
+        // expect `e>|`
+        if (offset + e_pipe_len <= input.len()) && (&input[offset..offset + e_pipe_len] == b"e>|") {
+            *curr_offset += e_pipe_len;
+            return Some(Token::new(
+                TokenContents::ErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + e_pipe_len),
+            ));
+        }
+        if (offset + eo_pipe_len <= input.len())
+            && (&input[offset..offset + eo_pipe_len] == b"e+o>|")
+        {
+            *curr_offset += eo_pipe_len;
+            return Some(Token::new(
+                TokenContents::OutErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+            ));
+        }
+    } else if c == b'o' {
+        // it can be the following case: `o+e>|`
+        if (offset + eo_pipe_len <= input.len())
+            && (&input[offset..offset + eo_pipe_len] == b"o+e>|")
+        {
+            *curr_offset += eo_pipe_len;
+            return Some(Token::new(
+                TokenContents::OutErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+            ));
+        }
+    }
+    None
 }

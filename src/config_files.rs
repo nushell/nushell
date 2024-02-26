@@ -4,11 +4,12 @@ use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::report_error;
+use nu_protocol::{report_error, Config};
 use nu_protocol::{ParseError, PipelineData, Spanned};
 use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
@@ -194,14 +195,22 @@ pub(crate) fn setup_config(
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
-    #[cfg(feature = "plugin")]
-    read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        #[cfg(feature = "plugin")]
+        read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
 
-    read_config_file(engine_state, stack, env_file, true);
-    read_config_file(engine_state, stack, config_file, false);
+        read_config_file(engine_state, stack, env_file, true);
+        read_config_file(engine_state, stack, config_file, false);
 
-    if is_login_shell {
-        read_loginshell_file(engine_state, stack);
+        if is_login_shell {
+            read_loginshell_file(engine_state, stack);
+        }
+    }));
+    if result.is_err() {
+        eprintln!(
+            "A panic occurred while reading configuration files, using default configuration."
+        );
+        engine_state.config = Config::default()
     }
 }
 

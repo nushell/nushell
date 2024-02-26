@@ -262,9 +262,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     // Let's try dtparse first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
-        if let Ok(input_val) = input.as_spanned_string() {
-            match parse_date_from_string(&input_val.item, input_val.span) {
-                Ok(date) => return Value::date(date, input_val.span),
+        let span = input.span();
+        if let Ok(input_val) = input.coerce_str() {
+            match parse_date_from_string(&input_val, span) {
+                Ok(date) => return Value::date(date, span),
                 Err(_) => {
                     let parse_result = match std::panic::catch_unwind(AssertUnwindSafe(|| {
                         // FIXME: The panic needs to be addressed upstream
@@ -283,7 +284,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     };
 
                     if let Ok(date) = parse_result {
-                        //from_human_time(&input_val.item) {
                         match date {
                             ParseResult::Date(date) => {
                                 let time = NaiveTime::from_hms_opt(0, 0, 0).expect("valid time");
@@ -292,10 +292,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     combined,
                                     *Local::now().offset(),
                                 );
-                                return Value::date(dt_fixed, input_val.span);
+                                return Value::date(dt_fixed, span);
                             }
                             ParseResult::DateTime(date) => {
-                                return Value::date(date.fixed_offset(), input_val.span)
+                                return Value::date(date.fixed_offset(), span)
                             }
                             ParseResult::Time(time) => {
                                 let date = Local::now().date_naive();
@@ -304,7 +304,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     combined,
                                     *Local::now().offset(),
                                 );
-                                return Value::date(dt_fixed, input_val.span);
+                                return Value::date(dt_fixed, span);
                             }
                         }
                     }
@@ -356,7 +356,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.debug_value(),
+                                msg: input.to_debug_string(),
                                 span: *span,
                             },
                             *span,
@@ -369,7 +369,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.debug_value(),
+                                msg: input.to_debug_string(),
                                 span: *span,
                             },
                             *span,

@@ -607,6 +607,20 @@ pub enum ShellError {
         first_use: Span,
     },
 
+    /// Attempted to create a record from different number of columns and values
+    ///
+    /// ## Resolution
+    ///
+    /// Check the record has the same number of columns as values
+    #[error("Attempted to create a record from different number of columns and values")]
+    #[diagnostic(code(nu::shell::record_cols_vals_mismatch))]
+    RecordColsValsMismatch {
+        #[label = "problematic value"]
+        bad_value: Span,
+        #[label = "attempted to create the record here"]
+        creation_site: Span,
+    },
+
     /// An error happened while performing an external command.
     ///
     /// ## Resolution
@@ -713,8 +727,9 @@ pub enum ShellError {
     ///
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found))]
+    #[diagnostic(code(nu::shell::file_not_found), help("{file} does not exist"))]
     FileNotFound {
+        file: String,
         #[label("file not found")]
         span: Span,
     },
@@ -759,6 +774,54 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::plugin_failed_to_decode))]
     PluginFailedToDecode { msg: String },
 
+    /// A custom value cannot be sent to the given plugin.
+    ///
+    /// ## Resolution
+    ///
+    /// Custom values can only be used with the plugin they came from. Use a command from that
+    /// plugin instead.
+    #[error("Custom value `{name}` cannot be sent to plugin")]
+    #[diagnostic(code(nu::shell::custom_value_incorrect_for_plugin))]
+    CustomValueIncorrectForPlugin {
+        name: String,
+        #[label("the `{dest_plugin}` plugin does not support this kind of value")]
+        span: Span,
+        dest_plugin: String,
+        #[help("this value came from the `{}` plugin")]
+        src_plugin: Option<String>,
+    },
+
+    /// The plugin failed to encode a custom value.
+    ///
+    /// ## Resolution
+    ///
+    /// This is likely a bug with the plugin itself. The plugin may have tried to send a custom
+    /// value that is not serializable.
+    #[error("Custom value failed to encode")]
+    #[diagnostic(code(nu::shell::custom_value_failed_to_encode))]
+    CustomValueFailedToEncode {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
+    /// The plugin failed to encode a custom value.
+    ///
+    /// ## Resolution
+    ///
+    /// This may be a bug within the plugin, or the plugin may have been updated in between the
+    /// creation of the custom value and its use.
+    #[error("Custom value failed to decode")]
+    #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
+    #[diagnostic(help(
+        "the plugin may have been updated and no longer support this custom value"
+    ))]
+    CustomValueFailedToDecode {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     /// I/O operation interrupted.
     ///
     /// ## Resolution
@@ -794,32 +857,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Permission for an operation was denied.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("Permission Denied")]
-    #[diagnostic(code(nu::shell::permission_denied))]
-    PermissionDeniedError {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Out of memory.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("Out of memory")]
-    #[diagnostic(code(nu::shell::out_of_memory))]
-    OutOfMemoryError {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
@@ -845,19 +882,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Attempted to perform an operation on a directory that doesn't exist.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the directory in the error message actually exists before trying again.
-    #[error("Directory not found")]
-    #[diagnostic(code(nu::shell::directory_not_found_custom))]
-    DirectoryNotFoundCustom {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// The requested move operation cannot be completed. This is typically because both paths exist,
     /// but are of different types. For example, you might be trying to overwrite an existing file with
     /// a directory.
@@ -874,22 +898,6 @@ pub enum ShellError {
         destination_message: String,
         #[label("{destination_message}")]
         destination_span: Span,
-    },
-
-    /// The requested move operation cannot be completed. This is typically because both paths exist,
-    /// but are of different types. For example, you might be trying to overwrite an existing file with
-    /// a directory.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the destination path does not exist before moving a directory.
-    #[error("Move not possible")]
-    #[diagnostic(code(nu::shell::move_not_possible_single))]
-    // NOTE: Currently not actively used.
-    MoveNotPossibleSingle {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
     },
 
     /// Failed to create either a file or directory.
@@ -1101,15 +1109,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Non-Unicode input received.
-    ///
-    /// ## Resolution
-    ///
-    /// Check that your path is UTF-8 compatible.
-    #[error("Non-Unicode input received.")]
-    #[diagnostic(code(nu::shell::non_unicode_input))]
-    NonUnicodeInput,
-
     // It should be only used by commands accepts block, and accept inputs from pipeline.
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
@@ -1294,6 +1293,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// Lists are not automatically spread when calling external commands
+    ///
+    /// ## Resolution
+    ///
+    /// Use the spread operator (put a '...' before the argument)
+    #[error("Lists are not automatically spread when calling external commands")]
+    #[diagnostic(
+        code(nu::shell::cannot_pass_list_to_external),
+        help("Either convert the list to a string or use the spread operator, like so: ...{arg}")
+    )]
+    CannotPassListToExternal {
+        arg: String,
+        #[label = "Spread operator (...) is necessary to spread lists"]
+        span: Span,
+    },
+
     /// Out of bounds.
     ///
     /// ## Resolution
@@ -1308,6 +1323,21 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         right_flank: String,
         #[label = "byte index is not a char boundary or is out of bounds of the input"]
         span: Span,
+    },
+
+    /// The config directory could not be found
+    #[error("The config directory could not be found")]
+    #[diagnostic(
+        code(nu::shell::config_dir_not_found),
+        help(
+            r#"On Linux, this would be $XDG_CONFIG_HOME or $HOME/.config.
+On MacOS, this would be `$HOME/Library/Application Support`.
+On Windows, this would be %USERPROFILE%\AppData\Roaming"#
+        )
+    )]
+    ConfigDirNotFound {
+        #[label = "Could not find config directory"]
+        span: Option<Span>,
     },
 }
 

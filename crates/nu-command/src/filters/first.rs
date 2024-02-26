@@ -69,6 +69,11 @@ impl Command for First {
                 example: "0x[01 23 45] | first 2",
                 result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
             },
+            Example {
+                description: "Return the first item of a range",
+                example: "1..3 | first",
+                result: Some(Value::test_int(1)),
+            },
         ]
     }
 }

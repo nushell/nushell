@@ -1,6 +1,6 @@
 use std::ops::RangeBounds;
 
-use crate::Value;
+use crate::{ShellError, Span, Value};
 
 use serde::{Deserialize, Serialize};
 
@@ -26,14 +26,26 @@ impl Record {
         }
     }
 
-    // Constructor that checks that `cols` and `vals` are of the same length.
-    //
-    // For perf reasons does not validate the rest of the record assumptions.
-    // - unique keys
-    pub fn from_raw_cols_vals(cols: Vec<String>, vals: Vec<Value>) -> Self {
-        assert_eq!(cols.len(), vals.len());
-
-        Self { cols, vals }
+    /// Create a [`Record`] from a `Vec` of columns and a `Vec` of [`Value`]s
+    ///
+    /// Returns an error if `cols` and `vals` have different lengths.
+    ///
+    /// For perf reasons, this will not validate the rest of the record assumptions:
+    /// - unique keys
+    pub fn from_raw_cols_vals(
+        cols: Vec<String>,
+        vals: Vec<Value>,
+        input_span: Span,
+        creation_site_span: Span,
+    ) -> Result<Self, ShellError> {
+        if cols.len() == vals.len() {
+            Ok(Self { cols, vals })
+        } else {
+            Err(ShellError::RecordColsValsMismatch {
+                bad_value: input_span,
+                creation_site: creation_site_span,
+            })
+        }
     }
 
     pub fn iter(&self) -> Iter {
@@ -45,11 +57,13 @@ impl Record {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.cols.is_empty() || self.vals.is_empty()
+        debug_assert_eq!(self.cols.len(), self.vals.len());
+        self.cols.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        usize::min(self.cols.len(), self.vals.len())
+        debug_assert_eq!(self.cols.len(), self.vals.len());
+        self.cols.len()
     }
 
     /// Naive push to the end of the datastructure.
@@ -74,14 +88,13 @@ impl Record {
             let curr_val = &mut self.vals[idx];
             Some(std::mem::replace(curr_val, val))
         } else {
-            self.cols.push(col.into());
-            self.vals.push(val);
+            self.push(col, val);
             None
         }
     }
 
     pub fn contains(&self, col: impl AsRef<str>) -> bool {
-        self.cols.iter().any(|k| k == col.as_ref())
+        self.columns().any(|k| k == col.as_ref())
     }
 
     pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
@@ -113,7 +126,6 @@ impl Record {
 
     /// Remove elements in-place that do not satisfy `keep`
     ///
-    /// Note: Panics if `vals.len() > cols.len()`
     /// ```rust
     /// use nu_protocol::{record, Value};
     ///
@@ -122,7 +134,7 @@ impl Record {
     ///     "b" => Value::test_int(42),
     ///     "c" => Value::test_nothing(),
     ///     "d" => Value::test_int(42),
-    ///     );
+    /// );
     /// rec.retain(|_k, val| !val.is_nothing());
     /// let mut iter_rec = rec.columns();
     /// assert_eq!(iter_rec.next().map(String::as_str), Some("b"));
@@ -140,7 +152,6 @@ impl Record {
     ///
     /// This can for example be used to recursively prune nested records.
     ///
-    /// Note: Panics if `vals.len() > cols.len()`
     /// ```rust
     /// use nu_protocol::{record, Record, Value};
     ///
@@ -210,6 +221,7 @@ impl Record {
     /// Truncate record to the first `len` elements.
     ///
     /// `len > self.len()` will be ignored
+    ///
     /// ```rust
     /// use nu_protocol::{record, Value};
     ///
@@ -218,7 +230,7 @@ impl Record {
     ///     "b" => Value::test_int(42),
     ///     "c" => Value::test_nothing(),
     ///     "d" => Value::test_int(42),
-    ///     );
+    /// );
     /// rec.truncate(42); // this is fine
     /// assert_eq!(rec.columns().map(String::as_str).collect::<String>(), "abcd");
     /// rec.truncate(2); // truncate
@@ -274,11 +286,7 @@ impl Record {
     where
         R: RangeBounds<usize> + Clone,
     {
-        assert_eq!(
-            self.cols.len(),
-            self.vals.len(),
-            "Length of cols and vals must be equal for sane `Record::drain`"
-        );
+        debug_assert_eq!(self.cols.len(), self.vals.len());
         Drain {
             keys: self.cols.drain(range.clone()),
             values: self.vals.drain(range),
@@ -289,6 +297,7 @@ impl Record {
 impl FromIterator<(String, Value)> for Record {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         let (cols, vals) = iter.into_iter().unzip();
+        // TODO: should this check for duplicate keys/columns?
         Self { cols, vals }
     }
 }
@@ -297,13 +306,34 @@ impl Extend<(String, Value)> for Record {
     fn extend<T: IntoIterator<Item = (String, Value)>>(&mut self, iter: T) {
         for (k, v) in iter {
             // TODO: should this .insert with a check?
-            self.cols.push(k);
-            self.vals.push(v);
+            self.push(k, v)
         }
     }
 }
 
-pub type IntoIter = std::iter::Zip<std::vec::IntoIter<String>, std::vec::IntoIter<Value>>;
+pub struct IntoIter {
+    iter: std::iter::Zip<std::vec::IntoIter<String>, std::vec::IntoIter<Value>>,
+}
+
+impl Iterator for IntoIter {
+    type Item = (String, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl DoubleEndedIterator for IntoIter {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl ExactSizeIterator for IntoIter {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 impl IntoIterator for Record {
     type Item = (String, Value);
@@ -311,11 +341,35 @@ impl IntoIterator for Record {
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.cols.into_iter().zip(self.vals)
+        IntoIter {
+            iter: self.cols.into_iter().zip(self.vals),
+        }
     }
 }
 
-pub type Iter<'a> = std::iter::Zip<std::slice::Iter<'a, String>, std::slice::Iter<'a, Value>>;
+pub struct Iter<'a> {
+    iter: std::iter::Zip<std::slice::Iter<'a, String>, std::slice::Iter<'a, Value>>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a String, &'a Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<'a> DoubleEndedIterator for Iter<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<'a> ExactSizeIterator for Iter<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 impl<'a> IntoIterator for &'a Record {
     type Item = (&'a String, &'a Value);
@@ -323,11 +377,35 @@ impl<'a> IntoIterator for &'a Record {
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.cols.iter().zip(&self.vals)
+        Iter {
+            iter: self.cols.iter().zip(&self.vals),
+        }
     }
 }
 
-pub type IterMut<'a> = std::iter::Zip<std::slice::Iter<'a, String>, std::slice::IterMut<'a, Value>>;
+pub struct IterMut<'a> {
+    iter: std::iter::Zip<std::slice::Iter<'a, String>, std::slice::IterMut<'a, Value>>,
+}
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = (&'a String, &'a mut Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<'a> DoubleEndedIterator for IterMut<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<'a> ExactSizeIterator for IterMut<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 impl<'a> IntoIterator for &'a mut Record {
     type Item = (&'a String, &'a mut Value);
@@ -335,7 +413,9 @@ impl<'a> IntoIterator for &'a mut Record {
     type IntoIter = IterMut<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.cols.iter().zip(&mut self.vals)
+        IterMut {
+            iter: self.cols.iter().zip(&mut self.vals),
+        }
     }
 }
 
@@ -454,11 +534,15 @@ impl ExactSizeIterator for Drain<'_> {
 
 #[macro_export]
 macro_rules! record {
+    // The macro only compiles if the number of columns equals the number of values,
+    // so it's safe to call `unwrap` below.
     {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Record::from_raw_cols_vals (
-            vec![$($col.into(),)+],
-            vec![$($val,)+]
-        )
+        $crate::Record::from_raw_cols_vals(
+            ::std::vec![$($col.into(),)+],
+            ::std::vec![$($val,)+],
+            $crate::Span::unknown(),
+            $crate::Span::unknown(),
+        ).unwrap()
     };
     {} => {
         $crate::Record::new()

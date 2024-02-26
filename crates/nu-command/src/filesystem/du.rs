@@ -1,10 +1,11 @@
+use super::util::opt_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::{current_dir, CallExt};
 use nu_glob::Pattern;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
     Span, Spanned, SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
@@ -14,7 +15,7 @@ pub struct Du;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
-    path: Option<Spanned<NuPath>>,
+    path: Option<Spanned<NuGlob>>,
     all: bool,
     deref: bool,
     exclude: Option<Spanned<String>>,
@@ -66,7 +67,7 @@ impl Command for Du {
                 "Exclude files below this size",
                 Some('m'),
             )
-            .category(Category::Core)
+            .category(Category::FileSystem)
     }
 
     fn run(
@@ -96,7 +97,7 @@ impl Command for Du {
         let current_dir = current_dir(engine_state, stack)?;
 
         let args = DuArgs {
-            path: call.opt(engine_state, stack, 0)?,
+            path: opt_for_glob_pattern(engine_state, stack, call, 0)?,
             all: call.has_flag(engine_state, stack, "all")?,
             deref: call.has_flag(engine_state, stack, "deref")?,
             exclude: call.get_flag(engine_state, stack, "exclude")?,
@@ -119,7 +120,7 @@ impl Command for Du {
             // The * pattern should never fail.
             None => nu_engine::glob_from(
                 &Spanned {
-                    item: NuPath::UnQuoted("*".into()),
+                    item: NuGlob::Expand("*".into()),
                     span: Span::unknown(),
                 },
                 &current_dir,

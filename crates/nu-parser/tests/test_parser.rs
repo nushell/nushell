@@ -73,7 +73,7 @@ fn test_int(
     } else {
         assert!(err.is_none(), "{test_tag}: unexpected error {err:#?}");
         assert_eq!(block.len(), 1, "{test_tag}: result block length > 1");
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(
             expressions.len(),
             1,
@@ -84,7 +84,7 @@ fn test_int(
             Expression {
                 expr: observed_val, ..
             },
-        ) = &expressions[0]
+        ) = &expressions.elements[0]
         {
             compare_rhs_binaryOp(test_tag, &expected_val, observed_val);
         }
@@ -287,10 +287,10 @@ pub fn parse_int() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
     assert!(matches!(
-        expressions[0],
+        expressions.elements[0],
         PipelineElement::Expression(
             _,
             Expression {
@@ -310,10 +310,10 @@ pub fn parse_int_with_underscores() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
     assert!(matches!(
-        expressions[0],
+        expressions.elements[0],
         PipelineElement::Expression(
             _,
             Expression {
@@ -340,11 +340,11 @@ pub fn parse_cell_path() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
 
     // hoo boy this pattern matching is a pain
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         if let Expr::FullCellPath(b) = &expr.expr {
             assert!(matches!(
                 b.head,
@@ -395,11 +395,11 @@ pub fn parse_cell_path_optional() {
     assert!(working_set.parse_errors.is_empty());
 
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
 
     // hoo boy this pattern matching is a pain
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         if let Expr::FullCellPath(b) = &expr.expr {
             assert!(matches!(
                 b.head,
@@ -442,9 +442,9 @@ pub fn parse_binary_with_hex_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0x13]))
     } else {
         panic!("Not an expression")
@@ -460,9 +460,9 @@ pub fn parse_binary_with_incomplete_hex_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0x03]))
     } else {
         panic!("Not an expression")
@@ -478,9 +478,9 @@ pub fn parse_binary_with_binary_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0b10101000]))
     } else {
         panic!("Not an expression")
@@ -496,9 +496,9 @@ pub fn parse_binary_with_incomplete_binary_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0b00000010]))
     } else {
         panic!("Not an expression")
@@ -514,9 +514,9 @@ pub fn parse_binary_with_octal_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0o250]))
     } else {
         panic!("Not an expression")
@@ -532,9 +532,9 @@ pub fn parse_binary_with_incomplete_octal_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0o2]))
     } else {
         panic!("Not an expression")
@@ -550,9 +550,9 @@ pub fn parse_binary_with_invalid_octal_format() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert!(!matches!(&expr.expr, Expr::Binary(_)))
     } else {
         panic!("Not an expression")
@@ -570,9 +570,9 @@ pub fn parse_binary_with_multi_byte_char() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
-    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+    if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
         assert!(!matches!(&expr.expr, Expr::Binary(_)))
     } else {
         panic!("Not an expression")
@@ -592,7 +592,7 @@ pub fn parse_call() {
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
 
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
 
     if let PipelineElement::Expression(
@@ -601,7 +601,7 @@ pub fn parse_call() {
             expr: Expr::Call(call),
             ..
         },
-    ) = &expressions[0]
+    ) = &expressions.elements[0]
     {
         assert_eq!(call.decl_id, 0);
     }
@@ -651,7 +651,7 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
 
     if let PipelineElement::Expression(
@@ -660,7 +660,7 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
             expr: Expr::Call(call),
             ..
         },
-    ) = &expressions[0]
+    ) = &expressions.elements[0]
     {
         assert_eq!(call.decl_id, 0);
         assert_eq!(call.arguments.len(), 2);
@@ -768,10 +768,10 @@ fn test_nothing_comparison_eq() {
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
 
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
     assert!(matches!(
-        &expressions[0],
+        &expressions.elements[0],
         PipelineElement::Expression(
             _,
             Expression {
@@ -815,10 +815,10 @@ fn test_nothing_comparison_neq() {
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
 
-    let expressions = &block[0];
+    let expressions = &block.pipelines[0];
     assert_eq!(expressions.len(), 1);
     assert!(matches!(
-        &expressions[0],
+        &expressions.elements[0],
         PipelineElement::Expression(
             _,
             Expression {
@@ -841,9 +841,9 @@ mod string {
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(expressions.len(), 1);
-        if let PipelineElement::Expression(_, expr) = &expressions[0] {
+        if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
             assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
         } else {
             panic!("Not an expression")
@@ -865,10 +865,10 @@ mod string {
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 1);
 
-            let expressions = &block[0];
+            let expressions = &block.pipelines[0];
             assert_eq!(expressions.len(), 1);
 
-            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+            if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
                 let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
@@ -897,11 +897,11 @@ mod string {
             assert!(working_set.parse_errors.is_empty());
 
             assert_eq!(block.len(), 1);
-            let expressions = &block[0];
+            let expressions = &block.pipelines[0];
 
             assert_eq!(expressions.len(), 1);
 
-            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+            if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
                 let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
@@ -928,11 +928,11 @@ mod string {
             assert!(working_set.parse_errors.is_empty());
 
             assert_eq!(block.len(), 1);
-            let expressions = &block[0];
+            let expressions = &block.pipelines[0];
 
             assert_eq!(expressions.len(), 1);
 
-            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+            if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
                 let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
@@ -961,11 +961,11 @@ mod string {
             assert!(working_set.parse_errors.is_empty());
 
             assert_eq!(block.len(), 1);
-            let expressions = &block[0];
+            let expressions = &block.pipelines[0];
 
             assert_eq!(expressions.len(), 1);
 
-            if let PipelineElement::Expression(_, expr) = &expressions[0] {
+            if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
                 let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
@@ -1085,7 +1085,7 @@ mod range {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block length");
 
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(expressions.len(), 1, "{tag}: expression length");
         if let PipelineElement::Expression(
             _,
@@ -1102,7 +1102,7 @@ mod range {
                     ),
                 ..
             },
-        ) = expressions[0]
+        ) = expressions.elements[0]
         {
             assert_eq!(
                 the_inclusion, inclusion,
@@ -1144,7 +1144,7 @@ mod range {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 2, "{tag} block len 2");
 
-        let expressions = &block[1];
+        let expressions = &block.pipelines[1];
         assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
         if let PipelineElement::Expression(
             _,
@@ -1161,7 +1161,7 @@ mod range {
                     ),
                 ..
             },
-        ) = expressions[0]
+        ) = expressions.elements[0]
         {
             assert_eq!(
                 the_inclusion, inclusion,
@@ -1190,7 +1190,7 @@ mod range {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block len 1");
 
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
         if let PipelineElement::Expression(
             _,
@@ -1207,7 +1207,7 @@ mod range {
                     ),
                 ..
             },
-        ) = expressions[0]
+        ) = expressions.elements[0]
         {
             assert_eq!(
                 the_inclusion, inclusion,
@@ -1236,7 +1236,7 @@ mod range {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block len 1");
 
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
         if let PipelineElement::Expression(
             _,
@@ -1253,7 +1253,7 @@ mod range {
                     ),
                 ..
             },
-        ) = expressions[0]
+        ) = expressions.elements[0]
         {
             assert_eq!(
                 the_inclusion, inclusion,
@@ -1282,7 +1282,7 @@ mod range {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block length 1");
 
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
         if let PipelineElement::Expression(
             _,
@@ -1299,7 +1299,7 @@ mod range {
                     ),
                 ..
             },
-        ) = expressions[0]
+        ) = expressions.elements[0]
         {
             assert_eq!(
                 the_inclusion, inclusion,
@@ -1672,10 +1672,10 @@ mod input_types {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
 
-        let expressions = &block[0];
+        let expressions = &block.pipelines[0];
         assert_eq!(expressions.len(), 2);
 
-        match &expressions[0] {
+        match &expressions.elements[0] {
             PipelineElement::Expression(
                 _,
                 Expression {
@@ -1689,7 +1689,7 @@ mod input_types {
             _ => panic!("Expected expression Call not found"),
         }
 
-        match &expressions[1] {
+        match &expressions.elements[1] {
             PipelineElement::Expression(
                 _,
                 Expression {
@@ -1719,8 +1719,8 @@ mod input_types {
 
         engine_state.merge_delta(delta).unwrap();
 
-        let expressions = &block[0];
-        match &expressions[3] {
+        let expressions = &block.pipelines[0];
+        match &expressions.elements[3] {
             PipelineElement::Expression(
                 _,
                 Expression {
@@ -1735,10 +1735,10 @@ mod input_types {
                             Expr::Subexpression(id) => {
                                 let block = engine_state.get_block(*id);
 
-                                let expressions = &block[0];
+                                let expressions = &block.pipelines[0];
                                 assert_eq!(expressions.len(), 2);
 
-                                match &expressions[1] {
+                                match &expressions.elements[1] {
                                     PipelineElement::Expression(
                                         _,
                                         Expression {
@@ -1777,8 +1777,8 @@ mod input_types {
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
 
-        let expressions = &block[0];
-        match &expressions[2] {
+        let expressions = &block.pipelines[0];
+        match &expressions.elements[2] {
             PipelineElement::Expression(
                 _,
                 Expression {
@@ -1792,7 +1792,7 @@ mod input_types {
             _ => panic!("Expected expression Call not found"),
         }
 
-        match &expressions[3] {
+        match &expressions.elements[3] {
             PipelineElement::Expression(
                 _,
                 Expression {

@@ -150,7 +150,7 @@ impl SyntaxShape {
             SyntaxShape::Float => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
-            SyntaxShape::GlobPattern => Type::String,
+            SyntaxShape::GlobPattern => Type::Glob,
             SyntaxShape::Error => Type::Error,
             SyntaxShape::ImportPattern => Type::Any,
             SyntaxShape::Int => Type::Int,

@@ -355,11 +355,10 @@ impl<'a> StateWorkingSet<'a> {
                     return &contents[begin..end];
                 }
             }
-        } else {
-            return self.permanent_state.get_span_contents(span);
         }
 
-        panic!("internal error: missing span contents in file cache")
+        // if no files with span were found, fall back on permanent ones
+        return self.permanent_state.get_span_contents(span);
     }
 
     pub fn enter_scope(&mut self) {
@@ -582,7 +581,8 @@ impl<'a> StateWorkingSet<'a> {
             .permanent_state
             .get_env_var(PWD_ENV)
             .expect("internal error: can't find PWD");
-        pwd.as_string().expect("internal error: PWD not a string")
+        pwd.coerce_string()
+            .expect("internal error: PWD not a string")
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {

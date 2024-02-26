@@ -82,7 +82,7 @@ impl NuProcess {
 
         command.env_clear();
 
-        let paths = vec![test_bins_path()];
+        let paths = [test_bins_path()];
 
         let paths_joined = match std::env::join_paths(paths) {
             Ok(all) => all,

@@ -1,4 +1,12 @@
 use dialoguer::Input;
+use nu_engine::eval_expression;
+use nu_protocol::ast::Expr;
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    ShellError, Spanned, Value,
+};
+use nu_protocol::{FromValue, NuGlob, Type};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -107,7 +115,7 @@ pub mod users {
         Gid::current().as_raw()
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_current_username() -> Option<String> {
         User::from_uid(Uid::current())
             .ok()
@@ -115,7 +123,7 @@ pub mod users {
             .map(|user| user.name)
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     pub fn current_user_groups() -> Option<Vec<Gid>> {
         // SAFETY:
         // if first arg is 0 then it ignores second argument and returns number of groups present for given user.
@@ -154,7 +162,7 @@ pub mod users {
     ///     println!("User is a member of group #{group}");
     /// }
     /// ```
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_user_groups(username: &str, gid: gid_t) -> Option<Vec<Gid>> {
         use std::ffi::CString;
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
@@ -198,5 +206,76 @@ pub mod users {
                 .collect::<Vec<_>>()
                 .into()
         }
+    }
+}
+
+/// Get rest arguments from given `call`, starts with `starting_pos`.
+///
+/// It's similar to `call.rest`, except that it always returns NuGlob.  And if input argument has
+/// Type::Glob, the NuGlob is unquoted, which means it's required to expand.
+pub fn get_rest_for_glob_pattern(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    starting_pos: usize,
+) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
+    let mut output = vec![];
+
+    for result in call.rest_iter_flattened(starting_pos, |expr| {
+        let result = eval_expression(engine_state, stack, expr);
+        match result {
+            Err(e) => Err(e),
+            Ok(result) => {
+                let span = result.span();
+                // convert from string to quoted string if expr is a variable
+                // or string interpolation
+                match result {
+                    Value::String { val, .. }
+                        if matches!(
+                            &expr.expr,
+                            Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                        ) =>
+                    {
+                        // should not expand if given input type is not glob.
+                        Ok(Value::glob(val, expr.ty != Type::Glob, span))
+                    }
+                    other => Ok(other),
+                }
+            }
+        }
+    })? {
+        output.push(FromValue::from_value(result)?);
+    }
+
+    Ok(output)
+}
+
+/// Get optional arguments from given `call` with position `pos`.
+///
+/// It's similar to `call.opt`, except that it always returns NuGlob.
+pub fn opt_for_glob_pattern(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    pos: usize,
+) -> Result<Option<Spanned<NuGlob>>, ShellError> {
+    if let Some(expr) = call.positional_nth(pos) {
+        let result = eval_expression(engine_state, stack, expr)?;
+        let result_span = result.span();
+        let result = match result {
+            Value::String { val, .. }
+                if matches!(
+                    &expr.expr,
+                    Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                ) =>
+            {
+                // should quote if given input type is not glob.
+                Value::glob(val, expr.ty != Type::Glob, result_span)
+            }
+            other => other,
+        };
+        FromValue::from_value(result).map(Some)
+    } else {
+        Ok(None)
     }
 }

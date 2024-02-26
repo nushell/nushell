@@ -44,9 +44,9 @@ impl Command for Debug {
         input.map(
             move |x| {
                 if raw {
-                    Value::string(x.debug_value(), head)
+                    Value::string(x.to_debug_string(), head)
                 } else {
-                    Value::string(x.debug_string(", ", &config), head)
+                    Value::string(x.to_expanded_string(", ", &config), head)
                 }
             },
             engine_state.ctrlc.clone(),

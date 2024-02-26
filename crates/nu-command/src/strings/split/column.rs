@@ -148,7 +148,7 @@ fn split_column_helper(
     collapse_empty: bool,
     head: Span,
 ) -> Vec<Value> {
-    if let Ok(s) = v.as_string() {
+    if let Ok(s) = v.coerce_str() {
         let split_result: Vec<_> = separator
             .split(&s)
             .filter(|x| !(collapse_empty && x.is_empty()))

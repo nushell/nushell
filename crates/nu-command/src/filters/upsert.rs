@@ -148,7 +148,7 @@ fn upsert(
 
     match input {
         PipelineData::Value(mut value, metadata) => {
-            if replacement.as_block().is_ok() {
+            if replacement.coerce_block().is_ok() {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let span = replacement.span();
@@ -214,7 +214,7 @@ fn upsert(
                 if path.is_empty() {
                     let span = replacement.span();
                     let value = stream.next().unwrap_or(Value::nothing(span));
-                    if replacement.as_block().is_ok() {
+                    if replacement.coerce_block().is_ok() {
                         let capture_block = Closure::from_value(replacement)?;
                         let block = engine_state.get_block(capture_block.block_id);
                         let mut stack = stack.captures_to_stack(capture_block.captures);
@@ -239,7 +239,7 @@ fn upsert(
                         pre_elems.push(replacement);
                     }
                 } else if let Some(mut value) = stream.next() {
-                    if replacement.as_block().is_ok() {
+                    if replacement.coerce_block().is_ok() {
                         upsert_single_value_by_closure(
                             &mut value,
                             replacement,
@@ -265,7 +265,7 @@ fn upsert(
                     .into_iter()
                     .chain(stream)
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
-            } else if replacement.as_block().is_ok() {
+            } else if replacement.coerce_block().is_ok() {
                 let engine_state = engine_state.clone();
                 let replacement_span = replacement.span();
                 let capture_block = Closure::from_value(replacement)?;

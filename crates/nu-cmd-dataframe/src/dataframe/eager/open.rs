@@ -154,7 +154,7 @@ fn from_parquet(
             cache: true,
             parallel: ParallelStrategy::Auto,
             rechunk: false,
-            row_count: None,
+            row_index: None,
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
@@ -252,7 +252,7 @@ fn from_ipc(
             n_rows: None,
             cache: true,
             rechunk: false,
-            row_count: None,
+            row_index: None,
             memmap: true,
         };
 
