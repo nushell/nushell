@@ -102,7 +102,7 @@ nix = { version = "0.27", default-features = false, features = [
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.90.2" }
 assert_cmd = "2.0"
-criterion = "0.5"
+divan = "0.1.14"
 pretty_assertions = "1.4"
 rstest = { version = "0.18", default-features = false }
 serial_test = "3.0"
@@ -182,7 +182,6 @@ bench = false
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
-# Criterion benchmarking setup
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
 [[bench]]
