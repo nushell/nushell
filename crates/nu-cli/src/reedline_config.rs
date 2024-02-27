@@ -1284,7 +1284,14 @@ fn edit_from_record(
         }
         "complete" => EditCommand::Complete,
         "cutselection" => EditCommand::CutSelection,
+        #[cfg(feature = "system-clipboard")]
+        "cutselectionsystem" => EditCommand::CutSelectionSystem,
         "copyselection" => EditCommand::CopySelection,
+        #[cfg(feature = "system-clipboard")]
+        "copyselectionsystem" => EditCommand::CopySelectionSystem,
+        "paste" => EditCommand::Paste,
+        #[cfg(feature = "system-clipboard")]
+        "pastesystem" => EditCommand::PasteSystem,
         "selectall" => EditCommand::SelectAll,
         e => {
             return Err(ShellError::UnsupportedConfigValue {

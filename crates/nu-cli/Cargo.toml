@@ -34,7 +34,9 @@ fuzzy-matcher = "0.3"
 is_executable = "1.0"
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
-lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
+lscolors = { version = "0.17", default-features = false, features = [
+    "nu-ansi-term",
+] }
 once_cell = { workspace = true }
 percent-encoding = { workspace = true }
 pathdiff = { workspace = true }
@@ -45,3 +47,4 @@ which = { workspace = true }
 
 [features]
 plugin = []
+system-clipboard = ["reedline/system_clipboard"]

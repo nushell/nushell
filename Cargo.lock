@@ -4521,7 +4521,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.30.0"
-source = "git+https://github.com/nushell/reedline?branch=main#0698712701418a7212ebf75d5724d72eccc4b43f"
+source = "git+https://github.com/Tastaturtaste/reedline?branch=bug/759-system-clipboard-not-for-everything#39ba760b782343b6c2b3e30cadca7abaa61c7de3"
 dependencies = [
  "arboard",
  "chrono",
