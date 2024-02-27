@@ -2,7 +2,9 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use nu_cli::eval_source;
 use nu_parser::parse;
 use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
-use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
+use nu_protocol::{
+    engine::EngineState, eval_const::create_nu_constant, PipelineData, Span, Value, NU_VARIABLE_ID,
+};
 use nu_utils::{get_default_config, get_default_env};
 use std::path::{Path, PathBuf};
 
@@ -73,6 +75,10 @@ fn eval_benchmarks(c: &mut Criterion) {
         Value::string(home_path.to_string_lossy(), Span::test_data()),
     );
 
+    let nu_const = create_nu_constant(&engine_state, Span::unknown())
+        .expect("Failed to create nushell constant.");
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
             let mut stack = nu_protocol::engine::Stack::new();
@@ -118,17 +124,17 @@ fn encoding_benchmarks(c: &mut Criterion) {
     let row_cnt = 10000;
     let col_cnt = 15;
 
-        for fmt in ["json", "msgpack"] {
-            group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
-                let mut res = vec![];
-                let test_data = PluginOutput::CallResponse(
-                    0,
-                    PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
-                );
-                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-                b.iter(|| encoder.encode(&test_data, &mut res))
-            });
-        }
+    for fmt in ["json", "msgpack"] {
+        group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
+            let mut res = vec![];
+            let test_data = PluginOutput::CallResponse(
+                0,
+                PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+            );
+            let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
+            b.iter(|| encoder.encode(&test_data, &mut res))
+        });
+    }
 
     group.finish();
 }
@@ -138,22 +144,22 @@ fn decoding_benchmarks(c: &mut Criterion) {
     let row_cnt = 10000;
     let col_cnt = 15;
 
-        for fmt in ["json", "msgpack"] {
-            group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
-                let mut res = vec![];
-                let test_data = PluginOutput::CallResponse(
-                    0,
-                    PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
-                );
-                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-                encoder.encode(&test_data, &mut res).unwrap();
-                let mut binary_data = std::io::Cursor::new(res);
-                b.iter(|| -> Result<Option<PluginOutput>, _> {
-                    binary_data.set_position(0);
-                    encoder.decode(&mut binary_data)
-                })
-            });
-        }
+    for fmt in ["json", "msgpack"] {
+        group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
+            let mut res = vec![];
+            let test_data = PluginOutput::CallResponse(
+                0,
+                PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+            );
+            let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
+            encoder.encode(&test_data, &mut res).unwrap();
+            let mut binary_data = std::io::Cursor::new(res);
+            b.iter(|| -> Result<Option<PluginOutput>, _> {
+                binary_data.set_position(0);
+                encoder.decode(&mut binary_data)
+            })
+        });
+    }
 
     group.finish();
 }
