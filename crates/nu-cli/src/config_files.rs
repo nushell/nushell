@@ -71,7 +71,8 @@ pub fn add_plugin_file(
             let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
             report_error(&working_set, &e);
         }
-    } else if let Some(mut plugin_path) = nu_path::config_dir() {
+    } else if let Some(plugin_path) = nu_path::config_dir() {
+        let mut plugin_path = plugin_path.canonicalize().unwrap_or(plugin_path);
         // Path to store plugins signatures
         plugin_path.push(storage_path);
         plugin_path.push(PLUGIN_FILE);
