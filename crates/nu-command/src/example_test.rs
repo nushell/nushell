@@ -13,7 +13,7 @@ mod test_examples {
         Math, MathRound, ParEach, Path, PathParse, Random, Seq, Sort, SortBy, Split, SplitColumn,
         SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
-    use crate::{Each, To};
+    use crate::{Default, Each, To};
     use nu_cmd_lang::example_support::{
         check_all_signature_input_output_types_entries_have_examples,
         check_example_evaluates_to_expected_output,
@@ -67,6 +67,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Ansi));
             working_set.add_decl(Box::new(Break));
             working_set.add_decl(Box::new(Date));
+            working_set.add_decl(Box::new(Default));
             working_set.add_decl(Box::new(Each));
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(Enumerate));
