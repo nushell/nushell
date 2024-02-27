@@ -121,46 +121,44 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
 
 fn encoding_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Encoding");
-    let row_cnt = 10000;
-    let col_cnt = 15;
-
-    for fmt in ["json", "msgpack"] {
-        group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
-            let mut res = vec![];
-            let test_data = PluginOutput::CallResponse(
-                0,
-                PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
-            );
-            let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-            b.iter(|| encoder.encode(&test_data, &mut res))
-        });
+    let test_cnt_pairs = [(100, 5), (10000, 15)];
+    for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
+        for fmt in ["json", "msgpack"] {
+            group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
+                let mut res = vec![];
+                let test_data = PluginOutput::CallResponse(
+                    0,
+                    PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+                );
+                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
+                b.iter(|| encoder.encode(&test_data, &mut res))
+            });
+        }
     }
-
     group.finish();
 }
 
 fn decoding_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Decoding");
-    let row_cnt = 10000;
-    let col_cnt = 15;
-
-    for fmt in ["json", "msgpack"] {
-        group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
-            let mut res = vec![];
-            let test_data = PluginOutput::CallResponse(
-                0,
-                PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
-            );
-            let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-            encoder.encode(&test_data, &mut res).unwrap();
-            let mut binary_data = std::io::Cursor::new(res);
-            b.iter(|| -> Result<Option<PluginOutput>, _> {
-                binary_data.set_position(0);
-                encoder.decode(&mut binary_data)
-            })
-        });
+    let test_cnt_pairs = [(100, 5), (10000, 15)];
+    for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
+        for fmt in ["json", "msgpack"] {
+            group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
+                let mut res = vec![];
+                let test_data = PluginOutput::CallResponse(
+                    0,
+                    PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+                );
+                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
+                encoder.encode(&test_data, &mut res).unwrap();
+                let mut binary_data = std::io::Cursor::new(res);
+                b.iter(|| -> Result<Option<PluginOutput>, _> {
+                    binary_data.set_position(0);
+                    encoder.decode(&mut binary_data)
+                })
+            });
+        }
     }
-
     group.finish();
 }
 
