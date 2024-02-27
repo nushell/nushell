@@ -115,8 +115,9 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
 
 fn encoding_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Encoding");
-    let test_cnt_pairs = [(100, 5), (100, 15), (10000, 5), (10000, 15)];
-    for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
+    let row_cnt = 10000;
+    let col_cnt = 15;
+
         for fmt in ["json", "msgpack"] {
             group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
                 let mut res = vec![];
@@ -128,14 +129,15 @@ fn encoding_benchmarks(c: &mut Criterion) {
                 b.iter(|| encoder.encode(&test_data, &mut res))
             });
         }
-    }
+
     group.finish();
 }
 
 fn decoding_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Decoding");
-    let test_cnt_pairs = [(100, 5), (100, 15), (10000, 5), (10000, 15)];
-    for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
+    let row_cnt = 10000;
+    let col_cnt = 15;
+
         for fmt in ["json", "msgpack"] {
             group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
                 let mut res = vec![];
@@ -152,7 +154,7 @@ fn decoding_benchmarks(c: &mut Criterion) {
                 })
             });
         }
-    }
+
     group.finish();
 }
 
