@@ -112,7 +112,7 @@ fn const_string() {
 fn const_string_interpolation() {
     let actual = nu!(r#"
         const x = 2
-        const s = $"var: ($x), file size: (2kb)"
+        const s = $"var: ($x), date: (2021-02-27T13:55:40+00:00), file size: (2kb)"
         $s
     "#);
     assert_eq!(
