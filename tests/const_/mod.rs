@@ -115,7 +115,10 @@ fn const_string_interpolation() {
         const s = $"var: ($x), file size: (2kb)"
         $s
     "#);
-    assert_eq!(actual.out, "var: 2, file size: 2.0 KiB");
+    assert_eq!(
+        actual.out,
+        "var: 2, date: Sat, 27 Feb 2021 13:55:40 +0000 (3 years ago), file size: 2.0 KiB"
+    );
 }
 
 #[test]

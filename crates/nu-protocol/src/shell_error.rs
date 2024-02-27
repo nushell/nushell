@@ -1324,6 +1324,21 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         #[label = "byte index is not a char boundary or is out of bounds of the input"]
         span: Span,
     },
+
+    /// The config directory could not be found
+    #[error("The config directory could not be found")]
+    #[diagnostic(
+        code(nu::shell::config_dir_not_found),
+        help(
+            r#"On Linux, this would be $XDG_CONFIG_HOME or $HOME/.config.
+On MacOS, this would be `$HOME/Library/Application Support`.
+On Windows, this would be %USERPROFILE%\AppData\Roaming"#
+        )
+    )]
+    ConfigDirNotFound {
+        #[label = "Could not find config directory"]
+        span: Option<Span>,
+    },
 }
 
 // TODO: Implement as From trait

@@ -11,6 +11,7 @@ use nu_utils::get_system_locale;
 struct Arguments {
     radix: u32,
     cell_paths: Option<Vec<CellPath>>,
+    signed: bool,
     little_endian: bool,
 }
 
@@ -78,6 +79,11 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "byte encode endian, available options: native(default), little, big",
                 Some('e'),
+            )
+            .switch(
+                "signed",
+                "always treat input number as a signed number",
+                Some('s'),
             )
             .rest(
                 "rest",
@@ -148,9 +154,12 @@ impl Command for SubCommand {
             None => cfg!(target_endian = "little"),
         };
 
+        let signed = call.has_flag(engine_state, stack, "signed")?;
+
         let args = Arguments {
             radix,
             little_endian,
+            signed,
             cell_paths,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -221,12 +230,23 @@ impl Command for SubCommand {
                 example: "'0010132' | into int --radix 8",
                 result: Some(Value::test_int(4186)),
             },
+            Example {
+                description: "Convert binary value to int",
+                example: "0x[10] | into int",
+                result: Some(Value::test_int(16)),
+            },
+            Example {
+                description: "Convert binary value to signed int",
+                example: "0x[a0] | into int --signed",
+                result: Some(Value::test_int(-96)),
+            },
         ]
     }
 }
 
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let radix = args.radix;
+    let signed = args.signed;
     let little_endian = args.little_endian;
     let val_span = input.span();
     match input {
@@ -307,21 +327,42 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
             let mut val = val.to_vec();
+            let size = val.len();
 
-            if little_endian {
-                while val.len() < 8 {
-                    val.push(0);
+            if size == 0 {
+                return Value::int(0, span);
+            }
+
+            if size > 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!("binary input is too large to convert to int ({size} bytes)"),
+                        val_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
+
+            match (little_endian, signed) {
+                (true, true) => Value::int(LittleEndian::read_int(&val, size), span),
+                (false, true) => Value::int(BigEndian::read_int(&val, size), span),
+                (true, false) => {
+                    while val.len() < 8 {
+                        val.push(0);
+                    }
+                    val.resize(8, 0);
+
+                    Value::int(LittleEndian::read_i64(&val), span)
                 }
-                val.resize(8, 0);
+                (false, false) => {
+                    while val.len() < 8 {
+                        val.insert(0, 0);
+                    }
+                    val.resize(8, 0);
 
-                Value::int(LittleEndian::read_i64(&val), val_span)
-            } else {
-                while val.len() < 8 {
-                    val.insert(0, 0);
+                    Value::int(BigEndian::read_i64(&val), span)
                 }
-                val.resize(8, 0);
-
-                Value::int(BigEndian::read_i64(&val), val_span)
             }
         }
         // Propagate errors by explicitly matching them before the final case.
@@ -497,6 +538,7 @@ mod test {
             &Arguments {
                 radix: 10,
                 cell_paths: None,
+                signed: false,
                 little_endian: false,
             },
             Span::test_data(),
@@ -512,6 +554,7 @@ mod test {
             &Arguments {
                 radix: 10,
                 cell_paths: None,
+                signed: false,
                 little_endian: false,
             },
             Span::test_data(),
@@ -527,6 +570,7 @@ mod test {
             &Arguments {
                 radix: 16,
                 cell_paths: None,
+                signed: false,
                 little_endian: false,
             },
             Span::test_data(),
@@ -543,6 +587,7 @@ mod test {
             &Arguments {
                 radix: 10,
                 cell_paths: None,
+                signed: false,
                 little_endian: false,
             },
             Span::test_data(),
@@ -565,6 +610,7 @@ mod test {
             &Arguments {
                 radix: 10,
                 cell_paths: None,
+                signed: false,
                 little_endian: false,
             },
             Span::test_data(),
@@ -587,6 +633,7 @@ mod test {
             &Arguments {
                 radix: 10,
                 cell_paths: None,
+                signed: false,
                 little_endian: false,
             },
             Span::test_data(),
