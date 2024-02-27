@@ -14,7 +14,7 @@ use nu_protocol::{
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -3156,10 +3156,10 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                         }
 
                         match eval_constant(working_set, &rvalue) {
-                            Ok(val) => {
+                            Ok(mut value) => {
                                 // In case rhs is parsed as 'any' but is evaluated to a concrete
                                 // type:
-                                let const_type = val.get_type();
+                                let mut const_type = value.get_type();
 
                                 if let Some(explicit_type) = &explicit_type {
                                     if !type_compatible(explicit_type, &const_type) {
@@ -3169,12 +3169,23 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                                             nu_protocol::span(&spans[(span.0 + 1)..]),
                                         ));
                                     }
+                                    let val_span = value.span();
+
+                                    match value {
+                                        Value::String { val, .. }
+                                            if explicit_type == &Type::Glob =>
+                                        {
+                                            value = Value::glob(val, false, val_span);
+                                            const_type = value.get_type();
+                                        }
+                                        _ => {}
+                                    }
                                 }
 
                                 working_set.set_variable_type(var_id, const_type);
 
                                 // Assign the constant value to the variable
-                                working_set.set_variable_const_val(var_id, val);
+                                working_set.set_variable_const_val(var_id, value);
                             }
                             Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
                         }
