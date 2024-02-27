@@ -117,7 +117,7 @@ fn const_string_interpolation() {
     "#);
     assert_eq!(
         actual.out,
-        "var: 2, date: Sat, 27 Feb 2021 13:55:40 +0000 (2 years ago), file size: 2.0 KiB"
+        "var: 2, date: Sat, 27 Feb 2021 13:55:40 +0000 (3 years ago), file size: 2.0 KiB"
     );
 }
 
