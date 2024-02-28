@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -60,30 +60,25 @@ impl Command for BitsXor {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let target: Value = call.req(engine_state, stack, 0)?;
-        let endian = call.get_flag::<Value>(engine_state, stack, "endian")?;
+        let endian = call.get_flag::<Spanned<String>>(engine_state, stack, "endian")?;
 
-        let little_endian = match endian {
-            Some(val) => {
-                let span = val.span();
-                match val {
-                    Value::String { val, .. } => match val.as_str() {
-                        "native" => cfg!(target_endian = "little"),
-                        "little" => true,
-                        "big" => false,
-                        _ => {
-                            return Err(ShellError::TypeMismatch {
-                                err_message: "Endian must be one of native, little, big"
-                                    .to_string(),
-                                span,
-                            })
-                        }
-                    },
-                    _ => false,
+        let little_endian = if let Some(endian) = endian {
+            match endian.item.as_str() {
+                "native" => cfg!(target_endian = "little"),
+                "little" => true,
+                "big" => false,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Endian must be one of native, little, big".to_string(),
+                        span: endian.span,
+                    })
                 }
             }
-            None => cfg!(target_endian = "little"),
+        } else {
+            cfg!(target_endian = "little")
         };
 
+        // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }

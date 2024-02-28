@@ -12,7 +12,7 @@ use nu_protocol::{
 
 struct Arguments {
     signed: bool,
-    bits: i64,
+    bits: usize,
     number_size: NumberBytes,
 }
 
@@ -76,9 +76,9 @@ impl Command for BitsRor {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let bits: i64 = call.req(engine_state, stack, 0)?;
+        let bits: usize = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Spanned<i64>> =
+        let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
         let number_size = get_number_bytes(number_bytes, head)?;
 
@@ -168,17 +168,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::int(int, span)
         }
         Value::Binary { val, .. } => {
-            let Ok(byte_shift): Result<usize, _> = (bits / 8).try_into() else {
-                return Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!("integer {bits} out of range for bit rotate"),
-                        val_span: input.span(),
-                        call_span: span,
-                    },
-                    span,
-                );
-            };
+            let byte_shift = bits / 8;
             let bit_rotate = bits % 8;
+
             let mut bytes = val
                 .iter()
                 .copied()

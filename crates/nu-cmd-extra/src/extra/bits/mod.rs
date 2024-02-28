@@ -46,7 +46,7 @@ enum InputNumType {
 }
 
 fn get_number_bytes(
-    number_bytes: Option<Spanned<i64>>,
+    number_bytes: Option<Spanned<usize>>,
     head: Span,
 ) -> Result<NumberBytes, ShellError> {
     match number_bytes {

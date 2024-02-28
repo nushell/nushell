@@ -73,7 +73,7 @@ impl Command for BitsNot {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Spanned<i64>> =
+        let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
         let number_size = get_number_bytes(number_bytes, head)?;
 
