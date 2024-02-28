@@ -151,7 +151,21 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 
 fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
     let vec_of_values = input.into_iter().collect::<Vec<Value>>();
-    let headers = merge_descriptors(&vec_of_values);
+    let mut headers = merge_descriptors(&vec_of_values);
+
+    let mut empty_header_index = 0;
+    for value in &vec_of_values {
+        if let Value::Record { val, .. } = value {
+            for column in val.columns() {
+                if column.is_empty() && !headers.contains(&String::new()) {
+                    headers.insert(empty_header_index, String::new());
+                    empty_header_index += 1;
+                    break;
+                }
+                empty_header_index += 1;
+            }
+        }
+    }
 
     let (escaped_headers, mut column_widths) = collect_headers(&headers);
 

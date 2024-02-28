@@ -10,7 +10,7 @@ pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
             _ => vec!["".to_string()],
         };
         for desc in &data_descriptors {
-            if !seen.contains(desc) {
+            if !desc.is_empty() && !seen.contains(desc) {
                 seen.insert(desc.to_string());
                 ret.push(desc.to_string());
             }
