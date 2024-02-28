@@ -107,7 +107,12 @@ impl Command for Touch {
 
             // Create a file at the given path unless the path is a directory
             if !path.is_dir() {
-                if let Err(err) = OpenOptions::new().write(true).create(true).open(path) {
+                if let Err(err) = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(false)
+                    .open(path)
+                {
                     return Err(ShellError::CreateNotPossible {
                         msg: format!("Failed to create file: {err}"),
                         span: call
