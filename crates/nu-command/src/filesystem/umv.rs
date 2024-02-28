@@ -55,7 +55,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)

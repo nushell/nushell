@@ -389,3 +389,9 @@ fn if_const() {
         nu!("const x = (if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }); $x");
     assert_eq!(actual.out, "no!");
 }
+
+#[test]
+fn const_glob_type() {
+    let actual = nu!("const x: glob = 'aa'; $x | describe");
+    assert_eq!(actual.out, "glob");
+}

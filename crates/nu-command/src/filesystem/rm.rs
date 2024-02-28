@@ -43,7 +43,7 @@ impl Command for Rm {
     fn signature(&self) -> Signature {
         Signature::build("rm")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest("paths", SyntaxShape::GlobPattern, "The file paths(s) to remove.")
+            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
             .switch(
                 "trash",
                 "move to the platform's trash instead of permanently deleting. not used on android and ios",

@@ -262,3 +262,15 @@ fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
 fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
     run_test(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#, "~/aa")
 }
+
+#[test]
+fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
+    let _ = fail_test(
+        r#"def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f"#,
+        "expected string",
+    );
+    fail_test(
+        r#"def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f"#,
+        "can't convert",
+    )
+}
