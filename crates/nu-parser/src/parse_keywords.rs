@@ -3171,6 +3171,8 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                                     }
                                     let val_span = value.span();
 
+                                    // need to convert to Value::glob if rhs is string, and
+                                    // the const variable is annotated with glob type.
                                     match value {
                                         Value::String { val, .. }
                                             if explicit_type == &Type::Glob =>
