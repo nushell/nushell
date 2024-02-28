@@ -16,7 +16,7 @@ const DEFAULT_MODE: u32 = 0o777;
 
 impl Command for UMkdir {
     fn name(&self) -> &str {
-        "umkdir"
+        "mkdir"
     }
 
     fn usage(&self) -> &str {
@@ -28,7 +28,7 @@ impl Command for UMkdir {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("umkdir")
+        Signature::build("mkdir")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "rest",
@@ -85,12 +85,12 @@ impl Command for UMkdir {
         vec![
             Example {
                 description: "Make a directory named foo",
-                example: "umkdir foo",
+                example: "mkdir foo",
                 result: None,
             },
             Example {
                 description: "Make multiple directories and show the paths created",
-                example: "umkdir -v foo/bar foo2",
+                example: "mkdir -v foo/bar foo2",
                 result: None,
             },
         ]
