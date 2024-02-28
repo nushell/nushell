@@ -9,8 +9,8 @@ pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
             Value::Record { val, .. } => val.columns().cloned().collect(),
             _ => vec!["".to_string()],
         };
-        for desc in data_descriptors {
-            if !desc.is_empty() && !seen.contains(&desc) {
+        for desc in &data_descriptors {
+            if !seen.contains(desc) {
                 seen.insert(desc.to_string());
                 ret.push(desc.to_string());
             }

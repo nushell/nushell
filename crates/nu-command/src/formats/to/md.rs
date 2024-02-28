@@ -416,4 +416,32 @@ mod tests {
         "#)
         );
     }
+
+    #[test]
+    fn test_empty_column_header() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "" => Value::test_string("1"),
+                "foo" => Value::test_string("2"),
+            }),
+            Value::test_record(record! {
+                "" => Value::test_string("3"),
+                "foo" => Value::test_string("4"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            ||foo|
+            |-|-|
+            |1|2|
+            |3|4|
+        "#)
+        );
+    }
 }
