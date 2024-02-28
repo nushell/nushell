@@ -41,7 +41,7 @@ fn change_modified_time_of_file_to_today() {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        // Set file.txt's times to 0 before the test to make sure `touch` actually changes the mtime to today
+        // Set file.txt's times to the past before the test to make sure `touch` actually changes the mtime to today
         filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
@@ -71,7 +71,7 @@ fn change_access_time_of_file_to_today() {
         sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        // Set file.txt's times to 0 before the test to make sure `touch` actually changes the atime to today
+        // Set file.txt's times to the past before the test to make sure `touch` actually changes the atime to today
         filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
