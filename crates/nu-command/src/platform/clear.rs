@@ -55,7 +55,7 @@ impl Command for Clear {
                 result: None,
             },
             Example {
-                description: "Clear the terminal and its history",
+                description: "Clear the terminal and its scroll-back history",
                 example: "clear --all",
                 result: None,
             },
