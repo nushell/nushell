@@ -25,7 +25,7 @@ impl Command for Clear {
         Signature::build("clear")
             .category(Category::Platform)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("all", "Clear the terminal and its history", Some('a'))
+            .switch("all", "Clear the terminal and its scroll-back history", Some('a'))
     }
 
     fn run(
