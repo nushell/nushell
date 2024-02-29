@@ -2483,7 +2483,7 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
         Expression {
             expr: Expr::GlobPattern(token, quoted),
             span,
-            ty: Type::String,
+            ty: Type::Glob,
             custom_completion: None,
         }
     } else {

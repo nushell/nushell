@@ -243,26 +243,32 @@ fn http_get_redirect_mode_error() {
 
 // These tests require network access; they use badssl.com which is a Google-affiliated site for testing various SSL errors.
 // Revisit this if these tests prove to be flaky or unstable.
+//
+// These tests are flaky and cause CI to fail somewhat regularly. See PR #12010.
 
 #[test]
+#[ignore = "unreliable test"]
 fn http_get_expired_cert_fails() {
     let actual = nu!("http get https://expired.badssl.com/");
     assert!(actual.err.contains("network_failure"));
 }
 
 #[test]
+#[ignore = "unreliable test"]
 fn http_get_expired_cert_override() {
     let actual = nu!("http get --insecure https://expired.badssl.com/");
     assert!(actual.out.contains("<html>"));
 }
 
 #[test]
+#[ignore = "unreliable test"]
 fn http_get_self_signed_fails() {
     let actual = nu!("http get https://self-signed.badssl.com/");
     assert!(actual.err.contains("network_failure"));
 }
 
 #[test]
+#[ignore = "unreliable test"]
 fn http_get_self_signed_override() {
     let actual = nu!("http get --insecure https://self-signed.badssl.com/");
     assert!(actual.out.contains("<html>"));

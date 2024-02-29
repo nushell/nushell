@@ -1,3 +1,5 @@
+use std::sync::mpsc::TryRecvError;
+
 use nu_protocol::{
     CustomValue, IntoInterruptiblePipelineData, PipelineData, PluginSignature, ShellError, Span,
     Spanned, Value,
@@ -212,6 +214,25 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
         .expect_err("consume before Hello should cause an error");
 
     assert!(format!("{error:?}").contains("Hello"));
+    Ok(())
+}
+
+#[test]
+fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    manager.protocol_info = Some(ProtocolInfo::default());
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("plugin call receiver missing");
+
+    manager.consume(PluginInput::Goodbye)?;
+
+    match rx.try_recv() {
+        Err(TryRecvError::Disconnected) => (),
+        _ => panic!("receiver was not disconnected"),
+    }
+
     Ok(())
 }
 

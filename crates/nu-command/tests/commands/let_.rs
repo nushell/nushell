@@ -89,3 +89,9 @@ fn let_with_external_failed() {
 
     assert!(!actual.out.contains("fail"));
 }
+
+#[test]
+fn let_glob_type() {
+    let actual = nu!("let x: glob = 'aa'; $x | describe");
+    assert_eq!(actual.out, "glob");
+}

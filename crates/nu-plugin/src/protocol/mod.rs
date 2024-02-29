@@ -114,6 +114,9 @@ pub enum PluginInput {
     /// Execute a [`PluginCall`], such as `Run` or `Signature`. The ID should not have been used
     /// before.
     Call(PluginCallId, PluginCall<PipelineDataHeader>),
+    /// Don't expect any more plugin calls. Exit after all currently executing plugin calls are
+    /// finished.
+    Goodbye,
     /// Stream control or data message. Untagged to keep them as small as possible.
     ///
     /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`

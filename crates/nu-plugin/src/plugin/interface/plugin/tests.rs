@@ -416,6 +416,23 @@ fn interface_hello_sends_protocol_info() -> Result<(), ShellError> {
 }
 
 #[test]
+fn interface_goodbye() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let interface = test.plugin("test").get_interface();
+    interface.goodbye()?;
+
+    let written = test.next_written().expect("nothing written");
+
+    assert!(
+        matches!(written, PluginInput::Goodbye),
+        "not goodbye: {written:?}"
+    );
+
+    assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_write_plugin_call_registers_subscription() -> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
     assert!(

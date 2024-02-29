@@ -10,10 +10,10 @@ pub fn test_examples(cmd: impl Command + 'static) {
 mod test_examples {
     use super::super::{
         Ansi, Date, Enumerate, Filter, First, Flatten, From, Get, Into, IntoDatetime, IntoString,
-        Math, MathRound, ParEach, Path, PathParse, Random, Seq, Sort, SortBy, Split, SplitColumn,
-        SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
+        Math, MathRound, MathSum, ParEach, Path, PathParse, Random, Seq, Sort, SortBy, Split,
+        SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
-    use crate::{Each, To};
+    use crate::{Default, Each, To};
     use nu_cmd_lang::example_support::{
         check_all_signature_input_output_types_entries_have_examples,
         check_example_evaluates_to_expected_output,
@@ -67,6 +67,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Ansi));
             working_set.add_decl(Box::new(Break));
             working_set.add_decl(Box::new(Date));
+            working_set.add_decl(Box::new(Default));
             working_set.add_decl(Box::new(Each));
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(Enumerate));
@@ -82,6 +83,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Math));
             working_set.add_decl(Box::new(MathRound));
+            working_set.add_decl(Box::new(MathSum));
             working_set.add_decl(Box::new(Mut));
             working_set.add_decl(Box::new(Path));
             working_set.add_decl(Box::new(PathParse));

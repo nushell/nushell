@@ -119,3 +119,9 @@ fn mut_value_with_match() {
     let actual = nu!("mut a = 3; $a = match 3 { 1 => { 'yes!' }, _ => { 'no!' } }; echo $a");
     assert_eq!(actual.out, "no!");
 }
+
+#[test]
+fn mut_glob_type() {
+    let actual = nu!("mut x: glob = 'aa'; $x | describe");
+    assert_eq!(actual.out, "glob");
+}
