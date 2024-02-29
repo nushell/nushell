@@ -106,7 +106,6 @@ impl Stack {
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
-        unique_stack.recursion_count = child.recursion_count;
         for item in child.parent_deletions.into_iter() {
             unique_stack.vars.remove(item);
         }
