@@ -176,6 +176,8 @@ fn try_commands(
                 help: "Try different path or install appropriate command\n".to_string() + &err_msg,
                 span,
             });
+        } else if one_result.is_ok() {
+            break;
         }
     }
     Ok(())
