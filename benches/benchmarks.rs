@@ -57,6 +57,18 @@ fn setup_engine() -> EngineState {
 // an executable for every single one - incredibly slowly. Would be nice to figure out
 // a way to split things up again.
 
+use nu_std::load_standard_library;
+
+#[divan::bench]
+fn load_standard_lib(bencher: divan::Bencher) {
+    let engine = setup_engine();
+    bencher
+        .with_inputs(|| engine.clone())
+        .bench_values(|mut engine| {
+            load_standard_library(&mut engine).unwrap();
+        })
+}
+
 #[divan::bench_group()]
 mod parser_benchmarks {
     use super::*;
