@@ -66,8 +66,8 @@ impl std::fmt::Debug for EngineInterfaceState {
 pub(crate) struct EngineInterfaceManager {
     /// Shared state
     state: Arc<EngineInterfaceState>,
-    /// Channel to send received PluginCalls to
-    plugin_call_sender: mpsc::Sender<ReceivedPluginCall>,
+    /// Channel to send received PluginCalls to. This is removed after `Goodbye` is received.
+    plugin_call_sender: Option<mpsc::Sender<ReceivedPluginCall>>,
     /// Receiver for PluginCalls. This is usually taken after initialization
     plugin_call_receiver: Option<mpsc::Receiver<ReceivedPluginCall>>,
     /// Manages stream messages and state
@@ -85,7 +85,7 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 writer: Box::new(writer),
             }),
-            plugin_call_sender: plug_tx,
+            plugin_call_sender: Some(plug_tx),
             plugin_call_receiver: Some(plug_rx),
             stream_manager: StreamManager::new(),
             protocol_info: None,
@@ -112,6 +112,10 @@ impl EngineInterfaceManager {
     /// Send a [`ReceivedPluginCall`] to the channel
     fn send_plugin_call(&self, plugin_call: ReceivedPluginCall) -> Result<(), ShellError> {
         self.plugin_call_sender
+            .as_ref()
+            .ok_or_else(|| ShellError::PluginFailedToDecode {
+                msg: "Received a plugin call after Goodbye".into(),
+            })?
             .send(plugin_call)
             .map_err(|_| ShellError::NushellFailed {
                 msg: "Received a plugin call, but there's nowhere to send it".into(),
@@ -230,6 +234,11 @@ impl InterfaceManager for EngineInterfaceManager {
                     })
                 }
             },
+            PluginInput::Goodbye => {
+                // Remove the plugin call sender so it hangs up
+                drop(self.plugin_call_sender.take());
+                Ok(())
+            }
         }
     }
 
