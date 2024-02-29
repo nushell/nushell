@@ -317,7 +317,23 @@ fn move_file(
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
-    std::fs::rename(from, to).or_else(|_| {
+    std::fs::rename(from, to).or_else(|err| {
+        // We will only copy if they're not on the same device, otherwise we'll report an error.
+        #[cfg(windows)]
+        const ERR_CROSS_DEVICE: i32 = windows::Win32::Foundation::ERROR_NOT_SAME_DEVICE.0 as _;
+        #[cfg(unix)]
+        const ERR_CROSS_DEVICE: i32 = nix::errno::Errno::EXDEV as _;
+        if err.raw_os_error() != Some(ERR_CROSS_DEVICE) {
+            let err_kind = err.kind();
+            return Err(ShellError::GenericError {
+                error: format!("Could not move {from:?} to {to:?}. Error Kind: {err_kind}"),
+                msg: "could not move".into(),
+                span: Some(from_span),
+                help: None,
+                inner: vec![],
+            });
+        }
+
         match if from.is_file() {
             let mut options = fs_extra::file::CopyOptions::new();
             options.overwrite = true;
