@@ -1972,6 +1972,7 @@ impl Value {
             Value::string(into_code(&error).unwrap_or("unknown".to_string()), span),
         );
         raw_record.push("details", Value::string(error.to_string(), span));
+        raw_record.push("raw", Value::string(format!("{:?}", error), span));
         Value::record(raw_record, span)
     }
 
