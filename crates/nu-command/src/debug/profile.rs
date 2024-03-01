@@ -75,6 +75,7 @@ impl Command for DebugProfile {
             collect_expanded_source,
             collect_values,
             collect_exprs,
+            call.span(),
         );
 
         let lock_err = {
