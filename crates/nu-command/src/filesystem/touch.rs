@@ -75,7 +75,7 @@ impl Command for Touch {
         }
 
         let mut mtime = SystemTime::now();
-        let mut atime = SystemTime::now();
+        let mut atime = mtime;
 
         // Change both times if neither is specified
         if !change_mtime && !change_atime {
