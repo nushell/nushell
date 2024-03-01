@@ -1,7 +1,7 @@
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
-use rstest::rstest;
 use regex::Regex;
+use rstest::rstest;
 
 const MODULE_SETUP: &str = r#"
     module spam {
