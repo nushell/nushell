@@ -369,18 +369,22 @@ where
                 exit_code,
             } => {
                 thread::scope(|scope| {
-                    let stderr_thread = stderr.map(|(mut writer, stream)| {
-                        thread::Builder::new()
-                            .name("plugin stderr writer".into())
-                            .spawn_scoped(scope, move || writer.write_all(raw_stream_iter(stream)))
-                            .expect("failed to spawn thread")
-                    });
-                    let exit_code_thread = exit_code.map(|(mut writer, stream)| {
-                        thread::Builder::new()
-                            .name("plugin exit_code writer".into())
-                            .spawn_scoped(scope, move || writer.write_all(stream))
-                            .expect("failed to spawn thread")
-                    });
+                    let stderr_thread = stderr
+                        .map(|(mut writer, stream)| {
+                            thread::Builder::new()
+                                .name("plugin stderr writer".into())
+                                .spawn_scoped(scope, move || {
+                                    writer.write_all(raw_stream_iter(stream))
+                                })
+                        })
+                        .transpose()?;
+                    let exit_code_thread = exit_code
+                        .map(|(mut writer, stream)| {
+                            thread::Builder::new()
+                                .name("plugin exit_code writer".into())
+                                .spawn_scoped(scope, move || writer.write_all(stream))
+                        })
+                        .transpose()?;
                     // Optimize for stdout: if only stdout is present, don't spawn any other
                     // threads.
                     if let Some((mut writer, stream)) = stdout {
@@ -407,10 +411,12 @@ where
 
     /// Write all of the data in each of the streams. This method returns immediately; any necessary
     /// write will happen in the background. If a thread was spawned, its handle is returned.
-    pub(crate) fn write_background(self) -> Option<thread::JoinHandle<Result<(), ShellError>>> {
+    pub(crate) fn write_background(
+        self,
+    ) -> Result<Option<thread::JoinHandle<Result<(), ShellError>>>, ShellError> {
         match self {
-            PipelineDataWriter::None => None,
-            _ => Some(
+            PipelineDataWriter::None => Ok(None),
+            _ => Ok(Some(
                 thread::Builder::new()
                     .name("plugin stream background writer".into())
                     .spawn(move || {
@@ -421,9 +427,8 @@ where
                             log::warn!("Error while writing pipeline in background: {err}");
                         }
                         result
-                    })
-                    .expect("failed to spawn thread"),
-            ),
+                    })?,
+            )),
         }
     }
 }
