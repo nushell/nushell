@@ -315,6 +315,24 @@ mod tests {
     }
 
     #[test]
+    fn it_filters_comment_lines() {
+        let input = r#"
+            a       b
+            1       2
+            3       4
+            #comment       line
+        "#;
+        let result = string_to_table(input, false, false, 1);
+        assert_eq!(
+            result,
+            vec![
+                vec![owned("a", "1"), owned("b", "2")],
+                vec![owned("a", "3"), owned("b", "4")]
+            ]
+        );
+    }
+
+    #[test]
     fn it_trims_empty_and_whitespace_only_lines() {
         let input = r#"
 
