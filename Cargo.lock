@@ -2910,6 +2910,7 @@ version = "0.90.2"
 dependencies = [
  "fancy-regex",
  "heck",
+ "itertools 0.12.0",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",

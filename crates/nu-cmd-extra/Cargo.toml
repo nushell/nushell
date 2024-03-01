@@ -30,6 +30,7 @@ nu-pretty-hex = { version = "0.90.2", path = "../nu-pretty-hex" }
 nu-json = { version = "0.90.2", path = "../nu-json" }
 serde_urlencoded = "0.7.1"
 v_htmlescape = "0.15.0"
+itertools = "0.12"
 
 [features]
 extra = ["default"]

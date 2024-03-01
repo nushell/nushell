@@ -148,6 +148,21 @@ fn reader_recv_end_of_stream() -> Result<(), ShellError> {
 }
 
 #[test]
+fn reader_iter_fuse_on_error() -> Result<(), ShellError> {
+    let (tx, rx) = mpsc::channel();
+    let mut reader = StreamReader::<Value, _>::new(0, rx, TestSink::default());
+
+    drop(tx); // should cause error, because we didn't explicitly signal the end
+
+    assert!(
+        reader.next().is_some_and(|e| e.is_error()),
+        "should be error the first time"
+    );
+    assert!(reader.next().is_none(), "should be closed the second time");
+    Ok(())
+}
+
+#[test]
 fn reader_drop() {
     let (_tx, rx) = mpsc::channel();
 

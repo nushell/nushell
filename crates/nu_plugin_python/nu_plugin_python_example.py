@@ -217,6 +217,8 @@ def write_error(id, msg, span=None):
 def handle_input(input):
     if "Hello" in input:
         return
+    elif input == "Goodbye":
+        return
     elif "Call" in input:
         [id, plugin_call] = input["Call"]
         if "Signature" in plugin_call:

@@ -59,6 +59,16 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError {
+                error: "str escape-glob is deprecated".into(),
+                msg: "if you are trying to escape a variable, you don't need to do it now".into(),
+                span: Some(call.head),
+                help: Some("Remove `str escape-glob` call".into()),
+                inner: vec![],
+            },
+        );
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments { cell_paths };

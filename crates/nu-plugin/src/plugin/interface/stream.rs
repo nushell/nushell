@@ -113,8 +113,14 @@ where
 
     fn next(&mut self) -> Option<T> {
         // Converting the error to the value here makes the implementation a lot easier
-        self.recv()
-            .unwrap_or_else(|err| Some(T::from_shell_error(err)))
+        match self.recv() {
+            Ok(option) => option,
+            Err(err) => {
+                // Drop the receiver so we don't keep returning errors
+                self.receiver = None;
+                Some(T::from_shell_error(err))
+            }
+        }
     }
 }
 

@@ -318,6 +318,16 @@ impl PluginInterface {
         self.flush()
     }
 
+    /// Tell the plugin it should not expect any more plugin calls and should terminate after it has
+    /// finished processing the ones it has already received.
+    ///
+    /// Note that this is automatically called when the last existing `PluginInterface` is dropped.
+    /// You probably do not need to call this manually.
+    pub(crate) fn goodbye(&self) -> Result<(), ShellError> {
+        self.write(PluginInput::Goodbye)?;
+        self.flush()
+    }
+
     /// Write a plugin call message. Returns the writer for the stream, and the receiver for
     /// messages (e.g. response) related to the plugin call
     fn write_plugin_call(
@@ -499,6 +509,21 @@ impl Interface for PluginInterface {
                     .into_pipeline_data_with_metadata(meta, ctrlc))
             }
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
+        }
+    }
+}
+
+impl Drop for PluginInterface {
+    fn drop(&mut self) {
+        // Automatically send `Goodbye` if there are no more interfaces. In that case there would be
+        // only two copies of the state, one of which we hold, and one of which the manager holds.
+        //
+        // Our copy is about to be dropped, so there would only be one left, the manager. The
+        // manager will never send any plugin calls, so we should let the plugin know that.
+        if Arc::strong_count(&self.state) < 3 {
+            if let Err(err) = self.goodbye() {
+                log::warn!("Error during plugin Goodbye: {err}");
+            }
         }
     }
 }
