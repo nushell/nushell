@@ -66,6 +66,7 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
 
 /// Return `Some(true)` if the last change time of the `src` old than the `dst`,
 /// otherwisie return `Some(false)`. Return `None` if the `src` or `dst` doesn't exist.
+#[allow(dead_code)]
 pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
     if !dst.exists() || !src.exists() {
         return None;

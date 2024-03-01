@@ -207,7 +207,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Ls,
             UMkdir,
             Mktemp,
-            Mv,
             UMv,
             UCp,
             Open,
