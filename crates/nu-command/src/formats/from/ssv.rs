@@ -241,7 +241,7 @@ fn string_to_table(
 ) -> Vec<Vec<(String, String)>> {
     let mut lines = s
         .lines()
-        .filter(|l| !l.trim().is_empty() && !l.trim().starts_with("#"));
+        .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'));
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
     let (ls, header_options) = if noheaders {
