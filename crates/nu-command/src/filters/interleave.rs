@@ -137,7 +137,7 @@ interleave
                 )
             }))
             .try_for_each(|stream| {
-                stream.map(|stream| {
+                stream.and_then(|stream| {
                     // Then take the stream and spawn a thread to send it to our channel
                     let tx = tx.clone();
                     thread::Builder::new()
@@ -150,7 +150,11 @@ interleave
                                 }
                             }
                         })
-                        .expect("failed to create thread");
+                        .map(|_| ())
+                        .map_err(|err| ShellError::IOErrorSpanned {
+                            msg: err.to_string(),
+                            span: call.head,
+                        })
                 })
             })?;
 
