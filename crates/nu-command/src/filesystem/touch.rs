@@ -92,9 +92,24 @@ impl Command for Touch {
                 });
             }
 
-            let metadata = reference_path.metadata().expect("should be a valid path"); // Should never fail as the path exists
-            mtime = metadata.modified().expect("should have metadata"); // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
-            atime = metadata.accessed().expect("should have metadata"); // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+            let metadata = reference_path
+                .metadata()
+                .map_err(|err| ShellError::IOErrorSpanned {
+                    msg: format!("Failed to read metadata: {err}"),
+                    span: reference.span,
+                })?;
+            mtime = metadata
+                .modified()
+                .map_err(|err| ShellError::IOErrorSpanned {
+                    msg: format!("Failed to read modified time: {err}"),
+                    span: reference.span,
+                })?;
+            atime = metadata
+                .accessed()
+                .map_err(|err| ShellError::IOErrorSpanned {
+                    msg: format!("Failed to read access time: {err}"),
+                    span: reference.span,
+                })?;
         }
 
         for (index, item) in files.into_iter().enumerate() {
