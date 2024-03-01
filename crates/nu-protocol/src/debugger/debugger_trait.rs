@@ -1,4 +1,4 @@
-use crate::ast::PipelineElement;
+use crate::ast::{Block, PipelineElement};
 use crate::engine::EngineState;
 use crate::{PipelineData, ShellError, Span, Value};
 use std::fmt::Debug;
@@ -7,18 +7,18 @@ use std::ops::DerefMut;
 /// Trait for static dispatching of eval_xxx() and debugger callback calls
 pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
-    fn enter_block(engine_state: &EngineState) {}
+    fn enter_block(engine_state: &EngineState, block: &Block) {}
 
     #[allow(unused_variables)]
-    fn leave_block(engine_state: &EngineState) {}
+    fn leave_block(engine_state: &EngineState, block: &Block) {}
 
     #[allow(unused_variables)]
-    fn enter_element(engine_state: &EngineState) {}
+    fn enter_element(engine_state: &EngineState, element: &PipelineElement) {}
 
     #[allow(unused_variables)]
     fn leave_element(
         engine_state: &EngineState,
-        input: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
     ) {
     }
@@ -29,33 +29,33 @@ pub trait DebugContext: Clone + Copy + Debug {
 pub struct WithDebug;
 
 impl DebugContext for WithDebug {
-    fn enter_block(engine_state: &EngineState) {
+    fn enter_block(engine_state: &EngineState, block: &Block) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
-            debugger.deref_mut().enter_block();
+            debugger.deref_mut().enter_block(engine_state, block);
         }
     }
 
-    fn leave_block(engine_state: &EngineState) {
+    fn leave_block(engine_state: &EngineState, block: &Block) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
-            debugger.deref_mut().leave_block();
+            debugger.deref_mut().leave_block(engine_state, block);
         }
     }
 
-    fn enter_element(engine_state: &EngineState) {
+    fn enter_element(engine_state: &EngineState, element: &PipelineElement) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
-            debugger.deref_mut().enter_element();
+            debugger.deref_mut().enter_element(engine_state, element);
         }
     }
 
     fn leave_element(
         engine_state: &EngineState,
-        input: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
     ) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger
                 .deref_mut()
-                .leave_element(engine_state, input, element);
+                .leave_element(engine_state, result, element);
         }
     }
 }
@@ -70,18 +70,20 @@ impl DebugContext for WithoutDebug {}
 ///
 /// By default, its callbacks are empty.
 pub trait Debugger: Send + Debug {
-    fn enter_block(&mut self) {}
-    fn leave_block(&mut self) {}
+    fn enter_block(&mut self, engine_state: &EngineState, block: &Block) {}
+
+    fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {}
+
+    fn enter_element(&mut self, engine_state: &EngineState, pipeline_element: &PipelineElement) {}
 
     #[allow(unused_variables)]
     fn leave_element(
         &mut self,
         engine_state: &EngineState,
-        input: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
     ) {
     }
-    fn enter_element(&mut self) {}
 
     fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
         Ok(Value::nothing(profiler_span))

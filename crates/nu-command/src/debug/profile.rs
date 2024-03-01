@@ -28,6 +28,7 @@ impl Command for DebugProfile {
                 "Collect pipeline output values of pipeline elements",
                 Some('v'),
             )
+            .switch("expr", "Collect expression types", Some('x'))
             .named(
                 "max-depth",
                 SyntaxShape::Int,
@@ -62,6 +63,7 @@ impl Command for DebugProfile {
         let collect_expanded_source =
             call.has_flag(engine_state, caller_stack, "expanded-source")?;
         let collect_values = call.has_flag(engine_state, caller_stack, "values")?;
+        let collect_exprs = call.has_flag(engine_state, caller_stack, "expr")?;
         let max_depth = call
             .get_flag(engine_state, caller_stack, "max-depth")?
             .unwrap_or(default_max_depth);
@@ -72,6 +74,7 @@ impl Command for DebugProfile {
             true,
             collect_expanded_source,
             collect_values,
+            collect_exprs,
         );
 
         let lock_err = {

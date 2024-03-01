@@ -404,7 +404,7 @@ fn eval_element_with_input<D: DebugContext>(
     redirect_combine: bool,
     stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    D::enter_element(engine_state);
+    D::enter_element(engine_state, element);
 
     let result = match element {
         PipelineElement::Expression(pipe_span, expr)
@@ -859,7 +859,7 @@ pub fn eval_block<D: DebugContext>(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
-    D::enter_block(engine_state);
+    D::enter_block(engine_state, block);
 
     let num_pipelines = block.len();
 
@@ -958,7 +958,7 @@ pub fn eval_block<D: DebugContext>(
         }
     }
 
-    D::leave_block(engine_state);
+    D::leave_block(engine_state, block);
 
     Ok(input)
 }
