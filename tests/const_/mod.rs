@@ -1,6 +1,7 @@
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+use regex::Regex;
 
 const MODULE_SETUP: &str = r#"
     module spam {
@@ -115,10 +116,8 @@ fn const_string_interpolation() {
         const s = $"var: ($x), date: (2021-02-27T13:55:40+00:00), file size: (2kb)"
         $s
     "#);
-    assert_eq!(
-        actual.out,
-        "var: 2, date: Sat, 27 Feb 2021 13:55:40 +0000 (3 years ago), file size: 2.0 KiB"
-    );
+    let re = Regex::new(r"^var\: 2, date\: Sat, 27 Feb 2021 13\:55\:40 \+0000 (\d+ years ago), file size\: 2\.0 KiB$").unwrap();
+    assert!(re.is_match(out));
 }
 
 #[test]
