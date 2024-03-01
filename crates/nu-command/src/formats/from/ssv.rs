@@ -322,7 +322,7 @@ mod tests {
             3       4
             #comment       line
         "#;
-        let result = string_to_table(input, false, false, 1);
+        let result = string_to_table(input, false, true, 1);
         assert_eq!(
             result,
             vec![
