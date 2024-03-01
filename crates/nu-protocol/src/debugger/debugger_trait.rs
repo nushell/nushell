@@ -85,7 +85,7 @@ pub trait Debugger: Send + Debug {
     ) {
     }
 
-    fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
+    fn report(&self, engine_state: &EngineState, profiler_span: Span) -> Result<Value, ShellError> {
         Ok(Value::nothing(profiler_span))
     }
 }

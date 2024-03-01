@@ -3,20 +3,18 @@ use crate::debugger::Debugger;
 use crate::engine::EngineState;
 use crate::record;
 use crate::{PipelineData, ShellError, Span, Value};
-use indexmap::IndexSet;
-use std::collections::HashMap;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy)]
 struct ElementId(usize);
 
-#[derive(Debug, Clone)]
-struct ProfilerInfo {
-    depth: i64,
-    element_span: Span,
-    element_input: Option<Value>,
-    expr: Option<String>,
-}
+// #[derive(Debug, Clone)]
+// struct ProfilerInfo {
+//     depth: i64,
+//     element_span: Span,
+//     element_input: Option<Value>,
+//     expr: Option<String>,
+// }
 
 #[derive(Debug, Clone)]
 struct ProfilerInfo2 {
@@ -63,9 +61,9 @@ impl ProfilerInfo2 {
 pub struct Profiler {
     depth: i64,
     max_depth: i64,
-    source_fragments: HashMap<(usize, usize), String>,
-    element_start_times: Vec<Instant>,
-    element_durations_sec: Vec<(ProfilerInfo, f64)>,
+    // source_fragments: HashMap<(usize, usize), String>,
+    // element_start_times: Vec<Instant>,
+    // element_durations_sec: Vec<(ProfilerInfo, f64)>,
     collect_spans: bool,
     collect_source: bool,
     collect_expanded_source: bool,
@@ -106,9 +104,9 @@ impl Profiler {
         Profiler {
             depth: 0,
             max_depth,
-            source_fragments: HashMap::new(),
-            element_start_times: vec![],
-            element_durations_sec: vec![],
+            // source_fragments: HashMap::new(),
+            // element_start_times: vec![],
+            // element_durations_sec: vec![],
             collect_spans,
             collect_source,
             collect_expanded_source,
@@ -125,6 +123,10 @@ impl Debugger for Profiler {
         // println!("- enter block {:?}", block.span);
         self.depth += 1;
 
+        if self.depth > self.max_depth {
+            return;
+        }
+
         // last element becomes a parent node
         self.parents.push(ElementId(self.elements.len() - 1));
         println!(
@@ -138,7 +140,10 @@ impl Debugger for Profiler {
     }
 
     fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {
-        self.depth -= 1;
+        if self.depth > self.max_depth {
+            return;
+        }
+
         // println!("- leave block {:?}", block.span);
 
         self.parents.pop();
@@ -150,6 +155,8 @@ impl Debugger for Profiler {
             self.depth,
             self.parents.last()
         );
+
+        self.depth -= 1;
     }
 
     fn enter_element(&mut self, engine_state: &EngineState, element: &PipelineElement) {
@@ -161,59 +168,12 @@ impl Debugger for Profiler {
             return;
         }
 
-        self.element_start_times.push(Instant::now());
+        // self.element_start_times.push(Instant::now());
 
         let Some(parent_id) = self.parents.last() else {
-            eprintln!("Internal Profiler Error: Missing parent element ID.");
+            eprintln!("Profiler Error: Missing parent element ID.");
             return;
         };
-
-        let new_id = ElementId(self.elements.len());
-        println!("- enter element {:?} id {}",
-                 String::from_utf8_lossy(engine_state.get_span_contents(element.span())),
-                 new_id.0);
-        {
-            self.elements
-                .push(ProfilerInfo2::new(self.depth, element.span()));
-        }
-
-        let Some(mut parent) = self.elements.get_mut(parent_id.0) else {
-            eprintln!("Internal Profiler Error: Missing parent element.");
-            return;
-        };
-
-        parent.children.push(new_id);
-    }
-
-    fn leave_element(
-        &mut self,
-        engine_state: &EngineState,
-        input: &Result<(PipelineData, bool), ShellError>,
-        element: &PipelineElement,
-    ) {
-        if self.depth > self.max_depth {
-            return;
-        }
-
-        let Some(start) = self.element_start_times.pop() else {
-            // TODO: Log internal errors
-            eprintln!(
-                "Error: Profiler left pipeline element without matching element start time stamp."
-            );
-            return;
-        };
-
-        let duration = start.elapsed().as_secs_f64();
-
-        let element_span = element.span();
-
-        if self.collect_source {
-            let source_fragment =
-                String::from_utf8_lossy(engine_state.get_span_contents(element_span)).to_string();
-            // println!("=== {source_fragment}; {:?}", element.expression().expr);
-            self.source_fragments
-                .insert((element_span.start, element_span.end), source_fragment);
-        }
 
         let expr_opt = if self.collect_exprs {
             Some(match element {
@@ -226,8 +186,69 @@ impl Debugger for Profiler {
             None
         };
 
+        let new_id = ElementId(self.elements.len());
+        println!(
+            "- enter element {:?} id {}",
+            String::from_utf8_lossy(engine_state.get_span_contents(element.span())),
+            new_id.0
+        );
+
+        let mut new_element = ProfilerInfo2::new(self.depth, element.span());
+        new_element.expr = expr_opt;
+
+        self.elements.push(new_element);
+
+        let Some(mut parent) = self.elements.get_mut(parent_id.0) else {
+            eprintln!("Profiler Error: Missing parent element.");
+            return;
+        };
+
+        parent.children.push(new_id);
+    }
+
+    fn leave_element(
+        &mut self,
+        engine_state: &EngineState,
+        result: &Result<(PipelineData, bool), ShellError>,
+        element: &PipelineElement,
+    ) {
+        if self.depth > self.max_depth {
+            return;
+        }
+
+        // let Some(start) = self.element_start_times.pop() else {
+        //     // TODO: Log internal errors
+        //     eprintln!(
+        //         "Error: Profiler left pipeline element without matching element start time stamp."
+        //     );
+        //     return;
+        // };
+        //
+        // let duration = start.elapsed().as_secs_f64();
+        //
+        let element_span = element.span();
+        //
+        // if self.collect_source {
+        //     let source_fragment =
+        //         String::from_utf8_lossy(engine_state.get_span_contents(element_span)).to_string();
+        //     // println!("=== {source_fragment}; {:?}", element.expression().expr);
+        //     self.source_fragments
+        //         .insert((element_span.start, element_span.end), source_fragment);
+        // }
+        //
+        // let expr_opt = if self.collect_exprs {
+        //     Some(match element {
+        //         PipelineElement::Expression(_, expression) => {
+        //             expr_to_string(engine_state, &expression.expr)
+        //         }
+        //         _ => "other".to_string(),
+        //     })
+        // } else {
+        //     None
+        // };
+
         let out_opt = if self.collect_values {
-            Some(match input {
+            Some(match result {
                 Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
                     PipelineData::Value(val, ..) => val.clone(),
                     PipelineData::ListStream(..) => Value::string("list stream", element_span),
@@ -242,15 +263,15 @@ impl Debugger for Profiler {
             None
         };
 
-        let info = ProfilerInfo {
-            depth: self.depth,
-            element_span,
-            element_input: out_opt.clone(),
-            expr: expr_opt.clone(),
-        };
-
-        self.element_durations_sec
-            .push((info, start.elapsed().as_secs_f64()));
+        // let info = ProfilerInfo {
+        //     depth: self.depth,
+        //     element_span,
+        //     element_input: out_opt.clone(),
+        //     expr: expr_opt.clone(),
+        // };
+        //
+        // self.element_durations_sec
+        //     .push((info, start.elapsed().as_secs_f64()));
         // println!("- leave element {:?}", element.span());
         println!(
             "- leave element {:?} id {}",
@@ -259,110 +280,120 @@ impl Debugger for Profiler {
         );
 
         let Some(parent_id) = self.parents.last() else {
-            eprintln!("Internal Profiler Error: Missing parent element ID.");
+            eprintln!("Profiler Error: Missing parent element ID.");
             return;
         };
 
         let Some(parent) = self.elements.get(parent_id.0) else {
-            eprintln!("Internal Profiler Error: Missing parent element.");
+            eprintln!("Profiler Error: Missing parent element.");
             return;
         };
 
         let Some(last_element_id) = parent.children.last() else {
-            eprintln!("Internal Profiler Error: Missing last element ID.");
+            eprintln!("Profiler Error: Missing last element ID.");
             return;
         };
 
         let id = last_element_id.0;
 
         let Some(mut last_element) = self.elements.get_mut(id) else {
-            eprintln!("Internal Profiler Error: Missing last element.");
+            eprintln!("Profiler Error: Missing last element.");
             return;
         };
 
         last_element.duration_sec = last_element.start.elapsed().as_secs_f64();
         last_element.element_output = out_opt;
-        last_element.expr = expr_opt;
 
         // self.elements.push(ProfilerInfo2::new(duration, self.depth, element_span, inp_opt, expr_opt));
     }
 
-    fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
-        let mut rows = vec![];
+    fn report(&self, engine_state: &EngineState, profiler_span: Span) -> Result<Value, ShellError> {
+        Ok(Value::list(
+            collect_data(
+                engine_state,
+                self,
+                ElementId(0),
+                ElementId(0),
+                profiler_span,
+            )?,
+            profiler_span,
+        ))
 
-        for (info, duration_sec) in self.element_durations_sec.iter() {
-            let mut row = record! {
-                "depth" => Value::int(info.depth, profiler_span)
-            };
-
-            if self.collect_spans {
-                let span_start = i64::try_from(info.element_span.start).map_err(|_| {
-                    profiler_error("error converting span start to i64", profiler_span)
-                })?;
-                let span_end = i64::try_from(info.element_span.end).map_err(|_| {
-                    profiler_error("error converting span end to i64", profiler_span)
-                })?;
-
-                row.push(
-                    "span",
-                    Value::record(
-                        record! {
-                            "start" => Value::int(span_start, profiler_span),
-                            "end" => Value::int(span_end, profiler_span),
-                        },
-                        profiler_span,
-                    ),
-                );
-            }
-
-            if self.collect_source {
-                let Some(val) = self
-                    .source_fragments
-                    .get(&(info.element_span.start, info.element_span.end))
-                else {
-                    return Err(profiler_error(
-                        "could not get source fragment",
-                        profiler_span,
-                    ));
-                };
-
-                let val = val.trim();
-                let nlines = val.lines().count();
-
-                let fragment = if self.collect_expanded_source {
-                    val.to_string()
-                } else {
-                    let mut first_line = val.lines().next().unwrap_or("").to_string();
-
-                    if nlines > 1 {
-                        first_line.push_str(" ...");
-                    }
-
-                    first_line
-                };
-
-                row.push("source", Value::string(fragment, profiler_span));
-            }
-
-            if let Some(expr_string) = &info.expr {
-                row.push("expr", Value::string(expr_string.clone(), profiler_span));
-            }
-
-            if let Some(val) = &info.element_input {
-                row.push("output", val.clone());
-            }
-
-            row.push(
-                "duration_us",
-                Value::float(duration_sec * 1e6, profiler_span),
-            );
-
-            rows.push(Value::record(row, profiler_span))
-        }
-
-        print_elements(self, *self.parents.first().unwrap());
-
-        Ok(Value::list(rows, profiler_span))
+        // let mut rows = vec![];
+        //
+        // for (info, duration_sec) in self.element_durations_sec.iter() {
+        //     let mut row = record! {
+        //         "depth" => Value::int(info.depth, profiler_span)
+        //     };
+        //
+        //     if self.collect_spans {
+        //         let span_start = i64::try_from(info.element_span.start).map_err(|_| {
+        //             profiler_error("error converting span start to i64", profiler_span)
+        //         })?;
+        //         let span_end = i64::try_from(info.element_span.end).map_err(|_| {
+        //             profiler_error("error converting span end to i64", profiler_span)
+        //         })?;
+        //
+        //         row.push(
+        //             "span",
+        //             Value::record(
+        //                 record! {
+        //                     "start" => Value::int(span_start, profiler_span),
+        //                     "end" => Value::int(span_end, profiler_span),
+        //                 },
+        //                 profiler_span,
+        //             ),
+        //         );
+        //     }
+        //
+        //     if self.collect_source {
+        //         let Some(val) = self
+        //             .source_fragments
+        //             .get(&(info.element_span.start, info.element_span.end))
+        //         else {
+        //             return Err(profiler_error(
+        //                 "could not get source fragment",
+        //                 profiler_span,
+        //             ));
+        //         };
+        //
+        //         let val = val.trim();
+        //         let nlines = val.lines().count();
+        //
+        //         let fragment = if self.collect_expanded_source {
+        //             val.to_string()
+        //         } else {
+        //             let mut first_line = val.lines().next().unwrap_or("").to_string();
+        //
+        //             if nlines > 1 {
+        //                 first_line.push_str(" ...");
+        //             }
+        //
+        //             first_line
+        //         };
+        //
+        //         row.push("source", Value::string(fragment, profiler_span));
+        //     }
+        //
+        //     if let Some(expr_string) = &info.expr {
+        //         row.push("expr", Value::string(expr_string.clone(), profiler_span));
+        //     }
+        //
+        //     if let Some(val) = &info.element_input {
+        //         row.push("output", val.clone());
+        //     }
+        //
+        //     row.push(
+        //         "duration_us",
+        //         Value::float(duration_sec * 1e6, profiler_span),
+        //     );
+        //
+        //     rows.push(Value::record(row, profiler_span))
+        // }
+        //
+        // print_elements(self, *self.parents.first().unwrap());
+        //
+        // Ok(Value::list(rows, profiler_span))
     }
 }
 
@@ -428,22 +459,92 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
     }
 }
 
-fn print_elements(profiler: &Profiler, element_id: ElementId) {
+fn collect_data(
+    engine_state: &EngineState,
+    profiler: &Profiler,
+    element_id: ElementId,
+    parent_id: ElementId,
+    profiler_span: Span,
+) -> Result<Vec<Value>, ShellError> {
     let element = &profiler.elements[element_id.0];
-    let indent = "  ".repeat(element.depth as usize);
-    println!(
-        "{} {} id {} {:?} {:?} {}",
-        indent,
-        element.depth,
-        element_id.0,
-        element.element_span,
-        profiler
-            .source_fragments
-            .get(&(element.element_span.start, element.element_span.end)),
-        element.duration_sec
+
+    let mut row = record! {
+        "depth" => Value::int(element.depth, profiler_span),
+        "id" => Value::int(element_id.0 as i64, profiler_span),
+        "parent_id" => Value::int(parent_id.0 as i64, profiler_span),
+    };
+
+    if profiler.collect_spans {
+        let span_start = i64::try_from(element.element_span.start)
+            .map_err(|_| profiler_error("error converting span start to i64", profiler_span))?;
+        let span_end = i64::try_from(element.element_span.end)
+            .map_err(|_| profiler_error("error converting span end to i64", profiler_span))?;
+
+        row.push(
+            "span",
+            Value::record(
+                record! {
+                    "start" => Value::int(span_start, profiler_span),
+                    "end" => Value::int(span_end, profiler_span),
+                },
+                profiler_span,
+            ),
+        );
+    }
+
+    if profiler.collect_source {
+        // let Some(val) = profiler
+        //     .source_fragments
+        //     .get(&(element.element_span.start, element.element_span.end))
+        //     else {
+        //         return Err(profiler_error(
+        //             "could not get source fragment",
+        //             profiler_span,
+        //         ));
+        //     };
+
+        let val = String::from_utf8_lossy(engine_state.get_span_contents(element.element_span));
+        let val = val.trim();
+
+        // let val = val.trim();
+        let nlines = val.lines().count();
+
+        let fragment = if profiler.collect_expanded_source {
+            val.to_string()
+        } else {
+            let mut first_line = val.lines().next().unwrap_or("").to_string();
+
+            if nlines > 1 {
+                first_line.push_str(" ...");
+            }
+
+            first_line
+        };
+
+        row.push("source", Value::string(fragment, profiler_span));
+    }
+
+    if let Some(expr_string) = &element.expr {
+        row.push("expr", Value::string(expr_string.clone(), profiler_span));
+    }
+
+    if let Some(val) = &element.element_output {
+        row.push("output", val.clone());
+    }
+
+    row.push(
+        "duration_ms",
+        Value::float(element.duration_sec * 1e3, profiler_span),
     );
 
+    let mut rows = vec![Value::record(row, profiler_span)];
+
     for child in &element.children {
-        print_elements(profiler, *child);
+        let child_rows = collect_data(engine_state, profiler, *child, element_id, profiler_span)?;
+        rows.extend(child_rows);
     }
+
+    // row.push("children", Value::list(children, profiler_span));
+
+    Ok(rows)
 }

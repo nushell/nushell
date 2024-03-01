@@ -115,7 +115,7 @@ impl Command for DebugProfile {
             .debugger
             .lock()
             .map_err(lock_err)?
-            .report(call.span());
+            .report(engine_state, call.span());
 
         engine_state.deactivate_debugger().map_err(lock_err)?;
 
