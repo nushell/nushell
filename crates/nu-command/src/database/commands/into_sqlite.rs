@@ -210,8 +210,9 @@ fn insert_in_transaction(
     let table_name = table.name().clone();
     let tx = table.try_init(first_val)?;
     let insert_statement = format!(
-        "INSERT INTO [{}] VALUES ({})",
+        "INSERT INTO [{}] ({}) VALUES ({})",
         table_name,
+        first_val.cols.join(", "),
         ["?"].repeat(first_val.values().len()).join(", ")
     );
 
