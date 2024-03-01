@@ -121,8 +121,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                     |e| e,
                     |mut path| {
                         path.push("plugin.nu");
-                        let canon_plugin_path = canonicalize_path(engine_state, &path);
-                        Value::string(canon_plugin_path.to_string_lossy(), span)
+                        Value::string(path.to_string_lossy(), span)
                     },
                 )
             },
