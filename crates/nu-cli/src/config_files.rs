@@ -61,10 +61,10 @@ pub fn add_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
-    if let Some(plugin_file) = plugin_file {
-        let working_set = StateWorkingSet::new(engine_state);
-        let cwd = working_set.get_cwd();
+    let working_set = StateWorkingSet::new(engine_state);
+    let cwd = working_set.get_cwd();
 
+    if let Some(plugin_file) = plugin_file {
         if let Ok(path) = canonicalize_with(&plugin_file.item, cwd) {
             engine_state.plugin_signatures = Some(path)
         } else {
@@ -72,7 +72,7 @@ pub fn add_plugin_file(
             report_error(&working_set, &e);
         }
     } else if let Some(plugin_path) = nu_path::config_dir() {
-        let mut plugin_path = plugin_path.canonicalize().unwrap_or(plugin_path);
+        let mut plugin_path = canonicalize_with(&plugin_path, cwd).unwrap_or(plugin_path);
         // Path to store plugins signatures
         plugin_path.push(storage_path);
         plugin_path.push(PLUGIN_FILE);
