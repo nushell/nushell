@@ -3,6 +3,7 @@ use nu_engine::CallExt;
 use nu_path::expand_path_with;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::IntoSpanned;
 use nu_protocol::{
     Category, DataSource, Example, PipelineData, PipelineMetadata, RawStream, ShellError,
     Signature, Span, Spanned, SyntaxShape, Type, Value,
@@ -123,19 +124,22 @@ impl Command for Save {
                 )?;
 
                 // delegate a thread to redirect stderr to result.
-                let handler = stderr.map(|stderr_stream| match stderr_file {
-                    Some(stderr_file) => thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || stream_to_file(stderr_stream, stderr_file, span, progress))
-                        .expect("Failed to create thread"),
-                    None => thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || {
-                            let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::empty())
-                        })
-                        .expect("Failed to create thread"),
-                });
+                let handler = stderr
+                    .map(|stderr_stream| match stderr_file {
+                        Some(stderr_file) => thread::Builder::new()
+                            .name("stderr redirector".to_string())
+                            .spawn(move || {
+                                stream_to_file(stderr_stream, stderr_file, span, progress)
+                            }),
+                        None => thread::Builder::new()
+                            .name("stderr redirector".to_string())
+                            .spawn(move || {
+                                let _ = stderr_stream.into_bytes();
+                                Ok(PipelineData::empty())
+                            }),
+                    })
+                    .transpose()
+                    .map_err(|e| e.into_spanned(span))?;
 
                 let res = stream_to_file(stream, file, span, progress);
                 if let Some(h) = handler {

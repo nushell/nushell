@@ -4,8 +4,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, RawStream,
+    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -128,8 +128,10 @@ use it in your pipeline."#
 
                 if use_stderr {
                     if let Some(stderr) = stderr {
+                        let iter = tee(stderr.stream, with_stream)
+                            .map_err(|e| e.into_spanned(call.head))?;
                         let raw_stream = RawStream::new(
-                            Box::new(tee(stderr.stream, with_stream).map(flatten_result)),
+                            Box::new(iter.map(flatten_result)),
                             stderr.ctrlc,
                             stderr.span,
                             stderr.known_size,
@@ -158,14 +160,18 @@ use it in your pipeline."#
                         })
                     }
                 } else {
-                    let stdout = stdout.map(|stdout| {
-                        RawStream::new(
-                            Box::new(tee(stdout.stream, with_stream).map(flatten_result)),
-                            stdout.ctrlc,
-                            stdout.span,
-                            stdout.known_size,
-                        )
-                    });
+                    let stdout = stdout
+                        .map(|stdout| {
+                            let iter = tee(stdout.stream, with_stream)
+                                .map_err(|e| e.into_spanned(call.head))?;
+                            Ok::<_, ShellError>(RawStream::new(
+                                Box::new(iter.map(flatten_result)),
+                                stdout.ctrlc,
+                                stdout.span,
+                                stdout.known_size,
+                            ))
+                        })
+                        .transpose()?;
                     Ok(PipelineData::ExternalStream {
                         stdout,
                         stderr,
@@ -201,6 +207,7 @@ use it in your pipeline."#
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
                 })
+                .map_err(|e| e.into_spanned(call.head))?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
                 .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone());
 
@@ -227,7 +234,7 @@ fn flatten_result<T, E>(result: Result<Result<T, E>, E>) -> Result<T, E> {
 fn tee<T>(
     input: impl Iterator<Item = T>,
     with_cloned_stream: impl FnOnce(mpsc::Receiver<T>) -> Result<(), ShellError> + Send + 'static,
-) -> impl Iterator<Item = Result<T, ShellError>>
+) -> Result<impl Iterator<Item = Result<T, ShellError>>, std::io::Error>
 where
     T: Clone + Send + 'static,
 {
@@ -237,14 +244,13 @@ where
     let mut thread = Some(
         thread::Builder::new()
             .name("stderr consumer".into())
-            .spawn(move || with_cloned_stream(rx))
-            .expect("could not create thread"),
+            .spawn(move || with_cloned_stream(rx))?,
     );
 
     let mut iter = input.into_iter();
     let mut tx = Some(tx);
 
-    std::iter::from_fn(move || {
+    Ok(std::iter::from_fn(move || {
         if thread.as_ref().is_some_and(|t| t.is_finished()) {
             // Check for an error from the other thread
             let result = thread
@@ -274,7 +280,7 @@ where
                     .map(Err)
             })
         }
-    })
+    }))
 }
 
 #[test]
@@ -289,6 +295,7 @@ fn tee_copies_values_to_other_thread_and_passes_them_through() {
         }
         Ok(())
     })
+    .expect("io error")
     .collect::<Result<Vec<i32>, ShellError>>()
     .expect("should not produce error");
 
@@ -305,7 +312,8 @@ fn tee_forwards_errors_back_immediately() {
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
         Err(ShellError::IOError { msg: "test".into() })
-    });
+    })
+    .expect("io error");
     for result in iter {
         if let Ok(val) = result {
             // should not make it to the end
@@ -331,7 +339,8 @@ fn tee_waits_for_the_other_thread() {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
         Err(ShellError::IOError { msg: "test".into() })
-    });
+    })
+    .expect("io error");
     let last = iter.last();
     assert!(waited.load(Ordering::Relaxed), "failed to wait");
     assert!(

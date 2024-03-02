@@ -283,7 +283,7 @@ fn send_cancellable_request(
             let ret = request_fn();
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
-        .expect("Failed to create thread");
+        .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
     loop {

@@ -7,8 +7,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    Config, DeclId, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned, Type,
-    Value, VarId, ENV_VARIABLE_ID,
+    Config, DeclId, IntoPipelineData, IntoSpanned, PipelineData, RawStream, ShellError, Span,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::thread::{self, JoinHandle};
 use std::{borrow::Cow, collections::HashMap};
@@ -542,7 +542,7 @@ fn eval_element_with_input(
                                     stderr_stack,
                                     save_call,
                                     input,
-                                ));
+                                )?);
                                 let (result_out_stream, result_err_stream) = if result_is_out {
                                     (result_out_stream, None)
                                 } else {
@@ -1090,8 +1090,9 @@ impl DataSaveJob {
         mut stack: Stack,
         save_call: Call,
         input: PipelineData,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ShellError> {
+        let span = save_call.head;
+        Ok(Self {
             inner: thread::Builder::new()
                 .name("stderr saver".to_string())
                 .spawn(move || {
@@ -1100,8 +1101,8 @@ impl DataSaveJob {
                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                     }
                 })
-                .expect("Failed to create thread"),
-        }
+                .map_err(|e| e.into_spanned(span))?,
+        })
     }
 
     pub fn join(self) -> thread::Result<()> {

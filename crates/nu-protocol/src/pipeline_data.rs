@@ -868,8 +868,7 @@ pub fn print_if_stream(
                         let _ = stderr.write_all(&bytes);
                     }
                 }
-            })
-            .expect("could not create thread");
+            })?;
     }
 
     if let Some(stream) = stream {

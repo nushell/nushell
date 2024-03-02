@@ -4,8 +4,8 @@ use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoSpanned, ListStream, PipelineData, RawStream, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -147,23 +147,25 @@ impl Command for Do {
                 // consumes the first 65535 bytes
                 // So we need a thread to receive stdout message, then the current thread can continue to consume
                 // stderr messages.
-                let stdout_handler = stdout.map(|stdout_stream| {
-                    thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || {
-                            let ctrlc = stdout_stream.ctrlc.clone();
-                            let span = stdout_stream.span;
-                            RawStream::new(
-                                Box::new(std::iter::once(
-                                    stdout_stream.into_bytes().map(|s| s.item),
-                                )),
-                                ctrlc,
-                                span,
-                                None,
-                            )
-                        })
-                        .expect("Failed to create thread")
-                });
+                let stdout_handler = stdout
+                    .map(|stdout_stream| {
+                        thread::Builder::new()
+                            .name("stderr redirector".to_string())
+                            .spawn(move || {
+                                let ctrlc = stdout_stream.ctrlc.clone();
+                                let span = stdout_stream.span;
+                                RawStream::new(
+                                    Box::new(std::iter::once(
+                                        stdout_stream.into_bytes().map(|s| s.item),
+                                    )),
+                                    ctrlc,
+                                    span,
+                                    None,
+                                )
+                            })
+                            .map_err(|e| e.into_spanned(call.head))
+                    })
+                    .transpose()?;
 
                 // Intercept stderr so we can return it in the error if the exit code is non-zero.
                 // The threading issues mentioned above dictate why we also need to intercept stdout.

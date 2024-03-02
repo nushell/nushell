@@ -2,7 +2,9 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
+use crate::{
+    ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Spanned, Value,
+};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -1357,6 +1359,15 @@ impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
         ShellError::IOError {
             msg: format!("{input:?}"),
+        }
+    }
+}
+
+impl From<Spanned<std::io::Error>> for ShellError {
+    fn from(error: Spanned<std::io::Error>) -> Self {
+        ShellError::IOErrorSpanned {
+            msg: error.item.to_string(),
+            span: error.span,
         }
     }
 }

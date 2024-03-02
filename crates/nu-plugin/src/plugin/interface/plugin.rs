@@ -419,7 +419,7 @@ impl PluginInterface {
         let (writer, rx) = self.write_plugin_call(call, context.clone())?;
 
         // Finish writing stream in the background
-        writer.write_background();
+        writer.write_background()?;
 
         self.receive_plugin_call_response(rx)
     }

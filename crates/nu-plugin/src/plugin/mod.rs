@@ -126,7 +126,7 @@ fn make_plugin_interface(
         .stdin
         .take()
         .ok_or_else(|| ShellError::PluginFailedToLoad {
-            msg: "plugin missing stdin writer".into(),
+            msg: "Plugin missing stdin writer".into(),
         })?;
 
     let mut stdout = child
@@ -158,7 +158,9 @@ fn make_plugin_interface(
             drop(manager);
             let _ = child.wait();
         })
-        .expect("failed to spawn thread");
+        .map_err(|err| ShellError::PluginFailedToLoad {
+            msg: format!("Failed to spawn thread for plugin: {err}"),
+        })?;
 
     Ok(interface)
 }
@@ -422,6 +424,20 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
     // We need to hold on to the interface to keep the manager alive. We can drop it at the end
     let interface = manager.get_interface();
 
+    // Determine the plugin name, for errors
+    let exe = std::env::current_exe().ok();
+
+    let plugin_name: String = exe
+        .as_ref()
+        .and_then(|path| path.file_stem())
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .map(|stem| {
+            stem.strip_prefix("nu_plugin_")
+                .map(|s| s.to_owned())
+                .unwrap_or(stem)
+        })
+        .unwrap_or_else(|| "(unknown)".into());
+
     // Try an operation that could result in ShellError. Exit if an I/O error is encountered.
     // Try to report the error to nushell otherwise, and failing that, panic.
     macro_rules! try_or_report {
@@ -435,7 +451,7 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
             Err(err) => {
                 let _ = $interface.write_response(Err(err.clone())).unwrap_or_else(|_| {
                     // If we can't send it to nushell, panic with it so at least we get the output
-                    panic!("{}", err)
+                    panic!("Plugin `{plugin_name}`: {}", err)
                 });
                 std::process::exit(1)
             }
@@ -445,6 +461,8 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
     // Send Hello message
     try_or_report!(interface, interface.hello());
 
+    let plugin_name_clone = plugin_name.clone();
+
     // Spawn the reader thread
     std::thread::Builder::new()
         .name("engine interface reader".into())
@@ -453,24 +471,16 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
                 // Do our best to report the read error. Most likely there is some kind of
                 // incompatibility between the plugin and nushell, so it makes more sense to try to
                 // report it on stderr than to send something.
-                let exe = std::env::current_exe().ok();
 
-                let plugin_name: String = exe
-                    .as_ref()
-                    .and_then(|path| path.file_stem())
-                    .map(|stem| stem.to_string_lossy().into_owned())
-                    .map(|stem| {
-                        stem.strip_prefix("nu_plugin_")
-                            .map(|s| s.to_owned())
-                            .unwrap_or(stem)
-                    })
-                    .unwrap_or_else(|| "(unknown)".into());
-
-                eprintln!("Plugin `{plugin_name}` read error: {err}");
+                eprintln!("Plugin `{plugin_name_clone}` read error: {err}");
                 std::process::exit(1);
             }
         })
-        .expect("failed to spawn thread");
+        .unwrap_or_else(|err| {
+            // If we fail to spawn the reader thread, we should exit
+            eprintln!("Plugin `{plugin_name}` failed to launch: {err}");
+            std::process::exit(1);
+        });
 
     for plugin_call in call_receiver {
         match plugin_call {
@@ -492,7 +502,7 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
                 let result = plugin.run(&name, &config, &call, input);
                 let write_result = engine
                     .write_response(result)
-                    .map(|writer| writer.write_background());
+                    .and_then(|writer| writer.write_background());
                 try_or_report!(engine, write_result);
             }
             // Do an operation on a custom value
@@ -514,7 +524,7 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
                             .map(|value| PipelineData::Value(value, None));
                         let write_result = engine
                             .write_response(result)
-                            .map(|writer| writer.write_background());
+                            .and_then(|writer| writer.write_background());
                         try_or_report!(engine, write_result);
                     }
                 }
