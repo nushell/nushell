@@ -116,7 +116,7 @@ fn test_default_config_path() {
 /// and see if the config files' paths are properly canonicalized
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
-fn test_default_config_path_symlinked_empty() {
+fn test_default_symlinked_config_path_empty() {
     Playground::setup("symlinked_empty_config_dir", |_, playground| {
         let _ = setup_fake_config(playground);
 
@@ -124,18 +124,14 @@ fn test_default_config_path_symlinked_empty() {
     });
 }
 
-/// Like [[test_default_config_path_symlinked_empty]], but fill the temporary folder
-/// with symlinks to the real config files and see if they're properly canonicalized
+/// Like [[test_default_symlinked_config_path_empty]], but fill the temporary folder
+/// with broken symlinks and see if they're properly canonicalized
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
-fn test_default_config_path_symlinked_config_files() {
+fn test_default_symlink_config_path_broken_symlink_config_files() {
     Playground::setup(
         "symlinked_cfg_dir_with_symlinked_cfg_files",
         |_, playground| {
-            let real_config_dir_nushell = nu_path::config_dir()
-                .expect("Could not get config directory")
-                .join("nushell");
-
             let fake_config_dir_nushell = setup_fake_config(playground);
 
             for config_file in [
@@ -147,12 +143,39 @@ fn test_default_config_path_symlinked_config_files() {
                 "plugin.nu",
             ] {
                 playground.symlink(
-                    &real_config_dir_nushell
-                        .join(config_file)
-                        .display()
-                        .to_string(),
+                    format!("fake/{config_file}"),
                     fake_config_dir_nushell.join(config_file),
                 );
+            }
+
+            test_config_path_helper();
+        },
+    );
+}
+
+/// Like [[test_default_symlinked_config_path_empty]], but fill the temporary folder
+/// with working symlinks to empty files and see if they're properly canonicalized
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn test_default_config_path_symlinked_config_files() {
+    use std::fs::File;
+
+    Playground::setup(
+        "symlinked_cfg_dir_with_symlinked_cfg_files",
+        |_, playground| {
+            let fake_config_dir_nushell = setup_fake_config(playground);
+
+            for config_file in [
+                "config.nu",
+                "env.nu",
+                "history.txt",
+                "history.sqlite3",
+                "login.nu",
+                "plugin.nu",
+            ] {
+                let path = format!("empty-{config_file}");
+                File::create(&path).unwrap();
+                playground.symlink(path, fake_config_dir_nushell.join(config_file));
             }
 
             test_config_path_helper();
