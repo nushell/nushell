@@ -8,6 +8,11 @@ use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
+#[cfg(windows)]
+const ENV_PATH_NAME: &str = "Path";
+#[cfg(not(windows))]
+const ENV_PATH_NAME: &str = "PATH";
+
 /// A runtime value stack used during evaluation
 ///
 /// A note on implementation:
@@ -115,23 +120,36 @@ impl Stack {
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
+        // When dealing with Path/PATH always make it PATH
+        let checked_var = if &var.to_ascii_lowercase() == "path" {
+            ENV_PATH_NAME
+        } else {
+            &var
+        };
+
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = self.env_hidden.get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
-                env_hidden.remove(&var);
+                env_hidden.remove(checked_var);
             }
 
             if let Some(scope) = self.env_vars.last_mut() {
                 if let Some(env_vars) = scope.get_mut(last_overlay) {
-                    env_vars.insert(var, value);
+                    env_vars.insert(checked_var.to_string(), value);
                 } else {
-                    scope.insert(last_overlay.into(), [(var, value)].into_iter().collect());
+                    scope.insert(
+                        last_overlay.into(),
+                        [(checked_var.to_string(), value)].into_iter().collect(),
+                    );
                 }
             } else {
                 self.env_vars.push(
-                    [(last_overlay.into(), [(var, value)].into_iter().collect())]
-                        .into_iter()
-                        .collect(),
+                    [(
+                        last_overlay.into(),
+                        [(checked_var.to_string(), value)].into_iter().collect(),
+                    )]
+                    .into_iter()
+                    .collect(),
                 );
             }
         } else {
@@ -207,7 +225,14 @@ impl Stack {
                                 true
                             }
                         })
-                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .map(|(k, v)| {
+                            // No matter the case, always return PATH as uppercase
+                            if k.to_ascii_lowercase() == "path" {
+                                (ENV_PATH_NAME.into(), v.clone())
+                            } else {
+                                (k.clone(), v.clone())
+                            }
+                        })
                         .collect::<HashMap<String, Value>>(),
                 );
             }
@@ -225,7 +250,20 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.clone());
+                    result.extend(
+                        env_vars
+                            .clone()
+                            .iter()
+                            .map(|(k, v)| {
+                                // No matter the case, always return PATH as uppercase
+                                if k.to_ascii_lowercase() == "path" {
+                                    (ENV_PATH_NAME.into(), v.clone())
+                                } else {
+                                    (k.clone(), v.clone())
+                                }
+                            })
+                            .collect::<HashMap<String, Value>>(),
+                    );
                 }
             }
         }
@@ -240,7 +278,20 @@ impl Stack {
         for scope in &self.env_vars {
             if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name) {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.clone());
+                    result.extend(
+                        env_vars
+                            .clone()
+                            .iter()
+                            .map(|(k, v)| {
+                                // No matter the case, always return PATH as uppercase
+                                if k.to_ascii_lowercase() == "path" {
+                                    (ENV_PATH_NAME.into(), v.clone())
+                                } else {
+                                    (k.clone(), v.clone())
+                                }
+                            })
+                            .collect::<HashMap<String, Value>>(),
+                    );
                 }
             }
         }
@@ -265,7 +316,14 @@ impl Stack {
                                 true
                             }
                         })
-                        .cloned()
+                        .map(|k| {
+                            // No matter the case, always return PATH as uppercase
+                            if k.to_ascii_lowercase() == "path" {
+                                ENV_PATH_NAME.into()
+                            } else {
+                                k.clone()
+                            }
+                        })
                         .collect::<HashSet<String>>(),
                 );
             }
@@ -274,7 +332,19 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.keys().cloned().collect::<HashSet<String>>());
+                    result.extend(
+                        env_vars
+                            .keys()
+                            .map(|k| {
+                                // No matter the case, always return PATH as uppercase
+                                if k.to_ascii_lowercase() == "path" {
+                                    ENV_PATH_NAME.into()
+                                } else {
+                                    k.clone()
+                                }
+                            })
+                            .collect::<HashSet<String>>(),
+                    );
                 }
             }
         }
@@ -283,10 +353,17 @@ impl Stack {
     }
 
     pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
+        // When dealing with Path/PATH always make it PATH
+        let checked_name = if &name.to_ascii_lowercase() == "path" {
+            ENV_PATH_NAME
+        } else {
+            name
+        };
+
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    if let Some(v) = env_vars.get(name) {
+                    if let Some(v) = env_vars.get(checked_name) {
                         return Some(v.clone());
                     }
                 }
@@ -295,14 +372,14 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(name)
+                env_hidden.contains(checked_name)
             } else {
                 false
             };
 
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if let Some(v) = env_vars.get(name) {
+                    if let Some(v) = env_vars.get(checked_name) {
                         return Some(v.clone());
                     }
                 }
@@ -313,10 +390,17 @@ impl Stack {
     }
 
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
+        // When dealing with Path/PATH always make it PATH
+        let checked_name = if &name.to_ascii_lowercase() == "path" {
+            ENV_PATH_NAME
+        } else {
+            name
+        };
+
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    if env_vars.contains_key(name) {
+                    if env_vars.contains_key(checked_name) {
                         return true;
                     }
                 }
@@ -325,14 +409,14 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(name)
+                env_hidden.contains(checked_name)
             } else {
                 false
             };
 
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if env_vars.contains_key(name) {
+                    if env_vars.contains_key(checked_name) {
                         return true;
                     }
                 }
@@ -343,10 +427,17 @@ impl Stack {
     }
 
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
+        // When dealing with Path/PATH always make it PATH
+        let checked_name = if &name.to_ascii_lowercase() == "path" {
+            ENV_PATH_NAME
+        } else {
+            name
+        };
+
         for scope in self.env_vars.iter_mut().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
-                    if env_vars.remove(name).is_some() {
+                    if env_vars.remove(checked_name).is_some() {
                         return true;
                     }
                 }
@@ -357,10 +448,12 @@ impl Stack {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                 if env_vars.get(name).is_some() {
                     if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
-                        env_hidden.insert(name.into());
+                        env_hidden.insert(checked_name.into());
                     } else {
-                        self.env_hidden
-                            .insert(active_overlay.into(), [name.into()].into_iter().collect());
+                        self.env_hidden.insert(
+                            active_overlay.into(),
+                            [checked_name.into()].into_iter().collect(),
+                        );
                     }
 
                     return true;
@@ -372,13 +465,20 @@ impl Stack {
     }
 
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
+        // When dealing with Path/PATH always make it PATH
+        let checked_name = if &name.to_ascii_lowercase() == "path" {
+            ENV_PATH_NAME
+        } else {
+            name
+        };
+
         for scope in self.env_vars.iter().rev() {
-            if scope.contains_key(name) {
+            if scope.contains_key(checked_name) {
                 return true;
             }
         }
 
-        engine_state.env_vars.contains_key(name)
+        engine_state.env_vars.contains_key(checked_name)
     }
 
     pub fn is_overlay_active(&self, name: &str) -> bool {
