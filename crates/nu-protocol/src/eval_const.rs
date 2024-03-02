@@ -29,7 +29,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
     let config_path = match nu_path::config_dir() {
         Some(mut path) => {
             path.push("nushell");
-            Ok(path)
+            Ok(canonicalize_path(engine_state, &path))
         }
         None => Err(Value::error(
             ShellError::ConfigDirNotFound { span: Some(span) },
@@ -121,7 +121,8 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                     |e| e,
                     |mut path| {
                         path.push("plugin.nu");
-                        Value::string(path.to_string_lossy(), span)
+                        let canonical_plugin_path = canonicalize_path(engine_state, &path);
+                        Value::string(canonical_plugin_path.to_string_lossy(), span)
                     },
                 )
             },
