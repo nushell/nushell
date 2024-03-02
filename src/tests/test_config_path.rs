@@ -173,9 +173,9 @@ fn test_default_config_path_symlinked_config_files() {
                 "login.nu",
                 "plugin.nu",
             ] {
-                let path = format!("empty-{config_file}");
-                File::create(&path).unwrap();
-                playground.symlink(path, fake_config_dir_nushell.join(config_file));
+                let empty_file = playground.cwd().join(format!("empty-{config_file}"));
+                File::create(&empty_file).unwrap();
+                playground.symlink(empty_file, fake_config_dir_nushell.join(config_file));
             }
 
             test_config_path_helper();
