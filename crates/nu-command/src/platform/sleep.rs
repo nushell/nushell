@@ -56,7 +56,7 @@ impl Command for Sleep {
         let ctrlc_ref = &engine_state.ctrlc.clone();
         let start = Instant::now();
         loop {
-            thread::sleep(CTRL_C_CHECK_INTERVAL);
+            thread::sleep(CTRL_C_CHECK_INTERVAL.min(total_dur));
             if start.elapsed() >= total_dur {
                 break;
             }
