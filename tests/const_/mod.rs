@@ -109,16 +109,21 @@ fn const_string() {
 }
 
 #[test]
-fn const_string_interpolation() {
-    let actual = nu!(r#"
-        const x = 2
-        const s = $"var: ($x), date: (2021-02-27T13:55:40+00:00), file size: (2kb)"
-        $s
-    "#);
-    assert_eq!(
-        actual.out,
-        "var: 2, date: Sat, 27 Feb 2021 13:55:40 +0000 (3 years ago), file size: 2.0 KiB"
-    );
+fn const_string_interpolation_var() {
+    let actual = nu!(r#"const x = 2; const s = $"($x)"; $s"#);
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn const_string_interpolation_date() {
+    let actual = nu!(r#"const s = $"(2021-02-27T13:55:40+00:00)"; $s"#);
+    assert!(actual.out.contains("Sat, 27 Feb 2021 13:55:40 +0000"));
+}
+
+#[test]
+fn const_string_interpolation_filesize() {
+    let actual = nu!(r#"const s = $"(2kb)"; $s"#);
+    assert_eq!(actual.out, "2.0 KiB");
 }
 
 #[test]
