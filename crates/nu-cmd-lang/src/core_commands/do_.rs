@@ -81,7 +81,7 @@ impl Command for Do {
         let mut callee_stack = caller_stack.captures_to_stack(block.captures);
         let block = engine_state.get_block(block.block_id);
 
-        bind_args_to_stack(&mut callee_stack, &block.signature, rest, call.head)?;
+        bind_args_to(&mut callee_stack, &block.signature, rest, call.head)?;
         let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
@@ -286,7 +286,7 @@ impl Command for Do {
     }
 }
 
-fn bind_args_to_stack(
+fn bind_args_to(
     stack: &mut Stack,
     signature: &Signature,
     args: Vec<Value>,
