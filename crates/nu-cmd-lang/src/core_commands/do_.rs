@@ -1,6 +1,6 @@
 use std::thread;
 
-use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
+use nu_engine::{bind_args_to_stack, eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -81,7 +81,7 @@ impl Command for Do {
         let mut callee_stack = caller_stack.captures_to_stack(block.captures);
         let block = engine_state.get_block(block.block_id);
 
-        bind_params(&mut callee_stack, &block.signature, rest, call.head)?;
+        bind_args_to_stack(&mut callee_stack, &block.signature, rest, call.head)?;
         let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
@@ -284,79 +284,6 @@ impl Command for Do {
             },
         ]
     }
-}
-
-fn bind_params(
-    stack: &mut Stack,
-    signature: &Signature,
-    args: Vec<Value>,
-    head_span: Span,
-) -> Result<(), ShellError> {
-    let mut val_iter = args.into_iter();
-    for (param, required) in signature
-        .required_positional
-        .iter()
-        .map(|p| (p, true))
-        .chain(signature.optional_positional.iter().map(|p| (p, false)))
-    {
-        let var_id = param
-            .var_id
-            .expect("internal error: all custom prameters must have var_ids");
-        if let Some(result) = val_iter.next() {
-            let param_type = param.shape.to_type();
-            if required && !result.get_type().is_subtype(&param_type) {
-                // need to check if result is an empty list, and param_type is table or list
-                // nushell needs to pass type checking for the case.
-                let empty_list_matches = result
-                    .as_list()
-                    .map(|l| l.is_empty() && matches!(param_type, Type::List(_) | Type::Table(_)))
-                    .unwrap_or(false);
-
-                if !empty_list_matches {
-                    return Err(ShellError::CantConvert {
-                        to_type: param.shape.to_type().to_string(),
-                        from_type: result.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    });
-                }
-            }
-            stack.add_var(var_id, result);
-        } else if let Some(value) = &param.default_value {
-            stack.add_var(var_id, value.to_owned())
-        } else if !required {
-            stack.add_var(var_id, Value::nothing(head_span))
-        } else {
-            return Err(ShellError::MissingParameter {
-                param_name: param.name.to_string(),
-                span: head_span,
-            });
-        }
-    }
-
-    if let Some(rest_positional) = &signature.rest_positional {
-        let mut rest_items = vec![];
-
-        for result in
-            val_iter.skip(signature.required_positional.len() + signature.optional_positional.len())
-        {
-            rest_items.push(result);
-        }
-
-        let span = if let Some(rest_item) = rest_items.first() {
-            rest_item.span()
-        } else {
-            head_span
-        };
-
-        stack.add_var(
-            rest_positional
-                .var_id
-                .expect("Internal error: rest positional parameter lacks var_id"),
-            Value::list(rest_items, span),
-        )
-    }
-    Ok(())
 }
 
 mod test {
