@@ -59,9 +59,14 @@ little reason to use this over just writing the values as-is."#
                 result: None,
             },
             Example {
-                description: "To do string interpolation, and evaluation inside a string.",
-                example: r#""Alice" | echo $'greetings, ($in) (2 + 2)'"#,
-                result: Some(Value::test_string("greetings, Alice 4")),
+                description: "To do string interpolation.",
+                example: "let name = 'Alice'; echo $'Name: ($name)'",
+                result: Some(Value::test_string("Name: Alice")),
+            },
+            Example {
+                description: "To do evaluation inside a string.",
+                example: "echo $'2 + 2 = (2 + 2)'",
+                result: Some(Value::test_string("2 + 2 = 4")),
             },
         ]
     }
