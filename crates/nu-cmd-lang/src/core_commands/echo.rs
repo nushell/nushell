@@ -58,6 +58,11 @@ little reason to use this over just writing the values as-is."#
                 example: "echo $in",
                 result: None,
             },
+            Example {
+                description: "To do string interpolation, and evaluation inside a string.",
+                example: r#""Alice" | echo $'greetings, ($in) (2 + 2)'"#,
+                result: Some(Value::test_string("greetings, Alice 4")),
+            },
         ]
     }
 }
