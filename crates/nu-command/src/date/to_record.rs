@@ -52,11 +52,6 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert the current date into a record.",
-                example: "date to-record",
-                result: None,
-            },
-            Example {
-                description: "Convert the current date into a record.",
                 example: "date now | date to-record",
                 result: None,
             },
