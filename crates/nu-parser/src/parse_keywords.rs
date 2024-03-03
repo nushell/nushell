@@ -3906,7 +3906,7 @@ fn detect_params_in_name(
     }
 }
 
-/// Run has_flag_const and and push possible error to working_set
+/// Run has_flag_const and push possible error to working_set
 fn has_flag_const(working_set: &mut StateWorkingSet, call: &Call, name: &str) -> Result<bool, ()> {
     call.has_flag_const(working_set, name).map_err(|err| {
         working_set.error(err.wrap(working_set, call.span()));
