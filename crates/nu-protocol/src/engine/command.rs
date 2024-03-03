@@ -1,6 +1,6 @@
-use std::path::Path;
-
-use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
+use crate::{
+    ast::Call, Alias, BlockId, Example, PipelineData, PluginIdentity, ShellError, Signature,
+};
 
 use super::{EngineState, Stack, StateWorkingSet};
 
@@ -91,8 +91,8 @@ pub trait Command: Send + Sync + CommandClone {
         false
     }
 
-    // Is a plugin command (returns plugin's path, type of shell if the declaration is a plugin)
-    fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
+    // Is a plugin command (returns the identity of the plugin if it is)
+    fn is_plugin(&self) -> Option<&PluginIdentity> {
         None
     }
 

@@ -3072,6 +3072,7 @@ dependencies = [
  "serde",
  "serde_json",
  "typetag",
+ "windows 0.52.0",
 ]
 
 [[package]]

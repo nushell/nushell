@@ -1,7 +1,5 @@
-mod declaration;
-pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
-use std::collections::HashMap;
+
 use std::ffi::OsStr;
 use std::sync::mpsc::TrySendError;
 use std::sync::{mpsc, Arc, Mutex};
@@ -17,21 +15,31 @@ use std::path::Path;
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 use std::{env, thread};
 
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use nu_protocol::{PipelineData, PluginSignature, ShellError, Spanned, Value};
 
-mod interface;
-pub use interface::EngineInterface;
-pub(crate) use interface::PluginInterface;
+use super::EvaluatedCall;
 
 mod context;
+mod declaration;
+mod interface;
+mod persistent;
+mod source;
+
+pub use declaration::PluginDeclaration;
+pub use interface::EngineInterface;
+pub use persistent::PersistentPlugin;
+
 pub(crate) use context::PluginExecutionCommandContext;
+pub(crate) use interface::PluginInterface;
+pub(crate) use source::PluginSource;
 
-mod identity;
-pub(crate) use identity::PluginIdentity;
-
-use self::interface::{InterfaceManager, PluginInterfaceManager};
-
-use super::EvaluatedCall;
+use interface::{InterfaceManager, PluginInterfaceManager};
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
@@ -119,12 +127,18 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     // Both stdout and stdin are piped so we can receive information from the plugin
     process.stdout(Stdio::piped()).stdin(Stdio::piped());
 
+    // The plugin should be run in a new process group to prevent Ctrl-C from stopping it
+    #[cfg(unix)]
+    process.process_group(0);
+    #[cfg(windows)]
+    process.creation_flags(windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP.0);
+
     process
 }
 
 fn make_plugin_interface(
     mut child: Child,
-    identity: Arc<PluginIdentity>,
+    source: Arc<PluginSource>,
 ) -> Result<PluginInterface, ShellError> {
     let stdin = child
         .stdin
@@ -144,7 +158,7 @@ fn make_plugin_interface(
 
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
 
-    let mut manager = PluginInterfaceManager::new(identity, (Mutex::new(stdin), encoder));
+    let mut manager = PluginInterfaceManager::new(source, (Mutex::new(stdin), encoder));
     let interface = manager.get_interface();
     interface.hello()?;
 
@@ -170,14 +184,16 @@ fn make_plugin_interface(
 }
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
-pub fn get_signature(
-    path: &Path,
-    shell: Option<&Path>,
-    current_envs: &HashMap<String, String>,
-) -> Result<Vec<PluginSignature>, ShellError> {
-    Arc::new(PluginIdentity::new(path, shell.map(|s| s.to_owned())))
-        .spawn(current_envs)?
-        .get_signature()
+pub fn get_signature<E, K, V>(
+    plugin: Arc<PersistentPlugin>,
+    envs: impl FnOnce() -> Result<E, ShellError>,
+) -> Result<Vec<PluginSignature>, ShellError>
+where
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    plugin.get(envs)?.get_signature()
 }
 
 /// The basic API for a Nushell plugin

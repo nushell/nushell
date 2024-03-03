@@ -55,7 +55,7 @@ pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 // Used by other nu crates.
 #[doc(hidden)]
-pub use plugin::{get_signature, PluginDeclaration};
+pub use plugin::{get_signature, PersistentPlugin, PluginDeclaration};
 #[doc(hidden)]
 pub use serializers::EncodingType;
 

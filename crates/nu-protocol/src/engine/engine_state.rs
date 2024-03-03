@@ -23,6 +23,9 @@ use std::sync::{
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
+#[cfg(feature = "plugin")]
+use crate::RegisteredPlugin;
+
 pub static PWD_ENV: &str = "PWD";
 
 #[derive(Clone, Debug)]
@@ -113,6 +116,8 @@ pub struct EngineState {
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
+    #[cfg(feature = "plugin")]
+    plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
@@ -171,6 +176,8 @@ impl EngineState {
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
+            #[cfg(feature = "plugin")]
+            plugins: vec![],
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
@@ -255,14 +262,27 @@ impl EngineState {
         self.scope.active_overlays.append(&mut activated_ids);
 
         #[cfg(feature = "plugin")]
-        if delta.plugins_changed {
-            let result = self.update_plugin_file();
-
-            if result.is_ok() {
-                delta.plugins_changed = false;
+        if !delta.plugins.is_empty() {
+            // Replace plugins that overlap in identity.
+            for plugin in std::mem::take(&mut delta.plugins) {
+                if let Some(existing) = self
+                    .plugins
+                    .iter_mut()
+                    .find(|p| p.identity() == plugin.identity())
+                {
+                    // Stop the existing plugin, so that the new plugin definitely takes over
+                    existing.stop()?;
+                    *existing = plugin;
+                } else {
+                    self.plugins.push(plugin);
+                }
             }
+        }
 
-            return result;
+        #[cfg(feature = "plugin")]
+        if delta.plugins_changed {
+            // Update the plugin file with the new signatures.
+            self.update_plugin_file()?;
         }
 
         Ok(())
@@ -466,6 +486,11 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
+    pub fn plugins(&self) -> &[Arc<dyn RegisteredPlugin>] {
+        &self.plugins
+    }
+
+    #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
 
@@ -490,8 +515,9 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let (path, shell) = decl.is_plugin().expect("plugin should have file name");
-                    let mut file_name = path
+                    let identity = decl.is_plugin().expect("plugin should have identity");
+                    let mut file_name = identity
+                        .filename()
                         .to_str()
                         .expect("path was checked during registration as a str")
                         .to_string();
@@ -518,8 +544,8 @@ impl EngineState {
                     serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = shell
-                                .as_ref()
+                            let shell_str = identity
+                                .shell()
                                 .map(|path| {
                                     format!(
                                         "-s {}",

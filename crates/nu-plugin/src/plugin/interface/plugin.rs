@@ -11,7 +11,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    plugin::{context::PluginExecutionContext, PluginIdentity},
+    plugin::{context::PluginExecutionContext, PluginSource},
     protocol::{
         CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
         PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput,
@@ -63,8 +63,8 @@ impl std::ops::Deref for Context {
 
 /// Internal shared state between the manager and each interface.
 struct PluginInterfaceState {
-    /// The identity of the plugin being interfaced with
-    identity: Arc<PluginIdentity>,
+    /// The source to be used for custom values coming from / going to the plugin
+    source: Arc<PluginSource>,
     /// Sequence for generating plugin call ids
     plugin_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
@@ -78,7 +78,7 @@ struct PluginInterfaceState {
 impl std::fmt::Debug for PluginInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginInterfaceState")
-            .field("identity", &self.identity)
+            .field("source", &self.source)
             .field("plugin_call_id_sequence", &self.plugin_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
             .field(
@@ -122,14 +122,14 @@ pub(crate) struct PluginInterfaceManager {
 
 impl PluginInterfaceManager {
     pub(crate) fn new(
-        identity: Arc<PluginIdentity>,
+        source: Arc<PluginSource>,
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
         let (subscription_tx, subscription_rx) = mpsc::channel();
 
         PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
-                identity,
+                source,
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
@@ -472,14 +472,14 @@ impl InterfaceManager for PluginInterfaceManager {
         // Add source to any values
         match data {
             PipelineData::Value(ref mut value, _) => {
-                PluginCustomValue::add_source(value, &self.state.identity);
+                PluginCustomValue::add_source(value, &self.state.source);
                 Ok(data)
             }
             PipelineData::ListStream(ListStream { stream, ctrlc, .. }, meta) => {
-                let identity = self.state.identity.clone();
+                let source = self.state.source.clone();
                 Ok(stream
                     .map(move |mut value| {
-                        PluginCustomValue::add_source(&mut value, &identity);
+                        PluginCustomValue::add_source(&mut value, &source);
                         value
                     })
                     .into_pipeline_data_with_metadata(meta, ctrlc))
@@ -772,14 +772,14 @@ impl Interface for PluginInterface {
         // Validate the destination of values in the pipeline data
         match data {
             PipelineData::Value(mut value, meta) => {
-                PluginCustomValue::verify_source(&mut value, &self.state.identity)?;
+                PluginCustomValue::verify_source(&mut value, &self.state.source)?;
                 Ok(PipelineData::Value(value, meta))
             }
             PipelineData::ListStream(ListStream { stream, ctrlc, .. }, meta) => {
-                let identity = self.state.identity.clone();
+                let source = self.state.source.clone();
                 Ok(stream
                     .map(move |mut value| {
-                        match PluginCustomValue::verify_source(&mut value, &identity) {
+                        match PluginCustomValue::verify_source(&mut value, &source) {
                             Ok(()) => value,
                             // Put the error in the stream instead
                             Err(err) => Value::error(err, value.span()),

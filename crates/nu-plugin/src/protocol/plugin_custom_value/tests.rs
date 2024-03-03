@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use nu_protocol::{
     ast::RangeInclusion, engine::Closure, record, CustomValue, Range, ShellError, Span, Value,
 };
 
 use crate::{
-    plugin::PluginIdentity,
+    plugin::PluginSource,
     protocol::test_util::{
         expected_test_custom_value, test_plugin_custom_value, test_plugin_custom_value_with_source,
         TestCustomValue,
@@ -45,7 +47,7 @@ fn expected_serialize_output() -> Result<(), ShellError> {
 #[test]
 fn add_source_at_root() -> Result<(), ShellError> {
     let mut val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let source = PluginIdentity::new_fake("foo");
+    let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValue::add_source(&mut val, &source);
 
     let custom_value = val.as_custom_value()?;
@@ -53,7 +55,10 @@ fn add_source_at_root() -> Result<(), ShellError> {
         .as_any()
         .downcast_ref()
         .expect("not PluginCustomValue");
-    assert_eq!(Some(source), plugin_custom_value.source);
+    assert_eq!(
+        Some(Arc::as_ptr(&source)),
+        plugin_custom_value.source.as_ref().map(Arc::as_ptr)
+    );
     Ok(())
 }
 
@@ -84,7 +89,7 @@ fn add_source_nested_range() -> Result<(), ShellError> {
         to: orig_custom_val.clone(),
         inclusion: RangeInclusion::Inclusive,
     });
-    let source = PluginIdentity::new_fake("foo");
+    let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValue::add_source(&mut val, &source);
 
     check_range_custom_values(&val, |name, custom_value| {
@@ -93,8 +98,8 @@ fn add_source_nested_range() -> Result<(), ShellError> {
             .downcast_ref()
             .unwrap_or_else(|| panic!("{name} not PluginCustomValue"));
         assert_eq!(
-            Some(&source),
-            plugin_custom_value.source.as_ref(),
+            Some(Arc::as_ptr(&source)),
+            plugin_custom_value.source.as_ref().map(Arc::as_ptr),
             "{name} source not set correctly"
         );
         Ok(())
@@ -126,7 +131,7 @@ fn add_source_nested_record() -> Result<(), ShellError> {
         "foo" => orig_custom_val.clone(),
         "bar" => orig_custom_val.clone(),
     });
-    let source = PluginIdentity::new_fake("foo");
+    let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValue::add_source(&mut val, &source);
 
     check_record_custom_values(&val, &["foo", "bar"], |key, custom_value| {
@@ -135,8 +140,8 @@ fn add_source_nested_record() -> Result<(), ShellError> {
             .downcast_ref()
             .unwrap_or_else(|| panic!("'{key}' not PluginCustomValue"));
         assert_eq!(
-            Some(&source),
-            plugin_custom_value.source.as_ref(),
+            Some(Arc::as_ptr(&source)),
+            plugin_custom_value.source.as_ref().map(Arc::as_ptr),
             "'{key}' source not set correctly"
         );
         Ok(())
@@ -165,7 +170,7 @@ fn check_list_custom_values(
 fn add_source_nested_list() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
     let mut val = Value::test_list(vec![orig_custom_val.clone(), orig_custom_val.clone()]);
-    let source = PluginIdentity::new_fake("foo");
+    let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValue::add_source(&mut val, &source);
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {
@@ -174,8 +179,8 @@ fn add_source_nested_list() -> Result<(), ShellError> {
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
         assert_eq!(
-            Some(&source),
-            plugin_custom_value.source.as_ref(),
+            Some(Arc::as_ptr(&source)),
+            plugin_custom_value.source.as_ref().map(Arc::as_ptr),
             "[{index}] source not set correctly"
         );
         Ok(())
@@ -233,10 +238,10 @@ fn verify_source_error_message() -> Result<(), ShellError> {
     let mut native_val = Value::custom_value(Box::new(TestCustomValue(32)), span);
     let mut foreign_val = {
         let mut val = test_plugin_custom_value();
-        val.source = Some(PluginIdentity::new_fake("other"));
+        val.source = Some(Arc::new(PluginSource::new_fake("other")));
         Value::custom_value(Box::new(val), span)
     };
-    let source = PluginIdentity::new_fake("test");
+    let source = PluginSource::new_fake("test");
 
     PluginCustomValue::verify_source(&mut ok_val, &source).expect("ok_val should be verified ok");
 
@@ -266,7 +271,7 @@ fn verify_source_error_message() -> Result<(), ShellError> {
 #[test]
 fn verify_source_nested_range() -> Result<(), ShellError> {
     let native_val = Value::test_custom_value(Box::new(TestCustomValue(32)));
-    let source = PluginIdentity::new_fake("test");
+    let source = PluginSource::new_fake("test");
     for (name, mut val) in [
         (
             "from",
@@ -315,7 +320,7 @@ fn verify_source_nested_range() -> Result<(), ShellError> {
 #[test]
 fn verify_source_nested_record() -> Result<(), ShellError> {
     let native_val = Value::test_custom_value(Box::new(TestCustomValue(32)));
-    let source = PluginIdentity::new_fake("test");
+    let source = PluginSource::new_fake("test");
     for (name, mut val) in [
         (
             "first element foo",
@@ -346,7 +351,7 @@ fn verify_source_nested_record() -> Result<(), ShellError> {
 #[test]
 fn verify_source_nested_list() -> Result<(), ShellError> {
     let native_val = Value::test_custom_value(Box::new(TestCustomValue(32)));
-    let source = PluginIdentity::new_fake("test");
+    let source = PluginSource::new_fake("test");
     for (name, mut val) in [
         (
             "first element",

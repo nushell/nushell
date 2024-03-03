@@ -130,11 +130,11 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
         Value::string(features_enabled().join(", "), call.head),
     );
 
-    // Get a list of command names and check for plugins
+    // Get a list of plugin names
     let installed_plugins = engine_state
-        .plugin_decls()
-        .filter(|x| x.is_plugin().is_some())
-        .map(|x| x.name())
+        .plugins()
+        .iter()
+        .map(|x| x.identity().name())
         .collect::<Vec<_>>();
 
     record.push(

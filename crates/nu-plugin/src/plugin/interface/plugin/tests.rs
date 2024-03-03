@@ -12,7 +12,7 @@ use crate::{
     plugin::{
         context::PluginExecutionBogusContext,
         interface::{test_util::TestCase, Interface, InterfaceManager},
-        PluginIdentity,
+        PluginSource,
     },
     protocol::{
         test_util::{expected_test_custom_value, test_plugin_custom_value},
@@ -640,7 +640,7 @@ fn manager_prepare_pipeline_data_adds_source_to_values() -> Result<(), ShellErro
         .expect("custom value is not a PluginCustomValue");
 
     if let Some(source) = &custom_value.source {
-        assert_eq!("test", source.plugin_name);
+        assert_eq!("test", source.name());
     } else {
         panic!("source was not set");
     }
@@ -670,7 +670,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         .expect("custom value is not a PluginCustomValue");
 
     if let Some(source) = &custom_value.source {
-        assert_eq!("test", source.plugin_name);
+        assert_eq!("test", source.name());
     } else {
         panic!("source was not set");
     }
@@ -1086,7 +1086,7 @@ fn normal_values(interface: &PluginInterface) -> Vec<Value> {
             name: "SomeTest".into(),
             data: vec![1, 2, 3],
             // Has the same source, so it should be accepted
-            source: Some(interface.state.identity.clone()),
+            source: Some(interface.state.source.clone()),
         })),
     ]
 }
@@ -1144,7 +1144,7 @@ fn bad_custom_values() -> Vec<Value> {
         Value::test_custom_value(Box::new(PluginCustomValue {
             name: "SomeTest".into(),
             data: vec![1, 2, 3],
-            source: Some(PluginIdentity::new_fake("pluto")),
+            source: Some(PluginSource::new_fake("pluto").into()),
         })),
     ]
 }
