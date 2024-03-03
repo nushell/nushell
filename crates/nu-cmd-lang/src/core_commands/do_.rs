@@ -301,7 +301,7 @@ fn bind_args_to_stack(
     {
         let var_id = param
             .var_id
-            .expect("internal error: all custom prameters must have var_ids");
+            .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
             if required && !result.get_type().is_subtype(&param_type) {
