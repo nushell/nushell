@@ -162,7 +162,7 @@ fn operate(
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
     let file_name: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table_name")?;
+    let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table-name")?;
     let table = Table::new(&file_name, table_name)?;
 
     match action(input, table, span) {
