@@ -25,16 +25,25 @@ fn test_signature_chained() {
             "required named description",
             Some('r'),
         )
+        .multiple_named(
+            "mult-named",
+            SyntaxShape::String,
+            "multiple named description",
+            Some('m'),
+        )
         .named("named", SyntaxShape::String, "named description", Some('n'))
         .switch("switch", "switch description", None)
         .rest("rest", SyntaxShape::String, "rest description");
 
     assert_eq!(signature.required_positional.len(), 1);
     assert_eq!(signature.optional_positional.len(), 1);
-    assert_eq!(signature.named.len(), 3);
+    assert_eq!(signature.named.len(), 4);
     assert!(signature.rest_positional.is_some());
-    assert_eq!(signature.get_shorts(), vec!['r', 'n']);
-    assert_eq!(signature.get_names(), vec!["req-named", "named", "switch"]);
+    assert_eq!(signature.get_shorts(), vec!['r', 'm', 'n']);
+    assert_eq!(
+        signature.get_names(),
+        vec!["req-named", "mult-named", "named", "switch"]
+    );
     assert_eq!(signature.num_positionals(), 2);
 
     assert_eq!(
@@ -76,6 +85,7 @@ fn test_signature_chained() {
             arg: Some(SyntaxShape::String),
             required: true,
             desc: "required named description".to_string(),
+            multiple: false,
             var_id: None,
             default_value: None,
         })
@@ -89,6 +99,35 @@ fn test_signature_chained() {
             arg: Some(SyntaxShape::String),
             required: true,
             desc: "required named description".to_string(),
+            multiple: false,
+            var_id: None,
+            default_value: None,
+        })
+    );
+
+    assert_eq!(
+        signature.get_long_flag("mult-named"),
+        Some(Flag {
+            long: "mult-named".to_string(),
+            short: Some('m'),
+            arg: Some(SyntaxShape::String),
+            required: false,
+            desc: "multiple named description".to_string(),
+            multiple: true,
+            var_id: None,
+            default_value: None,
+        })
+    );
+
+    assert_eq!(
+        signature.get_short_flag('m'),
+        Some(Flag {
+            long: "mult-named".to_string(),
+            short: Some('m'),
+            arg: Some(SyntaxShape::String),
+            required: false,
+            desc: "multiple named description".to_string(),
+            multiple: true,
             var_id: None,
             default_value: None,
         })
