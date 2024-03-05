@@ -685,7 +685,7 @@ fn eval_element_with_input<D: DebugContext>(
         ),
     };
 
-    D::leave_element(engine_state, &result, element);
+    D::leave_element(engine_state, element, &result);
 
     result
 }

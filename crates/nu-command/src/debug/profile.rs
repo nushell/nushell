@@ -110,14 +110,8 @@ impl Command for DebugProfile {
             Err(_e) => (), // TODO: Report error
         }
 
-        // TODO: Make report() Profiler-only
-        let res = engine_state
-            .debugger
-            .lock()
-            .map_err(lock_err)?
-            .report(engine_state, call.span());
-
-        engine_state.deactivate_debugger().map_err(lock_err)?;
+        let debugger = engine_state.deactivate_debugger().map_err(lock_err)?;
+        let res = debugger.report(engine_state, call.span());
 
         res.map(|val| val.into_pipeline_data())
     }

@@ -18,8 +18,8 @@ pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
     fn leave_element(
         engine_state: &EngineState,
-        result: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
+        result: &Result<(PipelineData, bool), ShellError>,
     ) {
     }
 }
@@ -49,13 +49,13 @@ impl DebugContext for WithDebug {
 
     fn leave_element(
         engine_state: &EngineState,
-        result: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
+        result: &Result<(PipelineData, bool), ShellError>,
     ) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger
                 .deref_mut()
-                .leave_element(engine_state, result, element);
+                .leave_element(engine_state, element, result);
         }
     }
 }
@@ -70,6 +70,10 @@ impl DebugContext for WithoutDebug {}
 ///
 /// By default, its callbacks are empty.
 pub trait Debugger: Send + Debug {
+    fn activate(&mut self) {}
+
+    fn deactivate(&mut self) {}
+
     fn enter_block(&mut self, engine_state: &EngineState, block: &Block) {}
 
     fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {}
@@ -80,8 +84,8 @@ pub trait Debugger: Send + Debug {
     fn leave_element(
         &mut self,
         engine_state: &EngineState,
-        result: &Result<(PipelineData, bool), ShellError>,
         element: &PipelineElement,
+        result: &Result<(PipelineData, bool), ShellError>,
     ) {
     }
 

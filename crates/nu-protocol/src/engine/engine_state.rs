@@ -940,15 +940,19 @@ impl EngineState {
         &self,
         debugger: Box<dyn Debugger>,
     ) -> Result<(), PoisonError<MutexGuard<Box<dyn Debugger>>>> {
-        *self.debugger.lock()? = debugger;
+        let mut locked_debugger = self.debugger.lock()?;
+        *locked_debugger = debugger;
+        locked_debugger.activate();
         self.is_debugging.0.store(true, Ordering::Relaxed);
         Ok(())
     }
 
-    pub fn deactivate_debugger(&self) -> Result<(), PoisonError<MutexGuard<Box<dyn Debugger>>>> {
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonError<MutexGuard<Box<dyn Debugger>>>> {
+        let mut locked_debugger = self.debugger.lock()?;
+        locked_debugger.deactivate();
+        let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));
         self.is_debugging.0.store(false, Ordering::Relaxed);
-        *self.debugger.lock()? = Box::new(NoopDebugger);
-        Ok(())
+        Ok(ret)
     }
 
     pub fn is_debugging(&self) -> bool {
