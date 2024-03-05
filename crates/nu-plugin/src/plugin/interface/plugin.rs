@@ -440,11 +440,15 @@ impl InterfaceManager for PluginInterfaceManager {
                     EngineCall::GetPluginConfig => Ok(EngineCall::GetPluginConfig),
                     EngineCall::EvalClosure {
                         closure,
-                        positional,
+                        mut positional,
                         input,
                         redirect_stdout,
                         redirect_stderr,
                     } => {
+                        // Add source to any plugin custom values in the arguments
+                        for arg in positional.iter_mut() {
+                            PluginCustomValue::add_source(arg, &self.state.identity);
+                        }
                         self.read_pipeline_data(input, ctrlc)
                             .map(|input| EngineCall::EvalClosure {
                                 closure,

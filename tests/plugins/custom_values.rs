@@ -55,6 +55,20 @@ fn can_generate_and_updated_multiple_types_of_custom_values() {
 }
 
 #[test]
+fn can_generate_custom_value_and_pass_through_closure() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "custom-value generate2 { custom-value update }"
+    );
+
+    assert_eq!(
+        actual.out,
+        "I used to be a DIFFERENT custom value! (xyzabc)"
+    );
+}
+
+#[test]
 fn can_get_describe_plugin_custom_values() {
     let actual = nu_with_plugins!(
         cwd: "tests",

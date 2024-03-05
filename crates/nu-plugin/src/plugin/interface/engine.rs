@@ -589,11 +589,16 @@ impl EngineInterface {
     pub fn eval_closure_with_stream(
         &self,
         closure: &Spanned<Closure>,
-        positional: Vec<Value>,
+        mut positional: Vec<Value>,
         input: PipelineData,
         redirect_stdout: bool,
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError> {
+        // Ensure closure args have custom values serialized
+        positional
+            .iter_mut()
+            .try_for_each(PluginCustomValue::serialize_custom_values_in)?;
+
         let call = EngineCall::EvalClosure {
             closure: closure.clone(),
             positional,
