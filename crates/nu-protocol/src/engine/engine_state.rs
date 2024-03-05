@@ -21,6 +21,8 @@ use std::sync::{
     Arc, Mutex, MutexGuard, PoisonError,
 };
 
+type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
+
 pub static PWD_ENV: &str = "PWD";
 
 #[derive(Clone, Debug)]
@@ -939,7 +941,7 @@ impl EngineState {
     pub fn activate_debugger(
         &self,
         debugger: Box<dyn Debugger>,
-    ) -> Result<(), PoisonError<MutexGuard<Box<dyn Debugger>>>> {
+    ) -> Result<(), PoisonDebuggerError> {
         let mut locked_debugger = self.debugger.lock()?;
         *locked_debugger = debugger;
         locked_debugger.activate();
@@ -947,7 +949,7 @@ impl EngineState {
         Ok(())
     }
 
-    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonError<MutexGuard<Box<dyn Debugger>>>> {
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
         let mut locked_debugger = self.debugger.lock()?;
         locked_debugger.deactivate();
         let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));

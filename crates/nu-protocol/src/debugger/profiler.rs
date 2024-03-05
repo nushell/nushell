@@ -88,17 +88,13 @@ impl Profiler {
         }
     }
 
-    fn depth(&self) -> i64 {
-        // self.element_stack.len() as i64
-        self.depth
-    }
-
     fn last_element_id(&self) -> Option<ElementId> {
-        self.element_stack.last().map(|id| *id)
+        self.element_stack.last().copied()
     }
 
     fn last_element_mut(&mut self) -> Option<&mut ElementInfo> {
-        self.last_element_id().and_then(|id| self.elements.get_mut(id.0))
+        self.last_element_id()
+            .and_then(|id| self.elements.get_mut(id.0))
     }
 }
 
@@ -121,16 +117,16 @@ impl Debugger for Profiler {
         root_element.duration_sec = root_element.start.elapsed().as_secs_f64();
     }
 
-    fn enter_block(&mut self, engine_state: &EngineState, block: &Block) {
+    fn enter_block(&mut self, _engine_state: &EngineState, _block: &Block) {
         self.depth += 1;
     }
 
-    fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {
+    fn leave_block(&mut self, _engine_state: &EngineState, _block: &Block) {
         self.depth -= 1;
     }
 
     fn enter_element(&mut self, engine_state: &EngineState, element: &PipelineElement) {
-        if self.depth() > self.max_depth {
+        if self.depth > self.max_depth {
             return;
         }
 
@@ -152,12 +148,12 @@ impl Debugger for Profiler {
 
         let new_id = ElementId(self.elements.len());
 
-        let mut new_element = ElementInfo::new(self.depth(), element.span());
+        let mut new_element = ElementInfo::new(self.depth, element.span());
         new_element.expr = expr_opt;
 
         self.elements.push(new_element);
 
-        let Some(mut parent) = self.elements.get_mut(parent_id.0) else {
+        let Some(parent) = self.elements.get_mut(parent_id.0) else {
             eprintln!("Profiler Error: Missing parent element.");
             return;
         };
@@ -168,11 +164,11 @@ impl Debugger for Profiler {
 
     fn leave_element(
         &mut self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         element: &PipelineElement,
         result: &Result<(PipelineData, bool), ShellError>,
     ) {
-        if self.depth() > self.max_depth {
+        if self.depth > self.max_depth {
             return;
         }
 
@@ -194,7 +190,7 @@ impl Debugger for Profiler {
             None
         };
 
-        let Some(mut last_element) = self.last_element_mut() else {
+        let Some(last_element) = self.last_element_mut() else {
             eprintln!("Profiler Error: Missing last element.");
             return;
         };

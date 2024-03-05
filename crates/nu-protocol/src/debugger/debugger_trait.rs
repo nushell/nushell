@@ -74,10 +74,13 @@ pub trait Debugger: Send + Debug {
 
     fn deactivate(&mut self) {}
 
+    #[allow(unused_variables)]
     fn enter_block(&mut self, engine_state: &EngineState, block: &Block) {}
 
+    #[allow(unused_variables)]
     fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {}
 
+    #[allow(unused_variables)]
     fn enter_element(&mut self, engine_state: &EngineState, pipeline_element: &PipelineElement) {}
 
     #[allow(unused_variables)]
@@ -89,6 +92,7 @@ pub trait Debugger: Send + Debug {
     ) {
     }
 
+    #[allow(unused_variables)]
     fn report(&self, engine_state: &EngineState, profiler_span: Span) -> Result<Value, ShellError> {
         Ok(Value::nothing(profiler_span))
     }
