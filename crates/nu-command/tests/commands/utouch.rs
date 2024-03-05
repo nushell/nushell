@@ -161,3 +161,16 @@ fn creates_file_four_dots_quotation_marks() {
         assert!(path.exists());
     })
 }
+
+#[test]
+fn creates_with_date() {
+    Playground::setup("create_test_1", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "utouch 'file....'"
+        );
+
+        let path = dirs.test().join("file....");
+        assert!(path.exists());
+    })
+}

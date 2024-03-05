@@ -44,6 +44,12 @@ impl Command for UTouch {
                 "use the given time instead of the current time",
                 Some('t')
             )
+            .named(
+                "date",
+                SyntaxShape::String,
+                "use the given date instead of the current date",
+                Some('d')
+            )
             .switch(
                 "modified",
                 "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
@@ -93,6 +99,12 @@ impl Command for UTouch {
         } else {
             (None, None)
         };
+        let (date_str, date_span) =
+            if let Some(date) = call.get_flag::<Spanned<String>>(engine_state, stack, "date")? {
+                (Some(date.item), Some(date.span))
+            } else {
+                (None, None)
+            };
         let timestamp: Option<Spanned<DateTime<FixedOffset>>> =
             call.get_flag(engine_state, stack, "timestamp")?;
 
@@ -103,6 +115,14 @@ impl Command for UTouch {
                     left_span: timestamp.span,
                     right_message: "reference given".to_string(),
                     right_span: reference_span,
+                });
+            }
+            if let Some(date_span) = date_span {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "timestamp given".to_string(),
+                    left_span: timestamp.span,
+                    right_message: "date given".to_string(),
+                    right_span: date_span,
                 });
             }
             Source::Timestamp(timestamp.item.into())
@@ -133,12 +153,17 @@ impl Command for UTouch {
                 no_create,
                 no_deref,
                 source,
-                date: None,
+                date: date_str,
                 change_times,
                 strict: true,
             },
         ) {
             let nu_err = match err {
+                TouchError::InvalidDateFormat(date) => ShellError::IncorrectValue {
+                    msg: format!("Invalid date: {}", date),
+                    val_span: date_span.expect("utouch was given a date"),
+                    call_span: call.head,
+                },
                 TouchError::ReferenceFileInaccessible(reference_path, io_err) => {
                     let span = reference_span.expect("utouch was given a reference file");
                     if io_err.kind() == ErrorKind::NotFound {
@@ -204,7 +229,7 @@ impl Command for UTouch {
                 result: None,
             },
             Example {
-                description: "Changes the last modified time of files a, b and c to a date",
+                description: "Changes the last modified time of files a, b and c to the current time but yesterday",
                 example: r#"utouch -m -d "yesterday" a b c"#,
                 result: None,
             },
@@ -215,7 +240,7 @@ impl Command for UTouch {
             },
             Example {
                 description: r#"Changes the last accessed time of "fixture.json" to a datetime"#,
-                example: r#"utouch -a -t "August 24, 2019; 12:30:30" fixture.json"#,
+                example: r#"utouch -a -t 2019-08-24T12:30:30 fixture.json"#,
                 result: None,
             },
         ]
