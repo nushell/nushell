@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 
-use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
+use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::PluginSource;
+use crate::plugin::{PluginInterface, PluginSource};
 
 #[cfg(test)]
 mod tests;
@@ -35,7 +35,7 @@ pub struct PluginCustomValue {
 
 #[typetag::serde]
 impl CustomValue for PluginCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> nu_protocol::Value {
+    fn clone_value(&self, span: Span) -> Value {
         Value::custom_value(Box::new(self.clone()), span)
     }
 
@@ -43,20 +43,91 @@ impl CustomValue for PluginCustomValue {
         self.name.clone()
     }
 
-    fn to_base_value(
+    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+        self.get_plugin(Some(span), "get base value")?
+            .custom_value_to_base_value(self.clone().into_spanned(span))
+    }
+
+    fn follow_path_int(
         &self,
-        span: nu_protocol::Span,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        self_span: Span,
+        index: usize,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        self.get_plugin(Some(self_span), "follow cell path")?
+            .custom_value_follow_path_int(
+                self.clone().into_spanned(self_span),
+                index.into_spanned(path_span),
+            )
+    }
+
+    fn follow_path_string(
+        &self,
+        self_span: Span,
+        column_name: String,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        self.get_plugin(Some(self_span), "follow cell path")?
+            .custom_value_follow_path_string(
+                self.clone().into_spanned(self_span),
+                column_name.into_spanned(path_span),
+            )
+    }
+
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+        self.get_plugin(Some(other.span()), "perform comparison")
+            .and_then(|plugin| {
+                // We're passing Span::unknown() here because we don't have one, and it probably
+                // shouldn't matter here and is just a consequence of the API
+                plugin.custom_value_partial_cmp(
+                    self.clone().into_spanned(Span::unknown()),
+                    other.clone(),
+                )
+            })
+            .unwrap_or_else(|err| {
+                // We can't do anything with the error other than log it.
+                log::warn!(
+                    "Error in partial_cmp on plugin custom value (source={source:?}): {err}",
+                    source = self.source
+                );
+                None
+            })
+            .map(|ordering| ordering.into())
+    }
+
+    fn operation(
+        &self,
+        lhs_span: Span,
+        operator: Operator,
+        op_span: Span,
+        right: &Value,
+    ) -> Result<Value, ShellError> {
+        self.get_plugin(Some(lhs_span), "invoke operator")?
+            .custom_value_operation(
+                self.clone().into_spanned(lhs_span),
+                operator.into_spanned(op_span),
+                right.clone(),
+            )
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl PluginCustomValue {
+    /// Helper to get the plugin to implement an op
+    fn get_plugin(&self, span: Option<Span>, for_op: &str) -> Result<PluginInterface, ShellError> {
         let wrap_err = |err: ShellError| ShellError::GenericError {
             error: format!(
-                "Unable to spawn plugin `{}` to get base value",
+                "Unable to spawn plugin `{}` to {for_op}",
                 self.source
                     .as_ref()
                     .map(|s| s.name())
                     .unwrap_or("<unknown>")
             ),
             msg: err.to_string(),
-            span: Some(span),
+            span,
             help: None,
             inner: vec![err],
         };
@@ -69,25 +140,13 @@ impl CustomValue for PluginCustomValue {
 
         // Envs probably should be passed here, but it's likely that the plugin is already running
         let empty_envs = std::iter::empty::<(&str, &str)>();
-        let plugin = source
-            .persistent(Some(span))
-            .and_then(|p| p.get(|| Ok(empty_envs)))
-            .map_err(wrap_err)?;
 
-        plugin
-            .custom_value_to_base_value(Spanned {
-                item: self.clone(),
-                span,
-            })
+        source
+            .persistent(span)
+            .and_then(|p| p.get(|| Ok(empty_envs)))
             .map_err(wrap_err)
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl PluginCustomValue {
     /// Serialize a custom value into a [`PluginCustomValue`]. This should only be done on the
     /// plugin side.
     pub(crate) fn serialize_from_custom_value(

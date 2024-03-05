@@ -79,6 +79,57 @@ fn can_get_describe_plugin_custom_values() {
     assert_eq!(actual.out, "CoolCustomValue");
 }
 
+#[test]
+fn can_get_plugin_custom_value_int_cell_path() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).0"
+    );
+
+    assert_eq!(actual.out, "abc");
+}
+
+#[test]
+fn can_get_plugin_custom_value_string_cell_path() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).cool"
+    );
+
+    assert_eq!(actual.out, "abc");
+}
+
+#[test]
+fn can_sort_plugin_custom_values() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "[(custom-value generate | custom-value update) (custom-value generate)] | sort | each { print } | ignore"
+    );
+
+    assert_eq!(
+        actual.out,
+        "I used to be a custom value! My data was (abc)\
+        I used to be a custom value! My data was (abcxyz)"
+    );
+}
+
+#[test]
+fn can_append_plugin_custom_values() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate) ++ (custom-value generate)"
+    );
+
+    assert_eq!(
+        actual.out,
+        "I used to be a custom value! My data was (abcabc)"
+    );
+}
+
 // There are currently no custom values defined by the engine that aren't hidden behind an extra
 // feature
 #[cfg(feature = "sqlite")]

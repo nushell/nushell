@@ -1,6 +1,8 @@
 use nu_engine::documentation::get_flags_section;
-
+use nu_protocol::ast::Operator;
+use std::cmp::Ordering;
 use std::ffi::OsStr;
+
 use std::sync::mpsc::TrySendError;
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -21,7 +23,9 @@ use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-use nu_protocol::{PipelineData, PluginSignature, ShellError, Spanned, Value};
+use nu_protocol::{
+    CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Spanned, Value,
+};
 
 use self::gc::PluginGc;
 
@@ -279,6 +283,91 @@ pub trait Plugin: Sync {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
+
+    /// Collapse a custom value to plain old data.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::to_base_value`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_to_base_value(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        custom_value
+            .item
+            .to_base_value(custom_value.span)
+            .map_err(LabeledError::from)
+    }
+
+    /// Follow a numbered cell path on a custom value - e.g. `value.0`.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::follow_path_int`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_follow_path_int(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        index: Spanned<usize>,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        custom_value
+            .item
+            .follow_path_int(custom_value.span, index.item, index.span)
+            .map_err(LabeledError::from)
+    }
+
+    /// Follow a named cell path on a custom value - e.g. `value.column`.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::follow_path_string`],
+    /// but the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_follow_path_string(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        column_name: Spanned<String>,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        custom_value
+            .item
+            .follow_path_string(custom_value.span, column_name.item, column_name.span)
+            .map_err(LabeledError::from)
+    }
+
+    /// Implement comparison logic for custom values.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::partial_cmp`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    ///
+    /// Note that returning an error here is unlikely to produce desired behavior, as `partial_cmp`
+    /// lacks a way to produce an error. At the moment the engine just logs the error, and the
+    /// comparison returns `None`.
+    fn custom_value_partial_cmp(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        other_value: Value,
+    ) -> Result<Option<Ordering>, LabeledError> {
+        let _ = engine;
+        Ok(custom_value.item.partial_cmp(&other_value))
+    }
+
+    /// Implement functionality for an operator on a custom value.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::operation`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_operation(
+        &self,
+        engine: &EngineInterface,
+        left: Spanned<Box<dyn CustomValue>>,
+        operator: Spanned<Operator>,
+        right: Value,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        left.item
+            .operation(left.span, operator.item, operator.span, &right)
+            .map_err(LabeledError::from)
+    }
 }
 
 /// The streaming API for a Nushell plugin
@@ -357,6 +446,91 @@ pub trait StreamingPlugin: Sync {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError>;
+
+    /// Collapse a custom value to plain old data.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::to_base_value`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_to_base_value(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        custom_value
+            .item
+            .to_base_value(custom_value.span)
+            .map_err(LabeledError::from)
+    }
+
+    /// Follow a numbered cell path on a custom value - e.g. `value.0`.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::follow_path_int`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_follow_path_int(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        index: Spanned<usize>,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        custom_value
+            .item
+            .follow_path_int(custom_value.span, index.item, index.span)
+            .map_err(LabeledError::from)
+    }
+
+    /// Follow a named cell path on a custom value - e.g. `value.column`.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::follow_path_string`],
+    /// but the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_follow_path_string(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        column_name: Spanned<String>,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        custom_value
+            .item
+            .follow_path_string(custom_value.span, column_name.item, column_name.span)
+            .map_err(LabeledError::from)
+    }
+
+    /// Implement comparison logic for custom values.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::partial_cmp`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    ///
+    /// Note that returning an error here is unlikely to produce desired behavior, as `partial_cmp`
+    /// lacks a way to produce an error. At the moment the engine just logs the error, and the
+    /// comparison returns `None`.
+    fn custom_value_partial_cmp(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        other_value: Value,
+    ) -> Result<Option<Ordering>, LabeledError> {
+        let _ = engine;
+        Ok(custom_value.item.partial_cmp(&other_value))
+    }
+
+    /// Implement functionality for an operator on a custom value.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::operation`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
+    fn custom_value_operation(
+        &self,
+        engine: &EngineInterface,
+        left: Spanned<Box<dyn CustomValue>>,
+        operator: Spanned<Operator>,
+        right: Value,
+    ) -> Result<Value, LabeledError> {
+        let _ = engine;
+        left.item
+            .operation(left.span, operator.item, operator.span, &right)
+            .map_err(LabeledError::from)
+    }
 }
 
 /// All [Plugin]s can be used as [StreamingPlugin]s, but input streams will be fully consumed
@@ -380,6 +554,51 @@ impl<T: Plugin> StreamingPlugin for T {
         // Wrap the output in PipelineData::Value
         <Self as Plugin>::run(self, name, engine, call, &input_value)
             .map(|value| PipelineData::Value(value, None))
+    }
+
+    fn custom_value_to_base_value(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+    ) -> Result<Value, LabeledError> {
+        <Self as Plugin>::custom_value_to_base_value(self, engine, custom_value)
+    }
+
+    fn custom_value_follow_path_int(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        index: Spanned<usize>,
+    ) -> Result<Value, LabeledError> {
+        <Self as Plugin>::custom_value_follow_path_int(self, engine, custom_value, index)
+    }
+
+    fn custom_value_follow_path_string(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        column_name: Spanned<String>,
+    ) -> Result<Value, LabeledError> {
+        <Self as Plugin>::custom_value_follow_path_string(self, engine, custom_value, column_name)
+    }
+
+    fn custom_value_partial_cmp(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        other_value: Value,
+    ) -> Result<Option<Ordering>, LabeledError> {
+        <Self as Plugin>::custom_value_partial_cmp(self, engine, custom_value, other_value)
+    }
+
+    fn custom_value_operation(
+        &self,
+        engine: &EngineInterface,
+        left: Spanned<Box<dyn CustomValue>>,
+        operator: Spanned<Operator>,
+        right: Value,
+    ) -> Result<Value, LabeledError> {
+        <Self as Plugin>::custom_value_operation(self, engine, left, operator, right)
     }
 }
 
@@ -580,7 +799,7 @@ pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder +
                     custom_value,
                     op,
                 } => {
-                    try_or_report!(engine, custom_value_op(&engine, custom_value, op));
+                    try_or_report!(engine, custom_value_op(plugin, &engine, custom_value, op));
                 }
             }
         }
@@ -591,22 +810,57 @@ pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder +
 }
 
 fn custom_value_op(
+    plugin: &impl StreamingPlugin,
     engine: &EngineInterface,
     custom_value: Spanned<PluginCustomValue>,
     op: CustomValueOp,
 ) -> Result<(), ShellError> {
     let local_value = custom_value
         .item
-        .deserialize_to_custom_value(custom_value.span)?;
+        .deserialize_to_custom_value(custom_value.span)?
+        .into_spanned(custom_value.span);
     match op {
         CustomValueOp::ToBaseValue => {
-            let result = local_value
-                .to_base_value(custom_value.span)
+            let result = plugin
+                .custom_value_to_base_value(engine, local_value)
                 .map(|value| PipelineData::Value(value, None));
             engine
                 .write_response(result)
-                .and_then(|writer| writer.write_background())?;
-            Ok(())
+                .and_then(|writer| writer.write())
+        }
+        CustomValueOp::FollowPathInt(index) => {
+            let result = plugin
+                .custom_value_follow_path_int(engine, local_value, index)
+                .map(|value| PipelineData::Value(value, None));
+            engine
+                .write_response(result)
+                .and_then(|writer| writer.write())
+        }
+        CustomValueOp::FollowPathString(column_name) => {
+            let result = plugin
+                .custom_value_follow_path_string(engine, local_value, column_name)
+                .map(|value| PipelineData::Value(value, None));
+            engine
+                .write_response(result)
+                .and_then(|writer| writer.write())
+        }
+        CustomValueOp::PartialCmp(mut other_value) => {
+            PluginCustomValue::deserialize_custom_values_in(&mut other_value)?;
+            match plugin.custom_value_partial_cmp(engine, local_value, other_value) {
+                Ok(ordering) => engine.write_ordering(ordering),
+                Err(err) => engine
+                    .write_response(Err(err))
+                    .and_then(|writer| writer.write()),
+            }
+        }
+        CustomValueOp::Operation(operator, mut right) => {
+            PluginCustomValue::deserialize_custom_values_in(&mut right)?;
+            let result = plugin
+                .custom_value_operation(engine, local_value, operator, right)
+                .map(|value| PipelineData::Value(value, None));
+            engine
+                .write_response(result)
+                .and_then(|writer| writer.write())
         }
     }
 }
