@@ -95,10 +95,7 @@ impl CustomValue for PluginCustomValue {
             .and_then(|plugin| {
                 // We're passing Span::unknown() here because we don't have one, and it probably
                 // shouldn't matter here and is just a consequence of the API
-                plugin.custom_value_partial_cmp(
-                    self.clone().into_spanned(Span::unknown()),
-                    other.clone(),
-                )
+                plugin.custom_value_partial_cmp(self.clone(), other.clone())
             })
             .unwrap_or_else(|err| {
                 // We can't do anything with the error other than log it.

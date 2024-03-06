@@ -854,11 +854,16 @@ impl PluginInterface {
     /// Invoke comparison logic for custom values.
     pub(crate) fn custom_value_partial_cmp(
         &self,
-        value: Spanned<PluginCustomValue>,
+        value: PluginCustomValue,
         mut other_value: Value,
     ) -> Result<Option<Ordering>, ShellError> {
         PluginCustomValue::verify_source(&mut other_value, &self.state.source)?;
-        let call = PluginCall::CustomValueOp(value, CustomValueOp::PartialCmp(other_value));
+        // Note: the protocol is always designed to have a span with the custom value, but this
+        // operation doesn't support one.
+        let call = PluginCall::CustomValueOp(
+            value.into_spanned(Span::unknown()),
+            CustomValueOp::PartialCmp(other_value),
+        );
         match self.plugin_call(call, &None)? {
             PluginCallResponse::Ordering(ordering) => Ok(ordering),
             PluginCallResponse::Error(err) => Err(err.into()),

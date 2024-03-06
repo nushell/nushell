@@ -345,11 +345,11 @@ pub trait Plugin: Sync {
     fn custom_value_partial_cmp(
         &self,
         engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
+        custom_value: Box<dyn CustomValue>,
         other_value: Value,
     ) -> Result<Option<Ordering>, LabeledError> {
         let _ = engine;
-        Ok(custom_value.item.partial_cmp(&other_value))
+        Ok(custom_value.partial_cmp(&other_value))
     }
 
     /// Implement functionality for an operator on a custom value.
@@ -524,11 +524,11 @@ pub trait StreamingPlugin: Sync {
     fn custom_value_partial_cmp(
         &self,
         engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
+        custom_value: Box<dyn CustomValue>,
         other_value: Value,
     ) -> Result<Option<Ordering>, LabeledError> {
         let _ = engine;
-        Ok(custom_value.item.partial_cmp(&other_value))
+        Ok(custom_value.partial_cmp(&other_value))
     }
 
     /// Implement functionality for an operator on a custom value.
@@ -617,7 +617,7 @@ impl<T: Plugin> StreamingPlugin for T {
     fn custom_value_partial_cmp(
         &self,
         engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
+        custom_value: Box<dyn CustomValue>,
         other_value: Value,
     ) -> Result<Option<Ordering>, LabeledError> {
         <Self as Plugin>::custom_value_partial_cmp(self, engine, custom_value, other_value)
@@ -886,7 +886,7 @@ fn custom_value_op(
         }
         CustomValueOp::PartialCmp(mut other_value) => {
             PluginCustomValue::deserialize_custom_values_in(&mut other_value)?;
-            match plugin.custom_value_partial_cmp(engine, local_value, other_value) {
+            match plugin.custom_value_partial_cmp(engine, local_value.item, other_value) {
                 Ok(ordering) => engine.write_ordering(ordering),
                 Err(err) => engine
                     .write_response(Err(err))
