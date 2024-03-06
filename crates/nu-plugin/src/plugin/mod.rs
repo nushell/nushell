@@ -374,6 +374,11 @@ pub trait Plugin: Sync {
     /// This notification is only sent if [`CustomValue::notify_plugin_on_drop`] was true. Unlike
     /// the other custom value handlers, a span is not provided.
     ///
+    /// Note that a new custom value is created each time it is sent to the engine - if you intend
+    /// to accept a custom value and send it back, you may need to implement some kind of unique
+    /// reference counting in your plugin, as you will receive multiple drop notifications even if
+    /// the data within is identical.
+    ///
     /// The default implementation does nothing. Any error generated here is unlikely to be visible
     /// to the user, and will only show up in the engine's log output.
     fn custom_value_dropped(
@@ -552,6 +557,11 @@ pub trait StreamingPlugin: Sync {
     ///
     /// This notification is only sent if [`CustomValue::notify_plugin_on_drop`] was true. Unlike
     /// the other custom value handlers, a span is not provided.
+    ///
+    /// Note that a new custom value is created each time it is sent to the engine - if you intend
+    /// to accept a custom value and send it back, you may need to implement some kind of unique
+    /// reference counting in your plugin, as you will receive multiple drop notifications even if
+    /// the data within is identical.
     ///
     /// The default implementation does nothing. Any error generated here is unlikely to be visible
     /// to the user, and will only show up in the engine's log output.
