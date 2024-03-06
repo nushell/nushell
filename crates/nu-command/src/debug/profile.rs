@@ -22,7 +22,11 @@ impl Command for DebugProfile {
                 "The closure to profile.",
             )
             .switch("spans", "Collect spans of profiled elements", Some('s'))
-            .switch("expand-source", "Collect full source fragments of profiled elements", Some('e'))
+            .switch(
+                "expand-source",
+                "Collect full source fragments of profiled elements",
+                Some('e'),
+            )
             .switch(
                 "values",
                 "Collect pipeline element output values",
@@ -44,7 +48,7 @@ impl Command for DebugProfile {
     }
 
     fn extra_usage(&self) -> &str {
-r#"The profiler profiles every evaluated pipeline element inside a closure, stepping into all
+        r#"The profiler profiles every evaluated pipeline element inside a closure, stepping into all
 commands calls and other blocks/closures.
 
 The output can be heavily customized. By default, the following columns are included:
@@ -150,16 +154,16 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
 
     fn examples(&self) -> Vec<Example> {
         vec![
-        Example {
-            description: "Profile config evaluation",
-            example: "debug profile { source $nu.config-path }",
-            result: None,
-        },
-        Example {
-            description: "Profile config evaluation with more granularity",
-            example: "debug profile { source $nu.config-path } --max-depth 4",
-            result: None,
-        },
+            Example {
+                description: "Profile config evaluation",
+                example: "debug profile { source $nu.config-path }",
+                result: None,
+            },
+            Example {
+                description: "Profile config evaluation with more granularity",
+                example: "debug profile { source $nu.config-path } --max-depth 4",
+                result: None,
+            },
         ]
     }
 }
