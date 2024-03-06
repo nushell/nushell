@@ -34,13 +34,23 @@ impl CustomValue for NuDataFrame {
         self
     }
 
-    fn follow_path_int(&self, count: usize, span: Span) -> Result<Value, ShellError> {
-        self.get_value(count, span)
+    fn follow_path_int(
+        &self,
+        _self_span: Span,
+        count: usize,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        self.get_value(count, path_span)
     }
 
-    fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError> {
-        let column = self.column(&column_name, span)?;
-        Ok(column.into_value(span))
+    fn follow_path_string(
+        &self,
+        _self_span: Span,
+        column_name: String,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let column = self.column(&column_name, path_span)?;
+        Ok(column.into_value(path_span))
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
