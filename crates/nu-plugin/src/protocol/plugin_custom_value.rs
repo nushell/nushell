@@ -39,7 +39,14 @@ struct SharedContent {
     /// The bincoded representation of the custom value on the plugin side
     data: Vec<u8>,
     /// True if the custom value should notify the source if all copies of it are dropped.
+    ///
+    /// This is not serialized if `false`, since most custom values don't need it.
+    #[serde(default, skip_serializing_if = "is_false")]
     notify_on_drop: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 #[typetag::serde]
