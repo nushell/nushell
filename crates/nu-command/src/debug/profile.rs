@@ -21,11 +21,11 @@ impl Command for DebugProfile {
                 SyntaxShape::Closure(None),
                 "The closure to profile.",
             )
-            .switch("spans", "Collect spans", Some('s'))
-            .switch("expand-source", "Collect full source fragments", Some('e'))
+            .switch("spans", "Collect spans of profiled elements", Some('s'))
+            .switch("expand-source", "Collect full source fragments of profiled elements", Some('e'))
             .switch(
                 "values",
-                "Collect pipeline output values of pipeline elements",
+                "Collect pipeline element output values",
                 Some('v'),
             )
             .switch("expr", "Collect expression types", Some('x'))
@@ -40,11 +40,43 @@ impl Command for DebugProfile {
     }
 
     fn usage(&self) -> &str {
-        "Profile a closure."
+        "Profile pipeline elements in a closure."
     }
 
     fn extra_usage(&self) -> &str {
-        ""
+r#"The profiler profiles every evaluated pipeline element inside a closure, stepping into all
+commands calls and other blocks/closures.
+
+The output can be heavily customized. By default, the following columns are included:
+- depth       : Depth of the pipeline element. Each entered block adds one level of depth. How many
+                blocks deep to step into is controlled with the --max-depth option.
+- id          : ID of the pipeline element
+- parent_id   : ID of the parent element
+- source      : Source code of the pipeline element. If the element has multiple lines, only the
+                first line is used and `...` is appended to the end. Full source code can be shown
+                with the  --expand-source flag.
+- duration_ms : How long it took to run the pipeline element in milliseconds.
+- (optional) span   : Span of the element. Can be viewed via the `view span` command. Enabled with
+                      the --spans flag.
+- (optional) expr   : The type of expression of the pipeline element. Enabled with the --expr flag.
+- (optional) output : The output value of the pipeline element. Enabled with the --values flag.
+
+To illustrate the depth and IDs, consider `debug profile { if true { echo 'spam' } }`. There are
+three pipeline elements:
+
+depth  id  parent_id
+    0   0          0  debug profile { do { if true { 'spam' } } }
+    1   1          0  if true { 'spam' }
+    2   2          1  'spam'
+
+Each block entered increments depth by 1 and each block left decrements it by one. This way you can
+control the profiling granularity. Passing --max-depth=1 to the above would stop at
+`if true { 'spam' }`. The id is used to identify each element. The parent_id tells you that 'spam'
+was spawned from `if true { 'spam' }` which was spawned from the root `debug profile { ... }`.
+
+Note: In some cases, the ordering of piepeline elements might not be intuitive. For example,
+`[ a bb cc ] | each { $in | str length }` involves some implicit collects and lazy evaluation
+confusing the id/parent_id hierarchy. The --expr flag is helpful for investigating these issues."#
     }
 
     fn run(
@@ -117,10 +149,17 @@ impl Command for DebugProfile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Profile config evaluation time",
+        vec![
+        Example {
+            description: "Profile config evaluation",
             example: "debug profile { source $nu.config-path }",
             result: None,
-        }]
+        },
+        Example {
+            description: "Profile config evaluation with more granularity",
+            example: "debug profile { source $nu.config-path } --max-depth 4",
+            result: None,
+        },
+        ]
     }
 }
