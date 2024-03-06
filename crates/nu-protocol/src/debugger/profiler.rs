@@ -1,3 +1,8 @@
+//! Nushell Profiler
+//!
+//! Profiler implements the Debugger trait and can be used via the `debug profile` command for
+//! profiling Nushell code.
+
 use crate::ast::{Block, Expr, PipelineElement};
 use crate::debugger::Debugger;
 use crate::engine::EngineState;
@@ -8,6 +13,7 @@ use std::time::Instant;
 #[derive(Debug, Clone, Copy)]
 struct ElementId(usize);
 
+/// Stores profiling information about one pipeline element
 #[derive(Debug, Clone)]
 struct ElementInfo {
     start: Instant,
@@ -33,7 +39,7 @@ impl ElementInfo {
     }
 }
 
-/// Basic profiler
+/// Basic profiler, used in `debug profile`
 #[derive(Debug, Clone)]
 pub struct Profiler {
     depth: i64,
