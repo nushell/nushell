@@ -557,7 +557,7 @@ fn unbalanced_parens1() -> TestResult {
 
 #[test]
 fn unbalanced_parens2() -> TestResult {
-    run_test(r#"("("))"#, "unbalanced ( and )")
+    fail_test(r#"("("))"#, "unbalanced ( and )")
 }
 
 #[test]
