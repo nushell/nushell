@@ -8,8 +8,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    Config, DeclId, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned, Type,
-    Value, VarId, ENV_VARIABLE_ID,
+    Config, DeclId, IntoPipelineData, IntoSpanned, PipelineData, RawStream, ShellError, Span,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 
 use std::thread::{self, JoinHandle};
@@ -385,7 +385,21 @@ pub fn eval_expression_with_input<D: DebugContext>(
         }
     };
 
-    Ok(might_consume_external_result(input))
+    // Given input is PipelineData::ExternalStream
+    // `might_consume_external_result` will consume `stderr` stream if `stdout` is empty.
+    // it's not intended if user want to redirect stderr message.
+    //
+    // e.g:
+    // 1. cargo check e>| less
+    // 2. cargo check e> result.txt
+    //
+    // In these two cases, stdout will be empty, but nushell shouldn't consume the `stderr`
+    // stream it needs be passed to next command.
+    if !redirect_stderr {
+        Ok(might_consume_external_result(input))
+    } else {
+        Ok((input, false))
+    }
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -532,7 +546,7 @@ fn eval_element_with_input<D: DebugContext>(
                                     stderr_stack,
                                     save_call,
                                     input,
-                                ));
+                                )?);
                                 let (result_out_stream, result_err_stream) = if result_is_out {
                                     (result_out_stream, None)
                                 } else {
@@ -540,7 +554,7 @@ fn eval_element_with_input<D: DebugContext>(
                                     // so nushell knows this result is not the last part of a command.
                                     (
                                         Some(RawStream::new(
-                                            Box::new(vec![].into_iter()),
+                                            Box::new(std::iter::empty()),
                                             None,
                                             *span,
                                             Some(0),
@@ -1088,8 +1102,9 @@ impl DataSaveJob {
         mut stack: Stack,
         save_call: Call,
         input: PipelineData,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ShellError> {
+        let span = save_call.head;
+        Ok(Self {
             inner: thread::Builder::new()
                 .name("stderr saver".to_string())
                 .spawn(move || {
@@ -1099,8 +1114,8 @@ impl DataSaveJob {
                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                     }
                 })
-                .expect("Failed to create thread"),
-        }
+                .map_err(|e| e.into_spanned(span))?,
+        })
     }
 
     pub fn join(self) -> thread::Result<()> {

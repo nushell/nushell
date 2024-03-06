@@ -31,6 +31,7 @@ pub enum Type {
     Record(Vec<(String, Type)>),
     Signature,
     String,
+    Glob,
     Table(Vec<(String, Type)>),
 }
 
@@ -110,6 +111,7 @@ impl Type {
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
+            Type::Glob => SyntaxShape::GlobPattern,
         }
     }
 
@@ -139,6 +141,7 @@ impl Type {
             Type::Binary => String::from("binary"),
             Type::Custom(_) => String::from("custom"),
             Type::Signature => String::from("signature"),
+            Type::Glob => String::from("glob"),
         }
     }
 }
@@ -196,6 +199,7 @@ impl Display for Type {
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
+            Type::Glob => write!(f, "glob"),
         }
     }
 }

@@ -1,8 +1,8 @@
 mod custom_value;
 mod from;
 mod from_value;
+mod glob;
 mod lazy_record;
-mod path;
 mod range;
 mod stream;
 mod unit;
@@ -19,16 +19,18 @@ use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
+pub use glob::*;
 pub use lazy_record::LazyRecord;
+use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 use nu_utils::{
     contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
 };
 use num_format::ToFormattedString;
-pub use path::*;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -47,108 +49,126 @@ pub enum Value {
         val: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Int {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Float {
         val: f64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Filesize {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Duration {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Date {
         val: DateTime<FixedOffset>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Range {
         val: Box<Range>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     String {
         val: String,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
-    QuotedString {
+    Glob {
         val: String,
+        no_expand: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Record {
         val: Record,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     List {
         vals: Vec<Value>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Block {
         val: BlockId,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Closure {
         val: Closure,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Nothing {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Error {
         error: Box<ShellError>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Binary {
         val: Vec<u8>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     CellPath {
         val: CellPath,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
-    #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[serde(skip)]
@@ -186,8 +206,13 @@ impl Clone for Value {
                 val: val.clone(),
                 internal_span: *internal_span,
             },
-            Value::QuotedString { val, internal_span } => Value::QuotedString {
+            Value::Glob {
+                val,
+                no_expand: quoted,
+                internal_span,
+            } => Value::Glob {
                 val: val.clone(),
+                no_expand: *quoted,
                 internal_span: *internal_span,
             },
             Value::Record { val, internal_span } => Value::Record {
@@ -356,7 +381,7 @@ impl Value {
         }
     }
 
-    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    /// Returns this `Value` converted to a `str` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Int`
@@ -365,8 +390,55 @@ impl Value {
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
-    /// Prefer [`coerce_into_string`](Self::coerce_into_string)
+    /// ```
+    /// # use nu_protocol::Value;
+    /// for val in Value::test_values() {
+    ///     assert_eq!(
+    ///         matches!(
+    ///             val,
+    ///             Value::Int { .. }
+    ///                 | Value::Float { .. }
+    ///                 | Value::String { .. }
+    ///                 | Value::Binary { .. }
+    ///                 | Value::Date { .. }
+    ///         ),
+    ///         val.coerce_str().is_ok(),
+    ///     );
+    /// }
+    /// ```
+    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
+            Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Binary { val, .. } => match std::str::from_utf8(val) {
+                Ok(s) => Ok(Cow::Borrowed(s)),
+                Err(_) => self.cant_convert_to("string"),
+            },
+            Value::Date { val, .. } => Ok(Cow::Owned(
+                val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            )),
+            val => val.cant_convert_to("string"),
+        }
+    }
+
+    /// Returns this `Value` converted to a `String` or an error if it cannot be converted
+    ///
+    /// # Note
+    /// This function is equivalent to `value.coerce_str().map(Cow::into_owned)`
+    /// which might allocate a new `String`.
+    ///
+    /// To avoid this allocation, prefer [`coerce_str`](Self::coerce_str)
+    /// if you do not need an owned `String`,
+    /// or [`coerce_into_string`](Self::coerce_into_string)
     /// if you do not need to keep the original `Value` around.
+    ///
+    /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Int`
+    /// - `Float`
+    /// - `String`
+    /// - `Binary` (only if valid utf-8)
+    /// - `Date`
     ///
     /// ```
     /// # use nu_protocol::Value;
@@ -385,17 +457,7 @@ impl Value {
     /// }
     /// ```
     pub fn coerce_string(&self) -> Result<String, ShellError> {
-        match self {
-            Value::Int { val, .. } => Ok(val.to_string()),
-            Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.clone()),
-            Value::Binary { val, .. } => match std::str::from_utf8(val) {
-                Ok(s) => Ok(s.to_string()),
-                Err(_) => self.cant_convert_to("string"),
-            },
-            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            val => val.cant_convert_to("string"),
-        }
+        self.coerce_str().map(Cow::into_owned)
     }
 
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
@@ -570,12 +632,12 @@ impl Value {
 
     /// Returns this `Value` as a `u8` slice or an error if it cannot be converted
     ///
+    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
+    /// if you do not need to keep the original `Value` around.
+    ///
     /// Only the following `Value` cases will return an `Ok` result:
     /// - `Binary`
     /// - `String`
-    ///
-    /// Prefer [`coerce_into_binary`](Self::coerce_into_binary)
-    /// if you do not need to keep the original `Value` around.
     ///
     /// ```
     /// # use nu_protocol::Value;
@@ -682,7 +744,7 @@ impl Value {
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
-            | Value::QuotedString { internal_span, .. }
+            | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Block { internal_span, .. }
@@ -707,7 +769,7 @@ impl Value {
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
-            | Value::QuotedString { internal_span, .. }
+            | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::LazyRecord { internal_span, .. }
             | Value::List { internal_span, .. }
@@ -734,7 +796,7 @@ impl Value {
             Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
-            Value::QuotedString { .. } => Type::String,
+            Value::Glob { .. } => Type::Glob,
             Value::Record { val, .. } => {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
@@ -807,21 +869,21 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        // These are already in locale format, so we don't need to localize them
-        let format = if ["%x", "%X", "%r"]
-            .iter()
-            .any(|item| formatter.contains(item))
+        let locale = if let Ok(l) =
+            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
         {
-            date_time.format(formatter)
+            let locale_str = l.split('.').next().unwrap_or("en_US");
+            locale_str.try_into().unwrap_or(Locale::en_US)
         } else {
-            let locale: Locale = get_system_locale_string()
+            // LC_ALL > LC_CTYPE > LANG else en_US
+            get_system_locale_string()
                 .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
                 .unwrap_or_else(|| String::from("en_US"))
                 .as_str()
                 .try_into()
-                .unwrap_or(Locale::en_US);
-            date_time.format_localized(formatter, locale)
+                .unwrap_or(Locale::en_US)
         };
+        let format = date_time.format_localized(formatter, locale);
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),
@@ -864,7 +926,7 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.clone(),
-            Value::QuotedString { val, .. } => val.clone(),
+            Value::Glob { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
@@ -1852,9 +1914,10 @@ impl Value {
         }
     }
 
-    pub fn quoted_string(val: impl Into<String>, span: Span) -> Value {
-        Value::QuotedString {
+    pub fn glob(val: impl Into<String>, no_expand: bool, span: Span) -> Value {
+        Value::Glob {
             val: val.into(),
+            no_expand,
             internal_span: span,
         }
     }
@@ -1975,6 +2038,12 @@ impl Value {
     /// when used in errors.
     pub fn test_string(val: impl Into<String>) -> Value {
         Value::string(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_glob(val: impl Into<String>) -> Value {
+        Value::glob(val, false, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -2105,7 +2174,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2126,7 +2195,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2147,7 +2216,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2168,7 +2237,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2189,7 +2258,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2210,7 +2279,7 @@ impl PartialOrd for Value {
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2231,7 +2300,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::String { .. } => Some(Ordering::Less),
-                Value::QuotedString { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2252,7 +2321,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2264,7 +2333,7 @@ impl PartialOrd for Value {
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
-            (Value::QuotedString { val: lhs, .. }, rhs) => match rhs {
+            (Value::Glob { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -2273,7 +2342,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2294,7 +2363,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
@@ -2334,7 +2403,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2355,7 +2424,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
@@ -2376,7 +2445,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2397,7 +2466,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2418,7 +2487,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2439,7 +2508,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2460,7 +2529,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::QuotedString { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),

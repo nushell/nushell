@@ -1,3 +1,4 @@
+use super::util::opt_for_glob_pattern;
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
@@ -7,7 +8,7 @@ use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::NuPath;
+use nu_protocol::NuGlob;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
@@ -41,7 +42,7 @@ impl Command for Ls {
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .optional("pattern", SyntaxShape::GlobPattern, "The glob pattern to use.")
+            .optional("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -86,17 +87,16 @@ impl Command for Ls {
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg: Option<Spanned<NuPath>> = call.opt(engine_state, stack, 0)?;
-
+        let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
                 match path.item {
-                    NuPath::Quoted(p) => Some(Spanned {
-                        item: NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::DoNotExpand(p) => Some(Spanned {
+                        item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
-                    NuPath::UnQuoted(p) => Some(Spanned {
-                        item: NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::Expand(p) => Some(Spanned {
+                        item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
                 }
@@ -149,7 +149,7 @@ impl Command for Ls {
                     p,
                     p_tag,
                     absolute_path,
-                    matches!(pat.item, NuPath::Quoted(_)),
+                    matches!(pat.item, NuGlob::DoNotExpand(_)),
                 )
             }
             None => {
@@ -186,8 +186,8 @@ impl Command for Ls {
         };
 
         let glob_path = Spanned {
-            // It needs to be un-quoted, the relative logic is handled previously
-            item: NuPath::UnQuoted(path.clone()),
+            // use NeedExpand, the relative escaping logic is handled previously
+            item: NuGlob::Expand(path.clone()),
             span: p_tag,
         };
 

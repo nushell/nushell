@@ -1,9 +1,9 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::NuPath;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -61,7 +61,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::GlobPattern, "Copy SRC file/s to DEST.")
+            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -155,7 +155,7 @@ impl Command for UCp {
             target_os = "macos"
         )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -205,7 +205,10 @@ impl Command for UCp {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {

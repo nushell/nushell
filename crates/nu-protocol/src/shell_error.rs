@@ -2,7 +2,9 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
+use crate::{
+    ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Spanned, Value,
+};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -727,8 +729,9 @@ pub enum ShellError {
     ///
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found))]
+    #[diagnostic(code(nu::shell::file_not_found), help("{file} does not exist"))]
     FileNotFound {
+        file: String,
         #[label("file not found")]
         span: Span,
     },
@@ -772,6 +775,54 @@ pub enum ShellError {
     #[error("Plugin failed to decode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_decode))]
     PluginFailedToDecode { msg: String },
+
+    /// A custom value cannot be sent to the given plugin.
+    ///
+    /// ## Resolution
+    ///
+    /// Custom values can only be used with the plugin they came from. Use a command from that
+    /// plugin instead.
+    #[error("Custom value `{name}` cannot be sent to plugin")]
+    #[diagnostic(code(nu::shell::custom_value_incorrect_for_plugin))]
+    CustomValueIncorrectForPlugin {
+        name: String,
+        #[label("the `{dest_plugin}` plugin does not support this kind of value")]
+        span: Span,
+        dest_plugin: String,
+        #[help("this value came from the `{}` plugin")]
+        src_plugin: Option<String>,
+    },
+
+    /// The plugin failed to encode a custom value.
+    ///
+    /// ## Resolution
+    ///
+    /// This is likely a bug with the plugin itself. The plugin may have tried to send a custom
+    /// value that is not serializable.
+    #[error("Custom value failed to encode")]
+    #[diagnostic(code(nu::shell::custom_value_failed_to_encode))]
+    CustomValueFailedToEncode {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
+    /// The plugin failed to encode a custom value.
+    ///
+    /// ## Resolution
+    ///
+    /// This may be a bug within the plugin, or the plugin may have been updated in between the
+    /// creation of the custom value and its use.
+    #[error("Custom value failed to decode")]
+    #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
+    #[diagnostic(help(
+        "the plugin may have been updated and no longer support this custom value"
+    ))]
+    CustomValueFailedToDecode {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// I/O operation interrupted.
     ///
@@ -1275,6 +1326,21 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         #[label = "byte index is not a char boundary or is out of bounds of the input"]
         span: Span,
     },
+
+    /// The config directory could not be found
+    #[error("The config directory could not be found")]
+    #[diagnostic(
+        code(nu::shell::config_dir_not_found),
+        help(
+            r#"On Linux, this would be $XDG_CONFIG_HOME or $HOME/.config.
+On MacOS, this would be `$HOME/Library/Application Support`.
+On Windows, this would be %USERPROFILE%\AppData\Roaming"#
+        )
+    )]
+    ConfigDirNotFound {
+        #[label = "Could not find config directory"]
+        span: Option<Span>,
+    },
 }
 
 // TODO: Implement as From trait
@@ -1293,6 +1359,15 @@ impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
         ShellError::IOError {
             msg: format!("{input:?}"),
+        }
+    }
+}
+
+impl From<Spanned<std::io::Error>> for ShellError {
+    fn from(error: Spanned<std::io::Error>) -> Self {
+        ShellError::IOErrorSpanned {
+            msg: error.item.to_string(),
+            span: error.span,
         }
     }
 }

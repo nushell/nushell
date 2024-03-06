@@ -1,13 +1,15 @@
 use nu_cmd_base::hook::eval_hook;
+use nu_engine::env_to_strings;
+use nu_engine::get_eval_expression;
 use nu_engine::CallExt;
-use nu_engine::{env_to_strings, get_eval_expression};
-
+use nu_protocol::IntoSpanned;
+use nu_protocol::NuGlob;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
-    Category, Example, ListStream, NuPath, PipelineData, RawStream, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -136,8 +138,6 @@ pub fn create_external_command(
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
     for (arg, spread) in call.rest_iter(1) {
-        // TODO: Disallow automatic spreading entirely later. This match block will
-        // have to be refactored, and lists will have to be disallowed in the parser too
         match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
                 if spread {
@@ -441,7 +441,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .expect("Failed to create thread");
+                            .map_err(|e| e.into_spanned(head))?;
                     }
                 }
 
@@ -529,7 +529,7 @@ impl ExternalCommand {
                             Ok(())
                         }
                     }
-                }).expect("Failed to create thread");
+                }).map_err(|e| e.into_spanned(head))?;
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
@@ -546,7 +546,7 @@ impl ExternalCommand {
                             read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);
                             Ok::<(), ShellError>(())
                         })
-                        .expect("Failed to create thread");
+                        .map_err(|e| e.into_spanned(head))?;
                 }
 
                 let stdout_receiver = ChannelReceiver::new(stdout_rx);
@@ -714,9 +714,11 @@ fn trim_expand_and_apply_arg(
     // if arg is quoted, like "aa", 'aa', `aa`, or:
     // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
     // `as_a_whole` will be true, so nu won't remove the inner quotes.
-    let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+    let (trimmed_args, mut run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
     if *arg_keep_raw {
         keep_raw = true;
+        // it's a list or a variable, don't run glob expansion either
+        run_glob_expansion = false;
     }
     let mut arg = Spanned {
         item: if keep_raw {
@@ -733,9 +735,9 @@ fn trim_expand_and_apply_arg(
     }
     let cwd = PathBuf::from(cwd);
     if arg.item.contains('*') && run_glob_expansion {
-        // we need to run glob expansion, so it's unquoted.
+        // we need to run glob expansion, so it's NeedExpand.
         let path = Spanned {
-            item: NuPath::UnQuoted(arg.item.clone()),
+            item: NuGlob::Expand(arg.item.clone()),
             span: arg.span,
         };
         if let Ok((prefix, matches)) = nu_engine::glob_from(&path, &cwd, arg.span, None) {

@@ -1,4 +1,6 @@
 use calamine::*;
+use chrono::offset::Utc;
+use chrono::{Local, LocalResult, Offset, TimeZone};
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -130,6 +132,11 @@ fn from_xlsx(
         sheet_names.retain(|e| sel_sheets.contains(e));
     }
 
+    let tz = match Local.timestamp_opt(0, 0) {
+        LocalResult::Single(tz) => *tz.offset(),
+        _ => Utc.fix(),
+    };
+
     for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
@@ -145,6 +152,14 @@ fn from_xlsx(
                             Data::Float(f) => Value::float(*f, head),
                             Data::Int(i) => Value::int(*i, head),
                             Data::Bool(b) => Value::bool(*b, head),
+                            Data::DateTime(d) => d
+                                .as_datetime()
+                                .and_then(|d| match tz.from_local_datetime(&d) {
+                                    LocalResult::Single(d) => Some(d),
+                                    _ => None,
+                                })
+                                .map(|d| Value::date(d, head))
+                                .unwrap_or(Value::nothing(head)),
                             _ => Value::nothing(head),
                         };
 

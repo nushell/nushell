@@ -109,6 +109,21 @@ impl Command for Upsert {
                 ])),
             },
             Example {
+                description: "Update null values in a column to a default value",
+                example: "[[foo]; [2] [null] [4]] | upsert foo { default 0 }",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(0),
+                    }),
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(4),
+                    }),
+                ])),
+            },
+            Example {
                 description: "Upsert into a list, updating an existing value at an index",
                 example: "[1 2 3] | upsert 0 2",
                 result: Some(Value::test_list(vec![

@@ -329,7 +329,7 @@ export def run-tests [
     }
 
     let modules = (
-        ls ($path | path join $module_search_pattern)
+        ls ($path | path join $module_search_pattern | into glob)
         | par-each --threads $threads {|row|
             {
                 file: $row.name

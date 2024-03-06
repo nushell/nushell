@@ -162,7 +162,7 @@ fn operate(
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
     let file_name: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table_name")?;
+    let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table-name")?;
     let table = Table::new(&file_name, table_name)?;
 
     match action(input, table, span) {
@@ -354,6 +354,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Range
         | Type::Record(_)
         | Type::Signature
+        | Type::Glob
         | Type::Table(_) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "sql".into(),
             wrong_type: val.get_type().to_string(),

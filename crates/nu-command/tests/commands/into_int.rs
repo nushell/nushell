@@ -32,6 +32,41 @@ fn into_int_binary() {
 }
 
 #[test]
+fn into_int_binary_signed() {
+    let actual = nu!("echo 0x[f0] | into int --signed");
+
+    assert!(actual.out.contains("-16"));
+}
+
+#[test]
+fn into_int_binary_back_and_forth() {
+    let actual = nu!("echo 0x[f0] | into int | into binary | to nuon");
+
+    assert!(actual.out.contains("0x[F000000000000000]"));
+}
+
+#[test]
+fn into_int_binary_signed_back_and_forth() {
+    let actual = nu!("echo 0x[f0] | into int --signed | into binary | to nuon");
+
+    assert!(actual.out.contains("0x[F0FFFFFFFFFFFFFF]"));
+}
+
+#[test]
+fn into_int_binary_empty() {
+    let actual = nu!("echo 0x[] | into int");
+
+    assert!(actual.out.contains('0'))
+}
+
+#[test]
+fn into_int_binary_signed_empty() {
+    let actual = nu!("echo 0x[] | into int --signed");
+
+    assert!(actual.out.contains('0'))
+}
+
+#[test]
 #[ignore]
 fn into_int_datetime1() {
     let dt = DateTime::parse_from_rfc3339("1983-04-13T12:09:14.123456789+00:00");

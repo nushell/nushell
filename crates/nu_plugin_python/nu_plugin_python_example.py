@@ -10,9 +10,8 @@
 # 	register <path-to-py-file>
 #
 # Be careful with the spans. Miette will crash if a span is outside the
-# size of the contents vector. For this example we are using 0 and 1, which will
-# point to the beginning of the contents vector. We strongly suggest using the span
-# found in the plugin call head
+# size of the contents vector. We strongly suggest using the span found in the
+# plugin call head as in this example.
 #
 # The plugin will be run using the active Python implementation. If you are in
 # a Python environment, that is the Python version that is used
@@ -113,7 +112,7 @@ def signatures():
     }
 
 
-def process_call(plugin_call):
+def process_call(id, plugin_call):
     """
     plugin_call is a dictionary with the information from the call
     It should contain:
@@ -127,276 +126,37 @@ def process_call(plugin_call):
     sys.stderr.write(json.dumps(plugin_call, indent=4))
     sys.stderr.write("\n")
 
+    # Get the span from the call
+    span = plugin_call["Run"]["call"]["head"]
+
     # Creates a Value of type List that will be encoded and sent to Nushell
-    return {
+    value = {
         "Value": {
             "List": {
                 "vals": [
                     {
                         "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
+                            "val": {
+                                "cols": ["one", "two", "three"],
+                                "vals": [
+                                    {
+                                        "Int": {
+                                            "val": x * y,
+                                            "span": span
+                                        }
+                                    } for y in [0, 1, 2]
+                                ]
+                            },
+                            "span": span
                         }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 1,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 2,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 2,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 4,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 3,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 6,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 4,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 8,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 5,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 10,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 6,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 12,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 7,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 14,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 8,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 16,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
-                    {
-                        "Record": {
-                            "cols": ["one", "two", "three"],
-                            "vals": [
-                                {
-                                    "Int": {
-                                        "val": 0,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 9,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                                {
-                                    "Int": {
-                                        "val": 18,
-                                        "span": {"start": 0, "end": 1},
-                                    }
-                                },
-                            ],
-                            "span": {"start": 0, "end": 1},
-                        }
-                    },
+                    } for x in range(0, 10)
                 ],
-                "span": {"start": 0, "end": 1},
+                "span": span
             }
         }
     }
+
+    write_response(id, {"PipelineData": value})
 
 
 def tell_nushell_encoding():
@@ -406,30 +166,81 @@ def tell_nushell_encoding():
     sys.stdout.flush()
 
 
+def tell_nushell_hello():
+    """
+    A `Hello` message is required at startup to inform nushell of the protocol capabilities and
+    compatibility of the plugin. The version specified should be the version of nushell that this
+    plugin was tested and developed against.
+    """
+    hello = {
+        "Hello": {
+            "protocol": "nu-plugin", # always this value
+            "version": "0.90.2",
+            "features": []
+        }
+    }
+    sys.stdout.write(json.dumps(hello))
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+
+def write_response(id, response):
+    """
+    Use this format to send a response to a plugin call. The ID of the plugin call is required.
+    """
+    wrapped_response = {
+        "CallResponse": [
+            id,
+            response,
+        ]
+    }
+    sys.stdout.write(json.dumps(wrapped_response))
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+
+def write_error(id, msg, span=None):
+    """
+    Use this error format to send errors to nushell in response to a plugin call. The ID of the
+    plugin call is required.
+    """
+    error = {
+        "Error": {
+            "label": "ERROR from plugin",
+            "msg": msg,
+            "span": span
+        }
+    }
+    write_response(id, error)
+
+
+def handle_input(input):
+    if "Hello" in input:
+        return
+    elif input == "Goodbye":
+        return
+    elif "Call" in input:
+        [id, plugin_call] = input["Call"]
+        if "Signature" in plugin_call:
+            write_response(id, signatures())
+        elif "Run" in plugin_call:
+            process_call(id, plugin_call)
+        else:
+            write_error(id, "Operation not supported: " + str(plugin_call))
+    else:
+        sys.stderr.write("Unknown message: " + str(input) + "\n")
+        exit(1)
+
+
 def plugin():
     tell_nushell_encoding()
-    call_str = ",".join(sys.stdin.readlines())
-    plugin_call = json.loads(call_str)
-
-    if plugin_call == "Signature":
-        signature = json.dumps(signatures())
-        sys.stdout.write(signature)
-
-    elif "CallInfo" in plugin_call:
-        response = process_call(plugin_call)
-        sys.stdout.write(json.dumps(response))
-
-    else:
-        # Use this error format if you want to return an error back to Nushell
-        error = {
-            "Error": {
-                "label": "ERROR from plugin",
-                "msg": "error message pointing to call head span",
-                "span": {"start": 0, "end": 1},
-            }
-        }
-        sys.stdout.write(json.dumps(error))
-
+    tell_nushell_hello()
+    for line in sys.stdin:
+        input = json.loads(line)
+        handle_input(input)
 
 if __name__ == "__main__":
-    plugin()
+    if len(sys.argv) == 2 and sys.argv[1] == "--stdio":
+        plugin()
+    else:
+        print("Run me from inside nushell!")

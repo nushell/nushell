@@ -216,6 +216,7 @@ pub(crate) fn parse_commandline_args(
     std::process::exit(1);
 }
 
+#[derive(Clone)]
 pub(crate) struct NushellCliArgs {
     pub(crate) redirect_stdin: Option<Spanned<String>>,
     pub(crate) login_shell: Option<Spanned<String>>,

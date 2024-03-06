@@ -53,6 +53,7 @@ fn get_engine_state() -> EngineState {
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
     let mut start_time = std::time::Instant::now();
+    miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -269,6 +270,7 @@ fn main() -> Result<()> {
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
             "echo_env_stderr" => test_bins::echo_env(false),
+            "echo_env_stderr_fail" => test_bins::echo_env_and_fail(false),
             "echo_env_mixed" => test_bins::echo_env_mixed(),
             "cococo" => test_bins::cococo(),
             "meow" => test_bins::meow(),

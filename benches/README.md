@@ -1,6 +1,6 @@
-# Criterion benchmarks
+# Divan benchmarks
 
-These are benchmarks using [Criterion](https://github.com/bheisler/criterion.rs), a microbenchmarking tool for Rust.
+These are benchmarks using [Divan](https://github.com/nvzqz/divan), a microbenchmarking tool for Rust.
 
 Run all benchmarks with `cargo bench`
 

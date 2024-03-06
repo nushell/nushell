@@ -160,7 +160,7 @@ enum Matcher {
 impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
-            Ok(Matcher::Regex(Regex::new(&lhs.coerce_string()?).map_err(
+            Ok(Matcher::Regex(Regex::new(&lhs.coerce_str()?).map_err(
                 |e| ShellError::GenericError {
                     error: "Error with regular expression".into(),
                     msg: e.to_string(),
@@ -180,7 +180,7 @@ impl Matcher {
     pub fn compare(&self, rhs: &Value) -> Result<bool, ShellError> {
         Ok(match self {
             Matcher::Regex(regex) => {
-                if let Ok(rhs_str) = rhs.coerce_string() {
+                if let Ok(rhs_str) = rhs.coerce_str() {
                     regex.is_match(&rhs_str)
                 } else {
                     false

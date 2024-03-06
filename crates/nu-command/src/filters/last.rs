@@ -27,6 +27,7 @@ impl Command for Last {
                     Type::Any,
                 ),
                 (Type::Binary, Type::Binary),
+                (Type::Range, Type::Any),
             ])
             .optional(
                 "rows",
@@ -59,6 +60,11 @@ impl Command for Last {
                 example: "0x[01 23 45] | last 2",
                 description: "Return the last 2 bytes of a binary value",
                 result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
+            },
+            Example {
+                example: "1..3 | last",
+                description: "Return the last item of a range",
+                result: Some(Value::test_int(3)),
             },
         ]
     }

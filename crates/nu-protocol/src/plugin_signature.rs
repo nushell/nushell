@@ -6,7 +6,7 @@ use crate::engine::Command;
 use crate::{BlockId, Category, Flag, PositionalArg, SyntaxShape, Type};
 
 /// A simple wrapper for Signature that includes examples.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginSignature {
     pub sig: Signature,
     pub examples: Vec<PluginExample>,
