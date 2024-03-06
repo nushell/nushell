@@ -1,11 +1,14 @@
 mod cool_custom_value;
+mod drop_check;
 mod second_custom_value;
 
 use cool_custom_value::CoolCustomValue;
+use drop_check::DropCheck;
+use second_custom_value::SecondCustomValue;
+
 use nu_plugin::{serve_plugin, EngineInterface, MsgPackSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, PluginSignature, ShellError, SyntaxShape, Value};
-use second_custom_value::SecondCustomValue;
+use nu_protocol::{Category, CustomValue, PluginSignature, ShellError, SyntaxShape, Value};
 
 struct CustomValuePlugin;
 
@@ -34,6 +37,10 @@ impl Plugin for CustomValuePlugin {
                     "the custom value to update",
                 )
                 .category(Category::Experimental),
+            PluginSignature::build("custom-value drop-check")
+                .usage("Generates a custom value that prints a message when dropped")
+                .required("msg", SyntaxShape::String, "the message to print on drop")
+                .category(Category::Experimental),
         ]
     }
 
@@ -49,12 +56,25 @@ impl Plugin for CustomValuePlugin {
             "custom-value generate2" => self.generate2(engine, call),
             "custom-value update" => self.update(call, input),
             "custom-value update-arg" => self.update(call, &call.req(0)?),
+            "custom-value drop-check" => self.drop_check(call),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
                 msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),
                 span: Some(call.head),
             }),
         }
+    }
+
+    fn custom_value_dropped(
+        &self,
+        _engine: &EngineInterface,
+        custom_value: Box<dyn CustomValue>,
+    ) -> Result<(), LabeledError> {
+        // This is how we implement our drop behavior for DropCheck.
+        if let Some(drop_check) = custom_value.as_any().downcast_ref::<DropCheck>() {
+            drop_check.notify();
+        }
+        Ok(())
     }
 }
 
@@ -100,6 +120,10 @@ impl CustomValuePlugin {
             help: None,
         }
         .into())
+    }
+
+    fn drop_check(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
+        Ok(DropCheck::new(call.req(0)?).into_value(call.head))
     }
 }
 

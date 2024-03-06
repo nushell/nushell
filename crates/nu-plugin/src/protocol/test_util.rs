@@ -31,11 +31,7 @@ pub(crate) fn test_plugin_custom_value() -> PluginCustomValue {
     let data = bincode::serialize(&expected_test_custom_value() as &dyn CustomValue)
         .expect("bincode serialization of the expected_test_custom_value() failed");
 
-    PluginCustomValue {
-        name: "TestCustomValue".into(),
-        data,
-        source: None,
-    }
+    PluginCustomValue::new("TestCustomValue".into(), data, false, None)
 }
 
 pub(crate) fn expected_test_custom_value() -> TestCustomValue {
@@ -43,8 +39,5 @@ pub(crate) fn expected_test_custom_value() -> TestCustomValue {
 }
 
 pub(crate) fn test_plugin_custom_value_with_source() -> PluginCustomValue {
-    PluginCustomValue {
-        source: Some(PluginSource::new_fake("test").into()),
-        ..test_plugin_custom_value()
-    }
+    test_plugin_custom_value().with_source(Some(PluginSource::new_fake("test").into()))
 }

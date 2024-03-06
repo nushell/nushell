@@ -167,3 +167,16 @@ fn fails_if_passing_custom_values_across_plugins() {
         .err
         .contains("the `inc` plugin does not support this kind of value"));
 }
+
+#[test]
+fn drop_check_custom_value_prints_message_on_drop() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        // We build an array with the value copied twice to verify that it only gets dropped once
+        "do { |v| [$v $v] } (custom-value drop-check 'Hello') | ignore"
+    );
+
+    assert_eq!(actual.err, "DropCheck was dropped: Hello\n");
+    assert!(actual.status.success());
+}

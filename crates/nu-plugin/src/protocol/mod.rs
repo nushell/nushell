@@ -139,6 +139,9 @@ pub enum CustomValueOp {
     PartialCmp(Value),
     /// [`operation()`](nu_protocol::CustomValue::operation)
     Operation(Spanned<Operator>, Value),
+    /// Notify that the custom value has been dropped, if
+    /// [`notify_plugin_on_drop()`](nu_protocol::CustomValue::notify_plugin_on_drop) is true
+    Dropped,
 }
 
 impl CustomValueOp {
@@ -150,6 +153,7 @@ impl CustomValueOp {
             CustomValueOp::FollowPathString(_) => "follow_path_string",
             CustomValueOp::PartialCmp(_) => "partial_cmp",
             CustomValueOp::Operation(_, _) => "operation",
+            CustomValueOp::Dropped => "dropped",
         }
     }
 }

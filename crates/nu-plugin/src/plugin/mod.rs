@@ -368,6 +368,22 @@ pub trait Plugin: Sync {
             .operation(left.span, operator.item, operator.span, &right)
             .map_err(LabeledError::from)
     }
+
+    /// Handle a notification that all copies of a custom value within the engine have been dropped.
+    ///
+    /// This notification is only sent if [`CustomValue::notify_plugin_on_drop`] was true. Unlike
+    /// the other custom value handlers, a span is not provided.
+    ///
+    /// The default implementation does nothing. Any error generated here is unlikely to be visible
+    /// to the user, and will only show up in the engine's log output.
+    fn custom_value_dropped(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Box<dyn CustomValue>,
+    ) -> Result<(), LabeledError> {
+        let _ = (engine, custom_value);
+        Ok(())
+    }
 }
 
 /// The streaming API for a Nushell plugin
@@ -531,6 +547,22 @@ pub trait StreamingPlugin: Sync {
             .operation(left.span, operator.item, operator.span, &right)
             .map_err(LabeledError::from)
     }
+
+    /// Handle a notification that all copies of a custom value within the engine have been dropped.
+    ///
+    /// This notification is only sent if [`CustomValue::notify_plugin_on_drop`] was true. Unlike
+    /// the other custom value handlers, a span is not provided.
+    ///
+    /// The default implementation does nothing. Any error generated here is unlikely to be visible
+    /// to the user, and will only show up in the engine's log output.
+    fn custom_value_dropped(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Box<dyn CustomValue>,
+    ) -> Result<(), LabeledError> {
+        let _ = (engine, custom_value);
+        Ok(())
+    }
 }
 
 /// All [Plugin]s can be used as [StreamingPlugin]s, but input streams will be fully consumed
@@ -599,6 +631,14 @@ impl<T: Plugin> StreamingPlugin for T {
         right: Value,
     ) -> Result<Value, LabeledError> {
         <Self as Plugin>::custom_value_operation(self, engine, left, operator, right)
+    }
+
+    fn custom_value_dropped(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Box<dyn CustomValue>,
+    ) -> Result<(), LabeledError> {
+        <Self as Plugin>::custom_value_dropped(self, engine, custom_value)
     }
 }
 
@@ -858,6 +898,14 @@ fn custom_value_op(
             let result = plugin
                 .custom_value_operation(engine, local_value, operator, right)
                 .map(|value| PipelineData::Value(value, None));
+            engine
+                .write_response(result)
+                .and_then(|writer| writer.write())
+        }
+        CustomValueOp::Dropped => {
+            let result = plugin
+                .custom_value_dropped(engine, local_value.item)
+                .map(|_| PipelineData::Empty);
             engine
                 .write_response(result)
                 .and_then(|writer| writer.write())

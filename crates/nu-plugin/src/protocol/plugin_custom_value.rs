@@ -22,15 +22,24 @@ mod tests;
 /// values sent matches the plugin it is being sent to.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginCustomValue {
-    /// The name of the custom value as defined by the plugin (`value_string()`)
-    pub name: String,
-    /// The bincoded representation of the custom value on the plugin side
-    pub data: Vec<u8>,
+    #[serde(flatten)]
+    shared: Arc<SharedContent>,
 
     /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
     /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
     #[serde(skip, default)]
-    pub(crate) source: Option<Arc<PluginSource>>,
+    source: Option<Arc<PluginSource>>,
+}
+
+/// Content shared across copies of a plugin custom value.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SharedContent {
+    /// The name of the custom value as defined by the plugin (`value_string()`)
+    name: String,
+    /// The bincoded representation of the custom value on the plugin side
+    data: Vec<u8>,
+    /// True if the custom value should notify the source if all copies of it are dropped.
+    notify_on_drop: bool,
 }
 
 #[typetag::serde]
@@ -40,7 +49,7 @@ impl CustomValue for PluginCustomValue {
     }
 
     fn value_string(&self) -> String {
-        self.name.clone()
+        self.name().to_owned()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
@@ -116,6 +125,52 @@ impl CustomValue for PluginCustomValue {
 }
 
 impl PluginCustomValue {
+    /// Create a new [`PluginCustomValue`].
+    pub(crate) fn new(
+        name: String,
+        data: Vec<u8>,
+        notify_on_drop: bool,
+        source: Option<Arc<PluginSource>>,
+    ) -> PluginCustomValue {
+        PluginCustomValue {
+            shared: Arc::new(SharedContent {
+                name,
+                data,
+                notify_on_drop,
+            }),
+            source,
+        }
+    }
+
+    /// The name of the custom value as defined by the plugin (`value_string()`)
+    pub fn name(&self) -> &str {
+        &self.shared.name
+    }
+
+    /// The bincoded representation of the custom value on the plugin side
+    pub fn data(&self) -> &[u8] {
+        &self.shared.data
+    }
+
+    /// True if the custom value should notify the source if all copies of it are dropped.
+    pub fn notify_on_drop(&self) -> bool {
+        self.shared.notify_on_drop
+    }
+
+    /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
+    /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
+    #[cfg(test)]
+    pub(crate) fn source(&self) -> &Option<Arc<PluginSource>> {
+        &self.source
+    }
+
+    /// Create the [`PluginCustomValue`] with the given source.
+    #[cfg(test)]
+    pub(crate) fn with_source(mut self, source: Option<Arc<PluginSource>>) -> PluginCustomValue {
+        self.source = source;
+        self
+    }
+
     /// Helper to get the plugin to implement an op
     fn get_plugin(&self, span: Option<Span>, for_op: &str) -> Result<PluginInterface, ShellError> {
         let wrap_err = |err: ShellError| ShellError::GenericError {
@@ -154,12 +209,9 @@ impl PluginCustomValue {
         span: Span,
     ) -> Result<PluginCustomValue, ShellError> {
         let name = custom_value.value_string();
+        let notify_on_drop = custom_value.notify_plugin_on_drop();
         bincode::serialize(custom_value)
-            .map(|data| PluginCustomValue {
-                name,
-                data,
-                source: None,
-            })
+            .map(|data| PluginCustomValue::new(name, data, notify_on_drop, None))
             .map_err(|err| ShellError::CustomValueFailedToEncode {
                 msg: err.to_string(),
                 span,
@@ -172,7 +224,7 @@ impl PluginCustomValue {
         &self,
         span: Span,
     ) -> Result<Box<dyn CustomValue>, ShellError> {
-        bincode::deserialize::<Box<dyn CustomValue>>(&self.data).map_err(|err| {
+        bincode::deserialize::<Box<dyn CustomValue>>(self.data()).map_err(|err| {
             ShellError::CustomValueFailedToDecode {
                 msg: err.to_string(),
                 span,
@@ -258,7 +310,7 @@ impl PluginCustomValue {
                         Ok(())
                     } else {
                         Err(ShellError::CustomValueIncorrectForPlugin {
-                            name: custom_value.name.clone(),
+                            name: custom_value.name().to_owned(),
                             span,
                             dest_plugin: source.name().to_owned(),
                             src_plugin: custom_value.source.as_ref().map(|s| s.name().to_owned()),
@@ -419,6 +471,28 @@ impl PluginCustomValue {
                 *value = val.collect()?;
                 Self::deserialize_custom_values_in(value)
             }
+        }
+    }
+}
+
+impl Drop for PluginCustomValue {
+    fn drop(&mut self) {
+        // If the custom value specifies notify_on_drop and this is the last copy, we need to let
+        // the plugin know about it if we can.
+        if self.source.is_some() && self.notify_on_drop() && Arc::strong_count(&self.shared) == 1 {
+            self.get_plugin(None, "drop")
+                // While notifying drop, we don't need a copy of the source
+                .and_then(|plugin| {
+                    plugin.custom_value_dropped(PluginCustomValue {
+                        shared: self.shared.clone(),
+                        source: None,
+                    })
+                })
+                .unwrap_or_else(|err| {
+                    // We shouldn't do anything with the error except log it
+                    let name = self.name();
+                    log::warn!("Failed to notify drop of custom value ({name}): {err}")
+                });
         }
     }
 }

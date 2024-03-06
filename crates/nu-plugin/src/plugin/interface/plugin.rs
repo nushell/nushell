@@ -6,8 +6,8 @@ use std::{
 };
 
 use nu_protocol::{
-    ast::Operator, IntoInterruptiblePipelineData, ListStream, PipelineData, PluginSignature,
-    ShellError, Spanned, Value,
+    ast::Operator, IntoInterruptiblePipelineData, IntoSpanned, ListStream, PipelineData,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 
 use crate::{
@@ -863,7 +863,7 @@ impl PluginInterface {
             PluginCallResponse::Ordering(ordering) => Ok(ordering),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
-                msg: format!("Received unexpected response to custom value partial_cmp() call"),
+                msg: "Received unexpected response to custom value partial_cmp() call".into(),
             }),
         }
     }
@@ -877,6 +877,17 @@ impl PluginInterface {
     ) -> Result<Value, ShellError> {
         PluginCustomValue::verify_source(&mut right, &self.state.source)?;
         self.custom_value_op_expecting_value(left, CustomValueOp::Operation(operator, right))
+    }
+
+    /// Notify the plugin about a dropped custom value.
+    pub(crate) fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
+        // Note: the protocol is always designed to have a span with the custom value, but this
+        // operation doesn't support one.
+        self.custom_value_op_expecting_value(
+            value.into_spanned(Span::unknown()),
+            CustomValueOp::Dropped,
+        )
+        .map(|_| ())
     }
 }
 
