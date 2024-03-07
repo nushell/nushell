@@ -215,6 +215,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Rm,
             Save,
             Touch,
+            UTouch,
             Glob,
             Watch,
         };
@@ -279,6 +280,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToTsv,
             Touch,
             Upsert,
+            UTouch,
             Where,
             ToXml,
             ToYaml,
