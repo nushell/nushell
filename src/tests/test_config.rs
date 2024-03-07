@@ -135,22 +135,22 @@ fn mutate_nu_config_plugin_gc_default_enabled() -> TestResult {
 }
 
 #[test]
-fn mutate_nu_config_plugin_gc_default_remove_after() -> TestResult {
+fn mutate_nu_config_plugin_gc_default_stop_after() -> TestResult {
     run_test(
         r#"
-            $env.config.plugin_gc.default.remove_after = 20sec
-            $env.config.plugin_gc.default.remove_after
+            $env.config.plugin_gc.default.stop_after = 20sec
+            $env.config.plugin_gc.default.stop_after
         "#,
         "20sec",
     )
 }
 
 #[test]
-fn mutate_nu_config_plugin_gc_default_remove_after_negative() -> TestResult {
+fn mutate_nu_config_plugin_gc_default_stop_after_negative() -> TestResult {
     fail_test(
         r#"
-            $env.config.plugin_gc.default.remove_after = -1sec
-            $env.config.plugin_gc.default.remove_after
+            $env.config.plugin_gc.default.stop_after = -1sec
+            $env.config.plugin_gc.default.stop_after
         "#,
         "must not be negative",
     )
@@ -162,9 +162,9 @@ fn mutate_nu_config_plugin_gc_plugins() -> TestResult {
         r#"
             $env.config.plugin_gc.plugins.inc = {
                 enabled: true
-                remove_after: 0sec
+                stop_after: 0sec
             }
-            $env.config.plugin_gc.plugins.inc.remove_after
+            $env.config.plugin_gc.plugins.inc.stop_after
         "#,
         "0sec",
     )
