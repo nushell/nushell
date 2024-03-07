@@ -1004,7 +1004,7 @@ impl Value {
     /// The other `Value` cases are already parsable when converted strings
     /// or are not yet handled by this function.
     ///
-    /// This functions behaves like [`to_formatted_string`](Self::to_formatted_string)
+    /// This functions behaves like [`to_expanded_string`](Self::to_expanded_string)
     /// and will recurse into records and lists.
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
