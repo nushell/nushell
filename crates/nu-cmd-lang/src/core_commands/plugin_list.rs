@@ -69,9 +69,10 @@ impl Command for PluginList {
     ) -> Result<PipelineData, ShellError> {
         let span = call.span();
         // Group plugin decls by plugin identity
-        let decls = engine_state
-            .plugin_decls()
-            .into_group_map_by(|decl| decl.is_plugin().expect("plugin decl should have identity"));
+        let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
+            decl.plugin_identity()
+                .expect("plugin decl should have identity")
+        });
         // Build plugins list
         let list = engine_state.plugins().iter().map(|plugin| {
             // Find commands that belong to the plugin

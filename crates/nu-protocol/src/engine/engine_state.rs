@@ -515,7 +515,7 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let identity = decl.is_plugin().expect("plugin should have identity");
+                    let identity = decl.plugin_identity().expect("plugin should have identity");
                     let mut file_name = identity
                         .filename()
                         .to_str()
@@ -676,7 +676,7 @@ impl EngineState {
         let mut unique_plugin_decls = HashMap::new();
 
         // Make sure there are no duplicate decls: Newer one overwrites the older one
-        for decl in self.decls.iter().filter(|d| d.is_plugin().is_some()) {
+        for decl in self.decls.iter().filter(|d| d.is_plugin()) {
             unique_plugin_decls.insert(decl.name(), decl);
         }
 
@@ -867,7 +867,7 @@ impl EngineState {
                 (
                     signature,
                     decl.examples(),
-                    decl.is_plugin().is_some(),
+                    decl.is_plugin(),
                     decl.get_block_id().is_some(),
                     decl.is_parser_keyword(),
                 )

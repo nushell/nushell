@@ -119,7 +119,11 @@ impl Command for PluginDeclaration {
         )
     }
 
-    fn is_plugin(&self) -> Option<&PluginIdentity> {
+    fn is_plugin(&self) -> bool {
+        true
+    }
+
+    fn plugin_identity(&self) -> Option<&PluginIdentity> {
         Some(&self.source.identity)
     }
 }
