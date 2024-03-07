@@ -68,7 +68,7 @@ mod parser_benchmarks {
 
         bencher
             .with_inputs(|| nu_protocol::engine::StateWorkingSet::new(&engine_state))
-            .bench_refs(|mut working_set| parse(&mut working_set, None, default_env, false))
+            .bench_refs(|working_set| parse(working_set, None, default_env, false))
     }
 
     #[divan::bench()]
@@ -78,7 +78,7 @@ mod parser_benchmarks {
 
         bencher
             .with_inputs(|| nu_protocol::engine::StateWorkingSet::new(&engine_state))
-            .bench_refs(|mut working_set| parse(&mut working_set, None, default_env, false))
+            .bench_refs(|working_set| parse(working_set, None, default_env, false))
     }
 }
 
@@ -146,7 +146,7 @@ mod encoding_benchmarks {
         );
         let encoder = EncodingType::try_from_bytes(b"json").unwrap();
         bencher
-            .with_inputs(|| (vec![]))
+            .with_inputs(Vec::new)
             .bench_values(|mut res| encoder.encode(&test_data, &mut res))
     }
 
@@ -158,7 +158,7 @@ mod encoding_benchmarks {
         );
         let encoder = EncodingType::try_from_bytes(b"msgpack").unwrap();
         bencher
-            .with_inputs(|| (vec![]))
+            .with_inputs(Vec::new)
             .bench_values(|mut res| encoder.encode(&test_data, &mut res))
     }
 }
