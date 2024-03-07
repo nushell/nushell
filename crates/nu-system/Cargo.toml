@@ -31,7 +31,7 @@ mach2 = "0.4"
 chrono = { workspace = true, default-features = false, features = ["clock"] }
 ntapi = "0.4"
 once_cell = { workspace = true }
-windows = { version = "0.52", features = [
+windows = { version = "0.54", features = [
   "Wdk_System_SystemServices",
   "Wdk_System_Threading",
   "Win32_Foundation",
