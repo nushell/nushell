@@ -7,7 +7,10 @@ pub fn home_dir() -> Option<PathBuf> {
 }
 
 pub fn config_dir() -> Option<PathBuf> {
-    dirs_next::config_dir()
+    match std::env::var("XDG_CONFIG_HOME") {
+        Ok(xdg_config) if !xdg_config.is_empty() => Some(PathBuf::from(xdg_config)),
+        _ => dirs_next::config_dir(),
+    }
 }
 
 #[cfg(windows)]
