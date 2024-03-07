@@ -21,6 +21,6 @@ nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 nu-engine = { path = "../nu-engine", version = "0.91.1" }
 
 gjson = "0.8"
-scraper = { default-features = false, version = "0.18" }
+scraper = { default-features = false, version = "0.19" }
 sxd-document = "0.3"
 sxd-xpath = "0.4"
