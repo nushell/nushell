@@ -3077,7 +3077,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "typetag",
- "windows 0.52.0",
+ "windows 0.54.0",
 ]
 
 [[package]]
@@ -5984,9 +5984,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uu_cp"
-version = "0.0.23"
+version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c8e090cfcfa51cb224d247e05938d25718a7203c6f8c0f0de7b3b031d99dcea"
+checksum = "927869e2df48ac2f09ebc083459e96efc97028863a41dce96cfe8164c5c722ba"
 dependencies = [
  "clap",
  "filetime",
@@ -6000,9 +6000,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.0.23"
+version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbf657c9e738d16ebc5c161a611ff25327c1fb599645afb2831062efb23c851"
+checksum = "9d303b73c3a1ede83101c4a01c7f2f72f000ec9241a5d788ceba6a91a9ce1cb3"
 dependencies = [
  "clap",
  "uucore",
@@ -6010,9 +6010,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mktemp"
-version = "0.0.23"
+version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "154531208d9ec160629bf9545a56ad9df38e964e547e0a17ee9d75aeec9831cb"
+checksum = "c7e25b0928c96297836d3400c049d7c772073d0534720e4d13dd0e4a6ed52349"
 dependencies = [
  "clap",
  "rand",
@@ -6022,9 +6022,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.0.23"
+version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e307e61d34d2e1dba0659ef443ada8340ec3b788bd6c8fc7fdfe0e02c6b4cfc"
+checksum = "8ec472139edb0e91d9706779bfdf45814b139d8b23bea2ad0feaaac1fb6c1523"
 dependencies = [
  "clap",
  "fs_extra",
@@ -6034,9 +6034,9 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.0.23"
+version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70589dc3b41f34cbfe1fb22b8f20fcac233fa4565409905f12dd06780b18374d"
+checksum = "521f16cb67ba9f55341e00cd6b806556cefef430e9d80ea425607628da3a40e5"
 dependencies = [
  "clap",
  "libc",
@@ -6062,6 +6062,7 @@ dependencies = [
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
+ "xattr",
 ]
 
 [[package]]
