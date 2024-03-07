@@ -24,42 +24,63 @@ pkg-fmt = "zip"
 
 [workspace]
 members = [
-	"crates/nu-cli",
-	"crates/nu-engine",
-	"crates/nu-parser",
-	"crates/nu-system",
-	"crates/nu-cmd-base",
-	"crates/nu-cmd-extra",
-	"crates/nu-cmd-lang",
-	"crates/nu-cmd-dataframe",
-	"crates/nu-command",
-	"crates/nu-color-config",
-	"crates/nu-explore",
-	"crates/nu-json",
-	"crates/nu-lsp",
-	"crates/nu-pretty-hex",
-	"crates/nu-protocol",
-	"crates/nu-plugin",
-	"crates/nu_plugin_inc",
-	"crates/nu_plugin_gstat",
-	"crates/nu_plugin_example",
-	"crates/nu_plugin_stream_example",
-	"crates/nu_plugin_query",
-	"crates/nu_plugin_custom_values",
-	"crates/nu_plugin_formats",
-	"crates/nu-std",
-	"crates/nu-table",
-	"crates/nu-term-grid",
-	"crates/nu-test-support",
-	"crates/nu-utils",
+  "crates/nu-cli",
+  "crates/nu-engine",
+  "crates/nu-parser",
+  "crates/nu-system",
+  "crates/nu-cmd-base",
+  "crates/nu-cmd-extra",
+  "crates/nu-cmd-lang",
+  "crates/nu-cmd-dataframe",
+  "crates/nu-command",
+  "crates/nu-color-config",
+  "crates/nu-explore",
+  "crates/nu-json",
+  "crates/nu-lsp",
+  "crates/nu-pretty-hex",
+  "crates/nu-protocol",
+  "crates/nu-plugin",
+  "crates/nu_plugin_inc",
+  "crates/nu_plugin_gstat",
+  "crates/nu_plugin_example",
+  "crates/nu_plugin_stream_example",
+  "crates/nu_plugin_query",
+  "crates/nu_plugin_custom_values",
+  "crates/nu_plugin_formats",
+  "crates/nu-std",
+  "crates/nu-table",
+  "crates/nu-term-grid",
+  "crates/nu-test-support",
+  "crates/nu-utils",
 ]
+
+[workspace.dependencies]
+chrono = { default-features = false, version = "0.4" }
+crossterm = "0.27"
+ctrlc = "3.4"
+fancy-regex = "0.13"
+log = "0.4"
+miette = "7.1"
+nix = { version = "0.27", default-features = false }
+nu-ansi-term = "0.50.0"
+once_cell = "1.18"
+pathdiff = "0.2"
+percent-encoding = "2"
+reedline = "0.30.0"
+rstest = { version = "0.18", default-features = false }
+serde_json = "1.0"
+sysinfo = "0.30"
+tempfile = "3.10"
+unicode-segmentation = "1.11"
+uuid = "1.6.0"
+which = "6.0.0"
 
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.91.1" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.91.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.91.1" }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.91.1", features = [
-	"dataframe",
+  "dataframe",
 ], optional = true }
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.91.1", optional = true }
 nu-command = { path = "./crates/nu-command", version = "0.91.1" }
@@ -73,14 +94,14 @@ nu-protocol = { path = "./crates/nu-protocol", version = "0.91.1" }
 nu-std = { path = "./crates/nu-std", version = "0.91.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.91.1" }
 
-reedline = { version = "0.30.0", features = ["bashisms", "sqlite"] }
+reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
-crossterm = "0.27"
-ctrlc = "3.4"
-log = "0.4"
-miette = { version = "7.1", features = ["fancy-no-backtrace", "fancy"] }
+crossterm = { workspace = true }
+ctrlc = { workspace = true }
+log = { workspace = true }
+miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 mimalloc = { version = "0.1.37", default-features = false, optional = true }
-serde_json = "1.0"
+serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
 
@@ -92,11 +113,11 @@ openssl = { version = "0.10", features = ["vendored"], optional = true }
 winresource = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
-nix = { version = "0.27", default-features = false, features = [
-	"signal",
-	"process",
-	"fs",
-	"term",
+nix = { workspace = true, default-features = false, features = [
+  "signal",
+  "process",
+  "fs",
+  "term",
 ] }
 
 [dev-dependencies]
@@ -104,28 +125,28 @@ nu-test-support = { path = "./crates/nu-test-support", version = "0.91.1" }
 assert_cmd = "2.0"
 divan = "0.1.14"
 pretty_assertions = "1.4"
-rstest = { version = "0.18", default-features = false }
+rstest = { workspace = true, default-features = false }
 serial_test = "3.0"
-tempfile = "3.10"
+tempfile = { workspace = true }
 
 [features]
 plugin = [
-	"nu-plugin",
-	"nu-cli/plugin",
-	"nu-parser/plugin",
-	"nu-command/plugin",
-	"nu-protocol/plugin",
-	"nu-engine/plugin",
+  "nu-plugin",
+  "nu-cli/plugin",
+  "nu-parser/plugin",
+  "nu-command/plugin",
+  "nu-protocol/plugin",
+  "nu-engine/plugin",
 ]
 default = ["default-no-clipboard", "system-clipboard"]
 # Enables convenient omitting of the system-clipboard feature, as it leads to problems in ci on linux
 # See https://github.com/nushell/nushell/pull/11535
 default-no-clipboard = [
-	"plugin",
-	"which-support",
-	"trash-support",
-	"sqlite",
-	"mimalloc",
+  "plugin",
+  "which-support",
+  "trash-support",
+  "sqlite",
+  "mimalloc",
 ]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]

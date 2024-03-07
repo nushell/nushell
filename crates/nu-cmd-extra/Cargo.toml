@@ -22,8 +22,8 @@ nu-utils = { path = "../nu-utils", version = "0.91.1" }
 # Potential dependencies for extras
 heck = "0.4.1"
 num-traits = "0.2"
-nu-ansi-term = "0.50.0"
-fancy-regex = "0.13.0"
+nu-ansi-term = { workspace = true }
+fancy-regex = { workspace = true }
 rust-embed = "8.2.0"
 serde = "1.0.164"
 nu-pretty-hex = { version = "0.91.1", path = "../nu-pretty-hex" }
