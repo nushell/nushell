@@ -280,7 +280,9 @@ pub fn run_seq_dates(
     }
 
     if days_to_output != 0 {
-        end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
+        end_date = match Duration::try_days(days_to_output)
+            .and_then(|days| start_date.checked_add_signed(days))
+        {
             Some(date) => date,
             None => {
                 return Err(ShellError::GenericError {
@@ -302,6 +304,16 @@ pub fn run_seq_dates(
 
     let is_out_of_range =
         |next| (step_size > 0 && next > end_date) || (step_size < 0 && next < end_date);
+
+    let Some(step_size) = Duration::try_days(step_size) else {
+        return Err(ShellError::GenericError {
+            error: "increment magnitude is too large".into(),
+            msg: "increment magnitude is too large".into(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        });
+    };
 
     let mut next = start_date;
     if is_out_of_range(next) {
@@ -330,7 +342,7 @@ pub fn run_seq_dates(
             }
         }
         ret.push(Value::string(date_string, call_span));
-        next += Duration::days(step_size);
+        next += step_size;
 
         if is_out_of_range(next) {
             break;

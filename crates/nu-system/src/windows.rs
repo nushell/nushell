@@ -149,7 +149,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             let start_time = if let Some((start, _, _, _)) = times {
                 // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
                 // the Linux epoch (1970-01-01).
-                let time = chrono::Duration::seconds(start as i64 / 10_000_000);
+                let Some(time) = chrono::Duration::try_seconds(start as i64 / 10_000_000) else {
+                    continue;
+                };
                 let base =
                     NaiveDate::from_ymd_opt(1601, 1, 1).and_then(|nd| nd.and_hms_opt(0, 0, 0));
                 if let Some(base) = base {
