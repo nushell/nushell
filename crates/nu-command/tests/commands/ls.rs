@@ -701,3 +701,13 @@ fn list_flag_false() {
         assert_eq!(actual.out, "false");
     })
 }
+
+#[test]
+fn list_empty_string() {
+    Playground::setup("ls_empty_string", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("yehuda.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "ls ''");
+        assert!(actual.err.contains("does not exist"));
+    })
+}
