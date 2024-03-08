@@ -575,7 +575,12 @@ impl PluginInterface {
             PluginCall::CustomValueOp(value, op) => {
                 (PluginCall::CustomValueOp(value, op), Default::default())
             }
-            PluginCall::Run(CallInfo { name, call, input }) => {
+            PluginCall::Run(CallInfo {
+                name,
+                mut call,
+                input,
+            }) => {
+                verify_call_args(&mut call, &self.state.identity)?;
                 let (header, writer) = self.init_write_pipeline_data(input)?;
                 (
                     PluginCall::Run(CallInfo {
@@ -727,6 +732,20 @@ impl PluginInterface {
             }),
         }
     }
+}
+
+/// Check that custom values in call arguments come from the right source
+fn verify_call_args(
+    call: &mut crate::EvaluatedCall,
+    source: &Arc<PluginIdentity>,
+) -> Result<(), ShellError> {
+    for arg in call.positional.iter_mut() {
+        PluginCustomValue::verify_source(arg, source)?;
+    }
+    for arg in call.named.iter_mut().flat_map(|(_, arg)| arg.as_mut()) {
+        PluginCustomValue::verify_source(arg, source)?;
+    }
+    Ok(())
 }
 
 impl Interface for PluginInterface {
