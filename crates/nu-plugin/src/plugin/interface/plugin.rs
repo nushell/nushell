@@ -664,9 +664,19 @@ impl PluginInterface {
                     remaining_streams_to_read: 0,
                 },
             ))
-            .map_err(|_| ShellError::NushellFailed {
-                msg: "PluginInterfaceManager hung up and is no longer accepting plugin calls"
-                    .into(),
+            .map_err(|_| ShellError::GenericError {
+                error: format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
+                msg: "can't complete this operation because the plugin is closed".into(),
+                span: match &call {
+                    PluginCall::CustomValueOp(value, _) => Some(value.span),
+                    PluginCall::Run(info) => Some(info.call.head),
+                    _ => None,
+                },
+                help: Some(format!(
+                    "you can try running `plugin stop {}` to restart the plugin",
+                    self.state.source.name()
+                )),
+                inner: vec![],
             })?;
 
         // Write request
