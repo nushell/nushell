@@ -410,7 +410,9 @@ impl InterfaceManager for PluginInterfaceManager {
                         msg: format!(
                             "Plugin `{}` is compiled for nushell version {}, \
                                 which is not compatible with version {}",
-                            self.state.identity.plugin_name, info.version, local_info.version,
+                            self.state.source.name(),
+                            info.version,
+                            local_info.version,
                         ),
                     })
                 }
@@ -421,7 +423,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     msg: format!(
                         "Failed to receive initial Hello message from `{}`. \
                             This plugin might be too old",
-                        self.state.identity.plugin_name
+                        self.state.source.name()
                     ),
                 })
             }
