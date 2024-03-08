@@ -100,7 +100,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ### Added
 
-- Add indent flag to to json (first draft) 
+- Add indent flag to json (first draft) 
 
 ### Fixed
 
