@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
 use nu_protocol::{report_error, PipelineData};
 
@@ -92,7 +93,8 @@ use std pwd
     // We need to evaluate the module in order to run the `export-env` blocks.
     let mut stack = Stack::new();
     let pipeline_data = PipelineData::Empty;
-    eval_block(
+
+    eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,
         &block,

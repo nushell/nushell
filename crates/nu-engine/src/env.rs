@@ -6,6 +6,7 @@ use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
 use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
+use nu_protocol::debugger::WithoutDebug;
 
 use crate::eval_block;
 
@@ -388,7 +389,8 @@ fn get_converted_value(
                     }
 
                     let val_span = orig_val.span();
-                    let result = eval_block(
+                    // TODO DEBUG
+                    let result = eval_block::<WithoutDebug>(
                         engine_state,
                         &mut stack,
                         block,

@@ -8,6 +8,7 @@ use nu_protocol::{
 };
 use std::collections::HashMap;
 
+use nu_protocol::debugger::WithoutDebug;
 use std::fmt::{Debug, Formatter, Result};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
@@ -71,7 +72,7 @@ impl<'a> StyleComputer<'a> {
                         }
 
                         // Run the block.
-                        match eval_block(
+                        match eval_block::<WithoutDebug>(
                             self.engine_state,
                             &mut stack,
                             &block,

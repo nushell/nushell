@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Block, RangeInclusion},
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
@@ -115,7 +116,8 @@ pub fn eval_block(
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
-    match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
+    match nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input, true, true)
+    {
         Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
         Ok(result) => result.into_value(Span::test_data()),
     }

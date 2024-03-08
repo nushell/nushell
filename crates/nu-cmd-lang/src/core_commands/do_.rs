@@ -1,7 +1,8 @@
 use std::thread;
 
-use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
+use nu_engine::{get_eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoSpanned, ListStream, PipelineData, RawStream, ShellError, Signature,
@@ -116,6 +117,9 @@ impl Command for Do {
                 )
             }
         }
+
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
         let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,

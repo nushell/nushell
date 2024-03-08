@@ -3,6 +3,7 @@ use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::cli_error::{report_error, report_error_new};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
 
@@ -115,7 +116,7 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block(engine_state, stack, &block, input, false, false) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -243,7 +244,14 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block(engine_state, stack, &block, input, false, false) {
+                        match eval_block::<WithoutDebug>(
+                            engine_state,
+                            stack,
+                            &block,
+                            input,
+                            false,
+                            false,
+                        ) {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
@@ -336,8 +344,14 @@ fn run_hook_block(
         }
     }
 
-    let pipeline_data =
-        eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
+    let pipeline_data = eval_block_with_early_return::<WithoutDebug>(
+        engine_state,
+        &mut callee_stack,
+        block,
+        input,
+        false,
+        false,
+    )?;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);

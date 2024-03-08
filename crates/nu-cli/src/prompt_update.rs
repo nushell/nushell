@@ -1,6 +1,7 @@
 use crate::NushellPrompt;
 use log::trace;
-use nu_engine::eval_subexpression;
+use nu_engine::get_eval_subexpression;
+
 use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -35,6 +36,8 @@ fn get_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
+    let eval_subexpression = get_eval_subexpression(engine_state);
+
     stack
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {

@@ -9,8 +9,9 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
-use nu_engine::{current_dir, eval_block, CallExt};
+use nu_engine::{current_dir, get_eval_block, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
@@ -167,6 +168,8 @@ impl Command for Watch {
         debouncer.cache().add_root(&path, recursive_mode);
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+
+        let eval_block = get_eval_block(engine_state);
 
         let event_handler =
             |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {

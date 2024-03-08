@@ -1,5 +1,6 @@
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::{get_eval_expression, CallExt};
 use nu_protocol::ast::{Argument, Block, Call, Expr, Expression};
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
@@ -43,7 +44,7 @@ impl Command for Explain {
         let ctrlc = engine_state.ctrlc.clone();
         let mut stack = stack.captures_to_stack(capture_block.captures);
 
-        let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
+        let elements = get_pipeline_elements(engine_state, &mut stack, block, call.head)?;
 
         Ok(elements.into_pipeline_data(ctrlc))
     }
@@ -62,9 +63,11 @@ pub fn get_pipeline_elements(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
+    span: Span,
 ) -> Result<Vec<Value>, ShellError> {
     let mut element_values = vec![];
-    let span = Span::test_data();
+
+    let eval_expression = get_eval_expression(engine_state);
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
@@ -80,7 +83,7 @@ pub fn get_pipeline_elements(
                 let command = engine_state.get_decl(call.decl_id);
                 (
                     command.name().to_string(),
-                    get_arguments(engine_state, stack, *call),
+                    get_arguments(engine_state, stack, *call, eval_expression),
                 )
             } else {
                 ("no-op".to_string(), vec![])
@@ -106,7 +109,12 @@ pub fn get_pipeline_elements(
     Ok(element_values)
 }
 
-fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> Vec<Value> {
+fn get_arguments(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: Call,
+    eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
+) -> Vec<Value> {
     let mut arg_value = vec![];
     let span = Span::test_data();
     for arg in &call.arguments {
@@ -145,8 +153,12 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 };
 
                 if let Some(expression) = opt_expr {
-                    let evaluated_expression =
-                        get_expression_as_value(engine_state, stack, expression);
+                    let evaluated_expression = get_expression_as_value(
+                        engine_state,
+                        stack,
+                        expression,
+                        eval_expression_fn,
+                    );
                     let arg_type = "expr";
                     let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                     let arg_value_type = &evaluated_expression.get_type().to_string();
@@ -166,7 +178,8 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
             }
             Argument::Positional(inner_expr) => {
                 let arg_type = "positional";
-                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
+                let evaluated_expression =
+                    get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.span();
@@ -184,7 +197,8 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
             }
             Argument::Unknown(inner_expr) => {
                 let arg_type = "unknown";
-                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
+                let evaluated_expression =
+                    get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.span();
@@ -202,7 +216,8 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
             }
             Argument::Spread(inner_expr) => {
                 let arg_type = "spread";
-                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
+                let evaluated_expression =
+                    get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.span();
@@ -228,8 +243,9 @@ fn get_expression_as_value(
     engine_state: &EngineState,
     stack: &mut Stack,
     inner_expr: &Expression,
+    eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Value {
-    match eval_expression(engine_state, stack, inner_expr) {
+    match eval_expression_fn(engine_state, stack, inner_expr) {
         Ok(v) => v,
         Err(error) => Value::error(error, inner_expr.span),
     }
