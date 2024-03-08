@@ -93,7 +93,7 @@ impl Command for Ls {
                 // it makes no sense to list an empty string.
                 if path.item.as_ref().is_empty() {
                     return Err(ShellError::FileNotFoundCustom {
-                        msg: "empty string('') file does not exist".to_string(),
+                        msg: "empty string('') directory or file does not exist".to_string(),
                         span: path.span,
                     });
                 }
