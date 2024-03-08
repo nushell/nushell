@@ -16,7 +16,7 @@
 //! invoked by Nushell.
 //!
 //! ```rust,no_run
-//! use nu_plugin::*;
+//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, EngineInterface, serve_plugin};
 //! use nu_protocol::{PluginSignature, Value};
 //!
 //! struct MyPlugin;

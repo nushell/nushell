@@ -194,12 +194,15 @@ fn custom_values_can_still_be_collapsed_after_stop() {
 
 #[test]
 fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
+    // I know the test is to stop "immediately", but if we actually check immediately it could
+    // lead to a race condition. So there's a 1ms sleep just to be fair.
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_inc"),
         r#"
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
             "2.3.0" | inc -M
+            sleep 1ms
             (plugin list | where name == inc).0.is_running
         "#
     );
@@ -216,6 +219,7 @@ fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
                 }
             }
             "2.3.0" | inc -M
+            sleep 1ms
             (plugin list | where name == inc).0.is_running
         "#
     );
