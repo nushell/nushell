@@ -6,6 +6,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
+use std::path::Path;
+
 #[derive(Clone)]
 pub struct NuCheck;
 
@@ -125,9 +127,15 @@ impl Command for NuCheck {
                     };
 
                     let result = if as_module || path.is_dir() {
-                        parse_file_or_dir_module(&mut working_set, is_debug, path_span, call.head)
+                        parse_file_or_dir_module(
+                            path.to_string_lossy().as_bytes(),
+                            &mut working_set,
+                            is_debug,
+                            path_span,
+                            call.head,
+                        )
                     } else {
-                        parse_file_script(&mut working_set, is_debug, path_span, call.head)
+                        parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                     };
 
                     // Restore the currently parsed directory back
@@ -265,6 +273,7 @@ fn check_parse(
 }
 
 fn parse_file_script(
+    path: &Path,
     working_set: &mut StateWorkingSet,
     is_debug: bool,
     path_span: Span,
@@ -272,7 +281,7 @@ fn parse_file_script(
 ) -> Result<PipelineData, ShellError> {
     let filename = check_path(working_set, path_span, call_head)?;
 
-    if let Ok(contents) = std::fs::read(&filename) {
+    if let Ok(contents) = std::fs::read(path) {
         parse_script(working_set, Some(&filename), &contents, is_debug, call_head)
     } else {
         Err(ShellError::IOErrorSpanned {
@@ -283,15 +292,16 @@ fn parse_file_script(
 }
 
 fn parse_file_or_dir_module(
+    path_bytes: &[u8],
     working_set: &mut StateWorkingSet,
     is_debug: bool,
     path_span: Span,
     call_head: Span,
 ) -> Result<PipelineData, ShellError> {
-    let file_or_dir = check_path(working_set, path_span, call_head)?;
+    let _ = check_path(working_set, path_span, call_head)?;
 
     let starting_error_count = working_set.parse_errors.len();
-    let _ = parse_module_file_or_dir(working_set, file_or_dir.as_bytes(), path_span, None);
+    let _ = parse_module_file_or_dir(working_set, path_bytes, path_span, None);
 
     if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
@@ -305,7 +315,7 @@ fn parse_file_or_dir_module(
             Err(ShellError::GenericError {
                 error: "Failed to parse content".into(),
                 msg,
-                span: Some(call_head),
+                span: Some(path_span),
                 help: Some("If the content is intended to be a script, please try to remove `--as-module` flag ".into()),
                 inner: vec![],
             })
