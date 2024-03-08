@@ -104,7 +104,7 @@ fn test_default_symlinked_config_path_empty() {
 #[test]
 fn test_default_symlink_config_path_broken_symlink_config_files() {
     Playground::setup(
-        "symlinked_cfg_dir_with_symlinked_cfg_files",
+        "symlinked_cfg_dir_with_symlinked_cfg_files_broken",
         |_, playground| {
             let fake_config_dir_nushell = setup_fake_config(playground);
 
