@@ -64,7 +64,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+            let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
                 &mut stack,
@@ -78,7 +78,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+            let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
                 &mut stack,
@@ -103,7 +103,7 @@ fn eval_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+            let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
                 &mut stack,
@@ -117,7 +117,7 @@ fn eval_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+            let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
                 &mut stack,

@@ -44,7 +44,8 @@ impl Command for Collect {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack_captures = stack.captures_to_stack(capture_block.captures.clone());
+        let mut stack_captures =
+            stack.captures_to_stack_preserve_stdio(capture_block.captures.clone());
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);

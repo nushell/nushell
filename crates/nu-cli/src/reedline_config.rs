@@ -108,7 +108,7 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::with_output_capture();
+            let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
             let res = eval_block(&engine_state, &mut temp_stack, &block, input)?;
 

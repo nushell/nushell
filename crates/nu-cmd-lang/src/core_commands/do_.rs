@@ -78,7 +78,7 @@ impl Command for Do {
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
-        let mut callee_stack = caller_stack.captures_to_stack(block.captures);
+        let mut callee_stack = caller_stack.captures_to_stack_preserve_stdio(block.captures);
         let block = engine_state.get_block(block.block_id);
 
         let params: Vec<_> = block

@@ -210,7 +210,7 @@ fn test_computable_style_static() {
     let style2 = Style::default().underline();
     // Create a "dummy" style_computer for this test.
     let dummy_engine_state = EngineState::new();
-    let dummy_stack = Stack::with_inherited_stdio();
+    let dummy_stack = Stack::new();
     let style_computer = StyleComputer::new(
         &dummy_engine_state,
         &dummy_stack,

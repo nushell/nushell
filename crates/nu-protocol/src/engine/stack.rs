@@ -1,13 +1,11 @@
-use std::{
-    collections::{HashMap, HashSet},
-    mem,
-    ops::{Deref, DerefMut},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     engine::{EngineState, DEFAULT_OVERLAY_NAME},
     IoStream, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
+
+use super::{EvaluatedRedirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -40,33 +38,32 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: u64,
-    stdout: IoStream,
-    stderr: IoStream,
-    parent_stdout: Option<IoStream>,
-    parent_stderr: Option<IoStream>,
+    pub(crate) stdio: StackStdio,
+}
+
+impl Default for Stack {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Stack {
-    pub fn new(stdout: IoStream, stderr: IoStream) -> Stack {
-        Stack {
-            vars: vec![],
-            env_vars: vec![],
+    /// Create a new stack.
+    ///
+    /// Stdio will be set to [`IoStream::Inherit`]. So, if the last command is an external command,
+    /// then its output will be forwarded to the terminal/stdio streams.
+    ///
+    /// Use `Stack::capture` afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
+    /// (as opposed to a [`PipelineData`](crate::PipelineData)).
+    pub fn new() -> Self {
+        Self {
+            vars: Vec::new(),
+            env_vars: Vec::new(),
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: 0,
-            stdout,
-            stderr,
-            parent_stdout: None,
-            parent_stderr: None,
+            stdio: StackStdio::new(),
         }
-    }
-
-    pub fn with_inherited_stdio() -> Stack {
-        Self::new(IoStream::Inherit, IoStream::Inherit)
-    }
-
-    pub fn with_output_capture() -> Stack {
-        Self::new(IoStream::Capture, IoStream::Inherit)
     }
 
     pub fn with_env(
@@ -170,6 +167,12 @@ impl Stack {
     }
 
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
+        self.captures_to_stack_preserve_stdio(captures)
+            .reset_pipes()
+            .capture()
+    }
+
+    pub fn captures_to_stack_preserve_stdio(&self, captures: Vec<(VarId, Value)>) -> Stack {
         // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
         env_vars.push(HashMap::new());
@@ -180,10 +183,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
-            stdout: IoStream::Capture,
-            stderr: self.stderr.clone(),
-            parent_stdout: None,
-            parent_stderr: None,
+            stdio: self.stdio.clone(),
         }
     }
 
@@ -211,10 +211,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
-            stdout: self.stdout.clone(),
-            stderr: self.stderr.clone(),
-            parent_stdout: None,
-            parent_stderr: None,
+            stdio: self.stdio.clone(),
         }
     }
 
@@ -422,148 +419,84 @@ impl Stack {
         self.active_overlays.retain(|o| o != name);
     }
 
+    /// Returns the [`IoStream`] to use for current command's stdout.
+    ///
+    /// This will be the pipe redirection if one is set,
+    /// otherwise it will be the current file redirection,
+    /// otherwise it will be the process's stdout indicated by [`IoStream::Inherit`].
     pub fn stdout(&self) -> &IoStream {
-        &self.stdout
+        self.stdio.stdout()
     }
 
+    /// Returns the [`IoStream`] to use for current command's stderr.
+    ///
+    /// This will be the pipe redirection if one is set,
+    /// otherwise it will be the current file redirection,
+    /// otherwise it will be the process's stderr indicated by [`IoStream::Inherit`].
     pub fn stderr(&self) -> &IoStream {
-        &self.stderr
+        self.stdio.stderr()
     }
 
-    pub fn push_stdio(
+    /// Returns the [`IoStream`] to use for the last command's stdout
+    pub fn pipe_stdout(&self) -> Option<&IoStream> {
+        self.stdio.pipe_stdout.as_ref()
+    }
+
+    /// Returns the [`IoStream`] to use for the last command's stderr
+    pub fn pipe_stderr(&self) -> Option<&IoStream> {
+        self.stdio.pipe_stderr.as_ref()
+    }
+
+    /// Temporarily set the pipe stdout redirection to [`IoStream::Capture`].
+    ///
+    /// This is used before evaluating an expression into a `Value`.
+    pub fn start_capture(&mut self) -> StackCaptureGuard {
+        StackCaptureGuard::new(self)
+    }
+
+    /// Temporarily use the stdio redirections in the parent scope.
+    ///
+    /// This is used before evaluating an argument to a call.
+    pub fn use_call_arg_stdio(&mut self) -> StackCallArgGuard {
+        StackCallArgGuard::new(self)
+    }
+
+    /// Apply redirections to stdout and/or stderr.
+    pub fn push_redirection(
         &mut self,
-        stdout: Option<IoStream>,
-        stderr: Option<IoStream>,
+        stdout: Option<EvaluatedRedirection>,
+        stderr: Option<EvaluatedRedirection>,
     ) -> StackIoGuard {
-        let stdout = if let Some(stdout) = stdout {
-            self.push_stdout(stdout)
-        } else {
-            self.parent_stdout.take()
-        };
-
-        let stderr = if let Some(stderr) = stderr {
-            self.push_stderr(stderr)
-        } else {
-            self.parent_stderr.take()
-        };
-
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    pub fn use_call_arg_stdio(&mut self) -> StackCallArgIoGuard {
-        StackCallArgIoGuard::new(self)
+    /// Mark stdout for the last command as [`IoStream::Capture`].
+    ///
+    /// This will irreversibly alter the stdio redirections, and so it only makes sense to use this on an owned `Stack`
+    /// (which is why this function does not take `&mut self`).
+    ///
+    /// See `Stack::start_capture` which can temporarily set stdout as [`IoStream::Capture`] for a mutable `Stack` reference.
+    pub fn capture(mut self) -> Self {
+        self.stdio.set_capture();
+        self
     }
 
-    pub fn set_stdio(&mut self, stdout: IoStream, stderr: IoStream) {
-        self.parent_stdout = None;
-        self.parent_stderr = None;
-        self.stdout = stdout;
-        self.stderr = stderr;
+    /// Clears any pipe and file redirections and resets stdout and stderr to [`IoStream::Inherit`].
+    ///
+    /// This will irreversibly reset the stdio redirections, and so it only makes sense to use this on an owned `Stack`
+    /// (which is why this function does not take `&mut self`).
+    pub fn reset_stdio(mut self) -> Self {
+        self.stdio = StackStdio::new();
+        self
     }
 
-    fn push_stdout(&mut self, stdout: IoStream) -> Option<IoStream> {
-        let stdout = mem::replace(&mut self.stdout, stdout);
-        mem::replace(&mut self.parent_stdout, Some(stdout))
-    }
-
-    fn push_stderr(&mut self, stderr: IoStream) -> Option<IoStream> {
-        let stderr = mem::replace(&mut self.stderr, stderr);
-        mem::replace(&mut self.parent_stderr, Some(stderr))
-    }
-}
-
-pub struct StackIoGuard<'a> {
-    stack: &'a mut Stack,
-    old_parent_stdout: Option<IoStream>,
-    old_parent_stderr: Option<IoStream>,
-}
-
-impl<'a> StackIoGuard<'a> {
-    fn new(
-        stack: &'a mut Stack,
-        old_parent_stdout: Option<IoStream>,
-        old_parent_stderr: Option<IoStream>,
-    ) -> Self {
-        Self {
-            stack,
-            old_parent_stdout,
-            old_parent_stderr,
-        }
-    }
-}
-
-impl<'a> Deref for StackIoGuard<'a> {
-    type Target = Stack;
-
-    fn deref(&self) -> &Self::Target {
-        self.stack
-    }
-}
-
-impl<'a> DerefMut for StackIoGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.stack
-    }
-}
-
-impl Drop for StackIoGuard<'_> {
-    fn drop(&mut self) {
-        let old_stdout = self.old_parent_stdout.take();
-        if let Some(stdout) = mem::replace(&mut self.parent_stdout, old_stdout) {
-            self.stdout = stdout;
-        }
-
-        let old_stderr = self.old_parent_stderr.take();
-        if let Some(stderr) = mem::replace(&mut self.parent_stderr, old_stderr) {
-            self.stderr = stderr;
-        }
-    }
-}
-
-pub struct StackCallArgIoGuard<'a> {
-    stack: &'a mut Stack,
-    old_stdout: Option<IoStream>,
-    old_stderr: Option<IoStream>,
-}
-
-impl<'a> StackCallArgIoGuard<'a> {
-    fn new(stack: &'a mut Stack) -> Self {
-        let old_stdout = Some(mem::replace(&mut stack.stdout, IoStream::Capture));
-
-        let old_stderr = stack
-            .parent_stderr
-            .take()
-            .map(|stderr| mem::replace(&mut stack.stderr, stderr));
-
-        Self {
-            stack,
-            old_stdout,
-            old_stderr,
-        }
-    }
-}
-
-impl<'a> Deref for StackCallArgIoGuard<'a> {
-    type Target = Stack;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.stack
-    }
-}
-
-impl<'a> DerefMut for StackCallArgIoGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.stack
-    }
-}
-
-impl Drop for StackCallArgIoGuard<'_> {
-    fn drop(&mut self) {
-        if let Some(stdout) = self.old_stdout.take() {
-            self.stdout = stdout;
-        }
-        if let Some(stderr) = self.old_stderr.take() {
-            self.stack.push_stderr(stderr);
-        }
+    /// Clears any pipe redirections, keeping the current stdout and stderr.
+    ///
+    /// This will irreversibly reset some of the stdio redirections, and so it only makes sense to use this on an owned `Stack`
+    /// (which is why this function does not take `&mut self`).
+    pub fn reset_pipes(mut self) -> Self {
+        self.stdio.pipe_stdout = None;
+        self.stdio.pipe_stderr = None;
+        self
     }
 }

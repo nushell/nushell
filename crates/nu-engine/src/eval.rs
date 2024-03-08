@@ -7,7 +7,7 @@ use nu_protocol::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
         Redirection, RedirectionSource, RedirectionTarget,
     },
-    engine::{Closure, EngineState, Stack},
+    engine::{Closure, EngineState, EvaluatedRedirection, Stack},
     eval_base::Eval,
     Config, FromValue, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
@@ -41,7 +41,6 @@ pub fn eval_call(
         let block = engine_state.get_block(block_id);
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
-        callee_stack.set_stdio(callee_stack.stdout().clone(), callee_stack.stderr().clone());
 
         // Rust does not check recursion limits outside of const evaluation.
         // But nu programs run in the same process as the shell.
@@ -252,7 +251,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
+    let stack = &mut stack.start_capture();
     <EvalRuntime as Eval>::eval(engine_state, stack, expr)
 }
 
@@ -291,7 +290,7 @@ pub fn eval_expression_with_input(
                 let block = engine_state.get_block(*block_id);
 
                 if !full_cell_path.tail.is_empty() {
-                    let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
+                    let stack = &mut stack.start_capture();
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression(engine_state, stack, block, input)?
                         .into_value(*span)
@@ -324,7 +323,7 @@ fn eval_redirection(
     stack: &mut Stack,
     target: &RedirectionTarget,
     next_out: Option<IoStream>,
-) -> Result<IoStream, ShellError> {
+) -> Result<EvaluatedRedirection, ShellError> {
     match target {
         RedirectionTarget::File { expr, append, .. } => {
             let cwd = current_dir(engine_state, stack)?;
@@ -338,9 +337,11 @@ fn eval_redirection(
             } else {
                 options.write(true).truncate(true);
             }
-            Ok(options.create(true).open(path)?.into())
+            Ok(EvaluatedRedirection::file(options.create(true).open(path)?))
         }
-        RedirectionTarget::Pipe { .. } => Ok(next_out.unwrap_or(IoStream::Pipe)),
+        RedirectionTarget::Pipe { .. } => Ok(EvaluatedRedirection::Pipe(
+            next_out.unwrap_or(IoStream::Pipe),
+        )),
     }
 }
 
@@ -348,8 +349,12 @@ fn eval_element_redirection(
     engine_state: &EngineState,
     stack: &mut Stack,
     element_redirection: Option<&Redirection>,
-    (next_out, next_err): (Option<IoStream>, Option<IoStream>),
-) -> Result<(Option<IoStream>, Option<IoStream>), ShellError> {
+    pipe_redirection: (Option<IoStream>, Option<IoStream>),
+) -> Result<(Option<EvaluatedRedirection>, Option<EvaluatedRedirection>), ShellError> {
+    type Redirect = EvaluatedRedirection;
+
+    let (next_out, next_err) = pipe_redirection;
+
     if let Some(redirection) = element_redirection {
         match redirection {
             Redirection::Single {
@@ -357,18 +362,18 @@ fn eval_element_redirection(
                 target,
             } => {
                 let stdout = eval_redirection(engine_state, stack, target, next_out)?;
-                Ok((Some(stdout), next_err))
+                Ok((Some(stdout), next_err.map(Redirect::Pipe)))
             }
             Redirection::Single {
                 source: RedirectionSource::Stderr,
                 target,
             } => {
                 let stderr = eval_redirection(engine_state, stack, target, None)?;
-                if matches!(stderr, IoStream::Pipe) {
+                if matches!(stderr, Redirect::Pipe(IoStream::Pipe)) {
                     // e>| redirection, don't override current stack `stdout`
-                    Ok((None, Some(next_out.unwrap_or(stderr))))
+                    Ok((None, Some(next_out.map(Redirect::Pipe).unwrap_or(stderr))))
                 } else {
-                    Ok((next_out, Some(stderr)))
+                    Ok((next_out.map(Redirect::Pipe), Some(stderr)))
                 }
             }
             Redirection::Single {
@@ -385,7 +390,7 @@ fn eval_element_redirection(
             }
         }
     } else {
-        Ok((next_out, next_err))
+        Ok((next_out.map(Redirect::Pipe), next_err.map(Redirect::Pipe)))
     }
 }
 
@@ -431,10 +436,11 @@ fn eval_element_with_input(
         _ => {}
     }
 
-    let data = match (data, stack.stdout()) {
-        (data @ (PipelineData::Value(..) | PipelineData::ListStream(..)), IoStream::File(_)) => {
-            data.write_to_io_streams(engine_state, stack)?
-        }
+    let data = match (data, stack.pipe_stdout()) {
+        (
+            data @ (PipelineData::Value(..) | PipelineData::ListStream(..)),
+            Some(IoStream::File(_)),
+        ) => data.write_to_io_streams(engine_state, stack)?,
         (data, _) => data,
     };
 
@@ -460,6 +466,7 @@ pub fn eval_block(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let num_pipelines = block.len();
+
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let last_pipeline = pipeline_idx >= num_pipelines - 1;
 
@@ -476,7 +483,10 @@ pub fn eval_block(
                 element.redirection.as_ref(),
                 next.stdio_redirect(engine_state),
             )?;
-            let stack = &mut stack.push_stdio(stdout.or(Some(IoStream::Pipe)), stderr);
+            let stack = &mut stack.push_redirection(
+                stdout.or(Some(EvaluatedRedirection::Pipe(IoStream::Pipe))),
+                stderr,
+            );
             let (output, failed) = eval_element_with_input(engine_state, stack, element, input)?;
             if failed {
                 // External command failed.
@@ -491,9 +501,9 @@ pub fn eval_block(
                 engine_state,
                 stack,
                 last.redirection.as_ref(),
-                (None, None),
+                (stack.pipe_stdout().cloned(), stack.pipe_stderr().cloned()),
             )?;
-            let stack = &mut stack.push_stdio(stdout, stderr);
+            let stack = &mut stack.push_redirection(stdout, stderr);
             let (output, failed) = eval_element_with_input(engine_state, stack, last, input)?;
             if failed {
                 // External command failed.
@@ -502,19 +512,13 @@ pub fn eval_block(
             }
             input = output;
         } else {
-            let out = match stack.stdout() {
-                IoStream::Pipe | IoStream::Capture | IoStream::Null | IoStream::File(_) => {
-                    IoStream::Null
-                }
-                IoStream::Inherit => IoStream::Inherit,
-            };
             let (stdout, stderr) = eval_element_redirection(
                 engine_state,
                 stack,
                 last.redirection.as_ref(),
                 (None, None),
             )?;
-            let stack = &mut stack.push_stdio(stdout.or(Some(out)), stderr);
+            let stack = &mut stack.push_redirection(stdout, stderr);
             let (output, failed) = eval_element_with_input(engine_state, stack, last, input)?;
             if failed {
                 // External command failed.

@@ -6,8 +6,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, IoStream, LazyRecord, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -85,8 +85,8 @@ impl Command for LazyMake {
             }
         }
 
-        let mut stack = stack.clone();
-        stack.set_stdio(IoStream::Capture, IoStream::Inherit);
+        // TODO: do we reset stdio here?
+        let stack = stack.clone().reset_stdio().capture();
 
         Ok(Value::lazy_record(
             Box::new(NuLazyRecord {

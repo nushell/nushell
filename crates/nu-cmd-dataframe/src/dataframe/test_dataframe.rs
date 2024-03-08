@@ -76,7 +76,7 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Exa
         .merge_delta(delta)
         .expect("Error merging delta");
 
-    let mut stack = Stack::with_output_capture();
+    let mut stack = Stack::new().capture();
 
     let result = eval_block(engine_state, &mut stack, &block, PipelineData::empty())
         .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))

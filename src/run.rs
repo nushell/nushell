@@ -19,7 +19,7 @@ pub(crate) fn run_commands(
     input: PipelineData,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
-    let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+    let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -142,7 +142,7 @@ pub(crate) fn run_file(
     args_to_script: Vec<String>,
     input: PipelineData,
 ) -> Result<(), miette::ErrReport> {
-    let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+    let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
     #[cfg(feature = "plugin")]
@@ -243,7 +243,7 @@ pub(crate) fn run_repl(
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
-    let mut stack = nu_protocol::engine::Stack::with_inherited_stdio();
+    let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
     if parsed_nu_cli_args.no_config_file.is_none() {

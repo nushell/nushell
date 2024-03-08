@@ -37,7 +37,8 @@ impl Command for ExportEnv {
     ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, caller_stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
-        let mut callee_stack = caller_stack.captures_to_stack(capture_block.captures);
+        let mut callee_stack =
+            caller_stack.captures_to_stack_preserve_stdio(capture_block.captures);
 
         let _ = eval_block(engine_state, &mut callee_stack, block, input);
 

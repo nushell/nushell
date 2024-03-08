@@ -9,10 +9,10 @@ use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Config, DataSource, Example, IntoPipelineData, IoStream, ListStream,
+    PipelineData, PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape,
+    TableMode, Type, Value,
 };
-use nu_protocol::{record, IoStream, TableMode};
 use nu_table::common::create_nu_table_config;
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,

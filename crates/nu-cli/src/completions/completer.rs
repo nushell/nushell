@@ -7,7 +7,7 @@ use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, IoStream, PipelineData, Span, Value,
+    BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -20,11 +20,10 @@ pub struct NuCompleter {
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Arc<EngineState>, mut stack: Stack) -> Self {
-        stack.set_stdio(IoStream::Capture, IoStream::Inherit);
+    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
         Self {
             engine_state,
-            stack,
+            stack: stack.reset_stdio().capture(),
         }
     }
 
@@ -65,7 +64,10 @@ impl NuCompleter {
     ) -> Option<Vec<Suggestion>> {
         let stack = self.stack.clone();
         let block = self.engine_state.get_block(block_id);
-        let mut callee_stack = stack.gather_captures(&self.engine_state, &block.captures);
+        let mut callee_stack = stack
+            .gather_captures(&self.engine_state, &block.captures)
+            .reset_pipes()
+            .capture();
 
         // Line
         if let Some(pos_arg) = block.signature.required_positional.first() {
@@ -548,7 +550,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(engine_state.into(), Stack::with_output_capture());
+        let mut completer = NuCompleter::new(engine_state.into(), Stack::new().capture());
         let dataset = vec![
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),

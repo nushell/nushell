@@ -74,7 +74,9 @@ impl Command for SourceEnv {
 
         // Evaluate the block
         let block = engine_state.get_block(block_id as usize).clone();
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+        let mut callee_stack = caller_stack
+            .gather_captures(engine_state, &block.captures)
+            .reset_pipes();
 
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, &block, input);
 

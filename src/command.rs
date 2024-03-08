@@ -78,7 +78,7 @@ pub(crate) fn parse_commandline_args(
 
     engine_state.merge_delta(delta)?;
 
-    let mut stack = Stack::with_inherited_stdio();
+    let mut stack = Stack::new();
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.first() {

@@ -90,7 +90,7 @@ use std pwd
     engine_state.merge_delta(delta)?;
 
     // We need to evaluate the module in order to run the `export-env` blocks.
-    let mut stack = Stack::with_inherited_stdio();
+    let mut stack = Stack::new();
     let pipeline_data = PipelineData::Empty;
     eval_block(engine_state, &mut stack, &block, pipeline_data)?;
 

@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, EvaluatedRedirection, Stack, StateWorkingSet},
     IoStream, PipelineData, ShellError, Value,
 };
 
@@ -90,6 +90,9 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    let stack = &mut stack.push_stdio(Some(IoStream::Capture), Some(IoStream::Capture));
+    let stack = &mut stack.push_redirection(
+        Some(EvaluatedRedirection::Pipe(IoStream::Capture)),
+        Some(EvaluatedRedirection::Pipe(IoStream::Capture)),
+    );
     eval_block(engine_state, stack, &block, input)
 }

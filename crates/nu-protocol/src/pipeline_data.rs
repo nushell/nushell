@@ -87,7 +87,13 @@ pub enum IoStream {
 
 impl From<File> for IoStream {
     fn from(file: File) -> Self {
-        Self::File(Arc::new(file))
+        Arc::new(file).into()
+    }
+}
+
+impl From<Arc<File>> for IoStream {
+    fn from(file: Arc<File>) -> Self {
+        Self::File(file)
     }
 }
 
@@ -375,7 +381,7 @@ impl PipelineData {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
                         let call = Call::new(Span::unknown());
-                        let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
+                        let stack = &mut stack.start_capture();
                         let table = command.run(engine_state, stack, &call, data)?;
                         table.write_all_and_flush(engine_state, config, false, false)?;
                     }

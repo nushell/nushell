@@ -1,5 +1,4 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
-use nu_protocol::IoStream;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -24,7 +23,7 @@ pub fn get_full_help(
         brief: false,
     };
 
-    let stack = &mut stack.push_stdio(Some(IoStream::Capture), None);
+    let stack = &mut stack.start_capture();
 
     get_documentation(
         sig,
@@ -238,10 +237,10 @@ fn get_documentation(
                 ));
             }
 
-            let mut caller_stack = Stack::with_output_capture();
+            let caller_stack = &mut Stack::new().capture();
             if let Ok(result) = eval_call(
                 engine_state,
-                &mut caller_stack,
+                caller_stack,
                 &Call {
                     decl_id,
                     head: span,
@@ -341,7 +340,7 @@ fn get_ansi_color_for_component_or_default(
     default: &str,
 ) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
-        let mut caller_stack = Stack::with_output_capture();
+        let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
 
         let argument_opt = get_argument_for_color_value(engine_state, color, span);
@@ -351,7 +350,7 @@ fn get_ansi_color_for_component_or_default(
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
                 if let Ok(result) = eval_call(
                     engine_state,
-                    &mut caller_stack,
+                    caller_stack,
                     &Call {
                         decl_id,
                         head: span,

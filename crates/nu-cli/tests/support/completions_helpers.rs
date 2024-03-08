@@ -35,7 +35,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     // New stack
-    let mut stack = Stack::with_inherited_stdio();
+    let mut stack = Stack::new();
 
     // Add pwd as env var
     stack.add_env_var(
@@ -87,7 +87,7 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     let mut engine_state = create_default_context();
 
     // New stack
-    let mut stack = Stack::with_inherited_stdio();
+    let mut stack = Stack::new();
 
     // Add pwd as env var
     stack.add_env_var(
@@ -123,7 +123,7 @@ pub fn new_partial_engine() -> (PathBuf, String, EngineState, Stack) {
     let mut engine_state = create_default_context();
 
     // New stack
-    let mut stack = Stack::with_inherited_stdio();
+    let mut stack = Stack::new();
 
     // Add pwd as env var
     stack.add_env_var(

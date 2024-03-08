@@ -265,7 +265,7 @@ impl Command for Save {
         ]
     }
 
-    fn stdio_redirect(&self) -> (Option<nu_protocol::IoStream>, Option<nu_protocol::IoStream>) {
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
         (Some(IoStream::Capture), Some(IoStream::Capture))
     }
 }
