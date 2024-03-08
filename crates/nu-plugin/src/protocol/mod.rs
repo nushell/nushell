@@ -82,6 +82,23 @@ impl PipelineDataHeader {
             }
         }
     }
+
+    /// Number of streams specified by the header
+    pub(crate) fn stream_count(&self) -> usize {
+        match self {
+            PipelineDataHeader::Empty => 0,
+            PipelineDataHeader::Value(_) => 0,
+            PipelineDataHeader::ListStream(_) => 1,
+            PipelineDataHeader::ExternalStream(info) => [
+                info.stdout.is_some(),
+                info.stderr.is_some(),
+                info.exit_code.is_some(),
+            ]
+            .into_iter()
+            .filter(|b| *b)
+            .count(),
+        }
+    }
 }
 
 /// Additional information about list (value) streams

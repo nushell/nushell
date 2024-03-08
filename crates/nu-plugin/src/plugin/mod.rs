@@ -23,10 +23,13 @@ use std::os::windows::process::CommandExt;
 
 use nu_protocol::{PipelineData, PluginSignature, ShellError, Spanned, Value};
 
+use self::gc::PluginGc;
+
 use super::EvaluatedCall;
 
 mod context;
 mod declaration;
+mod gc;
 mod interface;
 mod persistent;
 mod source;
@@ -139,6 +142,7 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
 fn make_plugin_interface(
     mut child: Child,
     source: Arc<PluginSource>,
+    gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {
     let stdin = child
         .stdin
@@ -158,7 +162,9 @@ fn make_plugin_interface(
 
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
 
-    let mut manager = PluginInterfaceManager::new(source, (Mutex::new(stdin), encoder));
+    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(stdin), encoder));
+    manager.set_garbage_collector(gc);
+
     let interface = manager.get_interface();
     interface.hello()?;
 
@@ -166,7 +172,10 @@ fn make_plugin_interface(
     // we write, because we are expected to be able to handle multiple messages coming in from the
     // plugin at any time, including stream messages like `Drop`.
     std::thread::Builder::new()
-        .name("plugin interface reader".into())
+        .name(format!(
+            "plugin interface reader ({})",
+            source.identity.name()
+        ))
         .spawn(move || {
             if let Err(err) = manager.consume_all((reader, encoder)) {
                 log::warn!("Error in PluginInterfaceManager: {err}");

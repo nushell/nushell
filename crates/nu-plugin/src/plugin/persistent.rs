@@ -3,9 +3,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nu_protocol::{PluginIdentity, RegisteredPlugin, ShellError};
+use nu_protocol::{PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError};
 
-use super::{create_command, make_plugin_interface, PluginInterface, PluginSource};
+use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
 
 /// A box that can keep a plugin that was spawned persistent for further uses. The plugin may or
 /// may not be currently running. [`.get()`] gets the currently running plugin, or spawns it if it's
@@ -19,6 +19,8 @@ pub struct PersistentPlugin {
     identity: PluginIdentity,
     /// Reference to the plugin if running
     running: Mutex<Option<RunningPlugin>>,
+    /// Garbage collector config
+    gc_config: Mutex<PluginGcConfig>,
 }
 
 #[derive(Debug)]
@@ -27,14 +29,17 @@ struct RunningPlugin {
     pid: u32,
     /// Interface (which can be cloned) to the running plugin
     interface: PluginInterface,
+    /// Garbage collector for the plugin
+    gc: PluginGc,
 }
 
 impl PersistentPlugin {
     /// Create a new persistent plugin. The plugin will not be spawned immediately.
-    pub fn new(identity: PluginIdentity) -> PersistentPlugin {
+    pub fn new(identity: PluginIdentity, gc_config: PluginGcConfig) -> PersistentPlugin {
         PersistentPlugin {
             identity,
             running: Mutex::new(None),
+            gc_config: Mutex::new(gc_config),
         }
     }
 
@@ -105,10 +110,21 @@ impl PersistentPlugin {
             ShellError::PluginFailedToLoad { msg: error_msg }
         })?;
 
-        let pid = child.id();
-        let interface = make_plugin_interface(child, Arc::new(PluginSource::new(&self)))?;
+        // Start the plugin garbage collector
+        let gc_config =
+            self.gc_config
+                .lock()
+                .map(|c| c.clone())
+                .map_err(|_| ShellError::NushellFailed {
+                    msg: "plugin gc mutex poisoned".into(),
+                })?;
+        let gc = PluginGc::new(gc_config, &self)?;
 
-        Ok(RunningPlugin { pid, interface })
+        let pid = child.id();
+        let interface =
+            make_plugin_interface(child, Arc::new(PluginSource::new(&self)), Some(gc.clone()))?;
+
+        Ok(RunningPlugin { pid, interface, gc })
     }
 }
 
@@ -139,10 +155,29 @@ impl RegisteredPlugin for PersistentPlugin {
             ),
         })?;
 
+        // If the plugin is running, stop its GC, so that the GC doesn't accidentally try to stop
+        // a future plugin
+        if let Some(running) = running.as_ref() {
+            running.gc.stop_tracking();
+        }
+
         // We don't try to kill the process or anything, we just drop the RunningPlugin. It should
         // exit soon after
         *running = None;
         Ok(())
+    }
+
+    fn set_gc_config(&self, gc_config: &PluginGcConfig) {
+        if let Ok(mut conf) = self.gc_config.lock() {
+            // Save the new config for future calls
+            *conf = gc_config.clone();
+        }
+        if let Ok(running) = self.running.lock() {
+            if let Some(running) = running.as_ref() {
+                // If the plugin is already running, propagate the config change to the running GC
+                running.gc.set_config(gc_config.clone());
+            }
+        }
     }
 
     fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {

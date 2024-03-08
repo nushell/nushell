@@ -6,7 +6,7 @@ use nu_engine::get_eval_expression;
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
-use nu_protocol::{Example, PipelineData, PluginIdentity, ShellError, Value};
+use nu_protocol::{Example, PipelineData, PluginIdentity, RegisteredPlugin, ShellError};
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
@@ -78,11 +78,16 @@ impl Command for PluginDeclaration {
         let evaluated_call =
             EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?;
 
+        // Get the engine config
+        let engine_config = nu_engine::get_config(engine_state, stack);
+
         // Get, or start, the plugin.
         let plugin = self
             .source
             .persistent(None)
             .and_then(|p| {
+                // Set the garbage collector config from the local config before running
+                p.set_gc_config(engine_config.plugin_gc.get(p.identity().name()));
                 p.get(|| {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python

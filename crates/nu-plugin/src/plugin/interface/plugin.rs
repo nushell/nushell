@@ -11,11 +11,22 @@ use nu_protocol::{
 };
 
 use crate::{
-    plugin::{context::PluginExecutionContext, PluginSource},
+    plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
     protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
-        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput,
-        ProtocolInfo, StreamId, StreamMessage,
+        CallInfo,
+        CustomValueOp,
+        EngineCall,
+        EngineCallId,
+        EngineCallResponse,
+        PluginCall,
+        PluginCallId,
+        PluginCallResponse,
+        PluginCustomValue,
+        PluginInput,
+        PluginOutput,
+        ProtocolInfo,
+        StreamId,
+        StreamMessage,
     },
     sequence::Sequence,
 };
@@ -118,6 +129,8 @@ pub(crate) struct PluginInterfaceManager {
     ///
     /// This is necessary so we know when we can remove context for plugin calls
     plugin_call_input_streams: BTreeMap<StreamId, PluginCallId>,
+    /// Garbage collector handle, to notify about the state of the plugin
+    gc: Option<PluginGc>,
 }
 
 impl PluginInterfaceManager {
@@ -140,7 +153,15 @@ impl PluginInterfaceManager {
             plugin_call_subscriptions: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
             plugin_call_input_streams: BTreeMap::new(),
+            gc: None,
         }
+    }
+
+    /// Add a garbage collector to this plugin. The manager will notify the garbage collector about
+    /// the state of the plugin so that it can be automatically cleaned up if the plugin is
+    /// inactive.
+    pub(crate) fn set_garbage_collector(&mut self, gc: Option<PluginGc>) {
+        self.gc = gc;
     }
 
     /// Consume pending messages in the `plugin_call_subscription_receiver`
@@ -369,6 +390,7 @@ impl InterfaceManager for PluginInterfaceManager {
         PluginInterface {
             state: self.state.clone(),
             stream_manager_handle: self.stream_manager.get_handle(),
+            gc: self.gc.clone(),
         }
     }
 
@@ -413,17 +435,34 @@ impl InterfaceManager for PluginInterfaceManager {
                         // error response, but send it anyway
                         let exec_context = self.get_context(id)?;
                         let ctrlc = exec_context.as_ref().and_then(|c| c.0.ctrlc());
+
                         // Register the streams in the response
                         for stream_id in data.stream_ids() {
                             self.recv_stream_started(id, stream_id);
                         }
+
+                        let number_of_streams = data.stream_count();
+
                         match self.read_pipeline_data(data, ctrlc) {
-                            Ok(data) => PluginCallResponse::PipelineData(data),
+                            Ok(data) => {
+                                // Add locks to GC for the number of streams in the response
+                                if let Some(ref gc) = self.gc {
+                                    gc.increment_locks(number_of_streams as i64);
+                                }
+                                PluginCallResponse::PipelineData(data)
+                            }
                             Err(err) => PluginCallResponse::Error(err.into()),
                         }
                     }
                 };
-                self.send_plugin_call_response(id, response)
+                let result = self.send_plugin_call_response(id, response);
+                if result.is_ok() {
+                    // When a call ends, it releases a lock on the GC
+                    if let Some(ref gc) = self.gc {
+                        gc.decrement_locks(1);
+                    }
+                }
+                result
             }
             PluginOutput::EngineCall { context, id, call } => {
                 // Handle reading the pipeline data, if any
@@ -468,6 +507,19 @@ impl InterfaceManager for PluginInterfaceManager {
         &self.stream_manager
     }
 
+    fn consume_stream_message(&mut self, message: StreamMessage) -> Result<(), ShellError> {
+        let is_end = matches!(message, StreamMessage::End(_));
+        let result = self.stream_manager.handle_message(message);
+        if is_end && result.is_ok() {
+            // Streams read from the plugin are tracked with locks on the GC so
+            // plugins don't get stopped if they have active streams
+            if let Some(ref gc) = self.gc {
+                gc.decrement_locks(1);
+            }
+        }
+        result
+    }
+
     fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
         // Add source to any values
         match data {
@@ -504,6 +556,8 @@ pub(crate) struct PluginInterface {
     state: Arc<PluginInterfaceState>,
     /// Handle to stream manager
     stream_manager_handle: StreamManagerHandle,
+    /// Handle to plugin garbage collector
+    gc: Option<PluginGc>,
 }
 
 impl PluginInterface {
@@ -681,6 +735,13 @@ impl PluginInterface {
         call: PluginCall<PipelineData>,
         context: &Option<Context>,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
+        // Starting a plugin call adds a lock on the GC. Locks are not added for streams being read
+        // by the plugin, so the plugin would have to explicitly tell us if it expects to stay alive
+        // while reading streams in the background after the response ends.
+        if let Some(ref gc) = self.gc {
+            gc.increment_locks(1);
+        }
+
         let (writer, rx) = self.write_plugin_call(call, context.clone())?;
 
         // Finish writing stream in the background

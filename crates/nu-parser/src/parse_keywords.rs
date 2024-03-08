@@ -3685,9 +3685,16 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
         let identity =
             PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
 
+        // Find garbage collection config
+        let gc_config = working_set
+            .get_config()
+            .plugin_gc
+            .get(identity.name())
+            .clone();
+
         // Add it to the working set
         let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone()))
+            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
         });
 
         // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The

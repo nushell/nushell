@@ -1,6 +1,4 @@
-use crate::{
-    ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature,
-};
+use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
 

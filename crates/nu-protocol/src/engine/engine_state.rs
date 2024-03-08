@@ -294,6 +294,8 @@ impl EngineState {
         stack: &mut Stack,
         cwd: impl AsRef<Path>,
     ) -> Result<(), ShellError> {
+        let mut config_updated = false;
+
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
                 if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
@@ -305,6 +307,7 @@ impl EngineState {
                             let mut new_record = v.clone();
                             let (config, error) = new_record.into_config(&self.config);
                             self.config = config;
+                            config_updated = true;
                             env_vars.insert(k, new_record);
                             if let Some(e) = error {
                                 return Err(e);
@@ -322,6 +325,12 @@ impl EngineState {
 
         // TODO: better error
         std::env::set_current_dir(cwd)?;
+
+        if config_updated {
+            // Make plugin GC config changes take effect immediately.
+            #[cfg(feature = "plugin")]
+            self.update_plugin_gc_configs(&self.config.plugin_gc);
+        }
 
         Ok(())
     }
@@ -584,6 +593,14 @@ impl EngineState {
             })
     }
 
+    /// Update plugins with new garbage collection config
+    #[cfg(feature = "plugin")]
+    fn update_plugin_gc_configs(&self, plugin_gc: &crate::PluginGcConfigs) {
+        for plugin in &self.plugins {
+            plugin.set_gc_config(plugin_gc.get(plugin.identity().name()));
+        }
+    }
+
     pub fn num_files(&self) -> usize {
         self.files.len()
     }
@@ -759,6 +776,12 @@ impl EngineState {
     }
 
     pub fn set_config(&mut self, conf: Config) {
+        #[cfg(feature = "plugin")]
+        if conf.plugin_gc != self.config.plugin_gc {
+            // Make plugin GC config changes take effect immediately.
+            self.update_plugin_gc_configs(&conf.plugin_gc);
+        }
+
         self.config = conf;
     }
 

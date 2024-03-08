@@ -183,15 +183,15 @@ mod tests {
                     enabled: true,
                     stop_after: 30_000_000_000,
                 },
-                plugins: [
-                    (
-                        "my_plugin".to_owned(),
-                        PluginGcConfig {
-                            enabled: false,
-                            stop_after: 0,
-                        }
-                    )
-                ].into_iter().collect(),
+                plugins: [(
+                    "my_plugin".to_owned(),
+                    PluginGcConfig {
+                        enabled: false,
+                        stop_after: 0,
+                    },
+                )]
+                .into_iter()
+                .collect(),
             },
             Value::test_record(record! {
                 "default" => Value::test_record(record! {
