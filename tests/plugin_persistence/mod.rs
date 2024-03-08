@@ -191,3 +191,130 @@ fn custom_values_can_still_be_collapsed_after_stop() {
     assert!(out.err.is_empty());
     assert!(out.status.success());
 }
+
+#[test]
+fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"
+            $env.config.plugin_gc = { default: { stop_after: 0sec } }
+            "2.3.0" | inc -M
+            (plugin list | where name == inc).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("false", out.out, "with config as default");
+
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"
+            $env.config.plugin_gc = {
+                plugins: {
+                    inc: { stop_after: 0sec }
+                }
+            }
+            "2.3.0" | inc -M
+            (plugin list | where name == inc).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("false", out.out, "with inc-specific config");
+}
+
+#[test]
+fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"
+            $env.config.plugin_gc = { default: { stop_after: 50ms } }
+            "2.3.0" | inc -M
+            sleep 100ms
+            (plugin list | where name == inc).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("false", out.out, "with config as default");
+
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"
+            $env.config.plugin_gc = {
+                plugins: {
+                    inc: { stop_after: 50ms }
+                }
+            }
+            "2.3.0" | inc -M
+            sleep 100ms
+            (plugin list | where name == inc).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("false", out.out, "with inc-specific config");
+}
+
+#[test]
+fn plugin_gc_can_be_configured_as_disabled() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"
+            $env.config.plugin_gc = { default: { enabled: false, stop_after: 0sec } }
+            "2.3.0" | inc -M
+            (plugin list | where name == inc).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("true", out.out, "with config as default");
+
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"
+            $env.config.plugin_gc = {
+                default: { enabled: true, stop_after: 0sec }
+                plugins: {
+                    inc: { enabled: false, stop_after: 0sec }
+                }
+            }
+            "2.3.0" | inc -M
+            (plugin list | where name == inc).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("true", out.out, "with inc-specific config");
+}
+
+#[test]
+fn plugin_gc_can_be_disabled_by_plugin() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_example"),
+        r#"
+            $env.config.plugin_gc = { default: { stop_after: 0sec } }
+            nu-example-disable-gc
+            sleep 10ms
+            (plugin list | where name == example).0.is_running
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("true", out.out);
+}
+
+#[test]
+fn plugin_gc_does_not_stop_plugin_while_stream_output_is_active() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_stream_example"),
+        r#"
+            $env.config.plugin_gc = { default: { stop_after: 10ms } }
+            # This would exceed the configured time
+            stream_example seq 1 500 | each { |n| sleep 1ms; $n } | length | print
+        "#
+    );
+    assert!(out.status.success());
+    assert_eq!("500", out.out);
+}
