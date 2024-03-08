@@ -7,16 +7,10 @@ pub fn home_dir() -> Option<PathBuf> {
 }
 
 pub fn config_dir() -> Option<PathBuf> {
-    if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME") {
-        if !xdg_config.is_empty() {
-            let path = PathBuf::from(xdg_config);
-            if path.is_absolute() {
-                return Some(path);
-            }
-        }
+    match std::env::var("XDG_CONFIG_HOME").map(PathBuf::from) {
+        Ok(xdg_config) if xdg_config.is_absolute() => Some(xdg_config),
+        _ => dirs_next::config_dir(),
     }
-
-    dirs_next::config_dir()
 }
 
 #[cfg(windows)]
