@@ -1,4 +1,5 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -238,7 +239,7 @@ fn get_documentation(
             }
 
             let caller_stack = &mut Stack::new().capture();
-            if let Ok(result) = eval_call(
+            if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
                 caller_stack,
                 &Call {
@@ -348,7 +349,7 @@ fn get_ansi_color_for_component_or_default(
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call(
+                if let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
                     caller_stack,
                     &Call {

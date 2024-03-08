@@ -5,6 +5,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
@@ -85,7 +86,7 @@ impl NuCompleter {
             }
         }
 
-        let result = eval_block(
+        let result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut callee_stack,
             block,
@@ -551,7 +552,7 @@ mod completer_tests {
         );
 
         let mut completer = NuCompleter::new(engine_state.into(), Stack::new().capture());
-        let dataset = vec![
+        let dataset = [
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
             (" sudo", false, "", Vec::new()),

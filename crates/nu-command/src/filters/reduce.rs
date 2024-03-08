@@ -1,6 +1,7 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -101,6 +102,7 @@ impl Command for Reduce {
         let mut stack = stack.captures_to_stack(capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();

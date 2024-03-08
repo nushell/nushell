@@ -14,28 +14,28 @@ pub struct UMv;
 
 impl Command for UMv {
     fn name(&self) -> &str {
-        "umv"
+        "mv"
     }
 
     fn usage(&self) -> &str {
-        "Move files or directories."
+        "Move files or directories using uutils/coreutils mv."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Rename a file",
-                example: "umv before.txt after.txt",
+                example: "mv before.txt after.txt",
                 result: None,
             },
             Example {
                 description: "Move a file into a directory",
-                example: "umv test.txt my/subdirectory",
+                example: "mv test.txt my/subdirectory",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "umv *.txt my/subdirectory",
+                example: "mv *.txt my/subdirectory",
                 result: None,
             },
         ]
@@ -46,7 +46,7 @@ impl Command for UMv {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("umv")
+        Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("force", "do not prompt before overwriting", Some('f'))
             .switch("verbose", "explain what is being done.", Some('v'))
@@ -55,7 +55,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)

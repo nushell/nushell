@@ -87,7 +87,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.9
       with:
-        version: 0.90.1
+        version: 0.91.0
 
     - name: Release Nu Binary
       id: nu
@@ -176,7 +176,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.9
       with:
-        version: 0.90.1
+        version: 0.91.0
 
     - name: Release Nu Binary
       id: nu

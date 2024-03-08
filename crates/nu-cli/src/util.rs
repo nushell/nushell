@@ -1,6 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -240,9 +241,9 @@ pub fn eval_source(
     }
 
     let b = if allow_return {
-        eval_block_with_early_return(engine_state, stack, &block, input)
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
     } else {
-        eval_block(engine_state, stack, &block, input)
+        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     };
 
     match b {

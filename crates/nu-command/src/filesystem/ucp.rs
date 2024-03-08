@@ -61,7 +61,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::GlobPattern, "Copy SRC file/s to DEST.")
+            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -299,7 +299,8 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
                 target_os = "freebsd",
                 target_os = "android",
                 target_os = "macos",
-                target_os = "netbsd"
+                target_os = "netbsd",
+                target_os = "openbsd"
             ))]
             ownership: ATTR_UNSET,
             mode: ATTR_UNSET,
@@ -320,7 +321,8 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
                 target_os = "freebsd",
                 target_os = "android",
                 target_os = "macos",
-                target_os = "netbsd"
+                target_os = "netbsd",
+                target_os = "openbsd"
             ))]
             ownership: ATTR_UNSET,
             timestamps: ATTR_UNSET,
@@ -362,7 +364,8 @@ fn parse_and_set_attribute(
                     target_os = "freebsd",
                     target_os = "android",
                     target_os = "macos",
-                    target_os = "netbsd"
+                    target_os = "netbsd",
+                    target_os = "openbsd"
                 ))]
                 "ownership" => &mut attribute.ownership,
                 "timestamps" => &mut attribute.timestamps,

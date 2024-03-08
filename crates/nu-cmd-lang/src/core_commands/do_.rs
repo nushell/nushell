@@ -1,11 +1,12 @@
 use std::thread;
 
-use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
+use nu_engine::{get_eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IoStream, ListStream, PipelineData, RawStream, ShellError, Signature,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoSpanned, IoStream, ListStream, PipelineData, RawStream, ShellError,
+    Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -116,6 +117,9 @@ impl Command for Do {
                 )
             }
         }
+
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {
@@ -140,23 +144,25 @@ impl Command for Do {
                 // consumes the first 65535 bytes
                 // So we need a thread to receive stdout message, then the current thread can continue to consume
                 // stderr messages.
-                let stdout_handler = stdout.map(|stdout_stream| {
-                    thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || {
-                            let ctrlc = stdout_stream.ctrlc.clone();
-                            let span = stdout_stream.span;
-                            RawStream::new(
-                                Box::new(
-                                    vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter(),
-                                ),
-                                ctrlc,
-                                span,
-                                None,
-                            )
-                        })
-                        .expect("Failed to create thread")
-                });
+                let stdout_handler = stdout
+                    .map(|stdout_stream| {
+                        thread::Builder::new()
+                            .name("stderr redirector".to_string())
+                            .spawn(move || {
+                                let ctrlc = stdout_stream.ctrlc.clone();
+                                let span = stdout_stream.span;
+                                RawStream::new(
+                                    Box::new(std::iter::once(
+                                        stdout_stream.into_bytes().map(|s| s.item),
+                                    )),
+                                    ctrlc,
+                                    span,
+                                    None,
+                                )
+                            })
+                            .map_err(|e| e.into_spanned(call.head))
+                    })
+                    .transpose()?;
 
                 // Intercept stderr so we can return it in the error if the exit code is non-zero.
                 // The threading issues mentioned above dictate why we also need to intercept stdout.
@@ -206,7 +212,7 @@ impl Command for Do {
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr: Some(RawStream::new(
-                        Box::new(vec![Ok(stderr_msg.into_bytes())].into_iter()),
+                        Box::new(std::iter::once(Ok(stderr_msg.into_bytes()))),
                         stderr_ctrlc,
                         span,
                         None,

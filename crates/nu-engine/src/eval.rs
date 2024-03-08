@@ -2,6 +2,7 @@ use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 
 use crate::{current_dir, current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
+use nu_protocol::debugger::DebugContext;
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
@@ -13,7 +14,7 @@ use nu_protocol::{
     Value, VarId, ENV_VARIABLE_ID,
 };
 
-pub fn eval_call(
+pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,
     caller_stack: &mut Stack,
     call: &Call,
@@ -75,7 +76,7 @@ pub fn eval_call(
                 .expect("internal error: all custom parameters must have var_ids");
 
             if let Some(arg) = call.positional_nth(param_idx) {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
+                let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
                 let param_type = param.shape.to_type();
                 if required && !result.get_type().is_subtype(&param_type) {
                     // need to check if result is an empty list, and param_type is table or list
@@ -110,7 +111,7 @@ pub fn eval_call(
             for result in call.rest_iter_flattened(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
-                |expr| eval_expression(engine_state, caller_stack, expr),
+                |expr| eval_expression::<D>(engine_state, caller_stack, expr),
             )? {
                 rest_items.push(result);
             }
@@ -136,7 +137,7 @@ pub fn eval_call(
                     if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
                         if spanned.item == short.to_string() {
                             if let Some(arg) = &call_named.2 {
-                                let result = eval_expression(engine_state, caller_stack, arg)?;
+                                let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
 
                                 callee_stack.add_var(var_id, result);
                             } else if let Some(value) = &named.default_value {
@@ -148,7 +149,7 @@ pub fn eval_call(
                         }
                     } else if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.2 {
-                            let result = eval_expression(engine_state, caller_stack, arg)?;
+                            let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
 
                             callee_stack.add_var(var_id, result);
                         } else if let Some(value) = &named.default_value {
@@ -172,7 +173,8 @@ pub fn eval_call(
             }
         }
 
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
+        let result =
+            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
 
         if block.redirect_env {
             redirect_env(engine_state, caller_stack, &callee_stack);
@@ -246,13 +248,13 @@ fn eval_external(
     command.run(engine_state, stack, &call, input)
 }
 
-pub fn eval_expression(
+pub fn eval_expression<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     let stack = &mut stack.start_capture();
-    <EvalRuntime as Eval>::eval(engine_state, stack, expr)
+    <EvalRuntime as Eval>::eval::<D>(engine_state, stack, expr)
 }
 
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
@@ -261,7 +263,7 @@ pub fn eval_expression(
 ///
 /// It returns PipelineData with a boolean flag, indicating if the external failed to run.
 /// The boolean flag **may only be true** for external calls, for internal calls, it always to be false.
-pub fn eval_expression_with_input(
+pub fn eval_expression_with_input<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
@@ -269,7 +271,7 @@ pub fn eval_expression_with_input(
 ) -> Result<(PipelineData, bool), ShellError> {
     match &expr.expr {
         Expr::Call(call) => {
-            input = eval_call(engine_state, stack, call, input)?;
+            input = eval_call::<D>(engine_state, stack, call, input)?;
         }
         Expr::ExternalCall(head, args, is_subexpression) => {
             input = eval_external(engine_state, stack, head, args, input, *is_subexpression)?;
@@ -278,7 +280,7 @@ pub fn eval_expression_with_input(
         Expr::Subexpression(block_id) => {
             let block = engine_state.get_block(*block_id);
             // FIXME: protect this collect with ctrl-c
-            input = eval_subexpression(engine_state, stack, block, input)?;
+            input = eval_subexpression::<D>(engine_state, stack, block, input)?;
         }
 
         Expr::FullCellPath(full_cell_path) => match &full_cell_path.head {
@@ -292,21 +294,21 @@ pub fn eval_expression_with_input(
                 if !full_cell_path.tail.is_empty() {
                     let stack = &mut stack.start_capture();
                     // FIXME: protect this collect with ctrl-c
-                    input = eval_subexpression(engine_state, stack, block, input)?
+                    input = eval_subexpression::<D>(engine_state, stack, block, input)?
                         .into_value(*span)
                         .follow_cell_path(&full_cell_path.tail, false)?
                         .into_pipeline_data()
                 } else {
-                    input = eval_subexpression(engine_state, stack, block, input)?;
+                    input = eval_subexpression::<D>(engine_state, stack, block, input)?;
                 }
             }
             _ => {
-                input = eval_expression(engine_state, stack, expr)?.into_pipeline_data();
+                input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
             }
         },
 
         _ => {
-            input = eval_expression(engine_state, stack, expr)?.into_pipeline_data();
+            input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
         }
     };
 
@@ -318,7 +320,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
     input.is_external_failed()
 }
 
-fn eval_redirection(
+fn eval_redirection<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     target: &RedirectionTarget,
@@ -327,7 +329,7 @@ fn eval_redirection(
     match target {
         RedirectionTarget::File { expr, append, .. } => {
             let cwd = current_dir(engine_state, stack)?;
-            let value = eval_expression(engine_state, stack, expr)?;
+            let value = eval_expression::<D>(engine_state, stack, expr)?;
             let path = Spanned::<PathBuf>::from_value(value)?.item;
             let path = expand_path_with(path, cwd);
 
@@ -345,7 +347,7 @@ fn eval_redirection(
     }
 }
 
-fn eval_element_redirection(
+fn eval_element_redirection<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     element_redirection: Option<&Redirection>,
@@ -361,14 +363,14 @@ fn eval_element_redirection(
                 source: RedirectionSource::Stdout,
                 target,
             } => {
-                let stdout = eval_redirection(engine_state, stack, target, next_out)?;
+                let stdout = eval_redirection::<D>(engine_state, stack, target, next_out)?;
                 Ok((Some(stdout), next_err.map(Redirect::Pipe)))
             }
             Redirection::Single {
                 source: RedirectionSource::Stderr,
                 target,
             } => {
-                let stderr = eval_redirection(engine_state, stack, target, None)?;
+                let stderr = eval_redirection::<D>(engine_state, stack, target, None)?;
                 if matches!(stderr, Redirect::Pipe(IoStream::Pipe)) {
                     // e>| redirection, don't override current stack `stdout`
                     Ok((None, Some(next_out.map(Redirect::Pipe).unwrap_or(stderr))))
@@ -380,12 +382,12 @@ fn eval_element_redirection(
                 source: RedirectionSource::StdoutAndStderr,
                 target,
             } => {
-                let stream = eval_redirection(engine_state, stack, target, next_out)?;
+                let stream = eval_redirection::<D>(engine_state, stack, target, next_out)?;
                 Ok((Some(stream.clone()), Some(stream)))
             }
             Redirection::Separate { out, err } => {
-                let stdout = eval_redirection(engine_state, stack, out, None)?; // `out` cannot be `RedirectionTarget::Pipe`
-                let stderr = eval_redirection(engine_state, stack, err, next_out)?;
+                let stdout = eval_redirection::<D>(engine_state, stack, out, None)?; // `out` cannot be `RedirectionTarget::Pipe`
+                let stderr = eval_redirection::<D>(engine_state, stack, err, next_out)?;
                 Ok((Some(stdout), Some(stderr)))
             }
         }
@@ -394,13 +396,13 @@ fn eval_element_redirection(
     }
 }
 
-fn eval_element_with_input(
+fn eval_element_with_input_inner<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     element: &PipelineElement,
     input: PipelineData,
 ) -> Result<(PipelineData, bool), ShellError> {
-    let (data, ok) = eval_expression_with_input(engine_state, stack, &element.expr, input)?;
+    let (data, ok) = eval_expression_with_input::<D>(engine_state, stack, &element.expr, input)?;
 
     match (
         &data,
@@ -447,24 +449,41 @@ fn eval_element_with_input(
     Ok((data, ok))
 }
 
-pub fn eval_block_with_early_return(
+fn eval_element_with_input<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    element: &PipelineElement,
+    input: PipelineData,
+) -> Result<(PipelineData, bool), ShellError> {
+    D::enter_element(engine_state, element);
+
+    let result = eval_element_with_input_inner::<D>(engine_state, stack, element, input);
+
+    D::leave_element(engine_state, element, &result);
+
+    result
+}
+
+pub fn eval_block_with_early_return<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    match eval_block(engine_state, stack, block, input) {
+    match eval_block::<D>(engine_state, stack, block, input) {
         Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
         x => x,
     }
 }
 
-pub fn eval_block(
+pub fn eval_block<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    D::enter_block(engine_state, block);
+
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
@@ -477,7 +496,7 @@ pub fn eval_block(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
-            let (stdout, stderr) = eval_element_redirection(
+            let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
                 element.redirection.as_ref(),
@@ -487,7 +506,8 @@ pub fn eval_block(
                 stdout.or(Some(EvaluatedRedirection::Pipe(IoStream::Pipe))),
                 stderr,
             );
-            let (output, failed) = eval_element_with_input(engine_state, stack, element, input)?;
+            let (output, failed) =
+                eval_element_with_input::<D>(engine_state, stack, element, input)?;
             if failed {
                 // External command failed.
                 // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
@@ -497,14 +517,14 @@ pub fn eval_block(
         }
 
         if last_pipeline {
-            let (stdout, stderr) = eval_element_redirection(
+            let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
                 last.redirection.as_ref(),
                 (stack.pipe_stdout().cloned(), stack.pipe_stderr().cloned()),
             )?;
             let stack = &mut stack.push_redirection(stdout, stderr);
-            let (output, failed) = eval_element_with_input(engine_state, stack, last, input)?;
+            let (output, failed) = eval_element_with_input::<D>(engine_state, stack, last, input)?;
             if failed {
                 // External command failed.
                 // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
@@ -512,14 +532,14 @@ pub fn eval_block(
             }
             input = output;
         } else {
-            let (stdout, stderr) = eval_element_redirection(
+            let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
                 last.redirection.as_ref(),
                 (None, None),
             )?;
             let stack = &mut stack.push_redirection(stdout, stderr);
-            let (output, failed) = eval_element_with_input(engine_state, stack, last, input)?;
+            let (output, failed) = eval_element_with_input::<D>(engine_state, stack, last, input)?;
             if failed {
                 // External command failed.
                 // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
@@ -545,16 +565,18 @@ pub fn eval_block(
         }
     }
 
+    D::leave_block(engine_state, block);
+
     Ok(input)
 }
 
-pub fn eval_subexpression(
+pub fn eval_subexpression<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    eval_block(engine_state, stack, block, input)
+    eval_block::<D>(engine_state, stack, block, input)
 }
 
 pub fn eval_variable(
@@ -647,14 +669,14 @@ impl Eval for EvalRuntime {
         eval_variable(engine_state, stack, var_id, span)
     }
 
-    fn eval_call(
+    fn eval_call<D: DebugContext>(
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         _: Span,
     ) -> Result<Value, ShellError> {
         // FIXME: protect this collect with ctrl-c
-        Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
+        Ok(eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
     }
 
     fn eval_external_call(
@@ -678,7 +700,7 @@ impl Eval for EvalRuntime {
         .into_value(span))
     }
 
-    fn eval_subexpression(
+    fn eval_subexpression<D: DebugContext>(
         engine_state: &EngineState,
         stack: &mut Stack,
         block_id: usize,
@@ -687,7 +709,10 @@ impl Eval for EvalRuntime {
         let block = engine_state.get_block(block_id);
 
         // FIXME: protect this collect with ctrl-c
-        Ok(eval_subexpression(engine_state, stack, block, PipelineData::empty())?.into_value(span))
+        Ok(
+            eval_subexpression::<D>(engine_state, stack, block, PipelineData::empty())?
+                .into_value(span),
+        )
     }
 
     fn regex_match(
@@ -701,7 +726,7 @@ impl Eval for EvalRuntime {
         lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
     }
 
-    fn eval_assignment(
+    fn eval_assignment<D: DebugContext>(
         engine_state: &EngineState,
         stack: &mut Stack,
         lhs: &Expression,
@@ -710,28 +735,28 @@ impl Eval for EvalRuntime {
         op_span: Span,
         _expr_span: Span,
     ) -> Result<Value, ShellError> {
-        let rhs = eval_expression(engine_state, stack, rhs)?;
+        let rhs = eval_expression::<D>(engine_state, stack, rhs)?;
 
         let rhs = match assignment {
             Assignment::Assign => rhs,
             Assignment::PlusAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.add(op_span, &rhs, op_span)?
             }
             Assignment::MinusAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.sub(op_span, &rhs, op_span)?
             }
             Assignment::MultiplyAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.mul(op_span, &rhs, op_span)?
             }
             Assignment::DivideAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.div(op_span, &rhs, op_span)?
             }
             Assignment::AppendAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.append(op_span, &rhs, op_span)?
             }
         };
@@ -753,7 +778,8 @@ impl Eval for EvalRuntime {
                         // As such, give it special treatment here.
                         let is_env = var_id == &ENV_VARIABLE_ID;
                         if is_env || engine_state.get_var(*var_id).mutable {
-                            let mut lhs = eval_expression(engine_state, stack, &cell_path.head)?;
+                            let mut lhs =
+                                eval_expression::<D>(engine_state, stack, &cell_path.head)?;
 
                             lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                             if is_env {

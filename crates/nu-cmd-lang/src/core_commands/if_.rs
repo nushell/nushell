@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
+use nu_engine::{get_eval_block, get_eval_expression, get_eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Block, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input};
 use nu_protocol::{
@@ -105,6 +106,9 @@ impl Command for If {
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block: Block = call.req(engine_state, stack, 1)?;
         let else_case = call.positional_nth(2);
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         let result = eval_expression(engine_state, stack, cond)?;
         match &result {

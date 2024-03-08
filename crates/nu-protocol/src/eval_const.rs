@@ -1,3 +1,4 @@
+use crate::debugger::{DebugContext, WithoutDebug};
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     engine::{EngineState, StateWorkingSet},
@@ -5,10 +6,8 @@ use crate::{
     record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::{
-    borrow::Cow,
-    path::{Path, PathBuf},
-};
+use std::borrow::Cow;
+use std::path::{Path, PathBuf};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
@@ -26,19 +25,23 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
 
     let mut record = Record::new();
 
+    let config_path = match nu_path::config_dir() {
+        Some(mut path) => {
+            path.push("nushell");
+            Ok(canonicalize_path(engine_state, &path))
+        }
+        None => Err(Value::error(
+            ShellError::ConfigDirNotFound { span: Some(span) },
+            span,
+        )),
+    };
+
     record.push(
         "default-config-dir",
-        if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            Value::string(path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not get config directory".into(),
-                },
-                span,
-            )
-        },
+        config_path.as_ref().map_or_else(
+            |e| e.clone(),
+            |path| Value::string(path.to_string_lossy(), span),
+        ),
     );
 
     record.push(
@@ -46,16 +49,13 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         if let Some(path) = engine_state.get_config_path("config-path") {
             let canon_config_path = canonicalize_path(engine_state, path);
             Value::string(canon_config_path.to_string_lossy(), span)
-        } else if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            path.push("config.nu");
-            Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not get config directory".into(),
+            config_path.clone().map_or_else(
+                |e| e,
+                |mut path| {
+                    path.push("config.nu");
+                    Value::string(path.to_string_lossy(), span)
                 },
-                span,
             )
         },
     );
@@ -65,59 +65,46 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         if let Some(path) = engine_state.get_config_path("env-path") {
             let canon_env_path = canonicalize_path(engine_state, path);
             Value::string(canon_env_path.to_string_lossy(), span)
-        } else if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            path.push("env.nu");
-            Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not find environment path".into(),
+            config_path.clone().map_or_else(
+                |e| e,
+                |mut path| {
+                    path.push("env.nu");
+                    Value::string(path.to_string_lossy(), span)
                 },
-                span,
             )
         },
     );
 
     record.push(
         "history-path",
-        if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            match engine_state.config.history.file_format {
-                HistoryFileFormat::Sqlite => {
-                    path.push("history.sqlite3");
+        config_path.clone().map_or_else(
+            |e| e,
+            |mut path| {
+                match engine_state.config.history.file_format {
+                    HistoryFileFormat::Sqlite => {
+                        path.push("history.sqlite3");
+                    }
+                    HistoryFileFormat::PlainText => {
+                        path.push("history.txt");
+                    }
                 }
-                HistoryFileFormat::PlainText => {
-                    path.push("history.txt");
-                }
-            }
-            let canon_hist_path = canonicalize_path(engine_state, &path);
-            Value::string(canon_hist_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not find history path".into(),
-                },
-                span,
-            )
-        },
+                let canon_hist_path = canonicalize_path(engine_state, &path);
+                Value::string(canon_hist_path.to_string_lossy(), span)
+            },
+        ),
     );
 
     record.push(
         "loginshell-path",
-        if let Some(mut path) = nu_path::config_dir() {
-            path.push("nushell");
-            path.push("login.nu");
-            let canon_login_path = canonicalize_path(engine_state, &path);
-            Value::string(canon_login_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::IOError {
-                    msg: "Could not find login shell path".into(),
-                },
-                span,
-            )
-        },
+        config_path.clone().map_or_else(
+            |e| e,
+            |mut path| {
+                path.push("login.nu");
+                let canon_login_path = canonicalize_path(engine_state, &path);
+                Value::string(canon_login_path.to_string_lossy(), span)
+            },
+        ),
     );
 
     #[cfg(feature = "plugin")]
@@ -127,17 +114,15 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             if let Some(path) = &engine_state.plugin_signatures {
                 let canon_plugin_path = canonicalize_path(engine_state, path);
                 Value::string(canon_plugin_path.to_string_lossy(), span)
-            } else if let Some(mut plugin_path) = nu_path::config_dir() {
-                // If there are no signatures, we should still populate the plugin path
-                plugin_path.push("nushell");
-                plugin_path.push("plugin.nu");
-                Value::string(plugin_path.to_string_lossy(), span)
             } else {
-                Value::error(
-                    ShellError::IOError {
-                        msg: "Could not get plugin signature location".into(),
+                // If there are no signatures, we should still populate the plugin path
+                config_path.clone().map_or_else(
+                    |e| e,
+                    |mut path| {
+                        path.push("plugin.nu");
+                        let canonical_plugin_path = canonicalize_path(engine_state, &path);
+                        Value::string(canonical_plugin_path.to_string_lossy(), span)
                     },
-                    span,
                 )
             },
         );
@@ -271,7 +256,8 @@ pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    <EvalConst as Eval>::eval(working_set, &mut (), expr)
+    // TODO: Allow debugging const eval
+    <EvalConst as Eval>::eval::<WithoutDebug>(working_set, &mut (), expr)
 }
 
 struct EvalConst;
@@ -317,12 +303,13 @@ impl Eval for EvalConst {
         }
     }
 
-    fn eval_call(
+    fn eval_call<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),
         call: &Call,
         span: Span,
     ) -> Result<Value, ShellError> {
+        // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
         Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
     }
@@ -339,12 +326,13 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn eval_subexpression(
+    fn eval_subexpression<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),
         block_id: usize,
         span: Span,
     ) -> Result<Value, ShellError> {
+        // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
         Ok(
             eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
@@ -363,7 +351,7 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span: expr_span })
     }
 
-    fn eval_assignment(
+    fn eval_assignment<D: DebugContext>(
         _: &StateWorkingSet,
         _: &mut (),
         _: &Expression,
@@ -372,6 +360,7 @@ impl Eval for EvalConst {
         _op_span: Span,
         expr_span: Span,
     ) -> Result<Value, ShellError> {
+        // TODO: Allow debugging const eval
         Err(ShellError::NotAConstant { span: expr_span })
     }
 

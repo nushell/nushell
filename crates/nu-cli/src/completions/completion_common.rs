@@ -5,6 +5,7 @@ use nu_path::home_dir;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_utils::get_ls_colors;
+use std::ffi::OsStr;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
 fn complete_rec(
@@ -112,7 +113,15 @@ pub fn complete_item(
             get_ls_colors(ls_colors_env_str)
         });
     let mut original_cwd = OriginalCwd::None;
-    let mut components = Path::new(&partial).components().peekable();
+    let mut components_vec: Vec<Component> = Path::new(&partial).components().collect();
+
+    // Path components that end with a single "." get normalized away,
+    // so if the partial path ends in a literal "." we must add it back in manually
+    if partial.ends_with('.') && partial.len() > 1 {
+        components_vec.push(Component::Normal(OsStr::new(".")));
+    };
+    let mut components = components_vec.into_iter().peekable();
+
     let mut cwd = match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition

@@ -1,13 +1,13 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
-use nu_engine::eval_expression;
+use nu_engine::get_eval_expression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
-    Category, Example, IoStream, ListStream, NuGlob, PipelineData, RawStream, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoSpanned, IoStream, ListStream, NuGlob, PipelineData, RawStream,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -114,6 +114,8 @@ pub fn create_external_command(
                 span,
             })
     }
+
+    let eval_expression = get_eval_expression(engine_state);
 
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
@@ -421,7 +423,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .expect("Failed to create thread");
+                            .map_err(|e| e.into_spanned(head))?;
                     }
                 }
 
@@ -488,37 +490,31 @@ impl ExternalCommand {
 
                                         let cause = cause.as_deref().unwrap_or("Something went wrong");
 
-                                        let style = Style::new().bold().on(Color::Red);
-                                        eprintln!(
-                                            "{}",
-                                            style.paint(format!(
-                                                "{cause}: oops, process '{commandname}' core dumped"
-                                            ))
-                                        );
-                                        let _ = exit_code_tx.send(Value::error(
-                                            ShellError::ExternalCommand {
-                                                label: "core dumped".to_string(),
-                                                help: format!("{cause}: child process '{commandname}' core dumped"),
-                                                span: head
-                                            },
-                                            head,
-                                        ));
-                                        return Ok(());
-                                    }
+                                    let style = Style::new().bold().on(Color::Red);
+                                    eprintln!(
+                                        "{}",
+                                        style.paint(format!(
+                                            "{cause}: oops, process '{commandname}' core dumped"
+                                        ))
+                                    );
+                                    let _ = exit_code_tx.send(Value::error (
+                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
+                                        head,
+                                    ));
+                                    return Ok(());
                                 }
-
-                                if let Some(code) = x.code() {
-                                    let _ = exit_code_tx.send(Value::int(code as i64, head));
-                                } else if x.success() {
-                                    let _ = exit_code_tx.send(Value::int(0, head));
-                                } else {
-                                    let _ = exit_code_tx.send(Value::int(-1, head));
-                                }
-
-                                Ok(())
                             }
+                            if let Some(code) = x.code() {
+                                let _ = exit_code_tx.send(Value::int(code as i64, head));
+                            } else if x.success() {
+                                let _ = exit_code_tx.send(Value::int(0, head));
+                            } else {
+                                let _ = exit_code_tx.send(Value::int(-1, head));
+                            }
+                            Ok(())
                         }
-                }).expect("Failed to create thread");
+                    }
+                }).map_err(|e| e.into_spanned(head))?;
 
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
@@ -660,9 +656,11 @@ fn trim_expand_and_apply_arg(
     // if arg is quoted, like "aa", 'aa', `aa`, or:
     // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
     // `as_a_whole` will be true, so nu won't remove the inner quotes.
-    let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+    let (trimmed_args, mut run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
     if *arg_keep_raw {
         keep_raw = true;
+        // it's a list or a variable, don't run glob expansion either
+        run_glob_expansion = false;
     }
     let mut arg = Spanned {
         item: if keep_raw {

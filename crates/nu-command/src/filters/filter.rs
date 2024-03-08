@@ -1,6 +1,7 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -61,6 +62,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
+        let eval_block = get_eval_block(&engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -156,6 +158,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         stack.add_var(*var_id, x.clone());
                     }
                 }
+
                 Ok(match eval_block(
                     &engine_state,
                     &mut stack,

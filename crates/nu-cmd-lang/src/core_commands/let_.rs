@@ -1,4 +1,4 @@
-use nu_engine::eval_block;
+use nu_engine::get_eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -63,6 +63,7 @@ impl Command for Let {
             .expect("internal error: missing right hand side");
 
         let block = engine_state.get_block(block_id);
+        let eval_block = get_eval_block(engine_state);
         let stack = &mut stack.start_capture();
         let pipeline_data = eval_block(engine_state, stack, block, input)?;
         let mut value = pipeline_data.into_value(call.head);

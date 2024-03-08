@@ -10,6 +10,7 @@ use std::{
     path::PathBuf,
     process::Stdio,
     sync::{atomic::AtomicBool, Arc},
+    thread,
 };
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
@@ -788,7 +789,7 @@ impl PipelineData {
                     .map(|bytes| bytes.item)
                     .unwrap_or_default();
                 RawStream::new(
-                    Box::new(vec![Ok(stderr_bytes)].into_iter()),
+                    Box::new(std::iter::once(Ok(stderr_bytes))),
                     stderr_ctrlc,
                     stderr_span,
                     None,
@@ -1027,14 +1028,28 @@ pub fn print_if_stream(
     to_stderr: bool,
     exit_code: Option<ListStream>,
 ) -> Result<i64, ShellError> {
-    // NOTE: currently we don't need anything from stderr
-    // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
-
     if let Some(stderr_stream) = stderr_stream {
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name("stderr consumer".to_string())
-            .spawn(move || stderr_stream.into_bytes())
-            .expect("could not create thread");
+            .spawn(move || {
+                let RawStream {
+                    stream,
+                    leftover,
+                    ctrlc,
+                    ..
+                } = stderr_stream;
+                let mut stderr = std::io::stderr();
+                let _ = stderr.write_all(&leftover);
+                drop(leftover);
+                for bytes in stream {
+                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        break;
+                    }
+                    if let Ok(bytes) = bytes {
+                        let _ = stderr.write_all(&bytes);
+                    }
+                }
+            })?;
     }
 
     if let Some(stream) = stream {

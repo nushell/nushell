@@ -3,6 +3,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -84,7 +85,7 @@ pub(crate) fn add_menus(
     }
 
     // Checking if the default menus have been added from the config file
-    let default_menus = vec![
+    let default_menus = [
         ("completion_menu", DEFAULT_COMPLETION_MENU),
         ("history_menu", DEFAULT_HISTORY_MENU),
         ("help_menu", DEFAULT_HELP_MENU),
@@ -110,7 +111,7 @@ pub(crate) fn add_menus(
 
             let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-            let res = eval_block(&engine_state, &mut temp_stack, &block, input)?;
+            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {

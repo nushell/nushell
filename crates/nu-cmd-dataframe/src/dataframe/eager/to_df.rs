@@ -148,6 +148,18 @@ impl Command for ToDataFrame {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Convert to a dataframe and provide a schema that adds a new column",
+                example: r#"[[a b]; [1 "foo"] [2 "bar"]] | dfr into-df -s {a: u8, b:str, c:i64} | dfr fill-null 3"#,
+                result: Some(NuDataFrame::try_from_series(vec![
+                        Series::new("a", [1u8, 2]),
+                        Series::new("b", ["foo", "bar"]),
+                        Series::new("c", [3i64, 3]),
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            }
         ]
     }
 
@@ -163,8 +175,12 @@ impl Command for ToDataFrame {
             .map(|schema| NuSchema::try_from(&schema))
             .transpose()?;
 
-        NuDataFrame::try_from_iter(input.into_iter(), maybe_schema)
-            .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+        let df = NuDataFrame::try_from_iter(input.into_iter(), maybe_schema.clone())?;
+
+        Ok(PipelineData::Value(
+            NuDataFrame::into_value(df, call.head),
+            None,
+        ))
     }
 }
 

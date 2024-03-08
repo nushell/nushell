@@ -68,10 +68,10 @@ impl Command for SubCommand {
             Example {
                 description: "convert string to glob",
                 example: "'1234' | into glob",
-                result: Some(Value::test_string("1234")),
+                result: Some(Value::test_glob("1234")),
             },
             Example {
-                description: "convert filepath to string",
+                description: "convert filepath to glob",
                 example: "ls Cargo.toml | get name | into glob",
                 result: None,
             },

@@ -1,5 +1,6 @@
 use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
+use nu_color_config::StyleComputer;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -92,7 +93,6 @@ pub fn cal(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    // TODO: Error if a value is piped in
     _input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let mut calendar_vec_deque = VecDeque::new();
@@ -108,6 +108,8 @@ pub fn cal(
         full_year: call.get_flag(engine_state, stack, "full-year")?,
         week_start: call.get_flag(engine_state, stack, "week-start")?,
     };
+
+    let style_computer = &StyleComputer::from_config(engine_state, stack);
 
     let mut selected_year: i32 = current_year;
     let mut current_day_option: Option<u32> = Some(current_day);
@@ -132,6 +134,7 @@ pub fn cal(
         month_range,
         current_month,
         current_day_option,
+        style_computer,
     )?;
 
     Ok(Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data())
@@ -200,6 +203,7 @@ fn get_current_date() -> (i32, u32, u32) {
     (current_year, current_month, current_day)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_months_of_year_to_table(
     arguments: &Arguments,
     calendar_vec_deque: &mut VecDeque<Value>,
@@ -208,6 +212,7 @@ fn add_months_of_year_to_table(
     (start_month, end_month): (u32, u32),
     current_month: u32,
     current_day_option: Option<u32>,
+    style_computer: &StyleComputer,
 ) -> Result<(), ShellError> {
     for month_number in start_month..=end_month {
         let mut new_current_day_option: Option<u32> = None;
@@ -225,6 +230,7 @@ fn add_months_of_year_to_table(
             selected_year,
             month_number,
             new_current_day_option,
+            style_computer,
         );
 
         add_month_to_table_result?
@@ -240,6 +246,7 @@ fn add_month_to_table(
     selected_year: i32,
     current_month: u32,
     current_day_option: Option<u32>,
+    style_computer: &StyleComputer,
 ) -> Result<(), ShellError> {
     let month_helper_result = MonthHelper::new(selected_year, current_month);
 
@@ -258,15 +265,7 @@ fn add_month_to_table(
         },
     };
 
-    let mut days_of_the_week = [
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-    ];
+    let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
 
     let mut week_start_day = days_of_the_week[0].to_string();
     if let Some(day) = &arguments.week_start {
@@ -341,8 +340,16 @@ fn add_month_to_table(
 
                 if let Some(current_day) = current_day_option {
                     if current_day == adjusted_day_number {
-                        // TODO: Update the value here with a color when color support is added
                         // This colors the current day
+                        let header_style =
+                            style_computer.compute("header", &Value::nothing(Span::unknown()));
+
+                        value = Value::string(
+                            header_style
+                                .paint(adjusted_day_number.to_string())
+                                .to_string(),
+                            tag,
+                        );
                     }
                 }
             }

@@ -281,6 +281,14 @@
                                 Source='target\$(var.Profile)\nu_plugin_gstat.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='binary23' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe23'
+                                Name='nu_plugin_stream_example.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_stream_example.exe'
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -345,6 +353,7 @@
             <ComponentRef Id='binary20'/>
             <ComponentRef Id='binary21'/> -->
             <ComponentRef Id='binary22'/>
+            <ComponentRef Id='binary23'/>
 
             <Feature
                 Id='Environment'

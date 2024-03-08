@@ -18,7 +18,7 @@ pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
     all: bool,
     deref: bool,
-    exclude: Option<Spanned<String>>,
+    exclude: Option<Spanned<NuGlob>>,
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
     #[serde(rename = "min-size")]
@@ -38,7 +38,11 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional("path", SyntaxShape::GlobPattern, "Starting directory.")
+            .optional(
+                "path",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "Starting directory.",
+            )
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
@@ -106,7 +110,7 @@ impl Command for Du {
         };
 
         let exclude = args.exclude.map_or(Ok(None), move |x| {
-            Pattern::new(&x.item)
+            Pattern::new(x.item.as_ref())
                 .map(Some)
                 .map_err(|e| ShellError::InvalidGlobPattern {
                     msg: e.msg.into(),

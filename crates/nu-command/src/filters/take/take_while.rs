@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -87,6 +87,8 @@ impl Command for TakeWhile {
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
+
+        let eval_block = get_eval_block(&engine_state);
 
         Ok(input
             .into_iter_strict(span)?

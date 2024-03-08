@@ -27,6 +27,20 @@ fn can_get_custom_value_from_plugin_and_pass_it_over() {
 }
 
 #[test]
+fn can_get_custom_value_from_plugin_and_pass_it_over_as_an_argument() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "custom-value update-arg (custom-value generate)"
+    );
+
+    assert_eq!(
+        actual.out,
+        "I used to be a custom value! My data was (abcxyz)"
+    );
+}
+
+#[test]
 fn can_generate_and_updated_multiple_types_of_custom_values() {
     let actual = nu_with_plugins!(
         cwd: "tests",
@@ -65,7 +79,10 @@ fn fails_if_passing_engine_custom_values_to_plugins() {
 
     assert!(actual
         .err
-        .contains("Plugin custom-value update can not handle the custom value SQLiteDatabase"));
+        .contains("`SQLiteDatabase` cannot be sent to plugin"));
+    assert!(actual
+        .err
+        .contains("the `custom_values` plugin does not support this kind of value"));
 }
 
 #[test]
@@ -81,5 +98,8 @@ fn fails_if_passing_custom_values_across_plugins() {
 
     assert!(actual
         .err
-        .contains("Plugin inc can not handle the custom value CoolCustomValue"));
+        .contains("`CoolCustomValue` cannot be sent to plugin"));
+    assert!(actual
+        .err
+        .contains("the `inc` plugin does not support this kind of value"));
 }

@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::{Block, Call};
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -102,6 +103,7 @@ impl Command for UpdateCells {
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block: Block = engine_state.get_block(block.block_id).clone();
+        let eval_block_fn = get_eval_block(&engine_state);
 
         let span = call.head;
 
@@ -126,6 +128,7 @@ impl Command for UpdateCells {
             block,
             columns,
             span,
+            eval_block_fn,
         }
         .into_pipeline_data(ctrlc)
         .set_metadata(metadata))
@@ -138,6 +141,7 @@ struct UpdateCellIterator {
     engine_state: EngineState,
     stack: Stack,
     block: Block,
+    eval_block_fn: EvalBlockFn,
     span: Span,
 }
 
@@ -167,6 +171,7 @@ impl Iterator for UpdateCellIterator {
                                         &mut self.stack,
                                         &self.block,
                                         span,
+                                        self.eval_block_fn,
                                     ),
                                 ),
                             })
@@ -179,6 +184,7 @@ impl Iterator for UpdateCellIterator {
                         &mut self.stack,
                         &self.block,
                         self.span,
+                        self.eval_block_fn,
                     )),
                 }
             }
@@ -187,19 +193,22 @@ impl Iterator for UpdateCellIterator {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_cell(
     val: Value,
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     span: Span,
+    eval_block_fn: EvalBlockFn,
 ) -> Value {
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {
             stack.add_var(*var_id, val.clone());
         }
     }
-    match eval_block(engine_state, stack, block, val.into_pipeline_data()) {
+
+    match eval_block_fn(engine_state, stack, block, val.into_pipeline_data()) {
         Ok(pd) => pd.into_value(span),
         Err(e) => Value::error(e, span),
     }

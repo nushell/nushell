@@ -6,6 +6,7 @@ use nu_engine::eval_block;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
@@ -130,7 +131,8 @@ pub fn evaluate_file(
     if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        let pipeline_data = eval_block(engine_state, stack, &block, PipelineData::empty());
+        let pipeline_data =
+            eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty());
         let pipeline_data = match pipeline_data {
             Err(ShellError::Return { .. }) => {
                 // allows early exists before `main` is run.

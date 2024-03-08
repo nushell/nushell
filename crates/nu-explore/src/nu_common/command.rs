@@ -1,5 +1,6 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, EvaluatedRedirection, Stack, StateWorkingSet},
     IoStream, PipelineData, ShellError, Value,
@@ -94,5 +95,5 @@ fn eval_source2(
         Some(EvaluatedRedirection::Pipe(IoStream::Capture)),
         Some(EvaluatedRedirection::Pipe(IoStream::Capture)),
     );
-    eval_block(engine_state, stack, &block, input)
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input)
 }

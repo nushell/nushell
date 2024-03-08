@@ -77,7 +77,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
                     dots_count = 0;
                 } else {
                     // if at a path component boundary a secment consists of not only dots
-                    // don't expand the dots and only append the the appropriate number of .
+                    // don't expand the dots and only append the appropriate number of .
                     while dots_count > 0 {
                         expanded.push('.');
                         dots_count -= 1;

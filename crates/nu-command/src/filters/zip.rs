@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -102,6 +102,7 @@ impl Command for Zip {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         let other: PipelineData = match call.req(engine_state, stack, 0)? {
             // If a closure was provided, evaluate it and consume its stream output

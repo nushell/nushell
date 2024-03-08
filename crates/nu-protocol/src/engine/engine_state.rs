@@ -4,6 +4,7 @@ use lru::LruCache;
 use super::{usage::build_usage, usage::Usage, StateDelta};
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::ast::Block;
+use crate::debugger::{Debugger, NoopDebugger};
 use crate::{
     BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
     ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
@@ -14,10 +15,13 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::{
     atomic::{AtomicBool, AtomicU32},
-    Arc, Mutex,
+    Arc, Mutex, MutexGuard, PoisonError,
 };
+
+type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
 pub static PWD_ENV: &str = "PWD";
 
@@ -31,6 +35,20 @@ pub struct ReplState {
     pub buffer: String,
     // A byte position, as `EditCommand::MoveToPosition` is also a byte position
     pub cursor_pos: usize,
+}
+
+pub struct IsDebugging(AtomicBool);
+
+impl IsDebugging {
+    pub fn new(val: bool) -> Self {
+        IsDebugging(AtomicBool::new(val))
+    }
+}
+
+impl Clone for IsDebugging {
+    fn clone(&self) -> Self {
+        IsDebugging(AtomicBool::new(self.0.load(Ordering::Relaxed)))
+    }
 }
 
 /// The core global engine state. This includes all global definitions as well as any global state that
@@ -104,6 +122,8 @@ pub struct EngineState {
     pub is_interactive: bool,
     pub is_login: bool,
     startup_time: i64,
+    is_debugging: IsDebugging,
+    pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -161,6 +181,8 @@ impl EngineState {
             is_interactive: false,
             is_login: false,
             startup_time: -1,
+            is_debugging: IsDebugging::new(false),
+            debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
         }
     }
 
@@ -914,6 +936,29 @@ impl EngineState {
 
     pub fn set_startup_time(&mut self, startup_time: i64) {
         self.startup_time = startup_time;
+    }
+
+    pub fn activate_debugger(
+        &self,
+        debugger: Box<dyn Debugger>,
+    ) -> Result<(), PoisonDebuggerError> {
+        let mut locked_debugger = self.debugger.lock()?;
+        *locked_debugger = debugger;
+        locked_debugger.activate();
+        self.is_debugging.0.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
+        let mut locked_debugger = self.debugger.lock()?;
+        locked_debugger.deactivate();
+        let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));
+        self.is_debugging.0.store(false, Ordering::Relaxed);
+        Ok(ret)
+    }
+
+    pub fn is_debugging(&self) -> bool {
+        self.is_debugging.0.load(Ordering::Relaxed)
     }
 
     pub fn recover_from_panic(&mut self) {

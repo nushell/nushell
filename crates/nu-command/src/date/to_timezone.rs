@@ -77,27 +77,27 @@ impl Command for SubCommand {
 
         vec![
             Example {
-                description: "Get the current date in UTC+05:00",
+                description: "Get the current date in UTC+05:00.",
                 example: "date now | date to-timezone '+0500'",
                 result: None,
             },
             Example {
-                description: "Get the current local date",
+                description: "Get the current date in the local time zone.",
                 example: "date now | date to-timezone local",
                 result: None,
             },
             Example {
-                description: "Get the current date in Hawaii",
+                description: "Get the current date in Hawaii.",
                 example: "date now | date to-timezone US/Hawaii",
                 result: None,
             },
             Example {
-                description: "Get the current date in Hawaii",
+                description: "Get a date in a different time zone, from a string.",
                 example: r#""2020-10-10 10:00:00 +02:00" | date to-timezone "+0500""#,
                 result: example_result_1(),
             },
             Example {
-                description: "Get the current date in Hawaii, from a datetime object",
+                description: "Get a date in a different time zone, from a datetime.",
                 example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
                 result: example_result_1(),
             },
