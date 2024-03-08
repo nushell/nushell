@@ -94,16 +94,24 @@ fn main() -> Result<()> {
     };
 
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
-        if !xdg_config_home.is_empty()
-            && nushell_config_path != Path::new(&xdg_config_home).join("nushell")
-        {
-            report_error_new(
-                &engine_state,
-                &ShellError::InvalidXdgConfig {
-                    xdg: xdg_config_home,
-                    default: nushell_config_path.display().to_string(),
-                },
-            );
+        if !xdg_config_home.is_empty() {
+            if nushell_config_path != Path::new(&xdg_config_home).join("nushell") {
+                report_error_new(
+                    &engine_state,
+                    &ShellError::InvalidXdgConfig {
+                        xdg: xdg_config_home,
+                        default: nushell_config_path.display().to_string(),
+                    },
+                );
+            } else if nushell_config_path
+                .read_dir()
+                .map_or(true, |mut dir| dir.next().is_none())
+            {
+                eprintln!(
+                    "WARNING: XDG_CONFIG_HOME has been set but {} is empty",
+                    nushell_config_path.display()
+                );
+            }
         }
     }
 
