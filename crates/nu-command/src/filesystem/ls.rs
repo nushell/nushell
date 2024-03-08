@@ -172,20 +172,14 @@ impl Command for Ls {
             let p = path.display().to_string();
             let mut glob_escaped = Pattern::escape(&p);
             if extra_star_under_given_directory {
-                if !glob_escaped.is_empty() {
-                    // need to put `MAIN_SEPARATOR` if parent path is not empty
-                    // or else we will list the root directory, e.g: "" -> "/*"
-                    glob_escaped.push(std::path::MAIN_SEPARATOR);
-                }
+                glob_escaped.push(std::path::MAIN_SEPARATOR);
                 glob_escaped.push('*');
             }
             glob_escaped
         } else {
             let mut p = path.display().to_string();
             if extra_star_under_given_directory {
-                if !p.is_empty() {
-                    p.push(std::path::MAIN_SEPARATOR);
-                }
+                p.push(std::path::MAIN_SEPARATOR);
                 p.push('*');
             }
             p

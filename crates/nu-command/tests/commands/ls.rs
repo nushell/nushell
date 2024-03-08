@@ -701,17 +701,3 @@ fn list_flag_false() {
         assert_eq!(actual.out, "false");
     })
 }
-
-#[test]
-fn list_empty_string() {
-    Playground::setup("ls_empty_string", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
-
-        let actual = nu!(cwd: dirs.test(), "ls '' | length");
-        assert_eq!(actual.out, "3");
-    })
-}
