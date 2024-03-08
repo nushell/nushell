@@ -209,21 +209,6 @@ fn insert_in_transaction(
 
     let table_name = table.name().clone();
     let tx = table.try_init(first_val)?;
-    let insert_statement = format!(
-        "INSERT INTO [{}] VALUES ({})",
-        table_name,
-        ["?"].repeat(first_val.values().len()).join(", ")
-    );
-
-    let mut insert_statement =
-        tx.prepare(&insert_statement)
-            .map_err(|e| ShellError::GenericError {
-                error: "Failed to prepare SQLite statement".into(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: Vec::new(),
-            })?;
 
     // insert all the records
     stream.try_for_each(|stream_value| {
@@ -233,18 +218,39 @@ fn insert_in_transaction(
             }
         }
 
-        insert_value(stream_value, &mut insert_statement)
-    })?;
+        let val = stream_value.as_record()?;
 
-    insert_statement
-        .finalize()
-        .map_err(|e| ShellError::GenericError {
-            error: "Failed to finalize SQLite prepared statement".into(),
-            msg: e.to_string(),
-            span: None,
-            help: None,
-            inner: Vec::new(),
-        })?;
+        let insert_statement = format!(
+            "INSERT INTO [{}] ({}) VALUES ({})",
+            table_name,
+            val.cols.join(", "),
+            ["?"].repeat(val.values().len()).join(", ")
+        );
+
+        let mut insert_statement =
+            tx.prepare(&insert_statement)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Failed to prepare SQLite statement".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: Vec::new(),
+                })?;
+
+        let result = insert_value(stream_value, &mut insert_statement);
+
+        insert_statement
+            .finalize()
+            .map_err(|e| ShellError::GenericError {
+                error: "Failed to finalize SQLite prepared statement".into(),
+                msg: e.to_string(),
+                span: None,
+                help: None,
+                inner: Vec::new(),
+            })?;
+
+        result
+    })?;
 
     tx.commit().map_err(|e| ShellError::GenericError {
         error: "Failed to commit SQLite transaction".into(),
