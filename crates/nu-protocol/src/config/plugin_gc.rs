@@ -31,6 +31,14 @@ impl PluginGcConfigs {
         errors: &mut Vec<ShellError>,
     ) {
         if let Value::Record { val, .. } = value {
+            // Handle resets to default if keys are missing
+            if !val.contains("default") {
+                self.default = PluginGcConfig::default();
+            }
+            if !val.contains("plugins") {
+                self.plugins = HashMap::new();
+            }
+
             val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
@@ -50,7 +58,7 @@ impl PluginGcConfigs {
                     }
                 }
                 true
-            })
+            });
         } else {
             report_invalid_value("should be a record", value.span(), errors);
             *value = self.reconstruct_value(value.span());
@@ -77,6 +85,9 @@ fn process_plugins(
     plugins: &mut HashMap<String, PluginGcConfig>,
 ) {
     if let Value::Record { val, .. } = value {
+        // Remove any plugin configs that aren't in the value
+        plugins.retain(|key, _| val.contains(key));
+
         val.retain_mut(|key, value| {
             if matches!(value, Value::Record { .. }) {
                 plugins.entry(key.to_owned()).or_default().process(
@@ -87,9 +98,16 @@ fn process_plugins(
                 true
             } else {
                 report_invalid_value("should be a record", value.span(), errors);
-                false
+                if let Some(conf) = plugins.get(key) {
+                    // Reconstruct the value if it existed before
+                    *value = conf.reconstruct_value(value.span());
+                    true
+                } else {
+                    // Remove it if it didn't
+                    false
+                }
             }
-        })
+        });
     }
 }
 
@@ -124,6 +142,14 @@ impl Default for PluginGcConfig {
 impl PluginGcConfig {
     fn process(&mut self, path: &[&str], value: &mut Value, errors: &mut Vec<ShellError>) {
         if let Value::Record { val, .. } = value {
+            // Handle resets to default if keys are missing
+            if !val.contains("enabled") {
+                self.enabled = PluginGcConfig::default().enabled;
+            }
+            if !val.contains("stop_after") {
+                self.stop_after = PluginGcConfig::default().stop_after;
+            }
+
             val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
