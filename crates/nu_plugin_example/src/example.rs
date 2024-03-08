@@ -99,4 +99,20 @@ impl Example {
             span: Some(call.head),
         })
     }
+
+    pub fn disable_gc(
+        &self,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+    ) -> Result<Value, LabeledError> {
+        let disabled = !call.has_flag("reset")?;
+        engine.set_gc_disabled(disabled)?;
+        Ok(Value::string(
+            format!(
+                "The plugin garbage collector for `example` is now *{}*.",
+                if disabled { "disabled" } else { "enabled" }
+            ),
+            call.head,
+        ))
+    }
 }

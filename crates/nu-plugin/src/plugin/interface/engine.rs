@@ -12,8 +12,8 @@ use nu_protocol::{
 
 use crate::{
     protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
-        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, ProtocolInfo,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
+        PluginInput, PluginOption, ProtocolInfo,
     },
     LabeledError, PluginOutput,
 };
@@ -669,6 +669,18 @@ impl EngineInterface {
             Value::Error { error, .. } => Err(*error),
             value => Ok(value),
         }
+    }
+
+    /// Tell the engine whether to disable garbage collection for this plugin.
+    ///
+    /// The garbage collector is enabled by default, but plugins can turn it off (ideally
+    /// temporarily) as necessary to implement functionality that requires the plugin to stay
+    /// running for longer than the engine can automatically determine.
+    ///
+    /// The user can still stop the plugin if they want to with the `plugin stop` command.
+    pub fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
+        self.write(PluginOutput::Option(PluginOption::GcDisabled(disabled)))?;
+        self.flush()
     }
 }
 

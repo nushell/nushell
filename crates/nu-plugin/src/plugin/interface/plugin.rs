@@ -23,6 +23,7 @@ use crate::{
         PluginCallResponse,
         PluginCustomValue,
         PluginInput,
+        PluginOption,
         PluginOutput,
         ProtocolInfo,
         StreamId,
@@ -425,6 +426,15 @@ impl InterfaceManager for PluginInterfaceManager {
                 })
             }
             PluginOutput::Stream(message) => self.consume_stream_message(message),
+            PluginOutput::Option(option) => match option {
+                PluginOption::GcDisabled(disabled) => {
+                    // Turn garbage collection off/on.
+                    if let Some(ref gc) = self.gc {
+                        gc.set_disabled(disabled);
+                    }
+                    Ok(())
+                }
+            },
             PluginOutput::CallResponse(id, response) => {
                 // Handle reading the pipeline data, if any
                 let response = match response {
@@ -507,19 +517,6 @@ impl InterfaceManager for PluginInterfaceManager {
         &self.stream_manager
     }
 
-    fn consume_stream_message(&mut self, message: StreamMessage) -> Result<(), ShellError> {
-        let is_end = matches!(message, StreamMessage::End(_));
-        let result = self.stream_manager.handle_message(message);
-        if is_end && result.is_ok() {
-            // Streams read from the plugin are tracked with locks on the GC so
-            // plugins don't get stopped if they have active streams
-            if let Some(ref gc) = self.gc {
-                gc.decrement_locks(1);
-            }
-        }
-        result
-    }
-
     fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
         // Add source to any values
         match data {
@@ -545,7 +542,16 @@ impl InterfaceManager for PluginInterfaceManager {
         if let StreamMessage::End(id) = message {
             self.recv_stream_ended(id);
         }
-        self.stream_manager.handle_message(message)
+        let is_end = matches!(message, StreamMessage::End(_));
+        let result = self.stream_manager.handle_message(message);
+        if is_end && result.is_ok() {
+            // Streams read from the plugin are tracked with locks on the GC so
+            // plugins don't get stopped if they have active streams
+            if let Some(ref gc) = self.gc {
+                gc.decrement_locks(1);
+            }
+        }
+        result
     }
 }
 
