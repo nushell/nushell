@@ -201,3 +201,20 @@ fn test_xdg_config_empty() {
         );
     });
 }
+
+#[test]
+fn test_xdg_config_bad() {
+    Playground::setup("xdg_config_bad", |_, playground| {
+        playground.with_env("XDG_CONFIG_HOME", r#"mn2''6t\/k*((*&^//k//: "#);
+
+        let actual = nu!("$nu.default-config-dir");
+        assert_eq!(
+            actual.out,
+            dirs_next::config_dir()
+                .unwrap()
+                .join("nushell")
+                .display()
+                .to_string()
+        );
+    });
+}
