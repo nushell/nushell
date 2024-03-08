@@ -471,8 +471,13 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
                 // Do our best to report the read error. Most likely there is some kind of
                 // incompatibility between the plugin and nushell, so it makes more sense to try to
                 // report it on stderr than to send something.
+                //
+                // Don't report a `PluginFailedToLoad` error, as it's probably just from Hello
+                // version mismatch which the engine side would also report.
 
-                eprintln!("Plugin `{plugin_name_clone}` read error: {err}");
+                if !matches!(err, ShellError::PluginFailedToLoad { .. }) {
+                    eprintln!("Plugin `{plugin_name_clone}` read error: {err}");
+                }
                 std::process::exit(1);
             }
         })
