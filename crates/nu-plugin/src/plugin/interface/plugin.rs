@@ -402,13 +402,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     ),
                 })
             }
-            PluginOutput::Stream(message) => {
-                // Keep track of streams that end so we know if we don't need the context anymore
-                if let StreamMessage::End(id) = message {
-                    self.recv_stream_ended(id);
-                }
-                self.consume_stream_message(message)
-            }
+            PluginOutput::Stream(message) => self.consume_stream_message(message),
             PluginOutput::CallResponse(id, response) => {
                 // Handle reading the pipeline data, if any
                 let response = match response {
@@ -492,6 +486,14 @@ impl InterfaceManager for PluginInterfaceManager {
             }
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }
+    }
+
+    fn consume_stream_message(&mut self, message: StreamMessage) -> Result<(), ShellError> {
+        // Keep track of streams that end so we know if we don't need the context anymore
+        if let StreamMessage::End(id) = message {
+            self.recv_stream_ended(id);
+        }
+        self.stream_manager.handle_message(message)
     }
 }
 
