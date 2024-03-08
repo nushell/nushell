@@ -184,3 +184,20 @@ fn test_alternate_config_path() {
     );
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }
+
+#[test]
+fn test_xdg_config_empty() {
+    Playground::setup("xdg_config_empty", |_, playground| {
+        playground.with_env("XDG_CONFIG_HOME", "");
+
+        let actual = nu!("$nu.default-config-dir");
+        assert_eq!(
+            actual.out,
+            dirs_next::config_dir()
+                .unwrap()
+                .join("nushell")
+                .display()
+                .to_string()
+        );
+    });
+}
