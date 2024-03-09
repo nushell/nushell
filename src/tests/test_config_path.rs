@@ -63,14 +63,16 @@ fn run(playground: &mut Playground, command: &str) -> String {
     let result = playground.pipeline(command).execute().map_err(|e| {
         let outcome = e.output.map(|outcome| {
             format!(
-                "out: {}, err: {}",
+                "out: '{}', err: '{}'",
                 String::from_utf8_lossy(&outcome.out),
                 String::from_utf8_lossy(&outcome.err)
             )
         });
         format!(
-            "desc: {}, exit: {:?}, outcome: {:?}",
-            e.desc, e.exit, outcome
+            "desc: {}, exit: {:?}, outcome: {}",
+            e.desc,
+            e.exit,
+            outcome.unwrap_or("empty".to_owned())
         )
     });
     String::from_utf8_lossy(&result.unwrap().out)
