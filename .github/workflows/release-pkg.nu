@@ -195,7 +195,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 
     } else {
 
-        print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
+        print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls | print
         let archive = $'($dist)/($releaseStem).zip'
         7z a $archive ...(glob *)
         let pkg = (ls -f $archive | get name)
