@@ -186,10 +186,7 @@ fn features_enabled() -> Vec<String> {
         names.push("static-link-openssl".to_string());
     }
 
-    #[cfg(feature = "extra")]
-    {
-        names.push("extra".to_string());
-    }
+    names.push("extra".to_string());
 
     #[cfg(feature = "wasi")]
     {
