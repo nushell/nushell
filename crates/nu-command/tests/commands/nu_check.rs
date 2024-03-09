@@ -720,3 +720,27 @@ fn nu_check_respects_file_pwd() {
         assert_eq!(actual.out, "true");
     })
 }
+#[test]
+fn nu_check_module_dir() {
+    Playground::setup("nu_check_test_26", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/mod.nu",
+                r#"
+                    export module foo.nu
+                    export def main [] { 'lol' }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/foo.nu",
+                r#"
+                    export def main [] { 'lol foo' }
+                "#,
+            )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline( "nu-check lol"));
+
+        assert_eq!(actual.out, "true");
+    })
+}
