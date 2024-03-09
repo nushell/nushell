@@ -1,4 +1,6 @@
-use nu_protocol::{ast::RangeInclusion, record, CustomValue, Range, ShellError, Span, Value};
+use nu_protocol::{
+    ast::RangeInclusion, engine::Closure, record, CustomValue, Range, ShellError, Span, Value,
+};
 
 use crate::{
     plugin::PluginIdentity,
@@ -180,6 +182,50 @@ fn add_source_nested_list() -> Result<(), ShellError> {
     })
 }
 
+fn check_closure_custom_values(
+    val: &Value,
+    indices: impl IntoIterator<Item = usize>,
+    mut f: impl FnMut(usize, &dyn CustomValue) -> Result<(), ShellError>,
+) -> Result<(), ShellError> {
+    let closure = val.as_closure()?;
+    for index in indices {
+        let val = closure
+            .captures
+            .get(index)
+            .unwrap_or_else(|| panic!("[{index}] not present in closure"));
+        let custom_value = val
+            .1
+            .as_custom_value()
+            .unwrap_or_else(|_| panic!("[{index}] not custom value"));
+        f(index, custom_value)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn add_source_nested_closure() -> Result<(), ShellError> {
+    let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
+    let mut val = Value::test_closure(Closure {
+        block_id: 0,
+        captures: vec![(0, orig_custom_val.clone()), (1, orig_custom_val.clone())],
+    });
+    let source = PluginIdentity::new_fake("foo");
+    PluginCustomValue::add_source(&mut val, &source);
+
+    check_closure_custom_values(&val, 0..=1, |index, custom_value| {
+        let plugin_custom_value: &PluginCustomValue = custom_value
+            .as_any()
+            .downcast_ref()
+            .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
+        assert_eq!(
+            Some(&source),
+            plugin_custom_value.source.as_ref(),
+            "[{index}] source not set correctly"
+        );
+        Ok(())
+    })
+}
+
 #[test]
 fn verify_source_error_message() -> Result<(), ShellError> {
     let span = Span::new(5, 7);
@@ -323,6 +369,40 @@ fn verify_source_nested_list() -> Result<(), ShellError> {
 }
 
 #[test]
+fn verify_source_nested_closure() -> Result<(), ShellError> {
+    let native_val = Value::test_custom_value(Box::new(TestCustomValue(32)));
+    let source = PluginIdentity::new_fake("test");
+    for (name, mut val) in [
+        (
+            "first capture",
+            Value::test_closure(Closure {
+                block_id: 0,
+                captures: vec![(0, native_val.clone()), (1, Value::test_nothing())],
+            }),
+        ),
+        (
+            "second capture",
+            Value::test_closure(Closure {
+                block_id: 0,
+                captures: vec![(0, Value::test_nothing()), (1, native_val.clone())],
+            }),
+        ),
+    ] {
+        PluginCustomValue::verify_source(&mut val, &source)
+            .expect_err(&format!("error not generated on {name}"));
+    }
+
+    let mut ok_closure = Value::test_closure(Closure {
+        block_id: 0,
+        captures: vec![(0, Value::test_nothing())],
+    });
+    PluginCustomValue::verify_source(&mut ok_closure, &source)
+        .expect("ok_closure should not generate error");
+
+    Ok(())
+}
+
+#[test]
 fn serialize_in_root() -> Result<(), ShellError> {
     let span = Span::new(4, 10);
     let mut val = Value::custom_value(Box::new(expected_test_custom_value()), span);
@@ -407,6 +487,28 @@ fn serialize_in_list() -> Result<(), ShellError> {
 }
 
 #[test]
+fn serialize_in_closure() -> Result<(), ShellError> {
+    let orig_custom_val = Value::test_custom_value(Box::new(TestCustomValue(24)));
+    let mut val = Value::test_closure(Closure {
+        block_id: 0,
+        captures: vec![(0, orig_custom_val.clone()), (1, orig_custom_val.clone())],
+    });
+    PluginCustomValue::serialize_custom_values_in(&mut val)?;
+
+    check_closure_custom_values(&val, 0..=1, |index, custom_value| {
+        let plugin_custom_value: &PluginCustomValue = custom_value
+            .as_any()
+            .downcast_ref()
+            .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
+        assert_eq!(
+            "TestCustomValue", plugin_custom_value.name,
+            "[{index}] name not set correctly"
+        );
+        Ok(())
+    })
+}
+
+#[test]
 fn deserialize_in_root() -> Result<(), ShellError> {
     let span = Span::new(4, 10);
     let mut val = Value::custom_value(Box::new(test_plugin_custom_value()), span);
@@ -478,6 +580,29 @@ fn deserialize_in_list() -> Result<(), ShellError> {
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {
+        let test_custom_value: &TestCustomValue = custom_value
+            .as_any()
+            .downcast_ref()
+            .unwrap_or_else(|| panic!("[{index}] not TestCustomValue"));
+        assert_eq!(
+            expected_test_custom_value(),
+            *test_custom_value,
+            "[{index}] name not deserialized correctly"
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn deserialize_in_closure() -> Result<(), ShellError> {
+    let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
+    let mut val = Value::test_closure(Closure {
+        block_id: 0,
+        captures: vec![(0, orig_custom_val.clone()), (1, orig_custom_val.clone())],
+    });
+    PluginCustomValue::deserialize_custom_values_in(&mut val)?;
+
+    check_closure_custom_values(&val, 0..=1, |index, custom_value| {
         let test_custom_value: &TestCustomValue = custom_value
             .as_any()
             .downcast_ref()

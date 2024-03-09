@@ -164,3 +164,25 @@ fn collect_external_big_stream() {
 
     assert_eq!(actual.out, "10000");
 }
+
+#[test]
+fn for_each_prints_on_stderr() {
+    let actual = nu_with_plugins!(
+        cwd: "tests/fixtures/formats",
+        plugin: ("nu_plugin_stream_example"),
+        "[a b c] | stream_example for-each { $in }"
+    );
+
+    assert_eq!(actual.err, "a\nb\nc\n");
+}
+
+#[test]
+fn generate_sequence() {
+    let actual = nu_with_plugins!(
+        cwd: "tests/fixtures/formats",
+        plugin: ("nu_plugin_stream_example"),
+        "stream_example generate 0 { |i| if $i <= 10 { {out: $i, next: ($i + 2)} } } | to json --raw"
+    );
+
+    assert_eq!(actual.out, "[0,2,4,6,8,10]");
+}

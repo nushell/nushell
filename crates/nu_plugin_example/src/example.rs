@@ -1,13 +1,14 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError};
 use nu_protocol::{record, Value};
 pub struct Example;
 
 impl Example {
     pub fn config(
         &self,
-        config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
     ) -> Result<Value, LabeledError> {
+        let config = engine.get_plugin_config()?;
         match config {
             Some(config) => Ok(config.clone()),
             None => Err(LabeledError {

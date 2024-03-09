@@ -125,7 +125,6 @@ macro_rules! generate_tests {
                 name: name.clone(),
                 call: call.clone(),
                 input: PipelineDataHeader::Value(input.clone()),
-                config: None,
             });
 
             let plugin_input = PluginInput::Call(1, plugin_call);

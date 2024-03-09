@@ -2,20 +2,20 @@ use nu_plugin::LabeledError;
 use nu_protocol::{ast::CellPath, Span, Value};
 use semver::{BuildMetadata, Prerelease, Version};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Action {
     SemVerAction(SemVerAction),
     Default,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum SemVerAction {
     Major,
     Minor,
     Patch,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Inc {
     pub error: Option<String>,
     pub cell_path: Option<CellPath>,

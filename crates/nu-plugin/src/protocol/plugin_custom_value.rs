@@ -146,6 +146,11 @@ impl PluginCustomValue {
                     Self::add_source(list_value, source);
                 }
             }
+            Value::Closure { ref mut val, .. } => {
+                for (_, captured_value) in val.captures.iter_mut() {
+                    Self::add_source(captured_value, source);
+                }
+            }
             // All of these don't contain other values
             Value::Bool { .. }
             | Value::Int { .. }
@@ -156,7 +161,6 @@ impl PluginCustomValue {
             | Value::String { .. }
             | Value::Glob { .. }
             | Value::Block { .. }
-            | Value::Closure { .. }
             | Value::Nothing { .. }
             | Value::Error { .. }
             | Value::Binary { .. }
@@ -214,6 +218,10 @@ impl PluginCustomValue {
             Value::List { ref mut vals, .. } => vals
                 .iter_mut()
                 .try_for_each(|list_value| Self::verify_source(list_value, source)),
+            Value::Closure { ref mut val, .. } => val
+                .captures
+                .iter_mut()
+                .try_for_each(|(_, captured_value)| Self::verify_source(captured_value, source)),
             // All of these don't contain other values
             Value::Bool { .. }
             | Value::Int { .. }
@@ -224,7 +232,6 @@ impl PluginCustomValue {
             | Value::String { .. }
             | Value::Glob { .. }
             | Value::Block { .. }
-            | Value::Closure { .. }
             | Value::Nothing { .. }
             | Value::Error { .. }
             | Value::Binary { .. }
@@ -266,6 +273,11 @@ impl PluginCustomValue {
             Value::List { ref mut vals, .. } => vals
                 .iter_mut()
                 .try_for_each(Self::serialize_custom_values_in),
+            Value::Closure { ref mut val, .. } => val
+                .captures
+                .iter_mut()
+                .map(|(_, captured_value)| captured_value)
+                .try_for_each(Self::serialize_custom_values_in),
             // All of these don't contain other values
             Value::Bool { .. }
             | Value::Int { .. }
@@ -276,7 +288,6 @@ impl PluginCustomValue {
             | Value::String { .. }
             | Value::Glob { .. }
             | Value::Block { .. }
-            | Value::Closure { .. }
             | Value::Nothing { .. }
             | Value::Error { .. }
             | Value::Binary { .. }
@@ -316,6 +327,11 @@ impl PluginCustomValue {
             Value::List { ref mut vals, .. } => vals
                 .iter_mut()
                 .try_for_each(Self::deserialize_custom_values_in),
+            Value::Closure { ref mut val, .. } => val
+                .captures
+                .iter_mut()
+                .map(|(_, captured_value)| captured_value)
+                .try_for_each(Self::deserialize_custom_values_in),
             // All of these don't contain other values
             Value::Bool { .. }
             | Value::Int { .. }
@@ -326,7 +342,6 @@ impl PluginCustomValue {
             | Value::String { .. }
             | Value::Glob { .. }
             | Value::Block { .. }
-            | Value::Closure { .. }
             | Value::Nothing { .. }
             | Value::Error { .. }
             | Value::Binary { .. }
