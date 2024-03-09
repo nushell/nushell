@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::{Block, Call, CellPath, PathMember};
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
@@ -116,6 +117,8 @@ fn update(
 
     let ctrlc = engine_state.ctrlc.clone();
 
+    let eval_block = get_eval_block(engine_state);
+
     match input {
         PipelineData::Value(mut value, metadata) => {
             if replacement.coerce_block().is_ok() {
@@ -137,6 +140,7 @@ fn update(
                                 block,
                                 &cell_path.members,
                                 false,
+                                eval_block,
                             )?;
                         }
                     }
@@ -150,6 +154,7 @@ fn update(
                             redirect_stderr,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
+                            eval_block,
                         )?;
                     }
                 }
@@ -196,6 +201,7 @@ fn update(
                         redirect_stderr,
                         path,
                         true,
+                        eval_block,
                     )?;
                 } else {
                     value.update_data_at_cell_path(path, replacement)?;
@@ -228,6 +234,7 @@ fn update(
                             &block,
                             &cell_path.members,
                             false,
+                            eval_block,
                         );
 
                         if let Err(e) = err {
@@ -273,6 +280,7 @@ fn update_value_by_closure(
     block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
     let input_at_path = value.clone().follow_cell_path(cell_path, false)?;
 
@@ -289,7 +297,7 @@ fn update_value_by_closure(
         }
     }
 
-    let output = eval_block(
+    let output = eval_block_fn(
         engine_state,
         stack,
         block,
@@ -311,6 +319,7 @@ fn update_single_value_by_closure(
     redirect_stderr: bool,
     cell_path: &[PathMember],
     first_path_member_int: bool,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
     let span = replacement.span();
     let capture_block = Closure::from_value(replacement)?;
@@ -327,6 +336,7 @@ fn update_single_value_by_closure(
         block,
         cell_path,
         first_path_member_int,
+        eval_block_fn,
     )
 }
 

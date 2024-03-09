@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -238,12 +238,14 @@ fn group_closure(
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let error_key = "error";
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
+    let eval_block = get_eval_block(engine_state);
 
     if let Some(capture_block) = &block {
         let block = engine_state.get_block(capture_block.block_id);
 
         for value in values {
             let mut stack = stack.captures_to_stack(capture_block.captures.clone());
+
             let pipeline = eval_block(
                 engine_state,
                 &mut stack,

@@ -45,6 +45,7 @@ mod hash_;
 mod headers;
 mod help;
 mod histogram;
+mod ignore;
 mod insert;
 mod inspect;
 mod interleave;

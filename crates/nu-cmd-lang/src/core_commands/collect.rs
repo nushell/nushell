@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{get_eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -56,6 +57,8 @@ impl Command for Collect {
                 saved_positional = Some(*var_id);
             }
         }
+
+        let eval_block = get_eval_block(engine_state);
 
         let result = eval_block(
             engine_state,

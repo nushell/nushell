@@ -1,5 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
-use nu_engine::{current_dir, eval_block, CallExt};
+use nu_engine::{current_dir, get_eval_block, CallExt};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -64,6 +64,7 @@ impl Command for Open {
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let eval_block = get_eval_block(engine_state);
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args

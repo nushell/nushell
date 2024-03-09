@@ -2,6 +2,7 @@ mod alias;
 pub mod ast;
 pub mod cli_error;
 pub mod config;
+pub mod debugger;
 mod did_you_mean;
 pub mod engine;
 pub mod eval_base;

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -144,7 +145,7 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block(
+    eval_block::<WithoutDebug>(
         engine_state,
         &mut stack,
         block,

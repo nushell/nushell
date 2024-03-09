@@ -3,7 +3,8 @@ use crate::protocol::{CallInfo, EvaluatedCall};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use nu_engine::eval_block;
+use nu_engine::{get_eval_block, get_eval_expression};
+
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
@@ -71,9 +72,13 @@ impl Command for PluginDeclaration {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let eval_block = get_eval_block(engine_state);
+        let eval_expression = get_eval_expression(engine_state);
+
         // Create the EvaluatedCall to send to the plugin first - it's best for this to fail early,
         // before we actually try to run the plugin command
-        let evaluated_call = EvaluatedCall::try_from_call(call, engine_state, stack)?;
+        let evaluated_call =
+            EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?;
 
         // Fetch the configuration for a plugin
         //
