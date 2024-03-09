@@ -12,7 +12,7 @@ use crate::{
     plugin::{
         context::PluginExecutionBogusContext,
         interface::{test_util::TestCase, Interface, InterfaceManager},
-        PluginIdentity,
+        PluginSource,
     },
     protocol::{
         test_util::{expected_test_custom_value, test_plugin_custom_value},
@@ -214,16 +214,21 @@ fn manager_consume_all_propagates_io_error_to_plugin_calls() -> Result<(), Shell
         .consume_all(&mut test)
         .expect_err("consume_all did not error");
 
-    // We have to hold interface until now otherwise consume_all won't try to process the message
-    drop(interface);
-
     let message = rx.try_recv().expect("failed to get plugin call message");
     match message {
         ReceivedPluginCallMessage::Error(error) => {
             check_test_io_error(&error);
-            Ok(())
         }
         _ => panic!("received something other than an error: {message:?}"),
+    }
+
+    // Check that further calls also cause the error
+    match interface.get_signature() {
+        Ok(_) => panic!("plugin call after exit did not cause error somehow"),
+        Err(err) => {
+            check_test_io_error(&err);
+            Ok(())
+        }
     }
 }
 
@@ -242,16 +247,21 @@ fn manager_consume_all_propagates_message_error_to_plugin_calls() -> Result<(), 
         .consume_all(&mut test)
         .expect_err("consume_all did not error");
 
-    // We have to hold interface until now otherwise consume_all won't try to process the message
-    drop(interface);
-
     let message = rx.try_recv().expect("failed to get plugin call message");
     match message {
         ReceivedPluginCallMessage::Error(error) => {
             check_invalid_output_error(&error);
-            Ok(())
         }
         _ => panic!("received something other than an error: {message:?}"),
+    }
+
+    // Check that further calls also cause the error
+    match interface.get_signature() {
+        Ok(_) => panic!("plugin call after exit did not cause error somehow"),
+        Err(err) => {
+            check_invalid_output_error(&err);
+            Ok(())
+        }
     }
 }
 
@@ -640,7 +650,7 @@ fn manager_prepare_pipeline_data_adds_source_to_values() -> Result<(), ShellErro
         .expect("custom value is not a PluginCustomValue");
 
     if let Some(source) = &custom_value.source {
-        assert_eq!("test", source.plugin_name);
+        assert_eq!("test", source.name());
     } else {
         panic!("source was not set");
     }
@@ -670,7 +680,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         .expect("custom value is not a PluginCustomValue");
 
     if let Some(source) = &custom_value.source {
-        assert_eq!("test", source.plugin_name);
+        assert_eq!("test", source.name());
     } else {
         panic!("source was not set");
     }
@@ -1086,7 +1096,7 @@ fn normal_values(interface: &PluginInterface) -> Vec<Value> {
             name: "SomeTest".into(),
             data: vec![1, 2, 3],
             // Has the same source, so it should be accepted
-            source: Some(interface.state.identity.clone()),
+            source: Some(interface.state.source.clone()),
         })),
     ]
 }
@@ -1144,7 +1154,7 @@ fn bad_custom_values() -> Vec<Value> {
         Value::test_custom_value(Box::new(PluginCustomValue {
             name: "SomeTest".into(),
             data: vec![1, 2, 3],
-            source: Some(PluginIdentity::new_fake("pluto")),
+            source: Some(PluginSource::new_fake("pluto").into()),
         })),
     ]
 }

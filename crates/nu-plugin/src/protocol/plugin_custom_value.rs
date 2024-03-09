@@ -3,7 +3,7 @@ use std::sync::Arc;
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::PluginIdentity;
+use crate::plugin::PluginSource;
 
 #[cfg(test)]
 mod tests;
@@ -17,7 +17,7 @@ mod tests;
 /// that local plugin custom values are converted to and from [`PluginCustomData`] on the boundary.
 ///
 /// [`PluginInterface`](crate::interface::PluginInterface) is responsible for adding the
-/// appropriate [`PluginIdentity`](crate::plugin::PluginIdentity), ensuring that only
+/// appropriate [`PluginSource`](crate::plugin::PluginSource), ensuring that only
 /// [`PluginCustomData`] is contained within any values sent, and that the `source` of any
 /// values sent matches the plugin it is being sent to.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -30,7 +30,7 @@ pub struct PluginCustomValue {
     /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
     /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
     #[serde(skip, default)]
-    pub source: Option<Arc<PluginIdentity>>,
+    pub(crate) source: Option<Arc<PluginSource>>,
 }
 
 #[typetag::serde]
@@ -52,7 +52,7 @@ impl CustomValue for PluginCustomValue {
                 "Unable to spawn plugin `{}` to get base value",
                 self.source
                     .as_ref()
-                    .map(|s| s.plugin_name.as_str())
+                    .map(|s| s.name())
                     .unwrap_or("<unknown>")
             ),
             msg: err.to_string(),
@@ -61,14 +61,18 @@ impl CustomValue for PluginCustomValue {
             inner: vec![err],
         };
 
-        let identity = self.source.clone().ok_or_else(|| {
+        let source = self.source.clone().ok_or_else(|| {
             wrap_err(ShellError::NushellFailed {
                 msg: "The plugin source for the custom value was not set".into(),
             })
         })?;
 
-        let empty_env: Option<(String, String)> = None;
-        let plugin = identity.spawn(empty_env).map_err(wrap_err)?;
+        // Envs probably should be passed here, but it's likely that the plugin is already running
+        let empty_envs = std::iter::empty::<(&str, &str)>();
+        let plugin = source
+            .persistent(Some(span))
+            .and_then(|p| p.get(|| Ok(empty_envs)))
+            .map_err(wrap_err)?;
 
         plugin
             .custom_value_to_base_value(Spanned {
@@ -117,8 +121,8 @@ impl PluginCustomValue {
         })
     }
 
-    /// Add a [`PluginIdentity`] to all [`PluginCustomValue`]s within a value, recursively.
-    pub(crate) fn add_source(value: &mut Value, source: &Arc<PluginIdentity>) {
+    /// Add a [`PluginSource`] to all [`PluginCustomValue`]s within a value, recursively.
+    pub(crate) fn add_source(value: &mut Value, source: &Arc<PluginSource>) {
         let span = value.span();
         match value {
             // Set source on custom value
@@ -179,21 +183,26 @@ impl PluginCustomValue {
     /// since `LazyRecord` could return something different the next time it is called.
     pub(crate) fn verify_source(
         value: &mut Value,
-        source: &PluginIdentity,
+        source: &PluginSource,
     ) -> Result<(), ShellError> {
         let span = value.span();
         match value {
             // Set source on custom value
             Value::CustomValue { val, .. } => {
                 if let Some(custom_value) = val.as_any().downcast_ref::<PluginCustomValue>() {
-                    if custom_value.source.as_deref() == Some(source) {
+                    if custom_value
+                        .source
+                        .as_ref()
+                        .map(|s| s.is_compatible(source))
+                        .unwrap_or(false)
+                    {
                         Ok(())
                     } else {
                         Err(ShellError::CustomValueIncorrectForPlugin {
                             name: custom_value.name.clone(),
                             span,
-                            dest_plugin: source.plugin_name.clone(),
-                            src_plugin: custom_value.source.as_ref().map(|s| s.plugin_name.clone()),
+                            dest_plugin: source.name().to_owned(),
+                            src_plugin: custom_value.source.as_ref().map(|s| s.name().to_owned()),
                         })
                     }
                 } else {
@@ -201,7 +210,7 @@ impl PluginCustomValue {
                     Err(ShellError::CustomValueIncorrectForPlugin {
                         name: val.value_string(),
                         span,
-                        dest_plugin: source.plugin_name.clone(),
+                        dest_plugin: source.name().to_owned(),
                         src_plugin: None,
                     })
                 }

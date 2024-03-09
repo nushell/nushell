@@ -2,8 +2,8 @@ macro_rules! generate_tests {
     ($encoder:expr) => {
         use crate::protocol::{
             CallInfo, CustomValueOp, EvaluatedCall, LabeledError, PipelineDataHeader, PluginCall,
-            PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput, StreamData,
-            StreamMessage,
+            PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
+            StreamData, StreamMessage,
         };
         use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
 
@@ -527,6 +527,28 @@ macro_rules! generate_tests {
                         Ok(bytes) => assert_eq!(data, &bytes[..]),
                         Err(err) => panic!("decoded into error variant: {err:?}"),
                     }
+                }
+                _ => panic!("decoded into wrong value: {returned:?}"),
+            }
+        }
+
+        #[test]
+        fn output_round_trip_option() {
+            let plugin_output = PluginOutput::Option(PluginOption::GcDisabled(true));
+
+            let encoder = $encoder;
+            let mut buffer: Vec<u8> = Vec::new();
+            encoder
+                .encode(&plugin_output, &mut buffer)
+                .expect("unable to serialize message");
+            let returned = encoder
+                .decode(&mut buffer.as_slice())
+                .expect("unable to deserialize message")
+                .expect("eof");
+
+            match returned {
+                PluginOutput::Option(PluginOption::GcDisabled(disabled)) => {
+                    assert!(disabled);
                 }
                 _ => panic!("decoded into wrong value: {returned:?}"),
             }

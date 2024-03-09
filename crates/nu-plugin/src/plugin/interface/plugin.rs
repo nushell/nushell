@@ -2,7 +2,7 @@
 
 use std::{
     collections::{btree_map, BTreeMap},
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, OnceLock},
 };
 
 use nu_protocol::{
@@ -11,11 +11,11 @@ use nu_protocol::{
 };
 
 use crate::{
-    plugin::{context::PluginExecutionContext, PluginIdentity},
+    plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
     protocol::{
         CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
-        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput,
-        ProtocolInfo, StreamId, StreamMessage,
+        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        PluginOutput, ProtocolInfo, StreamId, StreamMessage,
     },
     sequence::Sequence,
 };
@@ -63,14 +63,16 @@ impl std::ops::Deref for Context {
 
 /// Internal shared state between the manager and each interface.
 struct PluginInterfaceState {
-    /// The identity of the plugin being interfaced with
-    identity: Arc<PluginIdentity>,
+    /// The source to be used for custom values coming from / going to the plugin
+    source: Arc<PluginSource>,
     /// Sequence for generating plugin call ids
     plugin_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
     stream_id_sequence: Sequence,
     /// Sender to subscribe to a plugin call response
     plugin_call_subscription_sender: mpsc::Sender<(PluginCallId, PluginCallSubscription)>,
+    /// An error that should be propagated to further plugin calls
+    error: OnceLock<ShellError>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginInput>>,
 }
@@ -78,7 +80,7 @@ struct PluginInterfaceState {
 impl std::fmt::Debug for PluginInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginInterfaceState")
-            .field("identity", &self.identity)
+            .field("source", &self.source)
             .field("plugin_call_id_sequence", &self.plugin_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
             .field(
@@ -118,21 +120,24 @@ pub(crate) struct PluginInterfaceManager {
     ///
     /// This is necessary so we know when we can remove context for plugin calls
     plugin_call_input_streams: BTreeMap<StreamId, PluginCallId>,
+    /// Garbage collector handle, to notify about the state of the plugin
+    gc: Option<PluginGc>,
 }
 
 impl PluginInterfaceManager {
     pub(crate) fn new(
-        identity: Arc<PluginIdentity>,
+        source: Arc<PluginSource>,
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
         let (subscription_tx, subscription_rx) = mpsc::channel();
 
         PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
-                identity,
+                source,
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
+                error: OnceLock::new(),
                 writer: Box::new(writer),
             }),
             stream_manager: StreamManager::new(),
@@ -140,7 +145,15 @@ impl PluginInterfaceManager {
             plugin_call_subscriptions: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
             plugin_call_input_streams: BTreeMap::new(),
+            gc: None,
         }
+    }
+
+    /// Add a garbage collector to this plugin. The manager will notify the garbage collector about
+    /// the state of the plugin so that it can be automatically cleaned up if the plugin is
+    /// inactive.
+    pub(crate) fn set_garbage_collector(&mut self, gc: Option<PluginGc>) {
+        self.gc = gc;
     }
 
     /// Consume pending messages in the `plugin_call_subscription_receiver`
@@ -154,16 +167,21 @@ impl PluginInterfaceManager {
         }
     }
 
-    /// Track the start of stream(s)
+    /// Track the start of incoming stream(s)
     fn recv_stream_started(&mut self, call_id: PluginCallId, stream_id: StreamId) {
+        self.plugin_call_input_streams.insert(stream_id, call_id);
+        // Increment the number of streams on the subscription so context stays alive
         self.receive_plugin_call_subscriptions();
         if let Some(sub) = self.plugin_call_subscriptions.get_mut(&call_id) {
-            self.plugin_call_input_streams.insert(stream_id, call_id);
             sub.remaining_streams_to_read += 1;
+        }
+        // Add a lock to the garbage collector for each stream
+        if let Some(ref gc) = self.gc {
+            gc.increment_locks(1);
         }
     }
 
-    /// Track the end of a stream
+    /// Track the end of an incoming stream
     fn recv_stream_ended(&mut self, stream_id: StreamId) {
         if let Some(call_id) = self.plugin_call_input_streams.remove(&stream_id) {
             if let btree_map::Entry::Occupied(mut e) = self.plugin_call_subscriptions.entry(call_id)
@@ -173,6 +191,11 @@ impl PluginInterfaceManager {
                 if e.get().remaining_streams_to_read <= 0 {
                     e.remove();
                 }
+            }
+            // Streams read from the plugin are tracked with locks on the GC so plugins don't get
+            // stopped if they have active streams
+            if let Some(ref gc) = self.gc {
+                gc.decrement_locks(1);
             }
         }
     }
@@ -336,12 +359,17 @@ impl PluginInterfaceManager {
         &mut self,
         mut reader: impl PluginRead<PluginOutput>,
     ) -> Result<(), ShellError> {
+        let mut result = Ok(());
+
         while let Some(msg) = reader.read().transpose() {
             if self.is_finished() {
                 break;
             }
 
+            // We assume an error here is unrecoverable (at least, without restarting the plugin)
             if let Err(err) = msg.and_then(|msg| self.consume(msg)) {
+                // Put the error in the state so that new calls see it
+                let _ = self.state.error.set(err.clone());
                 // Error to streams
                 let _ = self.stream_manager.broadcast_read_error(err.clone());
                 // Error to call waiters
@@ -354,10 +382,16 @@ impl PluginInterfaceManager {
                         .as_ref()
                         .map(|s| s.send(ReceivedPluginCallMessage::Error(err.clone())));
                 }
-                return Err(err);
+                result = Err(err);
+                break;
             }
         }
-        Ok(())
+
+        // Tell the GC we are exiting so that the plugin doesn't get stuck open
+        if let Some(ref gc) = self.gc {
+            gc.exited();
+        }
+        result
     }
 }
 
@@ -369,6 +403,7 @@ impl InterfaceManager for PluginInterfaceManager {
         PluginInterface {
             state: self.state.clone(),
             stream_manager_handle: self.stream_manager.get_handle(),
+            gc: self.gc.clone(),
         }
     }
 
@@ -387,7 +422,9 @@ impl InterfaceManager for PluginInterfaceManager {
                         msg: format!(
                             "Plugin `{}` is compiled for nushell version {}, \
                                 which is not compatible with version {}",
-                            self.state.identity.plugin_name, info.version, local_info.version,
+                            self.state.source.name(),
+                            info.version,
+                            local_info.version,
                         ),
                     })
                 }
@@ -398,11 +435,20 @@ impl InterfaceManager for PluginInterfaceManager {
                     msg: format!(
                         "Failed to receive initial Hello message from `{}`. \
                             This plugin might be too old",
-                        self.state.identity.plugin_name
+                        self.state.source.name()
                     ),
                 })
             }
             PluginOutput::Stream(message) => self.consume_stream_message(message),
+            PluginOutput::Option(option) => match option {
+                PluginOption::GcDisabled(disabled) => {
+                    // Turn garbage collection off/on.
+                    if let Some(ref gc) = self.gc {
+                        gc.set_disabled(disabled);
+                    }
+                    Ok(())
+                }
+            },
             PluginOutput::CallResponse(id, response) => {
                 // Handle reading the pipeline data, if any
                 let response = match response {
@@ -413,17 +459,26 @@ impl InterfaceManager for PluginInterfaceManager {
                         // error response, but send it anyway
                         let exec_context = self.get_context(id)?;
                         let ctrlc = exec_context.as_ref().and_then(|c| c.0.ctrlc());
+
                         // Register the streams in the response
                         for stream_id in data.stream_ids() {
                             self.recv_stream_started(id, stream_id);
                         }
+
                         match self.read_pipeline_data(data, ctrlc) {
                             Ok(data) => PluginCallResponse::PipelineData(data),
                             Err(err) => PluginCallResponse::Error(err.into()),
                         }
                     }
                 };
-                self.send_plugin_call_response(id, response)
+                let result = self.send_plugin_call_response(id, response);
+                if result.is_ok() {
+                    // When a call ends, it releases a lock on the GC
+                    if let Some(ref gc) = self.gc {
+                        gc.decrement_locks(1);
+                    }
+                }
+                result
             }
             PluginOutput::EngineCall { context, id, call } => {
                 // Handle reading the pipeline data, if any
@@ -441,7 +496,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     } => {
                         // Add source to any plugin custom values in the arguments
                         for arg in positional.iter_mut() {
-                            PluginCustomValue::add_source(arg, &self.state.identity);
+                            PluginCustomValue::add_source(arg, &self.state.source);
                         }
                         self.read_pipeline_data(input, ctrlc)
                             .map(|input| EngineCall::EvalClosure {
@@ -472,14 +527,14 @@ impl InterfaceManager for PluginInterfaceManager {
         // Add source to any values
         match data {
             PipelineData::Value(ref mut value, _) => {
-                PluginCustomValue::add_source(value, &self.state.identity);
+                PluginCustomValue::add_source(value, &self.state.source);
                 Ok(data)
             }
             PipelineData::ListStream(ListStream { stream, ctrlc, .. }, meta) => {
-                let identity = self.state.identity.clone();
+                let source = self.state.source.clone();
                 Ok(stream
                     .map(move |mut value| {
-                        PluginCustomValue::add_source(&mut value, &identity);
+                        PluginCustomValue::add_source(&mut value, &source);
                         value
                     })
                     .into_pipeline_data_with_metadata(meta, ctrlc))
@@ -489,7 +544,7 @@ impl InterfaceManager for PluginInterfaceManager {
     }
 
     fn consume_stream_message(&mut self, message: StreamMessage) -> Result<(), ShellError> {
-        // Keep track of streams that end so we know if we don't need the context anymore
+        // Keep track of streams that end
         if let StreamMessage::End(id) = message {
             self.recv_stream_ended(id);
         }
@@ -504,6 +559,8 @@ pub(crate) struct PluginInterface {
     state: Arc<PluginInterfaceState>,
     /// Handle to stream manager
     stream_manager_handle: StreamManagerHandle,
+    /// Handle to plugin garbage collector
+    gc: Option<PluginGc>,
 }
 
 impl PluginInterface {
@@ -580,7 +637,7 @@ impl PluginInterface {
                 mut call,
                 input,
             }) => {
-                verify_call_args(&mut call, &self.state.identity)?;
+                verify_call_args(&mut call, &self.state.source)?;
                 let (header, writer) = self.init_write_pipeline_data(input)?;
                 (
                     PluginCall::Run(CallInfo {
@@ -604,9 +661,28 @@ impl PluginInterface {
                     remaining_streams_to_read: 0,
                 },
             ))
-            .map_err(|_| ShellError::NushellFailed {
-                msg: "PluginInterfaceManager hung up and is no longer accepting plugin calls"
-                    .into(),
+            .map_err(|_| ShellError::GenericError {
+                error: format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
+                msg: "can't complete this operation because the plugin is closed".into(),
+                span: match &call {
+                    PluginCall::CustomValueOp(value, _) => Some(value.span),
+                    PluginCall::Run(info) => Some(info.call.head),
+                    _ => None,
+                },
+                help: Some(format!(
+                    "the plugin may have experienced an error. Try registering the plugin again \
+                        with `{}`",
+                    if let Some(shell) = self.state.source.shell() {
+                        format!(
+                            "register --shell '{}' '{}'",
+                            shell.display(),
+                            self.state.source.filename().display(),
+                        )
+                    } else {
+                        format!("register '{}'", self.state.source.filename().display())
+                    }
+                )),
+                inner: vec![],
             })?;
 
         // Write request
@@ -681,6 +757,18 @@ impl PluginInterface {
         call: PluginCall<PipelineData>,
         context: &Option<Context>,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
+        // Check for an error in the state first, and return it if set.
+        if let Some(error) = self.state.error.get() {
+            return Err(error.clone());
+        }
+
+        // Starting a plugin call adds a lock on the GC. Locks are not added for streams being read
+        // by the plugin, so the plugin would have to explicitly tell us if it expects to stay alive
+        // while reading streams in the background after the response ends.
+        if let Some(ref gc) = self.gc {
+            gc.increment_locks(1);
+        }
+
         let (writer, rx) = self.write_plugin_call(call, context.clone())?;
 
         // Finish writing stream in the background
@@ -737,7 +825,7 @@ impl PluginInterface {
 /// Check that custom values in call arguments come from the right source
 fn verify_call_args(
     call: &mut crate::EvaluatedCall,
-    source: &Arc<PluginIdentity>,
+    source: &Arc<PluginSource>,
 ) -> Result<(), ShellError> {
     for arg in call.positional.iter_mut() {
         PluginCustomValue::verify_source(arg, source)?;
@@ -772,14 +860,14 @@ impl Interface for PluginInterface {
         // Validate the destination of values in the pipeline data
         match data {
             PipelineData::Value(mut value, meta) => {
-                PluginCustomValue::verify_source(&mut value, &self.state.identity)?;
+                PluginCustomValue::verify_source(&mut value, &self.state.source)?;
                 Ok(PipelineData::Value(value, meta))
             }
             PipelineData::ListStream(ListStream { stream, ctrlc, .. }, meta) => {
-                let identity = self.state.identity.clone();
+                let source = self.state.source.clone();
                 Ok(stream
                     .map(move |mut value| {
-                        match PluginCustomValue::verify_source(&mut value, &identity) {
+                        match PluginCustomValue::verify_source(&mut value, &source) {
                             Ok(()) => value,
                             // Put the error in the stream instead
                             Err(err) => Value::error(err, value.span()),

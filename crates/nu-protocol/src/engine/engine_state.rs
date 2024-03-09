@@ -23,6 +23,9 @@ use std::sync::{
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
+#[cfg(feature = "plugin")]
+use crate::RegisteredPlugin;
+
 pub static PWD_ENV: &str = "PWD";
 
 #[derive(Clone, Debug)]
@@ -113,6 +116,8 @@ pub struct EngineState {
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
+    #[cfg(feature = "plugin")]
+    plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
@@ -171,6 +176,8 @@ impl EngineState {
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
+            #[cfg(feature = "plugin")]
+            plugins: vec![],
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
@@ -255,14 +262,27 @@ impl EngineState {
         self.scope.active_overlays.append(&mut activated_ids);
 
         #[cfg(feature = "plugin")]
-        if delta.plugins_changed {
-            let result = self.update_plugin_file();
-
-            if result.is_ok() {
-                delta.plugins_changed = false;
+        if !delta.plugins.is_empty() {
+            // Replace plugins that overlap in identity.
+            for plugin in std::mem::take(&mut delta.plugins) {
+                if let Some(existing) = self
+                    .plugins
+                    .iter_mut()
+                    .find(|p| p.identity() == plugin.identity())
+                {
+                    // Stop the existing plugin, so that the new plugin definitely takes over
+                    existing.stop()?;
+                    *existing = plugin;
+                } else {
+                    self.plugins.push(plugin);
+                }
             }
+        }
 
-            return result;
+        #[cfg(feature = "plugin")]
+        if delta.plugins_changed {
+            // Update the plugin file with the new signatures.
+            self.update_plugin_file()?;
         }
 
         Ok(())
@@ -274,6 +294,8 @@ impl EngineState {
         stack: &mut Stack,
         cwd: impl AsRef<Path>,
     ) -> Result<(), ShellError> {
+        let mut config_updated = false;
+
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
                 if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
@@ -285,6 +307,7 @@ impl EngineState {
                             let mut new_record = v.clone();
                             let (config, error) = new_record.into_config(&self.config);
                             self.config = config;
+                            config_updated = true;
                             env_vars.insert(k, new_record);
                             if let Some(e) = error {
                                 return Err(e);
@@ -302,6 +325,12 @@ impl EngineState {
 
         // TODO: better error
         std::env::set_current_dir(cwd)?;
+
+        if config_updated {
+            // Make plugin GC config changes take effect immediately.
+            #[cfg(feature = "plugin")]
+            self.update_plugin_gc_configs(&self.config.plugin_gc);
+        }
 
         Ok(())
     }
@@ -466,6 +495,11 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
+    pub fn plugins(&self) -> &[Arc<dyn RegisteredPlugin>] {
+        &self.plugins
+    }
+
+    #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
 
@@ -490,8 +524,9 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let (path, shell) = decl.is_plugin().expect("plugin should have file name");
-                    let mut file_name = path
+                    let identity = decl.plugin_identity().expect("plugin should have identity");
+                    let mut file_name = identity
+                        .filename()
                         .to_str()
                         .expect("path was checked during registration as a str")
                         .to_string();
@@ -518,8 +553,8 @@ impl EngineState {
                     serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = shell
-                                .as_ref()
+                            let shell_str = identity
+                                .shell()
                                 .map(|path| {
                                     format!(
                                         "-s {}",
@@ -556,6 +591,14 @@ impl EngineState {
                         })
                 })
             })
+    }
+
+    /// Update plugins with new garbage collection config
+    #[cfg(feature = "plugin")]
+    fn update_plugin_gc_configs(&self, plugin_gc: &crate::PluginGcConfigs) {
+        for plugin in &self.plugins {
+            plugin.set_gc_config(plugin_gc.get(plugin.identity().name()));
+        }
     }
 
     pub fn num_files(&self) -> usize {
@@ -650,7 +693,7 @@ impl EngineState {
         let mut unique_plugin_decls = HashMap::new();
 
         // Make sure there are no duplicate decls: Newer one overwrites the older one
-        for decl in self.decls.iter().filter(|d| d.is_plugin().is_some()) {
+        for decl in self.decls.iter().filter(|d| d.is_plugin()) {
             unique_plugin_decls.insert(decl.name(), decl);
         }
 
@@ -733,6 +776,12 @@ impl EngineState {
     }
 
     pub fn set_config(&mut self, conf: Config) {
+        #[cfg(feature = "plugin")]
+        if conf.plugin_gc != self.config.plugin_gc {
+            // Make plugin GC config changes take effect immediately.
+            self.update_plugin_gc_configs(&conf.plugin_gc);
+        }
+
         self.config = conf;
     }
 
@@ -841,7 +890,7 @@ impl EngineState {
                 (
                     signature,
                     decl.examples(),
-                    decl.is_plugin().is_some(),
+                    decl.is_plugin(),
                     decl.get_block_id().is_some(),
                     decl.is_parser_keyword(),
                 )

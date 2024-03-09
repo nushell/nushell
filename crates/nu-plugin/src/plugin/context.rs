@@ -4,10 +4,8 @@ use nu_engine::get_eval_block_with_early_return;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},
-    Config, PipelineData, ShellError, Span, Spanned, Value,
+    Config, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
-
-use super::PluginIdentity;
 
 /// Object safe trait for abstracting operations required of the plugin context.
 pub(crate) trait PluginExecutionContext: Send + Sync {
@@ -81,7 +79,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
         Ok(self
             .get_config()?
             .plugins
-            .get(&self.identity.plugin_name)
+            .get(self.identity.name())
             .cloned()
             .map(|value| {
                 let span = value.span();

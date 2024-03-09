@@ -320,6 +320,16 @@ impl PluginCallResponse<PipelineDataHeader> {
     }
 }
 
+/// Options that can be changed to affect how the engine treats the plugin
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PluginOption {
+    /// Send `GcDisabled(true)` to stop the plugin from being automatically garbage collected, or
+    /// `GcDisabled(false)` to enable it again.
+    ///
+    /// See [`EngineInterface::set_gc_disabled`] for more information.
+    GcDisabled(bool),
+}
+
 /// Information received from the plugin
 ///
 /// Note: exported for internal use, not public.
@@ -328,6 +338,8 @@ impl PluginCallResponse<PipelineDataHeader> {
 pub enum PluginOutput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
+    /// Set option. No response expected
+    Option(PluginOption),
     /// A response to a [`PluginCall`]. The ID should be the same sent with the plugin call this
     /// is a response to
     CallResponse(PluginCallId, PluginCallResponse<PipelineDataHeader>),

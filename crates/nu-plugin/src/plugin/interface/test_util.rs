@@ -5,7 +5,7 @@ use std::{
 
 use nu_protocol::ShellError;
 
-use crate::{plugin::PluginIdentity, protocol::PluginInput, PluginOutput};
+use crate::{plugin::PluginSource, protocol::PluginInput, PluginOutput};
 
 use super::{EngineInterfaceManager, PluginInterfaceManager, PluginRead, PluginWrite};
 
@@ -131,7 +131,7 @@ impl<I, O> TestCase<I, O> {
 impl TestCase<PluginOutput, PluginInput> {
     /// Create a new [`PluginInterfaceManager`] that writes to this test case.
     pub(crate) fn plugin(&self, name: &str) -> PluginInterfaceManager {
-        PluginInterfaceManager::new(PluginIdentity::new_fake(name), self.clone())
+        PluginInterfaceManager::new(PluginSource::new_fake(name).into(), self.clone())
     }
 }
 
