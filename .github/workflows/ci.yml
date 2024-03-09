@@ -11,6 +11,8 @@ env:
   NU_LOG_LEVEL: DEBUG
   # If changing these settings also change toolkit.nu
   CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
+  RUSTC_WRAPPER: 'sccache'
+  SCCACHE_GHA_ENABLED: 'true'
 
 jobs:
   fmt-clippy:
@@ -39,6 +41,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.1
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
@@ -88,6 +93,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.1
 
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
+
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
         with:
@@ -119,6 +127,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.1
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
@@ -165,6 +176,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.1
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
