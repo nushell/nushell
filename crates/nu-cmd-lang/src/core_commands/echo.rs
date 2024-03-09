@@ -26,9 +26,15 @@ impl Command for Echo {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"When given no arguments, it returns an empty string. When given one argument,
-it returns it. Otherwise, it returns a list of the arguments. There is usually
-little reason to use this over just writing the values as-is."#
+        r#"When given no arguments, `echo` returns an empty string. When given one argument, it
+returns it. Otherwise, it returns a list of the arguments.
+
+There is usually little reason to use `echo` over just writing the values, or string interpolation
+operation, as-is. Unlike POSIX style shells, strings can be returned without using `echo`, and
+string interpolation works without it being present.
+
+It is more simple to write `'Alice' | $'Name: ($in)'`, than `'Alice' | echo $'Name: ($in)'`, both of
+which return `Name: Alice`. Echo is mostly in nushell for compatibility reasons. For details, check: https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
     fn run(
