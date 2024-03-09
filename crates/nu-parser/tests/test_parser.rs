@@ -714,27 +714,20 @@ fn test_nothing_comparison_eq() {
 }
 
 #[rstest]
-#[case(b"let a = 1 err> /dev/null", "RedirectionInLetMut")]
-#[case(b"let a = 1 out> /dev/null", "RedirectionInLetMut")]
-#[case(b"mut a = 1 err> /dev/null", "RedirectionInLetMut")]
-#[case(b"mut a = 1 out> /dev/null", "RedirectionInLetMut")]
-#[case(b"let a = 1 out+err> /dev/null", "RedirectionInLetMut")]
-#[case(b"mut a = 1 out+err> /dev/null", "RedirectionInLetMut")]
-fn test_redirection_with_letmut(#[case] phase: &[u8], #[case] expected: &str) {
+#[case(b"let a = 1 err> /dev/null")]
+#[case(b"let a = 1 out> /dev/null")]
+#[case(b"mut a = 1 err> /dev/null")]
+#[case(b"mut a = 1 out> /dev/null")]
+#[case(b"let a = 1 out+err> /dev/null")]
+#[case(b"mut a = 1 out+err> /dev/null")]
+fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
     let _block = parse(&mut working_set, None, phase, true);
-    match expected {
-        "RedirectionInLetMut" => assert!(matches!(
-            working_set.parse_errors.first(),
-            Some(ParseError::RedirectionInLetMut(_, _))
-        )),
-        "AssignInPipeline" => assert!(matches!(
-            working_set.parse_errors.first(),
-            Some(ParseError::AssignInPipeline(_, _, _, _))
-        )),
-        _ => panic!("unexpected pattern"),
-    }
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::RedirectingBuiltinCommand(_, _, _))
+    ));
 }
 
 #[test]

@@ -1,5 +1,6 @@
 use crate::{
     parse_block,
+    parser::{parse_redirection, redirecting_builtin_error},
     parser_path::ParserPath,
     type_check::{check_block_input_output, type_compatible},
 };
@@ -9,7 +10,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Pipeline,
+        ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
@@ -245,7 +246,8 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     }
 }
 
-pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
+pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Expression {
+    let spans = &lite_command.parts;
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
     if working_set.get_span_contents(spans[0]) != b"for" {
@@ -253,6 +255,10 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             "internal error: Wrong call name for 'for' function".into(),
             span(spans),
         ));
+        return garbage(spans[0]);
+    }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("for", redirection));
         return garbage(spans[0]);
     }
 
@@ -390,6 +396,10 @@ pub fn parse_def(
             "internal error: Wrong call name for def function".into(),
             span(spans),
         ));
+        return (garbage_pipeline(spans), None);
+    }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("def", redirection));
         return (garbage_pipeline(spans), None);
     }
 
@@ -666,6 +676,10 @@ pub fn parse_extern(
         ));
         return garbage_pipeline(spans);
     }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("extern", redirection));
+        return garbage_pipeline(spans);
+    }
 
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
@@ -815,6 +829,10 @@ pub fn parse_alias(
             "Alias statement unparsable".into(),
             span(spans),
         ));
+        return garbage_pipeline(spans);
+    }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("alias", redirection));
         return garbage_pipeline(spans);
     }
 
@@ -1062,24 +1080,32 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"extern" | b"use" | b"module" | b"const" => {
-                [b"export ", sub].concat()
-            }
-            _ => b"export".to_vec(),
+            b"alias" => "export alias",
+            b"def" => "export def",
+            b"extern" => "export extern",
+            b"use" => "export use",
+            b"module" => "export module",
+            b"const" => "export const",
+            _ => "export",
         }
     } else {
-        b"export".to_vec()
+        "export"
     };
 
-    if let Some(decl_id) = working_set.find_decl(&full_name) {
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error(full_name, redirection));
+        return garbage_pipeline(&lite_command.parts);
+    }
+
+    if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
         let ParsedInternalCall { call, output, .. } = parse_internal_call(
             working_set,
-            if full_name == b"export" {
+            if full_name == "export" {
                 lite_command.parts[0]
             } else {
                 span(&lite_command.parts[0..2])
             },
-            if full_name == b"export" {
+            if full_name == "export" {
                 &lite_command.parts[1..]
             } else {
                 &lite_command.parts[2..]
@@ -1106,16 +1132,13 @@ pub fn parse_export_in_block(
         }
     } else {
         working_set.error(ParseError::UnknownState(
-            format!(
-                "internal error: '{}' declaration not found",
-                String::from_utf8_lossy(&full_name)
-            ),
+            format!("internal error: '{full_name}' declaration not found",),
             span(&lite_command.parts),
         ));
         return garbage_pipeline(&lite_command.parts);
     };
 
-    if &full_name == b"export" {
+    if full_name == "export" {
         // export by itself is meaningless
         working_set.error(ParseError::UnexpectedKeyword(
             "export".into(),
@@ -1124,19 +1147,16 @@ pub fn parse_export_in_block(
         return garbage_pipeline(&lite_command.parts);
     }
 
-    match full_name.as_slice() {
-        b"export alias" => parse_alias(working_set, lite_command, None),
-        b"export def" => parse_def(working_set, lite_command, None).0,
-        b"export const" => parse_const(working_set, &lite_command.parts[1..]),
-        b"export use" => {
-            let (pipeline, _) = parse_use(working_set, &lite_command.parts);
-            pipeline
-        }
-        b"export module" => parse_module(working_set, lite_command, None).0,
-        b"export extern" => parse_extern(working_set, lite_command, None),
+    match full_name {
+        "export alias" => parse_alias(working_set, lite_command, None),
+        "export def" => parse_def(working_set, lite_command, None).0,
+        "export const" => parse_const(working_set, &lite_command.parts[1..]),
+        "export use" => parse_use(working_set, lite_command).0,
+        "export module" => parse_module(working_set, lite_command, None).0,
+        "export extern" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
-                String::from_utf8_lossy(&full_name).to_string(),
+                full_name.into(),
                 lite_command.parts[0],
             ));
 
@@ -1349,8 +1369,13 @@ pub fn parse_export_in_module(
                 result
             }
             b"use" => {
-                let parts = &spans[1..];
-                let (pipeline, exportables) = parse_use(working_set, parts);
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                    pipe: lite_command.pipe,
+                    redirection: lite_command.redirection.clone(),
+                };
+                let (pipeline, exportables) = parse_use(working_set, &lite_command);
 
                 let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
                     id
@@ -1693,7 +1718,7 @@ pub fn parse_module_block(
                     ))
                 }
                 b"use" => {
-                    let (pipeline, _) = parse_use(working_set, &command.parts);
+                    let (pipeline, _) = parse_use(working_set, command);
 
                     block.pipelines.push(pipeline)
                 }
@@ -1991,6 +2016,12 @@ pub fn parse_module(
     // visible and usable in this module's scope). We want to disable that for files.
 
     let spans = &lite_command.parts;
+
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("module", redirection));
+        return (garbage_pipeline(spans), None);
+    }
+
     let mut module_comments = lite_command.comments.clone();
 
     let split_id = if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
@@ -2172,7 +2203,12 @@ pub fn parse_module(
     )
 }
 
-pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline, Vec<Exportable>) {
+pub fn parse_use(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+) -> (Pipeline, Vec<Exportable>) {
+    let spans = &lite_command.parts;
+
     let (name_span, split_id) =
         if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
             (spans[1], 2)
@@ -2194,6 +2230,11 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             "internal error: Wrong call name for 'use' command".into(),
             span(spans),
         ));
+        return (garbage_pipeline(spans), vec![]);
+    }
+
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("use", redirection));
         return (garbage_pipeline(spans), vec![]);
     }
 
@@ -2380,12 +2421,18 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
     )
 }
 
-pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    let spans = &lite_command.parts;
+
     if working_set.get_span_contents(spans[0]) != b"hide" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'hide' command".into(),
             span(spans),
         ));
+        return garbage_pipeline(spans);
+    }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("hide", redirection));
         return garbage_pipeline(spans);
     }
 
@@ -3267,10 +3314,21 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
     garbage_pipeline(spans)
 }
 
-pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    let spans = &lite_command.parts;
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"source" || name == b"source-env" {
+        if let Some(redirection) = lite_command.redirection.as_ref() {
+            let name = if name == b"source" {
+                "source"
+            } else {
+                "source-env"
+            };
+            working_set.error(redirecting_builtin_error(name, redirection));
+            return garbage_pipeline(spans);
+        }
+
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
@@ -3451,15 +3509,30 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
     }
 }
 
-pub fn parse_where(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
-    let expression = parse_where_expr(working_set, spans);
-    Pipeline::from_vec(vec![expression])
+pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    let expr = parse_where_expr(working_set, &lite_command.parts);
+    let redirection = lite_command
+        .redirection
+        .as_ref()
+        .map(|r| parse_redirection(working_set, r));
+
+    let element = PipelineElement {
+        pipe: None,
+        expr,
+        redirection,
+    };
+
+    Pipeline {
+        elements: vec![element],
+    }
 }
 
 #[cfg(feature = "plugin")]
-pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     use nu_plugin::{get_signature, PluginDeclaration};
     use nu_protocol::{engine::Stack, PluginSignature};
+
+    let spans = &lite_command.parts;
 
     let cwd = working_set.get_cwd();
 
@@ -3470,6 +3543,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             "internal error: Wrong call name for parse plugin function".into(),
             span(spans),
         ));
+        return garbage_pipeline(spans);
+    }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("register", redirection));
         return garbage_pipeline(spans);
     }
 

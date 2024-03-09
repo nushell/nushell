@@ -5299,22 +5299,25 @@ pub fn parse_builtin_commands(
         b"const" => parse_const(working_set, &lite_command.parts),
         b"mut" => parse_mut(working_set, &lite_command.parts),
         b"for" => {
-            let expr = parse_for(working_set, &lite_command.parts);
+            let expr = parse_for(working_set, lite_command);
             Pipeline::from_vec(vec![expr])
         }
         b"alias" => parse_alias(working_set, lite_command, None),
         b"module" => parse_module(working_set, lite_command, None).0,
-        b"use" => {
-            let (pipeline, _) = parse_use(working_set, &lite_command.parts);
-            pipeline
+        b"use" => parse_use(working_set, lite_command).0,
+        b"overlay" => {
+            if let Some(redirection) = lite_command.redirection.as_ref() {
+                working_set.error(redirecting_builtin_error("overlay", redirection));
+                return garbage_pipeline(&lite_command.parts);
+            }
+            parse_keyword(working_set, lite_command, is_subexpression)
         }
-        b"overlay" => parse_keyword(working_set, lite_command, is_subexpression),
-        b"source" | b"source-env" => parse_source(working_set, &lite_command.parts),
+        b"source" | b"source-env" => parse_source(working_set, lite_command),
         b"export" => parse_export_in_block(working_set, lite_command),
-        b"hide" => parse_hide(working_set, &lite_command.parts),
-        b"where" => parse_where(working_set, &lite_command.parts),
+        b"hide" => parse_hide(working_set, lite_command),
+        b"where" => parse_where(working_set, lite_command),
         #[cfg(feature = "plugin")]
-        b"register" => parse_register(working_set, &lite_command.parts),
+        b"register" => parse_register(working_set, lite_command),
         _ => {
             let element = parse_pipeline_element(working_set, lite_command, is_subexpression);
 
@@ -5461,7 +5464,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 }
 
-fn parse_redirection(
+fn parse_redirection_target(
     working_set: &mut StateWorkingSet,
     target: &LiteRedirectionTarget,
 ) -> RedirectionTarget {
@@ -5479,6 +5482,22 @@ fn parse_redirection(
     }
 }
 
+pub(crate) fn parse_redirection(
+    working_set: &mut StateWorkingSet,
+    target: &LiteRedirection,
+) -> Redirection {
+    match target {
+        LiteRedirection::Single { source, target } => Redirection::Single {
+            source: *source,
+            target: parse_redirection_target(working_set, target),
+        },
+        LiteRedirection::Separate { out, err } => Redirection::Separate {
+            out: parse_redirection_target(working_set, out),
+            err: parse_redirection_target(working_set, err),
+        },
+    }
+}
+
 fn parse_pipeline_element(
     working_set: &mut StateWorkingSet,
     command: &LiteCommand,
@@ -5488,21 +5507,31 @@ fn parse_pipeline_element(
 
     let expr = parse_expression(working_set, &command.parts, is_subexpression);
 
-    let redirection = command.redirection.as_ref().map(|r| match r {
-        LiteRedirection::Single { source, target } => Redirection::Single {
-            source: *source,
-            target: parse_redirection(working_set, target),
-        },
-        LiteRedirection::Separate { out, err } => Redirection::Separate {
-            out: parse_redirection(working_set, out),
-            err: parse_redirection(working_set, err),
-        },
-    });
+    let redirection = command
+        .redirection
+        .as_ref()
+        .map(|r| parse_redirection(working_set, r));
 
     PipelineElement {
         pipe: command.pipe,
         expr,
         redirection,
+    }
+}
+
+pub(crate) fn redirecting_builtin_error(
+    name: &'static str,
+    redirection: &LiteRedirection,
+) -> ParseError {
+    match redirection {
+        LiteRedirection::Single { target, .. } => {
+            ParseError::RedirectingBuiltinCommand(name, target.connector(), None)
+        }
+        LiteRedirection::Separate { out, err } => ParseError::RedirectingBuiltinCommand(
+            name,
+            out.connector().min(err.connector()),
+            Some(out.connector().max(err.connector())),
+        ),
     }
 }
 
@@ -5517,6 +5546,7 @@ pub fn parse_pipeline(
         if let Some(&first) = pipeline.commands[0].parts.first() {
             let first = working_set.get_span_contents(first);
             if first == b"let" || first == b"mut" {
+                let name = if first == b"let" { "let" } else { "mut" };
                 let mut new_command = LiteCommand {
                     comments: vec![],
                     parts: pipeline.commands[0].parts.clone(),
@@ -5524,34 +5554,17 @@ pub fn parse_pipeline(
                     redirection: None,
                 };
 
-                match pipeline.commands[0].redirection.as_ref() {
-                    Some(LiteRedirection::Single { target, .. }) => {
-                        working_set.error(ParseError::RedirectionInLetMut(target.connector(), None))
-                    }
-                    Some(LiteRedirection::Separate { out, err }) => {
-                        working_set.error(ParseError::RedirectionInLetMut(
-                            out.connector().min(err.connector()),
-                            Some(out.connector().max(err.connector())),
-                        ))
-                    }
-                    None => {}
+                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
+                    working_set.error(redirecting_builtin_error(name, redirection));
                 }
 
                 for element in &pipeline.commands[1..] {
-                    match element.redirection.as_ref() {
-                        Some(LiteRedirection::Single { target, .. }) => working_set
-                            .error(ParseError::RedirectionInLetMut(target.connector(), None)),
-                        Some(LiteRedirection::Separate { out, err }) => {
-                            working_set.error(ParseError::RedirectionInLetMut(
-                                out.connector().min(err.connector()),
-                                Some(out.connector().max(err.connector())),
-                            ))
-                        }
-                        None => {
-                            new_command.parts.push(element.pipe.expect("pipe span"));
-                            new_command.comments.extend_from_slice(&element.comments);
-                            new_command.parts.extend_from_slice(&element.parts);
-                        }
+                    if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
+                        working_set.error(redirecting_builtin_error(name, redirection));
+                    } else {
+                        new_command.parts.push(element.pipe.expect("pipe span"));
+                        new_command.comments.extend_from_slice(&element.comments);
+                        new_command.parts.extend_from_slice(&element.parts);
                     }
                 }
 
@@ -5638,26 +5651,15 @@ pub fn parse_pipeline(
         if let Some(&first) = pipeline.commands[0].parts.first() {
             let first = working_set.get_span_contents(first);
             if first == b"let" || first == b"mut" {
-                match pipeline.commands[0].redirection.as_ref() {
-                    Some(LiteRedirection::Single { target, .. }) => {
-                        working_set.error(ParseError::RedirectionInLetMut(target.connector(), None))
-                    }
-                    Some(LiteRedirection::Separate { out, err }) => {
-                        working_set.error(ParseError::RedirectionInLetMut(
-                            out.connector().min(err.connector()),
-                            Some(out.connector().max(err.connector())),
-                        ))
-                    }
-                    None => {}
+                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
+                    let name = if first == b"let" { "let" } else { "mut" };
+                    working_set.error(redirecting_builtin_error(name, redirection));
                 }
             }
         }
 
         let mut pipeline =
             parse_builtin_commands(working_set, &pipeline.commands[0], is_subexpression);
-
-        // todo!()
-        // parse redirection
 
         let let_decl_id = working_set.find_decl(b"let");
         let mut_decl_id = working_set.find_decl(b"mut");

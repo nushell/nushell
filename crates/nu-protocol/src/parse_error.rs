@@ -457,10 +457,11 @@ pub enum ParseError {
         span: Span,
     },
 
-    #[error("Redirection can not be used with let/mut.")]
+    #[error("Redirection can not be used with {0}.")]
     #[diagnostic()]
-    RedirectionInLetMut(
-        #[label("Not allowed here")] Span,
+    RedirectingBuiltinCommand(
+        &'static str,
+        #[label("not allowed here")] Span,
         #[label("...and here")] Option<Span>,
     ),
 
@@ -552,7 +553,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
-            ParseError::RedirectionInLetMut(s, _) => *s,
+            ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
     }
