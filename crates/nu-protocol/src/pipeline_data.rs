@@ -313,11 +313,17 @@ impl PipelineData {
 
                         consume_child_output(stdout, stack.stdout())?;
 
-                        if let Ok(result) = err_thread?.join() {
-                            result?;
-                        } else {
-                            // thread panicked, which should not happen
-                            debug_assert!(false)
+                        match err_thread?.join() {
+                            Ok(result) => result?,
+                            Err(err) => {
+                                return Err(ShellError::GenericError {
+                                    error: "Error consuming external command stderr".into(),
+                                    msg: format! {"{err:?}"},
+                                    span: Some(span),
+                                    help: None,
+                                    inner: Vec::new(),
+                                })
+                            }
                         }
 
                         (None, None)

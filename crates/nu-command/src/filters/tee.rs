@@ -49,8 +49,8 @@ use it in your pipeline."#
                 result: None,
             },
             Example {
-                example: "do { nu --commands 'print -e error; print ok' } | \
-                    tee --stderr { save error.log } | complete",
+                example:
+                    "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
                 description: "Save error messages from an external command to a file without \
                     redirecting them",
                 result: None,

@@ -31,7 +31,7 @@ impl EvaluatedRedirection {
 }
 
 #[derive(Debug, Clone)]
-pub struct StackStdio {
+pub(crate) struct StackStdio {
     /// The stream to use for the next command's stdout
     pub pipe_stdout: Option<IoStream>,
     /// The stream to use for the next command's stderr
@@ -72,14 +72,6 @@ impl StackStdio {
             parent_stdout: None,
             parent_stderr: None,
         }
-    }
-
-    /// Set the pipe stdout to [`IoStream::Capture`].
-    ///
-    /// This is used when evaluating a `Value` (e.g., in an expression or a closure)
-    pub(crate) fn set_capture(&mut self) {
-        self.pipe_stdout = Some(IoStream::Capture);
-        self.pipe_stderr = None;
     }
 
     /// Returns the [`IoStream`] to use for current command's stdout.

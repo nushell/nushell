@@ -4,7 +4,7 @@ use crate::completions::{
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse, FlatShape};
+use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -63,11 +63,10 @@ impl NuCompleter {
         offset: usize,
         span: Span,
     ) -> Option<Vec<Suggestion>> {
-        let stack = self.stack.clone();
         let block = self.engine_state.get_block(block_id);
-        let mut callee_stack = stack
+        let mut callee_stack = self
+            .stack
             .gather_captures(&self.engine_state, &block.captures)
-            .reset_pipes()
             .capture();
 
         // Line
@@ -128,10 +127,7 @@ impl NuCompleter {
 
         for pipeline in output.pipelines.into_iter() {
             for pipeline_element in pipeline.elements {
-                // todo!()
-                // process redirection.expr
-
-                let flattened: Vec<_> = flatten_expression(&working_set, &pipeline_element.expr);
+                let flattened = flatten_pipeline_element(&working_set, &pipeline_element);
                 let mut spans: Vec<String> = vec![];
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {

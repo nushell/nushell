@@ -3,7 +3,7 @@ use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, RecordItem};
+use nu_protocol::ast::{Argument, Block, Expr, Expression, RecordItem, Redirection};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
@@ -274,8 +274,28 @@ fn find_matching_block_end_in_block(
                 }
             }
 
-            // todo!()
-            // check redirection
+            if let Some(redirection) = e.redirection.as_ref() {
+                match redirection {
+                    Redirection::Single { target, .. }
+                    | Redirection::Separate { out: target, .. }
+                    | Redirection::Separate { err: target, .. }
+                        if target.span().contains(global_cursor_offset) =>
+                    {
+                        if let Some(pos) = target.expr().and_then(|expr| {
+                            find_matching_block_end_in_expr(
+                                line,
+                                working_set,
+                                expr,
+                                global_span_offset,
+                                global_cursor_offset,
+                            )
+                        }) {
+                            return Some(pos);
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
     }
     None

@@ -53,7 +53,7 @@ impl Stack {
     /// Stdio will be set to [`IoStream::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
-    /// Use `Stack::capture` afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
+    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
     /// (as opposed to a [`PipelineData`](crate::PipelineData)).
     pub fn new() -> Self {
         Self {
@@ -167,9 +167,7 @@ impl Stack {
     }
 
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        self.captures_to_stack_preserve_stdio(captures)
-            .reset_pipes()
-            .capture()
+        self.captures_to_stack_preserve_stdio(captures).capture()
     }
 
     pub fn captures_to_stack_preserve_stdio(&self, captures: Vec<(VarId, Value)>) -> Stack {
@@ -475,9 +473,10 @@ impl Stack {
     /// This will irreversibly alter the stdio redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     ///
-    /// See `Stack::start_capture` which can temporarily set stdout as [`IoStream::Capture`] for a mutable `Stack` reference.
+    /// See [`Stack::start_capture`] which can temporarily set stdout as [`IoStream::Capture`] for a mutable `Stack` reference.
     pub fn capture(mut self) -> Self {
-        self.stdio.set_capture();
+        self.stdio.pipe_stdout = Some(IoStream::Capture);
+        self.stdio.pipe_stderr = None;
         self
     }
 
