@@ -68,6 +68,16 @@ impl PluginGc {
     pub fn stop_tracking(&self) {
         let _ = self.sender.send(PluginGcMsg::StopTracking);
     }
+
+    /// Tell the GC that the plugin exited so that it can remove it from the persistent plugin.
+    ///
+    /// The reason the plugin tells the GC rather than just stopping itself via `source` is that
+    /// it can't guarantee that the plugin currently pointed to by `source` is itself, but if the
+    /// GC is still running, it hasn't received [`.stop_tracking()`] yet, which means it should be
+    /// the right plugin.
+    pub fn exited(&self) {
+        let _ = self.sender.send(PluginGcMsg::Exited);
+    }
 }
 
 #[derive(Debug)]
@@ -76,6 +86,7 @@ enum PluginGcMsg {
     AddLocks(i64),
     SetDisabled(bool),
     StopTracking,
+    Exited,
 }
 
 #[derive(Debug)]
@@ -105,8 +116,9 @@ impl PluginGcState {
         }
     }
 
-    // returns false if the GC should not continue to operate
-    fn handle_message(&mut self, msg: PluginGcMsg) -> bool {
+    // returns `Some()` if the GC should not continue to operate, with `true` if it should stop the
+    // plugin, or `false` if it should not
+    fn handle_message(&mut self, msg: PluginGcMsg) -> Option<bool> {
         match msg {
             PluginGcMsg::SetConfig(config) => {
                 self.config = config;
@@ -129,13 +141,19 @@ impl PluginGcState {
             }
             PluginGcMsg::StopTracking => {
                 // Immediately exit without stopping the plugin
-                return false;
+                return Some(false);
+            }
+            PluginGcMsg::Exited => {
+                // Exit and stop the plugin
+                return Some(true);
             }
         }
-        true
+        None
     }
 
     fn run(&mut self, receiver: mpsc::Receiver<PluginGcMsg>) {
+        let mut always_stop = false;
+
         loop {
             let Some(msg) = (match self.next_timeout(Instant::now()) {
                 Some(duration) => receiver.recv_timeout(duration).ok(),
@@ -147,16 +165,25 @@ impl PluginGcState {
 
             log::trace!("Plugin GC ({name}) message: {msg:?}", name = self.name);
 
-            if !self.handle_message(msg) {
-                // Exit without stopping the plugin if false is returned
-                return;
+            if let Some(should_stop) = self.handle_message(msg) {
+                // Exit the GC
+                if should_stop {
+                    // If should_stop = true, attempt to stop the plugin
+                    always_stop = true;
+                    break;
+                } else {
+                    // Don't stop the plugin
+                    return;
+                }
             }
         }
 
-        // Upon exiting the loop, if the timeout reached zero, stop the plugin
-        if self
-            .next_timeout(Instant::now())
-            .is_some_and(|t| t.is_zero())
+        // Upon exiting the loop, if the timeout reached zero, or we are exiting due to an Exited
+        // message, stop the plugin
+        if always_stop
+            || self
+                .next_timeout(Instant::now())
+                .is_some_and(|t| t.is_zero())
         {
             // We only hold a weak reference, and it's not an error if we fail to upgrade it -
             // that just means the plugin is definitely stopped anyway.

@@ -214,16 +214,21 @@ fn manager_consume_all_propagates_io_error_to_plugin_calls() -> Result<(), Shell
         .consume_all(&mut test)
         .expect_err("consume_all did not error");
 
-    // We have to hold interface until now otherwise consume_all won't try to process the message
-    drop(interface);
-
     let message = rx.try_recv().expect("failed to get plugin call message");
     match message {
         ReceivedPluginCallMessage::Error(error) => {
             check_test_io_error(&error);
-            Ok(())
         }
         _ => panic!("received something other than an error: {message:?}"),
+    }
+
+    // Check that further calls also cause the error
+    match interface.get_signature() {
+        Ok(_) => panic!("plugin call after exit did not cause error somehow"),
+        Err(err) => {
+            check_test_io_error(&err);
+            Ok(())
+        }
     }
 }
 
@@ -242,16 +247,21 @@ fn manager_consume_all_propagates_message_error_to_plugin_calls() -> Result<(), 
         .consume_all(&mut test)
         .expect_err("consume_all did not error");
 
-    // We have to hold interface until now otherwise consume_all won't try to process the message
-    drop(interface);
-
     let message = rx.try_recv().expect("failed to get plugin call message");
     match message {
         ReceivedPluginCallMessage::Error(error) => {
             check_invalid_output_error(&error);
-            Ok(())
         }
         _ => panic!("received something other than an error: {message:?}"),
+    }
+
+    // Check that further calls also cause the error
+    match interface.get_signature() {
+        Ok(_) => panic!("plugin call after exit did not cause error somehow"),
+        Err(err) => {
+            check_invalid_output_error(&err);
+            Ok(())
+        }
     }
 }
 

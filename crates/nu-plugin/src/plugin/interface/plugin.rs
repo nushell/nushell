@@ -2,7 +2,7 @@
 
 use std::{
     collections::{btree_map, BTreeMap},
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, OnceLock},
 };
 
 use nu_protocol::{
@@ -71,6 +71,8 @@ struct PluginInterfaceState {
     stream_id_sequence: Sequence,
     /// Sender to subscribe to a plugin call response
     plugin_call_subscription_sender: mpsc::Sender<(PluginCallId, PluginCallSubscription)>,
+    /// An error that should be propagated to further plugin calls
+    error: OnceLock<ShellError>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginInput>>,
 }
@@ -135,6 +137,7 @@ impl PluginInterfaceManager {
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
+                error: OnceLock::new(),
                 writer: Box::new(writer),
             }),
             stream_manager: StreamManager::new(),
@@ -356,12 +359,17 @@ impl PluginInterfaceManager {
         &mut self,
         mut reader: impl PluginRead<PluginOutput>,
     ) -> Result<(), ShellError> {
+        let mut result = Ok(());
+
         while let Some(msg) = reader.read().transpose() {
             if self.is_finished() {
                 break;
             }
 
+            // We assume an error here is unrecoverable (at least, without restarting the plugin)
             if let Err(err) = msg.and_then(|msg| self.consume(msg)) {
+                // Put the error in the state so that new calls see it
+                let _ = self.state.error.set(err.clone());
                 // Error to streams
                 let _ = self.stream_manager.broadcast_read_error(err.clone());
                 // Error to call waiters
@@ -374,10 +382,16 @@ impl PluginInterfaceManager {
                         .as_ref()
                         .map(|s| s.send(ReceivedPluginCallMessage::Error(err.clone())));
                 }
-                return Err(err);
+                result = Err(err);
+                break;
             }
         }
-        Ok(())
+
+        // Tell the GC we are exiting so that the plugin doesn't get stuck open
+        if let Some(ref gc) = self.gc {
+            gc.exited();
+        }
+        result
     }
 }
 
@@ -656,8 +670,17 @@ impl PluginInterface {
                     _ => None,
                 },
                 help: Some(format!(
-                    "you can try running `plugin stop {}` to restart the plugin",
-                    self.state.source.name()
+                    "the plugin may have experienced an error. Try registering the plugin again \
+                        with `{}`",
+                    if let Some(shell) = self.state.source.shell() {
+                        format!(
+                            "register --shell '{}' '{}'",
+                            shell.display(),
+                            self.state.source.filename().display(),
+                        )
+                    } else {
+                        format!("register '{}'", self.state.source.filename().display())
+                    }
                 )),
                 inner: vec![],
             })?;
@@ -734,6 +757,11 @@ impl PluginInterface {
         call: PluginCall<PipelineData>,
         context: &Option<Context>,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
+        // Check for an error in the state first, and return it if set.
+        if let Some(error) = self.state.error.get() {
+            return Err(error.clone());
+        }
+
         // Starting a plugin call adds a lock on the GC. Locks are not added for streams being read
         // by the plugin, so the plugin would have to explicitly tell us if it expects to stay alive
         // while reading streams in the background after the response ends.
