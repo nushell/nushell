@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.90.2"
+version = "0.91.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -17,8 +17,8 @@ bench = false
 bench = false
 
 [dependencies]
-log = "0.4"
 lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
+log = { workspace = true }
 num-format = { version = "0.4" }
 strip-ansi-escapes = "0.2.0"
 sys-locale = "0.3"

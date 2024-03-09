@@ -29,7 +29,7 @@ impl Command for Start {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("start")
-            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required("path", SyntaxShape::String, "Path to open.")
             .category(Category::FileSystem)
     }
@@ -176,6 +176,8 @@ fn try_commands(
                 help: "Try different path or install appropriate command\n".to_string() + &err_msg,
                 span,
             });
+        } else if one_result.is_ok() {
+            break;
         }
     }
     Ok(())

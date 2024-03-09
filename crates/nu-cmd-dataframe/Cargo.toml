@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-cmd-dataframe"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-dataframe"
-version = "0.90.2"
+version = "0.91.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,14 +13,14 @@ version = "0.90.2"
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.90.2" }
-nu-parser = { path = "../nu-parser", version = "0.90.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
+nu-engine = { path = "../nu-engine", version = "0.91.1" }
+nu-parser = { path = "../nu-parser", version = "0.91.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 # Potential dependencies for extras
-chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
+chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.8"
-fancy-regex = "0.13"
+fancy-regex = { workspace = true }
 indexmap = { version = "2.2" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -70,4 +70,4 @@ dataframe = ["num", "polars", "polars-io", "polars-arrow", "polars-ops", "polars
 default = []
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.90.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }

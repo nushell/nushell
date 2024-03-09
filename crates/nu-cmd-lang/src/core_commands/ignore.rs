@@ -32,20 +32,20 @@ impl Command for Ignore {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &Call,
+        _call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        input.into_value(call.head);
+        input.drain()?;
         Ok(PipelineData::empty())
     }
 
     fn run_const(
         &self,
         _working_set: &StateWorkingSet,
-        call: &Call,
+        _call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        input.into_value(call.head);
+        input.drain()?;
         Ok(PipelineData::empty())
     }
 

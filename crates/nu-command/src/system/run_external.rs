@@ -1,7 +1,8 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
-use nu_engine::eval_expression;
+use nu_engine::get_eval_expression;
 use nu_engine::CallExt;
+use nu_protocol::IntoSpanned;
 use nu_protocol::NuGlob;
 use nu_protocol::{
     ast::{Call, Expr},
@@ -131,6 +132,8 @@ pub fn create_external_command(
                 span,
             })
     }
+
+    let eval_expression = get_eval_expression(engine_state);
 
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
@@ -438,7 +441,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .expect("Failed to create thread");
+                            .map_err(|e| e.into_spanned(head))?;
                     }
                 }
 
@@ -526,7 +529,7 @@ impl ExternalCommand {
                             Ok(())
                         }
                     }
-                }).expect("Failed to create thread");
+                }).map_err(|e| e.into_spanned(head))?;
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
@@ -543,7 +546,7 @@ impl ExternalCommand {
                             read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);
                             Ok::<(), ShellError>(())
                         })
-                        .expect("Failed to create thread");
+                        .map_err(|e| e.into_spanned(head))?;
                 }
 
                 let stdout_receiver = ChannelReceiver::new(stdout_rx);

@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-protocol"
 edition = "2021"
 license = "MIT"
 name = "nu-protocol"
-version = "0.90.2"
+version = "0.91.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,20 +13,20 @@ version = "0.90.2"
 bench = false
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.90.2" }
-nu-path = { path = "../nu-path", version = "0.90.2" }
-nu-system = { path = "../nu-system", version = "0.90.2" }
+nu-utils = { path = "../nu-utils", version = "0.91.1" }
+nu-path = { path = "../nu-path", version = "0.91.1" }
+nu-system = { path = "../nu-system", version = "0.91.1" }
 
 byte-unit = { version = "5.1", features = [ "serde" ] }
-chrono = { version = "0.4.34", features = [ "serde", "std", "unstable-locales" ], default-features = false }
+chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = "0.2"
-fancy-regex = "0.13"
+fancy-regex = { workspace = true }
 indexmap = "2.2"
 lru = "0.12"
-miette = { version = "7.1", features = ["fancy-no-backtrace"] }
+miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = "0.4"
 serde = { version = "1.0", default-features = false }
-serde_json = { version = "1.0", optional = true }
+serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"
 
@@ -34,11 +34,11 @@ typetag = "0.2"
 plugin = ["serde_json"]
 
 [dev-dependencies]
-serde_json = "1.0"
+serde_json = { workspace = true }
 strum = "0.25"
 strum_macros = "0.26"
-nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
-rstest = "0.18"
+nu-test-support = { path = "../nu-test-support", version = "0.91.1" }
+rstest = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

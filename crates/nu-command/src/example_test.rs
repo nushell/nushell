@@ -10,8 +10,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 mod test_examples {
     use super::super::{
         Ansi, Date, Enumerate, Filter, First, Flatten, From, Get, Into, IntoDatetime, IntoString,
-        Math, MathRound, MathSum, ParEach, Path, PathParse, Random, Seq, Sort, SortBy, Split,
-        SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
+        Lines, Math, MathRound, MathSum, ParEach, Path, PathParse, Random, Seq, Sort, SortBy,
+        Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values,
+        Wrap,
     };
     use crate::{Default, Each, To};
     use nu_cmd_lang::example_support::{
@@ -81,6 +82,7 @@ mod test_examples {
             working_set.add_decl(Box::new(IntoString));
             working_set.add_decl(Box::new(IntoDatetime));
             working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(Lines));
             working_set.add_decl(Box::new(Math));
             working_set.add_decl(Box::new(MathRound));
             working_set.add_decl(Box::new(MathSum));

@@ -1004,7 +1004,7 @@ impl Value {
     /// The other `Value` cases are already parsable when converted strings
     /// or are not yet handled by this function.
     ///
-    /// This functions behaves like [`to_formatted_string`](Self::to_formatted_string)
+    /// This functions behaves like [`to_expanded_string`](Self::to_expanded_string)
     /// and will recurse into records and lists.
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
@@ -3779,65 +3779,62 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     /// Split this a duration into number of whole weeks and the remainder
     fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
         let weeks = duration.num_weeks();
-        let remainder = duration - Duration::weeks(weeks);
-        normalize_split(weeks, remainder)
+        normalize_split(weeks, Duration::try_weeks(weeks), duration)
     }
 
     /// Split this a duration into number of whole days and the remainder
     fn split_days(duration: Duration) -> (Option<i64>, Duration) {
         let days = duration.num_days();
-        let remainder = duration - Duration::days(days);
-        normalize_split(days, remainder)
+        normalize_split(days, Duration::try_days(days), duration)
     }
 
     /// Split this a duration into number of whole hours and the remainder
     fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
         let hours = duration.num_hours();
-        let remainder = duration - Duration::hours(hours);
-        normalize_split(hours, remainder)
+        normalize_split(hours, Duration::try_hours(hours), duration)
     }
 
     /// Split this a duration into number of whole minutes and the remainder
     fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
         let minutes = duration.num_minutes();
-        let remainder = duration - Duration::minutes(minutes);
-        normalize_split(minutes, remainder)
+        normalize_split(minutes, Duration::try_minutes(minutes), duration)
     }
 
     /// Split this a duration into number of whole seconds and the remainder
     fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
         let seconds = duration.num_seconds();
-        let remainder = duration - Duration::seconds(seconds);
-        normalize_split(seconds, remainder)
+        normalize_split(seconds, Duration::try_seconds(seconds), duration)
     }
 
     /// Split this a duration into number of whole milliseconds and the remainder
     fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
         let millis = duration.num_milliseconds();
-        let remainder = duration - Duration::milliseconds(millis);
-        normalize_split(millis, remainder)
+        normalize_split(millis, Duration::try_milliseconds(millis), duration)
     }
 
     /// Split this a duration into number of whole seconds and the remainder
     fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
         let micros = duration.num_microseconds().unwrap_or_default();
-        let remainder = duration - Duration::microseconds(micros);
-        normalize_split(micros, remainder)
+        normalize_split(micros, Duration::microseconds(micros), duration)
     }
 
     /// Split this a duration into number of whole seconds and the remainder
     fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
         let nanos = duration.num_nanoseconds().unwrap_or_default();
-        let remainder = duration - Duration::nanoseconds(nanos);
-        normalize_split(nanos, remainder)
+        normalize_split(nanos, Duration::nanoseconds(nanos), duration)
     }
 
     fn normalize_split(
-        wholes: impl Into<Option<i64>>,
-        remainder: Duration,
+        wholes: i64,
+        wholes_duration: impl Into<Option<Duration>>,
+        total_duration: Duration,
     ) -> (Option<i64>, Duration) {
-        let wholes = wholes.into().map(i64::abs).filter(|x| *x > 0);
-        (wholes, remainder)
+        match wholes_duration.into() {
+            Some(wholes_duration) if wholes != 0 => {
+                (Some(wholes), total_duration - wholes_duration)
+            }
+            _ => (None, total_duration),
+        }
     }
 
     let mut periods = vec![];
@@ -4057,7 +4054,7 @@ mod tests {
     }
 
     mod into_string {
-        use chrono::{DateTime, FixedOffset, NaiveDateTime};
+        use chrono::{DateTime, FixedOffset};
         use rstest::rstest;
 
         use super::*;
@@ -4065,11 +4062,11 @@ mod tests {
 
         #[test]
         fn test_datetime() {
-            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
-                NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
-                FixedOffset::east_opt(0).unwrap(),
-            ))
-            .to_expanded_string("", &Default::default());
+            let date = DateTime::from_timestamp_millis(-123456789)
+                .unwrap()
+                .with_timezone(&FixedOffset::east_opt(0).unwrap());
+
+            let string = Value::test_date(date).to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
@@ -4079,11 +4076,11 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
-                NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
-                FixedOffset::east_opt(0).unwrap(),
-            ))
-            .to_expanded_string("", &Default::default());
+            let date = DateTime::from_timestamp_millis(-72135596800000)
+                .unwrap()
+                .with_timezone(&FixedOffset::east_opt(0).unwrap());
+
+            let string = Value::test_date(date).to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.

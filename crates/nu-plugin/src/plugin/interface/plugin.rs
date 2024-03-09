@@ -240,9 +240,9 @@ impl InterfaceManager for PluginInterfaceManager {
                     self.protocol_info = None;
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin is compiled for nushell version {}, \
+                            "Plugin `{}` is compiled for nushell version {}, \
                                 which is not compatible with version {}",
-                            info.version, local_info.version
+                            self.state.identity.plugin_name, info.version, local_info.version,
                         ),
                     })
                 }
@@ -250,9 +250,11 @@ impl InterfaceManager for PluginInterfaceManager {
             _ if self.protocol_info.is_none() => {
                 // Must send protocol info first
                 Err(ShellError::PluginFailedToLoad {
-                    msg: "Failed to receive initial Hello message. \
-                        This plugin might be too old"
-                        .into(),
+                    msg: format!(
+                        "Failed to receive initial Hello message from `{}`. \
+                            This plugin might be too old",
+                        self.state.identity.plugin_name
+                    ),
                 })
             }
             PluginOutput::Stream(message) => self.consume_stream_message(message),
@@ -419,7 +421,7 @@ impl PluginInterface {
         let (writer, rx) = self.write_plugin_call(call, context.clone())?;
 
         // Finish writing stream in the background
-        writer.write_background();
+        writer.write_background()?;
 
         self.receive_plugin_call_response(rx)
     }

@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.90.2"
+version = "0.91.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,36 +13,36 @@ version = "0.90.2"
 bench = false
 
 [dependencies]
-nu-ansi-term = "0.50.0"
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.90.2" }
-nu-color-config = { path = "../nu-color-config", version = "0.90.2" }
-nu-engine = { path = "../nu-engine", version = "0.90.2" }
-nu-glob = { path = "../nu-glob", version = "0.90.2" }
-nu-json = { path = "../nu-json", version = "0.90.2" }
-nu-parser = { path = "../nu-parser", version = "0.90.2" }
-nu-path = { path = "../nu-path", version = "0.90.2" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.90.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
-nu-system = { path = "../nu-system", version = "0.90.2" }
-nu-table = { path = "../nu-table", version = "0.90.2" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.90.2" }
-nu-utils = { path = "../nu-utils", version = "0.90.2" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.91.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.91.1" }
+nu-engine = { path = "../nu-engine", version = "0.91.1" }
+nu-glob = { path = "../nu-glob", version = "0.91.1" }
+nu-json = { path = "../nu-json", version = "0.91.1" }
+nu-parser = { path = "../nu-parser", version = "0.91.1" }
+nu-path = { path = "../nu-path", version = "0.91.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.91.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
+nu-system = { path = "../nu-system", version = "0.91.1" }
+nu-table = { path = "../nu-table", version = "0.91.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.91.1" }
+nu-utils = { path = "../nu-utils", version = "0.91.1" }
+nu-ansi-term = { workspace = true }
 
 alphanumeric-sort = "1.5"
 base64 = "0.21"
 byteorder = "1.5"
 bytesize = "1.3"
 calamine = { version = "0.24.0", features = ["dates"] }
-chrono = { version = "0.4.34", features = ["std", "unstable-locales", "clock"], default-features = false }
+chrono = { workspace = true, features = ["std", "unstable-locales", "clock"], default-features = false }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
-crossterm = "0.27"
+crossterm = { workspace = true }
 csv = "1.3"
 dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.11" }
 digest = { default-features = false, version = "0.10" }
 dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.13"
+fancy-regex = { workspace = true }
 filesize = "0.2"
 filetime = "0.2"
 fs_extra = "1.3"
@@ -50,8 +50,8 @@ human-date-parser = "0.1.1"
 indexmap = "2.2"
 indicatif = "0.17"
 itertools = "0.12"
-log = "0.4"
 lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
+log = { workspace = true }
 md5 = { package = "md-5", version = "0.10" }
 mime = "0.3"
 mime_guess = "2.0"
@@ -59,11 +59,11 @@ native-tls = "0.2"
 notify-debouncer-full = { version = "0.3", default-features = false }
 num-format = { version = "0.4" }
 num-traits = "0.2"
-once_cell = "1.18"
-open = "5.0"
+open = "5.1"
+once_cell = { workspace = true }
 os_pipe = "1.1"
-pathdiff = "0.2"
-percent-encoding = "2.3"
+pathdiff = { workspace = true }
+percent-encoding = { workspace = true }
 print-positions = "0.6"
 quick-xml = "0.31.0"
 rand = "0.8"
@@ -73,16 +73,16 @@ roxmltree = "0.19"
 rusqlite = { version = "0.31", features = ["bundled", "backup", "chrono"], optional = true }
 same-file = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["preserve_order"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 sha2 = "0.10"
-sysinfo = "0.30"
+sysinfo = { workspace = true }
 tabled = { version = "0.14.0", features = ["color"], default-features = false }
 terminal_size = "0.3"
 titlecase = "2.0"
 toml = "0.8"
-unicode-segmentation = "1.11"
+unicode-segmentation = { workspace = true }
 ureq = { version = "2.9", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
 uu_mv = "0.0.23"
@@ -90,10 +90,10 @@ uu_cp = "0.0.23"
 uu_whoami = "0.0.23"
 uu_mkdir = "0.0.23"
 uu_mktemp = "0.0.23"
-uuid = { version = "1.6", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }
 v_htmlescape = "0.15.0"
 wax = { version = "0.6" }
-which = { version = "6.0", optional = true }
+which = { workspace = true, optional = true }
 bracoxide = "0.1.2"
 chardetng = "0.1.17"
 
@@ -103,7 +103,7 @@ winreg = "0.52"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-nix = { version = "0.27", default-features = false, features = ["user", "resource"] }
+nix = { workspace = true, default-features = false, features = ["user", "resource"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = "0.16.0"
@@ -121,7 +121,7 @@ features = [
 	"Win32_Security",
 	"Win32_System_Threading",
 ]
-version = "0.52"
+version = "0.54"
 
 [features]
 plugin = ["nu-parser/plugin"]
@@ -130,11 +130,11 @@ trash-support = ["trash"]
 which-support = ["which"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.90.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.91.1" }
 
 dirs-next = "2.0"
-mockito = { version = "1.3", default-features = false }
+mockito = { version = "1.4", default-features = false }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
-rstest = { version = "0.18", default-features = false }
+rstest = { workspace = true, default-features = false }

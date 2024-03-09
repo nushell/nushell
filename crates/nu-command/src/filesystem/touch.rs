@@ -1,7 +1,6 @@
-use std::fs::OpenOptions;
 use std::path::Path;
+use std::{fs::OpenOptions, time::SystemTime};
 
-use chrono::{DateTime, Local};
 use filetime::FileTime;
 
 use nu_engine::CallExt;
@@ -64,7 +63,7 @@ impl Command for Touch {
     ) -> Result<PipelineData, ShellError> {
         let mut change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
         let mut change_atime: bool = call.has_flag(engine_state, stack, "access")?;
-        let use_reference: bool = call.has_flag(engine_state, stack, "reference")?;
+        let reference: Option<Spanned<String>> = call.get_flag(engine_state, stack, "reference")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let files: Vec<String> = call.rest(engine_state, stack, 0)?;
 
@@ -75,88 +74,73 @@ impl Command for Touch {
             });
         }
 
-        let mut date: Option<DateTime<Local>> = None;
-        let mut ref_date_atime: Option<DateTime<Local>> = None;
+        let mut mtime = SystemTime::now();
+        let mut atime = mtime;
 
-        // Change both times if none is specified
+        // Change both times if neither is specified
         if !change_mtime && !change_atime {
             change_mtime = true;
             change_atime = true;
         }
 
-        if change_mtime || change_atime {
-            date = Some(Local::now());
-        }
-
-        if use_reference {
-            let reference: Option<Spanned<String>> =
-                call.get_flag(engine_state, stack, "reference")?;
-            match reference {
-                Some(reference) => {
-                    let reference_path = Path::new(&reference.item);
-                    if !reference_path.exists() {
-                        return Err(ShellError::TypeMismatch {
-                            err_message: "path provided is invalid".to_string(),
-                            span: reference.span,
-                        });
-                    }
-
-                    date = Some(
-                        reference_path
-                            .metadata()
-                            .expect("should be a valid path") // Should never fail as the path exists
-                            .modified()
-                            .expect("should have metadata") // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
-                            .into(),
-                    );
-
-                    ref_date_atime = Some(
-                        reference_path
-                            .metadata()
-                            .expect("should be a valid path") // Should never fail as the path exists
-                            .accessed()
-                            .expect("should have metadata") // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
-                            .into(),
-                    );
-                }
-                None => {
-                    return Err(ShellError::MissingParameter {
-                        param_name: "reference".to_string(),
-                        span: call.head,
-                    });
-                }
+        if let Some(reference) = reference {
+            let reference_path = Path::new(&reference.item);
+            if !reference_path.exists() {
+                return Err(ShellError::FileNotFoundCustom {
+                    msg: "Reference path not found".into(),
+                    span: reference.span,
+                });
             }
+
+            let metadata = reference_path
+                .metadata()
+                .map_err(|err| ShellError::IOErrorSpanned {
+                    msg: format!("Failed to read metadata: {err}"),
+                    span: reference.span,
+                })?;
+            mtime = metadata
+                .modified()
+                .map_err(|err| ShellError::IOErrorSpanned {
+                    msg: format!("Failed to read modified time: {err}"),
+                    span: reference.span,
+                })?;
+            atime = metadata
+                .accessed()
+                .map_err(|err| ShellError::IOErrorSpanned {
+                    msg: format!("Failed to read access time: {err}"),
+                    span: reference.span,
+                })?;
         }
 
         for (index, item) in files.into_iter().enumerate() {
-            if no_create {
-                let path = Path::new(&item);
-                if !path.exists() {
-                    continue;
-                }
+            let path = Path::new(&item);
+
+            // If --no-create is passed and the file/dir does not exist there's nothing to do
+            if no_create && !path.exists() {
+                continue;
             }
 
-            if let Err(err) = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .open(&item)
-            {
-                return Err(ShellError::CreateNotPossible {
-                    msg: format!("Failed to create file: {err}"),
-                    span: call
-                        .positional_nth(index)
-                        .expect("already checked positional")
-                        .span,
-                });
-            };
+            // Create a file at the given path unless the path is a directory
+            if !path.is_dir() {
+                if let Err(err) = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(false)
+                    .open(path)
+                {
+                    return Err(ShellError::CreateNotPossible {
+                        msg: format!("Failed to create file: {err}"),
+                        span: call
+                            .positional_nth(index)
+                            .expect("already checked positional")
+                            .span,
+                    });
+                };
+            }
 
             if change_mtime {
-                // Should not panic as we return an error above if we can't parse the date
-                if let Err(err) = filetime::set_file_mtime(
-                    &item,
-                    FileTime::from_system_time(date.expect("should be a valid date").into()),
-                ) {
+                if let Err(err) = filetime::set_file_mtime(&item, FileTime::from_system_time(mtime))
+                {
                     return Err(ShellError::ChangeModifiedTimeNotPossible {
                         msg: format!("Failed to change the modified time: {err}"),
                         span: call
@@ -168,38 +152,16 @@ impl Command for Touch {
             }
 
             if change_atime {
-                // Reference file/directory may have different access and modified times
-                if use_reference {
-                    // Should not panic as we return an error above if we can't parse the date
-                    if let Err(err) = filetime::set_file_atime(
-                        &item,
-                        FileTime::from_system_time(
-                            ref_date_atime.expect("should be a valid date").into(),
-                        ),
-                    ) {
-                        return Err(ShellError::ChangeAccessTimeNotPossible {
-                            msg: format!("Failed to change the access time: {err}"),
-                            span: call
-                                .positional_nth(index)
-                                .expect("already checked positional")
-                                .span,
-                        });
-                    };
-                } else {
-                    // Should not panic as we return an error above if we can't parse the date
-                    if let Err(err) = filetime::set_file_atime(
-                        &item,
-                        FileTime::from_system_time(date.expect("should be a valid date").into()),
-                    ) {
-                        return Err(ShellError::ChangeAccessTimeNotPossible {
-                            msg: format!("Failed to change the access time: {err}"),
-                            span: call
-                                .positional_nth(index)
-                                .expect("already checked positional")
-                                .span,
-                        });
-                    };
-                }
+                if let Err(err) = filetime::set_file_atime(&item, FileTime::from_system_time(atime))
+                {
+                    return Err(ShellError::ChangeAccessTimeNotPossible {
+                        msg: format!("Failed to change the access time: {err}"),
+                        span: call
+                            .positional_nth(index)
+                            .expect("already checked positional")
+                            .span,
+                    });
+                };
             }
         }
 

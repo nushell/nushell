@@ -1,6 +1,6 @@
 use std::{io::Write, path::PathBuf};
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Offset};
+use chrono::{DateTime, FixedOffset};
 use nu_protocol::{ast::PathMember, record, Span, Value};
 use nu_test_support::{
     fs::{line_ending, Stub},
@@ -280,9 +280,10 @@ impl Distribution<TestRow> for Standard {
     where
         R: rand::Rng + ?Sized,
     {
-        let naive_dt =
-            NaiveDateTime::from_timestamp_millis(rng.gen_range(0..2324252554000)).unwrap();
-        let dt = DateTime::from_naive_utc_and_offset(naive_dt, chrono::Utc.fix());
+        let dt = DateTime::from_timestamp_millis(rng.gen_range(0..2324252554000))
+            .unwrap()
+            .fixed_offset();
+
         let rand_string = Alphanumeric.sample_string(rng, 10);
 
         // limit the size of the numbers to work around

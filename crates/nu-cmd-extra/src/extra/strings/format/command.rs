@@ -1,8 +1,9 @@
 use std::vec;
 
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::{get_eval_expression, CallExt};
 use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
+
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -271,6 +272,7 @@ fn format_record(
 ) -> Result<String, ShellError> {
     let config = engine_state.get_config();
     let mut output = String::new();
+    let eval_expression = get_eval_expression(engine_state);
 
     for op in format_operations {
         match op {

@@ -5,20 +5,20 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin"
 edition = "2021"
 license = "MIT"
 name = "nu-plugin"
-version = "0.90.2"
+version = "0.91.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.90.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
+nu-engine = { path = "../nu-engine", version = "0.91.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 bincode = "1.3"
 rmp-serde = "1.1"
 serde = { version = "1.0" }
-serde_json = { version = "1.0" }
+serde_json = { workspace = true }
 log = "0.4"
-miette = "7.0"
+miette = { workspace = true }
 semver = "1.0"
 typetag = "0.2"

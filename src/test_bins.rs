@@ -1,6 +1,7 @@
 use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{CliError, PipelineData, Value};
 use nu_std::load_standard_library;
@@ -320,7 +321,7 @@ pub fn nu_repl() {
         let input = PipelineData::empty();
         let config = engine_state.get_config();
 
-        match eval_block(&engine_state, &mut stack, &block, input, false, false) {
+        match eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, input, false, false) {
             Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                 Ok(s) => last_output = s,
                 Err(err) => outcome_err(&engine_state, &err),
