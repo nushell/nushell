@@ -13,8 +13,8 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
-    span, Alias, BlockId, DeclId, Exportable, IntoSpanned, Module, ModuleId, ParseError,
-    PositionalArg, ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -3546,7 +3546,9 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     use std::sync::Arc;
 
     use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
-    use nu_protocol::{engine::Stack, PluginIdentity, PluginSignature, RegisteredPlugin};
+    use nu_protocol::{
+        engine::Stack, IntoSpanned, PluginIdentity, PluginSignature, RegisteredPlugin,
+    };
 
     let cwd = working_set.get_cwd();
 
