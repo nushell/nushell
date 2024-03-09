@@ -9,6 +9,8 @@ pub struct Director {
     pub cwd: Option<OsString>,
     pub environment_vars: Vec<EnvironmentVariable>,
     pub config: Option<OsString>,
+    /// If false, an empty plugin file will be used rather than the default one
+    pub default_plugin_file: bool,
     pub pipeline: Option<Vec<String>>,
     pub executable: Option<NuProcess>,
 }
@@ -58,6 +60,15 @@ impl Director {
 
         if let Some(working_directory) = &self.cwd {
             process.cwd(working_directory);
+        }
+
+        let temp_dir = tempfile::tempdir().expect("couldn't create a temporary directory");
+
+        if !self.default_plugin_file {
+            let temp_plugin_file = temp_dir.path().join("plugin.nu");
+            std::fs::File::create(&temp_plugin_file)
+                .expect("couldn't create temporary plugin file");
+            process.arg("--plugin-config").arg(temp_plugin_file);
         }
 
         process.arg("--no-history");
