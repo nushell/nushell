@@ -32,9 +32,6 @@ impl Plugin for Inc {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        // Reset every time, to take new options
-        *self = Inc::new();
-
         if name != "inc" {
             return Ok(Value::nothing(call.head));
         }

@@ -12,8 +12,9 @@ use nu_protocol::{
 
 use crate::{
     protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
-        PluginInput, PluginOption, ProtocolInfo,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
+        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        ProtocolInfo,
     },
     LabeledError, PluginOutput,
 };

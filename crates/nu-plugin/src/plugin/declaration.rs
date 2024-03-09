@@ -108,7 +108,7 @@ impl Command for PluginDeclaration {
 
         // Create the context to execute in - this supports engine calls and custom values
         let context = Arc::new(PluginExecutionCommandContext::new(
-            self.identity.clone(),
+            self.source.identity.clone(),
             engine_state,
             stack,
             call,

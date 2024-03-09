@@ -214,7 +214,7 @@ fn add_source_nested_closure() -> Result<(), ShellError> {
         block_id: 0,
         captures: vec![(0, orig_custom_val.clone()), (1, orig_custom_val.clone())],
     });
-    let source = PluginIdentity::new_fake("foo");
+    let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValue::add_source(&mut val, &source);
 
     check_closure_custom_values(&val, 0..=1, |index, custom_value| {
@@ -223,8 +223,8 @@ fn add_source_nested_closure() -> Result<(), ShellError> {
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
         assert_eq!(
-            Some(&source),
-            plugin_custom_value.source.as_ref(),
+            Some(Arc::as_ptr(&source)),
+            plugin_custom_value.source.as_ref().map(Arc::as_ptr),
             "[{index}] source not set correctly"
         );
         Ok(())
@@ -376,7 +376,7 @@ fn verify_source_nested_list() -> Result<(), ShellError> {
 #[test]
 fn verify_source_nested_closure() -> Result<(), ShellError> {
     let native_val = Value::test_custom_value(Box::new(TestCustomValue(32)));
-    let source = PluginIdentity::new_fake("test");
+    let source = PluginSource::new_fake("test");
     for (name, mut val) in [
         (
             "first capture",

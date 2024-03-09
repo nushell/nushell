@@ -7,7 +7,7 @@ use super::PersistentPlugin;
 #[derive(Debug, Clone)]
 pub(crate) struct PluginSource {
     /// The identity of the plugin
-    pub(crate) identity: PluginIdentity,
+    pub(crate) identity: Arc<PluginIdentity>,
     /// A weak reference to the persistent plugin that might hold an interface to the plugin.
     ///
     /// This is weak to avoid cyclic references, but it does mean we might fail to upgrade if
@@ -19,7 +19,7 @@ impl PluginSource {
     /// Create from an `Arc<PersistentPlugin>`
     pub(crate) fn new(plugin: &Arc<PersistentPlugin>) -> PluginSource {
         PluginSource {
-            identity: plugin.identity().clone(),
+            identity: plugin.identity().clone().into(),
             persistent: Arc::downgrade(plugin),
         }
     }
@@ -30,7 +30,7 @@ impl PluginSource {
     #[cfg(test)]
     pub(crate) fn new_fake(name: &str) -> PluginSource {
         PluginSource {
-            identity: PluginIdentity::new_fake(name),
+            identity: PluginIdentity::new_fake(name).into(),
             persistent: Weak::new(),
         }
     }

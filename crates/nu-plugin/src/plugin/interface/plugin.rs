@@ -13,21 +13,9 @@ use nu_protocol::{
 use crate::{
     plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
     protocol::{
-        CallInfo,
-        CustomValueOp,
-        EngineCall,
-        EngineCallId,
-        EngineCallResponse,
-        PluginCall,
-        PluginCallId,
-        PluginCallResponse,
-        PluginCustomValue,
-        PluginInput,
-        PluginOption,
-        PluginOutput,
-        ProtocolInfo,
-        StreamId,
-        StreamMessage,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
+        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        PluginOutput, ProtocolInfo, StreamId, StreamMessage,
     },
     sequence::Sequence,
 };
@@ -176,16 +164,21 @@ impl PluginInterfaceManager {
         }
     }
 
-    /// Track the start of stream(s)
+    /// Track the start of incoming stream(s)
     fn recv_stream_started(&mut self, call_id: PluginCallId, stream_id: StreamId) {
+        self.plugin_call_input_streams.insert(stream_id, call_id);
+        // Increment the number of streams on the subscription so context stays alive
         self.receive_plugin_call_subscriptions();
         if let Some(sub) = self.plugin_call_subscriptions.get_mut(&call_id) {
-            self.plugin_call_input_streams.insert(stream_id, call_id);
             sub.remaining_streams_to_read += 1;
+        }
+        // Add a lock to the garbage collector for each stream
+        if let Some(ref gc) = self.gc {
+            gc.increment_locks(1);
         }
     }
 
-    /// Track the end of a stream
+    /// Track the end of an incoming stream
     fn recv_stream_ended(&mut self, stream_id: StreamId) {
         if let Some(call_id) = self.plugin_call_input_streams.remove(&stream_id) {
             if let btree_map::Entry::Occupied(mut e) = self.plugin_call_subscriptions.entry(call_id)
@@ -195,6 +188,11 @@ impl PluginInterfaceManager {
                 if e.get().remaining_streams_to_read <= 0 {
                     e.remove();
                 }
+            }
+            // Streams read from the plugin are tracked with locks on the GC so plugins don't get
+            // stopped if they have active streams
+            if let Some(ref gc) = self.gc {
+                gc.decrement_locks(1);
             }
         }
     }
@@ -453,16 +451,8 @@ impl InterfaceManager for PluginInterfaceManager {
                             self.recv_stream_started(id, stream_id);
                         }
 
-                        let number_of_streams = data.stream_count();
-
                         match self.read_pipeline_data(data, ctrlc) {
-                            Ok(data) => {
-                                // Add locks to GC for the number of streams in the response
-                                if let Some(ref gc) = self.gc {
-                                    gc.increment_locks(number_of_streams as i64);
-                                }
-                                PluginCallResponse::PipelineData(data)
-                            }
+                            Ok(data) => PluginCallResponse::PipelineData(data),
                             Err(err) => PluginCallResponse::Error(err.into()),
                         }
                     }
@@ -492,7 +482,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     } => {
                         // Add source to any plugin custom values in the arguments
                         for arg in positional.iter_mut() {
-                            PluginCustomValue::add_source(arg, &self.state.identity);
+                            PluginCustomValue::add_source(arg, &self.state.source);
                         }
                         self.read_pipeline_data(input, ctrlc)
                             .map(|input| EngineCall::EvalClosure {
@@ -540,20 +530,11 @@ impl InterfaceManager for PluginInterfaceManager {
     }
 
     fn consume_stream_message(&mut self, message: StreamMessage) -> Result<(), ShellError> {
-        // Keep track of streams that end so we know if we don't need the context anymore
+        // Keep track of streams that end
         if let StreamMessage::End(id) = message {
             self.recv_stream_ended(id);
         }
-        let is_end = matches!(message, StreamMessage::End(_));
-        let result = self.stream_manager.handle_message(message);
-        if is_end && result.is_ok() {
-            // Streams read from the plugin are tracked with locks on the GC so
-            // plugins don't get stopped if they have active streams
-            if let Some(ref gc) = self.gc {
-                gc.decrement_locks(1);
-            }
-        }
-        result
+        self.stream_manager.handle_message(message)
     }
 }
 
@@ -642,7 +623,7 @@ impl PluginInterface {
                 mut call,
                 input,
             }) => {
-                verify_call_args(&mut call, &self.state.identity)?;
+                verify_call_args(&mut call, &self.state.source)?;
                 let (header, writer) = self.init_write_pipeline_data(input)?;
                 (
                     PluginCall::Run(CallInfo {
@@ -816,7 +797,7 @@ impl PluginInterface {
 /// Check that custom values in call arguments come from the right source
 fn verify_call_args(
     call: &mut crate::EvaluatedCall,
-    source: &Arc<PluginIdentity>,
+    source: &Arc<PluginSource>,
 ) -> Result<(), ShellError> {
     for arg in call.positional.iter_mut() {
         PluginCustomValue::verify_source(arg, source)?;
