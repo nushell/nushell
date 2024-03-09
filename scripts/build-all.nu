@@ -13,7 +13,7 @@ def build-nushell [] {
     print '----------------------------'
 
     cd $repo_root
-    cargo build --features=dataframe,extra --locked
+    cargo build --features=dataframe --locked
 }
 
 def build-plugin [] {
