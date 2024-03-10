@@ -1,13 +1,8 @@
 use nu_test_support::nu;
-use nu_test_support::playground::Executable;
+use nu_test_support::playground::{Executable, Playground};
 use pretty_assertions::assert_eq;
 use std::fs;
-use std::path::Path;
-
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-use nu_test_support::playground::Playground;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(not(target_os = "windows"))]
 fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
