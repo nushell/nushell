@@ -43,7 +43,7 @@ fn setup_fake_config(playground: &mut Playground) -> PathBuf {
     {
         let fake_home = "fake_home";
         let home_link = "home_link";
-        let dir_end = "fake-home/Library/Application\\ Support/nushell";
+        let dir_end = "Library/Application\\ Support/nushell";
         playground.mkdir(&format!("{fake_home}/{dir_end}"));
         playground.symlink(fake_home, home_link);
         playground.with_env(
