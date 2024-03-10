@@ -3103,7 +3103,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "strum 0.25.0",
+ "strum 0.26.1",
  "strum_macros 0.26.1",
  "thiserror",
  "typetag",
@@ -4520,8 +4520,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413a9fa6a5d8c937d3ae1e975bfb6a918bb0b6cdfae6a10416218c837a31b8fc"
+source = "git+https://github.com/nushell/reedline?branch=main#0698712701418a7212ebf75d5724d72eccc4b43f"
 dependencies = [
  "arboard",
  "chrono",
@@ -4533,8 +4532,8 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum 0.25.0",
- "strum_macros 0.25.3",
+ "strum 0.26.1",
+ "strum_macros 0.26.1",
  "thiserror",
  "unicode-segmentation",
  "unicode-width",
