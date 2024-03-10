@@ -11,7 +11,7 @@ pub fn config_dir() -> Option<PathBuf> {
         Ok(xdg_config) if xdg_config.is_absolute() => xdg_config,
         _ => dirs_next::config_dir()?,
     };
-    canonicalize(&path).unwrap_or(path)
+    Some(canonicalize(&path).unwrap_or(path))
 }
 
 #[cfg(windows)]
