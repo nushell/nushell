@@ -11,12 +11,12 @@ pub fn config_dir() -> Option<PathBuf> {
         Ok(xdg_config) if xdg_config.is_absolute() => {
             Some(canonicalize(&xdg_config).unwrap_or(xdg_config))
         }
-        _ => config_dir_without_xdg(),
+        _ => config_dir_old(),
     }
 }
 
-/// Get the old default config directory, ignoring `XDG_CONFIG_HOME`
-pub fn config_dir_without_xdg() -> Option<PathBuf> {
+/// Get the old default config directory. Outside of Linux, this will ignore `XDG_CONFIG_HOME`
+pub fn config_dir_old() -> Option<PathBuf> {
     let path = dirs_next::config_dir()?;
     Some(canonicalize(&path).unwrap_or(path))
 }

@@ -102,7 +102,7 @@ fn main() -> Result<()> {
                         default: nushell_config_path.display().to_string(),
                     },
                 );
-            } else if let Some(old_config) = nu_path::config_dir_without_xdg() {
+            } else if let Some(old_config) = nu_path::config_dir_old().map(|p| p.join("nushell")) {
                 let xdg_config_empty = nushell_config_path
                     .read_dir()
                     .map_or(true, |mut dir| dir.next().is_none());
@@ -113,7 +113,7 @@ fn main() -> Result<()> {
                     eprintln!(
                         "WARNING: XDG_CONFIG_HOME has been set but {} is empty. Nushell will not move your configuration files from {}",
                         nushell_config_path.display(),
-                        old_config.display()
+                        old_config.display(),
                     );
                 }
             }
