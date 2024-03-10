@@ -86,13 +86,12 @@ fn test_int(
             },
         ) = &expressions.elements[0]
         {
-            compare_rhs_binaryOp(test_tag, &expected_val, observed_val);
+            compare_rhs_binary_op(test_tag, &expected_val, observed_val);
         }
     }
 }
 
-#[allow(non_snake_case)]
-fn compare_rhs_binaryOp(
+fn compare_rhs_binary_op(
     test_tag: &str,
     expected: &Expr, // the rhs expr we hope to see (::Int, ::Float, not ::B)
     observed: &Expr, // the Expr actually provided: can be ::Int, ::Float, ::String,

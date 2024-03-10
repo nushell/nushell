@@ -687,8 +687,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
+    pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         let num_permanent_decls = self.permanent_state.num_decls();
         if decl_id < num_permanent_decls {
             self.permanent_state.get_decl(decl_id)
@@ -697,6 +696,7 @@ impl<'a> StateWorkingSet<'a> {
                 .decls
                 .get(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
+                .as_ref()
         }
     }
 

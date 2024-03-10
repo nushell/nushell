@@ -3704,12 +3704,6 @@ fn type_compatible(a: Type, b: Type) -> bool {
     matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
 }
 
-/// Is the given year a leap year?
-#[allow(clippy::nonminimal_bool)]
-pub fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0) && (year % 100 != 0 || (year % 100 == 0 && year % 400 == 0))
-}
-
 #[derive(Clone, Copy)]
 pub enum TimePeriod {
     Nanos(i64),
