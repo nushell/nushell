@@ -43,7 +43,6 @@ use std::{
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
-    #[cfg(feature = "extra")]
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     #[cfg(feature = "dataframe")]
     let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);

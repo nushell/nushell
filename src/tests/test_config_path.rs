@@ -1,5 +1,5 @@
 use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::playground::{Executable, Playground};
 use pretty_assertions::assert_eq;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
@@ -31,61 +31,82 @@ fn setup_fake_config(playground: &mut Playground) -> PathBuf {
         "XDG_CONFIG_HOME",
         &playground.cwd().join(config_link).display().to_string(),
     );
-    Path::new(config_link).join("nushell")
+    playground.cwd().join(config_link).join("nushell")
 }
 
-fn test_config_path_helper() {
-    let config_dir = nu_path::config_dir().expect("Could not get config directory");
-    let config_dir_nushell = config_dir.join("nushell");
+fn run(playground: &mut Playground, command: &str) -> String {
+    let result = playground.pipeline(command).execute().map_err(|e| {
+        let outcome = e.output.map(|outcome| {
+            format!(
+                "out: '{}', err: '{}'",
+                String::from_utf8_lossy(&outcome.out),
+                String::from_utf8_lossy(&outcome.err)
+            )
+        });
+        format!(
+            "desc: {}, exit: {:?}, outcome: {}",
+            e.desc,
+            e.exit,
+            outcome.unwrap_or("empty".to_owned())
+        )
+    });
+    String::from_utf8_lossy(&result.unwrap().out)
+        .trim()
+        .to_string()
+}
+
+fn test_config_path_helper(playground: &mut Playground, config_dir_nushell: PathBuf) {
     // Create the config dir folder structure if it does not already exist
     if !config_dir_nushell.exists() {
         let _ = fs::create_dir_all(&config_dir_nushell);
     }
-    let cwd = std::env::current_dir().expect("Could not get current working directory");
 
     let config_dir_nushell =
         std::fs::canonicalize(&config_dir_nushell).expect("canonicalize config dir failed");
-    let actual = nu!(cwd: &cwd, "$nu.default-config-dir");
-    assert_eq!(actual.out, adjust_canonicalization(&config_dir_nushell));
+    let actual = run(playground, "$nu.default-config-dir");
+    assert_eq!(actual, adjust_canonicalization(&config_dir_nushell));
 
     let config_path = config_dir_nushell.join("config.nu");
     // We use canonicalize here in case the config or env is symlinked since $nu.config-path is returning the canonicalized path in #8653
     let canon_config_path =
         adjust_canonicalization(std::fs::canonicalize(&config_path).unwrap_or(config_path));
-    let actual = nu!(cwd: &cwd, "$nu.config-path");
-    assert_eq!(actual.out, canon_config_path);
+    let actual = run(playground, "$nu.config-path");
+    assert_eq!(actual, canon_config_path);
 
     let env_path = config_dir_nushell.join("env.nu");
     let canon_env_path =
         adjust_canonicalization(std::fs::canonicalize(&env_path).unwrap_or(env_path));
-    let actual = nu!(cwd: &cwd, "$nu.env-path");
-    assert_eq!(actual.out, canon_env_path);
+    let actual = run(playground, "$nu.env-path");
+    assert_eq!(actual, canon_env_path);
 
     let history_path = config_dir_nushell.join("history.txt");
     let canon_history_path =
         adjust_canonicalization(std::fs::canonicalize(&history_path).unwrap_or(history_path));
-    let actual = nu!(cwd: &cwd, "$nu.history-path");
-    assert_eq!(actual.out, canon_history_path);
+    let actual = run(playground, "$nu.history-path");
+    assert_eq!(actual, canon_history_path);
 
     let login_path = config_dir_nushell.join("login.nu");
     let canon_login_path =
         adjust_canonicalization(std::fs::canonicalize(&login_path).unwrap_or(login_path));
-    let actual = nu!(cwd: &cwd, "$nu.loginshell-path");
-    assert_eq!(actual.out, canon_login_path);
+    let actual = run(playground, "$nu.loginshell-path");
+    assert_eq!(actual, canon_login_path);
 
     #[cfg(feature = "plugin")]
     {
         let plugin_path = config_dir_nushell.join("plugin.nu");
         let canon_plugin_path =
             adjust_canonicalization(std::fs::canonicalize(&plugin_path).unwrap_or(plugin_path));
-        let actual = nu!(cwd: &cwd, "$nu.plugin-path");
-        assert_eq!(actual.out, canon_plugin_path);
+        let actual = run(playground, "$nu.plugin-path");
+        assert_eq!(actual, canon_plugin_path);
     }
 }
 
 #[test]
 fn test_default_config_path() {
-    test_config_path_helper();
+    Playground::setup("default_config_path", |_, playground| {
+        let config_dir = nu_path::config_dir().expect("Could not get config directory");
+        test_config_path_helper(playground, config_dir.join("nushell"));
+    });
 }
 
 /// Make the config folder a symlink to a temporary folder without any config files
@@ -93,9 +114,8 @@ fn test_default_config_path() {
 #[test]
 fn test_default_symlinked_config_path_empty() {
     Playground::setup("symlinked_empty_config_dir", |_, playground| {
-        let _ = setup_fake_config(playground);
-
-        test_config_path_helper();
+        let config_dir_nushell = setup_fake_config(playground);
+        test_config_path_helper(playground, config_dir_nushell);
     });
 }
 
@@ -130,7 +150,7 @@ fn test_default_symlink_config_path_broken_symlink_config_files() {
             // to break the symlinks
             std::fs::remove_dir_all(playground.cwd().join(&fake_dir)).unwrap();
 
-            test_config_path_helper();
+            test_config_path_helper(playground, fake_config_dir_nushell);
         },
     );
 }
@@ -157,7 +177,7 @@ fn test_default_config_path_symlinked_config_files() {
                 playground.symlink(empty_file, fake_config_dir_nushell.join(config_file));
             }
 
-            test_config_path_helper();
+            test_config_path_helper(playground, fake_config_dir_nushell);
         },
     );
 }

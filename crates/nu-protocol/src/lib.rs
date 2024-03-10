@@ -2,6 +2,7 @@ mod alias;
 pub mod ast;
 pub mod cli_error;
 pub mod config;
+pub mod debugger;
 mod did_you_mean;
 pub mod engine;
 pub mod eval_base;
@@ -15,7 +16,7 @@ mod parse_error;
 mod parse_warning;
 mod pipeline_data;
 #[cfg(feature = "plugin")]
-mod plugin_signature;
+mod plugin;
 mod shell_error;
 mod signature;
 pub mod span;
@@ -39,7 +40,7 @@ pub use parse_error::{DidYouMean, ParseError};
 pub use parse_warning::ParseWarning;
 pub use pipeline_data::*;
 #[cfg(feature = "plugin")]
-pub use plugin_signature::*;
+pub use plugin::*;
 pub use shell_error::*;
 pub use signature::*;
 pub use span::*;

@@ -1,4 +1,5 @@
-use nu_engine::eval_expression;
+use nu_protocol::ast::Expression;
+
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -32,15 +33,16 @@ impl EvaluatedCall {
         call: &Call,
         engine_state: &EngineState,
         stack: &mut Stack,
+        eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
     ) -> Result<Self, ShellError> {
         let positional =
-            call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))?;
+            call.rest_iter_flattened(0, |expr| eval_expression_fn(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
-                Some(expr) => Some(eval_expression(engine_state, stack, expr)?),
+                Some(expr) => Some(eval_expression_fn(engine_state, stack, expr)?),
             };
 
             named.push((string.clone(), value))

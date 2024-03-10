@@ -22,6 +22,7 @@ use crate::{
 mod stream;
 
 mod engine;
+pub use engine::EngineInterface;
 pub(crate) use engine::{EngineInterfaceManager, ReceivedPluginCall};
 
 mod plugin;

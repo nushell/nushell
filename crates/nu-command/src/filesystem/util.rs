@@ -1,5 +1,5 @@
 use dialoguer::Input;
-use nu_engine::eval_expression;
+use nu_engine::get_eval_expression;
 use nu_protocol::ast::Expr;
 use nu_protocol::{
     ast::Call,
@@ -221,6 +221,7 @@ pub fn get_rest_for_glob_pattern(
     starting_pos: usize,
 ) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
     let mut output = vec![];
+    let eval_expression = get_eval_expression(engine_state);
 
     for result in call.rest_iter_flattened(starting_pos, |expr| {
         let result = eval_expression(engine_state, stack, expr);
@@ -261,6 +262,7 @@ pub fn opt_for_glob_pattern(
     pos: usize,
 ) -> Result<Option<Spanned<NuGlob>>, ShellError> {
     if let Some(expr) = call.positional_nth(pos) {
+        let eval_expression = get_eval_expression(engine_state);
         let result = eval_expression(engine_state, stack, expr)?;
         let result_span = result.span();
         let result = match result {

@@ -90,6 +90,13 @@ impl Command for Ls {
         let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
+                // it makes no sense to list an empty string.
+                if path.item.as_ref().is_empty() {
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "empty string('') directory or file does not exist".to_string(),
+                        span: path.span,
+                    });
+                }
                 match path.item {
                     NuGlob::DoNotExpand(p) => Some(Spanned {
                         item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),

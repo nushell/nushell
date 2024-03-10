@@ -14,7 +14,7 @@ path = "src/lib.rs"
 bench = false
 
 [dependencies]
-nu-ansi-term = "0.50.0"
+nu-ansi-term = { workspace = true }
 
 [dev-dependencies]
 heapless = { version = "0.8", default-features = false }

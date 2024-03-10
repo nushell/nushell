@@ -12,9 +12,9 @@ bench = false
 
 [dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
-nu-ansi-term = "0.50.0"
 nu-engine = { path = "../nu-engine", version = "0.91.1" }
 nu-json = { path = "../nu-json", version = "0.91.1" }
+nu-ansi-term = { workspace = true }
 
 serde = { version = "1.0", features = ["derive"] }
 

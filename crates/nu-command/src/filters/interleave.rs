@@ -1,6 +1,6 @@
 use std::{sync::mpsc, thread};
 
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -118,6 +118,7 @@ interleave
         let (tx, rx) = mpsc::sync_channel(buffer_size);
 
         let closures: Vec<Closure> = call.rest(engine_state, stack, 0)?;
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         // Spawn the threads for the input and closure outputs
         (!input.is_nothing())

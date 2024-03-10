@@ -5,6 +5,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::PipelineElement,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -83,7 +84,7 @@ impl NuCompleter {
             }
         }
 
-        let result = eval_block(
+        let result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut callee_stack,
             block,

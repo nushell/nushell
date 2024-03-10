@@ -35,7 +35,6 @@ mod find;
 mod first;
 mod flatten;
 mod for_;
-#[cfg(feature = "extra")]
 mod format;
 mod generate;
 mod get;
@@ -45,6 +44,7 @@ mod hash_;
 mod headers;
 mod help;
 mod histogram;
+mod ignore;
 mod insert;
 mod inspect;
 mod interleave;
@@ -84,9 +84,7 @@ mod rename;
 mod return_;
 mod reverse;
 mod rm;
-#[cfg(feature = "extra")]
 mod roll;
-#[cfg(feature = "extra")]
 mod rotate;
 mod run_external;
 mod save;

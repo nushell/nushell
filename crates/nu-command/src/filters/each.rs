@@ -1,11 +1,13 @@
-use super::utils::chain_error_with_input;
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct Each;
@@ -112,6 +114,8 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
@@ -155,6 +159,8 @@ with 'transpose' first."#
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
+                        // WithoutDebug,
+                        // &None,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),

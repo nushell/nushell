@@ -16,6 +16,6 @@ nu-path = { path = "../nu-path", version = "0.91.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 indexmap = "2.2"
-miette = "7.1.0"
+miette = { workspace = true }
 
 [dev-dependencies]
