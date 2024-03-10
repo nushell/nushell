@@ -5,7 +5,7 @@ use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator,
     RangeOperator,
 };
-use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
+use crate::{ast::ImportPattern, ast::Unit, BlockId, Signature, Span, Spanned, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {

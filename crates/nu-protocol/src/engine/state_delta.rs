@@ -1,6 +1,6 @@
-use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, VirtualPath};
+use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath};
 use crate::ast::Block;
-use crate::{Module, Variable};
+use crate::Module;
 
 #[cfg(feature = "plugin")]
 use std::sync::Arc;
