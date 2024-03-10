@@ -213,6 +213,16 @@ fn insert_in_transaction(
         Some(val) => val.as_record()?,
     };
 
+    if first_val.is_empty() {
+        Err(ShellError::GenericError {
+            error: "Failed to create table".into(),
+            msg: "Cannot create table without columns".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })?;
+    }
+
     let table_name = table.name().clone();
     let tx = table.try_init(first_val)?;
 
