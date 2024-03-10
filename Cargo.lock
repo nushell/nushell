@@ -777,18 +777,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
-name = "comfy-table"
-version = "7.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c64043d6c7b7a4c58e39e7efccfdea7b93d885a795d0c054a69dbbf4dd52686"
-dependencies = [
- "crossterm",
- "strum 0.25.0",
- "strum_macros 0.25.3",
- "unicode-width",
-]
-
-[[package]]
 name = "compact_str"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3103,7 +3091,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "strum 0.26.1",
+ "strum",
  "strum_macros 0.26.1",
  "thiserror",
  "typetag",
@@ -3860,7 +3848,6 @@ dependencies = [
  "bytemuck",
  "chrono",
  "chrono-tz",
- "comfy-table",
  "either",
  "hashbrown 0.14.3",
  "indexmap",
@@ -4472,7 +4459,7 @@ dependencies = [
  "lru",
  "paste",
  "stability",
- "strum 0.26.1",
+ "strum",
  "unicode-segmentation",
  "unicode-width",
 ]
@@ -4532,7 +4519,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum 0.26.1",
+ "strum",
  "strum_macros 0.26.1",
  "thiserror",
  "unicode-segmentation",
@@ -5346,12 +5333,6 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "strum"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 
 [[package]]
 name = "strum"
