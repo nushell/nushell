@@ -2,12 +2,14 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use super::{
+    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
+};
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
 use crate::{
     BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
+    ShellError, Signature, Span, Type, VarId, VirtualPathId,
 };
 use crate::{Category, Value};
 use std::borrow::Borrow;
