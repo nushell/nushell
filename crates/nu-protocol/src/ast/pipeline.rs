@@ -69,7 +69,7 @@ impl RedirectionTarget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum Redirection {
+pub enum PipelineRedirection {
     Single {
         source: RedirectionSource,
         target: RedirectionTarget,
@@ -80,14 +80,14 @@ pub enum Redirection {
     },
 }
 
-impl Redirection {
+impl PipelineRedirection {
     pub fn pipe_redirection(&self) -> Option<(RedirectionSource, Span)> {
         match self {
-            Redirection::Single {
+            PipelineRedirection::Single {
                 source,
                 target: RedirectionTarget::Pipe { span },
             } => Some((*source, *span)),
-            Redirection::Separate {
+            PipelineRedirection::Separate {
                 err: RedirectionTarget::Pipe { span },
                 ..
             } => Some((RedirectionSource::Stderr, *span)),
@@ -100,15 +100,15 @@ impl Redirection {
 pub struct PipelineElement {
     pub pipe: Option<Span>,
     pub expr: Expression,
-    pub redirection: Option<Redirection>,
+    pub redirection: Option<PipelineRedirection>,
 }
 
 impl PipelineElement {
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         self.expr.has_in_variable(working_set)
             || self.redirection.as_ref().is_some_and(|r| match r {
-                Redirection::Single { target, .. } => target.has_in_variable(working_set),
-                Redirection::Separate { out, err } => {
+                PipelineRedirection::Single { target, .. } => target.has_in_variable(working_set),
+                PipelineRedirection::Separate { out, err } => {
                     out.has_in_variable(working_set) || err.has_in_variable(working_set)
                 }
             })
@@ -123,10 +123,10 @@ impl PipelineElement {
         self.expr.replace_span(working_set, replaced, new_span);
         if let Some(expr) = self.redirection.as_mut() {
             match expr {
-                Redirection::Single { target, .. } => {
+                PipelineRedirection::Single { target, .. } => {
                     target.replace_span(working_set, replaced, new_span)
                 }
-                Redirection::Separate { out, err } => {
+                PipelineRedirection::Separate { out, err } => {
                     out.replace_span(working_set, replaced, new_span);
                     err.replace_span(working_set, replaced, new_span);
                 }

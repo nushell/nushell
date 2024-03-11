@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
     Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
-    PathMember, Pattern, Pipeline, PipelineElement, RecordItem, Redirection,
+    PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection, RecordItem,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -569,13 +569,13 @@ pub fn flatten_pipeline_element(
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
         match redirection {
-            Redirection::Single { target, .. } => {
+            PipelineRedirection::Single { target, .. } => {
                 output.push((target.span(), FlatShape::Redirection));
                 if let Some(expr) = target.expr() {
                     output.extend(flatten_expression(working_set, expr));
                 }
             }
-            Redirection::Separate { out, err } => {
+            PipelineRedirection::Separate { out, err } => {
                 // TODO: these may be in the wrong order
                 output.push((out.span(), FlatShape::Redirection));
                 if let Some(expr) = out.expr() {

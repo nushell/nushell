@@ -10,7 +10,7 @@ use crate::IoStream;
 use super::Stack;
 
 #[derive(Debug, Clone)]
-pub enum EvaluatedRedirection {
+pub enum Redirection {
     /// A pipe redirection.
     ///
     /// This will only affect the last command of a block.
@@ -24,7 +24,7 @@ pub enum EvaluatedRedirection {
     File(Arc<File>),
 }
 
-impl EvaluatedRedirection {
+impl Redirection {
     pub fn file(file: File) -> Self {
         Self::File(Arc::new(file))
     }
@@ -114,17 +114,17 @@ pub struct StackIoGuard<'a> {
 impl<'a> StackIoGuard<'a> {
     pub(crate) fn new(
         stack: &'a mut Stack,
-        stdout: Option<EvaluatedRedirection>,
-        stderr: Option<EvaluatedRedirection>,
+        stdout: Option<Redirection>,
+        stderr: Option<Redirection>,
     ) -> Self {
         let stdio = &mut stack.stdio;
 
         let (old_pipe_stdout, old_parent_stdout) = match stdout {
-            Some(EvaluatedRedirection::Pipe(stdout)) => {
+            Some(Redirection::Pipe(stdout)) => {
                 let old = mem::replace(&mut stdio.pipe_stdout, Some(stdout));
                 (old, stdio.parent_stdout.take())
             }
-            Some(EvaluatedRedirection::File(file)) => {
+            Some(Redirection::File(file)) => {
                 let file = IoStream::from(file);
                 (
                     mem::replace(&mut stdio.pipe_stdout, Some(file.clone())),
@@ -135,11 +135,11 @@ impl<'a> StackIoGuard<'a> {
         };
 
         let (old_pipe_stderr, old_parent_stderr) = match stderr {
-            Some(EvaluatedRedirection::Pipe(stderr)) => {
+            Some(Redirection::Pipe(stderr)) => {
                 let old = mem::replace(&mut stdio.pipe_stderr, Some(stderr));
                 (old, stdio.parent_stderr.take())
             }
-            Some(EvaluatedRedirection::File(file)) => {
+            Some(Redirection::File(file)) => {
                 (stdio.pipe_stderr.take(), stdio.push_stderr(file.into()))
             }
             None => (stdio.pipe_stderr.take(), stdio.parent_stderr.take()),

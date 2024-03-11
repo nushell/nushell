@@ -6,7 +6,7 @@ use crate::{
     IoStream, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 
-use super::{EvaluatedRedirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio};
+use super::{Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -39,7 +39,6 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: u64,
-
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
     pub parent_deletions: Vec<VarId>,
@@ -551,8 +550,8 @@ impl Stack {
     /// Apply redirections to stdout and/or stderr.
     pub fn push_redirection(
         &mut self,
-        stdout: Option<EvaluatedRedirection>,
-        stderr: Option<EvaluatedRedirection>,
+        stdout: Option<Redirection>,
+        stderr: Option<Redirection>,
     ) -> StackIoGuard {
         StackIoGuard::new(self, stdout, stderr)
     }

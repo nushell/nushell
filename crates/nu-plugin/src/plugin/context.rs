@@ -3,7 +3,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 use nu_engine::get_eval_block_with_early_return;
 use nu_protocol::{
     ast::Call,
-    engine::{Closure, EngineState, EvaluatedRedirection, Stack},
+    engine::{Closure, EngineState, Redirection, Stack},
     Config, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
 
@@ -136,13 +136,13 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
             .reset_pipes();
 
         let stdout = if redirect_stdout {
-            Some(EvaluatedRedirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(IoStream::Capture))
         } else {
             None
         };
 
         let stderr = if redirect_stderr {
-            Some(EvaluatedRedirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(IoStream::Capture))
         } else {
             None
         };

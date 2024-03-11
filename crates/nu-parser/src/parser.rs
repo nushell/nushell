@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
         ExternalArgument, FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember,
         MatchPattern, Math, Operator, PathMember, Pattern, Pipeline, PipelineElement,
-        RangeInclusion, RangeOperator, RecordItem, Redirection, RedirectionTarget,
+        PipelineRedirection, RangeInclusion, RangeOperator, RecordItem, RedirectionTarget,
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -5466,13 +5466,13 @@ fn parse_redirection_target(
 pub(crate) fn parse_redirection(
     working_set: &mut StateWorkingSet,
     target: &LiteRedirection,
-) -> Redirection {
+) -> PipelineRedirection {
     match target {
-        LiteRedirection::Single { source, target } => Redirection::Single {
+        LiteRedirection::Single { source, target } => PipelineRedirection::Single {
             source: *source,
             target: parse_redirection_target(working_set, target),
         },
-        LiteRedirection::Separate { out, err } => Redirection::Separate {
+        LiteRedirection::Separate { out, err } => PipelineRedirection::Separate {
             out: parse_redirection_target(working_set, out),
             err: parse_redirection_target(working_set, err),
         },
@@ -5790,12 +5790,12 @@ pub fn discover_captures_in_pipeline_element(
 
     if let Some(redirection) = element.redirection.as_ref() {
         match redirection {
-            Redirection::Single { target, .. } => {
+            PipelineRedirection::Single { target, .. } => {
                 if let Some(expr) = target.expr() {
                     discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
                 }
             }
-            Redirection::Separate { out, err } => {
+            PipelineRedirection::Separate { out, err } => {
                 if let Some(expr) = out.expr() {
                     discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
                 }
@@ -6144,11 +6144,11 @@ fn wrap_element_with_collect(
         pipe: element.pipe,
         expr: wrap_expr_with_collect(working_set, &element.expr),
         redirection: element.redirection.as_ref().map(|r| match r {
-            Redirection::Single { source, target } => Redirection::Single {
+            PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
                 source: *source,
                 target: wrap_redirection_with_collect(working_set, target),
             },
-            Redirection::Separate { out, err } => Redirection::Separate {
+            PipelineRedirection::Separate { out, err } => PipelineRedirection::Separate {
                 out: wrap_redirection_with_collect(working_set, out),
                 err: wrap_redirection_with_collect(working_set, err),
             },
