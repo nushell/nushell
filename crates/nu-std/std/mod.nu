@@ -89,6 +89,17 @@ export def --env "path add" [
     }
 }
 
+# TODO: docs pending approval
+export def --env "config add" [path: cell-path value: any]: nothing -> nothing {
+    let value = if ($value | describe) starts-with list {
+        let previous = $env.config | get --ignore-errors $path
+        $previous | default [] | append $value
+    } else {
+        $value
+    }
+    $env.config = ($env.config | upsert $path $value)
+}
+
 # convert an integer amount of nanoseconds to a real duration
 def "from ns" [] {
     [$in "ns"] | str join | into duration
