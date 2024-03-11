@@ -916,6 +916,9 @@ pub fn check_pipeline_type(
 
     let mut output_errors: Option<Vec<ParseError>> = None;
 
+    let list_any_type = Type::List(Box::new(Type::Any));
+    let any_type = Type::Any;
+
     'elem: for elem in &pipeline.elements {
         match elem {
             PipelineElement::Expression(
@@ -927,18 +930,28 @@ pub fn check_pipeline_type(
             ) => {
                 let decl = working_set.get_decl(call.decl_id);
 
-                if current_type == Type::Any {
+                // use list of reference to avoid allocate memory repeatedly in for loop
+                if [&any_type, &list_any_type].contains(&&current_type) {
                     let mut new_current_type = None;
-                    for (_, call_output) in decl.signature().input_output_types {
-                        if let Some(inner_current_type) = &new_current_type {
-                            if inner_current_type == &Type::Any {
-                                break;
-                            } else if inner_current_type != &call_output {
-                                // Union unequal types to Any for now
-                                new_current_type = Some(Type::Any)
-                            }
+                    for (call_input, call_output) in decl.signature().input_output_types {
+                        let matched = if current_type == list_any_type {
+                            type_compatible(&call_input, &current_type)
                         } else {
-                            new_current_type = Some(call_output.clone())
+                            // it's any type, always match
+                            true
+                        };
+
+                        if matched {
+                            if let Some(inner_current_type) = &new_current_type {
+                                if inner_current_type == &Type::Any {
+                                    break;
+                                } else if inner_current_type != &call_output {
+                                    // Union unequal types to Any for now
+                                    new_current_type = Some(Type::Any)
+                                }
+                            } else {
+                                new_current_type = Some(call_output.clone())
+                            }
                         }
                     }
 
@@ -947,7 +960,7 @@ pub fn check_pipeline_type(
                     } else {
                         current_type = Type::Any;
                     }
-                    continue 'elem;
+                    continue;
                 } else {
                     for (call_input, call_output) in decl.signature().input_output_types {
                         if type_compatible(&call_input, &current_type) {
