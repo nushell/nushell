@@ -111,9 +111,12 @@ fn main() -> Result<()> {
                     .map_or(true, |mut dir| dir.next().is_none());
                 if !old_config_empty && xdg_config_empty {
                     eprintln!(
-                        "WARNING: XDG_CONFIG_HOME has been set but {} is empty. Nushell will not move your configuration files from {}",
+                        "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n",
                         nushell_config_path.display(),
-                        old_config.display(),
+                    );
+                    eprintln!(
+                        "Nushell will not move your configuration files from {}",
+                        old_config.display()
                     );
                 }
             }
