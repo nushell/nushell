@@ -58,22 +58,20 @@ impl Command for KnownExternal {
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
 
-        let arg_extern_name = Expression {
-            expr: Expr::String(extern_name[0].to_string()),
-            span: call.head,
-            ty: Type::String,
-            custom_completion: None,
-        };
+        let arg_extern_name = Expression::new_existing(engine_state,
+            Expr::String(extern_name[0].to_string()),
+            call.head,
+            Type::String,
+        );
 
         extern_call.add_positional(arg_extern_name);
 
         for subcommand in extern_name.into_iter().skip(1) {
-            extern_call.add_positional(Expression {
-                expr: Expr::String(subcommand.to_string()),
-                span: call.head,
-                ty: Type::String,
-                custom_completion: None,
-            });
+            extern_call.add_positional(Expression::new_existing(engine_state,
+                Expr::String(subcommand.to_string()),
+                call.head,
+                Type::String,
+            ));
         }
 
         for arg in &call.arguments {
@@ -81,19 +79,17 @@ impl Command for KnownExternal {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
                 Argument::Named(named) => {
                     if let Some(short) = &named.1 {
-                        extern_call.add_positional(Expression {
-                            expr: Expr::String(format!("-{}", short.item)),
-                            span: named.0.span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        });
+                        extern_call.add_positional(Expression::new_existing(engine_state,
+                            Expr::String(format!("-{}", short.item)),
+                            named.0.span,
+                            Type::String,
+                        ));
                     } else {
-                        extern_call.add_positional(Expression {
-                            expr: Expr::String(format!("--{}", named.0.item)),
-                            span: named.0.span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        });
+                        extern_call.add_positional(Expression::new_existing(engine_state,
+                            Expr::String(format!("--{}", named.0.item)),
+                            named.0.span,
+                            Type::String,
+                        ));
                     }
                     if let Some(arg) = &named.2 {
                         extern_call.add_positional(arg.clone());

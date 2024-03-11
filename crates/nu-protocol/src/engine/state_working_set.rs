@@ -5,7 +5,7 @@ use crate::{
         StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
     },
     BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
-    Type, Value, VarId, VirtualPathId,
+    SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -1016,6 +1016,10 @@ impl<'a> StateWorkingSet<'a> {
                 .get(virtual_path_id - num_permanent_virtual_paths)
                 .expect("internal error: missing virtual path")
         }
+    }
+
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        todo!("impl adding spans")
     }
 }
 
