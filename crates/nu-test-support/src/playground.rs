@@ -1,5 +1,4 @@
 mod director;
-pub mod matchers;
 pub mod nu_process;
 mod play;
 
@@ -7,6 +6,5 @@ mod play;
 mod tests;
 
 pub use director::Director;
-pub use matchers::says;
 pub use nu_process::{Executable, NuProcess, NuResult, Outcome};
 pub use play::{Dirs, EnvironmentVariable, Playground};

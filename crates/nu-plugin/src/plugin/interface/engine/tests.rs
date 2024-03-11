@@ -1,22 +1,22 @@
-use std::sync::mpsc::TryRecvError;
+use std::sync::mpsc::{self, TryRecvError};
 
 use nu_protocol::{
-    CustomValue, IntoInterruptiblePipelineData, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, PipelineData,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 
 use crate::{
     plugin::interface::{test_util::TestCase, Interface, InterfaceManager},
     protocol::{
         test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
-        CallInfo, CustomValueOp, ExternalStreamInfo, ListStreamInfo, PipelineDataHeader,
-        PluginCall, PluginCustomValue, PluginInput, Protocol, ProtocolInfo, RawStreamInfo,
-        StreamData, StreamMessage,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, ExternalStreamInfo,
+        ListStreamInfo, PipelineDataHeader, PluginCall, PluginCustomValue, PluginInput, Protocol,
+        ProtocolInfo, RawStreamInfo, StreamData, StreamMessage,
     },
     EvaluatedCall, LabeledError, PluginCallResponse, PluginOutput,
 };
 
-use super::ReceivedPluginCall;
+use super::{EngineInterfaceManager, ReceivedPluginCall};
 
 #[test]
 fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {
@@ -90,7 +90,7 @@ fn check_test_io_error(error: &ShellError) {
 }
 
 #[test]
-fn manager_consume_all_propagates_error_to_readers() -> Result<(), ShellError> {
+fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError> {
     let mut test = TestCase::new();
     let mut manager = test.engine();
 
@@ -167,6 +167,74 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
         Ok(())
     } else {
         panic!("did not get an error");
+    }
+}
+
+fn fake_engine_call(
+    manager: &mut EngineInterfaceManager,
+    id: EngineCallId,
+) -> mpsc::Receiver<EngineCallResponse<PipelineData>> {
+    // Set up a fake engine call subscription
+    let (tx, rx) = mpsc::channel();
+
+    manager.engine_call_subscriptions.insert(id, tx);
+
+    rx
+}
+
+#[test]
+fn manager_consume_all_propagates_io_error_to_engine_calls() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+    let interface = manager.get_interface();
+
+    test.set_read_error(test_io_error());
+
+    // Set up a fake engine call subscription
+    let rx = fake_engine_call(&mut manager, 0);
+
+    manager
+        .consume_all(&mut test)
+        .expect_err("consume_all did not error");
+
+    // We have to hold interface until now otherwise consume_all won't try to process the message
+    drop(interface);
+
+    let message = rx.try_recv().expect("failed to get engine call message");
+    match message {
+        EngineCallResponse::Error(error) => {
+            check_test_io_error(&error);
+            Ok(())
+        }
+        _ => panic!("received something other than an error: {message:?}"),
+    }
+}
+
+#[test]
+fn manager_consume_all_propagates_message_error_to_engine_calls() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+    let interface = manager.get_interface();
+
+    test.add(invalid_input());
+
+    // Set up a fake engine call subscription
+    let rx = fake_engine_call(&mut manager, 0);
+
+    manager
+        .consume_all(&mut test)
+        .expect_err("consume_all did not error");
+
+    // We have to hold interface until now otherwise consume_all won't try to process the message
+    drop(interface);
+
+    let message = rx.try_recv().expect("failed to get engine call message");
+    match message {
+        EngineCallResponse::Error(error) => {
+            check_invalid_input_error(&error);
+            Ok(())
+        }
+        _ => panic!("received something other than an error: {message:?}"),
     }
 }
 
@@ -275,7 +343,6 @@ fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), Sh
                 named: vec![],
             },
             input: PipelineDataHeader::Empty,
-            config: None,
         }),
     ))?;
 
@@ -310,7 +377,6 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
                 named: vec![],
             },
             input: PipelineDataHeader::ListStream(ListStreamInfo { id: 6 }),
-            config: None,
         }),
     ))?;
 
@@ -364,7 +430,6 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
                 )],
             },
             input: PipelineDataHeader::Empty,
-            config: None,
         }),
     ))?;
 
@@ -441,6 +506,43 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
     }
 
     Ok(())
+}
+
+#[test]
+fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data(
+) -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    manager.protocol_info = Some(ProtocolInfo::default());
+
+    let rx = fake_engine_call(&mut manager, 0);
+
+    manager.consume(PluginInput::EngineCallResponse(
+        0,
+        EngineCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo { id: 0 })),
+    ))?;
+
+    for i in 0..2 {
+        manager.consume(PluginInput::Stream(StreamMessage::Data(
+            0,
+            Value::test_int(i).into(),
+        )))?;
+    }
+
+    manager.consume(PluginInput::Stream(StreamMessage::End(0)))?;
+
+    // Make sure the streams end and we don't deadlock
+    drop(manager);
+
+    let response = rx.try_recv().expect("failed to get engine call response");
+
+    match response {
+        EngineCallResponse::PipelineData(data) => {
+            // Ensure we manage to receive the stream messages
+            assert_eq!(2, data.into_iter().count());
+            Ok(())
+        }
+        _ => panic!("unexpected response: {response:?}"),
+    }
 }
 
 #[test]
@@ -680,6 +782,166 @@ fn interface_write_signature() -> Result<(), ShellError> {
     }
 
     assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_write_engine_call_registers_subscription() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    assert!(
+        manager.engine_call_subscriptions.is_empty(),
+        "engine call subscriptions not empty before start of test"
+    );
+
+    let interface = manager.interface_for_context(0);
+    let _ = interface.write_engine_call(EngineCall::GetConfig)?;
+
+    manager.receive_engine_call_subscriptions();
+    assert!(
+        !manager.engine_call_subscriptions.is_empty(),
+        "not registered"
+    );
+    Ok(())
+}
+
+#[test]
+fn interface_write_engine_call_writes_with_correct_context() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(32);
+    let _ = interface.write_engine_call(EngineCall::GetConfig)?;
+
+    match test.next_written().expect("nothing written") {
+        PluginOutput::EngineCall { context, call, .. } => {
+            assert_eq!(32, context, "context incorrect");
+            assert!(
+                matches!(call, EngineCall::GetConfig),
+                "incorrect engine call (expected GetConfig): {call:?}"
+            );
+        }
+        other => panic!("incorrect output: {other:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+/// Fake responses to requests for engine call messages
+fn start_fake_plugin_call_responder(
+    manager: EngineInterfaceManager,
+    take: usize,
+    mut f: impl FnMut(EngineCallId) -> EngineCallResponse<PipelineData> + Send + 'static,
+) {
+    std::thread::Builder::new()
+        .name("fake engine call responder".into())
+        .spawn(move || {
+            for (id, sub) in manager
+                .engine_call_subscription_receiver
+                .into_iter()
+                .take(take)
+            {
+                sub.send(f(id)).expect("failed to send");
+            }
+        })
+        .expect("failed to spawn thread");
+}
+
+#[test]
+fn interface_get_config() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::Config(Config::default().into())
+    });
+
+    let _ = interface.get_config()?;
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_plugin_config() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 2, |id| {
+        if id == 0 {
+            EngineCallResponse::PipelineData(PipelineData::Empty)
+        } else {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
+        }
+    });
+
+    let first_config = interface.get_plugin_config()?;
+    assert!(first_config.is_none(), "should be None: {first_config:?}");
+
+    let second_config = interface.get_plugin_config()?;
+    assert_eq!(Some(Value::test_int(2)), second_config);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
+    });
+
+    let result = interface
+        .eval_closure_with_stream(
+            &Spanned {
+                item: Closure {
+                    block_id: 42,
+                    captures: vec![(0, Value::test_int(5))],
+                },
+                span: Span::test_data(),
+            },
+            vec![Value::test_string("test")],
+            PipelineData::Empty,
+            true,
+            false,
+        )?
+        .into_value(Span::test_data());
+
+    assert_eq!(Value::test_int(2), result);
+
+    // Double check the message that was written, as it's complicated
+    match test.next_written().expect("nothing written") {
+        PluginOutput::EngineCall { call, .. } => match call {
+            EngineCall::EvalClosure {
+                closure,
+                positional,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => {
+                assert_eq!(42, closure.item.block_id, "closure.item.block_id");
+                assert_eq!(1, closure.item.captures.len(), "closure.item.captures.len");
+                assert_eq!(
+                    (0, Value::test_int(5)),
+                    closure.item.captures[0],
+                    "closure.item.captures[0]"
+                );
+                assert_eq!(Span::test_data(), closure.span, "closure.span");
+                assert_eq!(1, positional.len(), "positional.len");
+                assert_eq!(Value::test_string("test"), positional[0], "positional[0]");
+                assert!(matches!(input, PipelineDataHeader::Empty));
+                assert!(redirect_stdout);
+                assert!(!redirect_stderr);
+            }
+            _ => panic!("wrong engine call: {call:?}"),
+        },
+        other => panic!("wrong output: {other:?}"),
+    }
+
     Ok(())
 }
 

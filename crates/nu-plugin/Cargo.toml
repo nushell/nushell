@@ -22,3 +22,9 @@ log = "0.4"
 miette = { workspace = true }
 semver = "1.0"
 typetag = "0.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.52", features = [
+  # For setting process creation flags
+  "Win32_System_Threading",
+] }

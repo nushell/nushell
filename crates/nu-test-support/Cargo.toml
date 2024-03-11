@@ -19,4 +19,3 @@ nu-utils = { path = "../nu-utils", version = "0.91.1" }
 num-format = "0.4"
 which = { workspace = true }
 tempfile = { workspace = true }
-hamcrest2 = "0.3"

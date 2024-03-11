@@ -3,8 +3,9 @@ use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
+    cli_error::CliError,
     engine::{EngineState, Stack, StateWorkingSet},
-    CliError, IntoPipelineData, Value,
+    IntoPipelineData, Value,
 };
 use std::collections::HashMap;
 

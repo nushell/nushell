@@ -1,4 +1,4 @@
-use super::{fail_test, run_test_std};
+use super::{fail_test, run_test, run_test_std};
 use crate::tests::TestResult;
 
 #[test]
@@ -121,4 +121,51 @@ fn mutate_nu_config_plugin() -> TestResult {
 #[test]
 fn reject_nu_config_plugin_non_record() -> TestResult {
     fail_test(r#"$env.config.plugins = 5"#, "should be a record")
+}
+
+#[test]
+fn mutate_nu_config_plugin_gc_default_enabled() -> TestResult {
+    run_test(
+        r#"
+            $env.config.plugin_gc.default.enabled = false
+            $env.config.plugin_gc.default.enabled
+        "#,
+        "false",
+    )
+}
+
+#[test]
+fn mutate_nu_config_plugin_gc_default_stop_after() -> TestResult {
+    run_test(
+        r#"
+            $env.config.plugin_gc.default.stop_after = 20sec
+            $env.config.plugin_gc.default.stop_after
+        "#,
+        "20sec",
+    )
+}
+
+#[test]
+fn mutate_nu_config_plugin_gc_default_stop_after_negative() -> TestResult {
+    fail_test(
+        r#"
+            $env.config.plugin_gc.default.stop_after = -1sec
+            $env.config.plugin_gc.default.stop_after
+        "#,
+        "must not be negative",
+    )
+}
+
+#[test]
+fn mutate_nu_config_plugin_gc_plugins() -> TestResult {
+    run_test(
+        r#"
+            $env.config.plugin_gc.plugins.inc = {
+                enabled: true
+                stop_after: 0sec
+            }
+            $env.config.plugin_gc.plugins.inc.stop_after
+        "#,
+        "0sec",
+    )
 }

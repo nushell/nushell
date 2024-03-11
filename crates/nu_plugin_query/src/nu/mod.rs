@@ -1,5 +1,5 @@
 use crate::Query;
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{Category, PluginExample, PluginSignature, Spanned, SyntaxShape, Value};
 
 impl Plugin for Query {
@@ -46,9 +46,9 @@ impl Plugin for Query {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        _config: &Option<Value>,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {

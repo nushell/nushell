@@ -1,4 +1,5 @@
 use crate::{
+    exportable::Exportable,
     parse_block,
     parser::{parse_redirection, redirecting_builtin_error},
     parser_path::ParserPath,
@@ -14,7 +15,7 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
-    span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
+    span, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::collections::{HashMap, HashSet};
@@ -3515,8 +3516,12 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
-    use nu_plugin::{get_signature, PluginDeclaration};
-    use nu_protocol::{engine::Stack, PluginSignature};
+    use std::sync::Arc;
+
+    use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+    use nu_protocol::{
+        engine::Stack, IntoSpanned, PluginIdentity, PluginSignature, RegisteredPlugin,
+    };
 
     let spans = &lite_command.parts;
 
@@ -3649,35 +3654,61 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
     // We need the current environment variables for `python` based plugins
     // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
-    let stack = Stack::new().capture();
-    let current_envs =
-        nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
+    let get_envs = || {
+        let stack = Stack::new().capture();
+        nu_engine::env::env_to_strings(working_set.permanent_state, &stack)
+    };
 
     let error = arguments.and_then(|(path, path_span)| {
         let path = path.path_buf();
-        // restrict plugin file name starts with `nu_plugin_`
-        let valid_plugin_name = path
-            .file_name()
-            .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-        let Some(true) = valid_plugin_name else {
-            return Err(ParseError::LabeledError(
-                "Register plugin failed".into(),
-                "plugin name must start with nu_plugin_".into(),
-                path_span,
-            ));
-        };
+        // Create the plugin identity. This validates that the plugin name starts with `nu_plugin_`
+        let identity =
+            PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
+
+        // Find garbage collection config
+        let gc_config = working_set
+            .get_config()
+            .plugin_gc
+            .get(identity.name())
+            .clone();
+
+        // Add it to the working set
+        let plugin = working_set.find_or_create_plugin(&identity, || {
+            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
+        });
+
+        // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
+        // trait object only exists so that nu-protocol can contain plugins without knowing anything
+        // about their implementation, but we only use `PersistentPlugin` in practice.
+        let plugin: Arc<PersistentPlugin> = plugin.as_any().downcast().map_err(|_| {
+            ParseError::InternalError(
+                "encountered unexpected RegisteredPlugin type".into(),
+                spans[0],
+            )
+        })?;
 
         let signatures = signature.map_or_else(
             || {
-                let signatures =
-                    get_signature(&path, shell.as_deref(), &current_envs).map_err(|err| {
-                        ParseError::LabeledError(
-                            "Error getting signatures".into(),
-                            err.to_string(),
-                            spans[0],
-                        )
-                    });
+                // It's important that the plugin is restarted if we're going to get signatures
+                //
+                // The user would expect that `register` would always run the binary to get new
+                // signatures, in case it was replaced with an updated binary
+                plugin.stop().map_err(|err| {
+                    ParseError::LabeledError(
+                        "Failed to restart plugin to get new signatures".into(),
+                        err.to_string(),
+                        spans[0],
+                    )
+                })?;
+
+                let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
+                    ParseError::LabeledError(
+                        "Error getting signatures".into(),
+                        err.to_string(),
+                        spans[0],
+                    )
+                });
 
                 if signatures.is_ok() {
                     // mark plugins file as dirty only when the user is registering plugins
@@ -3693,7 +3724,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         for signature in signatures {
             // create plugin command declaration (need struct impl Command)
             // store declaration in working set
-            let plugin_decl = PluginDeclaration::new(path.clone(), signature, shell.clone());
+            let plugin_decl = PluginDeclaration::new(&plugin, signature);
 
             working_set.add_decl(Box::new(plugin_decl));
         }

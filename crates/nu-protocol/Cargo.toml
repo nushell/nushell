@@ -35,7 +35,7 @@ plugin = ["serde_json"]
 
 [dev-dependencies]
 serde_json = { workspace = true }
-strum = "0.25"
+strum = "0.26"
 strum_macros = "0.26"
 nu-test-support = { path = "../nu-test-support", version = "0.91.1" }
 rstest = { workspace = true }

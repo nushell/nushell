@@ -1,5 +1,5 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{ListStream, PipelineData, RawStream, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError};
+use nu_protocol::{IntoInterruptiblePipelineData, ListStream, PipelineData, RawStream, Value};
 
 pub struct Example;
 
@@ -63,5 +63,53 @@ impl Example {
             metadata: None,
             trim_end_newline: false,
         })
+    }
+
+    pub fn for_each(
+        &self,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        let closure = call.req(0)?;
+        let config = engine.get_config()?;
+        for value in input {
+            let result = engine.eval_closure(&closure, vec![value.clone()], Some(value))?;
+            eprintln!("{}", result.to_expanded_string(", ", &config));
+        }
+        Ok(PipelineData::Empty)
+    }
+
+    pub fn generate(
+        &self,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+    ) -> Result<PipelineData, LabeledError> {
+        let engine = engine.clone();
+        let call = call.clone();
+        let initial: Value = call.req(0)?;
+        let closure = call.req(1)?;
+
+        let mut next = (!initial.is_nothing()).then_some(initial);
+
+        Ok(std::iter::from_fn(move || {
+            next.take()
+                .and_then(|value| {
+                    engine
+                        .eval_closure(&closure, vec![value.clone()], Some(value))
+                        .and_then(|record| {
+                            if record.is_nothing() {
+                                Ok(None)
+                            } else {
+                                let record = record.as_record()?;
+                                next = record.get("next").cloned();
+                                Ok(record.get("out").cloned())
+                            }
+                        })
+                        .transpose()
+                })
+                .map(|result| result.unwrap_or_else(|err| Value::error(err, call.head)))
+        })
+        .into_pipeline_data(None))
     }
 }

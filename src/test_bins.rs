@@ -3,7 +3,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, PipelineData, Value};
+use nu_protocol::{cli_error::CliError, PipelineData, Value};
 use nu_std::load_standard_library;
 use std::io::{self, BufRead, Read, Write};
 

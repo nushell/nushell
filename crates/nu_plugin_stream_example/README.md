@@ -46,3 +46,18 @@ strings on input will be concatenated into an external stream (raw input) on std
 
     Hello
     worldhowareyou
+
+## `stream_example for-each`
+
+This command demonstrates executing closures on values in streams. Each value received on the input
+will be printed to the plugin's stderr. This works even with external commands.
+
+> ```nushell
+> ls | get name | stream_example for-each { |f| ^file $f }
+> ```
+
+    CODE_OF_CONDUCT.md: ASCII text
+
+    CONTRIBUTING.md: ASCII text, with very long lines (303)
+
+    ...

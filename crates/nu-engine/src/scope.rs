@@ -115,7 +115,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     // we can only be a is_builtin or is_custom, not both
                     "is_builtin" => Value::bool(!decl.is_custom_command(), span),
                     "is_sub" => Value::bool(decl.is_sub(), span),
-                    "is_plugin" => Value::bool(decl.is_plugin().is_some(), span),
+                    "is_plugin" => Value::bool(decl.is_plugin(), span),
                     "is_custom" => Value::bool(decl.is_custom_command(), span),
                     "is_keyword" => Value::bool(decl.is_parser_keyword(), span),
                     "is_extern" => Value::bool(decl.is_known_external(), span),

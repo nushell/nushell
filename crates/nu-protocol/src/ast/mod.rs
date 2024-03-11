@@ -7,6 +7,7 @@ mod import_pattern;
 mod match_pattern;
 mod operator;
 mod pipeline;
+mod unit;
 
 pub use block::*;
 pub use call::*;
@@ -17,3 +18,4 @@ pub use import_pattern::*;
 pub use match_pattern::*;
 pub use operator::*;
 pub use pipeline::*;
+pub use unit::*;

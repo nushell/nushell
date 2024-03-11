@@ -1,4 +1,5 @@
 mod deparse;
+mod exportable;
 mod flatten;
 mod known_external;
 mod lex;

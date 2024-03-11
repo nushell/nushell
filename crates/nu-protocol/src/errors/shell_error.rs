@@ -9,7 +9,7 @@ use crate::{
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
 /// and pass it into an error viewer to display to the user.
-#[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize)]
+#[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize, PartialEq)]
 pub enum ShellError {
     /// An operator received two arguments of incompatible types.
     ///
@@ -1341,6 +1341,14 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         #[label = "Could not find config directory"]
         span: Option<Span>,
     },
+
+    /// XDG_CONFIG_HOME was set to an invalid path
+    #[error("$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}")]
+    #[diagnostic(
+        code(nu::shell::xdg_config_home_invalid),
+        help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
+    )]
+    InvalidXdgConfig { xdg: String, default: String },
 }
 
 // TODO: Implement as From trait

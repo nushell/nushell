@@ -1,7 +1,7 @@
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::PluginIdentity;
+use crate::plugin::PluginSource;
 
 use super::PluginCustomValue;
 
@@ -44,7 +44,7 @@ pub(crate) fn expected_test_custom_value() -> TestCustomValue {
 
 pub(crate) fn test_plugin_custom_value_with_source() -> PluginCustomValue {
     PluginCustomValue {
-        source: Some(PluginIdentity::new_fake("test")),
+        source: Some(PluginSource::new_fake("test").into()),
         ..test_plugin_custom_value()
     }
 }

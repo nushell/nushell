@@ -13,6 +13,7 @@ pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
+pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
@@ -22,6 +23,7 @@ mod completer;
 mod helper;
 mod hooks;
 mod output;
+mod plugin_gc;
 mod reedline;
 mod table;
 
@@ -96,6 +98,8 @@ pub struct Config {
     /// match the registered plugin name so `register nu_plugin_example` will be able to place
     /// its configuration under a `nu_plugin_example` column.
     pub plugins: HashMap<String, Value>,
+    /// Configuration for plugin garbage collection.
+    pub plugin_gc: PluginGcConfigs,
 }
 
 impl Default for Config {
@@ -162,6 +166,7 @@ impl Default for Config {
             highlight_resolved_externals: false,
 
             plugins: HashMap::new(),
+            plugin_gc: PluginGcConfigs::default(),
         }
     }
 }
@@ -670,6 +675,9 @@ impl Value {
                                 span,
                             );
                         }
+                    }
+                    "plugin_gc" => {
+                        config.plugin_gc.process(&[key], value, &mut errors);
                     }
                     // Menus
                     "menus" => match create_menus(value) {
