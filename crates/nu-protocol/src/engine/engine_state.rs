@@ -7,10 +7,7 @@ use super::{
 };
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
-use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, VirtualPathId,
-};
+use crate::{BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId, ShellError, Signature, Span, SpanId, Type, VarId, VirtualPathId};
 use crate::{Category, Value};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -1000,6 +997,15 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             )));
         }
+    }
+
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        todo!("impl adding spans");
+        todo!("push first span unknown!")
+    }
+
+    pub fn get_span_id(&self, span: Span) -> SpanId {
+        todo!("impl span search")
     }
 }
 

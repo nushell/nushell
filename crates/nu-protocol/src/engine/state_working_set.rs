@@ -3,7 +3,7 @@ use super::{
     Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
+use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, SpanId, Type, VarId, VirtualPathId};
 use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};
@@ -1015,6 +1015,10 @@ impl<'a> StateWorkingSet<'a> {
                 .get(virtual_path_id - num_permanent_virtual_paths)
                 .expect("internal error: missing virtual path")
         }
+    }
+
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        todo!("impl adding spans")
     }
 }
 

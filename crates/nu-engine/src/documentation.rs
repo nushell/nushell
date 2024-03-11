@@ -1,11 +1,6 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
 use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
-    Value,
-};
+use nu_protocol::{ast::Call, engine::{EngineState, Stack}, record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value, SpanId};
 use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
@@ -383,40 +378,36 @@ fn get_argument_for_color_value(
                 .into_iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
-                        Expression {
-                            expr: Expr::String(k.clone()),
+                        Expression::new_existing(engine_state,
+                            Expr::String(k.clone()),
                             span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        },
-                        Expression {
-                            expr: Expr::String(
+                            Type::String,
+                        ),
+                        Expression::new_existing(engine_state,
+                            Expr::String(
                                 v.clone().to_expanded_string("", engine_state.get_config()),
                             ),
                             span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        },
+                            Type::String,
+                        ),
                     )
                 })
                 .collect();
 
-            Some(Argument::Positional(Expression {
-                span: Span::unknown(),
-                ty: Type::Record(vec![
+            Some(Argument::Positional(Expression::new_existing(engine_state,
+                                                               Expr::Record(record_exp),
+                Span::unknown(),
+                Type::Record(vec![
                     ("fg".to_string(), Type::String),
                     ("attr".to_string(), Type::String),
                 ]),
-                expr: Expr::Record(record_exp),
-                custom_completion: None,
-            }))
+            )))
         }
-        Value::String { val, .. } => Some(Argument::Positional(Expression {
-            span: Span::unknown(),
-            ty: Type::String,
-            expr: Expr::String(val.clone()),
-            custom_completion: None,
-        })),
+        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(engine_state,
+                                                                                        Expr::String(val.clone()),
+            Span::unknown(),
+            Type::String,
+        ))),
         _ => None,
     }
 }

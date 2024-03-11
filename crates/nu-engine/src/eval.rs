@@ -512,6 +512,7 @@ fn eval_element_with_input<D: DebugContext>(
 
                     if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                         let save_call = gen_save_call(
+                            engine_state,
                             save_command,
                             (*span, expr.clone(), *is_append_mode),
                             None,
@@ -601,6 +602,7 @@ fn eval_element_with_input<D: DebugContext>(
                         _ => None,
                     };
                     let save_call = gen_save_call(
+                        engine_state,
                         save_command,
                         (*out_span, out_expr.clone(), *out_append_mode),
                         Some((*err_span, err_expr.clone(), *err_append_mode)),
@@ -1021,6 +1023,7 @@ pub fn eval_variable(
 }
 
 fn gen_save_call(
+    engine_state: &EngineState,
     save_decl_id: DeclId,
     out_info: (Span, Expression, bool),
     err_info: Option<(Span, Expression, bool)>,
@@ -1057,12 +1060,11 @@ fn gen_save_call(
     if out_append_mode {
         call.set_parser_info(
             "out-append".to_string(),
-            Expression {
-                expr: Expr::Bool(true),
-                span: out_span,
-                ty: Type::Bool,
-                custom_completion: None,
-            },
+            Expression::new_existing(engine_state,
+                Expr::Bool(true),
+                out_span,
+                Type::Bool,
+            ),
         );
     }
     if let Some((err_span, err_expr, err_append_mode)) = err_info {
@@ -1077,12 +1079,11 @@ fn gen_save_call(
         if err_append_mode {
             call.set_parser_info(
                 "err-append".to_string(),
-                Expression {
-                    expr: Expr::Bool(true),
-                    span: err_span,
-                    ty: Type::Bool,
-                    custom_completion: None,
-                },
+                Expression::new_existing(engine_state,
+                    Expr::Bool(true),
+                    err_span,
+                    Type::Bool,
+                ),
             );
         }
     }
