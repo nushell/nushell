@@ -23,7 +23,7 @@ mod tests;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginCustomValue {
     #[serde(flatten)]
-    shared: Arc<SharedContent>,
+    shared: SerdeArc<SharedContent>,
 
     /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
     /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
@@ -137,11 +137,11 @@ impl PluginCustomValue {
         source: Option<Arc<PluginSource>>,
     ) -> PluginCustomValue {
         PluginCustomValue {
-            shared: Arc::new(SharedContent {
+            shared: SerdeArc(Arc::new(SharedContent {
                 name,
                 data,
                 notify_on_drop,
-            }),
+            })),
             source,
         }
     }
@@ -498,5 +498,42 @@ impl Drop for PluginCustomValue {
                     log::warn!("Failed to notify drop of custom value ({name}): {err}")
                 });
         }
+    }
+}
+
+/// A serializable `Arc`, to avoid having to have the serde `rc` feature enabled.
+#[derive(Clone, Debug)]
+#[repr(transparent)]
+struct SerdeArc<T>(Arc<T>);
+
+impl<T> Serialize for SerdeArc<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de, T> Deserialize<'de> for SerdeArc<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        T::deserialize(deserializer).map(Arc::new).map(SerdeArc)
+    }
+}
+
+impl<T> std::ops::Deref for SerdeArc<T> {
+    type Target = Arc<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
