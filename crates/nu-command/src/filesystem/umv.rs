@@ -1,7 +1,7 @@
 use super::util::get_rest_for_glob_pattern;
 use nu_engine::current_dir;
 use nu_engine::CallExt;
-use nu_path::{expand_path_with, expand_to_real_path};
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
@@ -146,10 +146,10 @@ impl Command for UMv {
         }
 
         // Add back the target after globbing
-        let expanded_target = expand_to_real_path(nu_utils::strip_ansi_string_unlikely(
-            spanned_target.item.to_string(),
-        ));
-        let abs_target_path = expand_path_with(expanded_target, &cwd);
+        let abs_target_path = expand_path_with(
+            nu_utils::strip_ansi_string_unlikely(spanned_target.item.to_string()),
+            &cwd,
+        );
         files.push(abs_target_path.clone());
         let files = files
             .into_iter()

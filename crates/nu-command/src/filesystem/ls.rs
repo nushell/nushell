@@ -5,7 +5,6 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_glob::{MatchOptions, Pattern};
-use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::NuGlob;
@@ -118,9 +117,7 @@ impl Command for Ls {
         let (path, p_tag, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
-                let p = expand_to_real_path(pat.item.as_ref());
-
-                let expanded = nu_path::expand_path_with(&p, &cwd);
+                let expanded = nu_path::expand_path_with(pat.item.as_ref(), &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
                 if !directory && expanded.is_dir() {
                     if permission_denied(&p) {
