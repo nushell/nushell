@@ -123,6 +123,7 @@ nix = { workspace = true, default-features = false, features = [
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.91.1" }
 assert_cmd = "2.0"
+dirs-next = "2.0"
 divan = "0.1.14"
 pretty_assertions = "1.4"
 rstest = { workspace = true, default-features = false }

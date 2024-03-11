@@ -2703,6 +2703,7 @@ dependencies = [
  "assert_cmd",
  "crossterm",
  "ctrlc",
+ "dirs-next",
  "divan",
  "log",
  "miette",
