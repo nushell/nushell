@@ -113,12 +113,11 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
         // check help flag first.
         if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
             let call_span = call.span();
-            return Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: call_span,
-                ty: Type::Any,
-                custom_completion: None,
-            }]);
+            return Pipeline::from_vec(vec![Expression::new(working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]);
         }
 
         match cmd.name() {
@@ -293,12 +292,11 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
-                return Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: output,
-                    custom_completion: None,
-                };
+                return Expression::new(working_set,
+                    Expr::Call(call),
+                    call_span,
+                    output,
+                );
             }
 
             // Let's get our block and make sure it has the right signature
@@ -355,12 +353,11 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         );
     }
 
-    Expression {
-        expr: Expr::Call(call),
-        span: call_span,
-        ty: Type::Nothing,
-        custom_completion: None,
-    }
+    Expression::new(working_set,
+        Expr::Call(call),
+        call_span,
+        Type::Nothing,
+    )
 }
 
 /// If `name` is a keyword, emit an error.
@@ -482,12 +479,11 @@ pub fn parse_def(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
+                    Pipeline::from_vec(vec![Expression::new(working_set,
+                        Expr::Call(call),
+                        call_span,
+                        output,
+                    )]),
                     None,
                 );
             }
@@ -520,12 +516,12 @@ pub fn parse_def(
                     name_expr_span,
                 ));
                 return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]),
+                    Pipeline::from_vec(vec![Expression::new(
+                        working_set,
+                        Expr::Call(call),
+                        call_span,
+                        Type::Any,
+                    )]),
                     None,
                 );
             }
@@ -570,12 +566,11 @@ pub fn parse_def(
                             format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
 
                         return (
-                            Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Call(call),
-                                span: call_span,
-                                ty: Type::Any,
-                                custom_completion: None,
-                            }]),
+                            Pipeline::from_vec(vec![Expression::new(working_set,
+                                Expr::Call(call),
+                                call_span,
+                                Type::Any,
+                            )]),
                             result,
                         );
                     }
@@ -584,12 +579,11 @@ pub fn parse_def(
                 working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
 
                 return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]),
+                    Pipeline::from_vec(vec![Expression::new(working_set,
+                        Expr::Call(call),
+                        call_span,
+                        Type::Any,
+                    )]),
                     result,
                 );
             }
@@ -640,12 +634,11 @@ pub fn parse_def(
     working_set.merge_predecl(name.as_bytes());
 
     (
-        Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(call),
-            span: call_span,
-            ty: Type::Any,
-            custom_completion: None,
-        }]),
+        Pipeline::from_vec(vec![Expression::new(working_set,
+            Expr::Call(call),
+            call_span,
+            Type::Any,
+        )]),
         result,
     )
 }
@@ -735,12 +728,11 @@ pub fn parse_extern(
                         "main".to_string(),
                         name_expr_span,
                     ));
-                    return Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]);
+                    return Pipeline::from_vec(vec![Expression::new(working_set,
+                        Expr::Call(call),
+                        call_span,
+                        Type::Any,
+                    )]);
                 }
             }
 
@@ -801,12 +793,11 @@ pub fn parse_extern(
         }
     }
 
-    Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: call_span,
-        ty: Type::Any,
-        custom_completion: None,
-    }])
+    Pipeline::from_vec(vec![Expression::new(working_set,
+        Expr::Call(call),
+        call_span,
+        Type::Any,
+    )])
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
@@ -900,12 +891,11 @@ pub fn parse_alias(
             return garbage_pipeline(spans);
         };
 
-        let alias_pipeline = Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(alias_call.clone()),
-            span: span(spans),
-            ty: output,
-            custom_completion: None,
-        }]);
+        let alias_pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+            Expr::Call(alias_call.clone()),
+            span(spans),
+            output,
+        )]);
 
         if has_help_flag {
             return alias_pipeline;
@@ -1159,12 +1149,11 @@ pub fn parse_export_in_block(
         };
 
         if starting_error_count != working_set.parse_errors.len() || is_help {
-            return Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: call_span,
-                ty: output,
-                custom_completion: None,
-            }]);
+            return Pipeline::from_vec(vec![Expression::new(working_set,
+                Expr::Call(call),
+                call_span,
+                output,
+            )]);
         }
     } else {
         working_set.error(ParseError::UnknownState(
@@ -1565,12 +1554,11 @@ pub fn parse_export_in_module(
     };
 
     (
-        Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(call),
-            span: span(spans),
-            ty: Type::Any,
-            custom_completion: None,
-        }]),
+        Pipeline::from_vec(vec![Expression::new(working_set,
+            Expr::Call(call),
+            span(spans),
+            Type::Any,
+        )]),
         exportables,
     )
 }
@@ -1613,12 +1601,11 @@ pub fn parse_export_env(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
+                    Pipeline::from_vec(vec![Expression::new(working_set,
+                        Expr::Call(call),
+                        call_span,
+                        output,
+                    )]),
                     None,
                 );
             }
@@ -1652,12 +1639,11 @@ pub fn parse_export_env(
         return (garbage_pipeline(spans), None);
     };
 
-    let pipeline = Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: span(spans),
-        ty: Type::Any,
-        custom_completion: None,
-    }]);
+    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+        Expr::Call(call),
+        span(spans),
+        Type::Any,
+    )]);
 
     (pipeline, Some(block_id))
 }
@@ -2064,12 +2050,11 @@ pub fn parse_module(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
+                    Pipeline::from_vec(vec![Expression::new(working_set,
+                        Expr::Call(call),
+                        call_span,
+                        output,
+                    )]),
                     None,
                 );
             }
@@ -2097,12 +2082,11 @@ pub fn parse_module(
                             name.span,
                         ));
                         return (
-                            Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Call(call),
-                                span: call_span,
-                                ty: Type::Any,
-                                custom_completion: None,
-                            }]),
+                            Pipeline::from_vec(vec![Expression::new(working_set,
+                                Expr::Call(call),
+                                call_span,
+                                Type::Any,
+                            )]),
                             None,
                         );
                     }
@@ -2123,12 +2107,11 @@ pub fn parse_module(
             return (garbage_pipeline(spans), None);
         };
 
-    let pipeline = Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: call_span,
-        ty: Type::Any,
-        custom_completion: None,
-    }]);
+    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+        Expr::Call(call),
+        call_span,
+        Type::Any,
+    )]);
 
     if spans.len() == split_id + 1 {
         if let Some(module_id) = parse_module_file_or_dir(
@@ -2186,12 +2169,11 @@ pub fn parse_module(
     module_comments.extend(inner_comments);
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
-    let block_expr = Expression {
-        expr: Expr::Block(block_id),
-        span: block_span,
-        ty: Type::Block,
-        custom_completion: None,
-    };
+    let block_expr = Expression::new(working_set,
+        Expr::Block(block_id),
+        block_span,
+        Type::Block,
+    );
 
     let module_decl_id = working_set
         .find_decl(b"module")

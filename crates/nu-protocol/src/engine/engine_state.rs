@@ -7,7 +7,7 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -976,6 +976,15 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             )));
         }
+    }
+
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        todo!("impl adding spans");
+        todo!("push first span unknown!")
+    }
+
+    pub fn get_span_id(&self, span: Span) -> SpanId {
+        todo!("impl span search")
     }
 }
 

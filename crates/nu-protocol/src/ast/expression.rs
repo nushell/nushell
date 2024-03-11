@@ -1,7 +1,7 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    BlockId, DeclId, Signature, Span, Type, VarId, IN_VARIABLE_ID,
+    BlockId, DeclId, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -10,6 +10,7 @@ use std::sync::Arc;
 pub struct Expression {
     pub expr: Expr,
     pub span: Span,
+    pub span_id: SpanId,
     pub ty: Type,
     pub custom_completion: Option<DeclId>,
 }
@@ -19,6 +20,7 @@ impl Expression {
         Expression {
             expr: Expr::Garbage,
             span,
+            span_id: todo!("add span id to garbage"),
             ty: Type::Any,
             custom_completion: None,
         }
@@ -469,4 +471,27 @@ impl Expression {
             Expr::VarDecl(_) => {}
         }
     }
+
+    pub fn new(working_set: &mut StateWorkingSet, expr: Expr, span: Span, ty: Type) -> Expression {
+        let span_id = working_set.add_span(span);
+        Expression {
+            expr,
+            span,
+            span_id,
+            ty,
+            custom_completion: None
+        }
+    }
+
+    pub fn new_existing(engine_state: &EngineState, expr: Expr, span: Span, ty: Type) -> Expression {
+        let span_id = engine_state.get_span_id(span);
+        Expression {
+            expr,
+            span,
+            span_id,
+            ty,
+            custom_completion: None
+        }
+    }
 }
+
