@@ -49,8 +49,7 @@ impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let config = self.1.get_config();
 
-        let ansi_support = &config.use_ansi_coloring;
-        let ansi_support = *ansi_support;
+        let ansi_support = config.use_ansi_coloring;
 
         let error_style = &config.error_style;
 
