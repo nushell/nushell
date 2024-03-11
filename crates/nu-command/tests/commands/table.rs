@@ -2346,7 +2346,6 @@ fn join_lines(lines: impl IntoIterator<Item = impl AsRef<str>>) -> String {
 }
 
 // util function to easier copy && paste
-#[allow(dead_code)]
 fn _print_lines(s: &str, w: usize) {
     eprintln!("{:#?}", _split_str_by_width(s, w));
 }

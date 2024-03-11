@@ -989,7 +989,6 @@ enum TableView {
     },
 }
 
-#[allow(clippy::manual_filter)]
 fn maybe_strip_color(output: String, config: &Config) -> String {
     // the terminal is for when people do ls from vim, there should be no coloring there
     if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {

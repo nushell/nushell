@@ -421,7 +421,6 @@ pub struct RequestFlags {
     pub full: bool,
 }
 
-#[allow(clippy::needless_return)]
 fn transform_response_using_content_type(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -464,9 +463,9 @@ fn transform_response_using_content_type(
 
     let output = response_to_buffer(resp, engine_state, span);
     if flags.raw {
-        return Ok(output);
+        Ok(output)
     } else if let Some(ext) = ext {
-        return match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
@@ -474,10 +473,10 @@ fn transform_response_using_content_type(
                 output,
             ),
             None => Ok(output),
-        };
+        }
     } else {
-        return Ok(output);
-    };
+        Ok(output)
+    }
 }
 
 pub fn check_response_redirection(

@@ -19,11 +19,9 @@ const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
-#[allow(dead_code)]
 enum ConversionResult {
     Ok(Value),
     ConversionError(ShellError), // Failure during the conversion itself
-    GeneralError(ShellError),    // Other error not directly connected to running the conversion
     CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
 }
 
@@ -46,7 +44,6 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
                 let _ = new_scope.insert(name.to_string(), v);
             }
             ConversionResult::ConversionError(e) => error = error.or(Some(e)),
-            ConversionResult::GeneralError(_) => continue,
             ConversionResult::CellPathError => {
                 let _ = new_scope.insert(name.to_string(), val.clone());
             }
@@ -101,7 +98,6 @@ pub fn env_to_string(
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
         ConversionResult::Ok(v) => Ok(v.coerce_into_string()?),
         ConversionResult::ConversionError(e) => Err(e),
-        ConversionResult::GeneralError(e) => Err(e),
         ConversionResult::CellPathError => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {

@@ -12,7 +12,6 @@ use crate::{
     ShellError, Signature, Span, Type, VarId, VirtualPathId,
 };
 use crate::{Category, Value};
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -788,11 +787,11 @@ impl EngineState {
         self.vars[var_id].const_val = Some(val);
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
+    pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
+            .as_ref()
     }
 
     /// Get all commands within scope, sorted by the commands' names
@@ -823,8 +822,7 @@ impl EngineState {
         decls.into_iter()
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_signature(&self, decl: &Box<dyn Command>) -> Signature {
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
         if let Some(block_id) = decl.get_block_id() {
             *self.blocks[block_id].signature.clone()
         } else {
@@ -838,7 +836,7 @@ impl EngineState {
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                self.get_signature(decl).update_from_command(decl.borrow())
+                self.get_signature(decl).update_from_command(decl)
             })
             .collect()
     }
@@ -856,7 +854,7 @@ impl EngineState {
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                let signature = self.get_signature(decl).update_from_command(decl.borrow());
+                let signature = self.get_signature(decl).update_from_command(decl);
 
                 (
                     signature,
