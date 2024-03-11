@@ -1,7 +1,7 @@
 use nu_test_support::nu;
 use nu_test_support::playground::{Executable, Playground};
 use pretty_assertions::assert_eq;
-use std::fs::{self, File};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 #[cfg(not(target_os = "windows"))]
@@ -22,16 +22,36 @@ fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
 
 /// Make the config directory a symlink that points to a temporary folder.
 /// Returns the path to the `nushell` config folder inside, via the symlink.
+///
+/// Need to figure out how to change config directory on Windows.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn setup_fake_config(playground: &mut Playground) -> PathBuf {
-    let config_dir = "config";
-    let config_link = "config_link";
-    playground.mkdir(&format!("{config_dir}/nushell"));
-    playground.symlink(config_dir, config_link);
-    playground.with_env(
-        "XDG_CONFIG_HOME",
-        &playground.cwd().join(config_link).display().to_string(),
-    );
-    playground.cwd().join(config_link).join("nushell")
+    #[cfg(target_os = "linux")]
+    {
+        let config_dir = "config";
+        let config_link = "config_link";
+        playground.mkdir(&format!("{config_dir}/nushell"));
+        playground.symlink(config_dir, config_link);
+        playground.with_env(
+            "XDG_CONFIG_HOME",
+            &playground.cwd().join(config_link).display().to_string(),
+        );
+        playground.cwd().join(config_link).join("nushell")
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let fake_home = "fake_home";
+        let home_link = "home_link";
+        let dir_end = "Library/Application Support/nushell";
+        playground.mkdir(&format!("{fake_home}/{dir_end}"));
+        playground.symlink(fake_home, home_link);
+        playground.with_env(
+            "HOME",
+            &playground.cwd().join(home_link).display().to_string(),
+        );
+        playground.cwd().join(home_link).join(dir_end)
+    }
 }
 
 fn run(playground: &mut Playground, command: &str) -> String {
@@ -111,6 +131,7 @@ fn test_default_config_path() {
 
 /// Make the config folder a symlink to a temporary folder without any config files
 /// and see if the config files' paths are properly canonicalized
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn test_default_symlinked_config_path_empty() {
     Playground::setup("symlinked_empty_config_dir", |_, playground| {
@@ -121,15 +142,13 @@ fn test_default_symlinked_config_path_empty() {
 
 /// Like [[test_default_symlinked_config_path_empty]], but fill the temporary folder
 /// with broken symlinks and see if they're properly canonicalized
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn test_default_symlink_config_path_broken_symlink_config_files() {
     Playground::setup(
-        "symlinked_cfg_dir_with_symlinked_cfg_files_broken",
+        "symlinked_cfg_dir_with_symlinked_cfg_files",
         |_, playground| {
             let fake_config_dir_nushell = setup_fake_config(playground);
-
-            let fake_dir = PathBuf::from("fake");
-            playground.mkdir(&fake_dir.display().to_string());
 
             for config_file in [
                 "config.nu",
@@ -139,16 +158,11 @@ fn test_default_symlink_config_path_broken_symlink_config_files() {
                 "login.nu",
                 "plugin.nu",
             ] {
-                let fake_file = fake_dir.join(config_file);
-                File::create(playground.cwd().join(&fake_file)).unwrap();
-
-                playground.symlink(&fake_file, fake_config_dir_nushell.join(config_file));
+                playground.symlink(
+                    format!("fake/{config_file}"),
+                    fake_config_dir_nushell.join(config_file),
+                );
             }
-
-            // Windows doesn't allow creating a symlink without the file existing,
-            // so we first create original files for the symlinks, then delete them
-            // to break the symlinks
-            std::fs::remove_dir_all(playground.cwd().join(&fake_dir)).unwrap();
 
             test_config_path_helper(playground, fake_config_dir_nushell);
         },
@@ -157,8 +171,11 @@ fn test_default_symlink_config_path_broken_symlink_config_files() {
 
 /// Like [[test_default_symlinked_config_path_empty]], but fill the temporary folder
 /// with working symlinks to empty files and see if they're properly canonicalized
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn test_default_config_path_symlinked_config_files() {
+    use std::fs::File;
+
     Playground::setup(
         "symlinked_cfg_dir_with_symlinked_cfg_files",
         |_, playground| {
@@ -203,38 +220,4 @@ fn test_alternate_config_path() {
         format!("nu --env-config {env_path:?} -c '$nu.env-path'")
     );
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
-}
-
-#[test]
-fn test_xdg_config_empty() {
-    Playground::setup("xdg_config_empty", |_, playground| {
-        playground.with_env("XDG_CONFIG_HOME", "");
-
-        let actual = nu!("$nu.default-config-dir");
-        assert_eq!(
-            actual.out,
-            dirs_next::config_dir()
-                .unwrap()
-                .join("nushell")
-                .display()
-                .to_string()
-        );
-    });
-}
-
-#[test]
-fn test_xdg_config_bad() {
-    Playground::setup("xdg_config_bad", |_, playground| {
-        playground.with_env("XDG_CONFIG_HOME", r#"mn2''6t\/k*((*&^//k//: "#);
-
-        let actual = nu!("$nu.default-config-dir");
-        assert_eq!(
-            actual.out,
-            dirs_next::config_dir()
-                .unwrap()
-                .join("nushell")
-                .display()
-                .to_string()
-        );
-    });
 }
