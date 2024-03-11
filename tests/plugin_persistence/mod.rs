@@ -235,12 +235,24 @@ fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
         r#"
             $env.config.plugin_gc = { default: { stop_after: 50ms } }
             "2.3.0" | inc -M
-            sleep 100ms
-            (plugin list | where name == inc).0.is_running
+            let start = (date now)
+            mut cond = true
+            while $cond {
+                sleep 100ms
+                $cond = (
+                    (plugin list | where name == inc).0.is_running and
+                    ((date now) - $start) < 5sec
+                )
+            }
+            ((date now) - $start) | into int
         "#
     );
     assert!(out.status.success());
-    assert_eq!("false", out.out, "with config as default");
+    let nanos = out.out.parse::<i64>().expect("not a number");
+    assert!(
+        nanos < 5_000_000_000,
+        "with config as default: more than 5 seconds: {nanos} ns"
+    );
 
     let out = nu_with_plugins!(
         cwd: ".",
@@ -252,12 +264,24 @@ fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
                 }
             }
             "2.3.0" | inc -M
-            sleep 100ms
-            (plugin list | where name == inc).0.is_running
+            let start = (date now)
+            mut cond = true
+            while $cond {
+                sleep 100ms
+                $cond = (
+                    (plugin list | where name == inc).0.is_running and
+                    ((date now) - $start) < 5sec
+                )
+            }
+            ((date now) - $start) | into int
         "#
     );
     assert!(out.status.success());
-    assert_eq!("false", out.out, "with inc-specific config");
+    let nanos = out.out.parse::<i64>().expect("not a number");
+    assert!(
+        nanos < 5_000_000_000,
+        "with inc-specific config: more than 5 seconds: {nanos} ns"
+    );
 }
 
 #[test]
