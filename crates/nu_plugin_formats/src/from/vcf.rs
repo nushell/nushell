@@ -1,49 +1,73 @@
 use ical::parser::vcard::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, ShellError, Span, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, PluginExample, PluginSignature, ShellError, Span, Type, Value,
+};
+
+use crate::FromCmds;
 
 pub const CMD_NAME: &str = "from vcf";
 
-pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-    let span = input.span();
-    let input_string = input.coerce_str()?;
-    let head = call.head;
+pub struct FromVcf;
 
-    let input_string = input_string
-        .lines()
-        .enumerate()
-        .map(|(i, x)| {
-            if i == 0 {
-                x.trim().to_string()
-            } else if x.len() > 1 && (x.starts_with(' ') || x.starts_with('\t')) {
-                x[1..].trim_end().to_string()
-            } else {
-                format!("\n{}", x.trim())
-            }
-        })
-        .collect::<String>();
+impl SimplePluginCommand for FromVcf {
+    type Plugin = FromCmds;
 
-    let input_bytes = input_string.as_bytes();
-    let cursor = std::io::Cursor::new(input_bytes);
-    let parser = ical::VcardParser::new(cursor);
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build(CMD_NAME)
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .usage("Parse text as .vcf and create table.")
+            .plugin_examples(examples())
+            .category(Category::Formats)
+    }
 
-    let iter = parser.map(move |contact| match contact {
-        Ok(c) => contact_to_value(c, head),
-        Err(e) => Value::error(
-            ShellError::UnsupportedInput {
-                msg: format!("input cannot be parsed as .vcf ({e})"),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: span,
-            },
-            span,
-        ),
-    });
+    fn run(
+        &self,
+        _plugin: &FromCmds,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let span = input.span();
+        let input_string = input.coerce_str()?;
+        let head = call.head;
 
-    let collected: Vec<_> = iter.collect();
-    Ok(Value::list(collected, head))
+        let input_string = input_string
+            .lines()
+            .enumerate()
+            .map(|(i, x)| {
+                if i == 0 {
+                    x.trim().to_string()
+                } else if x.len() > 1 && (x.starts_with(' ') || x.starts_with('\t')) {
+                    x[1..].trim_end().to_string()
+                } else {
+                    format!("\n{}", x.trim())
+                }
+            })
+            .collect::<String>();
+
+        let input_bytes = input_string.as_bytes();
+        let cursor = std::io::Cursor::new(input_bytes);
+        let parser = ical::VcardParser::new(cursor);
+
+        let iter = parser.map(move |contact| match contact {
+            Ok(c) => contact_to_value(c, head),
+            Err(e) => Value::error(
+                ShellError::UnsupportedInput {
+                    msg: format!("input cannot be parsed as .vcf ({e})"),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
+                },
+                span,
+            ),
+        });
+
+        let collected: Vec<_> = iter.collect();
+        Ok(Value::list(collected, head))
+    }
 }
 
 pub fn examples() -> Vec<PluginExample> {

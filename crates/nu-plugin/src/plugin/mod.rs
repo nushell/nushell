@@ -1,7 +1,13 @@
 use nu_engine::documentation::get_flags_section;
-use nu_protocol::ast::Operator;
+
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::Write;
+use std::io::{BufReader, Read, Write as WriteTrait};
+use std::path::Path;
+use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
+use std::{env, thread};
 
 use std::sync::mpsc::TrySendError;
 use std::sync::{mpsc, Arc, Mutex};
@@ -11,11 +17,6 @@ use crate::protocol::{
     CallInfo, CustomValueOp, LabeledError, PluginCustomValue, PluginInput, PluginOutput,
 };
 use crate::EncodingType;
-use std::fmt::Write;
-use std::io::{BufReader, Read, Write as WriteTrait};
-use std::path::Path;
-use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
-use std::{env, thread};
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
@@ -24,13 +25,13 @@ use std::os::unix::process::CommandExt;
 use std::os::windows::process::CommandExt;
 
 use nu_protocol::{
-    CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Spanned,
+    Value,
 };
 
 use self::gc::PluginGc;
 
-use super::EvaluatedCall;
-
+mod command;
 mod context;
 mod declaration;
 mod gc;
@@ -38,6 +39,7 @@ mod interface;
 mod persistent;
 mod source;
 
+pub use command::{PluginCommand, SimplePluginCommand};
 pub use declaration::PluginDeclaration;
 pub use interface::EngineInterface;
 pub use persistent::PersistentPlugin;
@@ -215,13 +217,10 @@ where
     plugin.get(envs)?.get_signature()
 }
 
-/// The basic API for a Nushell plugin
+/// The API for a Nushell plugin
 ///
-/// This is the trait that Nushell plugins must implement. The methods defined on
-/// `Plugin` are invoked by [serve_plugin] during plugin registration and execution.
-///
-/// If large amounts of data are expected to need to be received or produced, it may be more
-/// appropriate to implement [StreamingPlugin] instead.
+/// A plugin defines multiple commands, which are added to the engine when the user calls
+/// `register`.
 ///
 /// The plugin must be able to be safely shared between threads, so that multiple invocations can
 /// be run in parallel. If interior mutability is desired, consider synchronization primitives such
@@ -233,18 +232,25 @@ where
 /// # use nu_plugin::*;
 /// # use nu_protocol::{PluginSignature, Type, Value};
 /// struct HelloPlugin;
+/// struct Hello;
 ///
 /// impl Plugin for HelloPlugin {
-///     fn signature(&self) -> Vec<PluginSignature> {
-///         let sig = PluginSignature::build("hello")
-///             .input_output_type(Type::Nothing, Type::String);
+///     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
+///         vec![Box::new(Hello)]
+///     }
+/// }
 ///
-///         vec![sig]
+/// impl SimplePluginCommand for Hello {
+///     type Plugin = HelloPlugin;
+///
+///     fn signature(&self) -> PluginSignature {
+///         PluginSignature::build("hello")
+///             .input_output_type(Type::Nothing, Type::String)
 ///     }
 ///
 ///     fn run(
 ///         &self,
-///         name: &str,
+///         plugin: &HelloPlugin,
 ///         engine: &EngineInterface,
 ///         call: &EvaluatedCall,
 ///         input: &Value,
@@ -258,37 +264,14 @@ where
 /// # }
 /// ```
 pub trait Plugin: Sync {
-    /// The signature of the plugin
+    /// The commands supported by the plugin
     ///
-    /// This method returns the [PluginSignature]s that describe the capabilities
-    /// of this plugin. Since a single plugin executable can support multiple invocation
-    /// patterns we return a `Vec` of signatures.
-    fn signature(&self) -> Vec<PluginSignature>;
-
-    /// Perform the actual behavior of the plugin
+    /// Each [`PluginCommand`] contains both the signature of the command and the functionality it
+    /// implements.
     ///
-    /// The behavior of the plugin is defined by the implementation of this method.
-    /// When Nushell invoked the plugin [serve_plugin] will call this method and
-    /// print the serialized returned value or error to stdout, which Nushell will
-    /// interpret.
-    ///
-    /// The `name` is only relevant for plugins that implement multiple commands as the
-    /// invoked command will be passed in via this argument. The `call` contains
-    /// metadata describing how the plugin was invoked and `input` contains the structured
-    /// data passed to the command implemented by this [Plugin].
-    ///
-    /// `engine` provides an interface back to the Nushell engine. See [`EngineInterface`] docs for
-    /// details on what methods are available.
-    ///
-    /// This variant does not support streaming. Consider implementing [StreamingPlugin] instead
-    /// if streaming is desired.
-    fn run(
-        &self,
-        name: &str,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: &Value,
-    ) -> Result<Value, LabeledError>;
+    /// This is only called once by [`serve_plugin`] at the beginning of your plugin's execution. It
+    /// is not possible to change the defined commands during runtime.
+    fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>>;
 
     /// Collapse a custom value to plain old data.
     ///
@@ -394,267 +377,6 @@ pub trait Plugin: Sync {
     ) -> Result<(), LabeledError> {
         let _ = (engine, custom_value);
         Ok(())
-    }
-}
-
-/// The streaming API for a Nushell plugin
-///
-/// This is a more low-level version of the [Plugin] trait that supports operating on streams of
-/// data. If you don't need to operate on streams, consider using that trait instead.
-///
-/// The methods defined on `StreamingPlugin` are invoked by [serve_plugin] during plugin
-/// registration and execution.
-///
-/// # Examples
-/// Basic usage:
-/// ```
-/// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, PipelineData, Type, Value};
-/// struct LowercasePlugin;
-///
-/// impl StreamingPlugin for LowercasePlugin {
-///     fn signature(&self) -> Vec<PluginSignature> {
-///         let sig = PluginSignature::build("lowercase")
-///             .usage("Convert each string in a stream to lowercase")
-///             .input_output_type(Type::List(Type::String.into()), Type::List(Type::String.into()));
-///
-///         vec![sig]
-///     }
-///
-///     fn run(
-///         &self,
-///         name: &str,
-///         engine: &EngineInterface,
-///         call: &EvaluatedCall,
-///         input: PipelineData,
-///     ) -> Result<PipelineData, LabeledError> {
-///         let span = call.head;
-///         Ok(input.map(move |value| {
-///             value.as_str()
-///                 .map(|string| Value::string(string.to_lowercase(), span))
-///                 // Errors in a stream should be returned as values.
-///                 .unwrap_or_else(|err| Value::error(err, span))
-///         }, None)?)
-///     }
-/// }
-///
-/// # fn main() {
-/// #     serve_plugin(&LowercasePlugin{}, MsgPackSerializer)
-/// # }
-/// ```
-pub trait StreamingPlugin: Sync {
-    /// The signature of the plugin
-    ///
-    /// This method returns the [PluginSignature]s that describe the capabilities
-    /// of this plugin. Since a single plugin executable can support multiple invocation
-    /// patterns we return a `Vec` of signatures.
-    fn signature(&self) -> Vec<PluginSignature>;
-
-    /// Perform the actual behavior of the plugin
-    ///
-    /// The behavior of the plugin is defined by the implementation of this method.
-    /// When Nushell invoked the plugin [serve_plugin] will call this method and
-    /// print the serialized returned value or error to stdout, which Nushell will
-    /// interpret.
-    ///
-    /// The `name` is only relevant for plugins that implement multiple commands as the
-    /// invoked command will be passed in via this argument. The `call` contains
-    /// metadata describing how the plugin was invoked and `input` contains the structured
-    /// data passed to the command implemented by this [Plugin].
-    ///
-    /// This variant expects to receive and produce [PipelineData], which allows for stream-based
-    /// handling of I/O. This is recommended if the plugin is expected to transform large lists or
-    /// potentially large quantities of bytes. The API is more complex however, and [Plugin] is
-    /// recommended instead if this is not a concern.
-    fn run(
-        &self,
-        name: &str,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError>;
-
-    /// Collapse a custom value to plain old data.
-    ///
-    /// The default implementation of this method just calls [`CustomValue::to_base_value`], but
-    /// the method can be implemented differently if accessing plugin state is desirable.
-    fn custom_value_to_base_value(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
-    ) -> Result<Value, LabeledError> {
-        let _ = engine;
-        custom_value
-            .item
-            .to_base_value(custom_value.span)
-            .map_err(LabeledError::from)
-    }
-
-    /// Follow a numbered cell path on a custom value - e.g. `value.0`.
-    ///
-    /// The default implementation of this method just calls [`CustomValue::follow_path_int`], but
-    /// the method can be implemented differently if accessing plugin state is desirable.
-    fn custom_value_follow_path_int(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
-        index: Spanned<usize>,
-    ) -> Result<Value, LabeledError> {
-        let _ = engine;
-        custom_value
-            .item
-            .follow_path_int(custom_value.span, index.item, index.span)
-            .map_err(LabeledError::from)
-    }
-
-    /// Follow a named cell path on a custom value - e.g. `value.column`.
-    ///
-    /// The default implementation of this method just calls [`CustomValue::follow_path_string`],
-    /// but the method can be implemented differently if accessing plugin state is desirable.
-    fn custom_value_follow_path_string(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
-        column_name: Spanned<String>,
-    ) -> Result<Value, LabeledError> {
-        let _ = engine;
-        custom_value
-            .item
-            .follow_path_string(custom_value.span, column_name.item, column_name.span)
-            .map_err(LabeledError::from)
-    }
-
-    /// Implement comparison logic for custom values.
-    ///
-    /// The default implementation of this method just calls [`CustomValue::partial_cmp`], but
-    /// the method can be implemented differently if accessing plugin state is desirable.
-    ///
-    /// Note that returning an error here is unlikely to produce desired behavior, as `partial_cmp`
-    /// lacks a way to produce an error. At the moment the engine just logs the error, and the
-    /// comparison returns `None`.
-    fn custom_value_partial_cmp(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Box<dyn CustomValue>,
-        other_value: Value,
-    ) -> Result<Option<Ordering>, LabeledError> {
-        let _ = engine;
-        Ok(custom_value.partial_cmp(&other_value))
-    }
-
-    /// Implement functionality for an operator on a custom value.
-    ///
-    /// The default implementation of this method just calls [`CustomValue::operation`], but
-    /// the method can be implemented differently if accessing plugin state is desirable.
-    fn custom_value_operation(
-        &self,
-        engine: &EngineInterface,
-        left: Spanned<Box<dyn CustomValue>>,
-        operator: Spanned<Operator>,
-        right: Value,
-    ) -> Result<Value, LabeledError> {
-        let _ = engine;
-        left.item
-            .operation(left.span, operator.item, operator.span, &right)
-            .map_err(LabeledError::from)
-    }
-
-    /// Handle a notification that all copies of a custom value within the engine have been dropped.
-    ///
-    /// This notification is only sent if [`CustomValue::notify_plugin_on_drop`] was true. Unlike
-    /// the other custom value handlers, a span is not provided.
-    ///
-    /// Note that a new custom value is created each time it is sent to the engine - if you intend
-    /// to accept a custom value and send it back, you may need to implement some kind of unique
-    /// reference counting in your plugin, as you will receive multiple drop notifications even if
-    /// the data within is identical.
-    ///
-    /// The default implementation does nothing. Any error generated here is unlikely to be visible
-    /// to the user, and will only show up in the engine's log output.
-    fn custom_value_dropped(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Box<dyn CustomValue>,
-    ) -> Result<(), LabeledError> {
-        let _ = (engine, custom_value);
-        Ok(())
-    }
-}
-
-/// All [Plugin]s can be used as [StreamingPlugin]s, but input streams will be fully consumed
-/// before the plugin runs.
-impl<T: Plugin> StreamingPlugin for T {
-    fn signature(&self) -> Vec<PluginSignature> {
-        <Self as Plugin>::signature(self)
-    }
-
-    fn run(
-        &self,
-        name: &str,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
-        // Unwrap the PipelineData from input, consuming the potential stream, and pass it to the
-        // simpler signature in Plugin
-        let span = input.span().unwrap_or(call.head);
-        let input_value = input.into_value(span);
-        // Wrap the output in PipelineData::Value
-        <Self as Plugin>::run(self, name, engine, call, &input_value)
-            .map(|value| PipelineData::Value(value, None))
-    }
-
-    fn custom_value_to_base_value(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
-    ) -> Result<Value, LabeledError> {
-        <Self as Plugin>::custom_value_to_base_value(self, engine, custom_value)
-    }
-
-    fn custom_value_follow_path_int(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
-        index: Spanned<usize>,
-    ) -> Result<Value, LabeledError> {
-        <Self as Plugin>::custom_value_follow_path_int(self, engine, custom_value, index)
-    }
-
-    fn custom_value_follow_path_string(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Spanned<Box<dyn CustomValue>>,
-        column_name: Spanned<String>,
-    ) -> Result<Value, LabeledError> {
-        <Self as Plugin>::custom_value_follow_path_string(self, engine, custom_value, column_name)
-    }
-
-    fn custom_value_partial_cmp(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Box<dyn CustomValue>,
-        other_value: Value,
-    ) -> Result<Option<Ordering>, LabeledError> {
-        <Self as Plugin>::custom_value_partial_cmp(self, engine, custom_value, other_value)
-    }
-
-    fn custom_value_operation(
-        &self,
-        engine: &EngineInterface,
-        left: Spanned<Box<dyn CustomValue>>,
-        operator: Spanned<Operator>,
-        right: Value,
-    ) -> Result<Value, LabeledError> {
-        <Self as Plugin>::custom_value_operation(self, engine, left, operator, right)
-    }
-
-    fn custom_value_dropped(
-        &self,
-        engine: &EngineInterface,
-        custom_value: Box<dyn CustomValue>,
-    ) -> Result<(), LabeledError> {
-        <Self as Plugin>::custom_value_dropped(self, engine, custom_value)
     }
 }
 
@@ -670,15 +392,13 @@ impl<T: Plugin> StreamingPlugin for T {
 /// # struct MyPlugin;
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
-/// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
-/// #     fn run(&self, name: &str, engine: &EngineInterface, call: &EvaluatedCall, input: &Value)
-/// #         -> Result<Value, LabeledError> {todo!();}
+/// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {todo!();}
 /// # }
 /// fn main() {
 ///    serve_plugin(&MyPlugin::new(), MsgPackSerializer)
 /// }
 /// ```
-pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder + 'static) {
+pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static) {
     let mut args = env::args().skip(1);
     let number_of_args = args.len();
     let first_arg = args.next();
@@ -707,6 +427,13 @@ pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder +
         );
         std::process::exit(1)
     }
+
+    // Build commands map, to make running a command easier
+    let commands: HashMap<String, _> = plugin
+        .commands()
+        .into_iter()
+        .map(|command| (command.signature().sig.name.clone(), command))
+        .collect();
 
     // tell nushell encoding.
     //
@@ -802,7 +529,15 @@ pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder +
     thread::scope(|scope| {
         let run = |engine, call_info| {
             let CallInfo { name, call, input } = call_info;
-            let result = plugin.run(&name, &engine, &call, input);
+            let result = if let Some(command) = commands.get(&name) {
+                command.run(plugin, &engine, &call, input)
+            } else {
+                Err(LabeledError {
+                    label: format!("Plugin command not found: `{name}`"),
+                    msg: format!("plugin `{plugin_name}` doesn't have this command"),
+                    span: Some(call.head),
+                })
+            };
             let write_result = engine
                 .write_response(result)
                 .and_then(|writer| writer.write());
@@ -828,7 +563,11 @@ pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder +
             match plugin_call {
                 // Sending the signature back to nushell to create the declaration definition
                 ReceivedPluginCall::Signature { engine } => {
-                    try_or_report!(engine, engine.write_signature(plugin.signature()));
+                    let sigs = commands
+                        .values()
+                        .map(|command| command.signature())
+                        .collect();
+                    try_or_report!(engine, engine.write_signature(sigs));
                 }
                 // Run the plugin on a background thread, handling any input or output streams
                 ReceivedPluginCall::Run { engine, call } => {
@@ -866,7 +605,7 @@ pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder +
 }
 
 fn custom_value_op(
-    plugin: &impl StreamingPlugin,
+    plugin: &impl Plugin,
     engine: &EngineInterface,
     custom_value: Spanned<PluginCustomValue>,
     op: CustomValueOp,
@@ -929,13 +668,14 @@ fn custom_value_op(
     }
 }
 
-fn print_help(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder) {
+fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
 
     let mut help = String::new();
 
-    plugin.signature().iter().for_each(|signature| {
+    plugin.commands().into_iter().for_each(|command| {
+        let signature = command.signature();
         let res = write!(help, "\nCommand: {}", signature.sig.name)
             .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.sig.usage))
             .and_then(|_| {

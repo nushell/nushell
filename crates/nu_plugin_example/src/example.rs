@@ -1,26 +1,10 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError};
-use nu_protocol::{record, Value};
+use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_protocol::Value;
+
 pub struct Example;
 
 impl Example {
-    pub fn config(
-        &self,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-    ) -> Result<Value, LabeledError> {
-        let config = engine.get_plugin_config()?;
-        match config {
-            Some(config) => Ok(config.clone()),
-            None => Err(LabeledError {
-                label: "No config sent".into(),
-                msg: "Configuration for this plugin was not found in `$env.config.plugins.example`"
-                    .into(),
-                span: Some(call.head),
-            }),
-        }
-    }
-
-    fn print_values(
+    pub fn print_values(
         &self,
         index: u32,
         call: &EvaluatedCall,
@@ -65,76 +49,5 @@ impl Example {
         }
 
         Ok(())
-    }
-
-    pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        self.print_values(1, call, input)?;
-
-        Ok(Value::nothing(call.head))
-    }
-
-    pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        self.print_values(2, call, input)?;
-
-        let vals = (0..10i64)
-            .map(|i| {
-                let record = record! {
-                    "one" => Value::int(i, call.head),
-                    "two" => Value::int(2 * i, call.head),
-                    "three" => Value::int(3 * i, call.head),
-                };
-                Value::record(record, call.head)
-            })
-            .collect();
-
-        Ok(Value::list(vals, call.head))
-    }
-
-    pub fn test3(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        self.print_values(3, call, input)?;
-
-        Err(LabeledError {
-            label: "ERROR from plugin".into(),
-            msg: "error message pointing to call head span".into(),
-            span: Some(call.head),
-        })
-    }
-
-    pub fn env(
-        &self,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-    ) -> Result<Value, LabeledError> {
-        if call.has_flag("cwd")? {
-            // Get working directory
-            Ok(Value::string(engine.get_current_dir()?, call.head))
-        } else if let Some(name) = call.opt::<String>(0)? {
-            // Get single env var
-            Ok(engine
-                .get_env_var(name)?
-                .unwrap_or(Value::nothing(call.head)))
-        } else {
-            // Get all env vars, converting the map to a record
-            Ok(Value::record(
-                engine.get_env_vars()?.into_iter().collect(),
-                call.head,
-            ))
-        }
-    }
-
-    pub fn disable_gc(
-        &self,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-    ) -> Result<Value, LabeledError> {
-        let disabled = !call.has_flag("reset")?;
-        engine.set_gc_disabled(disabled)?;
-        Ok(Value::string(
-            format!(
-                "The plugin garbage collector for `example` is now *{}*.",
-                if disabled { "disabled" } else { "enabled" }
-            ),
-            call.head,
-        ))
     }
 }

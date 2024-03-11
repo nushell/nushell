@@ -1,11 +1,23 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
+use nu_plugin::{
+    EngineInterface, EvaluatedCall, LabeledError, Plugin, PluginCommand, SimplePluginCommand,
+};
 use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
 
-impl Plugin for Inc {
-    fn signature(&self) -> Vec<PluginSignature> {
-        vec![PluginSignature::build("inc")
+pub struct IncPlugin;
+
+impl Plugin for IncPlugin {
+    fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+        vec![Box::new(Inc::new())]
+    }
+}
+
+impl SimplePluginCommand for Inc {
+    type Plugin = IncPlugin;
+
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("inc")
             .usage("Increment a value or version. Optionally use the column of a table.")
             .optional("cell_path", SyntaxShape::CellPath, "cell path to update")
             .switch(
@@ -22,20 +34,16 @@ impl Plugin for Inc {
                 "patch",
                 "increment the patch version (eg 1.2.1 -> 1.2.2)",
                 Some('p'),
-            )]
+            )
     }
 
     fn run(
         &self,
-        name: &str,
+        _plugin: &IncPlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        if name != "inc" {
-            return Ok(Value::nothing(call.head));
-        }
-
         let mut inc = self.clone();
 
         let cell_path: Option<CellPath> = call.opt(0)?;

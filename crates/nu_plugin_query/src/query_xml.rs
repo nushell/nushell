@@ -1,10 +1,36 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, Record, Span, Spanned, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_protocol::{record, Category, PluginSignature, Record, Span, Spanned, SyntaxShape, Value};
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
 
+use crate::Query;
+
+pub struct QueryXml;
+
+impl SimplePluginCommand for QueryXml {
+    type Plugin = Query;
+
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("query xml")
+            .usage("execute xpath query on xml")
+            .required("query", SyntaxShape::String, "xpath query")
+            .category(Category::Filters)
+    }
+
+    fn run(
+        &self,
+        _plugin: &Query,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let query: Option<Spanned<String>> = call.opt(0)?;
+
+        execute_xpath_query(call, input, query)
+    }
+}
+
 pub fn execute_xpath_query(
-    _name: &str,
     call: &EvaluatedCall,
     input: &Value,
     query: Option<Spanned<String>>,
@@ -131,7 +157,7 @@ mod tests {
             span: Span::test_data(),
         };
 
-        let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
+        let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
             vec![Value::test_record(record! {
                 "count(//a/*[posit..." => Value::test_float(1.0),
@@ -160,7 +186,7 @@ mod tests {
             span: Span::test_data(),
         };
 
-        let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
+        let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
             vec![Value::test_record(record! {
                 "count(//*[contain..." => Value::test_float(1.0),
