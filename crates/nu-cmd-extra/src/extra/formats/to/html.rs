@@ -91,7 +91,8 @@ impl Command for ToHtml {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::Any, Type::String)])
+            .allow_variants_without_examples(true)
             .switch("html-color", "change ansi colors to html colors", Some('c'))
             .switch("no-color", "remove all ansi colors in output", Some('n'))
             .switch(

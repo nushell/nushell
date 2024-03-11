@@ -1,11 +1,9 @@
 use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, VirtualPath, Visibility,
-    PWD_ENV,
+    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
+    Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{
-    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, Variable, VirtualPathId,
-};
+use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
 use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};

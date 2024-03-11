@@ -80,8 +80,7 @@ fn can_get_describe_plugin_custom_values() {
 }
 
 // There are currently no custom values defined by the engine that aren't hidden behind an extra
-// feature, both database and dataframes are hidden behind --features=extra so we need to guard
-// this test
+// feature
 #[cfg(feature = "sqlite")]
 #[test]
 fn fails_if_passing_engine_custom_values_to_plugins() {

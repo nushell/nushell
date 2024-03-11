@@ -2,12 +2,14 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use super::{
+    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
+};
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
 use crate::{
     BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
+    ShellError, Signature, Span, Type, VarId, VirtualPathId,
 };
 use crate::{Category, Value};
 use std::collections::HashMap;
@@ -64,37 +66,6 @@ impl Clone for IsDebugging {
 ///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
-///
-/// A note on implementation:
-///
-/// Much of the global definitions are built on the Bodil's 'im' crate. This gives us a way of working with
-/// lists of definitions in a way that is very cheap to access, while also allowing us to update them at
-/// key points in time (often, the transition between parsing and evaluation).
-///
-/// Over the last two years we tried a few different approaches to global state like this. I'll list them
-/// here for posterity, so we can more easily know how we got here:
-///
-/// * `Rc` - Rc is cheap, but not thread-safe. The moment we wanted to work with external processes, we
-/// needed a way send to stdin/stdout. In Rust, the current practice is to spawn a thread to handle both.
-/// These threads would need access to the global state, as they'll need to process data as it streams out
-/// of the data pipeline. Because Rc isn't thread-safe, this breaks.
-///
-/// * `Arc` - Arc is the thread-safe version of the above. Often Arc is used in combination with a Mutex or
-/// RwLock, but you can use Arc by itself. We did this a few places in the original Nushell. This *can* work
-/// but because of Arc's nature of not allowing mutation if there's a second copy of the Arc around, this
-/// ultimately becomes limiting.
-///
-/// * `Arc` + `Mutex/RwLock` - the standard practice for thread-safe containers. Unfortunately, this would
-/// have meant we would incur a lock penalty every time we needed to access any declaration or block. As we
-/// would be reading far more often than writing, it made sense to explore solutions that favor large amounts
-/// of reads.
-///
-/// * `im` - the `im` crate was ultimately chosen because it has some very nice properties: it gives the
-/// ability to cheaply clone these structures, which is nice as EngineState may need to be cloned a fair bit
-/// to follow ownership rules for closures and iterators. It also is cheap to access. Favoring reads here fits
-/// more closely to what we need with Nushell. And, of course, it's still thread-safe, so we get the same
-/// benefits as above.
-///
 #[derive(Clone)]
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,

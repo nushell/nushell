@@ -1,44 +1,40 @@
 mod custom_value;
+mod duration;
+mod filesize;
 mod from;
 mod from_value;
 mod glob;
 mod lazy_record;
 mod range;
-mod stream;
-mod unit;
 
 pub mod record;
+pub use custom_value::CustomValue;
+pub use duration::*;
+pub use filesize::*;
+pub use from_value::FromValue;
+pub use glob::*;
+pub use lazy_record::LazyRecord;
+pub use range::*;
+pub use record::Record;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
 use crate::engine::{Closure, EngineState};
 use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
 
-use byte_unit::UnitType;
-use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
-pub use custom_value::CustomValue;
 use fancy_regex::Regex;
-pub use from_value::FromValue;
-pub use glob::*;
-pub use lazy_record::LazyRecord;
 use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
-use nu_utils::{
-    contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
-};
-use num_format::ToFormattedString;
-pub use range::*;
-pub use record::Record;
+use nu_utils::{contains_emoji, locale::get_system_locale_string, IgnoreCaseExt};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
 use std::{
     borrow::Cow,
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::Display,
     path::PathBuf,
     {cmp::Ordering, fmt::Debug},
 };
-pub use stream::*;
-pub use unit::*;
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
@@ -3696,278 +3692,14 @@ fn reorder_record_inner(record: &Record) -> (Vec<&String>, Vec<&Value>) {
     kv_pairs.into_iter().unzip()
 }
 
+// TODO: The name of this function is overly broad with partial compatibility
+// Should be replaced by an explicitly named helper on `Type` (take `Any` into account)
 fn type_compatible(a: Type, b: Type) -> bool {
     if a == b {
         return true;
     }
 
     matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
-}
-
-#[derive(Clone, Copy)]
-pub enum TimePeriod {
-    Nanos(i64),
-    Micros(i64),
-    Millis(i64),
-    Seconds(i64),
-    Minutes(i64),
-    Hours(i64),
-    Days(i64),
-    Weeks(i64),
-    Months(i64),
-    Years(i64),
-}
-
-impl TimePeriod {
-    pub fn to_text(self) -> Cow<'static, str> {
-        match self {
-            Self::Nanos(n) => format!("{n} ns").into(),
-            Self::Micros(n) => format!("{n} µs").into(),
-            Self::Millis(n) => format!("{n} ms").into(),
-            Self::Seconds(n) => format!("{n} sec").into(),
-            Self::Minutes(n) => format!("{n} min").into(),
-            Self::Hours(n) => format!("{n} hr").into(),
-            Self::Days(n) => format!("{n} day").into(),
-            Self::Weeks(n) => format!("{n} wk").into(),
-            Self::Months(n) => format!("{n} month").into(),
-            Self::Years(n) => format!("{n} yr").into(),
-        }
-    }
-}
-
-impl Display for TimePeriod {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.to_text())
-    }
-}
-
-pub fn format_duration(duration: i64) -> String {
-    let (sign, periods) = format_duration_as_timeperiod(duration);
-
-    let text = periods
-        .into_iter()
-        .map(|p| p.to_text().to_string().replace(' ', ""))
-        .collect::<Vec<String>>();
-
-    format!(
-        "{}{}",
-        if sign == -1 { "-" } else { "" },
-        text.join(" ").trim()
-    )
-}
-
-pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
-    // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
-    // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
-    // Current duration doesn't know a date it's based on, weeks is the max time unit it can normalize into.
-    // Don't guess or estimate how many years or months it might contain.
-
-    let (sign, duration) = if duration >= 0 {
-        (1, duration)
-    } else {
-        (-1, -duration)
-    };
-
-    let dur = Duration::nanoseconds(duration);
-
-    /// Split this a duration into number of whole weeks and the remainder
-    fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
-        let weeks = duration.num_weeks();
-        normalize_split(weeks, Duration::try_weeks(weeks), duration)
-    }
-
-    /// Split this a duration into number of whole days and the remainder
-    fn split_days(duration: Duration) -> (Option<i64>, Duration) {
-        let days = duration.num_days();
-        normalize_split(days, Duration::try_days(days), duration)
-    }
-
-    /// Split this a duration into number of whole hours and the remainder
-    fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
-        let hours = duration.num_hours();
-        normalize_split(hours, Duration::try_hours(hours), duration)
-    }
-
-    /// Split this a duration into number of whole minutes and the remainder
-    fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
-        let minutes = duration.num_minutes();
-        normalize_split(minutes, Duration::try_minutes(minutes), duration)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
-        let seconds = duration.num_seconds();
-        normalize_split(seconds, Duration::try_seconds(seconds), duration)
-    }
-
-    /// Split this a duration into number of whole milliseconds and the remainder
-    fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let millis = duration.num_milliseconds();
-        normalize_split(millis, Duration::try_milliseconds(millis), duration)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let micros = duration.num_microseconds().unwrap_or_default();
-        normalize_split(micros, Duration::microseconds(micros), duration)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let nanos = duration.num_nanoseconds().unwrap_or_default();
-        normalize_split(nanos, Duration::nanoseconds(nanos), duration)
-    }
-
-    fn normalize_split(
-        wholes: i64,
-        wholes_duration: impl Into<Option<Duration>>,
-        total_duration: Duration,
-    ) -> (Option<i64>, Duration) {
-        match wholes_duration.into() {
-            Some(wholes_duration) if wholes != 0 => {
-                (Some(wholes), total_duration - wholes_duration)
-            }
-            _ => (None, total_duration),
-        }
-    }
-
-    let mut periods = vec![];
-
-    let (weeks, remainder) = split_weeks(dur);
-    if let Some(weeks) = weeks {
-        periods.push(TimePeriod::Weeks(weeks));
-    }
-
-    let (days, remainder) = split_days(remainder);
-    if let Some(days) = days {
-        periods.push(TimePeriod::Days(days));
-    }
-
-    let (hours, remainder) = split_hours(remainder);
-    if let Some(hours) = hours {
-        periods.push(TimePeriod::Hours(hours));
-    }
-
-    let (minutes, remainder) = split_minutes(remainder);
-    if let Some(minutes) = minutes {
-        periods.push(TimePeriod::Minutes(minutes));
-    }
-
-    let (seconds, remainder) = split_seconds(remainder);
-    if let Some(seconds) = seconds {
-        periods.push(TimePeriod::Seconds(seconds));
-    }
-
-    let (millis, remainder) = split_milliseconds(remainder);
-    if let Some(millis) = millis {
-        periods.push(TimePeriod::Millis(millis));
-    }
-
-    let (micros, remainder) = split_microseconds(remainder);
-    if let Some(micros) = micros {
-        periods.push(TimePeriod::Micros(micros));
-    }
-
-    let (nanos, _remainder) = split_nanoseconds(remainder);
-    if let Some(nanos) = nanos {
-        periods.push(TimePeriod::Nanos(nanos));
-    }
-
-    if periods.is_empty() {
-        periods.push(TimePeriod::Seconds(0));
-    }
-
-    (sign, periods)
-}
-
-pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
-    // We need to take into account config.filesize_metric so, if someone asks for KB
-    // and filesize_metric is false, return KiB
-    format_filesize(
-        num_bytes,
-        config.filesize_format.as_str(),
-        Some(config.filesize_metric),
-    )
-}
-
-// filesize_metric is explicit when printed a value according to user config;
-// other places (such as `format filesize`) don't.
-pub fn format_filesize(
-    num_bytes: i64,
-    format_value: &str,
-    filesize_metric: Option<bool>,
-) -> String {
-    // Allow the user to specify how they want their numbers formatted
-
-    // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
-    // and is always B.
-    let filesize_unit = get_filesize_format(format_value, filesize_metric);
-    let byte = byte_unit::Byte::from_u64(num_bytes.unsigned_abs());
-    let adj_byte = if let Some(unit) = filesize_unit {
-        byte.get_adjusted_unit(unit)
-    } else {
-        // When filesize_metric is None, format_value should never be "auto", so this
-        // unwrap_or() should always work.
-        byte.get_appropriate_unit(if filesize_metric.unwrap_or(false) {
-            UnitType::Decimal
-        } else {
-            UnitType::Binary
-        })
-    };
-
-    match adj_byte.get_unit() {
-        byte_unit::Unit::B => {
-            let locale = get_system_locale();
-            let locale_byte = adj_byte.get_value() as u64;
-            let locale_byte_string = locale_byte.to_formatted_string(&locale);
-            let locale_signed_byte_string = if num_bytes.is_negative() {
-                format!("-{locale_byte_string}")
-            } else {
-                locale_byte_string
-            };
-
-            if filesize_unit.is_none() {
-                format!("{locale_signed_byte_string} B")
-            } else {
-                locale_signed_byte_string
-            }
-        }
-        _ => {
-            if num_bytes.is_negative() {
-                format!("-{:.1}", adj_byte)
-            } else {
-                format!("{:.1}", adj_byte)
-            }
-        }
-    }
-}
-
-/// Get the filesize unit, or None if format is "auto"
-fn get_filesize_format(
-    format_value: &str,
-    filesize_metric: Option<bool>,
-) -> Option<byte_unit::Unit> {
-    // filesize_metric always overrides the unit of filesize_format.
-    let metric = filesize_metric.unwrap_or(!format_value.ends_with("ib"));
-    macro_rules! either {
-        ($metric:ident, $binary:ident) => {
-            Some(if metric {
-                byte_unit::Unit::$metric
-            } else {
-                byte_unit::Unit::$binary
-            })
-        };
-    }
-    match format_value {
-        "b" => Some(byte_unit::Unit::B),
-        "kb" | "kib" => either!(KB, KiB),
-        "mb" | "mib" => either!(MB, MiB),
-        "gb" | "gib" => either!(GB, GiB),
-        "tb" | "tib" => either!(TB, TiB),
-        "pb" | "pib" => either!(TB, TiB),
-        "eb" | "eib" => either!(EB, EiB),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -4049,10 +3781,8 @@ mod tests {
 
     mod into_string {
         use chrono::{DateTime, FixedOffset};
-        use rstest::rstest;
 
         use super::*;
-        use crate::format_filesize;
 
         #[test]
         fn test_datetime() {
@@ -4080,22 +3810,6 @@ mod tests {
             // it is relative to current time.
             let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
-        }
-
-        #[rstest]
-        #[case(1000, Some(true), "auto", "1.0 KB")]
-        #[case(1000, Some(false), "auto", "1,000 B")]
-        #[case(1000, Some(false), "kb", "1.0 KiB")]
-        #[case(3000, Some(false), "auto", "2.9 KiB")]
-        #[case(3_000_000, None, "auto", "2.9 MiB")]
-        #[case(3_000_000, None, "kib", "2929.7 KiB")]
-        fn test_filesize(
-            #[case] val: i64,
-            #[case] filesize_metric: Option<bool>,
-            #[case] filesize_format: String,
-            #[case] exp: &str,
-        ) {
-            assert_eq!(exp, format_filesize(val, &filesize_format, filesize_metric));
         }
     }
 }
