@@ -1,4 +1,7 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use nu_engine::get_eval_block_with_early_return;
 use nu_protocol::{
@@ -19,6 +22,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_config(&self) -> Result<Config, ShellError>;
     /// Get plugin configuration
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError>;
+    /// Get an environment variable from `$env`
+    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError>;
+    /// Get all environment variables
+    fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -110,6 +117,14 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
             }))
     }
 
+    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError> {
+        Ok(self.stack.get_env_var(&self.engine_state, name))
+    }
+
+    fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
+        Ok(self.stack.get_env_vars(&self.engine_state))
+    }
+
     fn eval_closure(
         &self,
         closure: Spanned<Closure>,
@@ -188,6 +203,18 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
 
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
         Ok(None)
+    }
+
+    fn get_env_var(&self, _name: &str) -> Result<Option<Value>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_env_var not implemented on bogus".into(),
+        })
+    }
+
+    fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_env_vars not implemented on bogus".into(),
+        })
     }
 
     fn eval_closure(

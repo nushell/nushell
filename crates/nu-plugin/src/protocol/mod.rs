@@ -8,6 +8,8 @@ mod tests;
 #[cfg(test)]
 pub(crate) mod test_util;
 
+use std::collections::HashMap;
+
 pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{
     engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError, Span, Spanned,
@@ -385,6 +387,10 @@ pub enum EngineCall<D> {
     GetConfig,
     /// Get the plugin-specific configuration (`$env.config.plugins.NAME`)
     GetPluginConfig,
+    /// Get an environment variable
+    GetEnvVar(String),
+    /// Get all environment variables
+    GetEnvVars,
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -408,6 +414,8 @@ impl<D> EngineCall<D> {
         match self {
             EngineCall::GetConfig => "GetConfig",
             EngineCall::GetPluginConfig => "GetPluginConfig",
+            EngineCall::GetEnvVar(_) => "GetEnv",
+            EngineCall::GetEnvVars => "GetEnvs",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
@@ -420,6 +428,7 @@ pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),
     Config(Box<Config>),
+    ValueMap(HashMap<String, Value>),
 }
 
 impl EngineCallResponse<PipelineData> {

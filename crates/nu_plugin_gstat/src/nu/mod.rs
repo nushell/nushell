@@ -13,7 +13,7 @@ impl Plugin for GStat {
     fn run(
         &self,
         name: &str,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
@@ -23,6 +23,6 @@ impl Plugin for GStat {
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
         // eprintln!("input value: {:#?}", &input);
-        self.gstat(input, repo_path, call.head)
+        engine.with_current_dir(|| self.gstat(input, repo_path, call.head))
     }
 }
