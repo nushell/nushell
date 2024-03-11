@@ -245,7 +245,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Closure(_) => "closure".to_string(),
         Expr::DateTime(_) => "datetime".to_string(),
         Expr::Directory(_, _) => "directory".to_string(),
-        Expr::ExternalCall(_, _, _) => "external call".to_string(),
+        Expr::ExternalCall(_, _) => "external call".to_string(),
         Expr::Filepath(_, _) => "filepath".to_string(),
         Expr::Float(_) => "float".to_string(),
         Expr::FullCellPath(full_cell_path) => {

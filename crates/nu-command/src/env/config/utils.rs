@@ -35,6 +35,5 @@ pub(crate) fn gen_command(
         out: IoStream::Inherit,
         err: IoStream::Inherit,
         env_vars: env_vars_str,
-        trim_end_newline: false,
     }
 }

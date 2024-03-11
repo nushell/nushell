@@ -62,7 +62,7 @@ fn exec(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let mut external_command = create_external_command(engine_state, stack, call, false)?;
+    let mut external_command = create_external_command(engine_state, stack, call)?;
     external_command.out = IoStream::Inherit;
     external_command.err = IoStream::Inherit;
 

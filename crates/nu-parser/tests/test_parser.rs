@@ -105,7 +105,7 @@ fn compare_rhs_binaryOp(
                 "{test_tag}: Expected: {expected:#?}, observed: {observed:#?}"
             )
         }
-        Expr::ExternalCall(e, _, _) => {
+        Expr::ExternalCall(e, _) => {
             let observed_expr = &e.expr;
             assert_eq!(
                 expected, observed_expr,

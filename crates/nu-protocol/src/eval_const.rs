@@ -319,7 +319,6 @@ impl Eval for EvalConst {
         _: &mut (),
         _: &Expression,
         _: &[ExternalArgument],
-        _: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: It may be more helpful to give not_a_const_command error

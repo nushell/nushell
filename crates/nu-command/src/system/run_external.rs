@@ -69,7 +69,55 @@ impl Command for External {
             });
         }
 
-        let command = create_external_command(engine_state, stack, call, trim_end_newline)?;
+        if trim_end_newline {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated flag".into(),
+                    msg: "`--trim-end-newline` is deprecated".into(),
+                    span: Some(call.arguments_span()),
+                    help: Some("`run-external` removes a trailing new line by default".into()),
+                    inner: vec![],
+                },
+            );
+        }
+
+        if combine_out_err {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated flag".into(),
+                    msg: "`--redirect-combine` is deprecated".into(),
+                    span: Some(call.arguments_span()),
+                    help: Some("Use the `o+e>|` pipe redirection instead".into()),
+                    inner: vec![],
+                },
+            );
+        } else if redirect_stdout {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated flag".into(),
+                    msg: "`--redirect-stdout` is deprecated".into(),
+                    span: Some(call.arguments_span()),
+                    help: Some("`run-external` will redirect stdout if there is a pipe `|`".into()),
+                    inner: vec![],
+                },
+            );
+        } else if redirect_stderr {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated flag".into(),
+                    msg: "`--redirect-stderr` is deprecated".into(),
+                    span: Some(call.arguments_span()),
+                    help: Some("Use the `e>|` stderr pipe redirection instead".into()),
+                    inner: vec![],
+                },
+            );
+        }
+
+        let command = create_external_command(engine_state, stack, call)?;
 
         command.run_with_input(engine_state, stack, input, false)
     }
@@ -83,7 +131,12 @@ impl Command for External {
             },
             Example {
                 description: "Redirect stdout from an external command into the pipeline",
-                example: r#"run-external --redirect-stdout "echo" "-n" "hello" | split chars"#,
+                example: r#"run-external "echo" "-n" "hello" | split chars"#,
+                result: None,
+            },
+            Example {
+                description: "Redirect stderr from an external command into the pipeline",
+                example: r#"run-external "nu" "-c" "print -e hello" e>| split chars"#,
                 result: None,
             },
         ]
@@ -95,7 +148,6 @@ pub fn create_external_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
@@ -165,7 +217,6 @@ pub fn create_external_command(
         out: stack.stdout().clone(),
         err: stack.stderr().clone(),
         env_vars: env_vars_str,
-        trim_end_newline,
     })
 }
 
@@ -177,7 +228,6 @@ pub struct ExternalCommand {
     pub out: IoStream,
     pub err: IoStream,
     pub env_vars: HashMap<String, String>,
-    pub trim_end_newline: bool,
 }
 
 impl ExternalCommand {
@@ -527,7 +577,7 @@ impl ExternalCommand {
                     )),
                     span: head,
                     metadata: None,
-                    trim_end_newline: self.trim_end_newline,
+                    trim_end_newline: true,
                 })
             }
         }

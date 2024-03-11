@@ -303,11 +303,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
     }
 }
 
-pub fn parse_external_call(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    is_subexpression: bool,
-) -> Expression {
+pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     trace!("parse external");
 
     let mut args = vec![];
@@ -324,7 +320,7 @@ pub fn parse_external_call(
 
     let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
         // the expression is inside external_call, so it's a subexpression
-        let arg = parse_expression(working_set, &[head_span], true);
+        let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
     } else {
         let (contents, err) = unescape_unquote_string(&head_contents, head_span);
@@ -346,7 +342,7 @@ pub fn parse_external_call(
     }
 
     Expression {
-        expr: Expr::ExternalCall(head, args, is_subexpression),
+        expr: Expr::ExternalCall(head, args),
         span: span(spans),
         ty: Type::Any,
         custom_completion: None,
@@ -709,7 +705,7 @@ pub fn parse_multispan_value(
 
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
-            let arg = parse_expression(working_set, &spans[*spans_idx..], false);
+            let arg = parse_expression(working_set, &spans[*spans_idx..]);
             *spans_idx = spans.len() - 1;
 
             arg
@@ -1096,12 +1092,7 @@ pub fn parse_internal_call(
     }
 }
 
-pub fn parse_call(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    head: Span,
-    is_subexpression: bool,
-) -> Expression {
+pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span) -> Expression {
     trace!("parsing: call");
 
     if spans.is_empty() {
@@ -1180,7 +1171,7 @@ pub fn parse_call(
 
         let parsed_call = if let Some(alias) = decl.as_alias() {
             if let Expression {
-                expr: Expr::ExternalCall(head, args, is_subexpression),
+                expr: Expr::ExternalCall(head, args),
                 span: _,
                 ty,
                 custom_completion,
@@ -1199,7 +1190,7 @@ pub fn parse_call(
                 head.span = spans[0]; // replacing the spans preserves syntax highlighting
 
                 return Expression {
-                    expr: Expr::ExternalCall(head, final_args, *is_subexpression),
+                    expr: Expr::ExternalCall(head, final_args),
                     span: span(spans),
                     ty: ty.clone(),
                     custom_completion: *custom_completion,
@@ -1247,7 +1238,7 @@ pub fn parse_call(
         trace!("parsing: external call");
 
         // Otherwise, try external command
-        parse_external_call(working_set, spans, is_subexpression)
+        parse_external_call(working_set, spans)
     }
 }
 
@@ -4863,7 +4854,7 @@ pub fn parse_math_expression(
     if first_span == b"if" || first_span == b"match" {
         // If expression
         if spans.len() > 1 {
-            return parse_call(working_set, spans, spans[0], false);
+            return parse_call(working_set, spans, spans[0]);
         } else {
             working_set.error(ParseError::Expected(
                 "expression",
@@ -4938,7 +4929,7 @@ pub fn parse_math_expression(
         // allow `if` to be a special value for assignment.
 
         if content == b"if" || content == b"match" {
-            let rhs = parse_call(working_set, &spans[idx..], spans[0], false);
+            let rhs = parse_call(working_set, &spans[idx..], spans[0]);
             expr_stack.push(op);
             expr_stack.push(rhs);
             break;
@@ -5057,11 +5048,7 @@ pub fn parse_math_expression(
         .expect("internal error: expression stack empty")
 }
 
-pub fn parse_expression(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    is_subexpression: bool,
-) -> Expression {
+pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     trace!("parsing: expression");
 
     let mut pos = 0;
@@ -5136,7 +5123,7 @@ pub fn parse_expression(
                     spans[0],
                 ));
 
-                parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                parse_call(working_set, &spans[pos..], spans[0])
             }
             b"let" | b"const" | b"mut" => {
                 working_set.error(ParseError::AssignInPipeline(
@@ -5154,19 +5141,19 @@ pub fn parse_expression(
                     .to_string(),
                     spans[0],
                 ));
-                parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                parse_call(working_set, &spans[pos..], spans[0])
             }
             b"overlay" => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
                     // whitelist 'overlay list'
-                    parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                    parse_call(working_set, &spans[pos..], spans[0])
                 } else {
                     working_set.error(ParseError::BuiltinCommandInPipeline(
                         "overlay".into(),
                         spans[0],
                     ));
 
-                    parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                    parse_call(working_set, &spans[pos..], spans[0])
                 }
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
@@ -5177,10 +5164,10 @@ pub fn parse_expression(
                     spans[0],
                 ));
 
-                parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                parse_call(working_set, &spans[pos..], spans[0])
             }
 
-            _ => parse_call(working_set, &spans[pos..], spans[0], is_subexpression),
+            _ => parse_call(working_set, &spans[pos..], spans[0]),
         }
     };
 
@@ -5251,7 +5238,6 @@ pub fn parse_variable(working_set: &mut StateWorkingSet, span: Span) -> Option<V
 pub fn parse_builtin_commands(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
-    is_subexpression: bool,
 ) -> Pipeline {
     trace!("parsing: builtin commands");
     if !is_math_expression_like(working_set, lite_command.parts[0])
@@ -5264,12 +5250,7 @@ pub fn parse_builtin_commands(
             if cmd.is_alias() {
                 // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
                 // because alias can have any name, therefore, we can't check for "aliasable" keywords.
-                let call_expr = parse_call(
-                    working_set,
-                    &lite_command.parts,
-                    lite_command.parts[0],
-                    is_subexpression,
-                );
+                let call_expr = parse_call(working_set, &lite_command.parts, lite_command.parts[0]);
 
                 if let Expression {
                     expr: Expr::Call(call),
@@ -5310,7 +5291,7 @@ pub fn parse_builtin_commands(
                 working_set.error(redirecting_builtin_error("overlay", redirection));
                 return garbage_pipeline(&lite_command.parts);
             }
-            parse_keyword(working_set, lite_command, is_subexpression)
+            parse_keyword(working_set, lite_command)
         }
         b"source" | b"source-env" => parse_source(working_set, lite_command),
         b"export" => parse_export_in_block(working_set, lite_command),
@@ -5319,7 +5300,7 @@ pub fn parse_builtin_commands(
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, lite_command),
         _ => {
-            let element = parse_pipeline_element(working_set, lite_command, is_subexpression);
+            let element = parse_pipeline_element(working_set, lite_command);
 
             Pipeline {
                 elements: vec![element],
@@ -5501,11 +5482,10 @@ pub(crate) fn parse_redirection(
 fn parse_pipeline_element(
     working_set: &mut StateWorkingSet,
     command: &LiteCommand,
-    is_subexpression: bool,
 ) -> PipelineElement {
     trace!("parsing: pipeline element");
 
-    let expr = parse_expression(working_set, &command.parts, is_subexpression);
+    let expr = parse_expression(working_set, &command.parts);
 
     let redirection = command
         .redirection
@@ -5575,8 +5555,7 @@ pub fn parse_pipeline(
                     new_command.parts.truncate(3);
                     new_command.parts.push(rhs_span);
 
-                    let mut pipeline =
-                        parse_builtin_commands(working_set, &new_command, is_subexpression);
+                    let mut pipeline = parse_builtin_commands(working_set, &new_command);
 
                     if pipeline_index == 0 {
                         let let_decl_id = working_set.find_decl(b"let");
@@ -5629,7 +5608,7 @@ pub fn parse_pipeline(
         let mut elements = pipeline
             .commands
             .iter()
-            .map(|element| parse_pipeline_element(working_set, element, is_subexpression))
+            .map(|element| parse_pipeline_element(working_set, element))
             .collect::<Vec<_>>();
 
         if is_subexpression {
@@ -5658,8 +5637,7 @@ pub fn parse_pipeline(
             }
         }
 
-        let mut pipeline =
-            parse_builtin_commands(working_set, &pipeline.commands[0], is_subexpression);
+        let mut pipeline = parse_builtin_commands(working_set, &pipeline.commands[0]);
 
         let let_decl_id = working_set.find_decl(b"let");
         let mut_decl_id = working_set.find_decl(b"mut");
@@ -5994,7 +5972,7 @@ pub fn discover_captures_in_expr(
         }
         Expr::CellPath(_) => {}
         Expr::DateTime(_) => {}
-        Expr::ExternalCall(head, args, _) => {
+        Expr::ExternalCall(head, args) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 
             for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {

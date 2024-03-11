@@ -215,7 +215,6 @@ fn eval_external(
     head: &Expression,
     args: &[ExternalArgument],
     input: PipelineData,
-    is_subexpression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
@@ -232,17 +231,6 @@ fn eval_external(
             ExternalArgument::Regular(expr) => call.add_positional(expr.clone()),
             ExternalArgument::Spread(expr) => call.add_spread(expr.clone()),
         }
-    }
-
-    if is_subexpression {
-        call.add_named((
-            Spanned {
-                item: "trim-end-newline".into(),
-                span: head.span,
-            },
-            None,
-            None,
-        ))
     }
 
     command.run(engine_state, stack, &call, input)
@@ -273,8 +261,8 @@ pub fn eval_expression_with_input<D: DebugContext>(
         Expr::Call(call) => {
             input = eval_call::<D>(engine_state, stack, call, input)?;
         }
-        Expr::ExternalCall(head, args, is_subexpression) => {
-            input = eval_external(engine_state, stack, head, args, input, *is_subexpression)?;
+        Expr::ExternalCall(head, args) => {
+            input = eval_external(engine_state, stack, head, args, input)?;
         }
 
         Expr::Subexpression(block_id) => {
@@ -684,20 +672,11 @@ impl Eval for EvalRuntime {
         stack: &mut Stack,
         head: &Expression,
         args: &[ExternalArgument],
-        is_subexpression: bool,
         _: Span,
     ) -> Result<Value, ShellError> {
         let span = head.span;
         // FIXME: protect this collect with ctrl-c
-        Ok(eval_external(
-            engine_state,
-            stack,
-            head,
-            args,
-            PipelineData::empty(),
-            is_subexpression,
-        )?
-        .into_value(span))
+        Ok(eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span))
     }
 
     fn eval_subexpression<D: DebugContext>(

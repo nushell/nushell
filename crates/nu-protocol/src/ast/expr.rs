@@ -25,7 +25,7 @@ pub enum Expr {
     Var(VarId),
     VarDecl(VarId),
     Call(Box<Call>),
-    ExternalCall(Box<Expression>, Vec<ExternalArgument>, bool), // head, args, is_subexpression
+    ExternalCall(Box<Expression>, Vec<ExternalArgument>), // head, args
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),
@@ -110,7 +110,7 @@ impl Expr {
                 // but if they are, then the pipeline output could be used.
                 (None, None)
             }
-            Expr::ExternalCall(_, _, _) => {
+            Expr::ExternalCall(_, _) => {
                 // No override necessary, pipes will always be created in eval
                 (None, None)
             }

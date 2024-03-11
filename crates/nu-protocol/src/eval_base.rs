@@ -145,8 +145,8 @@ pub trait Eval {
                 }),
             },
             Expr::Call(call) => Self::eval_call::<D>(state, mut_state, call, expr.span),
-            Expr::ExternalCall(head, args, is_subexpression) => {
-                Self::eval_external_call(state, mut_state, head, args, *is_subexpression, expr.span)
+            Expr::ExternalCall(head, args) => {
+                Self::eval_external_call(state, mut_state, head, args, expr.span)
             }
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr.span)
@@ -338,7 +338,6 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         head: &Expression,
         args: &[ExternalArgument],
-        is_subexpression: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 

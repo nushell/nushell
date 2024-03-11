@@ -88,17 +88,8 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
 
 /// This is a new more compact method of calling parse_xxx() functions without repeating the
 /// parse_call() in each function. Remaining keywords can be moved here.
-pub fn parse_keyword(
-    working_set: &mut StateWorkingSet,
-    lite_command: &LiteCommand,
-    is_subexpression: bool,
-) -> Pipeline {
-    let call_expr = parse_call(
-        working_set,
-        &lite_command.parts,
-        lite_command.parts[0],
-        is_subexpression,
-    );
+pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    let call_expr = parse_call(working_set, &lite_command.parts, lite_command.parts[0]);
 
     // if err.is_some() {
     //     return (Pipeline::from_vec(vec![call_expr]), err);
@@ -924,7 +915,7 @@ pub fn parse_alias(
             {
                 // TODO: Maybe we need to implement a Display trait for Expression?
                 let starting_error_count = working_set.parse_errors.len();
-                let expr = parse_expression(working_set, replacement_spans, false);
+                let expr = parse_expression(working_set, replacement_spans);
                 working_set.parse_errors.truncate(starting_error_count);
 
                 let msg = format!("{:?}", expr.expr);
@@ -940,12 +931,7 @@ pub fn parse_alias(
             let starting_error_count = working_set.parse_errors.len();
             working_set.search_predecls = false;
 
-            let expr = parse_call(
-                working_set,
-                replacement_spans,
-                replacement_spans[0],
-                false, // TODO: Should this be set properly???
-            );
+            let expr = parse_call(working_set, replacement_spans, replacement_spans[0]);
 
             working_set.search_predecls = true;
 

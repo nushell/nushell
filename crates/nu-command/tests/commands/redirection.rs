@@ -358,7 +358,7 @@ fn redirection_with_out_pipe() {
             r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
         );
 
-        assert_eq!(actual.out, "8");
+        assert_eq!(actual.out, "7");
         // check for stderr redirection file.
         let expected_out_file = dirs.test().join("tmp_file");
         let actual_len = file_contents(expected_out_file).len();
@@ -376,7 +376,7 @@ fn redirection_with_err_pipe() {
             r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out> tmp_file e>| str length"#,
         );
 
-        assert_eq!(actual.out, "8");
+        assert_eq!(actual.out, "7");
         // check for stdout redirection file.
         let expected_out_file = dirs.test().join("tmp_file");
         let actual_len = file_contents(expected_out_file).len();
