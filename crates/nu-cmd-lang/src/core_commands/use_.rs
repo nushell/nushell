@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env};
+use nu_engine::{find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression};
+
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
@@ -116,6 +117,8 @@ This command is a parser keyword. For details, check:
                     let file_path = Value::string(file_path.to_string_lossy(), call.head);
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
+
+                let eval_block = get_eval_block(engine_state);
 
                 // Run the block (discard the result)
                 let _ = eval_block(

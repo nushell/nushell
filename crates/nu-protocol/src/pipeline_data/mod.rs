@@ -1,12 +1,18 @@
+mod metadata;
+mod stream;
+
+pub use metadata::*;
+pub use stream::*;
+
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, ListStream, RawStream, ShellError, Span, Value,
+    format_error, Config, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
+use std::io::Write;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
-use std::{io::Write, path::PathBuf};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -52,18 +58,6 @@ pub enum PipelineData {
         trim_end_newline: bool,
     },
     Empty,
-}
-
-#[derive(Debug, Clone)]
-pub struct PipelineMetadata {
-    pub data_source: DataSource,
-}
-
-#[derive(Debug, Clone)]
-pub enum DataSource {
-    Ls,
-    HtmlThemes,
-    FilePath(PathBuf),
 }
 
 impl PipelineData {

@@ -1,5 +1,6 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
@@ -84,6 +85,7 @@ impl Command for EachWhile {
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),

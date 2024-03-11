@@ -9,7 +9,7 @@ fn creates_the_resulting_string_from_the_given_fields() {
         r#"
         open cargo_sample.toml
             | get package
-            | format "{name} has license {license}"
+            | format pattern "{name} has license {license}"
         "#
     ));
 
@@ -18,7 +18,7 @@ fn creates_the_resulting_string_from_the_given_fields() {
 
 #[test]
 fn format_input_record_output_string() {
-    let actual = nu!(r#"{name: Downloads} | format "{name}""#);
+    let actual = nu!(r#"{name: Downloads} | format pattern "{name}""#);
 
     assert_eq!(actual.out, "Downloads");
 }
@@ -29,7 +29,7 @@ fn given_fields_can_be_column_paths() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
         open cargo_sample.toml
-            | format "{package.name} is {package.description}"
+            | format pattern "{package.name} is {package.description}"
         "#
     ));
 
@@ -42,7 +42,7 @@ fn can_use_variables() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
         open cargo_sample.toml
-            | format "{$it.package.name} is {$it.package.description}"
+            | format pattern "{$it.package.name} is {$it.package.description}"
         "#
     ));
 
@@ -55,7 +55,7 @@ fn error_unmatched_brace() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
         open cargo_sample.toml
-            | format "{$it.package.name"
+            | format pattern "{$it.package.name"
         "#
     ));
 

@@ -1,6 +1,6 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
 
 impl Plugin for Inc {
@@ -26,9 +26,9 @@ impl Plugin for Inc {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        _config: &Option<Value>,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
@@ -36,20 +36,22 @@ impl Plugin for Inc {
             return Ok(Value::nothing(call.head));
         }
 
+        let mut inc = self.clone();
+
         let cell_path: Option<CellPath> = call.opt(0)?;
 
-        self.cell_path = cell_path;
+        inc.cell_path = cell_path;
 
         if call.has_flag("major")? {
-            self.for_semver(SemVerAction::Major);
+            inc.for_semver(SemVerAction::Major);
         }
         if call.has_flag("minor")? {
-            self.for_semver(SemVerAction::Minor);
+            inc.for_semver(SemVerAction::Minor);
         }
         if call.has_flag("patch")? {
-            self.for_semver(SemVerAction::Patch);
+            inc.for_semver(SemVerAction::Patch);
         }
 
-        self.inc(call.head, input)
+        inc.inc(call.head, input)
     }
 }

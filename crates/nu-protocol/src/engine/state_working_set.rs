@@ -1,15 +1,19 @@
 use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, VirtualPath, Visibility,
-    PWD_ENV,
+    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
+    Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{
-    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, Variable, VirtualPathId,
-};
+use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
 use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+
+#[cfg(feature = "plugin")]
+use std::sync::Arc;
+
+#[cfg(feature = "plugin")]
+use crate::{PluginIdentity, RegisteredPlugin};
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -153,6 +157,28 @@ impl<'a> StateWorkingSet<'a> {
     #[cfg(feature = "plugin")]
     pub fn mark_plugins_file_dirty(&mut self) {
         self.delta.plugins_changed = true;
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn find_or_create_plugin(
+        &mut self,
+        identity: &PluginIdentity,
+        make: impl FnOnce() -> Arc<dyn RegisteredPlugin>,
+    ) -> Arc<dyn RegisteredPlugin> {
+        // Check in delta first, then permanent_state
+        if let Some(plugin) = self
+            .delta
+            .plugins
+            .iter()
+            .chain(self.permanent_state.plugins())
+            .find(|p| p.identity() == identity)
+        {
+            plugin.clone()
+        } else {
+            let plugin = make();
+            self.delta.plugins.push(plugin.clone());
+            plugin
+        }
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {

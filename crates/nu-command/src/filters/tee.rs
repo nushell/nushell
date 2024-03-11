@@ -1,6 +1,6 @@
 use std::{sync::mpsc, thread};
 
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -82,6 +82,8 @@ use it in your pipeline."#
 
         let metadata = input.metadata();
         let metadata_clone = metadata.clone();
+
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         match input {
             // Handle external streams specially, to make sure they pass through

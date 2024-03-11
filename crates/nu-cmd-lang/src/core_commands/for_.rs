@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, eval_expression, CallExt};
+use nu_engine::{get_eval_block, get_eval_expression, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -70,6 +71,10 @@ impl Command for For {
             .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
+
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_block = get_eval_block(engine_state);
+
         let values = eval_expression(engine_state, stack, keyword_expr)?;
 
         let block: Block = call.req(engine_state, stack, 2)?;
@@ -104,7 +109,6 @@ impl Command for For {
                         },
                     );
 
-                    //let block = engine_state.get_block(block_id);
                     match eval_block(
                         &engine_state,
                         stack,
@@ -150,7 +154,6 @@ impl Command for For {
                         },
                     );
 
-                    //let block = engine_state.get_block(block_id);
                     match eval_block(
                         &engine_state,
                         stack,

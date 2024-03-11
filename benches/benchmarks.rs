@@ -1,9 +1,11 @@
-use nu_cli::eval_source;
+use nu_cli::{eval_source, evaluate_commands};
 use nu_parser::parse;
 use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    engine::EngineState, eval_const::create_nu_constant, PipelineData, Span, Value, NU_VARIABLE_ID,
+    engine::EngineState, eval_const::create_nu_constant, PipelineData, Span, Spanned, Value,
+    NU_VARIABLE_ID,
 };
+use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
 use std::path::{Path, PathBuf};
 
@@ -57,6 +59,140 @@ fn setup_engine() -> EngineState {
 // an executable for every single one - incredibly slowly. Would be nice to figure out
 // a way to split things up again.
 
+#[divan::bench]
+fn load_standard_lib(bencher: divan::Bencher) {
+    let engine = setup_engine();
+    bencher
+        .with_inputs(|| engine.clone())
+        .bench_values(|mut engine| {
+            load_standard_library(&mut engine).unwrap();
+        })
+}
+
+#[divan::bench_group]
+mod eval_commands {
+    use super::*;
+
+    #[divan::bench(args = [100, 1_000, 10_000])]
+    fn interleave(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore")
+                .to_string(),
+        };
+
+        bencher
+            .with_inputs(|| engine.clone())
+            .bench_values(|mut engine| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut nu_protocol::engine::Stack::new(),
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn for_range(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("(for $x in (1..{}) {{ sleep 50ns }})", n).to_string(),
+        };
+        let stack = nu_protocol::engine::Stack::new();
+
+        bencher
+            .with_inputs(|| (engine.clone(), stack.clone()))
+            .bench_values(|(mut engine, mut stack)| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut stack,
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn each(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("(1..{}) | each {{|_| sleep 50ns }} | ignore", n).to_string(),
+        };
+        let stack = nu_protocol::engine::Stack::new();
+
+        bencher
+            .with_inputs(|| (engine.clone(), stack.clone()))
+            .bench_values(|(mut engine, mut stack)| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut stack,
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn par_each_1t(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("(1..{}) | par-each -t 1 {{|_| sleep 50ns }} | ignore", n).to_string(),
+        };
+        let stack = nu_protocol::engine::Stack::new();
+
+        bencher
+            .with_inputs(|| (engine.clone(), stack.clone()))
+            .bench_values(|(mut engine, mut stack)| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut stack,
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn par_each_2t(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("(1..{}) | par-each -t 2 {{|_| sleep 50ns }} | ignore", n).to_string(),
+        };
+        let stack = nu_protocol::engine::Stack::new();
+
+        bencher
+            .with_inputs(|| (engine.clone(), stack.clone()))
+            .bench_values(|(mut engine, mut stack)| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut stack,
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+}
+
 #[divan::bench_group()]
 mod parser_benchmarks {
     use super::*;
@@ -68,7 +204,7 @@ mod parser_benchmarks {
 
         bencher
             .with_inputs(|| nu_protocol::engine::StateWorkingSet::new(&engine_state))
-            .bench_refs(|mut working_set| parse(&mut working_set, None, default_env, false))
+            .bench_refs(|working_set| parse(working_set, None, default_env, false))
     }
 
     #[divan::bench()]
@@ -78,7 +214,7 @@ mod parser_benchmarks {
 
         bencher
             .with_inputs(|| nu_protocol::engine::StateWorkingSet::new(&engine_state))
-            .bench_refs(|mut working_set| parse(&mut working_set, None, default_env, false))
+            .bench_refs(|working_set| parse(working_set, None, default_env, false))
     }
 }
 
@@ -146,7 +282,7 @@ mod encoding_benchmarks {
         );
         let encoder = EncodingType::try_from_bytes(b"json").unwrap();
         bencher
-            .with_inputs(|| (vec![]))
+            .with_inputs(Vec::new)
             .bench_values(|mut res| encoder.encode(&test_data, &mut res))
     }
 
@@ -158,7 +294,7 @@ mod encoding_benchmarks {
         );
         let encoder = EncodingType::try_from_bytes(b"msgpack").unwrap();
         bencher
-            .with_inputs(|| (vec![]))
+            .with_inputs(Vec::new)
             .bench_values(|mut res| encoder.encode(&test_data, &mut res))
     }
 }

@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
@@ -146,7 +147,7 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
             }
         }
 
-        let pipeline_result = eval_block(
+        let pipeline_result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut stack,
             block,

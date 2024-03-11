@@ -27,6 +27,9 @@ import sys
 import json
 
 
+NUSHELL_VERSION = "0.91.1"
+
+
 def signatures():
     """
     Multiple signatures can be sent to Nushell. Each signature will be registered
@@ -175,7 +178,7 @@ def tell_nushell_hello():
     hello = {
         "Hello": {
             "protocol": "nu-plugin", # always this value
-            "version": "0.90.2",
+            "version": NUSHELL_VERSION,
             "features": []
         }
     }
@@ -216,7 +219,10 @@ def write_error(id, msg, span=None):
 
 def handle_input(input):
     if "Hello" in input:
-        return
+        if input["Hello"]["version"] != NUSHELL_VERSION:
+            exit(1)
+        else:
+            return
     elif input == "Goodbye":
         return
     elif "Call" in input:

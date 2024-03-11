@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
-use nu_engine::eval_expression;
+use nu_engine::get_eval_expression;
 use nu_engine::CallExt;
 use nu_protocol::IntoSpanned;
 use nu_protocol::NuGlob;
@@ -132,6 +132,8 @@ pub fn create_external_command(
                 span,
             })
     }
+
+    let eval_expression = get_eval_expression(engine_state);
 
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];

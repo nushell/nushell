@@ -16,7 +16,7 @@
 //! invoked by Nushell.
 //!
 //! ```rust,no_run
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, serve_plugin};
+//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, EngineInterface, serve_plugin};
 //! use nu_protocol::{PluginSignature, Value};
 //!
 //! struct MyPlugin;
@@ -26,9 +26,9 @@
 //!         todo!();
 //!     }
 //!     fn run(
-//!         &mut self,
+//!         &self,
 //!         name: &str,
-//!         config: &Option<Value>,
+//!         engine: &EngineInterface,
 //!         call: &EvaluatedCall,
 //!         input: &Value
 //!     ) -> Result<Value, LabeledError> {
@@ -37,7 +37,7 @@
 //! }
 //!
 //! fn main() {
-//!    serve_plugin(&mut MyPlugin{}, MsgPackSerializer)
+//!    serve_plugin(&MyPlugin{}, MsgPackSerializer)
 //! }
 //! ```
 //!
@@ -49,13 +49,13 @@ mod protocol;
 mod sequence;
 mod serializers;
 
-pub use plugin::{serve_plugin, Plugin, PluginEncoder, StreamingPlugin};
+pub use plugin::{serve_plugin, EngineInterface, Plugin, PluginEncoder, StreamingPlugin};
 pub use protocol::{EvaluatedCall, LabeledError};
 pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 // Used by other nu crates.
 #[doc(hidden)]
-pub use plugin::{get_signature, PluginDeclaration};
+pub use plugin::{get_signature, PersistentPlugin, PluginDeclaration};
 #[doc(hidden)]
 pub use serializers::EncodingType;
 

@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
@@ -91,8 +89,14 @@ pub trait Command: Send + Sync + CommandClone {
         false
     }
 
-    // Is a plugin command (returns plugin's path, type of shell if the declaration is a plugin)
-    fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
+    /// Is a plugin command
+    fn is_plugin(&self) -> bool {
+        false
+    }
+
+    /// The identity of the plugin, if this is a plugin command
+    #[cfg(feature = "plugin")]
+    fn plugin_identity(&self) -> Option<&crate::PluginIdentity> {
         None
     }
 
@@ -118,7 +122,7 @@ pub trait Command: Send + Sync + CommandClone {
             self.is_parser_keyword(),
             self.is_known_external(),
             self.is_alias(),
-            self.is_plugin().is_some(),
+            self.is_plugin(),
         ) {
             (true, false, false, false, false, false) => CommandType::Builtin,
             (true, true, false, false, false, false) => CommandType::Custom,

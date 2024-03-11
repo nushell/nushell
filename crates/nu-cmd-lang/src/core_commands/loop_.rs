@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
@@ -33,6 +34,7 @@ impl Command for Loop {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let block: Block = call.req(engine_state, stack, 0)?;
+        let eval_block = get_eval_block(engine_state);
 
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
@@ -40,6 +42,7 @@ impl Command for Loop {
             }
 
             let block = engine_state.get_block(block.block_id);
+
             match eval_block(
                 engine_state,
                 stack,

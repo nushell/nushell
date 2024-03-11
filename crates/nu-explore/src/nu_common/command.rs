@@ -1,5 +1,6 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, ShellError, Value,
@@ -90,5 +91,5 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    eval_block(engine_state, stack, &block, input, true, true)
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input, true, true)
 }

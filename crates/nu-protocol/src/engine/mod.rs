@@ -8,6 +8,7 @@ mod stack;
 mod state_delta;
 mod state_working_set;
 mod usage;
+mod variable;
 
 pub use call_info::*;
 pub use capture_block::*;
@@ -18,3 +19,4 @@ pub use pattern_match::*;
 pub use stack::*;
 pub use state_delta::*;
 pub use state_working_set::*;
+pub use variable::*;

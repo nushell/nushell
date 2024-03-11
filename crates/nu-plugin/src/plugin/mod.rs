@@ -1,33 +1,48 @@
-mod declaration;
-pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
-use std::collections::HashMap;
+
 use std::ffi::OsStr;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::TrySendError;
+use std::sync::{mpsc, Arc, Mutex};
 
 use crate::plugin::interface::{EngineInterfaceManager, ReceivedPluginCall};
-use crate::protocol::{CallInfo, CustomValueOp, LabeledError, PluginInput, PluginOutput};
+use crate::protocol::{
+    CallInfo, CustomValueOp, LabeledError, PluginCustomValue, PluginInput, PluginOutput,
+};
 use crate::EncodingType;
-use std::env;
 use std::fmt::Write;
 use std::io::{BufReader, Read, Write as WriteTrait};
 use std::path::Path;
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
+use std::{env, thread};
 
-use nu_protocol::{PipelineData, PluginSignature, ShellError, Value};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
-mod interface;
-pub(crate) use interface::PluginInterface;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
-mod context;
-pub(crate) use context::PluginExecutionCommandContext;
+use nu_protocol::{PipelineData, PluginSignature, ShellError, Spanned, Value};
 
-mod identity;
-pub(crate) use identity::PluginIdentity;
-
-use self::interface::{InterfaceManager, PluginInterfaceManager};
+use self::gc::PluginGc;
 
 use super::EvaluatedCall;
+
+mod context;
+mod declaration;
+mod gc;
+mod interface;
+mod persistent;
+mod source;
+
+pub use declaration::PluginDeclaration;
+pub use interface::EngineInterface;
+pub use persistent::PersistentPlugin;
+
+pub(crate) use context::PluginExecutionCommandContext;
+pub(crate) use interface::PluginInterface;
+pub(crate) use source::PluginSource;
+
+use interface::{InterfaceManager, PluginInterfaceManager};
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
@@ -115,12 +130,19 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     // Both stdout and stdin are piped so we can receive information from the plugin
     process.stdout(Stdio::piped()).stdin(Stdio::piped());
 
+    // The plugin should be run in a new process group to prevent Ctrl-C from stopping it
+    #[cfg(unix)]
+    process.process_group(0);
+    #[cfg(windows)]
+    process.creation_flags(windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP.0);
+
     process
 }
 
 fn make_plugin_interface(
     mut child: Child,
-    identity: Arc<PluginIdentity>,
+    source: Arc<PluginSource>,
+    gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {
     let stdin = child
         .stdin
@@ -140,7 +162,9 @@ fn make_plugin_interface(
 
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
 
-    let mut manager = PluginInterfaceManager::new(identity, (Mutex::new(stdin), encoder));
+    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(stdin), encoder));
+    manager.set_garbage_collector(gc);
+
     let interface = manager.get_interface();
     interface.hello()?;
 
@@ -148,7 +172,10 @@ fn make_plugin_interface(
     // we write, because we are expected to be able to handle multiple messages coming in from the
     // plugin at any time, including stream messages like `Drop`.
     std::thread::Builder::new()
-        .name("plugin interface reader".into())
+        .name(format!(
+            "plugin interface reader ({})",
+            source.identity.name()
+        ))
         .spawn(move || {
             if let Err(err) = manager.consume_all((reader, encoder)) {
                 log::warn!("Error in PluginInterfaceManager: {err}");
@@ -166,14 +193,16 @@ fn make_plugin_interface(
 }
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
-pub fn get_signature(
-    path: &Path,
-    shell: Option<&Path>,
-    current_envs: &HashMap<String, String>,
-) -> Result<Vec<PluginSignature>, ShellError> {
-    Arc::new(PluginIdentity::new(path, shell.map(|s| s.to_owned())))
-        .spawn(current_envs)?
-        .get_signature()
+pub fn get_signature<E, K, V>(
+    plugin: Arc<PersistentPlugin>,
+    envs: impl FnOnce() -> Result<E, ShellError>,
+) -> Result<Vec<PluginSignature>, ShellError>
+where
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    plugin.get(envs)?.get_signature()
 }
 
 /// The basic API for a Nushell plugin
@@ -183,6 +212,10 @@ pub fn get_signature(
 ///
 /// If large amounts of data are expected to need to be received or produced, it may be more
 /// appropriate to implement [StreamingPlugin] instead.
+///
+/// The plugin must be able to be safely shared between threads, so that multiple invocations can
+/// be run in parallel. If interior mutability is desired, consider synchronization primitives such
+/// as [mutexes](std::sync::Mutex) and [channels](std::sync::mpsc).
 ///
 /// # Examples
 /// Basic usage:
@@ -200,9 +233,9 @@ pub fn get_signature(
 ///     }
 ///
 ///     fn run(
-///         &mut self,
+///         &self,
 ///         name: &str,
-///         config: &Option<Value>,
+///         engine: &EngineInterface,
 ///         call: &EvaluatedCall,
 ///         input: &Value,
 ///     ) -> Result<Value, LabeledError> {
@@ -211,10 +244,10 @@ pub fn get_signature(
 /// }
 ///
 /// # fn main() {
-/// #     serve_plugin(&mut HelloPlugin{}, MsgPackSerializer)
+/// #     serve_plugin(&HelloPlugin{}, MsgPackSerializer)
 /// # }
 /// ```
-pub trait Plugin {
+pub trait Plugin: Sync {
     /// The signature of the plugin
     ///
     /// This method returns the [PluginSignature]s that describe the capabilities
@@ -234,12 +267,15 @@ pub trait Plugin {
     /// metadata describing how the plugin was invoked and `input` contains the structured
     /// data passed to the command implemented by this [Plugin].
     ///
+    /// `engine` provides an interface back to the Nushell engine. See [`EngineInterface`] docs for
+    /// details on what methods are available.
+    ///
     /// This variant does not support streaming. Consider implementing [StreamingPlugin] instead
     /// if streaming is desired.
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
@@ -270,9 +306,9 @@ pub trait Plugin {
 ///     }
 ///
 ///     fn run(
-///         &mut self,
+///         &self,
 ///         name: &str,
-///         config: &Option<Value>,
+///         engine: &EngineInterface,
 ///         call: &EvaluatedCall,
 ///         input: PipelineData,
 ///     ) -> Result<PipelineData, LabeledError> {
@@ -287,10 +323,10 @@ pub trait Plugin {
 /// }
 ///
 /// # fn main() {
-/// #     serve_plugin(&mut LowercasePlugin{}, MsgPackSerializer)
+/// #     serve_plugin(&LowercasePlugin{}, MsgPackSerializer)
 /// # }
 /// ```
-pub trait StreamingPlugin {
+pub trait StreamingPlugin: Sync {
     /// The signature of the plugin
     ///
     /// This method returns the [PluginSignature]s that describe the capabilities
@@ -315,9 +351,9 @@ pub trait StreamingPlugin {
     /// potentially large quantities of bytes. The API is more complex however, and [Plugin] is
     /// recommended instead if this is not a concern.
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError>;
@@ -331,9 +367,9 @@ impl<T: Plugin> StreamingPlugin for T {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
@@ -342,7 +378,7 @@ impl<T: Plugin> StreamingPlugin for T {
         let span = input.span().unwrap_or(call.head);
         let input_value = input.into_value(span);
         // Wrap the output in PipelineData::Value
-        <Self as Plugin>::run(self, name, config, call, &input_value)
+        <Self as Plugin>::run(self, name, engine, call, &input_value)
             .map(|value| PipelineData::Value(value, None))
     }
 }
@@ -360,14 +396,14 @@ impl<T: Plugin> StreamingPlugin for T {
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
 /// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
-/// #     fn run(&mut self, name: &str, config: &Option<Value>, call: &EvaluatedCall, input: &Value)
+/// #     fn run(&self, name: &str, engine: &EngineInterface, call: &EvaluatedCall, input: &Value)
 /// #         -> Result<Value, LabeledError> {todo!();}
 /// # }
 /// fn main() {
-///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
+///    serve_plugin(&MyPlugin::new(), MsgPackSerializer)
 /// }
 /// ```
-pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncoder + 'static) {
+pub fn serve_plugin(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder + 'static) {
     let mut args = env::args().skip(1);
     let number_of_args = args.len();
     let first_arg = args.next();
@@ -471,8 +507,13 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
                 // Do our best to report the read error. Most likely there is some kind of
                 // incompatibility between the plugin and nushell, so it makes more sense to try to
                 // report it on stderr than to send something.
+                //
+                // Don't report a `PluginFailedToLoad` error, as it's probably just from Hello
+                // version mismatch which the engine side would also report.
 
-                eprintln!("Plugin `{plugin_name_clone}` read error: {err}");
+                if !matches!(err, ShellError::PluginFailedToLoad { .. }) {
+                    eprintln!("Plugin `{plugin_name_clone}` read error: {err}");
+                }
                 std::process::exit(1);
             }
         })
@@ -482,61 +523,95 @@ pub fn serve_plugin(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncod
             std::process::exit(1);
         });
 
-    for plugin_call in call_receiver {
-        match plugin_call {
-            // Sending the signature back to nushell to create the declaration definition
-            ReceivedPluginCall::Signature { engine } => {
-                try_or_report!(engine, engine.write_signature(plugin.signature()));
-            }
-            // Run the plugin, handling any input or output streams
-            ReceivedPluginCall::Run {
-                engine,
-                call:
-                    CallInfo {
-                        name,
-                        config,
-                        call,
-                        input,
-                    },
-            } => {
-                let result = plugin.run(&name, &config, &call, input);
-                let write_result = engine
-                    .write_response(result)
-                    .and_then(|writer| writer.write_background());
-                try_or_report!(engine, write_result);
-            }
-            // Do an operation on a custom value
-            ReceivedPluginCall::CustomValueOp {
-                engine,
-                custom_value,
-                op,
-            } => {
-                let local_value = try_or_report!(
-                    engine,
-                    custom_value
-                        .item
-                        .deserialize_to_custom_value(custom_value.span)
-                );
-                match op {
-                    CustomValueOp::ToBaseValue => {
-                        let result = local_value
-                            .to_base_value(custom_value.span)
-                            .map(|value| PipelineData::Value(value, None));
-                        let write_result = engine
-                            .write_response(result)
-                            .and_then(|writer| writer.write_background());
-                        try_or_report!(engine, write_result);
+    // Handle each Run plugin call on a thread
+    thread::scope(|scope| {
+        let run = |engine, call_info| {
+            let CallInfo { name, call, input } = call_info;
+            let result = plugin.run(&name, &engine, &call, input);
+            let write_result = engine
+                .write_response(result)
+                .and_then(|writer| writer.write());
+            try_or_report!(engine, write_result);
+        };
+
+        // As an optimization: create one thread that can be reused for Run calls in sequence
+        let (run_tx, run_rx) = mpsc::sync_channel(0);
+        thread::Builder::new()
+            .name("plugin runner (primary)".into())
+            .spawn_scoped(scope, move || {
+                for (engine, call) in run_rx {
+                    run(engine, call);
+                }
+            })
+            .unwrap_or_else(|err| {
+                // If we fail to spawn the runner thread, we should exit
+                eprintln!("Plugin `{plugin_name}` failed to launch: {err}");
+                std::process::exit(1);
+            });
+
+        for plugin_call in call_receiver {
+            match plugin_call {
+                // Sending the signature back to nushell to create the declaration definition
+                ReceivedPluginCall::Signature { engine } => {
+                    try_or_report!(engine, engine.write_signature(plugin.signature()));
+                }
+                // Run the plugin on a background thread, handling any input or output streams
+                ReceivedPluginCall::Run { engine, call } => {
+                    // Try to run it on the primary thread
+                    match run_tx.try_send((engine, call)) {
+                        Ok(()) => (),
+                        // If the primary thread isn't ready, spawn a secondary thread to do it
+                        Err(TrySendError::Full((engine, call)))
+                        | Err(TrySendError::Disconnected((engine, call))) => {
+                            let engine_clone = engine.clone();
+                            try_or_report!(
+                                engine_clone,
+                                thread::Builder::new()
+                                    .name("plugin runner (secondary)".into())
+                                    .spawn_scoped(scope, move || run(engine, call))
+                                    .map_err(ShellError::from)
+                            );
+                        }
                     }
+                }
+                // Do an operation on a custom value
+                ReceivedPluginCall::CustomValueOp {
+                    engine,
+                    custom_value,
+                    op,
+                } => {
+                    try_or_report!(engine, custom_value_op(&engine, custom_value, op));
                 }
             }
         }
-    }
+    });
 
     // This will stop the manager
     drop(interface);
 }
 
-fn print_help(plugin: &mut impl StreamingPlugin, encoder: impl PluginEncoder) {
+fn custom_value_op(
+    engine: &EngineInterface,
+    custom_value: Spanned<PluginCustomValue>,
+    op: CustomValueOp,
+) -> Result<(), ShellError> {
+    let local_value = custom_value
+        .item
+        .deserialize_to_custom_value(custom_value.span)?;
+    match op {
+        CustomValueOp::ToBaseValue => {
+            let result = local_value
+                .to_base_value(custom_value.span)
+                .map(|value| PipelineData::Value(value, None));
+            engine
+                .write_response(result)
+                .and_then(|writer| writer.write_background())?;
+            Ok(())
+        }
+    }
+}
+
+fn print_help(plugin: &impl StreamingPlugin, encoder: impl PluginEncoder) {
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
 

@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -70,6 +71,9 @@ not supported."#
 
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
+
+        let eval_block = get_eval_block(&engine_state);
+
         Ok(input
             .into_iter_strict(span)?
             .filter_map(move |value| {
@@ -80,6 +84,7 @@ not supported."#
                         stack.add_var(*var_id, value.clone());
                     }
                 }
+
                 let result = eval_block(
                     &engine_state,
                     &mut stack,

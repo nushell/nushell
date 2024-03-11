@@ -5,43 +5,43 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cli"
 edition = "2021"
 license = "MIT"
 name = "nu-cli"
-version = "0.90.2"
+version = "0.91.1"
 
 [lib]
 bench = false
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.90.2" }
-nu-command = { path = "../nu-command", version = "0.90.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.90.2" }
-rstest = { version = "0.18.1", default-features = false }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
+nu-command = { path = "../nu-command", version = "0.91.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.91.1" }
+rstest = { workspace = true, default-features = false }
 
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.90.2" }
-nu-engine = { path = "../nu-engine", version = "0.90.2" }
-nu-path = { path = "../nu-path", version = "0.90.2" }
-nu-parser = { path = "../nu-parser", version = "0.90.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.90.2" }
-nu-utils = { path = "../nu-utils", version = "0.90.2" }
-nu-color-config = { path = "../nu-color-config", version = "0.90.2" }
-nu-ansi-term = "0.50.0"
-reedline = { version = "0.29.0", features = ["bashisms", "sqlite"] }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.91.1" }
+nu-engine = { path = "../nu-engine", version = "0.91.1" }
+nu-path = { path = "../nu-path", version = "0.91.1" }
+nu-parser = { path = "../nu-parser", version = "0.91.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
+nu-utils = { path = "../nu-utils", version = "0.91.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.91.1" }
+nu-ansi-term = { workspace = true }
+reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
-chrono = { default-features = false, features = ["std"], version = "0.4" }
-crossterm = "0.27"
-fancy-regex = "0.13"
+chrono = { default-features = false, features = ["std"], workspace = true }
+crossterm = { workspace = true }
+fancy-regex = { workspace = true }
 fuzzy-matcher = "0.3"
 is_executable = "1.0"
-log = "0.4"
-miette = { version = "7.1", features = ["fancy-no-backtrace"] }
+log = { workspace = true }
+miette = { workspace = true, features = ["fancy-no-backtrace"] }
 lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
-once_cell = "1.18"
-percent-encoding = "2"
-pathdiff = "0.2"
-sysinfo = "0.30"
-unicode-segmentation = "1.11"
-uuid = { version = "1.6.0", features = ["v4"] }
-which = "6.0.0"
+once_cell = { workspace = true }
+percent-encoding = { workspace = true }
+pathdiff = { workspace = true }
+sysinfo = { workspace = true }
+unicode-segmentation = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+which = { workspace = true }
 
 [features]
 plugin = []

@@ -1,7 +1,7 @@
 mod from;
 
 use from::{eml, ics, ini, vcf};
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{Category, PluginSignature, SyntaxShape, Type, Value};
 
 pub struct FromCmds;
@@ -39,9 +39,9 @@ impl Plugin for FromCmds {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        _config: &Option<Value>,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {

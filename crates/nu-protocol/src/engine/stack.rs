@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
@@ -36,6 +37,10 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: u64,
+
+    pub parent_stack: Option<Arc<Stack>>,
+    /// Variables that have been deleted (this is used to hide values from parent stack lookups)
+    pub parent_deletions: Vec<VarId>,
 }
 
 impl Stack {
@@ -46,9 +51,66 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: 0,
+            parent_stack: None,
+            parent_deletions: vec![],
         }
     }
 
+    /// Unwrap a uniquely-owned stack.
+    ///
+    /// In debug mode, this panics if there are multiple references.
+    /// In production this will instead clone the underlying stack.
+    pub fn unwrap_unique(stack_arc: Arc<Stack>) -> Stack {
+        // If you hit an error here, it's likely that you created an extra
+        // Arc pointing to the stack somewhere. Make sure that it gets dropped before
+        // getting here!
+        Arc::try_unwrap(stack_arc).unwrap_or_else(|arc| {
+            // in release mode, we clone the stack, but this can lead to
+            // major performance issues, so we should avoid it
+            debug_assert!(false, "More than one stack reference remaining!");
+            (*arc).clone()
+        })
+    }
+    /// Create a new child stack from a parent.
+    ///
+    /// Changes from this child can be merged back into the parent with
+    /// Stack::with_changes_from_child
+    pub fn with_parent(parent: Arc<Stack>) -> Stack {
+        Stack {
+            // here we are still cloning environment variable-related information
+            env_vars: parent.env_vars.clone(),
+            env_hidden: parent.env_hidden.clone(),
+            active_overlays: parent.active_overlays.clone(),
+            recursion_count: parent.recursion_count,
+            parent_stack: Some(parent),
+            vars: vec![],
+            parent_deletions: vec![],
+        }
+    }
+
+    /// Take an Arc of a parent (assumed to be unique), and a child, and apply
+    /// all the changes from a child back to the parent.
+    ///
+    /// Here it is assumed that child was created with a call to Stack::with_parent
+    /// with parent
+    pub fn with_changes_from_child(parent: Arc<Stack>, mut child: Stack) -> Stack {
+        // we're going to drop the link to the parent stack on our new stack
+        // so that we can unwrap the Arc as a unique reference
+        //
+        // This makes the new_stack be in a bit of a weird state, so we shouldn't call
+        // any structs
+        drop(child.parent_stack);
+        let mut unique_stack = Stack::unwrap_unique(parent);
+
+        unique_stack.vars.append(&mut child.vars);
+        unique_stack.env_vars = child.env_vars;
+        unique_stack.env_hidden = child.env_hidden;
+        unique_stack.active_overlays = child.active_overlays;
+        for item in child.parent_deletions.into_iter() {
+            unique_stack.vars.remove(item);
+        }
+        unique_stack
+    }
     pub fn with_env(
         &mut self,
         env_vars: &[EnvVars],
@@ -64,34 +126,52 @@ impl Stack {
         }
     }
 
-    pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+    /// Lookup a variable, returning None if it is not present
+    fn lookup_var(&self, var_id: VarId) -> Option<Value> {
         for (id, val) in &self.vars {
             if var_id == *id {
-                return Ok(val.clone().with_span(span));
+                return Some(val.clone());
             }
         }
 
-        Err(ShellError::VariableNotFoundAtRuntime { span })
+        if let Some(stack) = &self.parent_stack {
+            if !self.parent_deletions.contains(&var_id) {
+                return stack.lookup_var(var_id);
+            }
+        }
+        None
     }
 
+    /// Lookup a variable, erroring if it is not found
+    ///
+    /// The passed-in span will be used to tag the value
+    pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+        match self.lookup_var(var_id) {
+            Some(v) => Ok(v.with_span(span)),
+            None => Err(ShellError::VariableNotFoundAtRuntime { span }),
+        }
+    }
+
+    /// Lookup a variable, erroring if it is not found
+    ///
+    /// While the passed-in span will be used for errors, the returned value
+    /// has the span from where it was originally defined
     pub fn get_var_with_origin(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
-        for (id, val) in &self.vars {
-            if var_id == *id {
-                return Ok(val.clone());
+        match self.lookup_var(var_id) {
+            Some(v) => Ok(v),
+            None => {
+                if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
+                    return Err(ShellError::GenericError {
+                        error: "Built-in variables `$env` and `$nu` have no metadata".into(),
+                        msg: "no metadata available".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    });
+                }
+                Err(ShellError::VariableNotFoundAtRuntime { span })
             }
         }
-
-        if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
-            return Err(ShellError::GenericError {
-                error: "Built-in variables `$env` and `$nu` have no metadata".into(),
-                msg: "no metadata available".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
-        }
-
-        Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
@@ -109,8 +189,13 @@ impl Stack {
         for (idx, (id, _)) in self.vars.iter().enumerate() {
             if *id == var_id {
                 self.vars.remove(idx);
-                return;
+                break;
             }
+        }
+        // even if we did have it in the original layer, we need to make sure to remove it here
+        // as well (since the previous update might have simply hid the parent value)
+        if self.parent_stack.is_some() {
+            self.parent_deletions.push(var_id);
         }
     }
 
@@ -160,6 +245,8 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
+            parent_stack: None,
+            parent_deletions: vec![],
         }
     }
 
@@ -187,6 +274,8 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count,
+            parent_stack: None,
+            parent_deletions: vec![],
         }
     }
 
@@ -308,7 +397,6 @@ impl Stack {
                 }
             }
         }
-
         None
     }
 
@@ -398,5 +486,109 @@ impl Stack {
 impl Default for Stack {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use crate::{engine::EngineState, Span, Value};
+
+    use super::Stack;
+
+    const ZERO_SPAN: Span = Span { start: 0, end: 0 };
+    fn string_value(s: &str) -> Value {
+        Value::String {
+            val: s.to_string(),
+            internal_span: ZERO_SPAN,
+        }
+    }
+
+    #[test]
+    fn test_children_see_inner_values() {
+        let mut original = Stack::new();
+        original.add_var(0, string_value("hello"));
+
+        let cloned = Stack::with_parent(Arc::new(original));
+        assert_eq!(cloned.get_var(0, ZERO_SPAN), Ok(string_value("hello")));
+    }
+
+    #[test]
+    fn test_children_dont_see_deleted_values() {
+        let mut original = Stack::new();
+        original.add_var(0, string_value("hello"));
+
+        let mut cloned = Stack::with_parent(Arc::new(original));
+        cloned.remove_var(0);
+
+        assert_eq!(
+            cloned.get_var(0, ZERO_SPAN),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+        );
+    }
+
+    #[test]
+    fn test_children_changes_override_parent() {
+        let mut original = Stack::new();
+        original.add_var(0, string_value("hello"));
+
+        let mut cloned = Stack::with_parent(Arc::new(original));
+        cloned.add_var(0, string_value("there"));
+        assert_eq!(cloned.get_var(0, ZERO_SPAN), Ok(string_value("there")));
+
+        cloned.remove_var(0);
+        // the underlying value shouldn't magically re-appear
+        assert_eq!(
+            cloned.get_var(0, ZERO_SPAN),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+        );
+    }
+    #[test]
+    fn test_children_changes_persist_in_offspring() {
+        let mut original = Stack::new();
+        original.add_var(0, string_value("hello"));
+
+        let mut cloned = Stack::with_parent(Arc::new(original));
+        cloned.add_var(1, string_value("there"));
+
+        cloned.remove_var(0);
+        let cloned = Stack::with_parent(Arc::new(cloned));
+
+        assert_eq!(
+            cloned.get_var(0, ZERO_SPAN),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+        );
+
+        assert_eq!(cloned.get_var(1, ZERO_SPAN), Ok(string_value("there")));
+    }
+
+    #[test]
+    fn test_merging_children_back_to_parent() {
+        let mut original = Stack::new();
+        let engine_state = EngineState::new();
+        original.add_var(0, string_value("hello"));
+
+        let original_arc = Arc::new(original);
+        let mut cloned = Stack::with_parent(original_arc.clone());
+        cloned.add_var(1, string_value("there"));
+
+        cloned.remove_var(0);
+
+        cloned.add_env_var("ADDED_IN_CHILD".to_string(), string_value("New Env Var"));
+
+        let original = Stack::with_changes_from_child(original_arc, cloned);
+
+        assert_eq!(
+            original.get_var(0, ZERO_SPAN),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+        );
+
+        assert_eq!(original.get_var(1, ZERO_SPAN), Ok(string_value("there")));
+
+        assert_eq!(
+            original.get_env_var(&engine_state, "ADDED_IN_CHILD"),
+            Some(string_value("New Env Var")),
+        );
     }
 }
