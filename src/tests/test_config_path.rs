@@ -30,7 +30,7 @@ fn setup_fake_config(playground: &mut Playground) -> PathBuf {
     let nushell_real = "nushell_real";
     let nushell_config_dir = Path::new(config_dir).join("nushell").display().to_string();
     playground.mkdir(nushell_real);
-    playground.mkdir(&config_dir);
+    playground.mkdir(config_dir);
     playground.symlink(nushell_real, &nushell_config_dir);
     playground.symlink(config_dir, config_link);
     playground.with_env(
