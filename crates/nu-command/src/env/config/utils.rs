@@ -1,7 +1,7 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::{collections::HashMap, process::Stdio};
 
-use nu_protocol::{Span, Spanned};
+use nu_protocol::{IoStream, Span, Spanned};
 
 use crate::ExternalCommand;
 
@@ -32,8 +32,8 @@ pub(crate) fn gen_command(
         name,
         args,
         arg_keep_raw: vec![false; number_of_args],
-        stdout: Stdio::inherit(),
-        stderr: Stdio::inherit(),
+        out: IoStream::Inherit,
+        err: IoStream::Inherit,
         env_vars: env_vars_str,
     }
 }

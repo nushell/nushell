@@ -3,7 +3,7 @@ use nu_engine::current_dir;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Category, Example, IoStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -62,7 +62,9 @@ fn exec(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let external_command = create_external_command(engine_state, stack, call)?;
+    let mut external_command = create_external_command(engine_state, stack, call)?;
+    external_command.out = IoStream::Inherit;
+    external_command.err = IoStream::Inherit;
 
     let cwd = current_dir(engine_state, stack)?;
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;
