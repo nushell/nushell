@@ -279,7 +279,7 @@ impl ExternalCommand {
                     .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
 
                 if looks_like_cmd_internal {
-                    let (cmd, new_reader) = self.create_process(&input, true, head)?;
+                    let (cmd, new_reader) = self.create_process(stack, &input, true, head)?;
                     reader = new_reader;
                     child = ForegroundChild::spawn(cmd);
                 } else {
@@ -307,8 +307,8 @@ impl ExternalCommand {
                                                 item: file_name.to_string_lossy().to_string(),
                                                 span: self.name.span,
                                             };
-                                            let (cmd, new_reader) =
-                                                new_command.create_process(&input, true, head)?;
+                                            let (cmd, new_reader) = new_command
+                                                .create_process(stack, &input, true, head)?;
                                             reader = new_reader;
                                             child = ForegroundChild::spawn(cmd);
                                         }
