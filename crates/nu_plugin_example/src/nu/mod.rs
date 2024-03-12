@@ -48,6 +48,18 @@ impl Plugin for Example {
                 .category(Category::Experimental)
                 .search_terms(vec!["example".into(), "configuration".into()])
                 .input_output_type(Type::Nothing, Type::Table(vec![])),
+            PluginSignature::build("nu-example-env")
+                .usage("Get environment variable(s)")
+                .extra_usage("Returns all environment variables if no name provided")
+                .category(Category::Experimental)
+                .optional(
+                    "name",
+                    SyntaxShape::String,
+                    "The name of the environment variable to get",
+                )
+                .switch("cwd", "Get current working directory instead", None)
+                .search_terms(vec!["example".into(), "env".into()])
+                .input_output_type(Type::Nothing, Type::Any),
             PluginSignature::build("nu-example-disable-gc")
                 .usage("Disable the plugin garbage collector for `example`")
                 .extra_usage(
@@ -85,6 +97,7 @@ using `plugin stop example`.",
             "nu-example-2" => self.test2(call, input),
             "nu-example-3" => self.test3(call, input),
             "nu-example-config" => self.config(engine, call),
+            "nu-example-env" => self.env(engine, call),
             "nu-example-disable-gc" => self.disable_gc(engine, call),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),

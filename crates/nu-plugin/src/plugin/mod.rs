@@ -140,6 +140,12 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     #[cfg(windows)]
     process.creation_flags(windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP.0);
 
+    // In order to make bugs with improper use of filesystem without getting the engine current
+    // directory more obvious, the plugin always starts in the directory of its executable
+    if let Some(dirname) = path.parent() {
+        process.current_dir(dirname);
+    }
+
     process
 }
 

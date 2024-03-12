@@ -1,4 +1,7 @@
-use std::sync::mpsc::{self, TryRecvError};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{self, TryRecvError},
+};
 
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, PipelineData,
@@ -881,6 +884,70 @@ fn interface_get_plugin_config() -> Result<(), ShellError> {
 
     let second_config = interface.get_plugin_config()?;
     assert_eq!(Some(Value::test_int(2)), second_config);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_env_var() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 2, |id| {
+        if id == 0 {
+            EngineCallResponse::empty()
+        } else {
+            EngineCallResponse::value(Value::test_string("/foo"))
+        }
+    });
+
+    let first_val = interface.get_env_var("FOO")?;
+    assert!(first_val.is_none(), "should be None: {first_val:?}");
+
+    let second_val = interface.get_env_var("FOO")?;
+    assert_eq!(Some(Value::test_string("/foo")), second_val);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_current_dir() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::value(Value::test_string("/current/directory"))
+    });
+
+    let val = interface.get_env_var("FOO")?;
+    assert_eq!(Some(Value::test_string("/current/directory")), val);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_env_vars() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    let envs: HashMap<String, Value> = [("FOO".to_owned(), Value::test_string("foo"))]
+        .into_iter()
+        .collect();
+    let envs_clone = envs.clone();
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::ValueMap(envs_clone.clone())
+    });
+
+    let received_envs = interface.get_env_vars()?;
+
+    assert_eq!(envs, received_envs);
 
     assert!(test.has_unconsumed_write());
     Ok(())

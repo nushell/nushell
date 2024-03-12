@@ -1,9 +1,9 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
 use nu_plugin::LabeledError;
-use nu_protocol::{record, Span, Spanned, Value};
+use nu_protocol::{record, IntoSpanned, Span, Spanned, Value};
 use std::fmt::Write;
 use std::ops::BitAnd;
-use std::path::PathBuf;
+use std::path::Path;
 
 // git status
 // https://github.com/git/git/blob/9875c515535860450bafd1a177f64f0a478900fa/Documentation/git-status.txt
@@ -26,6 +26,7 @@ impl GStat {
     pub fn gstat(
         &self,
         value: &Value,
+        current_dir: &str,
         path: Option<Spanned<String>>,
         span: Span,
     ) -> Result<Value, LabeledError> {
@@ -33,89 +34,55 @@ impl GStat {
         // eprintln!("input type: {:?} value: {:#?}", &value.type_id(), &value);
         // eprintln!("path type: {:?} value: {:#?}", &path.type_id(), &path);
 
-        // This is a flag to let us know if we're using the input value (value)
-        // or using the path specified (path)
-        let mut using_input_value = false;
-
-        // let's get the input value as a string
-        let piped_value = match value.coerce_string() {
-            Ok(s) => {
-                using_input_value = true;
-                s
+        // If the path isn't set, get it from input, and failing that, set to "."
+        let path = match path {
+            Some(path) => path,
+            None => {
+                if !value.is_nothing() {
+                    value.coerce_string()?.into_spanned(value.span())
+                } else {
+                    String::from(".").into_spanned(span)
+                }
             }
-            _ => String::new(),
         };
 
-        // now let's get the path string
-        let mut a_path = match path {
-            Some(p) => {
-                // should we check for input and path? nah.
-                using_input_value = false;
-                p
-            }
-            None => Spanned {
-                item: ".".to_string(),
-                span,
-            },
-        };
-
-        // If there was no path specified and there is a piped in value, let's use the piped in value
-        if a_path.item == "." && piped_value.chars().count() > 0 {
-            a_path.item = piped_value;
-        }
+        // Make the path absolute based on the current_dir
+        let absolute_path = Path::new(current_dir).join(&path.item);
 
         // This path has to exist
-        // TODO: If the path is relative, it will be expanded using `std::env::current_dir` and not
-        // the "PWD" environment variable. We would need a way to read the engine's environment
-        // variables here.
-        if !std::path::Path::new(&a_path.item).exists() {
+        if !absolute_path.exists() {
             return Err(LabeledError {
                 label: "error with path".to_string(),
-                msg: format!("path does not exist [{}]", &a_path.item),
-                span: if using_input_value {
-                    Some(value.span())
-                } else {
-                    Some(a_path.span)
-                },
+                msg: format!("path does not exist [{}]", absolute_path.display()),
+                span: Some(path.span),
             });
         }
-        let metadata = std::fs::metadata(&a_path.item).map_err(|e| LabeledError {
+        let metadata = std::fs::metadata(&absolute_path).map_err(|e| LabeledError {
             label: "error with metadata".to_string(),
             msg: format!(
                 "unable to get metadata for [{}], error: {}",
-                &a_path.item, e
+                absolute_path.display(),
+                e
             ),
-            span: if using_input_value {
-                Some(value.span())
-            } else {
-                Some(a_path.span)
-            },
+            span: Some(path.span),
         })?;
 
         // This path has to be a directory
         if !metadata.is_dir() {
             return Err(LabeledError {
                 label: "error with directory".to_string(),
-                msg: format!("path is not a directory [{}]", &a_path.item),
-                span: if using_input_value {
-                    Some(value.span())
-                } else {
-                    Some(a_path.span)
-                },
+                msg: format!("path is not a directory [{}]", absolute_path.display()),
+                span: Some(path.span),
             });
         }
 
-        let repo_path = match PathBuf::from(&a_path.item).canonicalize() {
+        let repo_path = match absolute_path.canonicalize() {
             Ok(p) => p,
             Err(e) => {
                 return Err(LabeledError {
-                    label: format!("error canonicalizing [{}]", a_path.item),
+                    label: format!("error canonicalizing [{}]", absolute_path.display()),
                     msg: e.to_string(),
-                    span: if using_input_value {
-                        Some(value.span())
-                    } else {
-                        Some(a_path.span)
-                    },
+                    span: Some(path.span),
                 });
             }
         };

@@ -490,6 +490,9 @@ impl InterfaceManager for PluginInterfaceManager {
                 let call = match call {
                     EngineCall::GetConfig => Ok(EngineCall::GetConfig),
                     EngineCall::GetPluginConfig => Ok(EngineCall::GetPluginConfig),
+                    EngineCall::GetEnvVar(name) => Ok(EngineCall::GetEnvVar(name)),
+                    EngineCall::GetEnvVars => Ok(EngineCall::GetEnvVars),
+                    EngineCall::GetCurrentDir => Ok(EngineCall::GetCurrentDir),
                     EngineCall::EvalClosure {
                         closure,
                         mut positional,
@@ -599,6 +602,7 @@ impl PluginInterface {
             // No pipeline data:
             EngineCallResponse::Error(err) => (EngineCallResponse::Error(err), None),
             EngineCallResponse::Config(config) => (EngineCallResponse::Config(config), None),
+            EngineCallResponse::ValueMap(map) => (EngineCallResponse::ValueMap(map), None),
         };
 
         // Write the response, including the pipeline data header if present
@@ -734,6 +738,7 @@ impl PluginInterface {
         let (resp, writer) = match resp {
             EngineCallResponse::Error(error) => (EngineCallResponse::Error(error), None),
             EngineCallResponse::Config(config) => (EngineCallResponse::Config(config), None),
+            EngineCallResponse::ValueMap(map) => (EngineCallResponse::ValueMap(map), None),
             EngineCallResponse::PipelineData(data) => {
                 match self.init_write_pipeline_data(data) {
                     Ok((header, writer)) => {
@@ -997,6 +1002,23 @@ pub(crate) fn handle_engine_call(
             let context = require_context()?;
             let plugin_config = context.get_plugin_config()?;
             Ok(plugin_config.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
+        }
+        EngineCall::GetEnvVar(name) => {
+            let context = require_context()?;
+            let value = context.get_env_var(&name)?;
+            Ok(value.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
+        }
+        EngineCall::GetEnvVars => {
+            let context = require_context()?;
+            context.get_env_vars().map(EngineCallResponse::ValueMap)
+        }
+        EngineCall::GetCurrentDir => {
+            let context = require_context()?;
+            let current_dir = context.get_current_dir()?;
+            Ok(EngineCallResponse::value(Value::string(
+                current_dir.item,
+                current_dir.span,
+            )))
         }
         EngineCall::EvalClosure {
             closure,
