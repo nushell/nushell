@@ -8,17 +8,13 @@ use nu_engine::get_eval_block_with_early_return;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Spanned, Value,
 };
 
 use crate::util::MutableCow;
 
 /// Object safe trait for abstracting operations required of the plugin context.
 pub(crate) trait PluginExecutionContext: Send + Sync {
-    /// The [Span] for the command execution (`call.head`)
-    fn command_span(&self) -> Span;
-    /// The name of the command being executed
-    fn command_name(&self) -> &str;
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
     /// Get engine configuration
@@ -71,14 +67,6 @@ impl<'a> PluginExecutionCommandContext<'a> {
 }
 
 impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
-    fn command_span(&self) -> Span {
-        self.call.head
-    }
-
-    fn command_name(&self) -> &str {
-        self.engine_state.get_decl(self.call.decl_id).name()
-    }
-
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
         self.engine_state.ctrlc.as_ref()
     }
@@ -220,14 +208,6 @@ pub(crate) struct PluginExecutionBogusContext;
 
 #[cfg(test)]
 impl PluginExecutionContext for PluginExecutionBogusContext {
-    fn command_span(&self) -> Span {
-        Span::test_data()
-    }
-
-    fn command_name(&self) -> &str {
-        "bogus"
-    }
-
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
         None
     }
