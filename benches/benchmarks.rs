@@ -73,14 +73,12 @@ fn load_standard_lib(bencher: divan::Bencher) {
 mod eval_commands {
     use super::*;
 
-    #[divan::bench(args = [100, 1_000, 10_000])]
-    fn interleave(bencher: divan::Bencher, n: i32) {
+    fn bench_command(bencher: divan::Bencher, scaled_command: String) {
         let mut engine = setup_engine();
         load_standard_library(&mut engine).unwrap();
         let commands = Spanned {
             span: Span::unknown(),
-            item: format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore")
-                .to_string(),
+            item: scaled_command,
         };
 
         bencher
@@ -97,99 +95,41 @@ mod eval_commands {
             })
     }
 
+    #[divan::bench(args = [100, 1_000, 10_000])]
+    fn interleave(bencher: divan::Bencher, n: i32) {
+        bench_command(
+            bencher,
+            format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
+        )
+    }
+
     #[divan::bench(args = [1, 5, 10, 100, 1_000])]
     fn for_range(bencher: divan::Bencher, n: i32) {
-        let mut engine = setup_engine();
-        load_standard_library(&mut engine).unwrap();
-        let commands = Spanned {
-            span: Span::unknown(),
-            item: format!("(for $x in (1..{}) {{ sleep 50ns }})", n).to_string(),
-        };
-        let stack = nu_protocol::engine::Stack::new();
-
-        bencher
-            .with_inputs(|| (engine.clone(), stack.clone()))
-            .bench_values(|(mut engine, mut stack)| {
-                evaluate_commands(
-                    &commands,
-                    &mut engine,
-                    &mut stack,
-                    PipelineData::empty(),
-                    None,
-                )
-                .unwrap();
-            })
+        bench_command(bencher, format!("(for $x in (1..{}) {{ sleep 50ns }})", n))
     }
 
     #[divan::bench(args = [1, 5, 10, 100, 1_000])]
     fn each(bencher: divan::Bencher, n: i32) {
-        let mut engine = setup_engine();
-        load_standard_library(&mut engine).unwrap();
-        let commands = Spanned {
-            span: Span::unknown(),
-            item: format!("(1..{}) | each {{|_| sleep 50ns }} | ignore", n).to_string(),
-        };
-        let stack = nu_protocol::engine::Stack::new();
-
-        bencher
-            .with_inputs(|| (engine.clone(), stack.clone()))
-            .bench_values(|(mut engine, mut stack)| {
-                evaluate_commands(
-                    &commands,
-                    &mut engine,
-                    &mut stack,
-                    PipelineData::empty(),
-                    None,
-                )
-                .unwrap();
-            })
+        bench_command(
+            bencher,
+            format!("(1..{}) | each {{|_| sleep 50ns }} | ignore", n),
+        )
     }
 
     #[divan::bench(args = [1, 5, 10, 100, 1_000])]
     fn par_each_1t(bencher: divan::Bencher, n: i32) {
-        let mut engine = setup_engine();
-        load_standard_library(&mut engine).unwrap();
-        let commands = Spanned {
-            span: Span::unknown(),
-            item: format!("(1..{}) | par-each -t 1 {{|_| sleep 50ns }} | ignore", n).to_string(),
-        };
-        let stack = nu_protocol::engine::Stack::new();
-
-        bencher
-            .with_inputs(|| (engine.clone(), stack.clone()))
-            .bench_values(|(mut engine, mut stack)| {
-                evaluate_commands(
-                    &commands,
-                    &mut engine,
-                    &mut stack,
-                    PipelineData::empty(),
-                    None,
-                )
-                .unwrap();
-            })
+        bench_command(
+            bencher,
+            format!("(1..{}) | par-each -t 1 {{|_| sleep 50ns }} | ignore", n),
+        )
     }
+
     #[divan::bench(args = [1, 5, 10, 100, 1_000])]
     fn par_each_2t(bencher: divan::Bencher, n: i32) {
-        let mut engine = setup_engine();
-        load_standard_library(&mut engine).unwrap();
-        let commands = Spanned {
-            span: Span::unknown(),
-            item: format!("(1..{}) | par-each -t 2 {{|_| sleep 50ns }} | ignore", n).to_string(),
-        };
-        let stack = nu_protocol::engine::Stack::new();
-
-        bencher
-            .with_inputs(|| (engine.clone(), stack.clone()))
-            .bench_values(|(mut engine, mut stack)| {
-                evaluate_commands(
-                    &commands,
-                    &mut engine,
-                    &mut stack,
-                    PipelineData::empty(),
-                    None,
-                )
-                .unwrap();
-            })
+        bench_command(
+            bencher,
+            format!("(1..{}) | par-each -t 2 {{|_| sleep 50ns }} | ignore", n),
+        )
     }
 }
 
