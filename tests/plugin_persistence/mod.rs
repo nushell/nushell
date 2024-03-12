@@ -193,10 +193,6 @@ fn custom_values_can_still_be_collapsed_after_stop() {
 }
 
 #[test]
-#[cfg_attr(
-    target_os = "macos",
-    ignore = "Plugin GC tests are disabled temporarily on macOS because they get stuck"
-)]
 fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
     // I know the test is to stop "immediately", but if we actually check immediately it could
     // lead to a race condition. So there's a 1ms sleep just to be fair.
@@ -232,10 +228,6 @@ fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
 }
 
 #[test]
-#[cfg_attr(
-    target_os = "macos",
-    ignore = "Plugin GC tests are disabled temporarily on macOS because they get stuck"
-)]
 fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
     let out = nu_with_plugins!(
         cwd: ".",
@@ -293,10 +285,6 @@ fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
 }
 
 #[test]
-#[cfg_attr(
-    target_os = "macos",
-    ignore = "Plugin GC tests are disabled temporarily on macOS because they get stuck"
-)]
 fn plugin_gc_can_be_configured_as_disabled() {
     let out = nu_with_plugins!(
         cwd: ".",
@@ -329,10 +317,6 @@ fn plugin_gc_can_be_configured_as_disabled() {
 }
 
 #[test]
-#[cfg_attr(
-    target_os = "macos",
-    ignore = "Plugin GC tests are disabled temporarily on macOS because they get stuck"
-)]
 fn plugin_gc_can_be_disabled_by_plugin() {
     let out = nu_with_plugins!(
         cwd: ".",
@@ -350,10 +334,6 @@ fn plugin_gc_can_be_disabled_by_plugin() {
 }
 
 #[test]
-#[cfg_attr(
-    target_os = "macos",
-    ignore = "Plugin GC tests are disabled temporarily on macOS because they get stuck"
-)]
 fn plugin_gc_does_not_stop_plugin_while_stream_output_is_active() {
     let out = nu_with_plugins!(
         cwd: ".",
