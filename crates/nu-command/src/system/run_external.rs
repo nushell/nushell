@@ -219,19 +219,18 @@ pub fn create_external_command(
         name,
         args: spanned_args,
         arg_keep_raw,
-        out: stack.stdout().clone(),
-        err: stack.stderr().clone(),
+        stdout: Stdio::inherit(),
+        stderr: Stdio::inherit(),
         env_vars: env_vars_str,
     })
 }
 
-#[derive(Clone)]
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
     pub arg_keep_raw: Vec<bool>,
-    pub out: IoStream,
-    pub err: IoStream,
+    pub stdout: Stdio,
+    pub stderr: Stdio,
     pub env_vars: HashMap<String, String>,
 }
 
@@ -248,7 +247,7 @@ impl ExternalCommand {
         let ctrlc = engine_state.ctrlc.clone();
 
         #[allow(unused_mut)]
-        let (cmd, mut reader) = self.create_process(&input, false, head)?;
+        let (cmd, mut reader) = self.create_process(stack, &input, false, head)?;
 
         #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
         let child = ForegroundChild::spawn(cmd);
@@ -506,7 +505,7 @@ impl ExternalCommand {
                         RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, None)
                     });
 
-                    if matches!(self.err, IoStream::Pipe) {
+                    if matches!(stack.stderr(), IoStream::Pipe) {
                         (stderr, stdout)
                     } else {
                         (stdout, stderr)
@@ -590,6 +589,7 @@ impl ExternalCommand {
 
     pub fn create_process(
         &self,
+        stack: &Stack,
         input: &PipelineData,
         use_cmd: bool,
         span: Span,
@@ -623,15 +623,17 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        let reader = if matches!(self.out, IoStream::Pipe) && matches!(self.err, IoStream::Pipe) {
+        let reader = if matches!(stack.stdout(), IoStream::Pipe)
+            && matches!(stack.stderr(), IoStream::Pipe)
+        {
             let (reader, writer) = os_pipe::pipe()?;
             let writer_clone = writer.try_clone()?;
             process.stdout(writer);
             process.stderr(writer_clone);
             Some(reader)
         } else {
-            process.stdout(Stdio::try_from(&self.out)?);
-            process.stderr(Stdio::try_from(&self.err)?);
+            process.stdout(Stdio::try_from(stack.stdout())?);
+            process.stderr(Stdio::try_from(stack.stderr())?);
             None
         };
 
