@@ -10,8 +10,8 @@ pub(crate) mod test_util;
 
 pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{
-    engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError, Span, Spanned,
-    Value,
+    ast::Operator, engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError,
+    Span, Spanned, Value,
 };
 pub use plugin_custom_value::PluginCustomValue;
 pub use protocol_info::ProtocolInfo;
@@ -131,6 +131,31 @@ pub enum PluginCall<D> {
 pub enum CustomValueOp {
     /// [`to_base_value()`](nu_protocol::CustomValue::to_base_value)
     ToBaseValue,
+    /// [`follow_path_int()`](nu_protocol::CustomValue::follow_path_int)
+    FollowPathInt(Spanned<usize>),
+    /// [`follow_path_string()`](nu_protocol::CustomValue::follow_path_string)
+    FollowPathString(Spanned<String>),
+    /// [`partial_cmp()`](nu_protocol::CustomValue::partial_cmp)
+    PartialCmp(Value),
+    /// [`operation()`](nu_protocol::CustomValue::operation)
+    Operation(Spanned<Operator>, Value),
+    /// Notify that the custom value has been dropped, if
+    /// [`notify_plugin_on_drop()`](nu_protocol::CustomValue::notify_plugin_on_drop) is true
+    Dropped,
+}
+
+impl CustomValueOp {
+    /// Get the name of the op, for error messages.
+    pub(crate) fn name(&self) -> &'static str {
+        match self {
+            CustomValueOp::ToBaseValue => "to_base_value",
+            CustomValueOp::FollowPathInt(_) => "follow_path_int",
+            CustomValueOp::FollowPathString(_) => "follow_path_string",
+            CustomValueOp::PartialCmp(_) => "partial_cmp",
+            CustomValueOp::Operation(_, _) => "operation",
+            CustomValueOp::Dropped => "dropped",
+        }
+    }
 }
 
 /// Any data sent to the plugin
@@ -306,6 +331,7 @@ impl From<ShellError> for LabeledError {
 pub enum PluginCallResponse<D> {
     Error(LabeledError),
     Signature(Vec<PluginSignature>),
+    Ordering(Option<Ordering>),
     PipelineData(D),
 }
 
@@ -328,6 +354,34 @@ pub enum PluginOption {
     ///
     /// See [`EngineInterface::set_gc_disabled`] for more information.
     GcDisabled(bool),
+}
+
+/// This is just a serializable version of [std::cmp::Ordering], and can be converted 1:1
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum Ordering {
+    Less,
+    Equal,
+    Greater,
+}
+
+impl From<std::cmp::Ordering> for Ordering {
+    fn from(value: std::cmp::Ordering) -> Self {
+        match value {
+            std::cmp::Ordering::Less => Ordering::Less,
+            std::cmp::Ordering::Equal => Ordering::Equal,
+            std::cmp::Ordering::Greater => Ordering::Greater,
+        }
+    }
+}
+
+impl From<Ordering> for std::cmp::Ordering {
+    fn from(value: Ordering) -> Self {
+        match value {
+            Ordering::Less => std::cmp::Ordering::Less,
+            Ordering::Equal => std::cmp::Ordering::Equal,
+            Ordering::Greater => std::cmp::Ordering::Greater,
+        }
+    }
 }
 
 /// Information received from the plugin

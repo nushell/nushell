@@ -496,7 +496,7 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
             op,
         } => {
             assert_eq!(Some(32), engine.context);
-            assert_eq!("TestCustomValue", custom_value.item.name);
+            assert_eq!("TestCustomValue", custom_value.item.name());
             assert!(
                 matches!(op, CustomValueOp::ToBaseValue),
                 "incorrect op: {op:?}"
@@ -600,11 +600,12 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
 {
     let manager = TestCase::new().engine();
 
-    let invalid_custom_value = PluginCustomValue {
-        name: "Invalid".into(),
-        data: vec![0; 8], // should fail to decode to anything
-        source: None,
-    };
+    let invalid_custom_value = PluginCustomValue::new(
+        "Invalid".into(),
+        vec![0; 8], // should fail to decode to anything
+        false,
+        None,
+    );
 
     let span = Span::new(20, 30);
     let data = manager.prepare_pipeline_data(
@@ -965,9 +966,9 @@ fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), Shel
         .expect("custom value is not a PluginCustomValue, probably not serialized");
 
     let expected = test_plugin_custom_value();
-    assert_eq!(expected.name, custom_value.name);
-    assert_eq!(expected.data, custom_value.data);
-    assert!(custom_value.source.is_none());
+    assert_eq!(expected.name(), custom_value.name());
+    assert_eq!(expected.data(), custom_value.data());
+    assert!(custom_value.source().is_none());
 
     Ok(())
 }
@@ -994,9 +995,9 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
         .expect("custom value is not a PluginCustomValue, probably not serialized");
 
     let expected = test_plugin_custom_value();
-    assert_eq!(expected.name, custom_value.name);
-    assert_eq!(expected.data, custom_value.data);
-    assert!(custom_value.source.is_none());
+    assert_eq!(expected.name(), custom_value.name());
+    assert_eq!(expected.data(), custom_value.data());
+    assert!(custom_value.source().is_none());
 
     Ok(())
 }

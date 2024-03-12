@@ -16,7 +16,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 bincode = "1.3"
 rmp-serde = "1.1"
-serde = { version = "1.0" }
+serde = "1.0"
 serde_json = { workspace = true }
 log = "0.4"
 miette = { workspace = true }

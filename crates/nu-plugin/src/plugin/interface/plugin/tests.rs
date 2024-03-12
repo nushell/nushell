@@ -649,7 +649,7 @@ fn manager_prepare_pipeline_data_adds_source_to_values() -> Result<(), ShellErro
         .downcast_ref()
         .expect("custom value is not a PluginCustomValue");
 
-    if let Some(source) = &custom_value.source {
+    if let Some(source) = custom_value.source() {
         assert_eq!("test", source.name());
     } else {
         panic!("source was not set");
@@ -679,7 +679,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         .downcast_ref()
         .expect("custom value is not a PluginCustomValue");
 
-    if let Some(source) = &custom_value.source {
+    if let Some(source) = custom_value.source() {
         assert_eq!("test", source.name());
     } else {
         panic!("source was not set");
@@ -1092,12 +1092,13 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 fn normal_values(interface: &PluginInterface) -> Vec<Value> {
     vec![
         Value::test_int(5),
-        Value::test_custom_value(Box::new(PluginCustomValue {
-            name: "SomeTest".into(),
-            data: vec![1, 2, 3],
+        Value::test_custom_value(Box::new(PluginCustomValue::new(
+            "SomeTest".into(),
+            vec![1, 2, 3],
+            false,
             // Has the same source, so it should be accepted
-            source: Some(interface.state.source.clone()),
-        })),
+            Some(interface.state.source.clone()),
+        ))),
     ]
 }
 
@@ -1145,17 +1146,19 @@ fn bad_custom_values() -> Vec<Value> {
         // Native custom value (not PluginCustomValue) should be rejected
         Value::test_custom_value(Box::new(expected_test_custom_value())),
         // Has no source, so it should be rejected
-        Value::test_custom_value(Box::new(PluginCustomValue {
-            name: "SomeTest".into(),
-            data: vec![1, 2, 3],
-            source: None,
-        })),
+        Value::test_custom_value(Box::new(PluginCustomValue::new(
+            "SomeTest".into(),
+            vec![1, 2, 3],
+            false,
+            None,
+        ))),
         // Has a different source, so it should be rejected
-        Value::test_custom_value(Box::new(PluginCustomValue {
-            name: "SomeTest".into(),
-            data: vec![1, 2, 3],
-            source: Some(PluginSource::new_fake("pluto").into()),
-        })),
+        Value::test_custom_value(Box::new(PluginCustomValue::new(
+            "SomeTest".into(),
+            vec![1, 2, 3],
+            false,
+            Some(PluginSource::new_fake("pluto").into()),
+        ))),
     ]
 }
 

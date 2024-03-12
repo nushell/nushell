@@ -12,8 +12,8 @@ use nu_protocol::{
 
 use crate::{
     protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
-        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
+        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
         ProtocolInfo,
     },
     LabeledError, PluginOutput,
@@ -681,6 +681,16 @@ impl EngineInterface {
     /// The user can still stop the plugin if they want to with the `plugin stop` command.
     pub fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
         self.write(PluginOutput::Option(PluginOption::GcDisabled(disabled)))?;
+        self.flush()
+    }
+
+    /// Write a call response of [`Ordering`], for `partial_cmp`.
+    pub(crate) fn write_ordering(
+        &self,
+        ordering: Option<impl Into<Ordering>>,
+    ) -> Result<(), ShellError> {
+        let response = PluginCallResponse::Ordering(ordering.map(|o| o.into()));
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
     }
 }

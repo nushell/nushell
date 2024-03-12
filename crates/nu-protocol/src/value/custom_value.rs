@@ -26,18 +26,30 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Follow cell path by numeric index (e.g. rows)
-    fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
+    fn follow_path_int(
+        &self,
+        self_span: Span,
+        index: usize,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let _ = (self_span, index);
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.value_string(),
-            span,
+            span: path_span,
         })
     }
 
     /// Follow cell path by string key (e.g. columns)
-    fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
+    fn follow_path_string(
+        &self,
+        self_span: Span,
+        column_name: String,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let _ = (self_span, column_name);
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.value_string(),
-            span,
+            span: path_span,
         })
     }
 
@@ -54,11 +66,23 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Default impl raises [`ShellError::UnsupportedOperator`].
     fn operation(
         &self,
-        _lhs_span: Span,
+        lhs_span: Span,
         operator: Operator,
         op: Span,
-        _right: &Value,
+        right: &Value,
     ) -> Result<Value, ShellError> {
+        let _ = (lhs_span, right);
         Err(ShellError::UnsupportedOperator { operator, span: op })
+    }
+
+    /// For custom values in plugins: return `true` here if you would like to be notified when all
+    /// copies of this custom value are dropped in the engine.
+    ///
+    /// The notification will take place via
+    /// [`.custom_value_dropped()`](crate::StreamingPlugin::custom_value_dropped) on the plugin.
+    ///
+    /// The default is `false`.
+    fn notify_plugin_on_drop(&self) -> bool {
+        false
     }
 }
