@@ -576,7 +576,12 @@ pub fn flatten_pipeline_element(
                 }
             }
             PipelineRedirection::Separate { out, err } => {
-                // TODO: these may be in the wrong order
+                let (out, err) = if out.span() <= err.span() {
+                    (out, err)
+                } else {
+                    (err, out)
+                };
+
                 output.push((out.span(), FlatShape::Redirection));
                 if let Some(expr) = out.expr() {
                     output.extend(flatten_expression(working_set, expr));
