@@ -57,6 +57,7 @@ impl Plugin for Example {
                     SyntaxShape::String,
                     "The name of the environment variable to get",
                 )
+                .switch("cwd", "Get current working directory instead", None)
                 .search_terms(vec!["example".into(), "env".into()])
                 .input_output_type(Type::Nothing, Type::Any),
             PluginSignature::build("nu-example-disable-gc")
