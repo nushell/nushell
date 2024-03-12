@@ -489,6 +489,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     EngineCall::GetPluginConfig => Ok(EngineCall::GetPluginConfig),
                     EngineCall::GetEnvVar(name) => Ok(EngineCall::GetEnvVar(name)),
                     EngineCall::GetEnvVars => Ok(EngineCall::GetEnvVars),
+                    EngineCall::GetCurrentDir => Ok(EngineCall::GetCurrentDir),
                     EngineCall::EvalClosure {
                         closure,
                         mut positional,
@@ -936,6 +937,14 @@ pub(crate) fn handle_engine_call(
         EngineCall::GetEnvVars => {
             let context = require_context()?;
             context.get_env_vars().map(EngineCallResponse::ValueMap)
+        }
+        EngineCall::GetCurrentDir => {
+            let context = require_context()?;
+            let current_dir = context.get_current_dir()?;
+            Ok(EngineCallResponse::value(Value::string(
+                current_dir.item,
+                current_dir.span,
+            )))
         }
         EngineCall::EvalClosure {
             closure,

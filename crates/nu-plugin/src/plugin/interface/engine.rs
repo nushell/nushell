@@ -2,7 +2,6 @@
 
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
-    path::Path,
     sync::{mpsc, Arc},
 };
 
@@ -458,6 +457,7 @@ impl EngineInterface {
             EngineCall::GetPluginConfig => (EngineCall::GetPluginConfig, Default::default()),
             EngineCall::GetEnvVar(name) => (EngineCall::GetEnvVar(name), Default::default()),
             EngineCall::GetEnvVars => (EngineCall::GetEnvVars, Default::default()),
+            EngineCall::GetCurrentDir => (EngineCall::GetCurrentDir, Default::default()),
         };
 
         // Register the channel
@@ -575,10 +575,7 @@ impl EngineInterface {
         self.engine_call_option_value(EngineCall::GetEnvVar(name.into()))
     }
 
-    /// Get the current working directory from the engine.
-    ///
-    /// This gets the `PWD` environment variable, and returns an error if it isn't valid. The result
-    /// is always an absolute path.
+    /// Get the current working directory from the engine. The result is always an absolute path.
     ///
     /// # Example
     /// ```rust,no_run
@@ -589,33 +586,15 @@ impl EngineInterface {
     /// # }
     /// ```
     pub fn get_current_dir(&self) -> Result<String, ShellError> {
-        if let Some(pwd) = self.get_env_var("PWD")? {
-            if let Ok(cwd) = pwd.coerce_string() {
-                if Path::new(&cwd).is_absolute() {
-                    Ok(cwd)
-                } else {
-                    Err(ShellError::GenericError {
-                        error: "Invalid current directory".into(),
-                        msg: format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                        span: Some(pwd.span()),
-                        help: None,
-                        inner: vec![]
-                    })
-                }
-            } else {
-                Err(ShellError::EnvVarNotAString {
-                    envvar_name: "PWD".into(),
-                    span: pwd.span(),
-                })
+        match self.engine_call(EngineCall::GetCurrentDir)? {
+            // Always a string, and the span doesn't matter.
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+                Ok(val)
             }
-        } else {
-            Err(ShellError::GenericError {
-                error: "Current directory not found".into(),
-                msg: "".into(),
-                span: None,
-                help: Some("The environment variable 'PWD' was not found. It is required to define the current directory.".into()),
-                inner: vec![],
-            })
+            EngineCallResponse::Error(err) => Err(err),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response for EngineCall::GetCurrentDir".into(),
+            }),
         }
     }
 
