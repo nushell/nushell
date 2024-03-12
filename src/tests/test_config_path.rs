@@ -221,11 +221,7 @@ fn test_xdg_config_empty() {
         let expected = dirs_next::config_dir().unwrap().join("nushell");
         assert_eq!(
             actual.out,
-            expected
-                .canonicalize()
-                .unwrap_or(expected)
-                .display()
-                .to_string()
+            adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
     });
 }
@@ -239,11 +235,7 @@ fn test_xdg_config_bad() {
         let expected = dirs_next::config_dir().unwrap().join("nushell");
         assert_eq!(
             actual.out,
-            expected
-                .canonicalize()
-                .unwrap_or(expected)
-                .display()
-                .to_string()
+            adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
     });
 }
