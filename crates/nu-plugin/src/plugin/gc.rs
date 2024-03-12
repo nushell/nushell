@@ -47,6 +47,15 @@ impl PluginGc {
         let _ = self.sender.send(PluginGcMsg::SetConfig(config));
     }
 
+    /// Ensure all GC messages have been processed
+    pub fn flush(&self) {
+        let (tx, rx) = mpsc::channel();
+        let _ = self.sender.send(PluginGcMsg::Flush(tx));
+        // This will block until the channel is dropped, which could be because the send failed, or
+        // because the GC got the message
+        let _ = rx.recv();
+    }
+
     /// Increment the number of locks held by the plugin
     pub fn increment_locks(&self, amount: i64) {
         let _ = self.sender.send(PluginGcMsg::AddLocks(amount));
@@ -83,6 +92,7 @@ impl PluginGc {
 #[derive(Debug)]
 enum PluginGcMsg {
     SetConfig(PluginGcConfig),
+    Flush(mpsc::Sender<()>),
     AddLocks(i64),
     SetDisabled(bool),
     StopTracking,
@@ -122,6 +132,11 @@ impl PluginGcState {
         match msg {
             PluginGcMsg::SetConfig(config) => {
                 self.config = config;
+            }
+            PluginGcMsg::Flush(sender) => {
+                // Rather than sending a message, we just drop the channel, which causes the other
+                // side to disconnect equally well
+                drop(sender);
             }
             PluginGcMsg::AddLocks(amount) => {
                 self.locks += amount;

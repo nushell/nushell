@@ -176,6 +176,7 @@ impl RegisteredPlugin for PersistentPlugin {
             if let Some(running) = running.as_ref() {
                 // If the plugin is already running, propagate the config change to the running GC
                 running.gc.set_config(gc_config.clone());
+                running.gc.flush();
             }
         }
     }
