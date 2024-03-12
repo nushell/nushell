@@ -263,6 +263,7 @@ fn to_html(
         Some(v) => v.span,
         None => head,
     };
+
     let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
     let color_hm = match color_hm {
         Ok(c) => c,
@@ -276,6 +277,8 @@ fn to_html(
             })
         }
     };
+
+    // change the color of the page
     if !partial {
         write!(
             &mut output_string,
@@ -301,6 +304,7 @@ fn to_html(
         )
         .unwrap();
     }
+
     let inner_value = match vec_of_values.len() {
         0 => String::default(),
         1 => match headers {
@@ -315,12 +319,16 @@ fn to_html(
             None => html_list(vec_of_values, config),
         },
     };
+
     output_string.push_str(&inner_value);
+
     if !partial {
         output_string.push_str("</body></html>");
     } else {
         output_string.push_str("</div>")
     }
+
+    // Check to see if we want to remove all color or change ansi to html colors
     if html_color {
         setup_html_color_regexes(&mut regex_hm, &color_hm);
         output_string = run_regexes(&regex_hm, &output_string);
@@ -328,6 +336,7 @@ fn to_html(
         setup_no_color_regexes(&mut regex_hm);
         output_string = run_regexes(&regex_hm, &output_string);
     }
+
     Ok(Value::string(output_string, head).into_pipeline_data())
 }
 
