@@ -120,7 +120,7 @@ impl Command for Ls {
                 let expanded = nu_path::expand_path_with(pat.item.as_ref(), &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
                 if !directory && expanded.is_dir() {
-                    if permission_denied(&p) {
+                    if permission_denied(&expanded) {
                         #[cfg(unix)]
                         let error_msg = format!(
                             "The permissions of {:o} do not allow access for this user",
@@ -148,9 +148,9 @@ impl Command for Ls {
                     }
                     extra_star_under_given_directory = true;
                 }
-                let absolute_path = p.is_absolute();
+                let absolute_path = Path::new(pat.item.as_ref()).is_absolute();
                 (
-                    p,
+                    expanded,
                     p_tag,
                     absolute_path,
                     matches!(pat.item, NuGlob::DoNotExpand(_)),
