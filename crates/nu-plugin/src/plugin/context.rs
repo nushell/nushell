@@ -1,10 +1,13 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use nu_engine::get_eval_block_with_early_return;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
@@ -19,6 +22,12 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_config(&self) -> Result<Config, ShellError>;
     /// Get plugin configuration
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError>;
+    /// Get an environment variable from `$env`
+    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError>;
+    /// Get all environment variables
+    fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError>;
+    // Get current working directory
+    fn get_current_dir(&self) -> Result<Spanned<String>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -106,6 +115,20 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
                     _ => value.clone(),
                 }
             }))
+    }
+
+    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError> {
+        Ok(self.stack.get_env_var(&self.engine_state, name))
+    }
+
+    fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
+        Ok(self.stack.get_env_vars(&self.engine_state))
+    }
+
+    fn get_current_dir(&self) -> Result<Spanned<String>, ShellError> {
+        let cwd = nu_engine::env::current_dir_str(&self.engine_state, &self.stack)?;
+        // The span is not really used, so just give it call.head
+        Ok(cwd.into_spanned(self.call.head))
     }
 
     fn eval_closure(
@@ -196,6 +219,24 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
 
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
         Ok(None)
+    }
+
+    fn get_env_var(&self, _name: &str) -> Result<Option<Value>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_env_var not implemented on bogus".into(),
+        })
+    }
+
+    fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_env_vars not implemented on bogus".into(),
+        })
+    }
+
+    fn get_current_dir(&self) -> Result<Spanned<String>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_current_dir not implemented on bogus".into(),
+        })
     }
 
     fn eval_closure(

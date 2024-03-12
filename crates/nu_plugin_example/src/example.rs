@@ -100,6 +100,28 @@ impl Example {
         })
     }
 
+    pub fn env(
+        &self,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+    ) -> Result<Value, LabeledError> {
+        if call.has_flag("cwd")? {
+            // Get working directory
+            Ok(Value::string(engine.get_current_dir()?, call.head))
+        } else if let Some(name) = call.opt::<String>(0)? {
+            // Get single env var
+            Ok(engine
+                .get_env_var(name)?
+                .unwrap_or(Value::nothing(call.head)))
+        } else {
+            // Get all env vars, converting the map to a record
+            Ok(Value::record(
+                engine.get_env_vars()?.into_iter().collect(),
+                call.head,
+            ))
+        }
+    }
+
     pub fn disable_gc(
         &self,
         engine: &EngineInterface,

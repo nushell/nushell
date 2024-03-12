@@ -1106,18 +1106,19 @@ impl Value {
                                 });
                             }
                         }
-                        Value::CustomValue { val, .. } => {
-                            current = match val.follow_path_int(*count, *origin_span) {
-                                Ok(val) => val,
-                                Err(err) => {
-                                    if *optional {
-                                        return Ok(Value::nothing(*origin_span));
-                                    // short-circuit
-                                    } else {
-                                        return Err(err);
+                        Value::CustomValue { ref val, .. } => {
+                            current =
+                                match val.follow_path_int(current.span(), *count, *origin_span) {
+                                    Ok(val) => val,
+                                    Err(err) => {
+                                        if *optional {
+                                            return Ok(Value::nothing(*origin_span));
+                                        // short-circuit
+                                        } else {
+                                            return Err(err);
+                                        }
                                     }
-                                }
-                            };
+                                };
                         }
                         Value::Nothing { .. } if *optional => {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
@@ -1249,8 +1250,22 @@ impl Value {
 
                             current = Value::list(list, span);
                         }
-                        Value::CustomValue { val, .. } => {
-                            current = val.follow_path_string(column_name.clone(), *origin_span)?;
+                        Value::CustomValue { ref val, .. } => {
+                            current = match val.follow_path_string(
+                                current.span(),
+                                column_name.clone(),
+                                *origin_span,
+                            ) {
+                                Ok(val) => val,
+                                Err(err) => {
+                                    if *optional {
+                                        return Ok(Value::nothing(*origin_span));
+                                    // short-circuit
+                                    } else {
+                                        return Err(err);
+                                    }
+                                }
+                            }
                         }
                         Value::Nothing { .. } if *optional => {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
@@ -2651,6 +2666,9 @@ impl Value {
                 let mut val = lhs.clone();
                 val.extend(rhs);
                 Ok(Value::binary(val, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Append), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

@@ -176,11 +176,7 @@ macro_rules! generate_tests {
 
             let custom_value_op = PluginCall::CustomValueOp(
                 Spanned {
-                    item: PluginCustomValue {
-                        name: "Foo".into(),
-                        data: data.clone(),
-                        source: None,
-                    },
+                    item: PluginCustomValue::new("Foo".into(), data.clone(), false, None),
                     span,
                 },
                 CustomValueOp::ToBaseValue,
@@ -200,8 +196,8 @@ macro_rules! generate_tests {
 
             match returned {
                 PluginInput::Call(2, PluginCall::CustomValueOp(val, op)) => {
-                    assert_eq!("Foo", val.item.name);
-                    assert_eq!(data, val.item.data);
+                    assert_eq!("Foo", val.item.name());
+                    assert_eq!(data, val.item.data());
                     assert_eq!(span, val.span);
                     #[allow(unreachable_patterns)]
                     match op {
@@ -320,11 +316,12 @@ macro_rules! generate_tests {
             let span = Span::new(2, 30);
 
             let value = Value::custom_value(
-                Box::new(PluginCustomValue {
-                    name: name.into(),
-                    data: data.clone(),
-                    source: None,
-                }),
+                Box::new(PluginCustomValue::new(
+                    name.into(),
+                    data.clone(),
+                    true,
+                    None,
+                )),
                 span,
             );
 
@@ -354,8 +351,9 @@ macro_rules! generate_tests {
                         .as_any()
                         .downcast_ref::<PluginCustomValue>()
                     {
-                        assert_eq!(name, plugin_val.name);
-                        assert_eq!(data, plugin_val.data);
+                        assert_eq!(name, plugin_val.name());
+                        assert_eq!(data, plugin_val.data());
+                        assert!(plugin_val.notify_on_drop());
                     } else {
                         panic!("returned CustomValue is not a PluginCustomValue");
                     }

@@ -1,7 +1,7 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use std::{
-    collections::{btree_map, BTreeMap},
+    collections::{btree_map, BTreeMap, HashMap},
     sync::{mpsc, Arc},
 };
 
@@ -12,8 +12,8 @@ use nu_protocol::{
 
 use crate::{
     protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
-        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
+        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
         ProtocolInfo,
     },
     LabeledError, PluginOutput,
@@ -300,6 +300,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 let response = match response {
                     EngineCallResponse::Error(err) => EngineCallResponse::Error(err),
                     EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
+                    EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
                     EngineCallResponse::PipelineData(header) => {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway
@@ -454,6 +455,9 @@ impl EngineInterface {
             // These calls have no pipeline data, so they're just the same on both sides
             EngineCall::GetConfig => (EngineCall::GetConfig, Default::default()),
             EngineCall::GetPluginConfig => (EngineCall::GetPluginConfig, Default::default()),
+            EngineCall::GetEnvVar(name) => (EngineCall::GetEnvVar(name), Default::default()),
+            EngineCall::GetEnvVars => (EngineCall::GetEnvVars, Default::default()),
+            EngineCall::GetCurrentDir => (EngineCall::GetCurrentDir, Default::default()),
         };
 
         // Register the channel
@@ -495,7 +499,7 @@ impl EngineInterface {
     ///
     /// Format a value in the user's preferred way:
     ///
-    /// ```
+    /// ```rust,no_run
     /// # use nu_protocol::{Value, ShellError};
     /// # use nu_plugin::EngineInterface;
     /// # fn example(engine: &EngineInterface, value: &Value) -> Result<(), ShellError> {
@@ -514,6 +518,23 @@ impl EngineInterface {
         }
     }
 
+    /// Do an engine call returning an `Option<Value>` as either `PipelineData::Empty` or
+    /// `PipelineData::Value`
+    fn engine_call_option_value(
+        &self,
+        engine_call: EngineCall<PipelineData>,
+    ) -> Result<Option<Value>, ShellError> {
+        let name = engine_call.name();
+        match self.engine_call(engine_call)? {
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineData::Value(value, _)) => Ok(Some(value)),
+            EngineCallResponse::Error(err) => Err(err),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: format!("Received unexpected response for EngineCall::{name}"),
+            }),
+        }
+    }
+
     /// Get the plugin-specific configuration from the engine. This lives in
     /// `$env.config.plugins.NAME` for a plugin named `NAME`. If the config is set to a closure,
     /// it is automatically evaluated each time.
@@ -522,7 +543,7 @@ impl EngineInterface {
     ///
     /// Print this plugin's config:
     ///
-    /// ```
+    /// ```rust,no_run
     /// # use nu_protocol::{Value, ShellError};
     /// # use nu_plugin::EngineInterface;
     /// # fn example(engine: &EngineInterface, value: &Value) -> Result<(), ShellError> {
@@ -532,12 +553,71 @@ impl EngineInterface {
     /// # }
     /// ```
     pub fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
-        match self.engine_call(EngineCall::GetPluginConfig)? {
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
-            EngineCallResponse::PipelineData(PipelineData::Value(value, _)) => Ok(Some(value)),
+        self.engine_call_option_value(EngineCall::GetPluginConfig)
+    }
+
+    /// Get an environment variable from the engine.
+    ///
+    /// Returns `Some(value)` if present, and `None` if not found.
+    ///
+    /// # Example
+    ///
+    /// Get `$env.PATH`:
+    ///
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface) -> Result<Option<Value>, ShellError> {
+    /// engine.get_env_var("PATH") // => Ok(Some(Value::List([...])))
+    /// # }
+    /// ```
+    pub fn get_env_var(&self, name: impl Into<String>) -> Result<Option<Value>, ShellError> {
+        self.engine_call_option_value(EngineCall::GetEnvVar(name.into()))
+    }
+
+    /// Get the current working directory from the engine. The result is always an absolute path.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface) -> Result<String, ShellError> {
+    /// engine.get_current_dir() // => "/home/user"
+    /// # }
+    /// ```
+    pub fn get_current_dir(&self) -> Result<String, ShellError> {
+        match self.engine_call(EngineCall::GetCurrentDir)? {
+            // Always a string, and the span doesn't matter.
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+                Ok(val)
+            }
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
-                msg: "Received unexpected response for EngineCall::GetConfig".into(),
+                msg: "Received unexpected response for EngineCall::GetCurrentDir".into(),
+            }),
+        }
+    }
+
+    /// Get all environment variables from the engine.
+    ///
+    /// Since this is quite a large map that has to be sent, prefer to use [`.get_env_var()`] if
+    /// the variables needed are known ahead of time and there are only a small number needed.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # use std::collections::HashMap;
+    /// # fn example(engine: &EngineInterface) -> Result<HashMap<String, Value>, ShellError> {
+    /// engine.get_env_vars() // => Ok({"PATH": Value::List([...]), ...})
+    /// # }
+    /// ```
+    pub fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
+        match self.engine_call(EngineCall::GetEnvVars)? {
+            EngineCallResponse::ValueMap(map) => Ok(map),
+            EngineCallResponse::Error(err) => Err(err),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetEnvVars".into(),
             }),
         }
     }
@@ -559,7 +639,7 @@ impl EngineInterface {
     /// my_command { seq 1 $in | each { |n| $"Hello, ($n)" } }
     /// ```
     ///
-    /// ```
+    /// ```rust,no_run
     /// # use nu_protocol::{Value, ShellError, PipelineData};
     /// # use nu_plugin::{EngineInterface, EvaluatedCall};
     /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<(), ShellError> {
@@ -636,7 +716,7 @@ impl EngineInterface {
     /// my_command { |number| $number + 1}
     /// ```
     ///
-    /// ```
+    /// ```rust,no_run
     /// # use nu_protocol::{Value, ShellError};
     /// # use nu_plugin::{EngineInterface, EvaluatedCall};
     /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<(), ShellError> {
@@ -681,6 +761,16 @@ impl EngineInterface {
     /// The user can still stop the plugin if they want to with the `plugin stop` command.
     pub fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
         self.write(PluginOutput::Option(PluginOption::GcDisabled(disabled)))?;
+        self.flush()
+    }
+
+    /// Write a call response of [`Ordering`], for `partial_cmp`.
+    pub(crate) fn write_ordering(
+        &self,
+        ordering: Option<impl Into<Ordering>>,
+    ) -> Result<(), ShellError> {
+        let response = PluginCallResponse::Ordering(ordering.map(|o| o.into()));
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
     }
 }

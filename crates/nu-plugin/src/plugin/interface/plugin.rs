@@ -6,15 +6,15 @@ use std::{
 };
 
 use nu_protocol::{
-    IntoInterruptiblePipelineData, ListStream, PipelineData, PluginSignature, ShellError, Spanned,
-    Value,
+    ast::Operator, IntoInterruptiblePipelineData, IntoSpanned, ListStream, PipelineData,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 
 use crate::{
     plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
     protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, PluginCall,
-        PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
+        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
         PluginOutput, ProtocolInfo, StreamId, StreamMessage,
     },
     sequence::Sequence,
@@ -454,6 +454,9 @@ impl InterfaceManager for PluginInterfaceManager {
                 let response = match response {
                     PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
                     PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
+                    PluginCallResponse::Ordering(ordering) => {
+                        PluginCallResponse::Ordering(ordering)
+                    }
                     PluginCallResponse::PipelineData(data) => {
                         // If there's an error with initializing this stream, change it to a plugin
                         // error response, but send it anyway
@@ -487,6 +490,9 @@ impl InterfaceManager for PluginInterfaceManager {
                 let call = match call {
                     EngineCall::GetConfig => Ok(EngineCall::GetConfig),
                     EngineCall::GetPluginConfig => Ok(EngineCall::GetPluginConfig),
+                    EngineCall::GetEnvVar(name) => Ok(EngineCall::GetEnvVar(name)),
+                    EngineCall::GetEnvVars => Ok(EngineCall::GetEnvVars),
+                    EngineCall::GetCurrentDir => Ok(EngineCall::GetCurrentDir),
                     EngineCall::EvalClosure {
                         closure,
                         mut positional,
@@ -596,6 +602,7 @@ impl PluginInterface {
             // No pipeline data:
             EngineCallResponse::Error(err) => (EngineCallResponse::Error(err), None),
             EngineCallResponse::Config(config) => (EngineCallResponse::Config(config), None),
+            EngineCallResponse::ValueMap(map) => (EngineCallResponse::ValueMap(map), None),
         };
 
         // Write the response, including the pipeline data header if present
@@ -731,6 +738,7 @@ impl PluginInterface {
         let (resp, writer) = match resp {
             EngineCallResponse::Error(error) => (EngineCallResponse::Error(error), None),
             EngineCallResponse::Config(config) => (EngineCallResponse::Config(config), None),
+            EngineCallResponse::ValueMap(map) => (EngineCallResponse::ValueMap(map), None),
             EngineCallResponse::PipelineData(data) => {
                 match self.init_write_pipeline_data(data) {
                     Ok((header, writer)) => {
@@ -804,21 +812,92 @@ impl PluginInterface {
         }
     }
 
+    /// Do a custom value op that expects a value response (i.e. most of them)
+    fn custom_value_op_expecting_value(
+        &self,
+        value: Spanned<PluginCustomValue>,
+        op: CustomValueOp,
+    ) -> Result<Value, ShellError> {
+        let op_name = op.name();
+        let span = value.span;
+        let call = PluginCall::CustomValueOp(value, op);
+        match self.plugin_call(call, &None)? {
+            PluginCallResponse::PipelineData(out_data) => Ok(out_data.into_value(span)),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: format!("Received unexpected response to custom value {op_name}() call"),
+            }),
+        }
+    }
+
     /// Collapse a custom value to its base value.
     pub(crate) fn custom_value_to_base_value(
         &self,
         value: Spanned<PluginCustomValue>,
     ) -> Result<Value, ShellError> {
-        let span = value.span;
-        let call = PluginCall::CustomValueOp(value, CustomValueOp::ToBaseValue);
+        self.custom_value_op_expecting_value(value, CustomValueOp::ToBaseValue)
+    }
+
+    /// Follow a numbered cell path on a custom value - e.g. `value.0`.
+    pub(crate) fn custom_value_follow_path_int(
+        &self,
+        value: Spanned<PluginCustomValue>,
+        index: Spanned<usize>,
+    ) -> Result<Value, ShellError> {
+        self.custom_value_op_expecting_value(value, CustomValueOp::FollowPathInt(index))
+    }
+
+    /// Follow a named cell path on a custom value - e.g. `value.column`.
+    pub(crate) fn custom_value_follow_path_string(
+        &self,
+        value: Spanned<PluginCustomValue>,
+        column_name: Spanned<String>,
+    ) -> Result<Value, ShellError> {
+        self.custom_value_op_expecting_value(value, CustomValueOp::FollowPathString(column_name))
+    }
+
+    /// Invoke comparison logic for custom values.
+    pub(crate) fn custom_value_partial_cmp(
+        &self,
+        value: PluginCustomValue,
+        mut other_value: Value,
+    ) -> Result<Option<Ordering>, ShellError> {
+        PluginCustomValue::verify_source(&mut other_value, &self.state.source)?;
+        // Note: the protocol is always designed to have a span with the custom value, but this
+        // operation doesn't support one.
+        let call = PluginCall::CustomValueOp(
+            value.into_spanned(Span::unknown()),
+            CustomValueOp::PartialCmp(other_value),
+        );
         match self.plugin_call(call, &None)? {
-            PluginCallResponse::PipelineData(out_data) => Ok(out_data.into_value(span)),
+            PluginCallResponse::Ordering(ordering) => Ok(ordering),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
-                msg: "Received unexpected response to plugin CustomValueOp::ToBaseValue call"
-                    .into(),
+                msg: "Received unexpected response to custom value partial_cmp() call".into(),
             }),
         }
+    }
+
+    /// Invoke functionality for an operator on a custom value.
+    pub(crate) fn custom_value_operation(
+        &self,
+        left: Spanned<PluginCustomValue>,
+        operator: Spanned<Operator>,
+        mut right: Value,
+    ) -> Result<Value, ShellError> {
+        PluginCustomValue::verify_source(&mut right, &self.state.source)?;
+        self.custom_value_op_expecting_value(left, CustomValueOp::Operation(operator, right))
+    }
+
+    /// Notify the plugin about a dropped custom value.
+    pub(crate) fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
+        // Note: the protocol is always designed to have a span with the custom value, but this
+        // operation doesn't support one.
+        self.custom_value_op_expecting_value(
+            value.into_spanned(Span::unknown()),
+            CustomValueOp::Dropped,
+        )
+        .map(|_| ())
     }
 }
 
@@ -923,6 +1002,23 @@ pub(crate) fn handle_engine_call(
             let context = require_context()?;
             let plugin_config = context.get_plugin_config()?;
             Ok(plugin_config.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
+        }
+        EngineCall::GetEnvVar(name) => {
+            let context = require_context()?;
+            let value = context.get_env_var(&name)?;
+            Ok(value.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
+        }
+        EngineCall::GetEnvVars => {
+            let context = require_context()?;
+            context.get_env_vars().map(EngineCallResponse::ValueMap)
+        }
+        EngineCall::GetCurrentDir => {
+            let context = require_context()?;
+            let current_dir = context.get_current_dir()?;
+            Ok(EngineCallResponse::value(Value::string(
+                current_dir.item,
+                current_dir.span,
+            )))
         }
         EngineCall::EvalClosure {
             closure,

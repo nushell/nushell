@@ -1,4 +1,7 @@
-use std::sync::mpsc::{self, TryRecvError};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{self, TryRecvError},
+};
 
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, PipelineData,
@@ -496,7 +499,7 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
             op,
         } => {
             assert_eq!(Some(32), engine.context);
-            assert_eq!("TestCustomValue", custom_value.item.name);
+            assert_eq!("TestCustomValue", custom_value.item.name());
             assert!(
                 matches!(op, CustomValueOp::ToBaseValue),
                 "incorrect op: {op:?}"
@@ -600,11 +603,12 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
 {
     let manager = TestCase::new().engine();
 
-    let invalid_custom_value = PluginCustomValue {
-        name: "Invalid".into(),
-        data: vec![0; 8], // should fail to decode to anything
-        source: None,
-    };
+    let invalid_custom_value = PluginCustomValue::new(
+        "Invalid".into(),
+        vec![0; 8], // should fail to decode to anything
+        false,
+        None,
+    );
 
     let span = Span::new(20, 30);
     let data = manager.prepare_pipeline_data(
@@ -886,6 +890,70 @@ fn interface_get_plugin_config() -> Result<(), ShellError> {
 }
 
 #[test]
+fn interface_get_env_var() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 2, |id| {
+        if id == 0 {
+            EngineCallResponse::empty()
+        } else {
+            EngineCallResponse::value(Value::test_string("/foo"))
+        }
+    });
+
+    let first_val = interface.get_env_var("FOO")?;
+    assert!(first_val.is_none(), "should be None: {first_val:?}");
+
+    let second_val = interface.get_env_var("FOO")?;
+    assert_eq!(Some(Value::test_string("/foo")), second_val);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_current_dir() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::value(Value::test_string("/current/directory"))
+    });
+
+    let val = interface.get_env_var("FOO")?;
+    assert_eq!(Some(Value::test_string("/current/directory")), val);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_env_vars() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    let envs: HashMap<String, Value> = [("FOO".to_owned(), Value::test_string("foo"))]
+        .into_iter()
+        .collect();
+    let envs_clone = envs.clone();
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::ValueMap(envs_clone.clone())
+    });
+
+    let received_envs = interface.get_env_vars()?;
+
+    assert_eq!(envs, received_envs);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.engine();
@@ -965,9 +1033,9 @@ fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), Shel
         .expect("custom value is not a PluginCustomValue, probably not serialized");
 
     let expected = test_plugin_custom_value();
-    assert_eq!(expected.name, custom_value.name);
-    assert_eq!(expected.data, custom_value.data);
-    assert!(custom_value.source.is_none());
+    assert_eq!(expected.name(), custom_value.name());
+    assert_eq!(expected.data(), custom_value.data());
+    assert!(custom_value.source().is_none());
 
     Ok(())
 }
@@ -994,9 +1062,9 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
         .expect("custom value is not a PluginCustomValue, probably not serialized");
 
     let expected = test_plugin_custom_value();
-    assert_eq!(expected.name, custom_value.name);
-    assert_eq!(expected.data, custom_value.data);
-    assert!(custom_value.source.is_none());
+    assert_eq!(expected.name(), custom_value.name());
+    assert_eq!(expected.data(), custom_value.data());
+    assert!(custom_value.source().is_none());
 
     Ok(())
 }
