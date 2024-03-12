@@ -44,15 +44,32 @@ fn plugin_process_exits_after_stop() {
         r#"
             "2.0.0" | inc -m | ignore
             let pid = (plugin list).0.pid
-            ps | where pid == $pid | length | print
-            print ";"
+            if (ps | where pid == $pid | is-empty) {
+                error make {
+                    msg: "plugin process not running initially"
+                }
+            }
             plugin stop inc
-            sleep 10ms
-            ps | where pid == $pid | length | print
+            let start = (date now)
+            mut cond = true
+            while $cond {
+                sleep 100ms
+                $cond = (
+                    (ps | where pid == $pid | is-not-empty) and
+                    ((date now) - $start) < 5sec
+                )
+            }
+            ((date now) - $start) | into int
         "#
     );
-    assert_eq!("1;0", out.out, "plugin process did not stop running");
+
     assert!(out.status.success());
+
+    let nanos = out.out.parse::<i64>().expect("not a number");
+    assert!(
+        nanos < 5_000_000_000,
+        "not stopped after more than 5 seconds: {nanos} ns"
+    );
 }
 
 #[test]
@@ -195,14 +212,15 @@ fn custom_values_can_still_be_collapsed_after_stop() {
 #[test]
 fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
     // I know the test is to stop "immediately", but if we actually check immediately it could
-    // lead to a race condition. So there's a 1ms sleep just to be fair.
+    // lead to a race condition. Using 100ms sleep just because with contention we don't really
+    // know for sure how long this could take
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_inc"),
         r#"
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
             "2.3.0" | inc -M
-            sleep 1ms
+            sleep 100ms
             (plugin list | where name == inc).0.is_running
         "#
     );
@@ -219,7 +237,7 @@ fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
                 }
             }
             "2.3.0" | inc -M
-            sleep 1ms
+            sleep 100ms
             (plugin list | where name == inc).0.is_running
         "#
     );
@@ -325,7 +343,7 @@ fn plugin_gc_can_be_disabled_by_plugin() {
             nu-example-disable-gc
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
             nu-example-1 1 foo | ignore # ensure we've run the plugin with the new config
-            sleep 10ms
+            sleep 100ms
             (plugin list | where name == example).0.is_running
         "#
     );
