@@ -306,9 +306,9 @@ pub fn eval_expression_with_input<D: DebugContext>(
     if !matches!(stack.stdout(), IoStream::Pipe | IoStream::Capture)
         && matches!(stack.stderr(), IoStream::Capture)
     {
-        Ok(might_consume_external_result(input))
-    } else {
         Ok((input, false))
+    } else {
+        Ok(might_consume_external_result(input))
     }
 }
 
