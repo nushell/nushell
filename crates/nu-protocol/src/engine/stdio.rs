@@ -32,19 +32,19 @@ impl Redirection {
 
 #[derive(Debug, Clone)]
 pub(crate) struct StackStdio {
-    /// The stream to use for the next command's stdout
+    /// The stream to use for the next command's stdout.
     pub pipe_stdout: Option<IoStream>,
-    /// The stream to use for the next command's stderr
+    /// The stream to use for the next command's stderr.
     pub pipe_stderr: Option<IoStream>,
-    /// The stream used for the command stdout if `pipe_stdout` is `None`
+    /// The stream used for the command stdout if `pipe_stdout` is `None`.
     ///
     /// This should only ever be `File` or `Inherit`.
     pub stdout: IoStream,
-    /// The stream used for the command stderr if `pipe_stderr` is `None`
+    /// The stream used for the command stderr if `pipe_stderr` is `None`.
     ///
     /// This should only ever be `File` or `Inherit`.
     pub stderr: IoStream,
-    /// The previous stdout used before the current `stdout` was set
+    /// The previous stdout used before the current `stdout` was set.
     ///
     /// This is used only when evaluating arguments to commands,
     /// since the arguments are lazily evaluated inside each command
@@ -52,7 +52,7 @@ pub(crate) struct StackStdio {
     ///
     /// This should only ever be `File` or `Inherit`.
     pub parent_stdout: Option<IoStream>,
-    /// The previous stderr used before the current `stderr` was set
+    /// The previous stderr used before the current `stderr` was set.
     ///
     /// This is used only when evaluating arguments to commands,
     /// since the arguments are lazily evaluated inside each command
@@ -189,14 +189,17 @@ impl Drop for StackIoGuard<'_> {
 pub struct StackCaptureGuard<'a> {
     stack: &'a mut Stack,
     old_pipe_stdout: Option<IoStream>,
+    old_pipe_stderr: Option<IoStream>,
 }
 
 impl<'a> StackCaptureGuard<'a> {
     pub(crate) fn new(stack: &'a mut Stack) -> Self {
         let old_pipe_stdout = mem::replace(&mut stack.stdio.pipe_stdout, Some(IoStream::Capture));
+        let old_pipe_stderr = stack.stdio.pipe_stderr.take();
         Self {
             stack,
             old_pipe_stdout,
+            old_pipe_stderr,
         }
     }
 }
@@ -218,6 +221,7 @@ impl<'a> DerefMut for StackCaptureGuard<'a> {
 impl Drop for StackCaptureGuard<'_> {
     fn drop(&mut self) {
         self.stdio.pipe_stdout = self.old_pipe_stdout.take();
+        self.stdio.pipe_stderr = self.old_pipe_stderr.take();
     }
 }
 

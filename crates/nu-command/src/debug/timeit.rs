@@ -52,7 +52,6 @@ impl Command for TimeIt {
         let start_time = Instant::now();
 
         if let Some(command_to_run) = command_to_run {
-            let stack = &mut stack.start_capture();
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);

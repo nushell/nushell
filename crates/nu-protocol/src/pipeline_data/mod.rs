@@ -2,7 +2,7 @@ mod io_stream;
 mod metadata;
 mod stream;
 
-pub use io_stream::IoStream;
+pub use io_stream::*;
 pub use metadata::*;
 pub use stream::*;
 
@@ -1028,7 +1028,7 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     }
 }
 
-/// Only call this if `output_stream` is not `IoStream::Pipe`.
+/// Only call this if `output_stream` is not `IoStream::Pipe` or `IoStream::Capture`.
 fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {

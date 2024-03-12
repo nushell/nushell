@@ -300,7 +300,16 @@ pub fn eval_expression_with_input<D: DebugContext>(
         }
     };
 
-    Ok(might_consume_external_result(input))
+    // If input is PipelineData::ExternalStream,
+    // then `might_consume_external_result` will consume `stderr` if `stdout` is `None`.
+    // This should not happen if the user wants to capture stderr.
+    if !matches!(stack.stdout(), IoStream::Pipe | IoStream::Capture)
+        && matches!(stack.stderr(), IoStream::Capture)
+    {
+        Ok(might_consume_external_result(input))
+    } else {
+        Ok((input, false))
+    }
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -390,38 +399,40 @@ fn eval_element_with_input_inner<D: DebugContext>(
 ) -> Result<(PipelineData, bool), ShellError> {
     let (data, ok) = eval_expression_with_input::<D>(engine_state, stack, &element.expr, input)?;
 
-    match (
-        &data,
-        element
-            .redirection
-            .as_ref()
-            .and_then(PipelineRedirection::pipe_redirection),
-    ) {
-        (
-            PipelineData::Value(..) | PipelineData::ListStream(..) | PipelineData::Empty,
-            Some((RedirectionSource::Stderr, span)),
-        ) => {
-            return Err(ShellError::GenericError {
-                error: "`e>|` only works with external streams".into(),
-                msg: "`e>|` only works on external streams".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
+    if !matches!(data, PipelineData::ExternalStream { .. }) {
+        if let Some(redirection) = element.redirection.as_ref() {
+            match redirection {
+                &PipelineRedirection::Single {
+                    source: RedirectionSource::Stderr,
+                    target: RedirectionTarget::Pipe { span },
+                }
+                | &PipelineRedirection::Separate {
+                    err: RedirectionTarget::Pipe { span },
+                    ..
+                } => {
+                    return Err(ShellError::GenericError {
+                        error: "`e>|` only works with external streams".into(),
+                        msg: "`e>|` only works on external streams".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    });
+                }
+                &PipelineRedirection::Single {
+                    source: RedirectionSource::StdoutAndStderr,
+                    target: RedirectionTarget::Pipe { span },
+                } => {
+                    return Err(ShellError::GenericError {
+                        error: "`o+e>|` only works with external streams".into(),
+                        msg: "`o+e>|` only works on external streams".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    });
+                }
+                _ => {}
+            }
         }
-        (
-            PipelineData::Value(..) | PipelineData::ListStream(..) | PipelineData::Empty,
-            Some((RedirectionSource::StdoutAndStderr, span)),
-        ) => {
-            return Err(ShellError::GenericError {
-                error: "`o+e>|` only works with external streams".into(),
-                msg: "`o+e>|` only works on external streams".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
-        }
-        _ => {}
     }
 
     let data = match (data, stack.pipe_stdout()) {

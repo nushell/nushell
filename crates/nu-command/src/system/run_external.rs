@@ -57,10 +57,10 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let redirect_stdout = call.has_flag(engine_state, stack, "redirect-stdout")?;
         let redirect_stderr = call.has_flag(engine_state, stack, "redirect-stderr")?;
-        let combine_out_err = call.has_flag(engine_state, stack, "redirect-combine")?;
+        let redirect_combine = call.has_flag(engine_state, stack, "redirect-combine")?;
         let trim_end_newline = call.has_flag(engine_state, stack, "trim-end-newline")?;
 
-        if combine_out_err && (redirect_stdout || redirect_stderr) {
+        if redirect_combine && (redirect_stdout || redirect_stderr) {
             return Err(ShellError::ExternalCommand {
                 label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
                     .into(),
@@ -76,20 +76,22 @@ impl Command for External {
                     error: "Deprecated flag".into(),
                     msg: "`--trim-end-newline` is deprecated".into(),
                     span: Some(call.arguments_span()),
-                    help: Some("`run-external` removes a trailing new line by default".into()),
+                    help: Some(
+                        "`run-external` now removes any trailing new lines by default".into(),
+                    ),
                     inner: vec![],
                 },
             );
         }
 
-        if combine_out_err {
+        if redirect_combine {
             nu_protocol::report_error_new(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Deprecated flag".into(),
                     msg: "`--redirect-combine` is deprecated".into(),
                     span: Some(call.arguments_span()),
-                    help: Some("Use the `o+e>|` pipe redirection instead".into()),
+                    help: Some("use the `o+e>|` pipe redirection instead".into()),
                     inner: vec![],
                 },
             );
@@ -100,7 +102,10 @@ impl Command for External {
                     error: "Deprecated flag".into(),
                     msg: "`--redirect-stdout` is deprecated".into(),
                     span: Some(call.arguments_span()),
-                    help: Some("`run-external` will redirect stdout if there is a pipe `|`".into()),
+                    help: Some(
+                        "`run-external` will now always redirect stdout if there is a pipe `|`"
+                            .into(),
+                    ),
                     inner: vec![],
                 },
             );
@@ -111,7 +116,7 @@ impl Command for External {
                     error: "Deprecated flag".into(),
                     msg: "`--redirect-stderr` is deprecated".into(),
                     span: Some(call.arguments_span()),
-                    help: Some("Use the `e>|` stderr pipe redirection instead".into()),
+                    help: Some("use the `e>|` stderr pipe redirection instead".into()),
                     inner: vec![],
                 },
             );

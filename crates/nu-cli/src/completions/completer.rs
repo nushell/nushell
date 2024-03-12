@@ -66,8 +66,7 @@ impl NuCompleter {
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = self
             .stack
-            .gather_captures(&self.engine_state, &block.captures)
-            .capture();
+            .gather_captures(&self.engine_state, &block.captures);
 
         // Line
         if let Some(pos_arg) = block.signature.required_positional.first() {
@@ -547,7 +546,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(engine_state.into(), Stack::new().capture());
+        let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
         let dataset = [
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),

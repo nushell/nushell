@@ -523,12 +523,12 @@ impl Stack {
         self.stdio.stderr()
     }
 
-    /// Returns the [`IoStream`] to use for the last command's stdout
+    /// Returns the [`IoStream`] to use for the last command's stdout.
     pub fn pipe_stdout(&self) -> Option<&IoStream> {
         self.stdio.pipe_stdout.as_ref()
     }
 
-    /// Returns the [`IoStream`] to use for the last command's stderr
+    /// Returns the [`IoStream`] to use for the last command's stderr.
     pub fn pipe_stderr(&self) -> Option<&IoStream> {
         self.stdio.pipe_stderr.as_ref()
     }

@@ -80,22 +80,6 @@ pub enum PipelineRedirection {
     },
 }
 
-impl PipelineRedirection {
-    pub fn pipe_redirection(&self) -> Option<(RedirectionSource, Span)> {
-        match self {
-            PipelineRedirection::Single {
-                source,
-                target: RedirectionTarget::Pipe { span },
-            } => Some((*source, *span)),
-            PipelineRedirection::Separate {
-                err: RedirectionTarget::Pipe { span },
-                ..
-            } => Some((RedirectionSource::Stderr, *span)),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineElement {
     pub pipe: Option<Span>,

@@ -325,7 +325,6 @@ pub fn parse_cell_path() {
     let element = &pipeline.elements[0];
     assert!(element.redirection.is_none());
 
-    // hoo boy this pattern matching is a pain
     if let Expr::FullCellPath(b) = &element.expr.expr {
         assert!(matches!(b.head.expr, Expr::Var(_)));
         if let [a, b] = &b.tail[..] {
@@ -372,7 +371,6 @@ pub fn parse_cell_path_optional() {
     let element = &pipeline.elements[0];
     assert!(element.redirection.is_none());
 
-    // hoo boy this pattern matching is a pain
     if let Expr::FullCellPath(b) = &element.expr.expr {
         assert!(matches!(b.head.expr, Expr::Var(_)));
         if let [a, b] = &b.tail[..] {

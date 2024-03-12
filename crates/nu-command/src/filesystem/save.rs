@@ -147,9 +147,7 @@ impl Command for Save {
                     }
                     (None, Some(stderr)) => match stderr_file {
                         Some(stderr_file) => stream_to_file(stderr, stderr_file, span, progress)?,
-                        None => {
-                            let _ = stderr.into_bytes()?;
-                        }
+                        None => stderr.drain()?,
                     },
                     (None, None) => {}
                 };
@@ -437,13 +435,13 @@ fn get_files(
 
 fn stream_to_file(
     mut stream: RawStream,
-    file: File,
+    mut file: File,
     span: Span,
     progress: bool,
 ) -> Result<(), ShellError> {
     // https://github.com/nushell/nushell/pull/9377 contains the reason
     // for not using BufWriter<File>
-    let mut writer = file;
+    let writer = &mut file;
 
     let mut bytes_processed: u64 = 0;
     let bytes_processed_p = &mut bytes_processed;
@@ -494,7 +492,7 @@ fn stream_to_file(
             }
         }
 
-        if let Err(err) = writer.write(&buf) {
+        if let Err(err) = writer.write_all(&buf) {
             *process_failed_p = true;
             return Err(ShellError::IOError {
                 msg: err.to_string(),
@@ -512,6 +510,8 @@ fn stream_to_file(
             }
         }
     }
+
+    file.flush()?;
 
     Ok(())
 }
