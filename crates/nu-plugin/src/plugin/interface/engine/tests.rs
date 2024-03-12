@@ -930,33 +930,6 @@ fn interface_get_current_dir() -> Result<(), ShellError> {
 }
 
 #[test]
-fn interface_with_current_dir() -> Result<(), ShellError> {
-    let test = TestCase::new();
-    let manager = test.engine();
-    let interface = manager.interface_for_context(0);
-
-    // We have to use a real directory for this test.
-    let real_dir = std::env::temp_dir().canonicalize()?;
-    let real_dir_string = real_dir
-        .to_str()
-        .map(|s| s.to_owned())
-        .expect("Can't do test because of invalid UTF-8 in temp directory name");
-
-    start_fake_plugin_call_responder(manager, 1, move |_| {
-        EngineCallResponse::value(Value::test_string(&real_dir_string))
-    });
-
-    interface.with_current_dir(|| {
-        let current_dir = std::env::current_dir()?;
-        assert_eq!(real_dir, current_dir);
-        Ok::<_, ShellError>(())
-    })?;
-
-    assert!(test.has_unconsumed_write());
-    Ok(())
-}
-
-#[test]
 fn interface_get_env_vars() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.engine();

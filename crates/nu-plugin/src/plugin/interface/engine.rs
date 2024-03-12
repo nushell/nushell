@@ -598,41 +598,6 @@ impl EngineInterface {
         }
     }
 
-    /// Execute a function within the current working directory of the engine.
-    ///
-    /// This is provided for convenience for plugins that do filesystem operations. The current
-    /// directory of the thread the command is running on will be changed to reflect that of the
-    /// context in the engine during the function, and changed back after the function returns.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// # use nu_protocol::{Value, ShellError};
-    /// # use nu_plugin::EngineInterface;
-    /// # fn example(engine: &EngineInterface) -> Result<(), ShellError> {
-    /// engine.with_current_dir(|| {
-    ///     eprintln!("{}", std::env::current_dir()?.display());
-    ///     Ok(())
-    /// })
-    /// # }
-    /// ```
-    pub fn with_current_dir<T, E>(&self, fun: impl FnOnce() -> Result<T, E>) -> Result<T, E>
-    where
-        E: From<ShellError>,
-    {
-        let cwd = self.get_current_dir()?;
-        let original_cwd = std::env::current_dir().map_err(ShellError::from)?;
-        std::env::set_current_dir(cwd).map_err(ShellError::from)?;
-        let result = fun();
-        // We always want to set the current directory back, but the result from the function
-        // should take priority
-        let set_back_result = std::env::set_current_dir(original_cwd).map_err(ShellError::from);
-        match (result, set_back_result) {
-            (Err(err), _) => Err(err),
-            (_, Err(err)) => Err(err.into()),
-            (Ok(value), Ok(())) => Ok(value),
-        }
-    }
-
     /// Get all environment variables from the engine.
     ///
     /// Since this is quite a large map that has to be sent, prefer to use [`.get_env_var()`] if
