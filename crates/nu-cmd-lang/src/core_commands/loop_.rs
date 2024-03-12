@@ -36,6 +36,8 @@ impl Command for Loop {
         let block: Block = call.req(engine_state, stack, 0)?;
         let eval_block = get_eval_block(engine_state);
 
+        let stack = &mut stack.push_redirection(None, None);
+
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 break;

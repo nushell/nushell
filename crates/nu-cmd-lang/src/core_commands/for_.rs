@@ -85,6 +85,8 @@ impl Command for For {
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block.block_id).clone();
 
+        let stack = &mut stack.push_redirection(None, None);
+
         match values {
             Value::List { vals, .. } => {
                 for (idx, x) in ListStream::from_stream(vals.into_iter(), ctrlc).enumerate() {
