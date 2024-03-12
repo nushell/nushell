@@ -54,6 +54,9 @@ jobs:
       - name: Clippy of tests
         run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
 
+      - name: Clippy of benchmarks
+        run: cargo clippy --benches --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+
   tests:
     strategy:
       fail-fast: true

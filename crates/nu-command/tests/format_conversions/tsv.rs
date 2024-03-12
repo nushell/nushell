@@ -106,7 +106,6 @@ fn from_tsv_text_to_table() {
 }
 
 #[test]
-#[allow(clippy::needless_raw_string_hashes)]
 fn from_tsv_text_with_comments_to_table() {
     Playground::setup("filter_from_tsv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(

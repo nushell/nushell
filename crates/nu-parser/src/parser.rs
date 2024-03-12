@@ -573,9 +573,8 @@ fn first_kw_idx(
             ..
         }) = signature.get_positional(idx)
         {
-            #[allow(clippy::needless_range_loop)]
-            for span_idx in spans_idx..spans.len() {
-                let contents = working_set.get_span_contents(spans[span_idx]);
+            for (span_idx, &span) in spans.iter().enumerate().skip(spans_idx) {
+                let contents = working_set.get_span_contents(span);
 
                 if contents == kw {
                     return (Some(idx), span_idx);
@@ -3194,12 +3193,11 @@ pub fn parse_signature(working_set: &mut StateWorkingSet, span: Span) -> Express
 }
 
 pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> Box<Signature> {
-    #[allow(clippy::enum_variant_names)]
     enum ParseMode {
-        ArgMode,
-        AfterCommaArgMode,
-        TypeMode,
-        DefaultValueMode,
+        Arg,
+        AfterCommaArg,
+        Type,
+        DefaultValue,
     }
 
     #[derive(Debug)]
@@ -3230,7 +3228,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
     }
 
     let mut args: Vec<Arg> = vec![];
-    let mut parse_mode = ParseMode::ArgMode;
+    let mut parse_mode = ParseMode::Arg;
 
     for token in &output {
         match token {
@@ -3244,13 +3242,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The : symbol separates types
                 if contents == b":" {
                     match parse_mode {
-                        ParseMode::ArgMode => {
-                            parse_mode = ParseMode::TypeMode;
+                        ParseMode::Arg => {
+                            parse_mode = ParseMode::Type;
                         }
-                        ParseMode::AfterCommaArgMode => {
+                        ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
-                        ParseMode::TypeMode | ParseMode::DefaultValueMode => {
+                        ParseMode::Type | ParseMode::DefaultValue => {
                             // We're seeing two types for the same thing for some reason, error
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -3259,13 +3257,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The = symbol separates a variable from its default value
                 else if contents == b"=" {
                     match parse_mode {
-                        ParseMode::TypeMode | ParseMode::ArgMode => {
-                            parse_mode = ParseMode::DefaultValueMode;
+                        ParseMode::Type | ParseMode::Arg => {
+                            parse_mode = ParseMode::DefaultValue;
                         }
-                        ParseMode::AfterCommaArgMode => {
+                        ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
-                        ParseMode::DefaultValueMode => {
+                        ParseMode::DefaultValue => {
                             // We're seeing two default values for some reason, error
                             working_set.error(ParseError::Expected("default value", span));
                         }
@@ -3274,20 +3272,20 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The , symbol separates params only
                 else if contents == b"," {
                     match parse_mode {
-                        ParseMode::ArgMode => parse_mode = ParseMode::AfterCommaArgMode,
-                        ParseMode::AfterCommaArgMode => {
+                        ParseMode::Arg => parse_mode = ParseMode::AfterCommaArg,
+                        ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
-                        ParseMode::TypeMode => {
+                        ParseMode::Type => {
                             working_set.error(ParseError::Expected("type", span));
                         }
-                        ParseMode::DefaultValueMode => {
+                        ParseMode::DefaultValue => {
                             working_set.error(ParseError::Expected("default value", span));
                         }
                     }
                 } else {
                     match parse_mode {
-                        ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
+                        ParseMode::Arg | ParseMode::AfterCommaArg => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -3393,7 +3391,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         working_set.error(ParseError::Expected("short flag", span));
                                     }
                                 }
-                                parse_mode = ParseMode::ArgMode;
+                                parse_mode = ParseMode::Arg;
                             }
                             // Mandatory short flag, e.g. -e (must be one character)
                             else if contents.starts_with(b"-") && contents.len() > 1 {
@@ -3431,12 +3429,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     },
                                     type_annotated: false,
                                 });
-                                parse_mode = ParseMode::ArgMode;
+                                parse_mode = ParseMode::Arg;
                             }
                             // Short flag alias for long flag, e.g. --b (-a)
                             // This is the same as the short flag in --b(-a)
                             else if contents.starts_with(b"(-") {
-                                if matches!(parse_mode, ParseMode::AfterCommaArgMode) {
+                                if matches!(parse_mode, ParseMode::AfterCommaArg) {
                                     working_set
                                         .error(ParseError::Expected("parameter or flag", span));
                                 }
@@ -3499,7 +3497,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     required: false,
                                     type_annotated: false,
                                 });
-                                parse_mode = ParseMode::ArgMode;
+                                parse_mode = ParseMode::Arg;
                             }
                             // Rest param
                             else if let Some(contents) = contents.strip_prefix(b"...") {
@@ -3523,7 +3521,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
-                                parse_mode = ParseMode::ArgMode;
+                                parse_mode = ParseMode::Arg;
                             }
                             // Normal param
                             else {
@@ -3552,10 +3550,10 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     required: true,
                                     type_annotated: false,
                                 });
-                                parse_mode = ParseMode::ArgMode;
+                                parse_mode = ParseMode::Arg;
                             }
                         }
-                        ParseMode::TypeMode => {
+                        ParseMode::Type => {
                             if let Some(last) = args.last_mut() {
                                 let syntax_shape = parse_shape_name(
                                     working_set,
@@ -3597,9 +3595,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::ArgMode;
+                            parse_mode = ParseMode::Arg;
                         }
-                        ParseMode::DefaultValueMode => {
+                        ParseMode::DefaultValue => {
                             if let Some(last) = args.last_mut() {
                                 let expression = parse_value(working_set, span, &SyntaxShape::Any);
 
@@ -3720,7 +3718,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::ArgMode;
+                            parse_mode = ParseMode::Arg;
                         }
                     }
                 }

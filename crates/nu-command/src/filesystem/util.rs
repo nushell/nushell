@@ -39,7 +39,6 @@ pub fn try_interaction(
     (interaction, confirmed)
 }
 
-#[allow(dead_code)]
 fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> {
     let input = Input::new()
         .with_prompt(prompt)

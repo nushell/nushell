@@ -79,12 +79,11 @@ fn test_int(
         );
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        compare_rhs_binaryOp(test_tag, &expected_val, &element.expr.expr);
+        compare_rhs_binary_op(test_tag, &expected_val, &element.expr.expr);
     }
 }
 
-#[allow(non_snake_case)]
-fn compare_rhs_binaryOp(
+fn compare_rhs_binary_op(
     test_tag: &str,
     expected: &Expr, // the rhs expr we hope to see (::Int, ::Float, not ::B)
     observed: &Expr, // the Expr actually provided: can be ::Int, ::Float, ::String,

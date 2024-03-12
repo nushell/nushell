@@ -7,7 +7,6 @@ use nu_protocol::{
     record, span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
-use std::borrow::Borrow;
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -127,7 +126,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
 
     for (_, decl_id) in commands {
         let decl = engine_state.get_decl(decl_id);
-        let sig = decl.signature().update_from_command(decl.borrow());
+        let sig = decl.signature().update_from_command(decl);
 
         let key = sig.name;
         let usage = sig.usage;
