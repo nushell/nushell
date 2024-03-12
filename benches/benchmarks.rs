@@ -103,6 +103,32 @@ mod eval_commands {
         )
     }
 
+    #[divan::bench(args = [100, 1_000, 10_000])]
+    fn interleave_with_ctrlc(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        engine.ctrlc = Some(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+            false,
+        )));
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
+        };
+
+        bencher
+            .with_inputs(|| engine.clone())
+            .bench_values(|mut engine| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut nu_protocol::engine::Stack::new(),
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+
     #[divan::bench(args = [1, 5, 10, 100, 1_000])]
     fn for_range(bencher: divan::Bencher, n: i32) {
         bench_command(bencher, format!("(for $x in (1..{}) {{ sleep 50ns }})", n))
