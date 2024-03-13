@@ -2,7 +2,7 @@
 
 use std::{
     collections::{btree_map, BTreeMap},
-    sync::{mpsc, Arc, OnceLock},
+    sync::{atomic::AtomicBool, mpsc, Arc, OnceLock},
 };
 
 use nu_protocol::{
@@ -44,8 +44,7 @@ enum ReceivedPluginCallMessage {
 }
 
 /// Context for plugin call execution
-#[derive(Clone)]
-pub(crate) struct Context(Arc<dyn PluginExecutionContext>);
+pub(crate) struct Context(Box<dyn PluginExecutionContext>);
 
 impl std::fmt::Debug for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -70,7 +69,7 @@ struct PluginInterfaceState {
     /// Sequence for generating stream ids
     stream_id_sequence: Sequence,
     /// Sender to subscribe to a plugin call response
-    plugin_call_subscription_sender: mpsc::Sender<(PluginCallId, PluginCallSubscription)>,
+    plugin_call_subscription_sender: mpsc::Sender<(PluginCallId, PluginCallState)>,
     /// An error that should be propagated to further plugin calls
     error: OnceLock<ShellError>,
     /// The synchronized output writer
@@ -91,14 +90,15 @@ impl std::fmt::Debug for PluginInterfaceState {
     }
 }
 
-/// Sent to the [`PluginInterfaceManager`] before making a plugin call to indicate interest in its
-/// response.
+/// State that the manager keeps for each plugin call during its lifetime.
 #[derive(Debug)]
-struct PluginCallSubscription {
+struct PluginCallState {
     /// The sender back to the thread that is waiting for the plugin call response
     sender: Option<mpsc::Sender<ReceivedPluginCallMessage>>,
-    /// Optional context for the environment of a plugin call for servicing engine calls
-    context: Option<Context>,
+    /// Interrupt signal to be used for stream iterators
+    ctrlc: Option<Arc<AtomicBool>>,
+    /// Channel to receive context on to be used if needed
+    context_rx: Option<mpsc::Receiver<Context>>,
     /// Number of streams that still need to be read from the plugin call response
     remaining_streams_to_read: i32,
 }
@@ -112,10 +112,10 @@ pub(crate) struct PluginInterfaceManager {
     stream_manager: StreamManager,
     /// Protocol version info, set after `Hello` received
     protocol_info: Option<ProtocolInfo>,
-    /// Subscriptions for messages related to plugin calls
-    plugin_call_subscriptions: BTreeMap<PluginCallId, PluginCallSubscription>,
+    /// State related to plugin calls
+    plugin_call_states: BTreeMap<PluginCallId, PluginCallState>,
     /// Receiver for plugin call subscriptions
-    plugin_call_subscription_receiver: mpsc::Receiver<(PluginCallId, PluginCallSubscription)>,
+    plugin_call_subscription_receiver: mpsc::Receiver<(PluginCallId, PluginCallState)>,
     /// Tracker for which plugin call streams being read belong to
     ///
     /// This is necessary so we know when we can remove context for plugin calls
@@ -142,7 +142,7 @@ impl PluginInterfaceManager {
             }),
             stream_manager: StreamManager::new(),
             protocol_info: None,
-            plugin_call_subscriptions: BTreeMap::new(),
+            plugin_call_states: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
             plugin_call_input_streams: BTreeMap::new(),
             gc: None,
@@ -158,9 +158,9 @@ impl PluginInterfaceManager {
 
     /// Consume pending messages in the `plugin_call_subscription_receiver`
     fn receive_plugin_call_subscriptions(&mut self) {
-        while let Ok((id, subscription)) = self.plugin_call_subscription_receiver.try_recv() {
-            if let btree_map::Entry::Vacant(e) = self.plugin_call_subscriptions.entry(id) {
-                e.insert(subscription);
+        while let Ok((id, state)) = self.plugin_call_subscription_receiver.try_recv() {
+            if let btree_map::Entry::Vacant(e) = self.plugin_call_states.entry(id) {
+                e.insert(state);
             } else {
                 log::warn!("Duplicate plugin call ID ignored: {id}");
             }
@@ -172,8 +172,8 @@ impl PluginInterfaceManager {
         self.plugin_call_input_streams.insert(stream_id, call_id);
         // Increment the number of streams on the subscription so context stays alive
         self.receive_plugin_call_subscriptions();
-        if let Some(sub) = self.plugin_call_subscriptions.get_mut(&call_id) {
-            sub.remaining_streams_to_read += 1;
+        if let Some(state) = self.plugin_call_states.get_mut(&call_id) {
+            state.remaining_streams_to_read += 1;
         }
         // Add a lock to the garbage collector for each stream
         if let Some(ref gc) = self.gc {
@@ -184,8 +184,7 @@ impl PluginInterfaceManager {
     /// Track the end of an incoming stream
     fn recv_stream_ended(&mut self, stream_id: StreamId) {
         if let Some(call_id) = self.plugin_call_input_streams.remove(&stream_id) {
-            if let btree_map::Entry::Occupied(mut e) = self.plugin_call_subscriptions.entry(call_id)
-            {
+            if let btree_map::Entry::Occupied(mut e) = self.plugin_call_states.entry(call_id) {
                 e.get_mut().remaining_streams_to_read -= 1;
                 // Remove the subscription if there are no more streams to be read.
                 if e.get().remaining_streams_to_read <= 0 {
@@ -200,14 +199,14 @@ impl PluginInterfaceManager {
         }
     }
 
-    /// Find the context corresponding to the given plugin call id
-    fn get_context(&mut self, id: PluginCallId) -> Result<Option<Context>, ShellError> {
+    /// Find the ctrlc signal corresponding to the given plugin call id
+    fn get_ctrlc(&mut self, id: PluginCallId) -> Result<Option<Arc<AtomicBool>>, ShellError> {
         // Make sure we're up to date
         self.receive_plugin_call_subscriptions();
         // Find the subscription and return the context
-        self.plugin_call_subscriptions
+        self.plugin_call_states
             .get(&id)
-            .map(|sub| sub.context.clone())
+            .map(|state| state.ctrlc.clone())
             .ok_or_else(|| ShellError::PluginFailedToDecode {
                 msg: format!("Unknown plugin call ID: {id}"),
             })
@@ -222,7 +221,7 @@ impl PluginInterfaceManager {
         // Ensure we're caught up on the subscriptions made
         self.receive_plugin_call_subscriptions();
 
-        if let btree_map::Entry::Occupied(mut e) = self.plugin_call_subscriptions.entry(id) {
+        if let btree_map::Entry::Occupied(mut e) = self.plugin_call_states.entry(id) {
             // Remove the subscription sender, since this will be the last message.
             //
             // We can spawn a new one if we need it for engine calls.
@@ -254,11 +253,23 @@ impl PluginInterfaceManager {
     ) -> Result<&mpsc::Sender<ReceivedPluginCallMessage>, ShellError> {
         let interface = self.get_interface();
 
-        if let Some(sub) = self.plugin_call_subscriptions.get_mut(&id) {
-            if sub.sender.is_none() {
+        if let Some(state) = self.plugin_call_states.get_mut(&id) {
+            if state.sender.is_none() {
                 let (tx, rx) = mpsc::channel();
-                let context = sub.context.clone();
+                let context_rx =
+                    state
+                        .context_rx
+                        .take()
+                        .ok_or_else(|| ShellError::NushellFailed {
+                            msg: "Tried to spawn the fallback engine call handler more than once"
+                                .into(),
+                        })?;
                 let handler = move || {
+                    // We receive on the thread so that we don't block the reader thread
+                    let mut context = context_rx
+                        .recv()
+                        .ok() // The plugin call won't send context if it's not required.
+                        .map(|c| c.0);
                     for msg in rx {
                         // This thread only handles engine calls.
                         match msg {
@@ -266,7 +277,7 @@ impl PluginInterfaceManager {
                                 if let Err(err) = interface.handle_engine_call(
                                     engine_call_id,
                                     engine_call,
-                                    &context,
+                                    context.as_deref_mut(),
                                 ) {
                                     log::warn!(
                                         "Error in plugin post-response engine call handler: \
@@ -286,8 +297,8 @@ impl PluginInterfaceManager {
                     .name("plugin engine call handler".into())
                     .spawn(handler)
                     .expect("failed to spawn thread");
-                sub.sender = Some(tx);
-                Ok(sub.sender.as_ref().unwrap_or_else(|| unreachable!()))
+                state.sender = Some(tx);
+                Ok(state.sender.as_ref().unwrap_or_else(|| unreachable!()))
             } else {
                 Err(ShellError::NushellFailed {
                     msg: "Tried to spawn the fallback engine call handler before the plugin call \
@@ -313,7 +324,7 @@ impl PluginInterfaceManager {
         self.receive_plugin_call_subscriptions();
 
         // Don't remove the sender, as there could be more calls or responses
-        if let Some(subscription) = self.plugin_call_subscriptions.get(&plugin_call_id) {
+        if let Some(subscription) = self.plugin_call_states.get(&plugin_call_id) {
             let msg = ReceivedPluginCallMessage::EngineCall(engine_call_id, call);
             // Call if there's an error sending the engine call
             let send_error = |this: &Self| {
@@ -374,9 +385,7 @@ impl PluginInterfaceManager {
                 let _ = self.stream_manager.broadcast_read_error(err.clone());
                 // Error to call waiters
                 self.receive_plugin_call_subscriptions();
-                for subscription in
-                    std::mem::take(&mut self.plugin_call_subscriptions).into_values()
-                {
+                for subscription in std::mem::take(&mut self.plugin_call_states).into_values() {
                     let _ = subscription
                         .sender
                         .as_ref()
@@ -460,15 +469,14 @@ impl InterfaceManager for PluginInterfaceManager {
                     PluginCallResponse::PipelineData(data) => {
                         // If there's an error with initializing this stream, change it to a plugin
                         // error response, but send it anyway
-                        let exec_context = self.get_context(id)?;
-                        let ctrlc = exec_context.as_ref().and_then(|c| c.0.ctrlc());
+                        let ctrlc = self.get_ctrlc(id)?;
 
                         // Register the streams in the response
                         for stream_id in data.stream_ids() {
                             self.recv_stream_started(id, stream_id);
                         }
 
-                        match self.read_pipeline_data(data, ctrlc) {
+                        match self.read_pipeline_data(data, ctrlc.as_ref()) {
                             Ok(data) => PluginCallResponse::PipelineData(data),
                             Err(err) => PluginCallResponse::Error(err.into()),
                         }
@@ -485,8 +493,7 @@ impl InterfaceManager for PluginInterfaceManager {
             }
             PluginOutput::EngineCall { context, id, call } => {
                 // Handle reading the pipeline data, if any
-                let exec_context = self.get_context(context)?;
-                let ctrlc = exec_context.as_ref().and_then(|c| c.0.ctrlc());
+                let ctrlc = self.get_ctrlc(context)?;
                 let call = match call {
                     EngineCall::GetConfig => Ok(EngineCall::GetConfig),
                     EngineCall::GetPluginConfig => Ok(EngineCall::GetPluginConfig),
@@ -504,14 +511,15 @@ impl InterfaceManager for PluginInterfaceManager {
                         for arg in positional.iter_mut() {
                             PluginCustomValue::add_source(arg, &self.state.source);
                         }
-                        self.read_pipeline_data(input, ctrlc)
-                            .map(|input| EngineCall::EvalClosure {
+                        self.read_pipeline_data(input, ctrlc.as_ref()).map(|input| {
+                            EngineCall::EvalClosure {
                                 closure,
                                 positional,
                                 input,
                                 redirect_stdout,
                                 redirect_stderr,
-                            })
+                            }
+                        })
                     }
                 };
                 match call {
@@ -622,7 +630,8 @@ impl PluginInterface {
     fn write_plugin_call(
         &self,
         call: PluginCall<PipelineData>,
-        context: Option<Context>,
+        ctrlc: Option<Arc<AtomicBool>>,
+        context_rx: mpsc::Receiver<Context>,
     ) -> Result<
         (
             PipelineDataWriter<Self>,
@@ -662,9 +671,10 @@ impl PluginInterface {
             .plugin_call_subscription_sender
             .send((
                 id,
-                PluginCallSubscription {
+                PluginCallState {
                     sender: Some(tx),
-                    context,
+                    ctrlc,
+                    context_rx: Some(context_rx),
                     remaining_streams_to_read: 0,
                 },
             ))
@@ -703,19 +713,26 @@ impl PluginInterface {
     fn receive_plugin_call_response(
         &self,
         rx: mpsc::Receiver<ReceivedPluginCallMessage>,
-        context: &Option<Context>,
+        mut context: Option<&mut (dyn PluginExecutionContext + '_)>,
+        context_tx: mpsc::Sender<Context>,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
         // Handle message from receiver
         for msg in rx {
             match msg {
                 ReceivedPluginCallMessage::Response(resp) => {
+                    if resp.has_stream() {
+                        // If the response has a stream, we need to register the context
+                        if let Some(context) = context {
+                            let _ = context_tx.send(Context(context.boxed()));
+                        }
+                    }
                     return Ok(resp);
                 }
                 ReceivedPluginCallMessage::Error(err) => {
                     return Err(err);
                 }
                 ReceivedPluginCallMessage::EngineCall(engine_call_id, engine_call) => {
-                    self.handle_engine_call(engine_call_id, engine_call, context)?;
+                    self.handle_engine_call(engine_call_id, engine_call, context.as_deref_mut())?;
                 }
             }
         }
@@ -730,7 +747,7 @@ impl PluginInterface {
         &self,
         engine_call_id: EngineCallId,
         engine_call: EngineCall<PipelineData>,
-        context: &Option<Context>,
+        context: Option<&mut (dyn PluginExecutionContext + '_)>,
     ) -> Result<(), ShellError> {
         let resp =
             handle_engine_call(engine_call, context).unwrap_or_else(EngineCallResponse::Error);
@@ -763,7 +780,7 @@ impl PluginInterface {
     fn plugin_call(
         &self,
         call: PluginCall<PipelineData>,
-        context: &Option<Context>,
+        context: Option<&mut dyn PluginExecutionContext>,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
         // Check for an error in the state first, and return it if set.
         if let Some(error) = self.state.error.get() {
@@ -777,17 +794,24 @@ impl PluginInterface {
             gc.increment_locks(1);
         }
 
-        let (writer, rx) = self.write_plugin_call(call, context.clone())?;
+        // Create the channel to send context on if needed
+        let (context_tx, context_rx) = mpsc::channel();
+
+        let (writer, rx) = self.write_plugin_call(
+            call,
+            context.as_ref().and_then(|c| c.ctrlc().cloned()),
+            context_rx,
+        )?;
 
         // Finish writing stream in the background
         writer.write_background()?;
 
-        self.receive_plugin_call_response(rx, context)
+        self.receive_plugin_call_response(rx, context, context_tx)
     }
 
     /// Get the command signatures from the plugin.
     pub(crate) fn get_signature(&self) -> Result<Vec<PluginSignature>, ShellError> {
-        match self.plugin_call(PluginCall::Signature, &None)? {
+        match self.plugin_call(PluginCall::Signature, None)? {
             PluginCallResponse::Signature(sigs) => Ok(sigs),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
@@ -800,10 +824,9 @@ impl PluginInterface {
     pub(crate) fn run(
         &self,
         call: CallInfo<PipelineData>,
-        context: Arc<impl PluginExecutionContext + 'static>,
+        context: &mut dyn PluginExecutionContext,
     ) -> Result<PipelineData, ShellError> {
-        let context = Some(Context(context));
-        match self.plugin_call(PluginCall::Run(call), &context)? {
+        match self.plugin_call(PluginCall::Run(call), Some(context))? {
             PluginCallResponse::PipelineData(data) => Ok(data),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
@@ -821,7 +844,7 @@ impl PluginInterface {
         let op_name = op.name();
         let span = value.span;
         let call = PluginCall::CustomValueOp(value, op);
-        match self.plugin_call(call, &None)? {
+        match self.plugin_call(call, None)? {
             PluginCallResponse::PipelineData(out_data) => Ok(out_data.into_value(span)),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
@@ -869,7 +892,7 @@ impl PluginInterface {
             value.into_spanned(Span::unknown()),
             CustomValueOp::PartialCmp(other_value),
         );
-        match self.plugin_call(call, &None)? {
+        match self.plugin_call(call, None)? {
             PluginCallResponse::Ordering(ordering) => Ok(ordering),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
@@ -977,43 +1000,47 @@ impl Drop for PluginInterface {
 /// Handle an engine call.
 pub(crate) fn handle_engine_call(
     call: EngineCall<PipelineData>,
-    context: &Option<Context>,
+    mut context: Option<&mut (dyn PluginExecutionContext + '_)>,
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
     let call_name = call.name();
-    let require_context = || {
-        context.as_ref().ok_or_else(|| ShellError::GenericError {
-            error: "A plugin execution context is required for this engine call".into(),
-            msg: format!(
-                "attempted to call {} outside of a command invocation",
-                call_name
-            ),
-            span: None,
-            help: Some("this is probably a bug with the plugin".into()),
-            inner: vec![],
-        })
-    };
+    macro_rules! require_context {
+        () => {
+            context
+                .as_deref_mut()
+                .ok_or_else(|| ShellError::GenericError {
+                    error: "A plugin execution context is required for this engine call".into(),
+                    msg: format!(
+                        "attempted to call {} outside of a command invocation",
+                        call_name
+                    ),
+                    span: None,
+                    help: Some("this is probably a bug with the plugin".into()),
+                    inner: vec![],
+                })
+        };
+    }
     match call {
         EngineCall::GetConfig => {
-            let context = require_context()?;
+            let context = require_context!()?;
             let config = Box::new(context.get_config()?);
             Ok(EngineCallResponse::Config(config))
         }
         EngineCall::GetPluginConfig => {
-            let context = require_context()?;
+            let context = require_context!()?;
             let plugin_config = context.get_plugin_config()?;
             Ok(plugin_config.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
         }
         EngineCall::GetEnvVar(name) => {
-            let context = require_context()?;
+            let context = require_context!()?;
             let value = context.get_env_var(&name)?;
             Ok(value.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
         }
         EngineCall::GetEnvVars => {
-            let context = require_context()?;
+            let context = require_context!()?;
             context.get_env_vars().map(EngineCallResponse::ValueMap)
         }
         EngineCall::GetCurrentDir => {
-            let context = require_context()?;
+            let context = require_context!()?;
             let current_dir = context.get_current_dir()?;
             Ok(EngineCallResponse::value(Value::string(
                 current_dir.item,
@@ -1026,7 +1053,7 @@ pub(crate) fn handle_engine_call(
             input,
             redirect_stdout,
             redirect_stderr,
-        } => require_context()?
+        } => require_context!()?
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
     }

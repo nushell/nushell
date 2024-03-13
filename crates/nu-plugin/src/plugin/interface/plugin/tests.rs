@@ -1,7 +1,4 @@
-use std::{
-    sync::{mpsc, Arc},
-    time::Duration,
-};
+use std::{sync::mpsc, time::Duration};
 
 use nu_protocol::{
     engine::Closure, IntoInterruptiblePipelineData, PipelineData, PluginSignature, ShellError,
@@ -24,8 +21,7 @@ use crate::{
 };
 
 use super::{
-    Context, PluginCallSubscription, PluginInterface, PluginInterfaceManager,
-    ReceivedPluginCallMessage,
+    Context, PluginCallState, PluginInterface, PluginInterfaceManager, ReceivedPluginCallMessage,
 };
 
 #[test]
@@ -187,11 +183,12 @@ fn fake_plugin_call(
     // Set up a fake plugin call subscription
     let (tx, rx) = mpsc::channel();
 
-    manager.plugin_call_subscriptions.insert(
+    manager.plugin_call_states.insert(
         id,
-        PluginCallSubscription {
+        PluginCallState {
             sender: Some(tx),
-            context: None,
+            ctrlc: None,
+            context_rx: None,
             remaining_streams_to_read: 0,
         },
     );
@@ -388,7 +385,7 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     ))?;
 
     // ListStream should have one
-    if let Some(sub) = manager.plugin_call_subscriptions.get(&0) {
+    if let Some(sub) = manager.plugin_call_states.get(&0) {
         assert_eq!(
             1, sub.remaining_streams_to_read,
             "ListStream remaining_streams_to_read should be 1"
@@ -403,7 +400,7 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     );
 
     // ExternalStream should have three
-    if let Some(sub) = manager.plugin_call_subscriptions.get(&1) {
+    if let Some(sub) = manager.plugin_call_states.get(&1) {
         assert_eq!(
             3, sub.remaining_streams_to_read,
             "ExternalStream remaining_streams_to_read should be 3"
@@ -483,19 +480,24 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
     let mut manager = test.plugin("test");
     manager.protocol_info = Some(ProtocolInfo::default());
 
-    let bogus = Context(Arc::new(PluginExecutionBogusContext));
+    let (context_tx, context_rx) = mpsc::channel();
 
     // Set up a situation identical to what we would find if the response had been read, but there
     // was still a stream being processed. We have nowhere to send the engine call in that case,
     // so the manager has to create a place to handle it.
-    manager.plugin_call_subscriptions.insert(
+    manager.plugin_call_states.insert(
         0,
-        PluginCallSubscription {
+        PluginCallState {
             sender: None,
-            context: Some(bogus),
+            ctrlc: None,
+            context_rx: Some(context_rx),
             remaining_streams_to_read: 1,
         },
     );
+
+    // The engine will get the context from the channel
+    let bogus = Context(Box::new(PluginExecutionBogusContext));
+    context_tx.send(bogus).expect("failed to send");
 
     manager.send_engine_call(0, 0, EngineCall::GetConfig)?;
 
@@ -528,7 +530,7 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
     // Whatever was used to make this happen should have been held onto, since spawning a thread
     // is expensive
     let sender = &manager
-        .plugin_call_subscriptions
+        .plugin_call_states
         .get(&0)
         .expect("missing subscription 0")
         .sender;
@@ -546,11 +548,12 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
     let mut manager = TestCase::new().plugin("test");
 
     for n in [0, 1] {
-        manager.plugin_call_subscriptions.insert(
+        manager.plugin_call_states.insert(
             n,
-            PluginCallSubscription {
+            PluginCallState {
                 sender: None,
-                context: None,
+                ctrlc: None,
+                context_rx: None,
                 remaining_streams_to_read: n as i32,
             },
         );
@@ -562,11 +565,11 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
 
     // 0 should not still be present, but 1 should be
     assert!(
-        !manager.plugin_call_subscriptions.contains_key(&0),
+        !manager.plugin_call_states.contains_key(&0),
         "didn't clean up when there weren't remaining streams"
     );
     assert!(
-        manager.plugin_call_subscriptions.contains_key(&1),
+        manager.plugin_call_states.contains_key(&1),
         "clean up even though there were remaining streams"
     );
     Ok(())
@@ -578,11 +581,12 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
     manager.protocol_info = Some(ProtocolInfo::default());
 
     for n in [1, 2] {
-        manager.plugin_call_subscriptions.insert(
+        manager.plugin_call_states.insert(
             n,
-            PluginCallSubscription {
+            PluginCallState {
                 sender: None,
-                context: None,
+                ctrlc: None,
+                context_rx: None,
                 remaining_streams_to_read: n as i32,
             },
         );
@@ -608,21 +612,21 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
     // Ending 10 should cause 1 to be removed
     manager.consume(StreamMessage::End(10).into())?;
     assert!(
-        !manager.plugin_call_subscriptions.contains_key(&1),
+        !manager.plugin_call_states.contains_key(&1),
         "contains(1) after End(10)"
     );
 
     // Ending 21 should not cause 2 to be removed
     manager.consume(StreamMessage::End(21).into())?;
     assert!(
-        manager.plugin_call_subscriptions.contains_key(&2),
+        manager.plugin_call_states.contains_key(&2),
         "!contains(2) after End(21)"
     );
 
     // Ending 22 should cause 2 to be removed
     manager.consume(StreamMessage::End(22).into())?;
     assert!(
-        !manager.plugin_call_subscriptions.contains_key(&2),
+        !manager.plugin_call_states.contains_key(&2),
         "contains(2) after End(22)"
     );
 
@@ -728,18 +732,15 @@ fn interface_goodbye() -> Result<(), ShellError> {
 fn interface_write_plugin_call_registers_subscription() -> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
     assert!(
-        manager.plugin_call_subscriptions.is_empty(),
+        manager.plugin_call_states.is_empty(),
         "plugin call subscriptions not empty before start of test"
     );
 
     let interface = manager.get_interface();
-    let _ = interface.write_plugin_call(PluginCall::Signature, None)?;
+    let _ = interface.write_plugin_call(PluginCall::Signature, None, mpsc::channel().1)?;
 
     manager.receive_plugin_call_subscriptions();
-    assert!(
-        !manager.plugin_call_subscriptions.is_empty(),
-        "not registered"
-    );
+    assert!(!manager.plugin_call_states.is_empty(), "not registered");
     Ok(())
 }
 
@@ -749,7 +750,8 @@ fn interface_write_plugin_call_writes_signature() -> Result<(), ShellError> {
     let manager = test.plugin("test");
     let interface = manager.get_interface();
 
-    let (writer, _) = interface.write_plugin_call(PluginCall::Signature, None)?;
+    let (writer, _) =
+        interface.write_plugin_call(PluginCall::Signature, None, mpsc::channel().1)?;
     writer.write()?;
 
     let written = test.next_written().expect("nothing written");
@@ -778,6 +780,7 @@ fn interface_write_plugin_call_writes_custom_value_op() -> Result<(), ShellError
             CustomValueOp::ToBaseValue,
         ),
         None,
+        mpsc::channel().1,
     )?;
     writer.write()?;
 
@@ -812,6 +815,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
             input: PipelineData::Value(Value::test_int(-1), None),
         }),
         None,
+        mpsc::channel().1,
     )?;
     writer.write()?;
 
@@ -850,6 +854,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             input: values.clone().into_pipeline_data(None),
         }),
         None,
+        mpsc::channel().1,
     )?;
     writer.write()?;
 
@@ -912,7 +917,7 @@ fn interface_receive_plugin_call_receives_response() -> Result<(), ShellError> {
     .expect("failed to send on new channel");
     drop(tx); // so we don't deadlock on recv()
 
-    let response = interface.receive_plugin_call_response(rx, &None)?;
+    let response = interface.receive_plugin_call_response(rx, None, mpsc::channel().0)?;
     assert!(
         matches!(response, PluginCallResponse::Signature(_)),
         "wrong response: {response:?}"
@@ -935,7 +940,7 @@ fn interface_receive_plugin_call_receives_error() -> Result<(), ShellError> {
     drop(tx); // so we don't deadlock on recv()
 
     let error = interface
-        .receive_plugin_call_response(rx, &None)
+        .receive_plugin_call_response(rx, None, mpsc::channel().0)
         .expect_err("did not receive error");
     assert!(
         matches!(error, ShellError::ExternalNotSupported { .. }),
@@ -958,13 +963,13 @@ fn interface_receive_plugin_call_handles_engine_call() -> Result<(), ShellError>
     .expect("failed to send on new channel");
 
     // The context should be a bogus context, which will return an error for GetConfig
-    let context = Some(Context(Arc::new(PluginExecutionBogusContext)));
+    let mut context = PluginExecutionBogusContext;
 
     // We don't actually send a response, so `receive_plugin_call_response` should actually return
     // an error, but it should still do the engine call
     drop(tx);
     interface
-        .receive_plugin_call_response(rx, &context)
+        .receive_plugin_call_response(rx, Some(&mut context), mpsc::channel().0)
         .expect_err("no error even though there was no response");
 
     // Check for the engine call response output
@@ -996,15 +1001,16 @@ fn start_fake_plugin_call_responder(
     std::thread::Builder::new()
         .name("fake plugin call responder".into())
         .spawn(move || {
-            for (id, sub) in manager
+            for (id, state) in manager
                 .plugin_call_subscription_receiver
                 .into_iter()
                 .take(take)
             {
                 for message in f(id) {
-                    sub.sender
+                    state
+                        .sender
                         .as_ref()
-                        .expect("sender is None")
+                        .expect("sender was not set")
                         .send(message)
                         .expect("failed to send");
                 }
@@ -1055,7 +1061,7 @@ fn interface_run() -> Result<(), ShellError> {
             },
             input: PipelineData::Empty,
         },
-        PluginExecutionBogusContext.into(),
+        &mut PluginExecutionBogusContext,
     )?;
 
     assert_eq!(

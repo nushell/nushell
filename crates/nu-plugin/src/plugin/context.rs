@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -9,6 +10,8 @@ use nu_protocol::{
     engine::{Closure, EngineState, Redirection, Stack},
     Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
+
+use crate::util::MutableCow;
 
 /// Object safe trait for abstracting operations required of the plugin context.
 pub(crate) trait PluginExecutionContext: Send + Sync {
@@ -37,33 +40,35 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
         redirect_stdout: bool,
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError>;
+    /// Create an owned version of the context with `'static` lifetime
+    fn boxed(&self) -> Box<dyn PluginExecutionContext>;
 }
 
-/// The execution context of a plugin command.
-pub(crate) struct PluginExecutionCommandContext {
+/// The execution context of a plugin command. Can be borrowed.
+pub(crate) struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
-    engine_state: EngineState,
-    stack: Stack,
-    call: Call,
+    engine_state: Cow<'a, EngineState>,
+    stack: MutableCow<'a, Stack>,
+    call: Cow<'a, Call>,
 }
 
-impl PluginExecutionCommandContext {
+impl<'a> PluginExecutionCommandContext<'a> {
     pub fn new(
         identity: Arc<PluginIdentity>,
-        engine_state: &EngineState,
-        stack: &Stack,
-        call: &Call,
-    ) -> PluginExecutionCommandContext {
+        engine_state: &'a EngineState,
+        stack: &'a mut Stack,
+        call: &'a Call,
+    ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
-            engine_state: engine_state.clone(),
-            stack: stack.clone(),
-            call: call.clone(),
+            engine_state: Cow::Borrowed(engine_state),
+            stack: MutableCow::Borrowed(stack),
+            call: Cow::Borrowed(call),
         }
     }
 }
 
-impl PluginExecutionContext for PluginExecutionCommandContext {
+impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn command_span(&self) -> Span {
         self.call.head
     }
@@ -191,6 +196,15 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
 
         eval_block_with_early_return(&self.engine_state, stack, block, input)
     }
+
+    fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
+        Box::new(PluginExecutionCommandContext {
+            identity: self.identity.clone(),
+            engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
+            stack: self.stack.owned(),
+            call: Cow::Owned(self.call.clone().into_owned()),
+        })
+    }
 }
 
 /// A bogus execution context for testing that doesn't really implement anything properly
@@ -250,5 +264,9 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Err(ShellError::NushellFailed {
             msg: "eval_closure not implemented on bogus".into(),
         })
+    }
+
+    fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
+        Box::new(PluginExecutionBogusContext)
     }
 }

@@ -348,6 +348,21 @@ impl PluginCallResponse<PipelineDataHeader> {
     }
 }
 
+impl PluginCallResponse<PipelineData> {
+    /// Does this response have a stream?
+    pub(crate) fn has_stream(&self) -> bool {
+        match self {
+            PluginCallResponse::PipelineData(data) => match data {
+                PipelineData::Empty => false,
+                PipelineData::Value(..) => false,
+                PipelineData::ListStream(..) => true,
+                PipelineData::ExternalStream { .. } => true,
+            },
+            _ => false,
+        }
+    }
+}
+
 /// Options that can be changed to affect how the engine treats the plugin
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginOption {
