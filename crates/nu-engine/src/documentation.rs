@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
-    Value, SpanId
+    Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
