@@ -58,7 +58,8 @@ impl Command for KnownExternal {
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
 
-        let arg_extern_name = Expression::new_existing(engine_state,
+        let arg_extern_name = Expression::new_existing(
+            engine_state,
             Expr::String(extern_name[0].to_string()),
             call.head,
             Type::String,
@@ -67,7 +68,8 @@ impl Command for KnownExternal {
         extern_call.add_positional(arg_extern_name);
 
         for subcommand in extern_name.into_iter().skip(1) {
-            extern_call.add_positional(Expression::new_existing(engine_state,
+            extern_call.add_positional(Expression::new_existing(
+                engine_state,
                 Expr::String(subcommand.to_string()),
                 call.head,
                 Type::String,
@@ -79,13 +81,15 @@ impl Command for KnownExternal {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
                 Argument::Named(named) => {
                     if let Some(short) = &named.1 {
-                        extern_call.add_positional(Expression::new_existing(engine_state,
+                        extern_call.add_positional(Expression::new_existing(
+                            engine_state,
                             Expr::String(format!("-{}", short.item)),
                             named.0.span,
                             Type::String,
                         ));
                     } else {
-                        extern_call.add_positional(Expression::new_existing(engine_state,
+                        extern_call.add_positional(Expression::new_existing(
+                            engine_state,
                             Expr::String(format!("--{}", named.0.item)),
                             named.0.span,
                             Type::String,

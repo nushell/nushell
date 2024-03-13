@@ -1,6 +1,6 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
-    engine::StateWorkingSet,
+    engine::{EngineState, StateWorkingSet},
     BlockId, DeclId, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
@@ -479,18 +479,23 @@ impl Expression {
             span,
             span_id,
             ty,
-            custom_completion: None
+            custom_completion: None,
         }
     }
 
-    pub fn new_existing(engine_state: &EngineState, expr: Expr, span: Span, ty: Type) -> Expression {
+    pub fn new_existing(
+        engine_state: &EngineState,
+        expr: Expr,
+        span: Span,
+        ty: Type,
+    ) -> Expression {
         let span_id = engine_state.get_span_id(span);
         Expression {
             expr,
             span,
             span_id,
             ty,
-            custom_completion: None
+            custom_completion: None,
         }
     }
 
@@ -500,7 +505,7 @@ impl Expression {
             span,
             span_id: SpanId(0),
             ty,
-            custom_completion: None
+            custom_completion: None,
         }
     }
 
@@ -510,8 +515,7 @@ impl Expression {
             span: self.span,
             span_id,
             ty: self.ty,
-            custom_completion: self.custom_completion
+            custom_completion: self.custom_completion,
         }
     }
 }
-

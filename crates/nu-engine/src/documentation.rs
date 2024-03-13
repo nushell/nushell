@@ -380,12 +380,14 @@ fn get_argument_for_color_value(
                 .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
-                        Expression::new_existing(engine_state,
+                        Expression::new_existing(
+                            engine_state,
                             Expr::String(k.clone()),
                             span,
                             Type::String,
                         ),
-                        Expression::new_existing(engine_state,
+                        Expression::new_existing(
+                            engine_state,
                             Expr::String(
                                 v.clone().to_expanded_string("", engine_state.get_config()),
                             ),
@@ -399,7 +401,7 @@ fn get_argument_for_color_value(
             Some(Argument::Positional(Expression::new_existing(
                 engine_state,
                 Expr::Record(record_exp),
-                span: Span::unknown(),
+                Span::unknown(),
                 Type::Record(
                     [
                         ("fg".to_string(), Type::String),
@@ -409,8 +411,9 @@ fn get_argument_for_color_value(
                 ),
             )))
         }
-        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(engine_state,
-                                                                                        Expr::String(val.clone()),
+        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(
+            engine_state,
+            Expr::String(val.clone()),
             Span::unknown(),
             Type::String,
         ))),
