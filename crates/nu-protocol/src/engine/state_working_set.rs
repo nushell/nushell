@@ -1015,11 +1015,9 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_span(&mut self, span: Span) -> SpanId {
-        todo!("impl adding spans")
-    }
-
-    pub fn get_span_id(&self, span: Span) -> SpanId {
-        todo!("impl span search")
+        let num_permanent_spans = self.permanent_state.spans.len();
+        self.delta.spans.push(span);
+        SpanId(num_permanent_spans + self.delta.spans.len() - 1)
     }
 }
 
