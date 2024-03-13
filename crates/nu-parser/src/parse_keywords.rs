@@ -109,7 +109,8 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
         // check help flag first.
         if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
             let call_span = call.span();
-            return Pipeline::from_vec(vec![Expression::new(working_set,
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
                 Expr::Call(call),
                 call_span,
                 Type::Any,
@@ -286,11 +287,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
-                return Expression::new(working_set,
-                    Expr::Call(call),
-                    call_span,
-                    output,
-                );
+                return Expression::new(working_set, Expr::Call(call), call_span, output);
             }
 
             // Let's get our block and make sure it has the right signature
@@ -347,11 +344,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         );
     }
 
-    Expression::new(working_set,
-        Expr::Call(call),
-        call_span,
-        Type::Nothing,
-    )
+    Expression::new(working_set, Expr::Call(call), call_span, Type::Nothing)
 }
 
 /// If `name` is a keyword, emit an error.
@@ -473,7 +466,8 @@ pub fn parse_def(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression::new(working_set,
+                    Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         call_span,
                         output,
@@ -560,7 +554,8 @@ pub fn parse_def(
                             format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
 
                         return (
-                            Pipeline::from_vec(vec![Expression::new(working_set,
+                            Pipeline::from_vec(vec![Expression::new(
+                                working_set,
                                 Expr::Call(call),
                                 call_span,
                                 Type::Any,
@@ -573,7 +568,8 @@ pub fn parse_def(
                 working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
 
                 return (
-                    Pipeline::from_vec(vec![Expression::new(working_set,
+                    Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         call_span,
                         Type::Any,
@@ -628,7 +624,8 @@ pub fn parse_def(
     working_set.merge_predecl(name.as_bytes());
 
     (
-        Pipeline::from_vec(vec![Expression::new(working_set,
+        Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             call_span,
             Type::Any,
@@ -722,7 +719,8 @@ pub fn parse_extern(
                         "main".to_string(),
                         name_expr_span,
                     ));
-                    return Pipeline::from_vec(vec![Expression::new(working_set,
+                    return Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         call_span,
                         Type::Any,
@@ -787,7 +785,8 @@ pub fn parse_extern(
         }
     }
 
-    Pipeline::from_vec(vec![Expression::new(working_set,
+    Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         call_span,
         Type::Any,
@@ -845,7 +844,8 @@ pub fn parse_alias(
             return garbage_pipeline(spans);
         };
 
-        let alias_pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+        let alias_pipeline = Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(alias_call.clone()),
             span(spans),
             output,
@@ -1103,7 +1103,8 @@ pub fn parse_export_in_block(
         };
 
         if starting_error_count != working_set.parse_errors.len() || is_help {
-            return Pipeline::from_vec(vec![Expression::new(working_set,
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
                 Expr::Call(call),
                 call_span,
                 output,
@@ -1508,7 +1509,8 @@ pub fn parse_export_in_module(
     };
 
     (
-        Pipeline::from_vec(vec![Expression::new(working_set,
+        Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             span(spans),
             Type::Any,
@@ -1555,7 +1557,8 @@ pub fn parse_export_env(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression::new(working_set,
+                    Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         call_span,
                         output,
@@ -1593,7 +1596,8 @@ pub fn parse_export_env(
         return (garbage_pipeline(spans), None);
     };
 
-    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+    let pipeline = Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         span(spans),
         Type::Any,
@@ -2025,7 +2029,8 @@ pub fn parse_module(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression::new(working_set,
+                    Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         call_span,
                         output,
@@ -2057,7 +2062,8 @@ pub fn parse_module(
                             name.span,
                         ));
                         return (
-                            Pipeline::from_vec(vec![Expression::new(working_set,
+                            Pipeline::from_vec(vec![Expression::new(
+                                working_set,
                                 Expr::Call(call),
                                 call_span,
                                 Type::Any,
@@ -2082,7 +2088,8 @@ pub fn parse_module(
             return (garbage_pipeline(spans), None);
         };
 
-    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+    let pipeline = Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         call_span,
         Type::Any,
@@ -2144,11 +2151,7 @@ pub fn parse_module(
     module_comments.extend(inner_comments);
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
-    let block_expr = Expression::new(working_set,
-        Expr::Block(block_id),
-        block_span,
-        Type::Block,
-    );
+    let block_expr = Expression::new(working_set, Expr::Block(block_id), block_span, Type::Block);
 
     let module_decl_id = working_set
         .find_decl(b"module")
@@ -2165,7 +2168,8 @@ pub fn parse_module(
     });
 
     (
-        Pipeline::from_vec(vec![Expression::new(working_set,
+        Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             span(spans),
             Type::Any,
@@ -2228,7 +2232,8 @@ pub fn parse_use(
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression::new(working_set,
+                    Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         call_span,
                         output,
@@ -2307,7 +2312,8 @@ pub fn parse_use(
             String::from_utf8_lossy(&import_pattern.head.name).to_string(),
         ));
         return (
-            Pipeline::from_vec(vec![Expression::new(working_set,
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
                 Expr::Call(call),
                 call_span,
                 Type::Any,
@@ -2369,17 +2375,19 @@ pub fn parse_use(
     working_set.use_variables(constants);
 
     // Create a new Use command call to pass the import pattern as parser info
-    let import_pattern_expr = Expression::new(working_set,
+    let import_pattern_expr = Expression::new(
+        working_set,
         Expr::ImportPattern(import_pattern),
         span(args_spans),
         Type::Any,
-        );
+    );
 
     let mut call = call;
     call.set_parser_info("import_pattern".to_string(), import_pattern_expr);
 
     (
-        Pipeline::from_vec(vec![Expression::new(working_set,
+        Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             span(spans),
             Type::Any,
@@ -2419,7 +2427,8 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
-                return Pipeline::from_vec(vec![Expression::new(working_set,
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
                     Expr::Call(call),
                     call_span,
                     output,
@@ -2550,7 +2559,8 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         working_set.hide_decls(&decls_to_hide);
 
         // Create a new Use command call to pass the new import pattern
-        let import_pattern_expr = Expression::new(working_set,
+        let import_pattern_expr = Expression::new(
+            working_set,
             Expr::ImportPattern(import_pattern),
             span(args_spans),
             Type::Any,
@@ -2559,7 +2569,8 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         let mut call = call;
         call.set_parser_info("import_pattern".to_string(), import_pattern_expr);
 
-        Pipeline::from_vec(vec![Expression::new(working_set,
+        Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             span(spans),
             Type::Any,
@@ -2598,7 +2609,8 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         return garbage_pipeline(&[call_span]);
     };
 
-    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+    let pipeline = Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         call_span,
         Type::Any,
@@ -2682,7 +2694,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         return garbage_pipeline(&[call_span]);
     };
 
-    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+    let pipeline = Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call.clone()),
         call_span,
         Type::Any,
@@ -2821,7 +2834,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     let mut call = call;
     call.set_parser_info(
         "overlay_expr".to_string(),
-        Expression::new(working_set,
+        Expression::new(
+            working_set,
             Expr::Overlay(if is_module_updated {
                 Some(origin_module_id)
             } else {
@@ -2829,10 +2843,11 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             }),
             overlay_name_span,
             Type::Any,
-    ),
+        ),
     );
 
-    Pipeline::from_vec(vec![Expression::new(working_set,
+    Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         call_span,
         Type::Any,
@@ -2867,7 +2882,8 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
         return garbage_pipeline(&[call_span]);
     };
 
-    let pipeline = Pipeline::from_vec(vec![Expression::new(working_set,
+    let pipeline = Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         call_span,
         Type::Any,
@@ -2936,7 +2952,8 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let block_id = working_set.add_block(Arc::new(rvalue_block));
 
-                    let rvalue = Expression::new(working_set,
+                    let rvalue = Expression::new(
+                        working_set,
                         Expr::Block(block_id),
                         rvalue_span,
                         output_type,
@@ -2985,18 +3002,20 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         parser_info: HashMap::new(),
                     });
 
-                    return Pipeline::from_vec(vec![Expression::new(working_set,
+                    return Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         nu_protocol::span(spans),
                         Type::Any,
-                        )]);
+                    )]);
                 }
             }
         }
         let ParsedInternalCall { call, output } =
             parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-        return Pipeline::from_vec(vec![Expression::new(working_set,
+        return Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             nu_protocol::span(spans),
             output,
@@ -3129,18 +3148,20 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                         parser_info: HashMap::new(),
                     });
 
-                    return Pipeline::from_vec(vec![Expression::new(working_set,
+                    return Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         nu_protocol::span(spans),
                         Type::Any,
-                        )]);
+                    )]);
                 }
             }
         }
         let ParsedInternalCall { call, output } =
             parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-        return Pipeline::from_vec(vec![Expression::new(working_set,
+        return Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             nu_protocol::span(spans),
             output,
@@ -3195,11 +3216,12 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let block_id = working_set.add_block(Arc::new(rvalue_block));
 
-                    let rvalue = Expression::new(working_set,
+                    let rvalue = Expression::new(
+                        working_set,
                         Expr::Block(block_id),
                         rvalue_span,
                         output_type,
-                        );
+                    );
 
                     let mut idx = 0;
 
@@ -3245,18 +3267,20 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         parser_info: HashMap::new(),
                     });
 
-                    return Pipeline::from_vec(vec![Expression::new(working_set,
+                    return Pipeline::from_vec(vec![Expression::new(
+                        working_set,
                         Expr::Call(call),
                         nu_protocol::span(spans),
                         Type::Any,
-                        )]);
+                    )]);
                 }
             }
         }
         let ParsedInternalCall { call, output } =
             parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-        return Pipeline::from_vec(vec![Expression::new(working_set,
+        return Pipeline::from_vec(vec![Expression::new(
+            working_set,
             Expr::Call(call),
             nu_protocol::span(spans),
             output,
@@ -3306,7 +3330,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             };
 
             if is_help {
-                return Pipeline::from_vec(vec![Expression::new(working_set,
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
                     Expr::Call(call),
                     span(spans),
                     output,
@@ -3321,7 +3346,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     Ok(val) => val,
                     Err(err) => {
                         working_set.error(err.wrap(working_set, span(&spans[1..])));
-                        return Pipeline::from_vec(vec![Expression::new(working_set,
+                        return Pipeline::from_vec(vec![Expression::new(
+                            working_set,
                             Expr::Call(call),
                             span(&spans[1..]),
                             Type::Any,
@@ -3333,7 +3359,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     Ok(s) => s,
                     Err(err) => {
                         working_set.error(err.wrap(working_set, span(&spans[1..])));
-                        return Pipeline::from_vec(vec![Expression::new(working_set,
+                        return Pipeline::from_vec(vec![Expression::new(
+                            working_set,
                             Expr::Call(call),
                             span(&spans[1..]),
                             Type::Any,
@@ -3371,14 +3398,16 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                         // after writing `source example.nu`
                         call_with_block.set_parser_info(
                             "block_id".to_string(),
-                            Expression::new(working_set,
+                            Expression::new(
+                                working_set,
                                 Expr::Int(block_id as i64),
                                 spans[1],
                                 Type::Any,
                             ),
                         );
 
-                        return Pipeline::from_vec(vec![Expression::new(working_set,
+                        return Pipeline::from_vec(vec![Expression::new(
+                            working_set,
                             Expr::Call(call_with_block),
                             span(spans),
                             Type::Any,
@@ -3388,11 +3417,12 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     working_set.error(ParseError::SourcedFileNotFound(filename, spans[1]));
                 }
             }
-            return Pipeline::from_vec(vec![Expression::new(working_set,
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
                 Expr::Call(call),
                 span(spans),
                 Type::Any,
-)]);
+            )]);
         }
     }
     working_set.error(ParseError::UnknownState(
@@ -3438,11 +3468,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
-                return Expression::new(working_set,
-                    Expr::Call(call),
-                    call_span,
-                    output,
-                );
+                return Expression::new(working_set, Expr::Call(call), call_span, output);
             }
 
             call
@@ -3456,11 +3482,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         }
     };
 
-    Expression::new(working_set,
-        Expr::Call(call),
-        span(spans),
-        Type::Any,
-)
+    Expression::new(working_set, Expr::Call(call), span(spans), Type::Any)
 }
 
 pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
@@ -3532,7 +3554,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
-                return Pipeline::from_vec(vec![Expression::new(working_set,
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
                     Expr::Call(call),
                     call_span,
                     output,
@@ -3606,11 +3629,12 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
             Ok(path) => Some(path),
             Err(err) => {
                 working_set.error(err);
-                return Pipeline::from_vec(vec![Expression::new(working_set,
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
                     Expr::Call(call),
                     call_span,
                     Type::Any,
-                    )]);
+                )]);
             }
         },
     };
@@ -3699,11 +3723,12 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         working_set.error(err);
     }
 
-    Pipeline::from_vec(vec![Expression::new(working_set,
+    Pipeline::from_vec(vec![Expression::new(
+        working_set,
         Expr::Call(call),
         call_span,
         Type::Nothing,
-)])
+    )])
 }
 
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
