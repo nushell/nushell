@@ -3,8 +3,8 @@ use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
