@@ -1,6 +1,6 @@
 use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath};
 use crate::ast::Block;
-use crate::Module;
+use crate::{Module, Span};
 
 #[cfg(feature = "plugin")]
 use std::sync::Arc;
@@ -19,6 +19,7 @@ pub struct StateDelta {
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Block>,                  // indexed by BlockId
     pub(super) modules: Vec<Module>,         // indexed by ModuleId
+    pub spans: Vec<Span>,                    // indexed by SpanId
     pub(super) usage: Usage,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
@@ -44,6 +45,7 @@ impl StateDelta {
             decls: vec![],
             blocks: vec![],
             modules: vec![],
+            spans: vec![],
             scope: vec![scope_frame],
             usage: Usage::new(),
             #[cfg(feature = "plugin")]

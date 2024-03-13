@@ -75,6 +75,7 @@ pub struct EngineState {
     decls: Vec<Box<dyn Command + 'static>>,
     pub(super) blocks: Vec<Block>,
     pub(super) modules: Vec<Module>,
+    pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -125,6 +126,7 @@ impl EngineState {
             decls: vec![],
             blocks: vec![],
             modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
+            spans: vec![Span::unknown()],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -179,6 +181,7 @@ impl EngineState {
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
+        self.spans.extend(delta.spans);
         self.usage.merge_with(delta.usage);
 
         let first = delta.scope.remove(0);
@@ -1002,13 +1005,20 @@ impl EngineState {
         }
     }
 
+    /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
-        todo!("impl adding spans");
-        todo!("push first span unknown!")
+        self.spans.push(span);
+        SpanId(self.spans.len() - 1)
     }
 
+    /// Find ID of a span
     pub fn get_span_id(&self, span: Span) -> SpanId {
-        todo!("impl span search")
+        SpanId(
+            self.spans
+                .iter()
+                .position(|sp| sp == &span)
+                .expect("span not found"),
+        )
     }
 }
 
