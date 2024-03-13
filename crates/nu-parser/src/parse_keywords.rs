@@ -15,8 +15,8 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
-    span, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg, ResolvedImportPattern,
+    Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -76,14 +76,14 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
 /// Check whether spans start with a parser keyword that can be aliased
 pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Span]) -> bool {
     // try two words
-    if let (Some(span1), Some(span2)) = (spans.first(), spans.get(1)) {
-        let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
+    if let (Some(&span1), Some(&span2)) = (spans.first(), spans.get(1)) {
+        let cmd_name = working_set.get_span_contents(Span::append(span1, span2));
         return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
     }
 
     // try one word
-    if let Some(span1) = spans.first() {
-        let cmd_name = working_set.get_span_contents(*span1);
+    if let Some(&span1) = spans.first() {
+        let cmd_name = working_set.get_span_contents(span1);
         UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
     } else {
         false
@@ -248,7 +248,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     if working_set.get_span_contents(spans[0]) != b"for" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'for' function".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return garbage(spans[0]);
     }
@@ -264,7 +264,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: for declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return garbage(spans[0]);
         }
@@ -275,7 +275,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
 
             working_set.exit_scope();
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
             let decl = working_set.get_decl(decl_id);
             let sig = decl.signature();
 
@@ -389,7 +389,7 @@ pub fn parse_def(
     if def_call != b"def" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for def function".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return (garbage_pipeline(spans), None);
     }
@@ -405,7 +405,7 @@ pub fn parse_def(
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return (garbage_pipeline(spans), None);
         }
@@ -436,8 +436,12 @@ pub fn parse_def(
             }
 
             let starting_error_count = working_set.parse_errors.len();
-            let ParsedInternalCall { call, output } =
-                parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+            let ParsedInternalCall { call, output } = parse_internal_call(
+                working_set,
+                Span::concat(command_spans),
+                rest_spans,
+                decl_id,
+            );
             // This is to preserve the order of the errors so that
             // the check errors below come first
             let mut new_errors = working_set.parse_errors[starting_error_count..].to_vec();
@@ -445,7 +449,7 @@ pub fn parse_def(
 
             working_set.exit_scope();
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
             let decl = working_set.get_decl(decl_id);
             let sig = decl.signature();
 
@@ -667,7 +671,7 @@ pub fn parse_extern(
     if extern_call != b"extern" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for extern command".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return garbage_pipeline(spans);
     }
@@ -683,7 +687,7 @@ pub fn parse_extern(
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return garbage_pipeline(spans);
         }
@@ -703,11 +707,15 @@ pub fn parse_extern(
                 }
             }
 
-            let ParsedInternalCall { call, .. } =
-                parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+            let ParsedInternalCall { call, .. } = parse_internal_call(
+                working_set,
+                Span::concat(command_spans),
+                rest_spans,
+                decl_id,
+            );
             working_set.exit_scope();
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
             //let decl = working_set.get_decl(decl_id);
             //let sig = decl.signature();
 
@@ -822,7 +830,7 @@ pub fn parse_alias(
     if name != b"alias" {
         working_set.error(ParseError::InternalError(
             "Alias statement unparsable".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return garbage_pipeline(spans);
     }
@@ -844,7 +852,12 @@ pub fn parse_alias(
             call: alias_call,
             output,
             ..
-        } = parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+        } = parse_internal_call(
+            working_set,
+            Span::concat(command_spans),
+            rest_spans,
+            decl_id,
+        );
 
         working_set
             .parse_errors
@@ -856,7 +869,7 @@ pub fn parse_alias(
 
         let alias_pipeline = Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(alias_call.clone()),
-            span: span(spans),
+            span: Span::concat(spans),
             ty: output,
             custom_completion: None,
         }]);
@@ -868,7 +881,7 @@ pub fn parse_alias(
         let Some(alias_name_expr) = alias_call.positional_nth(0) else {
             working_set.error(ParseError::UnknownState(
                 "Missing positional after call check".to_string(),
-                span(spans),
+                Span::concat(spans),
             ));
             return garbage_pipeline(spans);
         };
@@ -1044,7 +1057,7 @@ pub fn parse_alias(
         } else if spans.len() < 4 {
             working_set.error(ParseError::IncorrectValue(
                 "Incomplete alias".into(),
-                span(&spans[..split_id]),
+                Span::concat(&spans[..split_id]),
                 "incomplete alias".into(),
             ));
         }
@@ -1054,7 +1067,7 @@ pub fn parse_alias(
 
     working_set.error(ParseError::InternalError(
         "Alias statement unparsable".into(),
-        span(spans),
+        Span::concat(spans),
     ));
 
     garbage_pipeline(spans)
@@ -1065,7 +1078,7 @@ pub fn parse_export_in_block(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
 ) -> Pipeline {
-    let call_span = span(&lite_command.parts);
+    let call_span = Span::concat(&lite_command.parts);
 
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
@@ -1093,7 +1106,7 @@ pub fn parse_export_in_block(
             if full_name == "export" {
                 lite_command.parts[0]
             } else {
-                span(&lite_command.parts[0..2])
+                Span::concat(&lite_command.parts[0..2])
             },
             if full_name == "export" {
                 &lite_command.parts[1..]
@@ -1123,7 +1136,7 @@ pub fn parse_export_in_block(
     } else {
         working_set.error(ParseError::UnknownState(
             format!("internal error: '{full_name}' declaration not found",),
-            span(&lite_command.parts),
+            Span::concat(&lite_command.parts),
         ));
         return garbage_pipeline(&lite_command.parts);
     };
@@ -1167,7 +1180,7 @@ pub fn parse_export_in_module(
         if working_set.get_span_contents(*sp) != b"export" {
             working_set.error(ParseError::UnknownState(
                 "expected export statement".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return (garbage_pipeline(spans), vec![]);
         }
@@ -1176,7 +1189,7 @@ pub fn parse_export_in_module(
     } else {
         working_set.error(ParseError::UnknownState(
             "got empty input for parsing export statement".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return (garbage_pipeline(spans), vec![]);
     };
@@ -1234,12 +1247,12 @@ pub fn parse_export_in_module(
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call.clone_from(def_call);
-                    call.head = span(&spans[0..=1]);
+                    call.head = Span::concat(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 };
 
@@ -1270,12 +1283,12 @@ pub fn parse_export_in_module(
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
                     call.clone_from(def_call);
-                    call.head = span(&spans[0..=1]);
+                    call.head = Span::concat(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 };
 
@@ -1295,7 +1308,7 @@ pub fn parse_export_in_module(
                 } else {
                     working_set.error(ParseError::InternalError(
                         "failed to find added declaration".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 }
 
@@ -1327,12 +1340,12 @@ pub fn parse_export_in_module(
                 {
                     call.clone_from(alias_call);
 
-                    call.head = span(&spans[0..=1]);
+                    call.head = Span::concat(&spans[0..=1]);
                     call.decl_id = export_alias_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 };
 
@@ -1352,7 +1365,7 @@ pub fn parse_export_in_module(
                 } else {
                     working_set.error(ParseError::InternalError(
                         "failed to find added alias".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 }
 
@@ -1382,12 +1395,12 @@ pub fn parse_export_in_module(
                 {
                     call.clone_from(use_call);
 
-                    call.head = span(&spans[0..=1]);
+                    call.head = Span::concat(&spans[0..=1]);
                     call.decl_id = export_use_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 };
 
@@ -1414,12 +1427,12 @@ pub fn parse_export_in_module(
                 {
                     call.clone_from(module_call);
 
-                    call.head = span(&spans[0..=1]);
+                    call.head = Span::concat(&spans[0..=1]);
                     call.decl_id = export_module_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 };
 
@@ -1440,7 +1453,7 @@ pub fn parse_export_in_module(
                                 "failed to find added module '{}'",
                                 String::from_utf8_lossy(module_name)
                             ),
-                            span(&spans[1..]),
+                            Span::concat(&spans[1..]),
                         ));
                     }
                 }
@@ -1465,12 +1478,12 @@ pub fn parse_export_in_module(
                 {
                     call.clone_from(def_call);
 
-                    call.head = span(&spans[0..=1]);
+                    call.head = Span::concat(&spans[0..=1]);
                     call.decl_id = export_const_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
+                        Span::concat(&spans[1..]),
                     ));
                 };
 
@@ -1492,7 +1505,7 @@ pub fn parse_export_in_module(
                     } else {
                         working_set.error(ParseError::InternalError(
                             "failed to find added variable".into(),
-                            span(&spans[1..]),
+                            Span::concat(&spans[1..]),
                         ));
                     }
                 }
@@ -1521,7 +1534,7 @@ pub fn parse_export_in_module(
     (
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: span(spans),
+            span: Span::concat(spans),
             ty: Type::Any,
             custom_completion: None,
         }]),
@@ -1536,7 +1549,7 @@ pub fn parse_export_env(
     if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"export-env" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'export-env' command".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return (garbage_pipeline(spans), None);
     }
@@ -1544,7 +1557,7 @@ pub fn parse_export_env(
     if spans.len() < 2 {
         working_set.error(ParseError::MissingPositional(
             "block".into(),
-            span(spans),
+            Span::concat(spans),
             "export-env <block>".into(),
         ));
         return (garbage_pipeline(spans), None);
@@ -1556,7 +1569,7 @@ pub fn parse_export_env(
                 parse_internal_call(working_set, spans[0], &[spans[1]], decl_id);
             let decl = working_set.get_decl(decl_id);
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
@@ -1582,7 +1595,7 @@ pub fn parse_export_env(
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: 'export-env' declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return (garbage_pipeline(spans), None);
         }
@@ -1601,14 +1614,14 @@ pub fn parse_export_env(
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: 'export-env' block is missing".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return (garbage_pipeline(spans), None);
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
-        span: span(spans),
+        span: Span::concat(spans),
         ty: Type::Any,
         custom_completion: None,
     }]);
@@ -2024,11 +2037,15 @@ pub fn parse_module(
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            let ParsedInternalCall { call, output } =
-                parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+            let ParsedInternalCall { call, output } = parse_internal_call(
+                working_set,
+                Span::concat(command_spans),
+                rest_spans,
+                decl_id,
+            );
             let decl = working_set.get_decl(decl_id);
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
@@ -2054,7 +2071,7 @@ pub fn parse_module(
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: 'module' or 'export module' declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return (garbage_pipeline(spans), None);
         }
@@ -2086,14 +2103,14 @@ pub fn parse_module(
             } else {
                 working_set.error(ParseError::UnknownState(
                     "internal error: name not a string".into(),
-                    span(spans),
+                    Span::concat(spans),
                 ));
                 return (garbage_pipeline(spans), None);
             }
         } else {
             working_set.error(ParseError::UnknownState(
                 "internal error: missing positional".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return (garbage_pipeline(spans), None);
         };
@@ -2125,7 +2142,7 @@ pub fn parse_module(
     if spans.len() < split_id + 2 {
         working_set.error(ParseError::UnknownState(
             "Expected structure: module <name> or module <name> <block>".into(),
-            span(spans),
+            Span::concat(spans),
         ));
 
         return (garbage_pipeline(spans), None);
@@ -2173,7 +2190,7 @@ pub fn parse_module(
         .expect("internal error: missing module command");
 
     let call = Box::new(Call {
-        head: span(&spans[..split_id]),
+        head: Span::concat(&spans[..split_id]),
         decl_id: module_decl_id,
         arguments: vec![
             Argument::Positional(module_name_or_path_expr),
@@ -2185,7 +2202,7 @@ pub fn parse_module(
     (
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: span(spans),
+            span: Span::concat(spans),
             ty: Type::Any,
             custom_completion: None,
         }]),
@@ -2210,7 +2227,7 @@ pub fn parse_use(
     if use_call != b"use" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'use' command".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return (garbage_pipeline(spans), vec![]);
     }
@@ -2218,7 +2235,7 @@ pub fn parse_use(
     if working_set.get_span_contents(name_span) != b"use" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'use' command".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return (garbage_pipeline(spans), vec![]);
     }
@@ -2232,11 +2249,15 @@ pub fn parse_use(
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            let ParsedInternalCall { call, output } =
-                parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+            let ParsedInternalCall { call, output } = parse_internal_call(
+                working_set,
+                Span::concat(command_spans),
+                rest_spans,
+                decl_id,
+            );
             let decl = working_set.get_decl(decl_id);
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
@@ -2262,7 +2283,7 @@ pub fn parse_use(
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: 'use' declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return (garbage_pipeline(spans), vec![]);
         }
@@ -2392,7 +2413,7 @@ pub fn parse_use(
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
-        span: span(args_spans),
+        span: Span::concat(args_spans),
         ty: Type::Any,
         custom_completion: None,
     };
@@ -2403,7 +2424,7 @@ pub fn parse_use(
     (
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: span(spans),
+            span: Span::concat(spans),
             ty: Type::Any,
             custom_completion: None,
         }]),
@@ -2417,7 +2438,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
     if working_set.get_span_contents(spans[0]) != b"hide" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'hide' command".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return garbage_pipeline(spans);
     }
@@ -2432,7 +2453,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             let decl = working_set.get_decl(decl_id);
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
@@ -2455,7 +2476,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: 'hide' declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return garbage_pipeline(spans);
         }
@@ -2576,7 +2597,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {
             expr: Expr::ImportPattern(import_pattern),
-            span: span(args_spans),
+            span: Span::concat(args_spans),
             ty: Type::Any,
             custom_completion: None,
         };
@@ -2586,14 +2607,14 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: span(spans),
+            span: Span::concat(spans),
             ty: Type::Any,
             custom_completion: None,
         }])
     } else {
         working_set.error(ParseError::UnknownState(
             "Expected structure: hide <name>".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         garbage_pipeline(spans)
     }
@@ -2949,7 +2970,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                 // let x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let (tokens, parse_error) = lex(
-                        working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
+                        working_set.get_span_contents(Span::concat(&spans[(span.0 + 1)..])),
                         spans[span.0 + 1].start,
                         &[],
                         &[],
@@ -2960,7 +2981,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.parse_errors.push(parse_error)
                     }
 
-                    let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
+                    let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
                     let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
 
                     let output_type = rvalue_block.output_type();
@@ -2999,7 +3020,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
-                                nu_protocol::span(&spans[(span.0 + 1)..]),
+                                Span::concat(&spans[(span.0 + 1)..]),
                             ));
                         }
                     }
@@ -3019,7 +3040,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     return Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
+                        span: Span::concat(spans),
                         ty: Type::Any,
                         custom_completion: None,
                     }]);
@@ -3031,20 +3052,20 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
         return Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: nu_protocol::span(spans),
+            span: Span::concat(spans),
             ty: output,
             custom_completion: None,
         }]);
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: let or const statements not found in core language".into(),
-            span(spans),
+            Span::concat(spans),
         ))
     }
 
     working_set.error(ParseError::UnknownState(
         "internal error: let or const statement unparsable".into(),
-        span(spans),
+        Span::concat(spans),
     ));
 
     garbage_pipeline(spans)
@@ -3108,7 +3129,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
-                                nu_protocol::span(&spans[(span.0 + 1)..]),
+                                Span::concat(&spans[(span.0 + 1)..]),
                             ));
                         }
                     }
@@ -3129,7 +3150,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                                         working_set.error(ParseError::TypeMismatch(
                                             explicit_type.clone(),
                                             const_type.clone(),
-                                            nu_protocol::span(&spans[(span.0 + 1)..]),
+                                            Span::concat(&spans[(span.0 + 1)..]),
                                         ));
                                     }
                                     let val_span = value.span();
@@ -3165,7 +3186,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                     return Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
+                        span: Span::concat(spans),
                         ty: Type::Any,
                         custom_completion: None,
                     }]);
@@ -3177,20 +3198,20 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
         return Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: nu_protocol::span(spans),
+            span: Span::concat(spans),
             ty: output,
             custom_completion: None,
         }]);
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: let or const statements not found in core language".into(),
-            span(spans),
+            Span::concat(spans),
         ))
     }
 
     working_set.error(ParseError::UnknownState(
         "internal error: let or const statement unparsable".into(),
-        span(spans),
+        Span::concat(spans),
     ));
 
     garbage_pipeline(spans)
@@ -3213,7 +3234,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                 // mut x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let (tokens, parse_error) = lex(
-                        working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
+                        working_set.get_span_contents(Span::concat(&spans[(span.0 + 1)..])),
                         spans[span.0 + 1].start,
                         &[],
                         &[],
@@ -3224,7 +3245,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.parse_errors.push(parse_error)
                     }
 
-                    let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
+                    let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
                     let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
 
                     let output_type = rvalue_block.output_type();
@@ -3264,7 +3285,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
-                                nu_protocol::span(&spans[(span.0 + 1)..]),
+                                Span::concat(&spans[(span.0 + 1)..]),
                             ));
                         }
                     }
@@ -3284,7 +3305,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     return Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
+                        span: Span::concat(spans),
                         ty: Type::Any,
                         custom_completion: None,
                     }]);
@@ -3296,20 +3317,20 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
         return Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
-            span: nu_protocol::span(spans),
+            span: Span::concat(spans),
             ty: output,
             custom_completion: None,
         }]);
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: let or const statements not found in core language".into(),
-            span(spans),
+            Span::concat(spans),
         ))
     }
 
     working_set.error(ParseError::UnknownState(
         "internal error: let or const statement unparsable".into(),
-        span(spans),
+        Span::concat(spans),
     ));
 
     garbage_pipeline(spans)
@@ -3347,7 +3368,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             if is_help {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
-                    span: span(spans),
+                    span: Span::concat(spans),
                     ty: output,
                     custom_completion: None,
                 }]);
@@ -3360,10 +3381,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 let val = match eval_constant(working_set, &expr) {
                     Ok(val) => val,
                     Err(err) => {
-                        working_set.error(err.wrap(working_set, span(&spans[1..])));
+                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
-                            span: span(&spans[1..]),
+                            span: Span::concat(&spans[1..]),
                             ty: Type::Any,
                             custom_completion: None,
                         }]);
@@ -3373,10 +3394,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 let filename = match val.coerce_into_string() {
                     Ok(s) => s,
                     Err(err) => {
-                        working_set.error(err.wrap(working_set, span(&spans[1..])));
+                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
-                            span: span(&spans[1..]),
+                            span: Span::concat(&spans[1..]),
                             ty: Type::Any,
                             custom_completion: None,
                         }]);
@@ -3423,7 +3444,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call_with_block),
-                            span: span(spans),
+                            span: Span::concat(spans),
                             ty: Type::Any,
                             custom_completion: None,
                         }]);
@@ -3434,7 +3455,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             }
             return Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
-                span: span(spans),
+                span: Span::concat(spans),
                 ty: Type::Any,
                 custom_completion: None,
             }]);
@@ -3442,7 +3463,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
     }
     working_set.error(ParseError::UnknownState(
         "internal error: source statement unparsable".into(),
-        span(spans),
+        Span::concat(spans),
     ));
     garbage_pipeline(spans)
 }
@@ -3453,18 +3474,18 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
     if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"where" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for 'where' command".into(),
-            span(spans),
+            Span::concat(spans),
         ));
-        return garbage(span(spans));
+        return garbage(Span::concat(spans));
     }
 
     if spans.len() < 2 {
         working_set.error(ParseError::MissingPositional(
             "row condition".into(),
-            span(spans),
+            Span::concat(spans),
             "where <row_condition>".into(),
         ));
-        return garbage(span(spans));
+        return garbage(Span::concat(spans));
     }
 
     let call = match working_set.find_decl(b"where") {
@@ -3473,13 +3494,13 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             let decl = working_set.get_decl(decl_id);
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return garbage(span(spans));
+                return garbage(Span::concat(spans));
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -3496,15 +3517,15 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: 'where' declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
-            return garbage(span(spans));
+            return garbage(Span::concat(spans));
         }
     };
 
     Expression {
         expr: Expr::Call(call),
-        span: span(spans),
+        span: Span::concat(spans),
         ty: Type::Any,
         custom_completion: None,
     }
@@ -3544,7 +3565,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     if working_set.get_span_contents(spans[0]) != b"register" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for parse plugin function".into(),
-            span(spans),
+            Span::concat(spans),
         ));
         return garbage_pipeline(spans);
     }
@@ -3560,7 +3581,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: Register declaration not found".into(),
-                span(spans),
+                Span::concat(spans),
             ));
             return garbage_pipeline(spans);
         }
@@ -3569,7 +3590,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             let decl = working_set.get_decl(decl_id);
 
-            let call_span = span(spans);
+            let call_span = Span::concat(spans);
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);

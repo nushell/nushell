@@ -1,7 +1,6 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{command_prelude::*, get_full_help};
-use nu_protocol::span;
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -109,7 +108,7 @@ pub fn help_commands(
             )
         } else {
             Err(ShellError::CommandNotFound {
-                span: span(&[rest[0].span, rest[rest.len() - 1].span]),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             })
         }
     }
