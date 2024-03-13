@@ -5169,13 +5169,11 @@ pub fn parse_expression(
                     parse_string_strict(working_set, rhs_span)
                 }
             } else {
-                Expression::string(working_set, String::new(), Type::Nothing, Span::unknown())
-                // Expression {
-                //     expr: Expr::String(String::new()),
-                //     span: Span::unknown(),
-                //     ty: Type::Nothing,
-                //     custom_completion: None,
-                // }
+                Expression::new(working_set,
+                    Expr::String(String::new()),
+                    Span::unknown(),
+                    Type::Nothing,
+                )
             };
 
             if starting_error_count == working_set.parse_errors.len() {
@@ -5276,22 +5274,18 @@ pub fn parse_expression(
 
             let arguments = vec![
                 Argument::Positional(
-                    Expression::list(working_set, env_vars, Type::Any, span(&spans[..pos]))
-                //     Expression {
-                //     expr: Expr::List(env_vars),
-                //     span: span(&spans[..pos]),
-                //     ty: Type::Any,
-                //     custom_completion: None,
-                // }
+                    Expression::new(working_set,
+                    Expr::List(env_vars),
+                    span(&spans[..pos]),
+                    Type::Any,
+            )
                 ),
                 Argument::Positional(
-                    Expression::closure(working_set, block_id, Type::Closure, span(&spans[pos..]))
-                //     Expression {
-                //     expr: Expr::Closure(block_id),
-                //     span: span(&spans[pos..]),
-                //     ty: Type::Closure,
-                //     custom_completion: None,
-                // }
+                    Expression::new(working_set,
+                    Expr::Closure(block_id),
+                    span(&spans[pos..]),
+                    Type::Closure,
+            )
                 ),
             ];
 
@@ -5530,18 +5524,15 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         Type::Any
     };
 
-    Expression::record(working_set, output, ty, span)
-
-    // Expression {
-    //     expr: Expr::Record(output),
-    //     span,
-    //     ty: (if let Some(fields) = field_types {
-    //         Type::Record(fields)
-    //     } else {
-    //         Type::Any
-    //     }),
-    //     custom_completion: None,
-    // }
+    Expression::new(working_set,
+        Expr::Record(output),
+        span,
+        if let Some(fields) = field_types {
+            Type::Record(fields)
+        } else {
+            Type::Any
+        },
+    )
 }
 
 pub fn parse_pipeline(
@@ -6366,14 +6357,12 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         let block_id = working_set.add_block(block);
 
         output.push(Argument::Positional(
-            Expression::closure(working_set, block_id, Type::Any, span)
-        //     Expression {
-        //     expr: Expr::Closure(block_id),
-        //     span,
-        //     ty: Type::Any,
-        //     custom_completion: None,
-        // }
-        ));
+            Expression::new(working_set,
+            Expr::Closure(block_id),
+            span,
+            Type::Any,
+            )
+       ));
 
         output.push(Argument::Named((
             Spanned {
@@ -6387,30 +6376,16 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         // The containing, synthetic call to `collect`.
         // We don't want to have a real span as it will confuse flattening
         // The args are where we'll get the real info
-        Expression::call(working_set, Call {
+        Expression::new(working_set, Expr::Call(Box::new(Call {
                 head: Span::new(0, 0),
                 arguments: output,
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
                 parser_info: HashMap::new(),
-            },
-            Type::Any,
-            span)
-
-        // Expression {
-        //     expr: Expr::Call(Box::new(Call {
-        //         head: Span::new(0, 0),
-        //         arguments: output,
-        //         decl_id,
-        //         redirect_stdout: true,
-        //         redirect_stderr: false,
-        //         parser_info: HashMap::new(),
-        //     })),
-        //     span,
-        //     ty: Type::Any,
-        //     custom_completion: None,
-        // }
+            })),
+            span,
+        Type::Any,)
     } else {
         Expression::garbage(span)
     }
