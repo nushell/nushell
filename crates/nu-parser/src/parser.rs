@@ -762,23 +762,36 @@ pub struct ParsedInternalCall {
     pub output: Type,
 }
 
-fn attach_parser_info_builtin(working_set: &mut StateWorkingSet, name: &str, call: &mut Call) {
-    match name {
-        "use" | "overlay use" | "source-env" | "nu-check" => {
-            if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
-                call.set_parser_info(
-                    DIR_VAR_PARSER_INFO.to_owned(),
-                    Expression::new(working_set,
-                        Expr::Var(var_id),
-                        call.head,
-                        Type::Any,
-                    ),
-                );
-            }
-        }
-        _ => {}
-    }
-}
+// fn attach_parser_info_builtin(working_set: &mut StateWorkingSet, name: &str, call: &mut Call) {
+//     match name {
+//         "use" | "overlay use" | "source-env" | "nu-check" => {
+//             if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
+//                 call.set_parser_info(
+//                     DIR_VAR_PARSER_INFO.to_owned(),
+//                     Expression::new(working_set,
+//                         Expr::Var(var_id),
+//                         call.head,
+//                         Type::Any,
+//                     ),
+//                 );
+//             }
+//         }
+//         _ => {}
+//     }
+// }
+
+// fn attach_parser_info_builtin(working_set: &StateWorkingSet, name: &str) -> Option<VarId> {
+//     match name {
+//         "use" | "overlay use" | "source-env" | "nu-check" => {
+//             if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
+//                 Some(var_id)
+//             } else {
+//                 None
+//             }
+//         }
+//         _ => None
+//     }
+// }
 
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
@@ -796,9 +809,23 @@ pub fn parse_internal_call(
     let signature = decl.signature();
     let output = signature.get_output_type();
 
-    if decl.is_builtin() {
-        attach_parser_info_builtin(working_set, decl.name(), &mut call);
-    }
+    let lib_dirs_var_id = if decl.is_builtin() {
+        // attach_parser_info_builtin(working_set, decl.name())
+        // attach_parser_info_builtin(working_set, decl.name(), &mut call);
+
+        match decl.name() {
+            "use" | "overlay use" | "source-env" | "nu-check" => {
+                if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
+                    Some(var_id)
+                } else {
+                    None
+                }
+            }
+            _ => None
+        }
+    } else {
+        None
+    };
 
     // The index into the positional parameter in the definition
     let mut positional_idx = 0;
@@ -828,6 +855,17 @@ pub fn parse_internal_call(
                 output: Type::Any,
             };
         }
+    }
+
+    if let Some(var_id) = lib_dirs_var_id {
+        call.set_parser_info(
+            DIR_VAR_PARSER_INFO.to_owned(),
+            Expression::new(working_set,
+                            Expr::Var(var_id),
+                            call.head,
+                            Type::Any,
+            ),
+        );
     }
 
     if signature.creates_scope {
@@ -2123,18 +2161,20 @@ pub fn parse_full_cell_path(
         };
 
         let tail = parse_cell_path(working_set, tokens, expect_dot);
-
-        Expression::new(working_set,
-                        Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                        full_cell_span,
-            // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
+        // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
+        let ty =
             if !tail.is_empty() {
                 // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
                 // such as $a.1 = 2 to work correctly.
                 Type::Any
             } else {
                 head.ty.clone()
-            },
+            };
+
+        Expression::new(working_set,
+                        Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                        full_cell_span,
+            ty
         )
     } else {
         garbage(span)
@@ -2241,8 +2281,11 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    match parse_unit_value(working_set, bytes, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
-        Some(Ok(expr)) => expr,
+    match parse_unit_value(bytes, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
+        Some(Ok(expr)) => {
+            let span_id = working_set.add_span(span);
+            expr.with_span_id(span_id)
+        },
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("duration"));
             garbage(span)
@@ -2266,10 +2309,13 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(span);
     }
 
-    match parse_unit_value(working_set, bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
+    match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
         x.to_ascii_uppercase()
     }) {
-        Some(Ok(expr)) => expr,
+        Some(Ok(expr)) => {
+            let span_id = working_set.add_span(span);
+            expr.with_span_id(span_id)
+        },
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("filesize"));
             garbage(span)
@@ -2285,7 +2331,6 @@ type ParseUnitResult<'res> = Result<Expression, Box<dyn Fn(&'res str) -> ParseEr
 type UnitGroup<'unit> = (Unit, &'unit str, Option<(Unit, i64)>);
 
 pub fn parse_unit_value<'res>(
-    working_set: &mut StateWorkingSet,
     bytes: &[u8],
     span: Span,
     unit_groups: &[UnitGroup],
@@ -2329,9 +2374,9 @@ pub fn parse_unit_value<'res>(
         };
 
         trace!("-- found {} {:?}", num, unit);
-        let expr = Expression::new(working_set,
+        let expr = Expression::new_unknown(
             Expr::ValueWithUnit(
-                Box::new(Expression::new(working_set,
+                Box::new(Expression::new_unknown(
                     Expr::Int(num),
                     lhs_span,
                     Type::Number,
@@ -5489,14 +5534,11 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         Type::Any
     };
 
+
     Expression::new(working_set,
         Expr::Record(output),
         span,
-        if let Some(fields) = field_types {
-            Type::Record(fields)
-        } else {
-            Type::Any
-        },
+        ty
     )
 }
 

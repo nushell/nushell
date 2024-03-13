@@ -1021,6 +1021,10 @@ impl<'a> StateWorkingSet<'a> {
     pub fn add_span(&mut self, span: Span) -> SpanId {
         todo!("impl adding spans")
     }
+
+    pub fn get_span_id(&self, span: Span) -> SpanId {
+        todo!("impl span search")
+    }
 }
 
 impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
