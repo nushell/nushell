@@ -29,8 +29,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError>;
     /// Get all environment variables
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError>;
-    // Get current working directory
+    /// Get current working directory
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError>;
+    /// Set an environment variable
+    fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -134,6 +136,11 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         let cwd = nu_engine::env::current_dir_str(&self.engine_state, &self.stack)?;
         // The span is not really used, so just give it call.head
         Ok(cwd.into_spanned(self.call.head))
+    }
+
+    fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError> {
+        self.stack.add_env_var(name, value);
+        Ok(())
     }
 
     fn eval_closure(
@@ -250,6 +257,12 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_current_dir not implemented on bogus".into(),
+        })
+    }
+
+    fn add_env_var(&mut self, _name: String, _value: Value) -> Result<(), ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "add_env_var not implemented on bogus".into(),
         })
     }
 

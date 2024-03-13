@@ -500,6 +500,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     EngineCall::GetEnvVar(name) => Ok(EngineCall::GetEnvVar(name)),
                     EngineCall::GetEnvVars => Ok(EngineCall::GetEnvVars),
                     EngineCall::GetCurrentDir => Ok(EngineCall::GetCurrentDir),
+                    EngineCall::AddEnvVar(name, value) => Ok(EngineCall::AddEnvVar(name, value)),
                     EngineCall::EvalClosure {
                         closure,
                         mut positional,
@@ -1000,52 +1001,45 @@ impl Drop for PluginInterface {
 /// Handle an engine call.
 pub(crate) fn handle_engine_call(
     call: EngineCall<PipelineData>,
-    mut context: Option<&mut (dyn PluginExecutionContext + '_)>,
+    context: Option<&mut (dyn PluginExecutionContext + '_)>,
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
     let call_name = call.name();
-    macro_rules! require_context {
-        () => {
-            context
-                .as_deref_mut()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "A plugin execution context is required for this engine call".into(),
-                    msg: format!(
-                        "attempted to call {} outside of a command invocation",
-                        call_name
-                    ),
-                    span: None,
-                    help: Some("this is probably a bug with the plugin".into()),
-                    inner: vec![],
-                })
-        };
-    }
+
+    let context = context.ok_or_else(|| ShellError::GenericError {
+        error: "A plugin execution context is required for this engine call".into(),
+        msg: format!(
+            "attempted to call {} outside of a command invocation",
+            call_name
+        ),
+        span: None,
+        help: Some("this is probably a bug with the plugin".into()),
+        inner: vec![],
+    })?;
+
     match call {
         EngineCall::GetConfig => {
-            let context = require_context!()?;
             let config = Box::new(context.get_config()?);
             Ok(EngineCallResponse::Config(config))
         }
         EngineCall::GetPluginConfig => {
-            let context = require_context!()?;
             let plugin_config = context.get_plugin_config()?;
             Ok(plugin_config.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
         }
         EngineCall::GetEnvVar(name) => {
-            let context = require_context!()?;
             let value = context.get_env_var(&name)?;
             Ok(value.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
         }
-        EngineCall::GetEnvVars => {
-            let context = require_context!()?;
-            context.get_env_vars().map(EngineCallResponse::ValueMap)
-        }
+        EngineCall::GetEnvVars => context.get_env_vars().map(EngineCallResponse::ValueMap),
         EngineCall::GetCurrentDir => {
-            let context = require_context!()?;
             let current_dir = context.get_current_dir()?;
             Ok(EngineCallResponse::value(Value::string(
                 current_dir.item,
                 current_dir.span,
             )))
+        }
+        EngineCall::AddEnvVar(name, value) => {
+            context.add_env_var(name, value)?;
+            Ok(EngineCallResponse::empty())
         }
         EngineCall::EvalClosure {
             closure,
@@ -1053,7 +1047,7 @@ pub(crate) fn handle_engine_call(
             input,
             redirect_stdout,
             redirect_stderr,
-        } => require_context!()?
+        } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
     }

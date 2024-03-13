@@ -954,6 +954,20 @@ fn interface_get_env_vars() -> Result<(), ShellError> {
 }
 
 #[test]
+fn interface_add_env_var() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| EngineCallResponse::empty());
+
+    interface.add_env_var("FOO", Value::test_string("bar"))?;
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.engine();

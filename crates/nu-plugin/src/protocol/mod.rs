@@ -462,6 +462,8 @@ pub enum EngineCall<D> {
     GetEnvVars,
     /// Get current working directory
     GetCurrentDir,
+    /// Set an environment variable in the caller's scope
+    AddEnvVar(String, Value),
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -488,6 +490,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetEnvVar(_) => "GetEnv",
             EngineCall::GetEnvVars => "GetEnvs",
             EngineCall::GetCurrentDir => "GetCurrentDir",
+            EngineCall::AddEnvVar(..) => "AddEnvVar",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
