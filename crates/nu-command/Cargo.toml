@@ -67,7 +67,7 @@ percent-encoding = { workspace = true }
 print-positions = "0.6"
 quick-xml = "0.31.0"
 rand = "0.8"
-rayon = "1.8"
+rayon = "1.9"
 regex = "1.9.5"
 roxmltree = "0.19"
 rusqlite = { version = "0.31", features = ["bundled", "backup", "chrono"], optional = true }
