@@ -82,6 +82,7 @@ pub struct EngineState {
     // especially long, so it helps
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     pub(super) modules: Arc<Vec<Arc<Module>>>,
+    pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -133,6 +134,7 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
+            spans: vec![Span::unknown()],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -185,6 +187,7 @@ impl EngineState {
         self.files.extend(delta.files);
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
+        self.spans.extend(delta.spans);
         self.usage.merge_with(delta.usage);
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
@@ -978,13 +981,20 @@ impl EngineState {
         }
     }
 
+    /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
-        todo!("impl adding spans");
-        todo!("push first span unknown!")
+        self.spans.push(span);
+        SpanId(self.spans.len() - 1)
     }
 
+    /// Find ID of a span
     pub fn get_span_id(&self, span: Span) -> SpanId {
-        todo!("impl span search")
+        SpanId(
+            self.spans
+                .iter()
+                .position(|sp| sp == &span)
+                .expect("span not found"),
+        )
     }
 }
 
