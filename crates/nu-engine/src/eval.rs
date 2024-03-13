@@ -1145,7 +1145,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }
@@ -1164,7 +1164,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }

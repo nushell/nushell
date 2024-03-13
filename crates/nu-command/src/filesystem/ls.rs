@@ -5,6 +5,7 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_glob::{MatchOptions, Pattern};
+use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::NuGlob;
@@ -117,7 +118,11 @@ impl Command for Ls {
         let (path, p_tag, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
-                let expanded = nu_path::expand_path_with(pat.item.as_ref(), &cwd);
+                let expanded = nu_path::expand_path_with(
+                    pat.item.as_ref(),
+                    &cwd,
+                    matches!(pat.item, NuGlob::Expand(..)),
+                );
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
                 if !directory && expanded.is_dir() {
                     if permission_denied(&expanded) {
@@ -148,6 +153,8 @@ impl Command for Ls {
                     }
                     extra_star_under_given_directory = true;
                 }
+
+                // FIXME: need a better way to check absolute path
                 let absolute_path = Path::new(pat.item.as_ref()).is_absolute();
                 (
                     expanded,

@@ -137,7 +137,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     if path.as_os_str().is_empty() {
         return Value::bool(false, span);
     }
-    let path = expand_path_with(path, &args.pwd);
+    let path = expand_path_with(path, &args.pwd, true);
     let exists = if args.not_follow_symlink {
         // symlink_metadata returns true if the file/folder exists
         // whether it is a symbolic link or not. Sorry, but returns Err

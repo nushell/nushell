@@ -54,7 +54,7 @@ impl Command for UMkdir {
         let mut directories = call
             .rest::<String>(engine_state, stack, 0)?
             .into_iter()
-            .map(|dir| nu_path::expand_path_with(dir, &cwd))
+            .map(|dir| nu_path::expand_path_with(dir, &cwd, true))
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
