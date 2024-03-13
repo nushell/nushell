@@ -3,7 +3,9 @@ use super::{
     Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, SpanId, Type, VarId, VirtualPathId};
+use crate::{
+    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, SpanId, Type, VarId, VirtualPathId,
+};
 use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};

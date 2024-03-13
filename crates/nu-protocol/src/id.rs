@@ -8,4 +8,4 @@ pub type OverlayId = usize;
 pub type FileId = usize;
 pub type VirtualPathId = usize;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SpanId(pub usize);  // more robust ID style used in the new parser
+pub struct SpanId(pub usize); // more robust ID style used in the new parser

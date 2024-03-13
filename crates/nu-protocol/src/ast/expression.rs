@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::{Argument, Call, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
-use crate::{DeclId, SpanId};
-use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 use crate::engine::EngineState;
+use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
+use crate::{DeclId, SpanId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
@@ -468,18 +468,23 @@ impl Expression {
             span,
             span_id,
             ty,
-            custom_completion: None
+            custom_completion: None,
         }
     }
 
-    pub fn new_existing(engine_state: &EngineState, expr: Expr, span: Span, ty: Type) -> Expression {
+    pub fn new_existing(
+        engine_state: &EngineState,
+        expr: Expr,
+        span: Span,
+        ty: Type,
+    ) -> Expression {
         let span_id = engine_state.get_span_id(span);
         Expression {
             expr,
             span,
             span_id,
             ty,
-            custom_completion: None
+            custom_completion: None,
         }
     }
 
@@ -489,7 +494,7 @@ impl Expression {
             span,
             span_id: SpanId(0),
             ty,
-            custom_completion: None
+            custom_completion: None,
         }
     }
 
@@ -499,8 +504,7 @@ impl Expression {
             span: self.span,
             span_id,
             ty: self.ty,
-            custom_completion: self.custom_completion
+            custom_completion: self.custom_completion,
         }
     }
 }
-

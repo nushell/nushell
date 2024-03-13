@@ -1060,11 +1060,7 @@ fn gen_save_call(
     if out_append_mode {
         call.set_parser_info(
             "out-append".to_string(),
-            Expression::new_existing(engine_state,
-                Expr::Bool(true),
-                out_span,
-                Type::Bool,
-            ),
+            Expression::new_existing(engine_state, Expr::Bool(true), out_span, Type::Bool),
         );
     }
     if let Some((err_span, err_expr, err_append_mode)) = err_info {
@@ -1079,11 +1075,7 @@ fn gen_save_call(
         if err_append_mode {
             call.set_parser_info(
                 "err-append".to_string(),
-                Expression::new_existing(engine_state,
-                    Expr::Bool(true),
-                    err_span,
-                    Type::Bool,
-                ),
+                Expression::new_existing(engine_state, Expr::Bool(true), err_span, Type::Bool),
             );
         }
     }

@@ -7,7 +7,10 @@ use super::{
 };
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
-use crate::{BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId, ShellError, Signature, Span, SpanId, Type, VarId, VirtualPathId};
+use crate::{
+    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, SpanId, Type, VarId, VirtualPathId,
+};
 use crate::{Category, Value};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;

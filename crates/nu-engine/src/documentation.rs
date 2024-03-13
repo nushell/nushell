@@ -1,6 +1,11 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
 use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::{ast::Call, engine::{EngineState, Stack}, record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value, SpanId};
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
+    SyntaxShape, Type, Value,
+};
 use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
@@ -378,12 +383,14 @@ fn get_argument_for_color_value(
                 .into_iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
-                        Expression::new_existing(engine_state,
+                        Expression::new_existing(
+                            engine_state,
                             Expr::String(k.clone()),
                             span,
                             Type::String,
                         ),
-                        Expression::new_existing(engine_state,
+                        Expression::new_existing(
+                            engine_state,
                             Expr::String(
                                 v.clone().to_expanded_string("", engine_state.get_config()),
                             ),
@@ -394,8 +401,9 @@ fn get_argument_for_color_value(
                 })
                 .collect();
 
-            Some(Argument::Positional(Expression::new_existing(engine_state,
-                                                               Expr::Record(record_exp),
+            Some(Argument::Positional(Expression::new_existing(
+                engine_state,
+                Expr::Record(record_exp),
                 Span::unknown(),
                 Type::Record(vec![
                     ("fg".to_string(), Type::String),
@@ -403,8 +411,9 @@ fn get_argument_for_color_value(
                 ]),
             )))
         }
-        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(engine_state,
-                                                                                        Expr::String(val.clone()),
+        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(
+            engine_state,
+            Expr::String(val.clone()),
             Span::unknown(),
             Type::String,
         ))),
