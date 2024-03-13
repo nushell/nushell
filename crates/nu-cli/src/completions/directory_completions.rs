@@ -11,6 +11,8 @@ use reedline::Suggestion;
 use std::path::{Path, MAIN_SEPARATOR as SEP};
 use std::sync::Arc;
 
+use super::SemanticSuggestion;
+
 #[derive(Clone)]
 pub struct DirectoryCompletion {
     engine_state: Arc<EngineState>,
@@ -35,7 +37,7 @@ impl Completer for DirectoryCompletion {
         offset: usize,
         _: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let AdjustView { prefix, span, .. } = adjust_if_intermediate(&prefix, working_set, span);
 
         // Filter only the folders
@@ -48,16 +50,20 @@ impl Completer for DirectoryCompletion {
             &self.stack,
         )
         .into_iter()
-        .map(move |x| Suggestion {
-            value: x.1,
-            description: None,
-            style: x.2,
-            extra: None,
-            span: reedline::Span {
-                start: x.0.start - offset,
-                end: x.0.end - offset,
+        .map(move |x| SemanticSuggestion {
+            suggestion: Suggestion {
+                value: x.1,
+                description: None,
+                style: x.2,
+                extra: None,
+                span: reedline::Span {
+                    start: x.0.start - offset,
+                    end: x.0.end - offset,
+                },
+                append_whitespace: false,
             },
-            append_whitespace: false,
+            // TODO????
+            kind: None,
         })
         .collect();
 
@@ -65,7 +71,7 @@ impl Completer for DirectoryCompletion {
     }
 
     // Sort results prioritizing the non hidden folders
-    fn sort(&self, items: Vec<Suggestion>, prefix: Vec<u8>) -> Vec<Suggestion> {
+    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
 
         // Sort items
@@ -75,15 +81,16 @@ impl Completer for DirectoryCompletion {
             SortBy::Ascending => {
                 sorted_items.sort_by(|a, b| {
                     // Ignore trailing slashes in folder names when sorting
-                    a.value
+                    a.suggestion
+                        .value
                         .trim_end_matches(SEP)
-                        .cmp(b.value.trim_end_matches(SEP))
+                        .cmp(b.suggestion.value.trim_end_matches(SEP))
                 });
             }
             SortBy::LevenshteinDistance => {
                 sorted_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.value);
+                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
+                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
                     a_distance.cmp(&b_distance)
                 });
             }
@@ -91,11 +98,11 @@ impl Completer for DirectoryCompletion {
         }
 
         // Separate the results between hidden and non hidden
-        let mut hidden: Vec<Suggestion> = vec![];
-        let mut non_hidden: Vec<Suggestion> = vec![];
+        let mut hidden: Vec<SemanticSuggestion> = vec![];
+        let mut non_hidden: Vec<SemanticSuggestion> = vec![];
 
         for item in sorted_items.into_iter() {
-            let item_path = Path::new(&item.value);
+            let item_path = Path::new(&item.suggestion.value);
 
             if let Some(value) = item_path.file_name() {
                 if let Some(value) = value.to_str() {

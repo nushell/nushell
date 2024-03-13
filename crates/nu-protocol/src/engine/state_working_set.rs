@@ -1,4 +1,5 @@
 use super::cached_file::CachedFile;
+use super::CommandType;
 use super::{
     usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
     Visibility, PWD_ENV,
@@ -708,7 +709,7 @@ impl<'a> StateWorkingSet<'a> {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
@@ -721,7 +722,11 @@ impl<'a> StateWorkingSet<'a> {
                         if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;
                         }
-                        output.push((decl.0.clone(), Some(command.usage().to_string())));
+                        output.push((
+                            decl.0.clone(),
+                            Some(command.usage().to_string()),
+                            command.command_type(),
+                        ));
                     }
                 }
             }
