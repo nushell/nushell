@@ -154,8 +154,14 @@ impl Command for Ls {
                     extra_star_under_given_directory = true;
                 }
 
-                // FIXME: need a better way to check absolute path
-                let absolute_path = Path::new(pat.item.as_ref()).is_absolute();
+                // it's absolute path if:
+                // 1. pattern is absolute.
+                // 2. pattern can be expanded, and after expands to real_path, it's absolute.
+                //    here `expand_to_real_path` call is required, because `~/aaa` should be absolute
+                //    path.
+                let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
+                    || (pat.item.is_expand()
+                        && expand_to_real_path(pat.item.as_ref()).is_absolute());
                 (
                     expanded,
                     p_tag,
