@@ -495,5 +495,25 @@ impl Expression {
             custom_completion: None
         }
     }
+
+    pub fn new_unknown(expr: Expr, span: Span, ty: Type) -> Expression {
+        Expression {
+            expr,
+            span,
+            span_id: SpanId(0),
+            ty,
+            custom_completion: None
+        }
+    }
+
+    pub fn with_span_id(self, span_id: SpanId) -> Expression {
+        Expression {
+            expr: self.expr,
+            span: self.span,
+            span_id,
+            ty: self.ty,
+            custom_completion: self.custom_completion
+        }
+    }
 }
 
