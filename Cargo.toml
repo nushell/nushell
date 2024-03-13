@@ -60,7 +60,7 @@ crossterm = "0.27"
 ctrlc = "3.4"
 fancy-regex = "0.13"
 log = "0.4"
-miette = "7.1"
+miette = "7.2"
 nix = { version = "0.27", default-features = false }
 nu-ansi-term = "0.50.0"
 once_cell = "1.18"
