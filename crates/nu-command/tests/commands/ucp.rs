@@ -1173,3 +1173,39 @@ fn test_cp_to_customized_home_directory() {
         ));
     })
 }
+
+#[test]
+fn cp_with_tilde() {
+    Playground::setup("cp_tilde", |dirs, sandbox| {
+        sandbox.within("~tilde").with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+        sandbox.within("~tilde2");
+        // cp directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '~tilde'; cp -r $f '~tilde2'; ls '~tilde2/~tilde' | length"
+        );
+        assert_eq!(actual.out, "3");
+
+        // cp file
+        let actual = nu!(cwd: dirs.test(), "cp '~tilde/f1.txt' ./");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec![Path::new("f1.txt")],
+            dirs.test().join("~tilde")
+        ));
+        assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; cp $f ./");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec![Path::new("f2.txt")],
+            dirs.test().join("~tilde")
+        ));
+        assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
+    })
+}
