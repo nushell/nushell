@@ -761,11 +761,7 @@ pub fn parse_internal_call(
     let lib_dirs_var_id = if decl.is_builtin() {
         match decl.name() {
             "use" | "overlay use" | "source-env" | "nu-check" => {
-                if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
-                    Some(var_id)
-                } else {
-                    None
-                }
+                find_dirs_var(working_set, LIB_DIRS_VAR)
             }
             _ => None,
         }
