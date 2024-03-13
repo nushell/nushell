@@ -53,18 +53,16 @@ impl Completer for CustomCompletion {
                 decl_id: self.decl_id,
                 head: span,
                 arguments: vec![
-                    Argument::Positional(Expression {
-                        span: Span::unknown(),
-                        ty: Type::String,
-                        expr: Expr::String(self.line.clone()),
-                        custom_completion: None,
-                    }),
-                    Argument::Positional(Expression {
-                        span: Span::unknown(),
-                        ty: Type::Int,
-                        expr: Expr::Int(line_pos as i64),
-                        custom_completion: None,
-                    }),
+                    Argument::Positional(Expression::new_unknown(
+                        Expr::String(self.line.clone()),
+                        Span::unknown(),
+                        Type::String,
+                    )),
+                    Argument::Positional(Expression::new_unknown(
+                        Expr::Int(line_pos as i64),
+                        Span::unknown(),
+                        Type::Int,
+                    )),
                 ],
                 parser_info: HashMap::new(),
             },
