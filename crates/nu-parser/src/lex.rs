@@ -1,4 +1,4 @@
-use nu_protocol::{ParseError, Span, SpanId};
+use nu_protocol::{ParseError, Span};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {
