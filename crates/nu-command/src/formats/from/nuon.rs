@@ -90,12 +90,12 @@ impl Command for FromNuon {
         }
 
         let expr = if block.pipelines.is_empty() {
-            Expression {
-                expr: Expr::Nothing,
-                span: head,
-                custom_completion: None,
-                ty: Type::Nothing,
-            }
+            Expression::new_existing(
+                &engine_state,
+                Expr::Nothing,
+                head,
+                Type::Nothing,
+            )
         } else {
             let mut pipeline = block.pipelines.remove(0);
 
@@ -115,12 +115,11 @@ impl Command for FromNuon {
             }
 
             if pipeline.elements.is_empty() {
-                Expression {
-                    expr: Expr::Nothing,
-                    span: head,
-                    custom_completion: None,
-                    ty: Type::Nothing,
-                }
+                Expression::new_existing(&engine_state,
+                    Expr::Nothing,
+                    head,
+                    Type::Nothing,
+                    )
             } else {
                 match pipeline.elements.remove(0) {
                     PipelineElement::Expression(_, expression)
