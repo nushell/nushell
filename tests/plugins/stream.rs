@@ -15,14 +15,18 @@ fn seq_produces_stream() {
 #[test]
 fn seq_describe_no_collect_succeeds_without_error() {
     // This tests to ensure that there's no error if the stream is suddenly closed
-    let actual = nu_with_plugins!(
-        cwd: "tests/fixtures/formats",
-        plugin: ("nu_plugin_stream_example"),
-        "stream_example seq 1 5 | describe --no-collect"
-    );
+    // Test several times, because this can cause different errors depending on what is written
+    // when the engine stops running, especially if there's partial output
+    for _ in 0..10 {
+        let actual = nu_with_plugins!(
+            cwd: "tests/fixtures/formats",
+            plugin: ("nu_plugin_stream_example"),
+            "stream_example seq 1 5 | describe --no-collect"
+        );
 
-    assert_eq!(actual.out, "stream");
-    assert_eq!(actual.err, "");
+        assert_eq!(actual.out, "stream");
+        assert_eq!(actual.err, "");
+    }
 }
 
 #[test]
