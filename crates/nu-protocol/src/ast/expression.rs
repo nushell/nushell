@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Argument, Call, Expr, ExternalArgument, RecordItem};
+use super::{Argument, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::engine::EngineState;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -16,11 +16,12 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn garbage(span: Span) -> Expression {
+    pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+        let span_id = working_set.add_span(span);
         Expression {
             expr: Expr::Garbage,
             span,
-            span_id: todo!("add span id to garbage"),
+            span_id,
             ty: Type::Any,
             custom_completion: None,
         }

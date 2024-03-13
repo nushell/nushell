@@ -69,7 +69,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 }
 
 pub fn math_result_type(
-    _working_set: &StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     lhs: &mut Expression,
     op: &mut Expression,
     rhs: &mut Expression,
@@ -105,7 +105,7 @@ pub fn math_result_type(
                     | Type::Filesize,
                     _,
                 ) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -119,7 +119,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -131,7 +131,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Math(Math::Append) => check_append(lhs, rhs, op),
+            Operator::Math(Math::Append) => check_append(working_set, lhs, rhs, op),
             Operator::Math(Math::Minus) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
@@ -153,7 +153,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float | Type::Date | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -167,7 +167,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -210,7 +210,7 @@ pub fn math_result_type(
                 | (Type::Duration, _)
                 | (Type::Filesize, _)
                 | (Type::List(_), _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -224,7 +224,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -253,7 +253,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -267,7 +267,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -303,7 +303,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float | Type::Filesize | Type::Duration, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -317,7 +317,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -349,7 +349,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float | Type::Filesize | Type::Duration, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -363,7 +363,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -393,7 +393,7 @@ pub fn math_result_type(
                     // definitions. As soon as that syntax is added this should be removed
                     (a, b) if a == b => (Type::Bool, None),
                     (Type::Bool, _) => {
-                        *op = Expression::garbage(op.span);
+                        *op = Expression::garbage(working_set, op.span);
                         (
                             Type::Any,
                             Some(ParseError::UnsupportedOperationRHS(
@@ -407,7 +407,7 @@ pub fn math_result_type(
                         )
                     }
                     _ => {
-                        *op = Expression::garbage(op.span);
+                        *op = Expression::garbage(working_set, op.span);
                         (
                             Type::Any,
                             Some(ParseError::UnsupportedOperationLHS(
@@ -444,7 +444,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -458,7 +458,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -494,7 +494,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -508,7 +508,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -544,7 +544,7 @@ pub fn math_result_type(
                 (Type::Nothing, _) => (Type::Nothing, None),
                 (_, Type::Nothing) => (Type::Nothing, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -558,7 +558,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -594,7 +594,7 @@ pub fn math_result_type(
                 (Type::Nothing, _) => (Type::Nothing, None),
                 (_, Type::Nothing) => (Type::Nothing, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -608,7 +608,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -641,7 +641,7 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -655,7 +655,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -676,7 +676,7 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -690,7 +690,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -711,7 +711,7 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -725,7 +725,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -746,7 +746,7 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -760,7 +760,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -784,7 +784,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::String, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -798,7 +798,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -822,7 +822,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::String, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -836,7 +836,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -858,7 +858,7 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int, _) => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
@@ -872,7 +872,7 @@ pub fn math_result_type(
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(op.span);
+                    *op = Expression::garbage(working_set, op.span);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
@@ -884,7 +884,9 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Assignment(Assignment::AppendAssign) => check_append(lhs, rhs, op),
+            Operator::Assignment(Assignment::AppendAssign) => {
+                check_append(working_set, lhs, rhs, op)
+            }
             Operator::Assignment(_) => match (&lhs.ty, &rhs.ty) {
                 (x, y) if x == y => (Type::Nothing, None),
                 (Type::Any, _) => (Type::Nothing, None),
@@ -897,7 +899,7 @@ pub fn math_result_type(
             },
         },
         _ => {
-            *op = Expression::garbage(op.span);
+            *op = Expression::garbage(working_set, op.span);
 
             (
                 Type::Any,
@@ -1039,6 +1041,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
 }
 
 fn check_append(
+    working_set: &mut StateWorkingSet,
     lhs: &Expression,
     rhs: &Expression,
     op: &mut Expression,
@@ -1063,7 +1066,7 @@ fn check_append(
         (Type::Binary, Type::Binary) => (Type::Binary, None),
         (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
         (Type::Table(_) | Type::String | Type::Binary, _) => {
-            *op = Expression::garbage(op.span);
+            *op = Expression::garbage(working_set, op.span);
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationRHS(
@@ -1077,7 +1080,7 @@ fn check_append(
             )
         }
         _ => {
-            *op = Expression::garbage(op.span);
+            *op = Expression::garbage(working_set, op.span);
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationLHS(

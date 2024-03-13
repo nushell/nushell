@@ -37,12 +37,12 @@ use std::{num::ParseIntError, str};
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;
 
-pub fn garbage(span: Span) -> Expression {
-    Expression::garbage(span)
+pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    Expression::garbage(working_set, span)
 }
 
-pub fn garbage_pipeline(spans: &[Span]) -> Pipeline {
-    Pipeline::from_vec(vec![garbage(span(spans))])
+pub fn garbage_pipeline(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+    Pipeline::from_vec(vec![garbage(working_set, span(spans))])
 }
 
 fn is_identifier_byte(b: u8) -> bool {
@@ -371,7 +371,7 @@ fn ensure_flag_arg_type(
                 item: arg_name,
                 span: long_name_span,
             },
-            Expression::garbage(arg.span),
+            Expression::garbage(working_set, arg.span),
         )
     } else {
         (
@@ -701,7 +701,7 @@ pub fn parse_multispan_value(
                 ));
             }
 
-            Expression::garbage(span)
+            Expression::garbage(working_set, span)
         }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
@@ -749,13 +749,10 @@ pub fn parse_multispan_value(
                     String::from_utf8_lossy(keyword).into(),
                     Span::new(spans[*spans_idx - 1].end, spans[*spans_idx - 1].end),
                 ));
+                let exp = Box::new(Expression::garbage(working_set, arg_span));
                 return Expression::new(
                     working_set,
-                    Expr::Keyword(
-                        keyword.clone(),
-                        spans[*spans_idx - 1],
-                        Box::new(Expression::garbage(arg_span)),
-                    ),
+                    Expr::Keyword(keyword.clone(), spans[*spans_idx - 1], exp),
                     arg_span,
                     Type::Any,
                 );
@@ -1031,14 +1028,14 @@ pub fn parse_internal_call(
                         signature.call_signature(),
                         arg_span,
                     ));
-                    call.add_positional(Expression::garbage(arg_span));
+                    call.add_positional(Expression::garbage(working_set, arg_span));
                 } else if positional_idx < signature.required_positional.len() {
                     working_set.error(ParseError::MissingPositional(
                         signature.required_positional[positional_idx].name.clone(),
                         Span::new(spans[spans_idx].start, spans[spans_idx].start),
                         signature.call_signature(),
                     ));
-                    call.add_positional(Expression::garbage(arg_span));
+                    call.add_positional(Expression::garbage(working_set, arg_span));
                 } else {
                     let rest_shape = match &signature.rest_positional {
                         Some(arg) => arg.shape.clone(),
@@ -1095,7 +1092,7 @@ pub fn parse_internal_call(
                     arg.ty,
                     arg.span,
                 ));
-                Expression::garbage(arg.span)
+                Expression::garbage(working_set, arg.span)
             } else {
                 arg
             };
@@ -1106,7 +1103,7 @@ pub fn parse_internal_call(
 
             call.add_unknown(arg);
         } else {
-            call.add_positional(Expression::garbage(arg_span));
+            call.add_positional(Expression::garbage(working_set, arg_span));
             working_set.error(ParseError::ExtraPositional(
                 signature.call_signature(),
                 arg_span,
@@ -1141,7 +1138,7 @@ pub fn parse_call(
             "Encountered command with zero spans".into(),
             span(spans),
         ));
-        return garbage(head);
+        return garbage(working_set, head);
     }
 
     let mut pos = 0;
@@ -1203,7 +1200,7 @@ pub fn parse_call(
                     "Incomplete statement".into(),
                     span(spans),
                 ));
-                return garbage(span(spans));
+                return garbage(working_set, span(spans));
             }
         }
 
@@ -1295,7 +1292,7 @@ pub fn parse_binary(working_set: &mut StateWorkingSet, span: Span) -> Expression
         parse_binary_with_base(working_set, span, 2, 8, b"0b[", b"]")
     } else {
         working_set.error(ParseError::Expected("binary", span));
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -1341,7 +1338,7 @@ fn parse_binary_with_base(
                     | TokenContents::OutErrGreaterThan
                     | TokenContents::OutErrGreaterGreaterThan => {
                         working_set.error(ParseError::Expected("binary", span));
-                        return garbage(span);
+                        return garbage(working_set, span);
                     }
                     TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
                 }
@@ -1369,14 +1366,14 @@ fn parse_binary_with_base(
                         span,
                         x.to_string(),
                     ));
-                    return garbage(span);
+                    return garbage(working_set, span);
                 }
             }
         }
     }
 
     working_set.error(ParseError::Expected("binary", span));
-    garbage(span)
+    garbage(working_set, span)
 }
 
 fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8>, ParseIntError> {
@@ -1415,7 +1412,7 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
                 span,
             ));
 
-            garbage(span)
+            garbage(working_set, span)
         }
     }
 
@@ -1423,7 +1420,7 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
 
     if token.is_empty() {
         working_set.error(ParseError::Expected("int", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     if let Some(num) = token.strip_prefix("0b") {
@@ -1436,7 +1433,7 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
         Expression::new(working_set, Expr::Int(num), span, Type::Int)
     } else {
         working_set.error(ParseError::Expected("int", span));
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -1449,7 +1446,7 @@ pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression 
     } else {
         working_set.error(ParseError::Expected("float", span));
 
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -1475,7 +1472,7 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
     working_set.parse_errors.truncate(starting_error_count);
 
     working_set.error(ParseError::Expected("number", span));
-    garbage(span)
+    garbage(working_set, span)
 }
 
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -1494,12 +1491,12 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         s
     } else {
         working_set.error(ParseError::NonUtf8(span));
-        return garbage(span);
+        return garbage(working_set, span);
     };
 
     if !token.contains("..") {
         working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     // First, figure out what exact operators are used and determine their positions
@@ -1513,7 +1510,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
                 "one range operator ('..' or '..<') and optionally one next operator ('..')",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
     };
     // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
@@ -1528,7 +1525,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         );
         if let Some(_err) = err {
             working_set.error(ParseError::Expected("Valid expression before ..", span));
-            return garbage(span);
+            return garbage(working_set, span);
         }
     }
 
@@ -1545,7 +1542,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
                 "inclusive operator preceding second range bound",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
     } else {
         let op_str = if token.contains("..=") { "..=" } else { ".." };
@@ -1586,7 +1583,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
 
     if let (None, None) = (&from, &to) {
         working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     let (next, next_op_span) = if let Some(pos) = next_op_pos {
@@ -1680,7 +1677,7 @@ pub fn parse_brace_expr(
             format!("non-block value: {shape}"),
             span,
         ));
-        return Expression::garbage(span);
+        return Expression::garbage(working_set, span);
     }
 
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
@@ -1731,7 +1728,7 @@ pub fn parse_brace_expr(
             span,
         ));
 
-        Expression::garbage(span)
+        Expression::garbage(working_set, span)
     }
 }
 
@@ -1943,12 +1940,12 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         )
     } else if working_set.get_env_var(&name).is_some() {
         working_set.error(ParseError::EnvVarNotVar(name, span));
-        garbage(span)
+        garbage(working_set, span)
     } else {
         let ws = &*working_set;
         let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
         working_set.error(ParseError::VariableNotFound(suggestion, span));
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -2122,12 +2119,6 @@ pub fn parse_full_cell_path(
 
             (
                 Expression::new(working_set, Expr::Subexpression(block_id), head_span, ty),
-                // Expression {
-                //     expr: Expr::Subexpression(block_id),
-                //     span: head_span,
-                //     ty,
-                //     custom_completion: None,
-                // },
                 true,
             )
         } else if bytes.starts_with(b"[") {
@@ -2165,7 +2156,7 @@ pub fn parse_full_cell_path(
                 String::from_utf8_lossy(bytes).to_string(),
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         };
 
         let tail = parse_cell_path(working_set, tokens, expect_dot);
@@ -2185,7 +2176,7 @@ pub fn parse_full_cell_path(
             ty,
         )
     } else {
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -2207,7 +2198,7 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
     } else {
         working_set.error(ParseError::Expected("directory", span));
 
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -2229,7 +2220,7 @@ pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     } else {
         working_set.error(ParseError::Expected("filepath", span));
 
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -2247,7 +2238,7 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         || bytes[4] != b'-'
     {
         working_set.error(ParseError::Expected("datetime", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     let token = String::from_utf8_lossy(bytes).to_string();
@@ -2270,7 +2261,7 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     working_set.error(ParseError::Expected("datetime", span));
 
-    garbage(span)
+    garbage(working_set, span)
 }
 
 /// Parse a duration type, eg '10day'
@@ -2286,11 +2277,11 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         }
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("duration"));
-            garbage(span)
+            garbage(working_set, span)
         }
         None => {
             working_set.error(ParseError::Expected("duration with valid units", span));
-            garbage(span)
+            garbage(working_set, span)
         }
     }
 }
@@ -2304,7 +2295,7 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     // the hex digit `b` might be mistaken for the unit `b`, so check that first
     if bytes.starts_with(b"0x") {
         working_set.error(ParseError::Expected("filesize with valid units", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
@@ -2316,11 +2307,11 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         }
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("filesize"));
-            garbage(span)
+            garbage(working_set, span)
         }
         None => {
             working_set.error(ParseError::Expected("filesize with valid units", span));
-            garbage(span)
+            garbage(working_set, span)
         }
     }
 }
@@ -2487,7 +2478,7 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
     } else {
         working_set.error(ParseError::Expected("glob pattern string", span));
 
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -2693,7 +2684,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     if bytes.is_empty() {
         working_set.error(ParseError::Expected("String", span));
-        return Expression::garbage(span);
+        return Expression::garbage(working_set, span);
     }
 
     // Check for bare word interpolation
@@ -2728,11 +2719,11 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
         };
         if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
             working_set.error(ParseError::Unclosed("\"".into(), span));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
             working_set.error(ParseError::Unclosed("\'".into(), span));
-            return garbage(span);
+            return garbage(working_set, span);
         }
     }
 
@@ -2756,13 +2747,13 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
         } else if token.contains(' ') {
             working_set.error(ParseError::Expected("string", span));
 
-            garbage(span)
+            garbage(working_set, span)
         } else {
             Expression::new(working_set, Expr::String(token), span, Type::String)
         }
     } else {
         working_set.error(ParseError::Expected("string", span));
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
@@ -2772,7 +2763,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
             "needs at least one component of import pattern".to_string(),
             span(spans),
         ));
-        return garbage(span(spans));
+        return garbage(working_set, span(spans));
     };
 
     let head_expr = parse_value(working_set, *head_span, &SyntaxShape::Any);
@@ -2782,12 +2773,12 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
                 working_set.error(err.wrap(working_set, span(spans)));
-                return garbage(span(spans));
+                return garbage(working_set, span(spans));
             }
         },
         Err(err) => {
             working_set.error(err.wrap(working_set, span(spans)));
-            return garbage(span(spans));
+            return garbage(working_set, span(spans));
         }
     };
 
@@ -2897,7 +2888,7 @@ pub fn parse_var_with_opt_type(
         || bytes.contains(&b'`')
     {
         working_set.error(ParseError::VariableNotValid(spans[*spans_idx]));
-        return (garbage(spans[*spans_idx]), None);
+        return (garbage(working_set, spans[*spans_idx]), None);
     }
 
     if bytes.ends_with(b":") {
@@ -2927,18 +2918,12 @@ pub fn parse_var_with_opt_type(
                     "valid variable name",
                     spans[*spans_idx - 1],
                 ));
-                return (garbage(spans[*spans_idx - 1]), None);
+                return (garbage(working_set, spans[*spans_idx - 1]), None);
             }
 
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
-                // Expression {
-                //     expr: Expr::VarDecl(id),
-                //     span: span(&spans[span_beginning..*spans_idx + 1]),
-                //     ty: ty.clone(),
-                //     custom_completion: None,
-                // },
                 Expression::new(
                     working_set,
                     Expr::VarDecl(id),
@@ -2955,7 +2940,7 @@ pub fn parse_var_with_opt_type(
                     "valid variable name",
                     spans[*spans_idx],
                 ));
-                return (garbage(spans[*spans_idx]), None);
+                return (garbage(working_set, spans[*spans_idx]), None);
             }
 
             let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
@@ -2963,12 +2948,6 @@ pub fn parse_var_with_opt_type(
             working_set.error(ParseError::MissingType(spans[*spans_idx]));
             (
                 Expression::new(working_set, Expr::VarDecl(id), spans[*spans_idx], Type::Any),
-                // Expression {
-                //     expr: Expr::VarDecl(id),
-                //     span: spans[*spans_idx],
-                //     ty: Type::Any,
-                //     custom_completion: None,
-                // },
                 None,
             )
         }
@@ -2980,7 +2959,7 @@ pub fn parse_var_with_opt_type(
                 "valid variable name",
                 spans[*spans_idx],
             ));
-            return (garbage(spans[*spans_idx]), None);
+            return (garbage(working_set, spans[*spans_idx]), None);
         }
 
         let id = working_set.add_variable(
@@ -2991,12 +2970,6 @@ pub fn parse_var_with_opt_type(
         );
 
         (
-            // Expression {
-            //     expr: Expr::VarDecl(id),
-            //     span: span(&spans[*spans_idx..*spans_idx + 1]),
-            //     ty: Type::Any,
-            //     custom_completion: None,
-            // },
             Expression::new(
                 working_set,
                 Expr::VarDecl(id),
@@ -3172,7 +3145,7 @@ pub fn parse_signature(working_set: &mut StateWorkingSet, span: Span) -> Express
         start += 1;
     } else {
         working_set.error(ParseError::Expected("[ or (", Span::new(start, start + 1)));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
@@ -3184,12 +3157,6 @@ pub fn parse_signature(working_set: &mut StateWorkingSet, span: Span) -> Express
     let sig = parse_signature_helper(working_set, Span::new(start, end));
 
     Expression::new(working_set, Expr::Signature(sig), span, Type::Signature)
-    // Expression {
-    //     expr: Expr::Signature(sig),
-    //     span,
-    //     ty: Type::Signature,
-    //     custom_completion: None,
-    // }
 }
 
 pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> Box<Signature> {
@@ -3904,17 +3871,6 @@ pub fn parse_list_expression(
         }
     }
 
-    // Expression {
-    //     expr: Expr::List(args),
-    //     span,
-    //     ty: Type::List(Box::new(if let Some(ty) = contained_type {
-    //         ty
-    //     } else {
-    //         Type::Any
-    //     })),
-    //     custom_completion: None,
-    // }
-
     Expression::new(
         working_set,
         Expr::List(args),
@@ -4039,12 +3995,6 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     };
 
     Expression::new(working_set, Expr::Table(head, rows), span, ty)
-    // Expression {
-    //     expr: Expr::Table(head, rows),
-    //     span,
-    //     ty,
-    //     custom_completion: None,
-    // }
 }
 
 fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
@@ -4101,7 +4051,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
         start += 1;
     } else {
         working_set.error(ParseError::Expected("block", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
     if bytes.ends_with(b"}") {
         end -= 1;
@@ -4159,12 +4109,6 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
     let block_id = working_set.add_block(output);
 
     Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
-    // Expression {
-    //     expr: Expr::Block(block_id),
-    //     span,
-    //     ty: Type::Block,
-    //     custom_completion: None,
-    // }
 }
 
 pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -4177,7 +4121,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
         start += 1;
     } else {
         working_set.error(ParseError::Expected("closure", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
     if bytes.ends_with(b"}") {
         end -= 1;
@@ -4293,7 +4237,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
             if output.get(position).is_none() {
                 working_set.error(mk_err());
-                return garbage(span);
+                return garbage(working_set, span);
             };
 
             let (tokens, found) = if let Some((pos, _)) = output[position..]
@@ -4302,7 +4246,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             {
                 if position + pos == position {
                     working_set.error(mk_err());
-                    return garbage(span);
+                    return garbage(working_set, span);
                 }
 
                 (&output[position..position + pos], true)
@@ -4363,12 +4307,6 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
         span,
         Type::Any,
     )
-    // Expression {
-    //     expr: Expr::MatchBlock(output_matches),
-    //     span,
-    //     ty: Type::Any,
-    //     custom_completion: None,
-    // }
 }
 
 pub fn parse_closure_expression(
@@ -4387,7 +4325,7 @@ pub fn parse_closure_expression(
         start += 1;
     } else {
         working_set.error(ParseError::Expected("closure", span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
     if bytes.ends_with(b"}") {
         end -= 1;
@@ -4507,12 +4445,6 @@ pub fn parse_closure_expression(
     let block_id = working_set.add_block(output);
 
     Expression::new(working_set, Expr::Closure(block_id), span, Type::Closure)
-    // Expression {
-    //     expr: Expr::Closure(block_id),
-    //     span,
-    //     ty: Type::Closure,
-    //     custom_completion: None,
-    // }
 }
 
 pub fn parse_value(
@@ -4526,47 +4458,29 @@ pub fn parse_value(
 
     if bytes.is_empty() {
         working_set.error(ParseError::IncompleteParser(span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     // Check for reserved keyword values
     match bytes {
         b"true" => {
             if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-                // return Expression {
-                //     expr: Expr::Bool(true),
-                //     span,
-                //     ty: Type::Bool,
-                //     custom_completion: None,
-                // };
                 return Expression::new(working_set, Expr::Bool(true), span, Type::Bool);
             } else {
                 working_set.error(ParseError::Expected("non-boolean value", span));
-                return Expression::garbage(span);
+                return Expression::garbage(working_set, span);
             }
         }
         b"false" => {
             if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-                // return Expression {
-                //     expr: Expr::Bool(false),
-                //     span,
-                //     ty: Type::Bool,
-                //     custom_completion: None,
-                // };
                 return Expression::new(working_set, Expr::Bool(false), span, Type::Bool);
             } else {
                 working_set.error(ParseError::Expected("non-boolean value", span));
-                return Expression::garbage(span);
+                return Expression::garbage(working_set, span);
             }
         }
         b"null" => {
             return Expression::new(working_set, Expr::Nothing, span, Type::Nothing);
-            // return Expression {
-            //     expr: Expr::Nothing,
-            //     span,
-            //     ty: Type::Nothing,
-            //     custom_completion: None,
-            // };
         }
         b"-inf" | b"inf" | b"NaN" => {
             return parse_float(working_set, span);
@@ -4588,7 +4502,7 @@ pub fn parse_value(
             | SyntaxShape::GlobPattern => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
-                return Expression::garbage(span);
+                return Expression::garbage(working_set, span);
             }
         },
         _ => {}
@@ -4618,7 +4532,7 @@ pub fn parse_value(
             } else {
                 working_set.error(ParseError::Expected("signature", span));
 
-                Expression::garbage(span)
+                Expression::garbage(working_set, span)
             }
         }
         SyntaxShape::List(elem) => {
@@ -4627,7 +4541,7 @@ pub fn parse_value(
             } else {
                 working_set.error(ParseError::Expected("list", span));
 
-                Expression::garbage(span)
+                Expression::garbage(working_set, span)
             }
         }
         SyntaxShape::Table(_) => {
@@ -4636,7 +4550,7 @@ pub fn parse_value(
             } else {
                 working_set.error(ParseError::Expected("table", span));
 
-                Expression::garbage(span)
+                Expression::garbage(working_set, span)
             }
         }
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span),
@@ -4644,16 +4558,10 @@ pub fn parse_value(
             // Redundant, though we catch bad boolean parses here
             if bytes == b"true" || bytes == b"false" {
                 Expression::new(working_set, Expr::Bool(true), span, Type::Bool)
-                // Expression {
-                //     expr: Expr::Bool(true),
-                //     span,
-                //     ty: Type::Bool,
-                //     custom_completion: None,
-                // }
             } else {
                 working_set.error(ParseError::Expected("bool", span));
 
-                Expression::garbage(span)
+                Expression::garbage(working_set, span)
             }
         }
 
@@ -4662,7 +4570,7 @@ pub fn parse_value(
         SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(_) => {
             working_set.error(ParseError::Expected("block, closure or record", span));
 
-            Expression::garbage(span)
+            Expression::garbage(working_set, span)
         }
 
         SyntaxShape::Any => {
@@ -4703,7 +4611,7 @@ pub fn parse_value(
                     }
                 }
                 working_set.error(ParseError::Expected("any shape", span));
-                garbage(span)
+                garbage(working_set, span)
             }
         }
         x => {
@@ -4711,7 +4619,7 @@ pub fn parse_value(
                 x.to_type().to_string(),
                 span,
             ));
-            garbage(span)
+            garbage(working_set, span)
         }
     }
 }
@@ -4765,7 +4673,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Use '**' for exponentiation or 'bit-xor' for bitwise XOR.",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         equality @ (b"is" | b"===") => {
             working_set.error(ParseError::UnknownOperator(
@@ -4777,7 +4685,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Did you mean '=='?",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         b"contains" => {
             working_set.error(ParseError::UnknownOperator(
@@ -4785,7 +4693,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Did you mean '$string =~ $pattern' or '$element in $container'?",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         b"%" => {
             working_set.error(ParseError::UnknownOperator(
@@ -4793,7 +4701,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Did you mean 'mod'?",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         b"&" => {
             working_set.error(ParseError::UnknownOperator(
@@ -4801,7 +4709,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Did you mean 'bit-and'?",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         b"<<" => {
             working_set.error(ParseError::UnknownOperator(
@@ -4809,7 +4717,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Did you mean 'bit-shl'?",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         b">>" => {
             working_set.error(ParseError::UnknownOperator(
@@ -4817,7 +4725,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 "Did you mean 'bit-shr'?",
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         bits @ (b"bits-and" | b"bits-xor" | b"bits-or" | b"bits-shl" | b"bits-shr") => {
             working_set.error(ParseError::UnknownOperator(
@@ -4839,20 +4747,13 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 },
                 span,
             ));
-            return garbage(span);
+            return garbage(working_set, span);
         }
         _ => {
             working_set.error(ParseError::Expected("operator", span));
-            return garbage(span);
+            return garbage(working_set, span);
         }
     };
-
-    // Expression{
-    //     expr: Expr::Operator(operator),
-    //     span,
-    //     ty: Type::Any,
-    //     custom_completion: None,
-    // }
 
     Expression::new(working_set, Expr::Operator(operator), span, Type::Any)
 }
@@ -4892,7 +4793,7 @@ pub fn parse_math_expression(
                 "expression",
                 Span::new(spans[0].end, spans[0].end),
             ));
-            return garbage(spans[0]);
+            return garbage(working_set, spans[0]);
         }
     } else if first_span == b"not" {
         not_start_spans.push(spans[idx].start);
@@ -4913,7 +4814,7 @@ pub fn parse_math_expression(
                 "expression",
                 Span::new(spans[idx - 1].end, spans[idx - 1].end),
             ));
-            return garbage(spans[idx - 1]);
+            return garbage(working_set, spans[idx - 1]);
         }
     }
 
@@ -4957,8 +4858,8 @@ pub fn parse_math_expression(
             // Handle broken math expr `1 +` etc
             working_set.error(ParseError::IncompleteMathExpression(spans[idx - 1]));
 
-            expr_stack.push(Expression::garbage(spans[idx - 1]));
-            expr_stack.push(Expression::garbage(spans[idx - 1]));
+            expr_stack.push(Expression::garbage(working_set, spans[idx - 1]));
+            expr_stack.push(Expression::garbage(working_set, spans[idx - 1]));
 
             break;
         }
@@ -4990,7 +4891,7 @@ pub fn parse_math_expression(
                     "expression",
                     Span::new(spans[idx - 1].end, spans[idx - 1].end),
                 ));
-                return garbage(spans[idx - 1]);
+                return garbage(working_set, spans[idx - 1]);
             }
         }
         let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
@@ -5167,7 +5068,7 @@ pub fn parse_expression(
 
     if pos == spans.len() {
         working_set.error(ParseError::UnknownCommand(spans[0]));
-        return garbage(span(spans));
+        return garbage(working_set, span(spans));
     }
 
     let output = if is_math_expression_like(working_set, spans[pos]) {
@@ -5379,7 +5280,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         start += 1;
     } else {
         working_set.error(ParseError::Expected("{", Span::new(start, start + 1)));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     if bytes.ends_with(b"}") {
@@ -5444,8 +5345,8 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                     Span::new(curr_span.end, curr_span.end),
                 ));
                 output.push(RecordItem::Pair(
-                    garbage(curr_span),
-                    garbage(Span::new(curr_span.end, curr_span.end)),
+                    garbage(working_set, curr_span),
+                    garbage(working_set, Span::new(curr_span.end, curr_span.end)),
                 ));
                 break;
             }
@@ -5459,10 +5360,10 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 output.push(RecordItem::Pair(
                     field,
-                    garbage(Span::new(
-                        colon_span.start,
-                        tokens[tokens.len() - 1].span.end,
-                    )),
+                    garbage(
+                        working_set,
+                        Span::new(colon_span.start, tokens[tokens.len() - 1].span.end),
+                    ),
                 ));
                 break;
             }
@@ -5472,8 +5373,11 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                     Span::new(colon_span.end, colon_span.end),
                 ));
                 output.push(RecordItem::Pair(
-                    garbage(Span::new(curr_span.start, colon_span.end)),
-                    garbage(Span::new(colon_span.end, tokens[tokens.len() - 1].span.end)),
+                    garbage(working_set, Span::new(curr_span.start, colon_span.end)),
+                    garbage(
+                        working_set,
+                        Span::new(colon_span.end, tokens[tokens.len() - 1].span.end),
+                    ),
                 ));
                 break;
             }
@@ -6356,7 +6260,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             Type::Any,
         )
     } else {
-        Expression::garbage(span)
+        Expression::garbage(working_set, span)
     }
 }
 

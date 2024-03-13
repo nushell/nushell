@@ -254,7 +254,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             "internal error: Wrong call name for 'for' function".into(),
             span(spans),
         ));
-        return garbage(spans[0]);
+        return garbage(working_set, spans[0]);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -266,7 +266,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
                 "internal error: for declaration not found".into(),
                 span(spans),
             ));
-            return garbage(spans[0]);
+            return garbage(working_set, spans[0]);
         }
         Some(decl_id) => {
             working_set.enter_scope();
@@ -283,7 +283,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             check_call(working_set, call_span, &sig, &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return garbage(spans[0]);
+                return garbage(working_set, spans[0]);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -381,7 +381,7 @@ pub fn parse_def(
             "internal error: Wrong call name for def function".into(),
             span(spans),
         ));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -393,7 +393,7 @@ pub fn parse_def(
                 "internal error: def declaration not found".into(),
                 span(spans),
             ));
-            return (garbage_pipeline(spans), None);
+            return (garbage_pipeline(working_set, spans), None);
         }
         Some(decl_id) => {
             working_set.enter_scope();
@@ -417,7 +417,7 @@ pub fn parse_def(
                     String::from_utf8_lossy(&def_call).as_ref(),
                 ) {
                     working_set.error(err);
-                    return (garbage_pipeline(spans), None);
+                    return (garbage_pipeline(working_set, spans), None);
                 }
             }
 
@@ -457,7 +457,7 @@ pub fn parse_def(
             working_set.parse_errors.append(&mut new_errors);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return (garbage_pipeline(spans), None);
+                return (garbage_pipeline(working_set, spans), None);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -477,10 +477,10 @@ pub fn parse_def(
     };
 
     let Ok(has_env) = has_flag_const(working_set, &call, "env") else {
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     };
     let Ok(has_wrapped) = has_flag_const(working_set, &call, "wrapped") else {
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     };
 
     // All positional arguments must be in the call positional vector by this point
@@ -517,7 +517,7 @@ pub fn parse_def(
             "Could not get string from string expression".into(),
             name_expr.span,
         ));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     };
 
     let mut result = None;
@@ -655,7 +655,7 @@ pub fn parse_extern(
             "internal error: Wrong call name for extern command".into(),
             span(spans),
         ));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -667,7 +667,7 @@ pub fn parse_extern(
                 "internal error: def declaration not found".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         }
         Some(decl_id) => {
             working_set.enter_scope();
@@ -681,7 +681,7 @@ pub fn parse_extern(
                     String::from_utf8_lossy(&extern_call).as_ref(),
                 ) {
                     working_set.error(err);
-                    return garbage_pipeline(spans);
+                    return garbage_pipeline(working_set, spans);
                 }
             }
 
@@ -806,11 +806,11 @@ pub fn parse_alias(
             "Alias statement unparsable".into(),
             span(spans),
         ));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     if let Some(span) = check_name(working_set, spans) {
-        return Pipeline::from_vec(vec![garbage(*span)]);
+        return Pipeline::from_vec(vec![garbage(working_set, *span)]);
     }
 
     if let Some(decl_id) = working_set.find_decl(b"alias") {
@@ -829,7 +829,7 @@ pub fn parse_alias(
             .truncate(original_starting_error_count);
 
         let Ok(has_help_flag) = has_flag_const(working_set, &alias_call, "help") else {
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         };
 
         let alias_pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -848,7 +848,7 @@ pub fn parse_alias(
                 "Missing positional after call check".to_string(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         };
 
         let alias_name = if let Some(name) = alias_name_expr.as_string() {
@@ -858,13 +858,13 @@ pub fn parse_alias(
                 || name.parse::<f64>().is_ok()
             {
                 working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
-                return garbage_pipeline(spans);
+                return garbage_pipeline(working_set, spans);
             } else {
                 name
             }
         } else {
             working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         };
 
         if spans.len() >= split_id + 3 {
@@ -930,7 +930,7 @@ pub fn parse_alias(
                             .truncate(original_starting_error_count);
                         // ignore missing required positional
                     } else {
-                        return garbage_pipeline(replacement_spans);
+                        return garbage_pipeline(working_set, replacement_spans);
                     }
                 }
             }
@@ -1040,7 +1040,7 @@ pub fn parse_alias(
         span(spans),
     ));
 
-    garbage_pipeline(spans)
+    garbage_pipeline(working_set, spans)
 }
 
 // This one will trigger if `export` appears during eval, e.g., in a script
@@ -1084,7 +1084,7 @@ pub fn parse_export_in_block(
         check_call(working_set, call_span, &decl.signature(), &call);
 
         let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-            return garbage_pipeline(&lite_command.parts);
+            return garbage_pipeline(working_set, &lite_command.parts);
         };
 
         if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -1103,7 +1103,7 @@ pub fn parse_export_in_block(
             ),
             span(&lite_command.parts),
         ));
-        return garbage_pipeline(&lite_command.parts);
+        return garbage_pipeline(working_set, &lite_command.parts);
     };
 
     if &full_name == b"export" {
@@ -1112,7 +1112,7 @@ pub fn parse_export_in_block(
             "export".into(),
             lite_command.parts[0],
         ));
-        return garbage_pipeline(&lite_command.parts);
+        return garbage_pipeline(working_set, &lite_command.parts);
     }
 
     match full_name.as_slice() {
@@ -1131,7 +1131,7 @@ pub fn parse_export_in_block(
                 lite_command.parts[0],
             ));
 
-            garbage_pipeline(&lite_command.parts)
+            garbage_pipeline(working_set, &lite_command.parts)
         }
     }
 }
@@ -1150,7 +1150,7 @@ pub fn parse_export_in_module(
                 "expected export statement".into(),
                 span(spans),
             ));
-            return (garbage_pipeline(spans), vec![]);
+            return (garbage_pipeline(working_set, spans), vec![]);
         }
 
         *sp
@@ -1159,7 +1159,7 @@ pub fn parse_export_in_module(
             "got empty input for parsing export statement".into(),
             span(spans),
         ));
-        return (garbage_pipeline(spans), vec![]);
+        return (garbage_pipeline(working_set, spans), vec![]);
     };
 
     let export_decl_id = if let Some(id) = working_set.find_decl(b"export") {
@@ -1169,7 +1169,7 @@ pub fn parse_export_in_module(
             "missing export command".into(),
             export_span,
         ));
-        return (garbage_pipeline(spans), vec![]);
+        return (garbage_pipeline(working_set, spans), vec![]);
     };
 
     let mut call = Box::new(Call {
@@ -1208,7 +1208,7 @@ pub fn parse_export_in_module(
                         "missing 'export def' command".into(),
                         export_span,
                     ));
-                    return (garbage_pipeline(spans), vec![]);
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
@@ -1249,7 +1249,7 @@ pub fn parse_export_in_module(
                         "missing 'export extern' command".into(),
                         export_span,
                     ));
-                    return (garbage_pipeline(spans), vec![]);
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
@@ -1309,7 +1309,7 @@ pub fn parse_export_in_module(
                         "missing 'export alias' command".into(),
                         export_span,
                     ));
-                    return (garbage_pipeline(spans), vec![]);
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
@@ -1368,7 +1368,7 @@ pub fn parse_export_in_module(
                         "missing 'export use' command".into(),
                         export_span,
                     ));
-                    return (garbage_pipeline(spans), vec![]);
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
@@ -1405,7 +1405,7 @@ pub fn parse_export_in_module(
                             "missing 'export module' command".into(),
                             export_span,
                         ));
-                        return (garbage_pipeline(spans), vec![]);
+                        return (garbage_pipeline(working_set, spans), vec![]);
                     };
 
                 // Trying to warp the 'module' call into the 'export module' in a very clumsy way
@@ -1462,7 +1462,7 @@ pub fn parse_export_in_module(
                         "missing 'export const' command".into(),
                         export_span,
                     ));
-                    return (garbage_pipeline(spans), vec![]);
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 };
 
                 // Trying to warp the 'const' call into the 'export const' in a very clumsy way
@@ -1549,7 +1549,7 @@ pub fn parse_export_env(
             "internal error: Wrong call name for 'export-env' command".into(),
             span(spans),
         ));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     if spans.len() < 2 {
@@ -1558,7 +1558,7 @@ pub fn parse_export_env(
             span(spans),
             "export-env <block>".into(),
         ));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     let call = match working_set.find_decl(b"export-env") {
@@ -1573,7 +1573,7 @@ pub fn parse_export_env(
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return (garbage_pipeline(spans), None);
+                return (garbage_pipeline(working_set, spans), None);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -1595,7 +1595,7 @@ pub fn parse_export_env(
                 "internal error: 'export-env' declaration not found".into(),
                 span(spans),
             ));
-            return (garbage_pipeline(spans), None);
+            return (garbage_pipeline(working_set, spans), None);
         }
     };
 
@@ -1607,14 +1607,14 @@ pub fn parse_export_env(
                 "internal error: 'export-env' block is not a block".into(),
                 block.span,
             ));
-            return (garbage_pipeline(spans), None);
+            return (garbage_pipeline(working_set, spans), None);
         }
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: 'export-env' block is missing".into(),
             span(spans),
         ));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -1858,24 +1858,30 @@ pub fn parse_module_block(
                                 command.parts[0],
                             ));
 
-                            block.pipelines.push(garbage_pipeline(&command.parts))
+                            block
+                                .pipelines
+                                .push(garbage_pipeline(working_set, &command.parts))
                         }
                     }
                 }
-                LiteElement::Redirection(_, _, command, _) => {
-                    block.pipelines.push(garbage_pipeline(&command.parts))
-                }
+                LiteElement::Redirection(_, _, command, _) => block
+                    .pipelines
+                    .push(garbage_pipeline(working_set, &command.parts)),
                 LiteElement::SeparateRedirection {
                     out: (_, command, _),
                     ..
-                } => block.pipelines.push(garbage_pipeline(&command.parts)),
+                } => block
+                    .pipelines
+                    .push(garbage_pipeline(working_set, &command.parts)),
                 LiteElement::SameTargetRedirection {
                     cmd: (_, command), ..
-                } => block.pipelines.push(garbage_pipeline(&command.parts)),
+                } => block
+                    .pipelines
+                    .push(garbage_pipeline(working_set, &command.parts)),
             }
         } else {
             working_set.error(ParseError::Expected("not a pipeline", span));
-            block.pipelines.push(garbage_pipeline(&[span]))
+            block.pipelines.push(garbage_pipeline(working_set, &[span]))
         }
     }
 
@@ -2081,7 +2087,7 @@ pub fn parse_module(
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return (garbage_pipeline(spans), None);
+                return (garbage_pipeline(working_set, spans), None);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -2103,7 +2109,7 @@ pub fn parse_module(
                 "internal error: 'module' or 'export module' declaration not found".into(),
                 span(spans),
             ));
-            return (garbage_pipeline(spans), None);
+            return (garbage_pipeline(working_set, spans), None);
         }
     };
 
@@ -2135,14 +2141,14 @@ pub fn parse_module(
                     "internal error: name not a string".into(),
                     span(spans),
                 ));
-                return (garbage_pipeline(spans), None);
+                return (garbage_pipeline(working_set, spans), None);
             }
         } else {
             working_set.error(ParseError::UnknownState(
                 "internal error: missing positional".into(),
                 span(spans),
             ));
-            return (garbage_pipeline(spans), None);
+            return (garbage_pipeline(working_set, spans), None);
         };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -2175,7 +2181,7 @@ pub fn parse_module(
             span(spans),
         ));
 
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     let module_name = module_name_or_path;
@@ -2189,7 +2195,7 @@ pub fn parse_module(
         start += 1;
     } else {
         working_set.error(ParseError::Expected("block", block_span));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     if block_bytes.ends_with(b"}") {
@@ -2251,7 +2257,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             "internal error: Wrong call name for 'use' command".into(),
             span(spans),
         ));
-        return (garbage_pipeline(spans), vec![]);
+        return (garbage_pipeline(working_set, spans), vec![]);
     }
 
     if working_set.get_span_contents(name_span) != b"use" {
@@ -2259,7 +2265,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             "internal error: Wrong call name for 'use' command".into(),
             span(spans),
         ));
-        return (garbage_pipeline(spans), vec![]);
+        return (garbage_pipeline(working_set, spans), vec![]);
     }
 
     let (call, call_span, args_spans) = match working_set.find_decl(b"use") {
@@ -2276,7 +2282,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return (garbage_pipeline(spans), vec![]);
+                return (garbage_pipeline(working_set, spans), vec![]);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -2298,7 +2304,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 "internal error: 'use' declaration not found".into(),
                 span(spans),
             ));
-            return (garbage_pipeline(spans), vec![]);
+            return (garbage_pipeline(working_set, spans), vec![]);
         }
     };
 
@@ -2315,7 +2321,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             "internal error: Import pattern positional is not import pattern".into(),
             import_pattern_expr.span,
         ));
-        return (garbage_pipeline(spans), vec![]);
+        return (garbage_pipeline(working_set, spans), vec![]);
     };
 
     let (mut import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
@@ -2451,7 +2457,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             "internal error: Wrong call name for 'hide' command".into(),
             span(spans),
         ));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     let (call, args_spans) = match working_set.find_decl(b"hide") {
@@ -2466,7 +2472,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return garbage_pipeline(spans);
+                return garbage_pipeline(working_set, spans);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -2485,7 +2491,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
                 "internal error: 'hide' declaration not found".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         }
     };
 
@@ -2502,7 +2508,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             "internal error: Import pattern positional is not import pattern".into(),
             import_pattern_expr.span,
         ));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     };
 
     let bytes = working_set.get_span_contents(spans[0]);
@@ -2533,7 +2539,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
                     spans[1],
                     String::from_utf8_lossy(&import_pattern.head.name).to_string(),
                 ));
-                return garbage_pipeline(spans);
+                return garbage_pipeline(working_set, spans);
             };
 
         // This kind of inverts the import pattern matching found in parse_use()
@@ -2623,7 +2629,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             "Expected structure: hide <name>".into(),
             span(spans),
         ));
-        garbage_pipeline(spans)
+        garbage_pipeline(working_set, spans)
     }
 }
 
@@ -2636,12 +2642,12 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(&[call_span]);
+                    return garbage_pipeline(working_set, &[call_span]);
                 }
             },
             Err(err) => {
                 working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(&[call_span]);
+                return garbage_pipeline(working_set, &[call_span]);
             }
         }
     } else {
@@ -2649,7 +2655,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             "internal error: Missing required positional after call parsing".into(),
             call_span,
         ));
-        return garbage_pipeline(&[call_span]);
+        return garbage_pipeline(working_set, &[call_span]);
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -2685,12 +2691,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(&[call_span]);
+                    return garbage_pipeline(working_set, &[call_span]);
                 }
             },
             Err(err) => {
                 working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(&[call_span]);
+                return garbage_pipeline(working_set, &[call_span]);
             }
         }
     } else {
@@ -2698,7 +2704,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             "internal error: Missing required positional after call parsing".into(),
             call_span,
         ));
-        return garbage_pipeline(&[call_span]);
+        return garbage_pipeline(working_set, &[call_span]);
     };
 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
@@ -2711,12 +2717,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     }),
                     Err(err) => {
                         working_set.error(err.wrap(working_set, call_span));
-                        return garbage_pipeline(&[call_span]);
+                        return garbage_pipeline(working_set, &[call_span]);
                     }
                 },
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(&[call_span]);
+                    return garbage_pipeline(working_set, &[call_span]);
                 }
             }
         } else {
@@ -2724,17 +2730,17 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 "as keyword".to_string(),
                 kw_expression.span,
             ));
-            return garbage_pipeline(&[call_span]);
+            return garbage_pipeline(working_set, &[call_span]);
         }
     } else {
         None
     };
 
     let Ok(has_prefix) = has_flag_const(working_set, &call, "prefix") else {
-        return garbage_pipeline(&[call_span]);
+        return garbage_pipeline(working_set, &[call_span]);
     };
     let Ok(do_reload) = has_flag_const(working_set, &call, "reload") else {
-        return garbage_pipeline(&[call_span]);
+        return garbage_pipeline(working_set, &[call_span]);
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -2906,12 +2912,12 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(&[call_span]);
+                    return garbage_pipeline(working_set, &[call_span]);
                 }
             },
             Err(err) => {
                 working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(&[call_span]);
+                return garbage_pipeline(working_set, &[call_span]);
             }
         }
     } else {
@@ -2922,7 +2928,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
     };
 
     let Ok(keep_custom) = has_flag_const(working_set, &call, "keep-custom") else {
-        return garbage_pipeline(&[call_span]);
+        return garbage_pipeline(working_set, &[call_span]);
     };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -3074,7 +3080,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
         span(spans),
     ));
 
-    garbage_pipeline(spans)
+    garbage_pipeline(working_set, spans)
 }
 
 pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
@@ -3082,7 +3088,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
     // JT: Disabling check_name because it doesn't work with optional types in the declaration
     // if let Some(span) = check_name(working_set, spans) {
-    //     return Pipeline::from_vec(vec![garbage(*span)]);
+    //     return Pipeline::from_vec(vec![garbage(working_set, *span)]);
     // }
 
     if let Some(decl_id) = working_set.find_decl(b"const") {
@@ -3218,7 +3224,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
         span(spans),
     ));
 
-    garbage_pipeline(spans)
+    garbage_pipeline(working_set, spans)
 }
 
 pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
@@ -3226,7 +3232,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
     // JT: Disabling check_name because it doesn't work with optional types in the declaration
     // if let Some(span) = check_name(working_set, spans) {
-    //     return Pipeline::from_vec(vec![garbage(*span)]);
+    //     return Pipeline::from_vec(vec![garbage(working_set, *span)]);
     // }
 
     if let Some(decl_id) = working_set.find_decl(b"mut") {
@@ -3335,7 +3341,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
         span(spans),
     ));
 
-    garbage_pipeline(spans)
+    garbage_pipeline(working_set, spans)
 }
 
 pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
@@ -3353,7 +3359,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return garbage_pipeline(spans);
+                return garbage_pipeline(working_set, spans);
             };
 
             if is_help {
@@ -3456,7 +3462,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
         "internal error: source statement unparsable".into(),
         span(spans),
     ));
-    garbage_pipeline(spans)
+    garbage_pipeline(working_set, spans)
 }
 
 pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
@@ -3467,7 +3473,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             "internal error: Wrong call name for 'where' command".into(),
             span(spans),
         ));
-        return garbage(span(spans));
+        return garbage(working_set, span(spans));
     }
 
     if spans.len() < 2 {
@@ -3476,7 +3482,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             span(spans),
             "where <row_condition>".into(),
         ));
-        return garbage(span(spans));
+        return garbage(working_set, span(spans));
     }
 
     let call = match working_set.find_decl(b"where") {
@@ -3491,7 +3497,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return garbage(span(spans));
+                return garbage(working_set, span(spans));
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
@@ -3505,7 +3511,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                 "internal error: 'where' declaration not found".into(),
                 span(spans),
             ));
-            return garbage(span(spans));
+            return garbage(working_set, span(spans));
         }
     };
 
@@ -3535,7 +3541,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             "internal error: Wrong call name for parse plugin function".into(),
             span(spans),
         ));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -3547,7 +3553,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
                 "internal error: Register declaration not found".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         }
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
@@ -3560,7 +3566,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             check_call(working_set, call_span, &decl.signature(), &call);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return garbage_pipeline(spans);
+                return garbage_pipeline(working_set, spans);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
