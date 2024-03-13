@@ -733,37 +733,6 @@ pub struct ParsedInternalCall {
     pub output: Type,
 }
 
-// fn attach_parser_info_builtin(working_set: &mut StateWorkingSet, name: &str, call: &mut Call) {
-//     match name {
-//         "use" | "overlay use" | "source-env" | "nu-check" => {
-//             if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
-//                 call.set_parser_info(
-//                     DIR_VAR_PARSER_INFO.to_owned(),
-//                     Expression::new(working_set,
-//                         Expr::Var(var_id),
-//                         call.head,
-//                         Type::Any,
-//                     ),
-//                 );
-//             }
-//         }
-//         _ => {}
-//     }
-// }
-
-// fn attach_parser_info_builtin(working_set: &StateWorkingSet, name: &str) -> Option<VarId> {
-//     match name {
-//         "use" | "overlay use" | "source-env" | "nu-check" => {
-//             if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
-//                 Some(var_id)
-//             } else {
-//                 None
-//             }
-//         }
-//         _ => None
-//     }
-// }
-
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -781,16 +750,9 @@ pub fn parse_internal_call(
     let output = signature.get_output_type();
 
     let lib_dirs_var_id = if decl.is_builtin() {
-        // attach_parser_info_builtin(working_set, decl.name())
-        // attach_parser_info_builtin(working_set, decl.name(), &mut call);
-
         match decl.name() {
             "use" | "overlay use" | "source-env" | "nu-check" => {
-                if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
-                    Some(var_id)
-                } else {
-                    None
-                }
+                find_dirs_var(working_set, LIB_DIRS_VAR)
             }
             _ => None,
         }
@@ -1159,7 +1121,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 span: _,
                 span_id: _,
                 ty,
-                custom_completion,
+                custom_completion: _,
             } = &alias.clone().wrapped_call
             {
                 trace!("parsing: alias of external call");
