@@ -9,17 +9,16 @@ def run-command [
     --level-prefix: string,
     --ansi: string
 ] {
-    do {
-        if ($level_prefix | is-empty) {
-            if ($ansi | is-empty) {
-                ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level)'
-            } else {
-                ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
-            }
+    if ($level_prefix | is-empty) {
+        if ($ansi | is-empty) {
+            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level)'
         } else {
-            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
+            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
         }
-    }  | complete | get --ignore-errors stderr
+    } else {
+        ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
+    }
+    | complete | get --ignore-errors stderr
 }
 
 #[test]

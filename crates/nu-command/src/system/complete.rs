@@ -115,20 +115,12 @@ impl Command for Complete {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description:
-                    "Run the external command to completion, capturing stdout and exit_code",
-                example: "^external arg1 | complete",
-                result: None,
-            },
-            Example {
-                description:
-                    "Run external command to completion, capturing, stdout, stderr and exit_code",
-                example: "do { ^external arg1 } | complete",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description:
+                "Run the external command to completion, capturing stdout, stderr, and exit_code",
+            example: "^external arg1 | complete",
+            result: None,
+        }]
     }
 
     fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {

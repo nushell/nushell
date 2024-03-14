@@ -80,7 +80,7 @@ fn capture_error_with_too_much_stderr_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-            do -c {sh -c "cat a_large_file.txt 1>&2"} | complete | get stderr
+            sh -c "cat a_large_file.txt 1>&2" | complete | get stderr
             "#,
         ));
 
@@ -105,7 +105,7 @@ fn capture_error_with_too_much_stdout_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-            do -c {sh -c "cat a_large_file.txt"} | complete | get stdout
+            sh -c "cat a_large_file.txt" | complete | get stdout
             "#,
         ));
 
@@ -133,13 +133,13 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
             // check for stdout
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                "do -c {sh test.sh} | complete | get stdout | str trim",
+                "sh test.sh | complete | get stdout | str trim",
             ));
             assert_eq!(actual.out, expect_body);
             // check for stderr
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                "do -c {sh test.sh} | complete | get stderr | str trim",
+                "sh test.sh | complete | get stderr | str trim",
             ));
             assert_eq!(actual.out, expect_body);
         },

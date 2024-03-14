@@ -164,7 +164,7 @@ fn redirection_keep_exit_codes() {
     Playground::setup("redirection preserves exit code", |dirs, _| {
         let out = nu!(
             cwd: dirs.test(),
-            "do -i { nu --testbin fail e> a.txt } | complete | get exit_code"
+            "nu --testbin fail e> a.txt | complete | get exit_code"
         );
         // needs to use contains "1", because it complete will output `Some(RawStream)`.
         assert!(out.out.contains('1'));

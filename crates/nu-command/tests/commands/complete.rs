@@ -23,7 +23,6 @@ fn basic_exit_code() {
 
 #[test]
 fn error() {
-    let actual = nu!("do { not-found } | complete");
-
+    let actual = nu!("not-found | complete");
     assert!(actual.err.contains("executable was not found"));
 }
