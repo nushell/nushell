@@ -1766,14 +1766,10 @@ impl Value {
                             }
                         } else {
                             let new_col = if path.is_empty() {
-                                new_val.clone()
+                                new_val
                             } else {
                                 let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.insert_data_at_cell_path(
-                                    path,
-                                    new_val.clone(),
-                                    head_span,
-                                )?;
+                                new_col.insert_data_at_cell_path(path, new_val, head_span)?;
                                 new_col
                             };
                             record.push(col_name, new_col);
