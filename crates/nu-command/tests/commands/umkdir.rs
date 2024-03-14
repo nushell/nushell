@@ -122,3 +122,23 @@ fn creates_directory_three_dots_quotation_marks() {
         assert!(expected.exists());
     })
 }
+
+#[cfg(not(windows))]
+#[test]
+fn mkdir_umask_permission() {
+    Playground::setup("mkdir_umask_permission", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "
+                mkdir test_umask_permission
+                stat -c %a test_umask_permission
+            "
+        );
+
+        assert_eq!(
+            actual.out, "755",
+            "Most *nix systems have 0o022 as the umask. \
+            So directory permission should be 0o755 = 0o777 - 0o022"
+        );
+    })
+}
