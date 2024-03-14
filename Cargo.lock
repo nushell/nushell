@@ -2940,6 +2940,7 @@ dependencies = [
  "uu_mktemp",
  "uu_mv",
  "uu_whoami",
+ "uucore",
  "uuid",
  "v_htmlescape",
  "wax",

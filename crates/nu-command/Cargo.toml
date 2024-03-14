@@ -100,6 +100,9 @@ chardetng = "0.1.17"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 
+[target.'cfg(not(windows))'.dependencies]
+uucore = { version = "0.0.24", features = ["mode"] }
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
