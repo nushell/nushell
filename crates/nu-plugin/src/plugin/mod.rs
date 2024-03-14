@@ -380,8 +380,7 @@ pub trait Plugin: Sync {
     }
 }
 
-/// Function used to implement the communication protocol between
-/// nushell and an external plugin. Both [Plugin] and [StreamingPlugin] are supported.
+/// Function used to implement the communication protocol between nushell and an external plugin.
 ///
 /// When creating a new plugin this function is typically used as the main entry
 /// point for the plugin, e.g.
