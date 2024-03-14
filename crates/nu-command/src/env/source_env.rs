@@ -76,18 +76,13 @@ impl Command for SourceEnv {
 
         // Evaluate the block
         let block = engine_state.get_block(block_id as usize).clone();
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+        let mut callee_stack = caller_stack
+            .gather_captures(engine_state, &block.captures)
+            .reset_pipes();
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        let result = eval_block_with_early_return(
-            engine_state,
-            &mut callee_stack,
-            &block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        );
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, &block, input);
 
         // Merge the block's environment to the current stack
         redirect_env(engine_state, caller_stack, &callee_stack);

@@ -8,24 +8,12 @@ use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{PipelineData, ShellError, Value};
 
 /// Type of eval_block() function
-pub type EvalBlockFn = fn(
-    &EngineState,
-    &mut Stack,
-    &Block,
-    PipelineData,
-    bool,
-    bool,
-) -> Result<PipelineData, ShellError>;
+pub type EvalBlockFn =
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
 
 /// Type of eval_block_with_early_return() function
-pub type EvalBlockWithEarlyReturnFn = fn(
-    &EngineState,
-    &mut Stack,
-    &Block,
-    PipelineData,
-    bool,
-    bool,
-) -> Result<PipelineData, ShellError>;
+pub type EvalBlockWithEarlyReturnFn =
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
 
 /// Type of eval_expression() function
 pub type EvalExpressionFn = fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>;
@@ -36,8 +24,6 @@ pub type EvalExpressionWithInputFn = fn(
     &mut Stack,
     &Expression,
     PipelineData,
-    bool,
-    bool,
 ) -> Result<(PipelineData, bool), ShellError>;
 
 /// Type of eval_subexpression() function

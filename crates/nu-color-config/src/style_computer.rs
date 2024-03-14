@@ -78,8 +78,6 @@ impl<'a> StyleComputer<'a> {
                             &mut stack,
                             &block,
                             value.clone().into_pipeline_data(),
-                            false,
-                            false,
                         ) {
                             Ok(v) => {
                                 let value = v.into_value(span);

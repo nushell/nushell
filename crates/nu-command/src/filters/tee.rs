@@ -4,8 +4,8 @@ use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, RawStream,
-    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoSpanned, IoStream, PipelineData,
+    RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -49,8 +49,8 @@ use it in your pipeline."#
                 result: None,
             },
             Example {
-                example: "do { nu --commands 'print -e error; print ok' } | \
-                    tee --stderr { save error.log } | complete",
+                example:
+                    "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
                 description: "Save error messages from an external command to a file without \
                     redirecting them",
                 result: None,
@@ -78,7 +78,9 @@ use it in your pipeline."#
         } = call.req(engine_state, stack, 0)?;
 
         let closure_engine_state = engine_state.clone();
-        let mut closure_stack = stack.captures_to_stack(captures);
+        let mut closure_stack = stack
+            .captures_to_stack_preserve_stdio(captures)
+            .reset_pipes();
 
         let metadata = input.metadata();
         let metadata_clone = metadata.clone();
@@ -121,46 +123,32 @@ use it in your pipeline."#
                         &mut closure_stack,
                         closure_engine_state.get_block(block_id),
                         input_from_channel,
-                        false,
-                        false,
                     );
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
                 };
 
                 if use_stderr {
-                    if let Some(stderr) = stderr {
-                        let iter = tee(stderr.stream, with_stream)
-                            .map_err(|e| e.into_spanned(call.head))?;
-                        let raw_stream = RawStream::new(
-                            Box::new(iter.map(flatten_result)),
-                            stderr.ctrlc,
-                            stderr.span,
-                            stderr.known_size,
-                        );
-                        Ok(PipelineData::ExternalStream {
-                            stdout,
-                            stderr: Some(raw_stream),
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
+                    let stderr = stderr
+                        .map(|stderr| {
+                            let iter = tee(stderr.stream, with_stream)
+                                .map_err(|e| e.into_spanned(call.head))?;
+                            Ok::<_, ShellError>(RawStream::new(
+                                Box::new(iter.map(flatten_result)),
+                                stderr.ctrlc,
+                                stderr.span,
+                                stderr.known_size,
+                            ))
                         })
-                    } else {
-                        // Throw an error if the stream doesn't have stderr. This is probably the
-                        // user's mistake (e.g., forgetting to use `do`)
-                        Err(ShellError::GenericError {
-                            error: "Stream passed to `tee --stderr` does not have stderr".into(),
-                            msg: "this stream does not contain stderr".into(),
-                            span: Some(span),
-                            help: Some(
-                                "if this is an external command, you probably need to wrap \
-                                it in `do { ... }`"
-                                    .into(),
-                            ),
-                            inner: vec![],
-                        })
-                    }
+                        .transpose()?;
+                    Ok(PipelineData::ExternalStream {
+                        stdout,
+                        stderr,
+                        exit_code,
+                        span,
+                        metadata,
+                        trim_end_newline,
+                    })
                 } else {
                     let stdout = stdout
                         .map(|stdout| {
@@ -203,8 +191,6 @@ use it in your pipeline."#
                         &mut closure_stack,
                         closure_engine_state.get_block(block_id),
                         input_from_channel,
-                        false,
-                        false,
                     );
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
@@ -216,6 +202,10 @@ use it in your pipeline."#
                 Ok(teed)
             }
         }
+    }
+
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+        (Some(IoStream::Capture), Some(IoStream::Capture))
     }
 }
 

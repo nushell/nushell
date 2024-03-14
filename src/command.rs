@@ -3,7 +3,7 @@ use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::report_error;
 use nu_protocol::{
-    ast::{Call, Expr, Expression, PipelineElement},
+    ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Value,
@@ -82,14 +82,7 @@ pub(crate) fn parse_commandline_args(
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.first() {
-        if let Some(PipelineElement::Expression(
-            _,
-            Expression {
-                expr: Expr::Call(call),
-                ..
-            },
-        )) = pipeline.elements.first()
-        {
+        if let Some(Expr::Call(call)) = pipeline.elements.first().map(|e| &e.expr.expr) {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");

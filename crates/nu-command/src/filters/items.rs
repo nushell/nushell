@@ -54,7 +54,6 @@ impl Command for Items {
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stderr = call.redirect_stderr;
         let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         let input_span = input.span().unwrap_or(call.head);
@@ -81,8 +80,6 @@ impl Command for Items {
                 &mut stack,
                 &block,
                 PipelineData::empty(),
-                true,
-                redirect_stderr,
             ) {
                 Ok(v) => Some(v.into_value(span)),
                 Err(ShellError::Break { .. }) => None,

@@ -124,7 +124,9 @@ impl Command for OverlayUse {
                 )?;
 
                 let block = engine_state.get_block(block_id);
-                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+                let mut callee_stack = caller_stack
+                    .gather_captures(engine_state, &block.captures)
+                    .reset_pipes();
 
                 if let Some(path) = &maybe_path {
                     // Set the currently evaluated directory, if the argument is a valid path
@@ -142,15 +144,7 @@ impl Command for OverlayUse {
                 }
 
                 let eval_block = get_eval_block(engine_state);
-
-                let _ = eval_block(
-                    engine_state,
-                    &mut callee_stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                );
+                let _ = eval_block(engine_state, &mut callee_stack, block, input);
 
                 // The export-env block should see the env vars *before* activating this overlay
                 caller_stack.add_overlay(overlay_name);

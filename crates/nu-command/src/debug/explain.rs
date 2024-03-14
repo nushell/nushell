@@ -73,8 +73,9 @@ pub fn get_pipeline_elements(
         let mut i = 0;
         while i < pipeline.elements.len() {
             let pipeline_element = &pipeline.elements[i];
-            let pipeline_expression = pipeline_element.expression().clone();
-            let pipeline_span = pipeline_element.span();
+            let pipeline_expression = &pipeline_element.expr;
+            let pipeline_span = pipeline_element.expr.span;
+
             let element_str =
                 String::from_utf8_lossy(engine_state.get_span_contents(pipeline_span));
             let value = Value::string(element_str.to_string(), pipeline_span);

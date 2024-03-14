@@ -48,6 +48,8 @@ impl Command for While {
         let eval_expression = get_eval_expression(engine_state);
         let eval_block = get_eval_block(engine_state);
 
+        let stack = &mut stack.push_redirection(None, None);
+
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 break;
@@ -60,14 +62,7 @@ impl Command for While {
                     if *val {
                         let block = engine_state.get_block(block.block_id);
 
-                        match eval_block(
-                            engine_state,
-                            stack,
-                            block,
-                            PipelineData::empty(),
-                            call.redirect_stdout,
-                            call.redirect_stderr,
-                        ) {
+                        match eval_block(engine_state, stack, block, PipelineData::empty()) {
                             Err(ShellError::Break { .. }) => {
                                 break;
                             }

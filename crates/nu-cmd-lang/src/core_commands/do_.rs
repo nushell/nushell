@@ -5,8 +5,8 @@ use nu_protocol::ast::Call;
 
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoSpanned, ListStream, PipelineData, RawStream, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
+    Category, Example, IntoSpanned, IoStream, ListStream, PipelineData, RawStream, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -79,19 +79,12 @@ impl Command for Do {
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
-        let mut callee_stack = caller_stack.captures_to_stack(block.captures);
+        let mut callee_stack = caller_stack.captures_to_stack_preserve_stdio(block.captures);
         let block = engine_state.get_block(block.block_id);
 
         bind_args_to(&mut callee_stack, &block.signature, rest, call.head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-        let result = eval_block_with_early_return(
-            engine_state,
-            &mut callee_stack,
-            block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stdout,
-        );
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {
             // Merge the block's environment to the current stack
@@ -204,7 +197,9 @@ impl Command for Do {
                 span,
                 metadata,
                 trim_end_newline,
-            }) if ignore_program_errors && !call.redirect_stdout => {
+            }) if ignore_program_errors
+                && !matches!(caller_stack.stdout(), IoStream::Pipe | IoStream::Capture) =>
+            {
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr,
