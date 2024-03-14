@@ -402,6 +402,20 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
     let number_of_args = args.len();
     let first_arg = args.next();
 
+    // Determine the plugin name, for errors
+    let exe = std::env::current_exe().ok();
+
+    let plugin_name: String = exe
+        .as_ref()
+        .and_then(|path| path.file_stem())
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .map(|stem| {
+            stem.strip_prefix("nu_plugin_")
+                .map(|s| s.to_owned())
+                .unwrap_or(stem)
+        })
+        .unwrap_or_else(|| "(unknown)".into());
+
     if number_of_args == 0
         || first_arg
             .as_ref()
@@ -428,11 +442,17 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
     }
 
     // Build commands map, to make running a command easier
-    let commands: HashMap<String, _> = plugin
-        .commands()
-        .into_iter()
-        .map(|command| (command.signature().sig.name.clone(), command))
-        .collect();
+    let mut commands: HashMap<String, _> = HashMap::new();
+
+    for command in plugin.commands() {
+        if let Some(previous) = commands.insert(command.signature().sig.name.clone(), command) {
+            eprintln!(
+                "Plugin `{plugin_name}` warning: command `{}` shadowed by another command with the \
+                    same name. Check your command signatures",
+                previous.signature().sig.name
+            );
+        }
+    }
 
     // tell nushell encoding.
     //
@@ -460,20 +480,6 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
 
     // We need to hold on to the interface to keep the manager alive. We can drop it at the end
     let interface = manager.get_interface();
-
-    // Determine the plugin name, for errors
-    let exe = std::env::current_exe().ok();
-
-    let plugin_name: String = exe
-        .as_ref()
-        .and_then(|path| path.file_stem())
-        .map(|stem| stem.to_string_lossy().into_owned())
-        .map(|stem| {
-            stem.strip_prefix("nu_plugin_")
-                .map(|s| s.to_owned())
-                .unwrap_or(stem)
-        })
-        .unwrap_or_else(|| "(unknown)".into());
 
     // Try an operation that could result in ShellError. Exit if an I/O error is encountered.
     // Try to report the error to nushell otherwise, and failing that, panic.
