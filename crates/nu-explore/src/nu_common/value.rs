@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_pretty_hex::pretty_hex;
 use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
 
 use super::NuSpan;
@@ -9,14 +8,7 @@ use super::NuSpan;
 pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {
         PipelineData::Empty => (vec![], vec![]),
-        PipelineData::Value(value, ..) => match value {
-            Value::Binary { val, internal_span } => {
-                let hex_dump = pretty_hex(&val);
-                let hex_dump = hex_dump.lines().skip(1).collect::<Vec<_>>().join("\n");
-                collect_input(Value::string(hex_dump, internal_span))
-            }
-            value => collect_input(value),
-        },
+        PipelineData::Value(value, ..) => collect_input(value),
         PipelineData::ListStream(stream, ..) => collect_list_stream(stream),
         PipelineData::ExternalStream {
             stdout,

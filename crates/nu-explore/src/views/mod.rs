@@ -4,6 +4,7 @@ mod information;
 mod interactive;
 mod preview;
 mod record;
+mod binary;
 pub mod util;
 
 use crossterm::event::KeyEvent;
@@ -25,6 +26,7 @@ use super::{
 pub use information::InformationView;
 pub use interactive::InteractiveView;
 pub use preview::Preview;
+pub use binary::BinaryView;
 pub use record::{Orientation, RecordView};
 
 #[derive(Debug, Default)]
