@@ -43,6 +43,13 @@ impl Command for Update {
         "Update an existing column to have a new value."
     }
 
+    fn extra_usage(&self) -> &str {
+        "When updating a column, the closure will be run for each row, and the current row will be passed as the first argument. \
+Referencing `$in` inside the closure will provide the value at the column for the current row.
+
+When updating a specific index, the closure will instead be run once. The first argument to the closure and the `$in` value will both be the current value at the index."
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -74,7 +81,7 @@ impl Command for Update {
                 )),
             },
             Example {
-                description: "You can also use a simple command to update 'authors' to a single string",
+                description: "Implicitly use the `$in` value in a closure to update 'authors'",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { str join ',' }",
                 result: Some(Value::test_list(
                     vec![Value::test_record(record! {

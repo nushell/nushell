@@ -43,6 +43,11 @@ impl Command for Insert {
         "Insert a new column, using an expression or closure to create each row's values."
     }
 
+    fn extra_usage(&self) -> &str {
+        "When inserting a column, the closure will be run for each row, and the current row will be passed as the first argument.
+When inserting into a specific index, the closure will instead get the current value at the index or null if inserting at the end of a list/table."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["add"]
     }
@@ -63,7 +68,7 @@ impl Command for Insert {
                 description: "Insert a new entry into a single record",
                 example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
                 result: Some(Value::test_record(record! {
-                    "name" =>  Value::test_string("nu"),
+                    "name" => Value::test_string("nu"),
                     "stars" => Value::test_int(5),
                     "alias" => Value::test_string("Nushell"),
                 })),
@@ -73,8 +78,8 @@ impl Command for Insert {
                 example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "project" => Value::test_string("Nushell"),
-                    "lang" =>    Value::test_string("Rust"),
-                    "type" =>    Value::test_string("shell"),
+                    "lang" => Value::test_string("Rust"),
+                    "type" => Value::test_string("shell"),
                 })])),
             },
             Example {
@@ -322,26 +327,22 @@ fn insert_value_by_closure(
     first_path_member_int: bool,
     eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
-    let input_at_path = value.clone().follow_cell_path(cell_path, false);
+    let input = if first_path_member_int {
+        value
+            .clone()
+            .follow_cell_path(cell_path, false)
+            .unwrap_or(Value::nothing(span))
+    } else {
+        value.clone()
+    };
 
     if let Some(var) = block.signature.get_positional(0) {
-        if let Some(var_id) = &var.var_id {
-            stack.add_var(
-                *var_id,
-                if first_path_member_int {
-                    input_at_path.clone().unwrap_or(Value::nothing(span))
-                } else {
-                    value.clone()
-                },
-            )
+        if let Some(var_id) = var.var_id {
+            stack.add_var(var_id, input.clone());
         }
     }
 
-    let input_at_path = input_at_path
-        .map(IntoPipelineData::into_pipeline_data)
-        .unwrap_or(PipelineData::Empty);
-
-    let output = eval_block_fn(engine_state, stack, block, input_at_path)?;
+    let output = eval_block_fn(engine_state, stack, block, input.into_pipeline_data())?;
 
     value.insert_data_at_cell_path(cell_path, output.into_value(span), span)
 }
