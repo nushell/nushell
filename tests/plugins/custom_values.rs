@@ -177,6 +177,6 @@ fn drop_check_custom_value_prints_message_on_drop() {
         "do { |v| [$v $v] } (custom-value drop-check 'Hello') | ignore"
     );
 
-    assert_eq!(actual.err, "DropCheck was dropped: Hello\n");
+    assert_eq!(actual.err, "DropCheckValue was dropped: Hello\n");
     assert!(actual.status.success());
 }

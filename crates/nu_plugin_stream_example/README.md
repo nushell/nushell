@@ -1,7 +1,6 @@
 # Streaming Plugin Example
 
-Crate with a simple example of the `StreamingPlugin` trait that needs to be implemented
-in order to create a binary that can be registered into nushell declaration list
+Crate with a simple example of a plugin with commands that produce streams
 
 ## `stream_example seq`
 
