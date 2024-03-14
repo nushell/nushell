@@ -126,19 +126,22 @@ fn creates_directory_three_dots_quotation_marks() {
 #[cfg(not(windows))]
 #[test]
 fn mkdir_umask_permission() {
+    use std::{fs, os::unix::fs::PermissionsExt};
+
     Playground::setup("mkdir_umask_permission", |dirs, _| {
-        let actual = nu!(
+        nu!(
             cwd: dirs.test(),
-            "
-                mkdir test_umask_permission
-                stat -c %a test_umask_permission
-            "
+            "mkdir test_umask_permission"
         );
+        let actual = fs::metadata(dirs.test().join("test_umask_permission"))
+            .unwrap()
+            .permissions()
+            .mode();
 
         assert_eq!(
-            actual.out, "755",
-            "Most *nix systems have 0o022 as the umask. \
-            So directory permission should be 0o755 = 0o777 - 0o022"
+            actual, 0o40755,
+            "Most *nix systems have 0o00022 as the umask. \
+            So directory permission should be 0o40755 = 0o40777 - 0o00022"
         );
     })
 }
