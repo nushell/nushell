@@ -126,10 +126,7 @@ impl Command for Save {
                                     }),
                                 None => thread::Builder::new()
                                     .name("stderr redirector".to_string())
-                                    .spawn(move || {
-                                        let _ = stderr.into_bytes()?;
-                                        Ok(())
-                                    }),
+                                    .spawn(move || stderr.drain()),
                             })
                             .transpose()
                             .map_err(|e| e.into_spanned(span))?;

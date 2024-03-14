@@ -206,8 +206,13 @@ impl PipelineData {
         }
     }
 
-    /// Writes all values or redirects all output to the given `out` and `err` streams,
-    /// but otherwise returns the PipelineData as is for [`IoStream::Pipe`]
+    /// Writes all values or redirects all output to the current stdio streams in `stack`.
+    ///
+    /// For [`IoStream::Pipe`] and [`IoStream::Capture`], this will return the `PipelineData` as is
+    /// without consuming input and without writing anything.
+    ///
+    /// For the other [`IoStream`]s, the given `PipelineData` will be completely consumed
+    /// and `PipelineData::Empty` will be returned.
     pub fn write_to_io_streams(
         self,
         engine_state: &EngineState,
@@ -310,7 +315,7 @@ impl PipelineData {
                 for value in stream {
                     let bytes = value_to_bytes(value)?;
                     file.write_all(&bytes)?;
-                    file.write_all("\n".as_bytes())?;
+                    file.write_all(b"\n")?;
                 }
                 file.flush()?;
                 Ok(PipelineData::Empty)

@@ -505,7 +505,7 @@ impl Stack {
         self.active_overlays.retain(|o| o != name);
     }
 
-    /// Returns the [`IoStream`] to use for current command's stdout.
+    /// Returns the [`IoStream`] to use for the current command's stdout.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
@@ -514,7 +514,7 @@ impl Stack {
         self.stdio.stdout()
     }
 
-    /// Returns the [`IoStream`] to use for current command's stderr.
+    /// Returns the [`IoStream`] to use for the current command's stderr.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
@@ -547,7 +547,7 @@ impl Stack {
         StackCallArgGuard::new(self)
     }
 
-    /// Apply redirections to stdout and/or stderr.
+    /// Temporarily apply redirections to stdout and/or stderr.
     pub fn push_redirection(
         &mut self,
         stdout: Option<Redirection>,

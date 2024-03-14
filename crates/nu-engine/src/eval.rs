@@ -348,8 +348,6 @@ fn eval_element_redirection<D: DebugContext>(
     element_redirection: Option<&PipelineRedirection>,
     pipe_redirection: (Option<IoStream>, Option<IoStream>),
 ) -> Result<(Option<Redirection>, Option<Redirection>), ShellError> {
-    type Redirect = Redirection;
-
     let (next_out, next_err) = pipe_redirection;
 
     if let Some(redirection) = element_redirection {
@@ -359,18 +357,21 @@ fn eval_element_redirection<D: DebugContext>(
                 target,
             } => {
                 let stdout = eval_redirection::<D>(engine_state, stack, target, next_out)?;
-                Ok((Some(stdout), next_err.map(Redirect::Pipe)))
+                Ok((Some(stdout), next_err.map(Redirection::Pipe)))
             }
             PipelineRedirection::Single {
                 source: RedirectionSource::Stderr,
                 target,
             } => {
                 let stderr = eval_redirection::<D>(engine_state, stack, target, None)?;
-                if matches!(stderr, Redirect::Pipe(IoStream::Pipe)) {
+                if matches!(stderr, Redirection::Pipe(IoStream::Pipe)) {
                     // e>| redirection, don't override current stack `stdout`
-                    Ok((None, Some(next_out.map(Redirect::Pipe).unwrap_or(stderr))))
+                    Ok((
+                        None,
+                        Some(next_out.map(Redirection::Pipe).unwrap_or(stderr)),
+                    ))
                 } else {
-                    Ok((next_out.map(Redirect::Pipe), Some(stderr)))
+                    Ok((next_out.map(Redirection::Pipe), Some(stderr)))
                 }
             }
             PipelineRedirection::Single {
@@ -387,7 +388,10 @@ fn eval_element_redirection<D: DebugContext>(
             }
         }
     } else {
-        Ok((next_out.map(Redirect::Pipe), next_err.map(Redirect::Pipe)))
+        Ok((
+            next_out.map(Redirection::Pipe),
+            next_err.map(Redirection::Pipe),
+        ))
     }
 }
 
@@ -487,7 +491,7 @@ pub fn eval_block<D: DebugContext>(
         let last_pipeline = pipeline_idx >= num_pipelines - 1;
 
         let Some((last, elements)) = pipeline.elements.split_last() else {
-            debug_assert!(false, "pipelines should have a least one element");
+            debug_assert!(false, "pipelines should have at least one element");
             continue;
         };
 

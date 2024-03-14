@@ -42,8 +42,8 @@ impl From<Arc<File>> for IoStream {
 impl TryFrom<&IoStream> for Stdio {
     type Error = io::Error;
 
-    fn try_from(target: &IoStream) -> Result<Self, Self::Error> {
-        match target {
+    fn try_from(stream: &IoStream) -> Result<Self, Self::Error> {
+        match stream {
             IoStream::Pipe | IoStream::Capture => Ok(Self::piped()),
             IoStream::Null => Ok(Self::null()),
             IoStream::Inherit => Ok(Self::inherit()),

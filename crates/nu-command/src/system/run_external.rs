@@ -77,7 +77,8 @@ impl Command for External {
                     msg: "`--trim-end-newline` is deprecated".into(),
                     span: Some(call.arguments_span()),
                     help: Some(
-                        "`run-external` now removes any trailing new lines by default".into(),
+                        "trailing new lines are now removed by default when collecting into a value"
+                            .into(),
                     ),
                     inner: vec![],
                 },
@@ -103,7 +104,7 @@ impl Command for External {
                     msg: "`--redirect-stdout` is deprecated".into(),
                     span: Some(call.arguments_span()),
                     help: Some(
-                        "`run-external` will now always redirect stdout if there is a pipe `|`"
+                        "`run-external` will now always redirect stdout if there is a pipe `|` afterwards"
                             .into(),
                     ),
                     inner: vec![],

@@ -86,7 +86,6 @@ impl Command for LazyMake {
             }
         }
 
-        // TODO: do we reset stdio here?
         let stack = stack.clone().reset_stdio().capture();
 
         Ok(Value::lazy_record(
