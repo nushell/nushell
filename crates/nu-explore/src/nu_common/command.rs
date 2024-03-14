@@ -2,8 +2,8 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Value,
+    engine::{EngineState, Redirection, Stack, StateWorkingSet},
+    IoStream, PipelineData, ShellError, Value,
 };
 
 pub fn run_command_with_value(
@@ -91,5 +91,9 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    eval_block::<WithoutDebug>(engine_state, stack, &block, input, true, true)
+    let stack = &mut stack.push_redirection(
+        Some(Redirection::Pipe(IoStream::Capture)),
+        Some(Redirection::Pipe(IoStream::Capture)),
+    );
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input)
 }

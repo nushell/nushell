@@ -109,17 +109,9 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::new();
+            let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-
-            let res = eval_block::<WithoutDebug>(
-                &engine_state,
-                &mut temp_stack,
-                &block,
-                input,
-                false,
-                false,
-            )?;
+            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {

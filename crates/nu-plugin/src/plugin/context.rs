@@ -6,8 +6,8 @@ use std::{
 use nu_engine::get_eval_block_with_early_return;
 use nu_protocol::{
     ast::Call,
-    engine::{Closure, EngineState, Stack},
-    Config, IntoSpanned, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    engine::{Closure, EngineState, Redirection, Stack},
+    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
@@ -107,8 +107,6 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
                             &mut stack,
                             &block,
                             input,
-                            false,
-                            false,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(e) => Value::error(e, self.call.head),
@@ -155,7 +153,24 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
                 inner: vec![],
             })?;
 
-        let mut stack = self.stack.captures_to_stack(closure.item.captures);
+        let mut stack = self
+            .stack
+            .captures_to_stack(closure.item.captures)
+            .reset_pipes();
+
+        let stdout = if redirect_stdout {
+            Some(Redirection::Pipe(IoStream::Capture))
+        } else {
+            None
+        };
+
+        let stderr = if redirect_stderr {
+            Some(Redirection::Pipe(IoStream::Capture))
+        } else {
+            None
+        };
+
+        let stack = &mut stack.push_redirection(stdout, stderr);
 
         // Set up the positional arguments
         for (idx, value) in positional.into_iter().enumerate() {
@@ -174,14 +189,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(&self.engine_state);
 
-        eval_block_with_early_return(
-            &self.engine_state,
-            &mut stack,
-            block,
-            input,
-            redirect_stdout,
-            redirect_stderr,
-        )
+        eval_block_with_early_return(&self.engine_state, stack, block, input)
     }
 }
 

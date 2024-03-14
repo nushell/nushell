@@ -119,9 +119,6 @@ fn update(
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
-    let redirect_stdout = call.redirect_stdout;
-    let redirect_stderr = call.redirect_stderr;
-
     let ctrlc = engine_state.ctrlc.clone();
 
     let eval_block = get_eval_block(engine_state);
@@ -142,8 +139,6 @@ fn update(
                                 span,
                                 engine_state,
                                 &mut stack,
-                                redirect_stdout,
-                                redirect_stderr,
                                 block,
                                 &cell_path.members,
                                 false,
@@ -157,8 +152,6 @@ fn update(
                             replacement,
                             engine_state,
                             stack,
-                            redirect_stdout,
-                            redirect_stderr,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
                             eval_block,
@@ -204,8 +197,6 @@ fn update(
                         replacement,
                         engine_state,
                         stack,
-                        redirect_stdout,
-                        redirect_stderr,
                         path,
                         true,
                         eval_block,
@@ -236,8 +227,6 @@ fn update(
                             replacement_span,
                             &engine_state,
                             &mut stack,
-                            redirect_stdout,
-                            redirect_stderr,
                             &block,
                             &cell_path.members,
                             false,
@@ -282,8 +271,6 @@ fn update_value_by_closure(
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
@@ -309,8 +296,6 @@ fn update_value_by_closure(
         stack,
         block,
         input_at_path.into_pipeline_data(),
-        redirect_stdout,
-        redirect_stderr,
     )?;
 
     value.update_data_at_cell_path(cell_path, output.into_value(span))
@@ -322,8 +307,6 @@ fn update_single_value_by_closure(
     replacement: Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     cell_path: &[PathMember],
     first_path_member_int: bool,
     eval_block_fn: EvalBlockFn,
@@ -338,8 +321,6 @@ fn update_single_value_by_closure(
         span,
         engine_state,
         &mut stack,
-        redirect_stdout,
-        redirect_stderr,
         block,
         cell_path,
         first_path_member_int,

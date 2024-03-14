@@ -92,6 +92,7 @@ impl Command for PluginDeclaration {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python
                     // environment.
+                    let stack = &mut stack.start_capture();
                     nu_engine::env::env_to_strings(engine_state, stack)
                 })
             })

@@ -9,13 +9,12 @@ def run-command [
     --format: string,
     --short
 ] {
-    do {
-        if $short {
-            ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log ($message_level) --format "($format)" --short "($message)"'
-        } else {
-            ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log ($message_level) --format "($format)" "($message)"'
-        }
-    } | complete | get --ignore-errors stderr
+    if $short {
+        ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log ($message_level) --format "($format)" --short "($message)"'
+    } else {
+        ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log ($message_level) --format "($format)" "($message)"'
+    }
+    | complete | get --ignore-errors stderr
 }
 
 

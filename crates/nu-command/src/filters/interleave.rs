@@ -128,14 +128,7 @@ interleave
                 // Evaluate the closure on this thread
                 let block = engine_state.get_block(closure.block_id);
                 let mut stack = stack.captures_to_stack(closure.captures);
-                eval_block_with_early_return(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::Empty,
-                    true,
-                    false,
-                )
+                eval_block_with_early_return(engine_state, &mut stack, block, PipelineData::Empty)
             }))
             .try_for_each(|stream| {
                 stream.and_then(|stream| {

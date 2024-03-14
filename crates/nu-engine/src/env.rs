@@ -379,7 +379,7 @@ fn get_converted_value(
                 let block = engine_state.get_block(val.block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.gather_captures(engine_state, &block.captures);
+                    let mut stack = stack.captures_to_stack(val.captures.clone());
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, orig_val.clone());
                     }
@@ -391,8 +391,6 @@ fn get_converted_value(
                         &mut stack,
                         block,
                         PipelineData::new_with_metadata(None, val_span),
-                        true,
-                        true,
                     );
 
                     match result {

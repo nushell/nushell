@@ -133,8 +133,6 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             &mut callee_stack,
             block,
             input,
-            call.redirect_stdout,
-            call.redirect_stdout,
         );
 
         // TODO: See eval_source()

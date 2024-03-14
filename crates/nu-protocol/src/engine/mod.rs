@@ -7,6 +7,7 @@ mod pattern_match;
 mod stack;
 mod state_delta;
 mod state_working_set;
+mod stdio;
 mod usage;
 mod variable;
 
@@ -19,4 +20,5 @@ pub use pattern_match::*;
 pub use stack::*;
 pub use state_delta::*;
 pub use state_working_set::*;
+pub use stdio::*;
 pub use variable::*;

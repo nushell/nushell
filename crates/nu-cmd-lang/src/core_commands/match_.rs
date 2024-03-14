@@ -70,24 +70,10 @@ impl Command for Match {
                     if guard_matches {
                         return if let Some(block_id) = match_.1.as_block() {
                             let block = engine_state.get_block(block_id);
-                            eval_block(
-                                engine_state,
-                                stack,
-                                block,
-                                input,
-                                call.redirect_stdout,
-                                call.redirect_stderr,
-                            )
+                            eval_block(engine_state, stack, block, input)
                         } else {
-                            eval_expression_with_input(
-                                engine_state,
-                                stack,
-                                &match_.1,
-                                input,
-                                call.redirect_stdout,
-                                call.redirect_stderr,
-                            )
-                            .map(|x| x.0)
+                            eval_expression_with_input(engine_state, stack, &match_.1, input)
+                                .map(|x| x.0)
                         };
                     }
                 }

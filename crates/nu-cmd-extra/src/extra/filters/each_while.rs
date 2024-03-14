@@ -83,8 +83,6 @@ impl Command for EachWhile {
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
         let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         match input {
@@ -111,8 +109,6 @@ impl Command for EachWhile {
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -155,8 +151,6 @@ impl Command for EachWhile {
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -185,8 +179,6 @@ impl Command for EachWhile {
                     &mut stack,
                     &block,
                     x.into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 )
             }
         }

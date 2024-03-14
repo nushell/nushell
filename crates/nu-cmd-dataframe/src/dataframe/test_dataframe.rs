@@ -79,18 +79,12 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Exa
         .merge_delta(delta)
         .expect("Error merging delta");
 
-    let mut stack = Stack::new();
+    let mut stack = Stack::new().capture();
 
-    let result = eval_block::<WithoutDebug>(
-        engine_state,
-        &mut stack,
-        &block,
-        PipelineData::empty(),
-        true,
-        true,
-    )
-    .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))
-    .into_value(Span::test_data());
+    let result =
+        eval_block::<WithoutDebug>(engine_state, &mut stack, &block, PipelineData::empty())
+            .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))
+            .into_value(Span::test_data());
 
     println!("input: {}", example.example);
     println!("result: {result:?}");

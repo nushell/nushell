@@ -65,15 +65,8 @@ impl Command for Mut {
 
         let block = engine_state.get_block(block_id);
         let eval_block = get_eval_block(engine_state);
-
-        let pipeline_data = eval_block(
-            engine_state,
-            stack,
-            block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        )?;
+        let stack = &mut stack.start_capture();
+        let pipeline_data = eval_block(engine_state, stack, block, input)?;
         let mut value = pipeline_data.into_value(call.head);
 
         // if given variable type is Glob, and our result is string

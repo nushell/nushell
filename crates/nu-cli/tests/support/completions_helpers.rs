@@ -200,9 +200,7 @@ pub fn merge_input(
         engine_state,
         stack,
         &block,
-        PipelineData::Value(Value::nothing(Span::unknown(),), None),
-        false,
-        false,
+        PipelineData::Value(Value::nothing(Span::unknown()), None),
     )
     .is_ok());
 
