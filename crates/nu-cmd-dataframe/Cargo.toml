@@ -39,7 +39,6 @@ features = [
 	"cross_join",
 	"csv",
 	"cum_agg",
-	"default",
 	"dtype-categorical",
 	"dtype-datetime",
 	"dtype-struct",
@@ -60,8 +59,10 @@ features = [
 	"serde",
 	"serde-lazy",
 	"strings",
+	"temporal",
 	"to_dummies",
 ]
+default-features = false
 optional = true
 version = "0.37"
 

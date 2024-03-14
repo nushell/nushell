@@ -16,9 +16,9 @@ use nu_protocol::{
     Span, Spanned, Value,
 };
 pub use plugin_custom_value::PluginCustomValue;
-pub use protocol_info::ProtocolInfo;
 #[cfg(test)]
-pub use protocol_info::{Feature, Protocol};
+pub use protocol_info::Protocol;
+pub use protocol_info::ProtocolInfo;
 use serde::{Deserialize, Serialize};
 
 /// A sequential identifier for a stream

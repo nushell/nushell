@@ -1,3 +1,4 @@
+use nu_path::canonicalize_with;
 use nu_test_support::nu;
 use nu_test_support::playground::{Executable, Playground};
 use pretty_assertions::assert_eq;
@@ -20,18 +21,24 @@ fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
     }
 }
 
-/// Make the config directory a symlink that points to a temporary folder.
+/// Make the config directory a symlink that points to a temporary folder, and also makes
+/// the nushell directory inside a symlink.
 /// Returns the path to the `nushell` config folder inside, via the symlink.
 fn setup_fake_config(playground: &mut Playground) -> PathBuf {
-    let config_dir = "config";
+    let config_dir = "config_real";
     let config_link = "config_link";
-    playground.mkdir(&format!("{config_dir}/nushell"));
+    let nushell_real = "nushell_real";
+    let nushell_config_dir = Path::new(config_dir).join("nushell").display().to_string();
+    playground.mkdir(nushell_real);
+    playground.mkdir(config_dir);
+    playground.symlink(nushell_real, &nushell_config_dir);
     playground.symlink(config_dir, config_link);
     playground.with_env(
         "XDG_CONFIG_HOME",
         &playground.cwd().join(config_link).display().to_string(),
     );
-    playground.cwd().join(config_link).join("nushell")
+    let path = Path::new(config_link).join("nushell");
+    canonicalize_with(&path, playground.cwd()).unwrap_or(path)
 }
 
 fn run(playground: &mut Playground, command: &str) -> String {
@@ -211,13 +218,10 @@ fn test_xdg_config_empty() {
         playground.with_env("XDG_CONFIG_HOME", "");
 
         let actual = nu!("$nu.default-config-dir");
+        let expected = dirs_next::config_dir().unwrap().join("nushell");
         assert_eq!(
             actual.out,
-            dirs_next::config_dir()
-                .unwrap()
-                .join("nushell")
-                .display()
-                .to_string()
+            adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
     });
 }
@@ -228,13 +232,10 @@ fn test_xdg_config_bad() {
         playground.with_env("XDG_CONFIG_HOME", r#"mn2''6t\/k*((*&^//k//: "#);
 
         let actual = nu!("$nu.default-config-dir");
+        let expected = dirs_next::config_dir().unwrap().join("nushell");
         assert_eq!(
             actual.out,
-            dirs_next::config_dir()
-                .unwrap()
-                .join("nushell")
-                .display()
-                .to_string()
+            adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
     });
 }
