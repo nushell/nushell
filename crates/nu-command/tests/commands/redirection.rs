@@ -439,3 +439,22 @@ fn no_duplicate_redirection() {
         );
     });
 }
+
+#[test]
+fn redirect_to_null() {
+    let actual = nu!("nu -c 'print hello' o> null");
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn redirect_to_null_variable() {
+    let actual = nu!("let null = null; nu -c 'print hello' o> $null");
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn redirect_to_null_with_pipe() {
+    let actual = nu!("nu -c 'print -e error; print hello' e> null | str upcase");
+    assert_eq!(actual.out, "HELLO");
+    assert_eq!(actual.err, "");
+}
