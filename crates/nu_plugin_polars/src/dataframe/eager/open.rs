@@ -71,8 +71,7 @@ impl PluginCommand for OpenDataFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
-            //.input_output_type(Type::Any, Type::Custom("dataframe".into()))
-            .input_output_type(Type::Any, Type::Any)
+            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .plugin_examples(examples())
             .category(Category::Custom("dataframe".into()))
     }
