@@ -180,3 +180,17 @@ fn drop_check_custom_value_prints_message_on_drop() {
     assert_eq!(actual.err, "DropCheckValue was dropped: Hello\n");
     assert!(actual.status.success());
 }
+
+#[test]
+fn custom_value_in_example_is_rendered() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "custom-value generate --help"
+    );
+
+    assert!(actual
+        .out
+        .contains("I used to be a custom value! My data was (abc)"));
+    assert!(actual.status.success());
+}

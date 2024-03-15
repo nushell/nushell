@@ -1,7 +1,7 @@
 use crate::{second_custom_value::SecondCustomValue, CustomValuePlugin};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, Span, SyntaxShape, Value};
 
 pub struct Generate2;
 
@@ -17,6 +17,18 @@ impl SimplePluginCommand for Generate2 {
                 "An optional closure to pass the custom value to",
             )
             .category(Category::Experimental)
+            .plugin_examples(vec![
+                PluginExample {
+                    example: "custom-value generate2".into(),
+                    description: "Generate a new SecondCustomValue".into(),
+                    result: Some(SecondCustomValue::new("xyz").into_value(Span::test_data())),
+                },
+                PluginExample {
+                    example: "custom-value generate2 { print }".into(),
+                    description: "Generate a new SecondCustomValue and pass it to a closure".into(),
+                    result: None,
+                },
+            ])
     }
 
     fn run(
