@@ -774,6 +774,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "comfy-table"
+version = "7.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c64043d6c7b7a4c58e39e7efccfdea7b93d885a795d0c054a69dbbf4dd52686"
+dependencies = [
+ "crossterm",
+ "strum 0.25.0",
+ "strum_macros 0.25.3",
+ "unicode-width",
+]
+
+[[package]]
 name = "compact_str"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3087,7 +3099,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "strum",
+ "strum 0.26.1",
  "strum_macros 0.26.1",
  "thiserror",
  "typetag",
@@ -3213,6 +3225,32 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "semver",
+]
+
+[[package]]
+name = "nu_plugin_polars"
+version = "0.91.1"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "dashmap",
+ "fancy-regex",
+ "indexmap",
+ "lazy_static",
+ "nu-cmd-lang",
+ "nu-plugin",
+ "nu-protocol",
+ "num",
+ "polars",
+ "polars-arrow",
+ "polars-io",
+ "polars-ops",
+ "polars-plan",
+ "polars-utils",
+ "serde",
+ "sqlparser 0.43.1",
+ "typetag",
+ "uuid",
 ]
 
 [[package]]
@@ -3844,6 +3882,7 @@ dependencies = [
  "bytemuck",
  "chrono",
  "chrono-tz",
+ "comfy-table",
  "either",
  "hashbrown 0.14.3",
  "indexmap",
@@ -4455,7 +4494,7 @@ dependencies = [
  "lru",
  "paste",
  "stability",
- "strum",
+ "strum 0.26.1",
  "unicode-segmentation",
  "unicode-width",
 ]
@@ -4515,7 +4554,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum",
+ "strum 0.26.1",
  "strum_macros 0.26.1",
  "thiserror",
  "unicode-segmentation",
@@ -5326,6 +5365,12 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+
+[[package]]
+name = "strum"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "723b93e8addf9aa965ebe2d11da6d7540fa2283fcea14b3371ff055f7ba13f5f"
@@ -6062,6 +6107,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
 dependencies = [
  "getrandom",
+ "serde",
 ]
 
 [[package]]
