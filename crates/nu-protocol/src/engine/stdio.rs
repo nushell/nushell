@@ -21,12 +21,18 @@ pub enum Redirection {
     ///
     /// This will affect all commands in the block.
     /// This is only created by file redirections (`o>`, `e>`, `o+e>`, etc.).
-    File(Arc<File>),
+    ///
+    /// A `None` value indicates a redirection to a `null` file.
+    File(Option<Arc<File>>),
 }
 
 impl Redirection {
     pub fn file(file: File) -> Self {
-        Self::File(Arc::new(file))
+        Self::File(Some(Arc::new(file)))
+    }
+
+    pub const fn null_file() -> Self {
+        Self::File(None)
     }
 }
 
@@ -125,7 +131,7 @@ impl<'a> StackIoGuard<'a> {
                 (old, stdio.parent_stdout.take())
             }
             Some(Redirection::File(file)) => {
-                let file = IoStream::from(file);
+                let file = file.map(Into::into).unwrap_or(IoStream::Null);
                 (
                     mem::replace(&mut stdio.pipe_stdout, Some(file.clone())),
                     stdio.push_stdout(file),
@@ -140,7 +146,8 @@ impl<'a> StackIoGuard<'a> {
                 (old, stdio.parent_stderr.take())
             }
             Some(Redirection::File(file)) => {
-                (stdio.pipe_stderr.take(), stdio.push_stderr(file.into()))
+                let file = file.map(Into::into).unwrap_or(IoStream::Null);
+                (stdio.pipe_stderr.take(), stdio.push_stderr(file))
             }
             None => (stdio.pipe_stderr.take(), stdio.parent_stderr.take()),
         };

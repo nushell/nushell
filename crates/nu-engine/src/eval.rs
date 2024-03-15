@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
+use std::{borrow::Cow, fs::OpenOptions};
 
 use crate::{current_dir, current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
@@ -10,8 +10,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
-    Config, FromValue, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type,
-    Value, VarId, ENV_VARIABLE_ID,
+    Config, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Type, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 
 pub fn eval_call<D: DebugContext>(
@@ -326,17 +326,25 @@ fn eval_redirection<D: DebugContext>(
     match target {
         RedirectionTarget::File { expr, append, .. } => {
             let cwd = current_dir(engine_state, stack)?;
-            let value = eval_expression::<D>(engine_state, stack, expr)?;
-            let path = Spanned::<PathBuf>::from_value(value)?.item;
-            let path = expand_path_with(path, cwd);
-
-            let mut options = OpenOptions::new();
-            if *append {
-                options.append(true);
-            } else {
-                options.write(true).truncate(true);
+            match eval_expression::<D>(engine_state, stack, expr)? {
+                Value::String { val, .. } => {
+                    let path = expand_path_with(val, cwd);
+                    let mut options = OpenOptions::new();
+                    if *append {
+                        options.append(true);
+                    } else {
+                        options.write(true).truncate(true);
+                    }
+                    Ok(Redirection::file(options.create(true).open(path)?))
+                }
+                Value::Nothing { .. } => Ok(Redirection::File(None)),
+                value => Err(ShellError::CantConvert {
+                    to_type: "string or nothing".into(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                }),
             }
-            Ok(Redirection::file(options.create(true).open(path)?))
         }
         RedirectionTarget::Pipe { .. } => Ok(Redirection::Pipe(next_out.unwrap_or(IoStream::Pipe))),
     }
