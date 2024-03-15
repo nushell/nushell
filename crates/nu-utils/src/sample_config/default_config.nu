@@ -824,6 +824,9 @@ $env.config = {
             mode: emacs
             event: { edit: capitalizechar }
         }
+        # The *_system keybindings require terminal support to pass these
+        # keybindings through to nushell and nushell compiled with the
+        # `system-clipboard` feature
         {
             name: copy_selection_system
             modifier: control_shift
