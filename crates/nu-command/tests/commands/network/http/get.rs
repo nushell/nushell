@@ -241,6 +241,48 @@ fn http_get_redirect_mode_error() {
     ));
 }
 
+#[test]
+fn http_get_read_netrc_file() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/")
+        .match_header("authorization", "Basic dXNlcjpwYXNz")
+        .with_body("foo")
+        .create();
+
+    let actual = nu!(
+        cwd: "tests/fixtures/network",
+        format!(
+            "NETRC=netrc http get {url} -n",
+            url = server.url()
+        )
+    );
+
+    assert_eq!(actual.out, "foo")
+}
+
+#[test]
+fn http_get_user_flag_overwrite_netrc() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/")
+        .match_header("authorization", "Basic bWFudWFsLXVzZXI6bWFudWFsLXBhc3M=")
+        .with_body("foo")
+        .create();
+
+    let actual = nu!(
+        cwd: "tests/fixtures/network",
+        format!(
+            "NETRC=netrc http get {url} -n -u manual-user -p manual-pass",
+            url = server.url()
+        )
+    );
+
+    assert_eq!(actual.out, "foo")
+}
+
 // These tests require network access; they use badssl.com which is a Google-affiliated site for testing various SSL errors.
 // Revisit this if these tests prove to be flaky or unstable.
 //

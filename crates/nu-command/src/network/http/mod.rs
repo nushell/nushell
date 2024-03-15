@@ -3,6 +3,7 @@ mod delete;
 mod get;
 mod head;
 mod http_;
+mod netrc;
 mod options;
 mod patch;
 mod post;

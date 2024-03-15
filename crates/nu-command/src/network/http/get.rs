@@ -10,6 +10,7 @@ use crate::network::http::client::{
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
     request_set_timeout, send_request, RequestFlags,
 };
+use crate::network::http::netrc::{self, NetrcPath};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -71,6 +72,11 @@ impl Command for SubCommand {
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
+            )
+            .switch(
+                "netrc",
+                "check the netrc file for credentials",
+                Some('n'),
             )
             .named(
                 "redirect-mode",
@@ -143,6 +149,7 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
+    netrc: bool,
 }
 
 fn run_get(
@@ -162,6 +169,7 @@ fn run_get(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        netrc: call.has_flag(engine_state, stack, "netrc")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -176,14 +184,34 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let ctrl_c = engine_state.ctrlc.clone();
-    let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let (requested_url, requested_url_parsed) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
     let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
     let mut request = client.get(&requested_url);
 
+    if let (None, None) = (&args.user, &args.password) {
+        if args.netrc {
+            let path = stack
+                .get_env_var(engine_state, "NETRC")
+                .and_then(|s| s.to_path().ok())
+                .map(NetrcPath::FromEnv)
+                .unwrap_or(NetrcPath::Default);
+
+            let entry = requested_url_parsed
+                .host()
+                .and_then(|host| netrc::find_entry(host, path));
+
+            if let Some(entry) = entry {
+                request =
+                    request_add_authorization_header(entry.login, Some(entry.password), request);
+            }
+        }
+    } else {
+        request = request_add_authorization_header(args.user, args.password, request);
+    }
+
     request = request_set_timeout(args.timeout, request)?;
-    request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
     let response = send_request(request.clone(), None, None, ctrl_c);
