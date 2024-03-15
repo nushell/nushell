@@ -45,3 +45,4 @@ which = { workspace = true }
 
 [features]
 plugin = []
+system-clipboard = ["reedline/system_clipboard"]
