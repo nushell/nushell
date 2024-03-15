@@ -253,14 +253,16 @@ impl<'a, R: BufRead> Parser<'a, R> {
         loop {
             match self.buf[self.pos..].chars().next() {
                 Some(ch) if ch.is_whitespace() => self.pos += ch.len_utf8(),
-                Some(_) => {
-                    let text = self.buf[self.pos..].split_whitespace().next().unwrap();
-                    self.pos += text.len();
-                    return Ok(Some(text));
-                }
+                Some(_) => match self.buf[self.pos..].split_whitespace().next() {
+                    Some(text) => {
+                        self.pos += text.len();
+                        break Ok(Some(text));
+                    }
+                    None => break Ok(None),
+                },
                 None => {
                     if self.advance_line()? == 0 {
-                        return Ok(None);
+                        break Ok(None);
                     }
                 }
             }
@@ -379,7 +381,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_ignore_acount() {
+    fn parse_ignore_account() {
         const ACCOUNT_NOT_PREFERRED: &str = "
             machine example.com password pass login log account acc
             machine example.org password pass account acc login log
