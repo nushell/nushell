@@ -267,15 +267,15 @@ impl NuDataFrame {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)
-        }
-        // todo - fix lazy
-        // else if NuLazyFrame::can_downcast(&value) {
-        //     let span = value.span();
-        //     let lazy = NuLazyFrame::try_from_value(value)?;
-        //     let df = lazy.collect(span)?;
-        //     Ok(df)
-        // }
-        else {
+        } else {
+            // todo - fix lazy
+            // else if NuLazyFrame::can_downcast(&value) {
+            //     let span = value.span();
+            //     let lazy = NuLazyFrame::try_from_value(value)?;
+            //     let df = lazy.collect(span)?;
+            //     Ok(df)
+            // }
+            // else {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
