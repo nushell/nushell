@@ -19,7 +19,7 @@ lazy_static! {
 pub(crate) enum CacheValue {
     DataFrame(NuDataFrame),
     LazyFrame(NuLazyFrame),
-} 
+}
 
 pub(crate) struct DataFrameCache {
     internal: DashMap<Uuid, CacheValue>,

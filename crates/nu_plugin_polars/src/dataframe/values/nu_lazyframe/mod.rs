@@ -4,7 +4,7 @@ use crate::DataFrameCache;
 
 use super::{NuDataFrame, NuExpression};
 use core::fmt;
-use nu_protocol::{PipelineData, ShellError, Span, Value, record};
+use nu_protocol::{record, PipelineData, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
 use uuid::Uuid;
 
@@ -76,7 +76,10 @@ impl NuLazyFrame {
             let df = self.collect(span)?;
             Ok(Value::custom_value(Box::new(df.custom_value(span)?), span))
         } else {
-            Ok(Value::custom_value(Box::new(self.custom_value(span)?), span))
+            Ok(Value::custom_value(
+                Box::new(self.custom_value(span)?),
+                span,
+            ))
         }
     }
 
@@ -89,11 +92,12 @@ impl NuLazyFrame {
         Ok(NuLazyFrameCustomValue {
             id: self.id,
             val: Value::record(
-            record! {
-                "plan" => Value::string(self.as_ref().describe_plan(), span),
-                "optimized_plan" => Value::string(optimized_plan, span),
-            },
-            span,)
+                record! {
+                    "plan" => Value::string(self.as_ref().describe_plan(), span),
+                    "optimized_plan" => Value::string(optimized_plan, span),
+                },
+                span,
+            ),
         })
     }
 
