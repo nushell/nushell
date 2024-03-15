@@ -1,4 +1,4 @@
-use crate::{dataframe::values::NuSchema, PolarsDataFramePlugin};
+use crate::{dataframe::values::NuSchema, values::NuLazyFrame, PolarsDataFramePlugin};
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -10,10 +10,11 @@ use nu_protocol::{
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use polars::prelude::{
-    CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, ParquetReader, SerReader,
+    CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyFrame, ParquetReader,
+    ScanArgsParquet, SerReader, ScanArgsIpc, LazyCsvReader, LazyFileListReader,
 };
 
-use polars_io::avro::AvroReader;
+use polars_io::{avro::AvroReader, prelude::ParallelStrategy};
 
 #[derive(Clone)]
 pub struct OpenDataFrame;
@@ -139,31 +140,30 @@ fn from_parquet(
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
     if call.has_flag("lazy")? {
-        // let file: String = call.req(0)?;
-        // let args = ScanArgsParquet {
-        //     n_rows: None,
-        //     cache: true,
-        //     parallel: ParallelStrategy::Auto,
-        //     rechunk: false,
-        //     row_index: None,
-        //     low_memory: false,
-        //     cloud_options: None,
-        //     use_statistics: false,
-        //     hive_partitioning: false,
-        // };
-        //
-        // let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
-        //     .map_err(|e| ShellError::GenericError {
-        //         error: "Parquet reader error".into(),
-        //         msg: format!("{e:?}"),
-        //         span: Some(call.head),
-        //         help: None,
-        //         inner: vec![],
-        //     })?
-        //     .into();
-        //
-        // df.into_value(call.head)
-        Ok(Value::nothing(call.head))
+        let file: String = call.req(0)?;
+        let args = ScanArgsParquet {
+            n_rows: None,
+            cache: true,
+            parallel: ParallelStrategy::Auto,
+            rechunk: false,
+            row_index: None,
+            low_memory: false,
+            cloud_options: None,
+            use_statistics: false,
+            hive_partitioning: false,
+        };
+
+        let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
+            .map_err(|e| ShellError::GenericError {
+                error: "Parquet reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?
+            .into();
+
+        df.into_value(call.head)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -237,28 +237,26 @@ fn from_ipc(
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
     if call.has_flag("lazy")? {
-        //     let file: String = call.req(0)?;
-        //     let args = ScanArgsIpc {
-        //         n_rows: None,
-        //         cache: true,
-        //         rechunk: false,
-        //         row_index: None,
-        //         memmap: true,
-        //     };
-        //
-        //     let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
-        //         .map_err(|e| ShellError::GenericError {
-        //             error: "IPC reader error".into(),
-        //             msg: format!("{e:?}"),
-        //             span: Some(call.head),
-        //             help: None,
-        //             inner: vec![],
-        //         })?
-        //         .into();
-        //
-        //     df.into_value(call.head)
+        let file: String = call.req(0)?;
+        let args = ScanArgsIpc {
+            n_rows: None,
+            cache: true,
+            rechunk: false,
+            row_index: None,
+            memmap: true,
+        };
 
-        Ok(Value::nothing(call.head))
+        let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
+            .map_err(|e| ShellError::GenericError {
+                error: "IPC reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?
+            .into();
+
+        df.into_value(call.head)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -389,61 +387,60 @@ fn from_csv(
         .transpose()?;
 
     if call.has_flag("lazy")? {
-        //     let file: String = call.req(0)?;
-        //     let csv_reader = LazyCsvReader::new(file);
-        //
-        //     let csv_reader = match delimiter {
-        //         None => csv_reader,
-        //         Some(d) => {
-        //             if d.item.len() != 1 {
-        //                 return Err(ShellError::GenericError {
-        //                     error: "Incorrect delimiter".into(),
-        //                     msg: "Delimiter has to be one character".into(),
-        //                     span: Some(d.span),
-        //                     help: None,
-        //                     inner: vec![],
-        //                 });
-        //             } else {
-        //                 let delimiter = match d.item.chars().next() {
-        //                     Some(d) => d as u8,
-        //                     None => unreachable!(),
-        //                 };
-        //                 csv_reader.with_separator(delimiter)
-        //             }
-        //         }
-        //     };
-        //
-        //     let csv_reader = csv_reader.has_header(!no_header);
-        //
-        //     let csv_reader = match maybe_schema {
-        //         Some(schema) => csv_reader.with_schema(Some(schema.into())),
-        //         None => csv_reader,
-        //     };
-        //
-        //     let csv_reader = match infer_schema {
-        //         None => csv_reader,
-        //         Some(r) => csv_reader.with_infer_schema_length(Some(r)),
-        //     };
-        //
-        //     let csv_reader = match skip_rows {
-        //         None => csv_reader,
-        //         Some(r) => csv_reader.with_skip_rows(r),
-        //     };
-        //
-        //     let df: NuLazyFrame = csv_reader
-        //         .finish()
-        //         .map_err(|e| ShellError::GenericError {
-        //             error: "Parquet reader error".into(),
-        //             msg: format!("{e:?}"),
-        //             span: Some(call.head),
-        //             help: None,
-        //             inner: vec![],
-        //         })?
-        //         .into();
-        //
-        //     df.into_value(call.head)
+            let file: String = call.req(0)?;
+            let csv_reader = LazyCsvReader::new(file);
 
-        Ok(Value::nothing(call.head))
+            let csv_reader = match delimiter {
+                None => csv_reader,
+                Some(d) => {
+                    if d.item.len() != 1 {
+                        return Err(ShellError::GenericError {
+                            error: "Incorrect delimiter".into(),
+                            msg: "Delimiter has to be one character".into(),
+                            span: Some(d.span),
+                            help: None,
+                            inner: vec![],
+                        });
+                    } else {
+                        let delimiter = match d.item.chars().next() {
+                            Some(d) => d as u8,
+                            None => unreachable!(),
+                        };
+                        csv_reader.with_separator(delimiter)
+                    }
+                }
+            };
+
+            let csv_reader = csv_reader.has_header(!no_header);
+
+            let csv_reader = match maybe_schema {
+                Some(schema) => csv_reader.with_schema(Some(schema.into())),
+                None => csv_reader,
+            };
+
+            let csv_reader = match infer_schema {
+                None => csv_reader,
+                Some(r) => csv_reader.with_infer_schema_length(Some(r)),
+            };
+
+            let csv_reader = match skip_rows {
+                None => csv_reader,
+                Some(r) => csv_reader.with_skip_rows(r),
+            };
+
+            let df: NuLazyFrame = csv_reader
+                .finish()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Parquet reader error".into(),
+                    msg: format!("{e:?}"),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                })?
+                .into();
+
+            df.into_value(call.head)
+
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let csv_reader = CsvReader::from_path(&file.item)

@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use dataframe::values::NuDataFrame;
+use dataframe::values::{NuDataFrame, NuLazyFrame, NuLazyFrameCustomValue};
 use lazy_static::lazy_static;
 use nu_plugin::{EngineInterface, LabeledError, Plugin, PluginCommand};
 
@@ -16,8 +16,13 @@ lazy_static! {
     static ref DATAFRAME_CACHE: Arc<DataFrameCache> = Arc::new(DataFrameCache::new());
 }
 
+pub(crate) enum CacheValue {
+    DataFrame(NuDataFrame),
+    LazyFrame(NuLazyFrame),
+} 
+
 pub(crate) struct DataFrameCache {
-    internal: DashMap<Uuid, NuDataFrame>,
+    internal: DashMap<Uuid, CacheValue>,
 }
 
 impl DataFrameCache {
@@ -27,12 +32,16 @@ impl DataFrameCache {
         }
     }
 
-    pub(crate) fn remove(&self, uuid: &Uuid) -> Option<NuDataFrame> {
+    pub(crate) fn remove(&self, uuid: &Uuid) -> Option<CacheValue> {
         self.internal.remove(uuid).map(|(_, v)| v)
     }
 
-    pub(crate) fn insert(&self, df: NuDataFrame) {
-        let _ = self.internal.insert(df.id, df);
+    pub(crate) fn insert_df(&self, df: NuDataFrame) {
+        let _ = self.internal.insert(df.id, CacheValue::DataFrame(df));
+    }
+
+    pub(crate) fn insert_lazy(&self, lazy: NuLazyFrame) {
+        let _ = self.internal.insert(lazy.id, CacheValue::LazyFrame(lazy));
     }
 
     pub fn instance() -> Arc<DataFrameCache> {
@@ -52,12 +61,14 @@ impl Plugin for PolarsDataFramePlugin {
         _engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
-        if let Some(df) = custom_value
-            .as_any()
-            .downcast_ref::<NuDataFrameCustomValue>()
-        {
+        let any = custom_value.as_any();
+
+        if let Some(df) = any.downcast_ref::<NuDataFrameCustomValue>() {
             eprintln!("removing id: {:?} from cache", df.id);
             DATAFRAME_CACHE.remove(&df.id);
+        } else if let Some(lazy) = any.downcast_ref::<NuLazyFrameCustomValue>() {
+            eprintln!("removing id: {:?} from cache", lazy.id);
+            DATAFRAME_CACHE.remove(&lazy.id);
         }
         Ok(())
     }

@@ -1,43 +1,26 @@
-use super::NuLazyFrame;
-use nu_protocol::{record, CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, Span, Value};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NuLazyFrameCustomValue {
+    pub id: Uuid,
+    pub val: Value,
+}
 
 // CustomValue implementation for NuDataFrame
-impl CustomValue for NuLazyFrame {
-    fn typetag_name(&self) -> &'static str {
-        "lazyframe"
-    }
-
-    fn typetag_deserialize(&self) {
-        unimplemented!("typetag_deserialize")
-    }
-
+#[typetag::serde]
+impl CustomValue for NuLazyFrameCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuLazyFrame {
-            lazy: self.lazy.clone(),
-            from_eager: self.from_eager,
-            schema: self.schema.clone(),
-        };
-
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom_value(Box::new(self.clone()), span)
     }
 
     fn value_string(&self) -> String {
-        self.typetag_name().to_string()
+        "NuLazyFrameCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let optimized_plan = self
-            .as_ref()
-            .describe_optimized_plan()
-            .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
-
-        Ok(Value::record(
-            record! {
-                "plan" => Value::string(self.as_ref().describe_plan(), span),
-                "optimized_plan" => Value::string(optimized_plan, span),
-            },
-            span,
-        ))
+    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+        Ok(self.val.clone())
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -347,7 +347,6 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
             }
             DataType::Object(_, _) => value_to_series(name, &column.values),
             DataType::Duration(time_unit) => {
-                //todo - finish type conversion
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()

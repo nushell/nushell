@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, PolarsObject, Series};
+use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
 use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher, sync::Arc};
@@ -18,7 +18,7 @@ use crate::DataFrameCache;
 
 pub use self::custom_value::NuDataFrameCustomValue;
 
-use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS};
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -94,7 +94,6 @@ impl AsRef<DataFrame> for NuDataFrame {
 
 impl AsMut<DataFrame> for NuDataFrame {
     fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
-        //todo - clean this up
         Arc::<DataFrame>::get_mut(&mut self.df).expect("should be able to get mut")
     }
 }
@@ -117,14 +116,13 @@ impl NuDataFrame {
             df: Arc::new(df),
             from_lazy,
         };
-        DataFrameCache::instance().insert(s.clone());
+        DataFrameCache::instance().insert_df(s.clone());
         s
     }
 
-    // todo - fix lazy
-    // pub fn lazy(&self) -> LazyFrame {
-    //     self.df.clone().lazy()
-    // }
+    pub fn lazy(&self) -> LazyFrame {
+        (*self.df).clone().lazy()
+    }
 
     fn default_value(span: Span) -> Value {
         let dataframe = DataFrame::default();
@@ -140,10 +138,11 @@ impl NuDataFrame {
 
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_lazy {
-            // todo - fix lazy
-            //     let lazy = NuLazyFrame::from_dataframe(self);
-            //     Ok(Value::custom_value(Box::new(lazy), span))
-            Ok(Value::nothing(span))
+            let lazy = NuLazyFrame::from_dataframe(self);
+            Ok(Value::custom_value(
+                Box::new(lazy.custom_value(span)?),
+                span,
+            ))
         } else {
             Ok(Value::custom_value(
                 Box::new(self.custom_value(span)?),
@@ -152,7 +151,7 @@ impl NuDataFrame {
         }
     }
 
-    fn custom_value(self, span: Span) -> Result<NuDataFrameCustomValue, ShellError> {
+    pub fn custom_value(self, span: Span) -> Result<NuDataFrameCustomValue, ShellError> {
         let vals = self.print(span)?;
         Ok(NuDataFrameCustomValue { id: self.id, vals })
     }
@@ -267,15 +266,12 @@ impl NuDataFrame {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)
+        } else if NuLazyFrame::can_downcast(&value) {
+            let span = value.span();
+            let lazy = NuLazyFrame::try_from_value(value)?;
+            let df = lazy.collect(span)?;
+            Ok(df)
         } else {
-            // todo - fix lazy
-            // else if NuLazyFrame::can_downcast(&value) {
-            //     let span = value.span();
-            //     let lazy = NuLazyFrame::try_from_value(value)?;
-            //     let df = lazy.collect(span)?;
-            //     Ok(df)
-            // }
-            // else {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
@@ -546,7 +542,7 @@ impl NuDataFrame {
 fn add_missing_columns(
     df: NuDataFrame,
     maybe_schema: &Option<NuSchema>,
-    _span: Span,
+    span: Span,
 ) -> Result<NuDataFrame, ShellError> {
     // If there are fields that are in the schema, but not in the dataframe
     // add them to the dataframe.
@@ -568,18 +564,17 @@ fn add_missing_columns(
             .collect();
 
         // todo - fix
-        let _missing_exprs: Vec<Expr> = missing
+        let missing_exprs: Vec<Expr> = missing
             .iter()
             .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(name))
             .collect();
 
-        // todo - fix lazy
-        // let df = if !missing.is_empty() {
-        //     let with_columns = df.lazy().with_columns(missing_exprs);
-        //     NuLazyFrame::new(true, with_columns).collect(span)?
-        // } else {
-        //     df
-        // };
+        let df = if !missing.is_empty() {
+            let with_columns = df.lazy().with_columns(missing_exprs);
+            NuLazyFrame::new(true, with_columns).collect(span)?
+        } else {
+            df
+        };
         Ok(df)
     } else {
         Ok(df)
