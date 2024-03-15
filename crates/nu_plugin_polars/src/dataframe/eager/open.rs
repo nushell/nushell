@@ -91,7 +91,7 @@ impl PluginCommand for OpenDataFrame {
 fn examples() -> Vec<PluginExample> {
     vec![PluginExample {
         description: "Takes a file name and creates a dataframe".into(),
-        example: "dfr open test.csv".into(),
+        example: "polars open test.csv".into(),
         result: None,
     }]
 }

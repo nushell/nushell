@@ -10,7 +10,7 @@ use nu_protocol::CustomValue;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::eager::OpenDataFrame;
+use crate::eager::{OpenDataFrame, ToDataFrame};
 
 lazy_static! {
     static ref DATAFRAME_CACHE: Arc<DataFrameCache> = Arc::new(DataFrameCache::new());
@@ -53,7 +53,7 @@ pub struct PolarsDataFramePlugin;
 
 impl Plugin for PolarsDataFramePlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
-        vec![Box::new(OpenDataFrame)]
+        vec![Box::new(OpenDataFrame), Box::new(ToDataFrame)]
     }
 
     fn custom_value_dropped(
