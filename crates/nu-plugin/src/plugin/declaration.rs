@@ -108,12 +108,12 @@ impl Command for PluginDeclaration {
             })?;
 
         // Create the context to execute in - this supports engine calls and custom values
-        let context = Arc::new(PluginExecutionCommandContext::new(
+        let mut context = PluginExecutionCommandContext::new(
             self.source.identity.clone(),
             engine_state,
             stack,
             call,
-        ));
+        );
 
         plugin.run(
             CallInfo {
@@ -121,7 +121,7 @@ impl Command for PluginDeclaration {
                 call: evaluated_call,
                 input,
             },
-            context,
+            &mut context,
         )
     }
 

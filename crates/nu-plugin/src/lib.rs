@@ -59,6 +59,7 @@ mod plugin;
 mod protocol;
 mod sequence;
 mod serializers;
+mod util;
 
 pub use plugin::{
     serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
