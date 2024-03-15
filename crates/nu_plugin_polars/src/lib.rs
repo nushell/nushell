@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use nu_plugin::{EngineInterface, LabeledError, Plugin, PluginCommand};
 
 pub mod dataframe;
+pub use dataframe::values::NuDataFrameCustomValue;
 pub use dataframe::*;
 use nu_protocol::CustomValue;
 use std::sync::Arc;
@@ -51,7 +52,10 @@ impl Plugin for PolarsDataframePlugin {
         _engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
-        if let Some(df) = custom_value.as_any().downcast_ref::<NuDataFrame>() {
+        if let Some(df) = custom_value
+            .as_any()
+            .downcast_ref::<NuDataFrameCustomValue>()
+        {
             eprintln!("removing id: {:?} from cache", df.id);
             DATAFRAME_CACHE.remove(&df.id);
         }

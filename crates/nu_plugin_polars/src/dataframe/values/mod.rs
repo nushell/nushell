@@ -6,7 +6,7 @@ mod nu_schema;
 mod nu_when;
 pub mod utils;
 
-pub use nu_dataframe::{Axis, Column, NuDataFrame};
+pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::NuExpression;
 // pub use nu_lazyframe::NuLazyFrame;
 // pub use nu_lazygroupby::NuLazyGroupBy;

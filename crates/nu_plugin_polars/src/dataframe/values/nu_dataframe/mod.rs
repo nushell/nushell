@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::DataFrameCache;
 
-use self::custom_value::NuDataFrameCustomValue;
+pub use self::custom_value::NuDataFrameCustomValue;
 
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS};
 
