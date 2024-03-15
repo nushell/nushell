@@ -40,9 +40,9 @@ impl DataFrameCache {
     }
 }
 
-pub struct PolarsDataframePlugin;
+pub struct PolarsDataFramePlugin;
 
-impl Plugin for PolarsDataframePlugin {
+impl Plugin for PolarsDataFramePlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(OpenDataFrame)]
     }

@@ -1,4 +1,4 @@
-use crate::{dataframe::values::NuSchema, PolarsDataframePlugin};
+use crate::{dataframe::values::NuSchema, PolarsDataFramePlugin};
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -19,7 +19,7 @@ use polars_io::avro::AvroReader;
 pub struct OpenDataFrame;
 
 impl PluginCommand for OpenDataFrame {
-    type Plugin = PolarsDataframePlugin;
+    type Plugin = PolarsDataFramePlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars open")

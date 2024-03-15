@@ -1,12 +1,12 @@
 use nu_plugin::{serve_plugin, MsgPackSerializer};
-use nu_plugin_polars::PolarsDataframePlugin;
+use nu_plugin_polars::PolarsDataFramePlugin;
 
 fn main() {
     // When defining your plugin, you can select the Serializer that could be
     // used to encode and decode the messages. The available options are
     // MsgPackSerializer and JsonSerializer. Both are defined in the serializer
     // folder in nu-plugin.
-    serve_plugin(&PolarsDataframePlugin {}, MsgPackSerializer {})
+    serve_plugin(&PolarsDataFramePlugin {}, MsgPackSerializer {})
 
     // Note
     // When creating plugins in other languages one needs to consider how a plugin
