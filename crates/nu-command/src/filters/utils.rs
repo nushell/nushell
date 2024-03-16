@@ -1,5 +1,4 @@
 use nu_engine::{get_eval_block, CallExt};
-
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},

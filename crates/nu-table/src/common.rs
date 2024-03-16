@@ -1,10 +1,8 @@
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::{Config, FooterMode, ShellError, Span, Value};
-use nu_protocol::{TableMode, TrimStrategy};
-
 use crate::{
     clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
 };
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
+use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;

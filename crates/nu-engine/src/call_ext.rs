@@ -1,12 +1,11 @@
-use nu_protocol::debugger::WithoutDebug;
+use crate::eval_expression;
 use nu_protocol::{
     ast::Call,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::eval_constant,
     FromValue, ShellError, Value,
 };
-
-use crate::eval_expression;
 
 pub trait CallExt {
     /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`)

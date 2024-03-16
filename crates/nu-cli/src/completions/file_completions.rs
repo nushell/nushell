@@ -9,8 +9,10 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
-use std::path::{Path, MAIN_SEPARATOR as SEP};
-use std::sync::Arc;
+use std::{
+    path::{Path, MAIN_SEPARATOR as SEP},
+    sync::Arc,
+};
 
 use super::SemanticSuggestion;
 

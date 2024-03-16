@@ -1,11 +1,5 @@
 use nu_engine::{get_eval_block, get_eval_expression, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Block, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_protocol::{command_prelude::*, engine::Block, ListStream};
 
 #[derive(Clone)]
 pub struct For;

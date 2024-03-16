@@ -1196,8 +1196,10 @@ mod range {
 #[cfg(test)]
 mod input_types {
     use super::*;
-    use nu_protocol::ast::Call;
-    use nu_protocol::{ast::Argument, Category, PipelineData, ShellError, Type};
+    use nu_protocol::{
+        ast::{Argument, Call},
+        Category, PipelineData, ShellError, Type,
+    };
 
     #[derive(Clone)]
     pub struct LsTest;

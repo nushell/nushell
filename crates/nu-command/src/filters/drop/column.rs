@@ -1,11 +1,5 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-
+use nu_protocol::command_prelude::*;
 use std::collections::HashSet;
 
 #[derive(Clone)]

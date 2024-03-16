@@ -17,23 +17,26 @@ pub use lazy_record::LazyRecord;
 pub use range::*;
 pub use record::Record;
 
-use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
-use crate::engine::{Closure, EngineState};
-use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
-
+use crate::{
+    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion},
+    did_you_mean,
+    engine::{Closure, EngineState},
+    BlockId, Config, ShellError, Span, Type,
+};
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
-use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
-use nu_utils::{contains_emoji, locale::get_system_locale_string, IgnoreCaseExt};
+use nu_utils::{
+    contains_emoji,
+    locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
+    IgnoreCaseExt,
+};
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
-
 use std::{
     borrow::Cow,
-    fmt::Display,
+    cmp::Ordering,
+    fmt::{Debug, Display, Write},
     path::PathBuf,
-    {cmp::Ordering, fmt::Debug},
 };
 
 /// Core structured values that pass through the pipeline in Nushell.

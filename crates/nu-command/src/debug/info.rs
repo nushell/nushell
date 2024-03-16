@@ -1,10 +1,6 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, LazyRecord, PipelineData, Record, ShellError,
-    Signature, Span, Type, Value,
-};
+use nu_protocol::{command_prelude::*, LazyRecord};
 use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
+
 const ENV_PATH_SEPARATOR_CHAR: char = {
     #[cfg(target_family = "windows")]
     {

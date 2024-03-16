@@ -1,33 +1,31 @@
+use crate::{
+    plugin::interface::ReceivedPluginCall,
+    protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput},
+    EncodingType,
+};
 use nu_engine::documentation::get_flags_section;
-use nu_protocol::LabeledError;
-use thiserror::Error;
-
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::fmt::Write;
-use std::io::{BufReader, Read, Write as WriteTrait};
-use std::path::Path;
-use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
-use std::{env, thread};
-
-use std::sync::mpsc::TrySendError;
-use std::sync::{mpsc, Arc, Mutex};
-
-use crate::plugin::interface::ReceivedPluginCall;
-use crate::protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
-use crate::EncodingType;
-
+use nu_protocol::{
+    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginSignature,
+    ShellError, Spanned, Value,
+};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
-
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-
-use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Spanned,
-    Value,
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    env,
+    ffi::OsStr,
+    fmt::Write,
+    io::{BufReader, Read, Write as WriteTrait},
+    path::Path,
+    process::{Child, ChildStdout, Command as CommandSys, Stdio},
+    sync::mpsc::TrySendError,
+    sync::{mpsc, Arc, Mutex},
+    thread,
 };
+use thiserror::Error;
 
 use self::gc::PluginGc;
 pub use self::interface::{PluginRead, PluginWrite};

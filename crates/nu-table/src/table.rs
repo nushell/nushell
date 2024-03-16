@@ -3,8 +3,7 @@ use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
 use nu_utils::strip_ansi_unlikely;
-use std::cmp::min;
-use std::collections::HashMap;
+use std::{cmp::min, collections::HashMap};
 use tabled::{
     builder::Builder,
     grid::{

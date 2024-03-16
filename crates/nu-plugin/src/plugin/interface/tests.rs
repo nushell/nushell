@@ -1,9 +1,8 @@
-use std::{path::Path, sync::Arc};
-
-use nu_protocol::{
-    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
+use super::{
+    stream::{StreamManager, StreamManagerHandle},
+    test_util::TestCase,
+    Interface, InterfaceManager, PluginRead, PluginWrite,
 };
-
 use crate::{
     protocol::{
         ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput,
@@ -11,12 +10,10 @@ use crate::{
     },
     sequence::Sequence,
 };
-
-use super::{
-    stream::{StreamManager, StreamManagerHandle},
-    test_util::TestCase,
-    Interface, InterfaceManager, PluginRead, PluginWrite,
+use nu_protocol::{
+    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
 };
+use std::{path::Path, sync::Arc};
 
 fn test_metadata() -> PipelineMetadata {
     PipelineMetadata {

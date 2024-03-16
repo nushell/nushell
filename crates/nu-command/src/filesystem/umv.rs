@@ -1,13 +1,9 @@
 use super::util::get_rest_for_glob_pattern;
-use nu_engine::current_dir;
-use nu_engine::CallExt;
+use nu_engine::{current_dir, CallExt};
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::command_prelude::*;
 use nu_protocol::NuGlob;
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
-use std::ffi::OsString;
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
 #[derive(Clone)]

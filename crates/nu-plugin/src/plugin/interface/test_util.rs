@@ -1,13 +1,10 @@
+use super::{EngineInterfaceManager, PluginInterfaceManager, PluginRead, PluginWrite};
+use crate::{plugin::PluginSource, protocol::PluginInput, PluginOutput};
+use nu_protocol::ShellError;
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
-
-use nu_protocol::ShellError;
-
-use crate::{plugin::PluginSource, protocol::PluginInput, PluginOutput};
-
-use super::{EngineInterfaceManager, PluginInterfaceManager, PluginRead, PluginWrite};
 
 /// Mock read/write helper for the engine and plugin interfaces.
 #[derive(Debug, Clone)]

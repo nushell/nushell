@@ -1,8 +1,4 @@
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::{ast::PathMember, command_prelude::*};
 
 #[derive(Clone)]
 pub struct ToYaml;

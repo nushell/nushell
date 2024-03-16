@@ -1,15 +1,13 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{
+    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion, SuggestionKind,
+};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span, Value,
 };
-
 use reedline::Suggestion;
-use std::str;
-use std::sync::Arc;
-
-use super::{MatchAlgorithm, SemanticSuggestion, SuggestionKind};
+use std::{str, sync::Arc};
 
 #[derive(Clone)]
 pub struct VariableCompletion {

@@ -1,13 +1,9 @@
 use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, get_eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
+    command_prelude::*, BufferedReader, DataSource, NuGlob, PipelineMetadata, RawStream,
 };
-use std::io::BufReader;
+use std::{io::BufReader, path::Path};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -17,7 +13,6 @@ use nu_protocol::IntoPipelineData;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
 
 #[derive(Clone)]
 pub struct Open;

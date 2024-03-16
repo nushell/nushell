@@ -1,12 +1,10 @@
-use ical::parser::vcard::component::*;
-use ical::property::Property;
-use indexmap::map::IndexMap;
+use crate::FromCmds;
+use ical::{parser::vcard::component::*, property::Property};
+use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
     record, Category, LabeledError, PluginExample, PluginSignature, ShellError, Span, Type, Value,
 };
-
-use crate::FromCmds;
 
 pub const CMD_NAME: &str = "from vcf";
 

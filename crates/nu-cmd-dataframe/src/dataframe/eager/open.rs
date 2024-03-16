@@ -1,21 +1,12 @@
-use crate::dataframe::values::NuSchema;
-
-use super::super::values::{NuDataFrame, NuLazyFrame};
+use crate::dataframe::values::{NuDataFrame, NuLazyFrame, NuSchema};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
-
-use std::{fs::File, io::BufReader, path::PathBuf};
-
+use nu_protocol::command_prelude::*;
 use polars::prelude::{
     CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
     LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
-
 use polars_io::avro::AvroReader;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 #[derive(Clone)]
 pub struct OpenDataFrame;

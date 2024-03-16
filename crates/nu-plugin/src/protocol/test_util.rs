@@ -1,9 +1,7 @@
+use super::PluginCustomValue;
+use crate::plugin::PluginSource;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
-
-use crate::plugin::PluginSource;
-
-use super::PluginCustomValue;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TestCustomValue(pub i32);

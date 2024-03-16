@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 

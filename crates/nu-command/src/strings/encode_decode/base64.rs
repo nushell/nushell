@@ -1,12 +1,18 @@
 use base64::{
-    alphabet, engine::general_purpose::NO_PAD, engine::general_purpose::PAD,
-    engine::GeneralPurpose, Engine,
+    alphabet,
+    engine::{
+        general_purpose::{NO_PAD, PAD},
+        GeneralPurpose,
+    },
+    Engine,
 };
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{EngineState, Stack},
+    PipelineData, ShellError, Span, Spanned, Value,
+};
 
 pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
                     \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\

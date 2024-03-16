@@ -1,11 +1,6 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_protocol::command_prelude::*;
 use serde::de::Deserialize;
 
 #[derive(Clone)]

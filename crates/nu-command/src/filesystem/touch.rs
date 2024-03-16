@@ -1,14 +1,7 @@
-use std::path::Path;
-use std::{fs::OpenOptions, time::SystemTime};
-
 use filetime::FileTime;
-
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
+use nu_protocol::command_prelude::*;
+use std::{fs::OpenOptions, path::Path, time::SystemTime};
 
 #[derive(Clone)]
 pub struct Touch;

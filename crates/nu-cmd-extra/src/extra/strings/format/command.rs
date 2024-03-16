@@ -1,14 +1,6 @@
-use std::vec;
-
 use nu_engine::{get_eval_expression, CallExt};
 use nu_parser::parse_expression;
-use nu_protocol::ast::{Call, PathMember};
-
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
-};
+use nu_protocol::{ast::PathMember, command_prelude::*, engine::StateWorkingSet, ListStream};
 
 #[derive(Clone)]
 pub struct FormatPattern;

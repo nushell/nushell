@@ -1,11 +1,5 @@
 use nu_engine::{get_eval_block, get_eval_expression_with_input};
-
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_protocol::command_prelude::*;
 use std::time::Instant;
 
 #[derive(Clone)]

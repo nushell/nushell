@@ -1,12 +1,7 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
-use indexmap::map::IndexMap;
+use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use roxmltree::NodeType;
 
 #[derive(Clone)]

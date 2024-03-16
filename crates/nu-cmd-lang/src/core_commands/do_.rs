@@ -1,13 +1,6 @@
-use std::thread;
-
 use nu_engine::{get_eval_block_with_early_return, redirect_env, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoSpanned, IoStream, ListStream, PipelineData, RawStream, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, engine::Closure, IoStream, ListStream, RawStream};
+use std::thread;
 
 #[derive(Clone)]
 pub struct Do;

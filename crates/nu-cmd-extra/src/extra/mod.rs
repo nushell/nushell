@@ -6,33 +6,12 @@ mod math;
 mod platform;
 mod strings;
 
-pub use bits::Bits;
-pub use bits::BitsAnd;
-pub use bits::BitsInto;
-pub use bits::BitsNot;
-pub use bits::BitsOr;
-pub use bits::BitsRol;
-pub use bits::BitsRor;
-pub use bits::BitsShl;
-pub use bits::BitsShr;
-pub use bits::BitsXor;
-
-pub use math::MathCos;
-pub use math::MathCosH;
-pub use math::MathSin;
-pub use math::MathSinH;
-pub use math::MathTan;
-pub use math::MathTanH;
-
-pub use math::MathExp;
-pub use math::MathLn;
-
-pub use math::MathArcCos;
-pub use math::MathArcCosH;
-pub use math::MathArcSin;
-pub use math::MathArcSinH;
-pub use math::MathArcTan;
-pub use math::MathArcTanH;
+pub use bits::{
+    Bits, BitsAnd, BitsInto, BitsNot, BitsOr, BitsRol, BitsRor, BitsShl, BitsShr, BitsXor,
+};
+pub use math::{MathArcCos, MathArcCosH, MathArcSin, MathArcSinH, MathArcTan, MathArcTanH};
+pub use math::{MathCos, MathCosH, MathSin, MathSinH, MathTan, MathTanH};
+pub use math::{MathExp, MathLn};
 
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 

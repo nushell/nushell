@@ -1,5 +1,13 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
+use crate::{
+    plugin::Encoder,
+    protocol::{
+        ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, RawStreamInfo, StreamMessage,
+    },
+    sequence::Sequence,
+};
+use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
 use std::{
     io::Write,
     sync::{
@@ -7,16 +15,6 @@ use std::{
         Arc, Mutex,
     },
     thread,
-};
-
-use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
-
-use crate::{
-    plugin::Encoder,
-    protocol::{
-        ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, RawStreamInfo, StreamMessage,
-    },
-    sequence::Sequence,
 };
 
 mod stream;

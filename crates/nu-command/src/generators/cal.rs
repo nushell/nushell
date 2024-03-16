@@ -2,12 +2,7 @@ use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
 use nu_color_config::StyleComputer;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use std::collections::VecDeque;
 
 #[derive(Clone)]

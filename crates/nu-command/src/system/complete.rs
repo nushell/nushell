@@ -1,10 +1,4 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, IntoSpanned, IoStream, PipelineData, Record, ShellError,
-    Signature, Type, Value,
-};
-
+use nu_protocol::{command_prelude::*, IoStream};
 use std::thread;
 
 #[derive(Clone)]

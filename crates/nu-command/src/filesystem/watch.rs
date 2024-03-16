@@ -1,7 +1,3 @@
-use std::path::PathBuf;
-use std::sync::mpsc::{channel, RecvTimeoutError};
-use std::time::Duration;
-
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
@@ -10,12 +6,15 @@ use notify_debouncer_full::{
     },
 };
 use nu_engine::{current_dir, get_eval_block, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Spanned, SyntaxShape, Type, Value,
+    command_prelude::*,
+    engine::{Closure, StateWorkingSet},
+    format_error,
+};
+use std::{
+    path::PathBuf,
+    sync::mpsc::{channel, RecvTimeoutError},
+    time::Duration,
 };
 
 // durations chosen mostly arbitrarily

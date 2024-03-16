@@ -7,6 +7,11 @@ mod preview;
 mod record;
 pub mod util;
 
+use super::{
+    nu_common::NuText,
+    pager::{Frame, Transition, ViewInfo},
+};
+use crate::{nu_common::NuConfig, pager::ConfigMap};
 use crossterm::event::KeyEvent;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
@@ -15,13 +20,6 @@ use nu_protocol::{
     Value,
 };
 use ratatui::layout::Rect;
-
-use crate::{nu_common::NuConfig, pager::ConfigMap};
-
-use super::{
-    nu_common::NuText,
-    pager::{Frame, Transition, ViewInfo},
-};
 
 pub use binary::BinaryView;
 pub use information::InformationView;

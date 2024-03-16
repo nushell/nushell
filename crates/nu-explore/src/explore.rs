@@ -6,11 +6,7 @@ use crate::{
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use std::collections::HashMap;
 
 /// A `less` like program to render a [`Value`] as a table.

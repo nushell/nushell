@@ -1,11 +1,5 @@
-use chrono::prelude::DateTime;
-use chrono::Local;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, LazyRecord, PipelineData, Record, ShellError,
-    Signature, Span, Type, Value,
-};
+use chrono::{DateTime, Local};
+use nu_protocol::{command_prelude::*, LazyRecord};
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,

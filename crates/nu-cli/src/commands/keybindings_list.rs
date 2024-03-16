@@ -1,9 +1,4 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_protocol::command_prelude::*;
 use reedline::{
     get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
     get_reedline_prompt_edit_modes, get_reedline_reedline_events,

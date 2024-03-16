@@ -1,12 +1,11 @@
-use std::sync::Arc;
-
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
+    debugger::WithoutDebug,
     engine::{EngineState, Redirection, Stack, StateWorkingSet},
     IoStream, PipelineData, ShellError, Value,
 };
+use std::sync::Arc;
 
 pub fn run_command_with_value(
     command: &str,

@@ -1,12 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{get_full_help, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, span};
 
 #[derive(Clone)]
 pub struct HelpCommands;

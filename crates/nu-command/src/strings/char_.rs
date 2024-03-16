@@ -1,12 +1,6 @@
-use indexmap::indexmap;
-use indexmap::map::IndexMap;
+use indexmap::{indexmap, IndexMap};
 use nu_engine::CallExt;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::record;
-use nu_protocol::{
-    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
 use once_cell::sync::Lazy;
 use std::sync::{atomic::AtomicBool, Arc};
 

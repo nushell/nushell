@@ -1,10 +1,4 @@
-use super::url;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
-
+use nu_protocol::command_prelude::*;
 use url::Url;
 
 #[derive(Clone)]

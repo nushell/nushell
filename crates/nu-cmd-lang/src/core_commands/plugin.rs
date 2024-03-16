@@ -1,9 +1,5 @@
 use nu_engine::get_full_help;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct PluginCommand;

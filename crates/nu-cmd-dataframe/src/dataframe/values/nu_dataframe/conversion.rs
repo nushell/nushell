@@ -1,26 +1,23 @@
-use std::ops::{Deref, DerefMut};
-
+use super::{DataFrameValue, NuDataFrame, NuSchema};
 use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
-use polars::chunked_array::builder::AnonymousOwnedListBuilder;
-use polars::chunked_array::object::builder::ObjectChunkedBuilder;
-use polars::chunked_array::ChunkedArray;
-use polars::datatypes::AnyValue;
-use polars::export::arrow::Either;
-use polars::prelude::{
-    DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type,
-    Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
-    ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom, NewChunkedArray,
-    ObjectType, Schema, Series, StructChunked, TemporalMethods, TimeUnit, UInt16Type, UInt32Type,
-    UInt64Type, UInt8Type,
-};
-
 use nu_protocol::{Record, ShellError, Span, Value};
-
-use crate::dataframe::values::NuSchema;
-
-use super::{DataFrameValue, NuDataFrame};
+use polars::{
+    chunked_array::{
+        builder::AnonymousOwnedListBuilder, object::builder::ObjectChunkedBuilder, ChunkedArray,
+    },
+    datatypes::AnyValue,
+    export::arrow::Either,
+    prelude::{
+        DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type,
+        Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
+        ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom,
+        NewChunkedArray, ObjectType, Schema, Series, StructChunked, TemporalMethods, TimeUnit,
+        UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    },
+};
+use std::ops::{Deref, DerefMut};
 
 const NANOS_PER_DAY: i64 = 86_400_000_000_000;
 

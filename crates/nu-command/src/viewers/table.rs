@@ -3,28 +3,21 @@
 //        the goal is to configure it once...
 
 use lscolors::{LsColors, Style};
-use nu_color_config::color_from_hex;
-use nu_color_config::{StyleComputer, TextStyle};
+use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Config, DataSource, Example, IntoPipelineData, IoStream, ListStream,
-    PipelineData, PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape,
-    TableMode, Type, Value,
+    command_prelude::*, Config, DataSource, IoStream, ListStream, PipelineMetadata, RawStream,
+    TableMode,
 };
-use nu_table::common::create_nu_table_config;
 use nu_table::{
-    CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
-    TableOutput,
+    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
+    StringResult, TableOpts, TableOutput,
 };
 use nu_utils::get_ls_colors;
-use std::collections::VecDeque;
-use std::io::IsTerminal;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Instant;
-use std::{path::PathBuf, sync::atomic::AtomicBool};
+use std::{
+    collections::VecDeque, io::IsTerminal, path::PathBuf, str::FromStr, sync::atomic::AtomicBool,
+    sync::Arc, time::Instant,
+};
 use terminal_size::{Height, Width};
 use url::Url;
 

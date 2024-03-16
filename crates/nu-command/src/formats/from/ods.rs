@@ -1,11 +1,7 @@
 use calamine::*;
-use indexmap::map::IndexMap;
+use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use std::io::Cursor;
 
 #[derive(Clone)]

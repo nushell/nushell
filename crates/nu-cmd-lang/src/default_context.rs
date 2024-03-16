@@ -1,6 +1,5 @@
-use nu_protocol::engine::{EngineState, StateWorkingSet};
-
 use crate::*;
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn create_default_context() -> EngineState {
     let mut engine_state = EngineState::new();

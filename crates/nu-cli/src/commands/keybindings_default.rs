@@ -1,8 +1,4 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use reedline::get_reedline_default_keybindings;
 
 #[derive(Clone)]

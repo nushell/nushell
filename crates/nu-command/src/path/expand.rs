@@ -1,15 +1,9 @@
-use std::path::Path;
-
+use super::PathSubcommandArguments;
 use nu_engine::env::{current_dir_str, current_dir_str_const};
 use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
-
-use super::PathSubcommandArguments;
+use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
+use std::path::Path;
 
 struct Arguments {
     strict: bool,

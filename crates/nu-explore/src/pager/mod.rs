@@ -3,15 +3,18 @@ mod events;
 pub mod report;
 mod status_bar;
 
-use std::{
-    cmp::min,
-    io::{self, Result, Stdout},
-    result,
-    sync::atomic::Ordering,
+use self::{
+    command_bar::CommandBar,
+    report::{Report, Severity},
+    status_bar::StatusBar,
 };
-
-use std::collections::HashMap;
-
+use super::views::{Layout, View};
+use crate::{
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
+    registry::{Command, CommandRegistry},
+    util::map_into_value,
+    views::{util::nu_style_to_tui, ViewConfig},
+};
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -20,6 +23,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
+use events::UIEvents;
 use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
@@ -27,23 +31,13 @@ use nu_protocol::{
     Record, Value,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
-
-use crate::{
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
-    registry::{Command, CommandRegistry},
-    util::map_into_value,
-    views::{util::nu_style_to_tui, ViewConfig},
+use std::{
+    cmp::min,
+    collections::HashMap,
+    io::{self, Result, Stdout},
+    result,
+    sync::atomic::Ordering,
 };
-
-use self::{
-    command_bar::CommandBar,
-    report::{Report, Severity},
-    status_bar::StatusBar,
-};
-
-use super::views::{Layout, View};
-
-use events::UIEvents;
 
 pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;

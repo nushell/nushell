@@ -1,14 +1,8 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+use nu_protocol::{command_prelude::*, debugger::WithoutDebug, engine::Closure, LazyRecord};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    sync::{Arc, Mutex},
 };
 
 #[derive(Clone)]

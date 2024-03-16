@@ -1,13 +1,6 @@
-use crate::dataframe::values::NuSchema;
-
-use super::super::values::{Column, NuDataFrame};
-
+use crate::dataframe::values::{Column, NuDataFrame, NuSchema};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use polars::prelude::*;
 
 #[derive(Clone)]

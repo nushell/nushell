@@ -1,11 +1,6 @@
-use heck::ToTitleCase;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
-
 use super::operate;
+use heck::ToTitleCase;
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

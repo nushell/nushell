@@ -6,15 +6,14 @@ mod operations;
 pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
-use indexmap::map::IndexMap;
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
+use indexmap::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher};
-
-use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to

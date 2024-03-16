@@ -1,15 +1,9 @@
 use crate::help::highlight_search_string;
-
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
-    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, Config, ListStream};
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]

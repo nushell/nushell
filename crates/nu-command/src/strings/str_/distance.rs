@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    levenshtein_distance, record, Category, Example, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, levenshtein_distance};
 
 #[derive(Clone)]
 pub struct SubCommand;

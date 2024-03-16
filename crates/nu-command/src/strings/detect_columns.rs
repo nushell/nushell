@@ -1,16 +1,7 @@
-use nu_protocol::IntoPipelineData;
-use std::io::Cursor;
-use std::iter::Peekable;
-use std::str::CharIndices;
-
 use itertools::Itertools;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, Range};
+use std::{io::Cursor, iter::Peekable, str::CharIndices};
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 

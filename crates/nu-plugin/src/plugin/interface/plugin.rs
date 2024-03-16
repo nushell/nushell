@@ -1,15 +1,9 @@
 //! Interface used by the engine to communicate with the plugin.
 
-use std::{
-    collections::{btree_map, BTreeMap},
-    sync::{atomic::AtomicBool, mpsc, Arc, OnceLock},
+use super::{
+    stream::{StreamManager, StreamManagerHandle},
+    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
 };
-
-use nu_protocol::{
-    ast::Operator, IntoInterruptiblePipelineData, IntoSpanned, ListStream, PipelineData,
-    PluginSignature, ShellError, Span, Spanned, Value,
-};
-
 use crate::{
     plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
     protocol::{
@@ -19,10 +13,13 @@ use crate::{
     },
     sequence::Sequence,
 };
-
-use super::{
-    stream::{StreamManager, StreamManagerHandle},
-    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
+use nu_protocol::{
+    ast::Operator, IntoInterruptiblePipelineData, IntoSpanned, ListStream, PipelineData,
+    PluginSignature, ShellError, Span, Spanned, Value,
+};
+use std::{
+    collections::{btree_map, BTreeMap},
+    sync::{atomic::AtomicBool, mpsc, Arc, OnceLock},
 };
 
 #[cfg(test)]

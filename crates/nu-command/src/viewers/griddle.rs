@@ -1,17 +1,12 @@
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
 use lscolors::Style;
-use nu_engine::env_to_string;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::{env_to_string, CallExt};
+use nu_protocol::{command_prelude::*, Config};
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
 use terminal_size::{Height, Width};
+
 #[derive(Clone)]
 pub struct Griddle;
 

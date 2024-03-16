@@ -1,7 +1,5 @@
-use nu_protocol::ast::Expression;
-
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, Expression},
     engine::{EngineState, Stack},
     FromValue, ShellError, Span, Spanned, Value,
 };

@@ -1,25 +1,19 @@
 use super::util::opt_for_glob_pattern;
-use crate::DirBuilder;
-use crate::DirInfo;
+use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
+use nu_engine::{env::current_dir, CallExt};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::NuGlob;
-use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Clone)]
 pub struct Ls;

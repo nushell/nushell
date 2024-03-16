@@ -1,10 +1,7 @@
-use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    ast::{Argument, Call, Expr, Expression},
-    engine::Command,
-    ShellError, Signature,
+    ast::{Argument, Expr, Expression},
+    command_prelude::*,
 };
-use nu_protocol::{PipelineData, Type};
 
 #[derive(Clone)]
 pub struct KnownExternal {

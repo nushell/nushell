@@ -1,11 +1,6 @@
-use super::super::values::{Column, NuDataFrame};
-use crate::dataframe::values::{NuExpression, NuLazyFrame};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct WithColumn;

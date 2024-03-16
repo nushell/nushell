@@ -1,13 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::mpsc::{self, TryRecvError},
-};
-
-use nu_protocol::{
-    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginExample, PluginSignature, ShellError, Span, Spanned, Value,
-};
-
+use super::{EngineInterfaceManager, ReceivedPluginCall};
 use crate::{
     plugin::interface::{test_util::TestCase, Interface, InterfaceManager},
     protocol::{
@@ -18,8 +9,14 @@ use crate::{
     },
     EvaluatedCall, PluginCallResponse, PluginOutput,
 };
-
-use super::{EngineInterfaceManager, ReceivedPluginCall};
+use nu_protocol::{
+    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
+    PipelineData, PluginExample, PluginSignature, ShellError, Span, Spanned, Value,
+};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{self, TryRecvError},
+};
 
 #[test]
 fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {

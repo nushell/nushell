@@ -1,10 +1,9 @@
+use crate::Query;
 use gjson::Value as gjValue;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
     Category, LabeledError, PluginSignature, Record, Span, Spanned, SyntaxShape, Value,
 };
-
-use crate::Query;
 
 pub struct QueryJson;
 

@@ -1,9 +1,5 @@
 use super::inspect_table;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type,
-};
+use nu_protocol::command_prelude::*;
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]

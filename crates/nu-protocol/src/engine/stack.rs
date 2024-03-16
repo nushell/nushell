@@ -1,12 +1,14 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-
 use crate::{
-    engine::{EngineState, DEFAULT_OVERLAY_NAME},
+    engine::{
+        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio,
+        DEFAULT_OVERLAY_NAME,
+    },
     IoStream, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
-
-use super::{Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;

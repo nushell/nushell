@@ -1,11 +1,6 @@
 use nu_engine::{env::get_config, find_in_dirs_env, get_dirs_var_from_call, CallExt};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-
+use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
 use std::path::Path;
 
 #[derive(Clone)]

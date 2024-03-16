@@ -1,9 +1,7 @@
-use std::{cmp::Ordering, convert::Infallible, sync::Arc};
-
+use crate::plugin::{PluginInterface, PluginSource};
 use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
-
-use crate::plugin::{PluginInterface, PluginSource};
+use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
 #[cfg(test)]
 mod tests;

@@ -1,12 +1,6 @@
 use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_protocol::{ast::PathMember, command_prelude::*};
 
 #[derive(Clone)]
 pub struct Flatten;

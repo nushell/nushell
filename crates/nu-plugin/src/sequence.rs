@@ -1,6 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
-
 use nu_protocol::ShellError;
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 /// Implements an atomically incrementing sequential series of numbers
 #[derive(Debug, Default)]

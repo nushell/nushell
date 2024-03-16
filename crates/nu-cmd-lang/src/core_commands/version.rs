@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
-};
+use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
 use shadow_rs::shadow;
 
 shadow!(build);

@@ -1,12 +1,6 @@
-use std::collections::HashMap;
-
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, debugger::WithoutDebug, engine::Closure};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct WithEnv;

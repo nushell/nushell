@@ -1,10 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Fmt;

@@ -1,14 +1,12 @@
-use std::{
-    ffi::OsStr,
-    sync::{Arc, Mutex},
-};
-
+use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
 };
-
-use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
+use std::{
+    ffi::OsStr,
+    sync::{Arc, Mutex},
+};
 
 /// A box that can keep a plugin that was spawned persistent for further uses. The plugin may or
 /// may not be currently running. [`.get()`] gets the currently running plugin, or spawns it if it's

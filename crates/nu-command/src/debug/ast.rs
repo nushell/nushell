@@ -1,11 +1,6 @@
 use nu_engine::CallExt;
 use nu_parser::parse;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct Ast;

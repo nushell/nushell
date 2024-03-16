@@ -1,10 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::command_prelude::*;
 
 struct Arguments {
     added_data: Vec<u8>,

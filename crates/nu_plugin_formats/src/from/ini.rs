@@ -1,9 +1,8 @@
+use crate::FromCmds;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
     record, Category, LabeledError, PluginExample, PluginSignature, Record, ShellError, Type, Value,
 };
-
-use crate::FromCmds;
 
 pub const CMD_NAME: &str = "from ini";
 

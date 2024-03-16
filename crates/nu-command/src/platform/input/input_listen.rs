@@ -4,12 +4,7 @@ use crossterm::event::{
 };
 use crossterm::terminal;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 use num_traits::AsPrimitive;
 use std::io::stdout;
 

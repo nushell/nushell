@@ -1,9 +1,9 @@
-use nu_protocol::engine::{EngineState, StateWorkingSet};
-
 use crate::{
     help::{HelpAliases, HelpCommands, HelpEscapes, HelpExterns, HelpModules, HelpOperators},
     *,
 };
+use nu_protocol::engine::{EngineState, StateWorkingSet};
+
 pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);

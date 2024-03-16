@@ -1,16 +1,12 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+use nu_protocol::command_prelude::*;
+use quick_xml::{
+    escape,
+    events::{BytesEnd, BytesStart, BytesText, Event},
 };
-use quick_xml::escape;
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use std::borrow::Cow;
-use std::io::Cursor;
+use std::{borrow::Cow, io::Cursor};
 
 #[derive(Clone)]
 pub struct ToXml;

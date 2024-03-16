@@ -1,12 +1,6 @@
 use itertools::unfold;
 use nu_engine::{get_eval_block_with_early_return, CallExt};
-
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, engine::Closure};
 
 #[derive(Clone)]
 pub struct Generate;

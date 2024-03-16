@@ -1,8 +1,7 @@
 use csv::{Writer, WriterBuilder};
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{Config, IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
-use std::collections::VecDeque;
-use std::error::Error;
+use std::{collections::VecDeque, error::Error};
 
 fn from_value_to_delimited_string(
     value: &Value,

@@ -1,13 +1,11 @@
+use crate::nu_common::NuConfig;
 use nu_color_config::StyleComputer;
 use nu_protocol::{Record, Span, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
 };
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-
-use crate::nu_common::NuConfig;
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub fn try_build_table(
     ctrlc: Option<Arc<AtomicBool>>,

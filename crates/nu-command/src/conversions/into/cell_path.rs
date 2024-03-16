@@ -1,8 +1,6 @@
 use nu_protocol::{
-    ast::{Call, CellPath, PathMember},
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
-    Value,
+    ast::{CellPath, PathMember},
+    command_prelude::*,
 };
 
 #[derive(Clone)]

@@ -1,11 +1,7 @@
 use super::{get_number_bytes, NumberBytes};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct BitsNot;

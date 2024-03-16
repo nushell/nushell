@@ -1,10 +1,5 @@
 use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Zip;

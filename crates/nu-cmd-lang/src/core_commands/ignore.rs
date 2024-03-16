@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    Category, Example, IoStream, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::{command_prelude::*, engine::StateWorkingSet, IoStream};
 
 #[derive(Clone)]
 pub struct Ignore;

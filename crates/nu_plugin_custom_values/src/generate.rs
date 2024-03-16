@@ -1,5 +1,4 @@
 use crate::{cool_custom_value::CoolCustomValue, CustomValuePlugin};
-
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{Category, LabeledError, PluginExample, PluginSignature, Span, Value};
 

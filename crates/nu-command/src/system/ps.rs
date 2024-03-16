@@ -7,13 +7,7 @@ use nu_engine::CallExt;
     not(target_os = "windows"),
     not(target_os = "android"),
 ))]
-use nu_protocol::Span;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Type, Value,
-};
+use nu_protocol::command_prelude::*;
 #[cfg(all(
     unix,
     not(target_os = "freebsd"),
@@ -22,7 +16,6 @@ use nu_protocol::{
     not(target_os = "android"),
 ))]
 use procfs::WithCurrentSystemInfo;
-
 use std::time::Duration;
 
 #[derive(Clone)]

@@ -1,13 +1,14 @@
-use std::sync::Arc;
-
 use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
-use nu_protocol::cli_error::{report_error, report_error_new};
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
+use nu_protocol::{
+    cli_error::{report_error, report_error_new},
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+};
+use std::sync::Arc;
 
 pub fn eval_env_change_hook(
     env_change_hook: Option<Value>,

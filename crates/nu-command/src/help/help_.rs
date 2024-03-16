@@ -1,16 +1,10 @@
-use crate::help::help_aliases;
-use crate::help::help_commands;
-use crate::help::help_modules;
+use crate::help::{help_aliases, help_commands, help_modules};
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use nu_protocol::{command_prelude::*, span};
 use nu_utils::IgnoreCaseExt;
+
 #[derive(Clone)]
 pub struct Help;
 

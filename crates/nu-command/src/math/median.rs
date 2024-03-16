@@ -1,12 +1,6 @@
+use crate::math::{avg::average, utils::run_with_function};
+use nu_protocol::command_prelude::*;
 use std::cmp::Ordering;
-
-use crate::math::avg::average;
-use crate::math::utils::run_with_function;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
 
 #[derive(Clone)]
 pub struct SubCommand;

@@ -1,10 +1,5 @@
 use itertools::Itertools;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    Type, Value,
-};
+use nu_protocol::command_prelude::*;
 
 #[derive(Clone)]
 pub struct PluginList;

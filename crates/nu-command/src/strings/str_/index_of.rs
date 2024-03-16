@@ -1,13 +1,10 @@
 use crate::grapheme_flags;
-use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_cmd_base::util;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+use nu_cmd_base::{
+    input_handler::{operate, CmdArgument},
+    util,
 };
+use nu_engine::CallExt;
+use nu_protocol::{command_prelude::*, Range};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {

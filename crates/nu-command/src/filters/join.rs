@@ -1,12 +1,9 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Config, Example, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+use nu_protocol::{command_prelude::*, Config};
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
 };
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct Join;

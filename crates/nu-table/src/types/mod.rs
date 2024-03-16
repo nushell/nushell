@@ -2,15 +2,14 @@ mod collapse;
 mod expanded;
 mod general;
 
-use std::sync::{atomic::AtomicBool, Arc};
-
 pub use collapse::CollapsedTable;
 pub use expanded::ExpandedTable;
 pub use general::JustTable;
-use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, TableIndexMode, TableMode};
 
 use crate::{common::INDEX_COLUMN_NAME, NuTable};
+use nu_color_config::StyleComputer;
+use nu_protocol::{Config, Span, TableIndexMode, TableMode};
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub struct TableOutput {
     pub table: NuTable,

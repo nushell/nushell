@@ -1,10 +1,5 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{ast::PathMember, command_prelude::*, PipelineIterator};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
