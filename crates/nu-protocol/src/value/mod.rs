@@ -1828,6 +1828,60 @@ impl Value {
         Ok(())
     }
 
+    /// Visits all values contained within the value (including this value) with a mutable reference
+    /// given to the closure.
+    ///
+    /// If the closure returns `Err`, the traversal will stop.
+    ///
+    /// If collecting lazy records to check them as well is desirable, make sure to do it in your
+    /// closure. The traversal continues on whatever modifications you make during the closure.
+    /// Captures of closure values are currently visited, as they are values owned by the closure.
+    pub fn recurse_mut<E>(
+        &mut self,
+        f: &mut impl FnMut(&mut Value) -> Result<(), E>,
+    ) -> Result<(), E> {
+        // Visit this value
+        f(self)?;
+        // Check for contained values
+        match self {
+            // Any values that can contain other values need to be handled recursively
+            Value::Range { ref mut val, .. } => {
+                val.from.recurse_mut(f)?;
+                val.to.recurse_mut(f)?;
+                val.incr.recurse_mut(f)
+            }
+            Value::Record { ref mut val, .. } => val
+                .iter_mut()
+                .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
+            Value::List { ref mut vals, .. } => vals
+                .iter_mut()
+                .try_for_each(|list_value| list_value.recurse_mut(f)),
+            // Closure captures are visited. Maybe these don't have to be if they are changed to
+            // more opaque references.
+            Value::Closure { ref mut val, .. } => val
+                .captures
+                .iter_mut()
+                .map(|(_, captured_value)| captured_value)
+                .try_for_each(|captured_value| captured_value.recurse_mut(f)),
+            // All of these don't contain other values
+            Value::Bool { .. }
+            | Value::Int { .. }
+            | Value::Float { .. }
+            | Value::Filesize { .. }
+            | Value::Duration { .. }
+            | Value::Date { .. }
+            | Value::String { .. }
+            | Value::Glob { .. }
+            | Value::Block { .. }
+            | Value::Nothing { .. }
+            | Value::Error { .. }
+            | Value::Binary { .. }
+            | Value::CellPath { .. } => Ok(()),
+            // These could potentially contain values, but we expect the closure to handle them
+            Value::LazyRecord { .. } | Value::CustomValue { .. } => Ok(()),
+        }
+    }
+
     /// Check if the content is empty
     pub fn is_empty(&self) -> bool {
         match self {
