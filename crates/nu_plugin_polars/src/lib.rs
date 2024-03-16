@@ -10,7 +10,7 @@ use nu_protocol::CustomValue;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::eager::{FirstDF, OpenDataFrame, ToDataFrame};
+use crate::eager::{FirstDF, LastDF, OpenDataFrame, ToDataFrame};
 
 lazy_static! {
     static ref DATAFRAME_CACHE: Arc<DataFrameCache> = Arc::new(DataFrameCache::new());
@@ -72,6 +72,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(OpenDataFrame),
             Box::new(ToDataFrame),
             Box::new(FirstDF),
+            Box::new(LastDF),
         ]
     }
 

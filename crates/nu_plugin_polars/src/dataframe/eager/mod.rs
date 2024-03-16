@@ -9,7 +9,7 @@
 // mod filter_with;
 mod first;
 // mod get;
-// mod last;
+mod last;
 // mod list;
 // mod melt;
 mod open;
@@ -46,7 +46,7 @@ pub use self::open::OpenDataFrame;
 // pub use filter_with::FilterWith;
 pub use first::FirstDF;
 // pub use get::GetDF;
-// pub use last::LastDF;
+pub use last::LastDF;
 // pub use list::ListDF;
 // pub use melt::MeltDF;
 // pub use query_df::QueryDf;
