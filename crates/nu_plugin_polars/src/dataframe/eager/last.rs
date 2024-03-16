@@ -57,7 +57,7 @@ fn examples() -> Vec<PluginExample> {
     vec![
         PluginExample {
             description: "Create new dataframe with last rows".into(),
-            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr last 1".into(),
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars last 1".into(),
             // result: Some(
             //     NuDataFrame::try_from_columns(
             //         vec![
@@ -73,7 +73,7 @@ fn examples() -> Vec<PluginExample> {
         },
         PluginExample {
             description: "Creates a last expression from a column".into(),
-            example: "dfr col a | dfr last".into(),
+            example: "polars col a | polars last".into(),
             result: None,
         },
     ]

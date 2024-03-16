@@ -50,7 +50,7 @@ impl PluginCommand for FirstDF {
                 },
                 PluginExample {
                     description: "Return the first two rows of a dataframe".into(),
-                    example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr first 2".into(),
+                    example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first 2".into(),
                     //     result: Some(
                     //         NuDataFrame::try_from_columns(
                     //             vec![
@@ -72,7 +72,7 @@ impl PluginCommand for FirstDF {
                 },
                 PluginExample {
                     description: "Creates a first expression from a column".into(),
-                    example: "dfr col a | dfr first".into(),
+                    example: "polars col a | polars first".into(),
                     result: None,
                 },
             ])
