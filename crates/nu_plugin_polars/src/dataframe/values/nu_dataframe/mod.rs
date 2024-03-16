@@ -100,11 +100,7 @@ impl AsMut<DataFrame> for NuDataFrame {
 
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            df: Arc::new(df),
-            from_lazy: false,
-        }
+        Self::new(false, df)
     }
 }
 
@@ -284,12 +280,19 @@ impl NuDataFrame {
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
-                Some(df) => Ok(NuDataFrame {
-                    id: Uuid::new_v4(),
-                    df: df.df.clone(),
-                    from_lazy: false,
-                }),
+            Value::CustomValue { val, .. } => match val
+                .as_any()
+                .downcast_ref::<NuDataFrameCustomValue>()
+            {
+                Some(custom_val) => DataFrameCache::instance()
+                    .get_df(&custom_val.id)
+                    .ok_or_else(|| ShellError::GenericError {
+                        error: format!("Dataframe cache does not contain id: {:?}", custom_val.id),
+                        msg: "".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    }),
                 None => Err(ShellError::CantConvert {
                     to_type: "dataframe".into(),
                     from_type: "non-dataframe".into(),
@@ -313,7 +316,9 @@ impl NuDataFrame {
 
     pub fn can_downcast(value: &Value) -> bool {
         if let Value::CustomValue { val, .. } = value {
-            val.as_any().downcast_ref::<Self>().is_some()
+            val.as_any()
+                .downcast_ref::<NuDataFrameCustomValue>()
+                .is_some()
         } else {
             false
         }

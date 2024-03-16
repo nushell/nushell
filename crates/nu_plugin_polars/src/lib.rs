@@ -10,12 +10,13 @@ use nu_protocol::CustomValue;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::eager::{OpenDataFrame, ToDataFrame};
+use crate::eager::{FirstDF, OpenDataFrame, ToDataFrame};
 
 lazy_static! {
     static ref DATAFRAME_CACHE: Arc<DataFrameCache> = Arc::new(DataFrameCache::new());
 }
 
+#[derive(Debug)]
 pub(crate) enum CacheValue {
     DataFrame(NuDataFrame),
     LazyFrame(NuLazyFrame),
@@ -37,10 +38,24 @@ impl DataFrameCache {
     }
 
     pub(crate) fn insert_df(&self, df: NuDataFrame) {
+        eprintln!("Adding dataframe to cache: {:?}", df.id);
         let _ = self.internal.insert(df.id, CacheValue::DataFrame(df));
     }
 
+    pub(crate) fn get_df(&self, uuid: &Uuid) -> Option<NuDataFrame> {
+        if let Some(get) = self.internal.get(uuid) {
+            if let CacheValue::DataFrame(df) = get.value() {
+                Some(df.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn insert_lazy(&self, lazy: NuLazyFrame) {
+        eprintln!("Adding lazy dataframe to cache: {:?}", lazy.id);
         let _ = self.internal.insert(lazy.id, CacheValue::LazyFrame(lazy));
     }
 
@@ -53,7 +68,11 @@ pub struct PolarsDataFramePlugin;
 
 impl Plugin for PolarsDataFramePlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
-        vec![Box::new(OpenDataFrame), Box::new(ToDataFrame)]
+        vec![
+            Box::new(OpenDataFrame),
+            Box::new(ToDataFrame),
+            Box::new(FirstDF),
+        ]
     }
 
     fn custom_value_dropped(

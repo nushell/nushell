@@ -7,7 +7,7 @@
 // mod dtypes;
 // mod dummies;
 // mod filter_with;
-// mod first;
+mod first;
 // mod get;
 // mod last;
 // mod list;
@@ -44,7 +44,7 @@ pub use self::open::OpenDataFrame;
 // pub use dtypes::DataTypes;
 // pub use dummies::Dummies;
 // pub use filter_with::FilterWith;
-// pub use first::FirstDF;
+pub use first::FirstDF;
 // pub use get::GetDF;
 // pub use last::LastDF;
 // pub use list::ListDF;

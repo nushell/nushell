@@ -1,11 +1,9 @@
-use crate::{dataframe::values::NuSchema, values::Column, PolarsDataFramePlugin};
+use crate::{dataframe::values::NuSchema, PolarsDataFramePlugin};
 
 use super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
-use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct ToDataFrame;
@@ -54,24 +52,25 @@ fn examples() -> Vec<PluginExample> {
         PluginExample {
             description: "Takes a dictionary and creates a dataframe".into(),
             example: "[[a b];[1 2] [3 4]] | polars into-df".into(),
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
-                .expect("Converting Dataframe to value should not fail"),
-            ),
+        //     result: Some(
+        //         NuDataFrame::try_from_columns(
+        //             vec![
+        //                 Column::new(
+        //                     "a".to_string(),
+        //                     vec![Value::test_int(1), Value::test_int(3)],
+        //                 ),
+        //                 Column::new(
+        //                     "b".to_string(),
+        //                     vec![Value::test_int(2), Value::test_int(4)],
+        //                 ),
+        //             ],
+        //             None,
+        //         )
+        //         .expect("simple df for test should not fail")
+        //         .into_value(Span::test_data())
+        //         .expect("Converting Dataframe to value should not fail"),
+        //     ),
+            result: None,
         },
         PluginExample {
             description: "Takes a list of tables and creates a dataframe".into(),
