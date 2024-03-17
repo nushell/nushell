@@ -1,21 +1,13 @@
-use std::{
-    borrow::Cow,
-    cmp::{max, Ordering},
-    fmt::Write,
-};
-
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::Value;
-use nu_table::string_width;
+use nu_color_config::TextStyle;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
     text::Span,
-    widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
+    widgets::{Paragraph, StatefulWidget, Widget},
 };
 
 use crate::{
-    nu_common::{truncate_str, NuStyle, NuText},
+    nu_common::NuStyle,
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
@@ -125,36 +117,41 @@ pub struct BinaryStyleColors {
     pub split_left: OptStyle,
     pub split_right: OptStyle,
     pub index: OptStyle,
-    pub data: OptStyle,
-    pub data_zero: OptStyle,
-    pub data_unknown: OptStyle,
-    pub ascii: OptStyle,
-    pub ascii_zero: OptStyle,
-    pub ascii_unknown: OptStyle,
+    pub data: SymbolColor,
+    pub ascii: SymbolColor,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct SymbolColor {
+    pub default: OptStyle,
+    pub zero: OptStyle,
+    pub unknown: OptStyle,
+}
+
+impl SymbolColor {
+    pub fn new(default: OptStyle, zero: OptStyle, unknown: OptStyle) -> Self {
+        Self {
+            default,
+            zero,
+            unknown,
+        }
+    }
 }
 
 impl BinaryStyleColors {
     pub fn new(
+        index: OptStyle,
+        data: SymbolColor,
+        ascii: SymbolColor,
         split_left: OptStyle,
         split_right: OptStyle,
-        index: OptStyle,
-        data: OptStyle,
-        data_zero: OptStyle,
-        data_unknown: OptStyle,
-        ascii: OptStyle,
-        ascii_zero: OptStyle,
-        ascii_unknown: OptStyle,
     ) -> Self {
         Self {
             split_left,
             split_right,
             index,
             data,
-            data_zero,
-            data_unknown,
             ascii,
-            ascii_zero,
-            ascii_unknown,
         }
     }
 }
@@ -185,7 +182,7 @@ impl StatefulWidget for BinaryWidget<'_> {
 }
 
 // todo: indent color
-fn render_hexdump(area: Rect, buf: &mut Buffer, state: &mut BinaryWidgetState, w: BinaryWidget) {
+fn render_hexdump(area: Rect, buf: &mut Buffer, _state: &mut BinaryWidgetState, w: BinaryWidget) {
     const MIN_INDEX_SIZE: usize = 8;
 
     let show_index = !w.opts.disable_index;
@@ -365,11 +362,11 @@ fn render_ascii_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, style: OptStyle) -> 
 
 fn u8_to_ascii(n: u8) -> char {
     if n == b' ' {
-        '.'
-    } else if n.is_ascii() {
+        ' '
+    } else if n.is_ascii_graphic() {
         n as char
     } else {
-        ' '
+        '.'
     }
 }
 
@@ -402,136 +399,26 @@ fn render_hex_usize(
 
 fn get_ascii_style(w: &BinaryWidget, n: u8) -> OptStyle {
     if n == 0 {
-        w.style.colors.ascii_zero
-    } else if n.is_ascii() {
-        w.style.colors.ascii
+        w.style.colors.ascii.zero
+    } else if n.is_ascii_graphic() {
+        w.style.colors.ascii.default
     } else {
-        w.style.colors.ascii_unknown
+        w.style.colors.ascii.unknown
     }
 }
 
 fn get_segment_style(w: &BinaryWidget, n: u8) -> OptStyle {
     if n == 0 {
-        w.style.colors.data_zero
-    } else if n.is_ascii() {
-        w.style.colors.data
+        w.style.colors.data.zero
+    } else if n.is_ascii_graphic() {
+        w.style.colors.data.default
     } else {
-        w.style.colors.data_unknown
+        w.style.colors.data.unknown
     }
 }
 
 fn get_index_style(w: &BinaryWidget) -> OptStyle {
     w.style.colors.index
-}
-
-#[allow(clippy::too_many_arguments)]
-fn truncate_column_width(
-    space: u16,
-    min: u16,
-    w: u16,
-    pad: u16,
-    is_last: bool,
-    column: &mut [(String, TextStyle)],
-    head: Option<&mut String>,
-) -> (u16, bool, bool) {
-    let result = check_column_width(space, min, w, pad, is_last);
-
-    let (width, shift_column) = match result {
-        Some(result) => result,
-        None => return (w, true, false),
-    };
-
-    if width == 0 {
-        return (0, false, shift_column);
-    }
-
-    truncate_list(column, width as usize);
-    if let Some(head) = head {
-        truncate_str(head, width as usize);
-    }
-
-    (width, false, shift_column)
-}
-
-fn check_column_width(
-    space: u16,
-    min: u16,
-    w: u16,
-    pad: u16,
-    is_last: bool,
-) -> Option<(u16, bool)> {
-    if !is_space_available(space, pad) {
-        return Some((0, false));
-    }
-
-    if is_last {
-        if !is_space_available(space, w + pad) {
-            return Some((space - pad, false));
-        } else {
-            return None;
-        }
-    }
-
-    if !is_space_available(space, min + pad) {
-        return Some((0, false));
-    }
-
-    if !is_space_available(space, w + pad + min + pad) {
-        let left_space = space - (min + pad);
-
-        if left_space > pad {
-            let left = left_space - pad;
-            return Some((left, true));
-        } else {
-            return Some((0, true));
-        }
-    }
-
-    None
-}
-
-fn render_header_borders(buf: &mut Buffer, area: Rect, span: u16, style: NuStyle) -> (u16, u16) {
-    let borders = Borders::TOP | Borders::BOTTOM;
-    let block = Block::default()
-        .borders(borders)
-        .border_style(nu_style_to_tui(style));
-    let height = span + 2;
-    let area = Rect::new(area.x, area.y, area.width, height);
-    block.render(area, buf);
-
-    // y pos of header text and next line
-    (height.saturating_sub(2), height)
-}
-
-fn render_vertical(
-    buf: &mut Buffer,
-    x: u16,
-    y: u16,
-    height: u16,
-    top_slit: bool,
-    bottom_slit: bool,
-    style: NuStyle,
-) -> u16 {
-    render_vertical_split(buf, x, y, height, style);
-
-    if top_slit && y > 0 {
-        render_top_connector(buf, x, y - 1, style);
-    }
-
-    if bottom_slit {
-        render_bottom_connector(buf, x, y + height, style);
-    }
-
-    1
-}
-
-fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) {
-    let style = TextStyle {
-        alignment: Alignment::Left,
-        color_style: Some(style),
-    };
-
-    repeat_vertical(buf, x, y, 1, height, '│', style);
 }
 
 fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> u16 {
@@ -542,24 +429,6 @@ fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> 
 fn render_split(buf: &mut Buffer, x: u16, y: u16) -> u16 {
     repeat_vertical(buf, x, y, 1, 1, '│', TextStyle::default());
     1
-}
-
-fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
-    let mut column = vec![NuText::default(); data.len()];
-    for (row, values) in data.iter().enumerate() {
-        if values.is_empty() {
-            debug_assert!(false, "must never happen?");
-            continue;
-        }
-
-        let value = &values[col];
-
-        let text = value.0.replace('\n', " ");
-
-        column[row] = (text, value.1);
-    }
-
-    column
 }
 
 fn repeat_vertical(
@@ -582,78 +451,11 @@ fn repeat_vertical(
     }
 }
 
-fn is_space_available(available: u16, got: u16) -> bool {
-    match available.cmp(&got) {
-        Ordering::Less => false,
-        Ordering::Equal | Ordering::Greater => true,
-    }
-}
-
-fn truncate_list(list: &mut [NuText], width: usize) {
-    for (text, _) in list {
-        truncate_str(text, width);
-    }
-}
-
-fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) -> u16 {
-    let style = TextStyle {
-        alignment: Alignment::Left,
-        color_style: Some(style),
-    };
-
-    repeat_vertical(buf, x, y, 1, height, '…', style);
-
-    1
-}
-
-fn render_top_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
-    let style = nu_style_to_tui(style);
-    let span = Span::styled("┬", style);
-    buf.set_span(x, y, &span, 1);
-}
-
-fn render_bottom_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
-    let style = nu_style_to_tui(style);
-    let span = Span::styled("┴", style);
-    buf.set_span(x, y, &span, 1);
-}
-
-fn calculate_column_width(column: &[NuText]) -> usize {
-    column
-        .iter()
-        .map(|(text, _)| text)
-        .map(|text| string_width(text))
-        .max()
-        .unwrap_or(0)
-}
-
-fn render_column(buf: &mut Buffer, x: u16, y: u16, available_width: u16, rows: &[NuText]) -> u16 {
-    for (row, (text, style)) in rows.iter().enumerate() {
-        let style = text_style_to_tui_style(*style);
-        let text = strip_string(text);
-        let span = Span::styled(text, style);
-        buf.set_span(x, y + row as u16, &span, available_width);
-    }
-
-    available_width
-}
-
-fn strip_string(text: &str) -> String {
-    String::from_utf8(strip_ansi_escapes::strip(text))
-        .map_err(|_| ())
-        .unwrap_or_else(|_| text.to_owned())
-}
-
 fn get_max_index_size(w: &BinaryWidget) -> usize {
     let line_size = w.opts.count_segments * (w.opts.segment_size * 2);
     let count_lines = w.data.len() / line_size;
     let max_index = w.opts.index_offset + count_lines * line_size;
     usize_to_hex(max_index, 0, false).len()
-}
-
-fn get_count_lines(w: &BinaryWidget) -> usize {
-    let line_size = w.opts.count_segments * (w.opts.segment_size * 2);
-    w.data.len() / line_size
 }
 
 fn get_widget_width(w: &BinaryWidget) -> usize {
