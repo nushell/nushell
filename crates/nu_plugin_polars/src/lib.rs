@@ -59,6 +59,17 @@ impl DataFrameCache {
         let _ = self.internal.insert(lazy.id, CacheValue::LazyFrame(lazy));
     }
 
+    pub(crate) fn get_lazy(&self, uuid: &Uuid) -> Option<NuLazyFrame> {
+        if let Some(get) = self.internal.get(uuid) {
+            if let CacheValue::LazyFrame(df) = get.value() {
+                Some(df.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
     pub fn instance() -> Arc<DataFrameCache> {
         Arc::clone(&DATAFRAME_CACHE)
     }

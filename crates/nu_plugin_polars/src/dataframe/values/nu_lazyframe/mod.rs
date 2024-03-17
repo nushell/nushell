@@ -74,31 +74,28 @@ impl NuLazyFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
-            Ok(Value::custom_value(Box::new(df.custom_value(span)?), span))
+            Ok(Value::custom_value(Box::new(df.custom_value()?), span))
         } else {
-            Ok(Value::custom_value(
-                Box::new(self.custom_value(span)?),
-                span,
-            ))
+            Ok(Value::custom_value(Box::new(self.custom_value()?), span))
         }
     }
 
-    pub fn custom_value(&self, span: Span) -> Result<NuLazyFrameCustomValue, ShellError> {
+    pub fn custom_value(&self) -> Result<NuLazyFrameCustomValue, ShellError> {
+        Ok(NuLazyFrameCustomValue { id: self.id })
+    }
+
+    pub fn base_value(&self, span: Span) -> Result<Value, ShellError> {
         let optimized_plan = self
             .as_ref()
             .describe_optimized_plan()
             .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
-
-        Ok(NuLazyFrameCustomValue {
-            id: self.id,
-            val: Value::record(
-                record! {
-                    "plan" => Value::string(self.as_ref().describe_plan(), span),
-                    "optimized_plan" => Value::string(optimized_plan, span),
-                },
-                span,
-            ),
-        })
+        Ok(Value::record(
+            record! {
+                "plan" => Value::string(self.as_ref().describe_plan(), span),
+                "optimized_plan" => Value::string(optimized_plan, span),
+            },
+            span,
+        ))
     }
 
     pub fn into_polars(self) -> LazyFrame {

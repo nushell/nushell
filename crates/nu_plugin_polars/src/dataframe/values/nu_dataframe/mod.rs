@@ -127,7 +127,7 @@ impl NuDataFrame {
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Result<Value, ShellError> {
         Ok(Value::custom_value(
-            Box::new(Self::new(false, dataframe).custom_value(span)?),
+            Box::new(Self::new(false, dataframe).custom_value()?),
             span,
         ))
     }
@@ -135,21 +135,19 @@ impl NuDataFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Ok(Value::custom_value(
-                Box::new(lazy.custom_value(span)?),
-                span,
-            ))
+            Ok(Value::custom_value(Box::new(lazy.custom_value()?), span))
         } else {
-            Ok(Value::custom_value(
-                Box::new(self.custom_value(span)?),
-                span,
-            ))
+            Ok(Value::custom_value(Box::new(self.custom_value()?), span))
         }
     }
 
-    pub fn custom_value(self, span: Span) -> Result<NuDataFrameCustomValue, ShellError> {
+    pub fn custom_value(&self) -> Result<NuDataFrameCustomValue, ShellError> {
+        Ok(NuDataFrameCustomValue { id: self.id })
+    }
+
+    pub fn base_value(self, span: Span) -> Result<Value, ShellError> {
         let vals = self.print(span)?;
-        Ok(NuDataFrameCustomValue { id: self.id, vals })
+        Ok(Value::list(vals, span))
     }
 
     pub fn series_to_value(series: Series, span: Span) -> Result<Value, ShellError> {

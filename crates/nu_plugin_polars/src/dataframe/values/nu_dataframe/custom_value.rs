@@ -2,10 +2,29 @@ use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::DataFrameCache;
+
+use super::NuDataFrame;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NuDataFrameCustomValue {
     pub id: Uuid,
-    pub vals: Vec<Value>,
+}
+
+impl TryFrom<&NuDataFrameCustomValue> for NuDataFrame {
+    type Error = ShellError;
+
+    fn try_from(value: &NuDataFrameCustomValue) -> Result<Self, Self::Error> {
+        DataFrameCache::instance()
+            .get_df(&value.id)
+            .ok_or_else(|| ShellError::GenericError {
+                error: format!("Dataframe {:?} not found in cache", value.id),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+    }
 }
 
 // CustomValue implementation for NuDataFrame
@@ -20,7 +39,8 @@ impl CustomValue for NuDataFrameCustomValue {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        Ok(Value::list(self.vals.clone(), span))
+        let df = NuDataFrame::try_from(self)?;
+        df.base_value(span)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
