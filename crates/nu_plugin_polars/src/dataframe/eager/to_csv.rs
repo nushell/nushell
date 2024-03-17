@@ -1,29 +1,25 @@
 use std::{fs::File, path::PathBuf};
 
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, PipelineData, PluginExample, PluginSignature, ShellError, Spanned, SyntaxShape, Type,
+    Value,
 };
 use polars::prelude::{CsvWriter, SerWriter};
+
+use crate::PolarsDataFramePlugin;
 
 use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct ToCSV;
 
-impl Command for ToCSV {
-    fn name(&self) -> &str {
-        "dfr to-csv"
-    }
+impl PluginCommand for ToCSV {
+    type Plugin = PolarsDataFramePlugin;
 
-    fn usage(&self) -> &str {
-        "Saves dataframe to CSV file."
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build(self.name())
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("polars to-csv")
+            .usage("Saves dataframe to CSV file.")
             .required("file", SyntaxShape::Filepath, "file path to save dataframe")
             .named(
                 "delimiter",
@@ -34,43 +30,37 @@ impl Command for ToCSV {
             .switch("no-header", "Indicates if file doesn't have header", None)
             .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Saves dataframe to CSV file",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv",
-                result: None,
-            },
-            Example {
-                description: "Saves dataframe to CSV file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv --delimiter '|'",
-                result: None,
-            },
-        ]
+            .plugin_examples(vec![
+                PluginExample {
+                    description: "Saves dataframe to CSV file".into(),
+                    example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv".into(),
+                    result: None,
+                },
+                PluginExample {
+                    description: "Saves dataframe to CSV file using other delimiter".into(),
+                    example:
+                        "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv --delimiter '|'"
+                            .into(),
+                    result: None,
+                },
+            ])
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _plugin: &Self::Plugin,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(call, input).map_err(|e| e.into())
     }
 }
 
-fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
-    let no_header: bool = call.has_flag(engine_state, stack, "no-header")?;
+fn command(call: &EvaluatedCall, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let file_name: Spanned<PathBuf> = call.req(0)?;
+    let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
+    let no_header: bool = call.has_flag("no-header")?;
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
