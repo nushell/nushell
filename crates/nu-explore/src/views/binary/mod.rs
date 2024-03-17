@@ -277,7 +277,7 @@ fn report_row_position(cursor: XYCursor) -> String {
         return String::from("Top");
     }
 
-    // todo: there's some bug in XYCursor; when we hit PgDOWN/UP and general move it excedes the limit
+    // todo: there's some bug in XYCursor; when we hit PgDOWN/UP and general move it exceeds the limit
     //       not sure when it was introduced and if present in original view.
     //       but it just requires a refactoring as these method names are just ..... not perfect.
     let row = cursor.row().min(cursor.row_limit());
