@@ -20,7 +20,7 @@ use nu_protocol::{
 use pager::{Page, Pager};
 use registry::{Command, CommandRegistry};
 use terminal_size::{Height, Width};
-use views::{InformationView, Orientation, Preview, RecordView, BinaryView};
+use views::{BinaryView, InformationView, Orientation, Preview, RecordView};
 
 use pager::{PagerConfig, StyleConfig};
 
