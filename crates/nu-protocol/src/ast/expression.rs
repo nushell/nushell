@@ -1,6 +1,6 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
-    engine::{EngineState, StateWorkingSet},
+    engine::StateWorkingSet,
     BlockId, DeclId, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
@@ -485,12 +485,11 @@ impl Expression {
     }
 
     pub fn new_existing(
-        engine_state: &EngineState,
         expr: Expr,
         span: Span,
+        span_id: SpanId,
         ty: Type,
     ) -> Expression {
-        let span_id = engine_state.get_span_id(span);
         Expression {
             expr,
             span,

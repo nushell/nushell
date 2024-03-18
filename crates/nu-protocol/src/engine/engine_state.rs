@@ -117,6 +117,9 @@ pub const IN_VARIABLE_ID: usize = 1;
 pub const ENV_VARIABLE_ID: usize = 2;
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
+// The first span is unknown span
+pub const UNKNOWN_SPAN_ID: SpanId = SpanId(0);
+
 impl EngineState {
     pub fn new() -> Self {
         Self {
@@ -988,13 +991,11 @@ impl EngineState {
     }
 
     /// Find ID of a span
-    pub fn get_span_id(&self, span: Span) -> SpanId {
-        SpanId(
+    pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
             self.spans
                 .iter()
                 .position(|sp| sp == &span)
-                .expect("span not found"),
-        )
+                .map(SpanId)
     }
 }
 
