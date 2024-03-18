@@ -1035,10 +1035,6 @@ where
     let result = serde_json::to_string(value);
     match result {
         Ok(result_string) => Ok(result_string),
-        _ => Err(Error::Syntax(
-            ErrorCode::Custom("Unexpected error during deserialization".to_string()),
-            0,
-            0,
-        )),
+        Err(error) => Err(Error::Io(std::io::Error::from(error))),
     }
 }
