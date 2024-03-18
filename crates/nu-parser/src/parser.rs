@@ -2308,7 +2308,6 @@ pub fn parse_unit_value<'res>(
             Expr::ValueWithUnit(
                 Box::new(Expression::new_unknown(
                     Expr::Int(num),
-                    lhs_span,
                     Type::Number,
                 )),
                 Spanned {
@@ -2316,7 +2315,6 @@ pub fn parse_unit_value<'res>(
                     span: unit_span,
                 },
             ),
-            span,
             ty,
         );
 

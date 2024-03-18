@@ -1,7 +1,7 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, RecordItem},
     engine::{EngineState, StateWorkingSet},
-    BlockId, DeclId, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
+    BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -20,7 +20,7 @@ impl Expression {
         let span_id = working_set.add_span(span);
         Expression {
             expr: Expr::Garbage,
-            span,
+            span: todo!(),
             span_id,
             ty: Type::Any,
             custom_completion: None,
@@ -315,18 +315,18 @@ impl Expression {
         &mut self,
         working_set: &mut StateWorkingSet,
         replaced: Span,
-        new_span: Span,
+        new_span_id: SpanId,
     ) {
-        if replaced.contains_span(self.span) {
-            self.span = new_span;
+        if replaced.contains_span(working_set.get_span(self.span_id)) {
+            self.span_id = new_span_id;
         }
         match &mut self.expr {
             Expr::BinaryOp(left, _, right) => {
-                left.replace_span(working_set, replaced, new_span);
-                right.replace_span(working_set, replaced, new_span);
+                left.replace_span(working_set, replaced, new_span_id);
+                right.replace_span(working_set, replaced, new_span_id);
             }
             Expr::UnaryNot(expr) => {
-                expr.replace_span(working_set, replaced, new_span);
+                expr.replace_span(working_set, replaced, new_span_id);
             }
             Expr::Block(block_id) => {
                 // We are cloning the Block itself, rather than the Arc around it.
@@ -334,7 +334,7 @@ impl Expression {
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
-                        element.replace_span(working_set, replaced, new_span)
+                        element.replace_span(working_set, replaced, new_span_id)
                     }
                 }
 
@@ -345,7 +345,7 @@ impl Expression {
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
-                        element.replace_span(working_set, replaced, new_span)
+                        element.replace_span(working_set, replaced, new_span_id)
                     }
                 }
 
@@ -355,18 +355,18 @@ impl Expression {
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 if replaced.contains_span(call.head) {
-                    call.head = new_span;
+                    call.head = working_set.get_span(new_span_id);
                 }
                 for arg in call.arguments.iter_mut() {
                     match arg {
                         Argument::Positional(expr)
                         | Argument::Unknown(expr)
                         | Argument::Spread(expr) => {
-                            expr.replace_span(working_set, replaced, new_span);
+                            expr.replace_span(working_set, replaced, new_span_id);
                         }
                         Argument::Named(named) => {
                             if let Some(expr) = &mut named.2 {
-                                expr.replace_span(working_set, replaced, new_span);
+                                expr.replace_span(working_set, replaced, new_span_id);
                             }
                         }
                     }
@@ -375,9 +375,9 @@ impl Expression {
             Expr::CellPath(_) => {}
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
-                head.replace_span(working_set, replaced, new_span);
+                head.replace_span(working_set, replaced, new_span_id);
                 for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
-                    expr.replace_span(working_set, replaced, new_span);
+                    expr.replace_span(working_set, replaced, new_span_id);
                 }
             }
             Expr::Filepath(_, _) => {}
@@ -386,7 +386,7 @@ impl Expression {
             Expr::FullCellPath(full_cell_path) => {
                 full_cell_path
                     .head
-                    .replace_span(working_set, replaced, new_span);
+                    .replace_span(working_set, replaced, new_span_id);
             }
             Expr::ImportPattern(_) => {}
             Expr::Overlay(_) => {}
@@ -395,33 +395,33 @@ impl Expression {
             Expr::GlobPattern(_, _) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
-            Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
+            Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span_id),
             Expr::List(list) => {
                 for l in list {
-                    l.replace_span(working_set, replaced, new_span)
+                    l.replace_span(working_set, replaced, new_span_id)
                 }
             }
             Expr::Operator(_) => {}
             Expr::Range(left, middle, right, ..) => {
                 if let Some(left) = left {
-                    left.replace_span(working_set, replaced, new_span)
+                    left.replace_span(working_set, replaced, new_span_id)
                 }
                 if let Some(middle) = middle {
-                    middle.replace_span(working_set, replaced, new_span)
+                    middle.replace_span(working_set, replaced, new_span_id)
                 }
                 if let Some(right) = right {
-                    right.replace_span(working_set, replaced, new_span)
+                    right.replace_span(working_set, replaced, new_span_id)
                 }
             }
             Expr::Record(items) => {
                 for item in items {
                     match item {
                         RecordItem::Pair(field_name, field_value) => {
-                            field_name.replace_span(working_set, replaced, new_span);
-                            field_value.replace_span(working_set, replaced, new_span);
+                            field_name.replace_span(working_set, replaced, new_span_id);
+                            field_value.replace_span(working_set, replaced, new_span_id);
                         }
                         RecordItem::Spread(_, record) => {
-                            record.replace_span(working_set, replaced, new_span);
+                            record.replace_span(working_set, replaced, new_span_id);
                         }
                     }
                 }
@@ -430,7 +430,7 @@ impl Expression {
             Expr::String(_) => {}
             Expr::StringInterpolation(items) => {
                 for i in items {
-                    i.replace_span(working_set, replaced, new_span)
+                    i.replace_span(working_set, replaced, new_span_id)
                 }
             }
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
@@ -438,7 +438,7 @@ impl Expression {
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
-                        element.replace_span(working_set, replaced, new_span)
+                        element.replace_span(working_set, replaced, new_span_id)
                     }
                 }
 
@@ -446,20 +446,20 @@ impl Expression {
             }
             Expr::Table(headers, cells) => {
                 for header in headers {
-                    header.replace_span(working_set, replaced, new_span)
+                    header.replace_span(working_set, replaced, new_span_id)
                 }
 
                 for row in cells {
                     for cell in row.iter_mut() {
-                        cell.replace_span(working_set, replaced, new_span)
+                        cell.replace_span(working_set, replaced, new_span_id)
                     }
                 }
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
+            Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span_id),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
-            Expr::Spread(expr) => expr.replace_span(working_set, replaced, new_span),
+            Expr::Spread(expr) => expr.replace_span(working_set, replaced, new_span_id),
         }
     }
 
@@ -467,27 +467,27 @@ impl Expression {
         let span_id = working_set.add_span(span);
         Expression {
             expr,
-            span,
+            span: todo!(),
             span_id,
             ty,
             custom_completion: None,
         }
     }
 
-    pub fn new_existing(expr: Expr, span: Span, span_id: SpanId, ty: Type) -> Expression {
+    pub fn new_existing(expr: Expr, span_id: SpanId, ty: Type) -> Expression {
         Expression {
             expr,
-            span,
+            span: todo!(),
             span_id,
             ty,
             custom_completion: None,
         }
     }
 
-    pub fn new_unknown(expr: Expr, span: Span, ty: Type) -> Expression {
+    pub fn new_unknown(expr: Expr, ty: Type) -> Expression {
         Expression {
             expr,
-            span,
+            span: todo!(),
             span_id: SpanId(0),
             ty,
             custom_completion: None,
@@ -497,7 +497,7 @@ impl Expression {
     pub fn with_span_id(self, span_id: SpanId) -> Expression {
         Expression {
             expr: self.expr,
-            span: self.span,
+            span: todo!(),
             span_id,
             ty: self.ty,
             custom_completion: self.custom_completion,

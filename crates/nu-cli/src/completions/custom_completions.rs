@@ -55,12 +55,10 @@ impl Completer for CustomCompletion {
                 arguments: vec![
                     Argument::Positional(Expression::new_unknown(
                         Expr::String(self.line.clone()),
-                        Span::unknown(),
                         Type::String,
                     )),
                     Argument::Positional(Expression::new_unknown(
                         Expr::Int(line_pos as i64),
-                        Span::unknown(),
                         Type::Int,
                     )),
                 ],

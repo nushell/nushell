@@ -4,7 +4,7 @@ use crate::{
         ExternalArgument, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
+    Config, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -12,7 +12,7 @@ use std::{borrow::Cow, collections::HashMap};
 pub trait Eval {
     /// State that doesn't need to be mutated.
     /// EngineState for regular eval and StateWorkingSet for const eval
-    type State<'a>: Copy;
+    type State<'a>: Copy + GetSpan;
 
     /// State that needs to be mutated.
     /// This is the stack for regular eval, and unused by const eval
@@ -23,8 +23,10 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         expr: &Expression,
     ) -> Result<Value, ShellError> {
+        let expr_span = state.get_span(expr.span_id);
+
         match &expr.expr {
-            Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
+            Expr::Bool(b) => Ok(Value::bool(*b, expr_span)),
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),

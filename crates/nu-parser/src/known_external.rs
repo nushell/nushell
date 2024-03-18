@@ -64,7 +64,6 @@ impl Command for KnownExternal {
 
         let arg_extern_name = Expression::new_existing(
             Expr::String(extern_name[0].to_string()),
-            call.head,
             call_head_id,
             Type::String,
         );
@@ -74,7 +73,6 @@ impl Command for KnownExternal {
         for subcommand in extern_name.into_iter().skip(1) {
             extern_call.add_positional(Expression::new_existing(
                 Expr::String(subcommand.to_string()),
-                call.head,
                 call_head_id,
                 Type::String,
             ));
@@ -90,14 +88,12 @@ impl Command for KnownExternal {
                     if let Some(short) = &named.1 {
                         extern_call.add_positional(Expression::new_existing(
                             Expr::String(format!("-{}", short.item)),
-                            named.0.span,
                             named_span_id,
                             Type::String,
                         ));
                     } else {
                         extern_call.add_positional(Expression::new_existing(
                             Expr::String(format!("--{}", named.0.item)),
-                            named.0.span,
                             named_span_id,
                             Type::String,
                         ));

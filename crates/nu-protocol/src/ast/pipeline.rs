@@ -102,17 +102,18 @@ impl PipelineElement {
         &mut self,
         working_set: &mut StateWorkingSet,
         replaced: Span,
-        new_span: Span,
+        // new_span: Span,
+        new_span_id: SpanId,
     ) {
-        self.expr.replace_span(working_set, replaced, new_span);
+        self.expr.replace_span(working_set, replaced, new_span_id);
         if let Some(expr) = self.redirection.as_mut() {
             match expr {
                 PipelineRedirection::Single { target, .. } => {
-                    target.replace_span(working_set, replaced, new_span)
+                    target.replace_span(working_set, replaced, new_span_id)
                 }
                 PipelineRedirection::Separate { out, err } => {
-                    out.replace_span(working_set, replaced, new_span);
-                    err.replace_span(working_set, replaced, new_span);
+                    out.replace_span(working_set, replaced, new_span_id);
+                    err.replace_span(working_set, replaced, new_span_id);
                 }
             }
         }
