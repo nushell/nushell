@@ -11,7 +11,10 @@ use nu_protocol::CustomValue;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::eager::{ColumnsDF, FirstDF, LastDF, OpenDataFrame, ToCSV, ToDataFrame, ToNu};
+use crate::{
+    eager::{ColumnsDF, FirstDF, LastDF, OpenDataFrame, ToCSV, ToDataFrame, ToNu},
+    lazy::LazyAggregate,
+};
 
 lazy_static! {
     static ref DATAFRAME_CACHE: Arc<DataFrameCache> = Arc::new(DataFrameCache::new());
@@ -109,6 +112,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(ColumnsDF),
             Box::new(ToNu),
             Box::new(ToCSV),
+            Box::new(LazyAggregate),
         ]
     }
 

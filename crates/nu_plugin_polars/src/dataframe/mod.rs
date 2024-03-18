@@ -1,6 +1,6 @@
 pub mod eager;
 // mod expressions;
-mod lazy;
+pub mod lazy;
 // mod series;
 // mod stub;
 // mod utils;
