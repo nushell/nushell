@@ -7,7 +7,6 @@ fn cal_full_year() {
     let first_week_2010_json =
         r#"{"year":2010,"su":null,"mo":null,"tu":null,"we":null,"th":null,"fr":1,"sa":2}"#;
 
-
     assert_eq!(actual.out, first_week_2010_json);
 }
 

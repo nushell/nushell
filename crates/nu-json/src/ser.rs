@@ -1032,26 +1032,13 @@ pub fn to_string_raw<T>(value: &T) -> Result<String>
 where
     T: ser::Serialize,
 {
-    let vec = to_vec(value)?;
-    let string = String::from_utf8(vec)?;
-
-    let mut inside_quotes = false;
-    let mut current_char_escaped = false;
-    let output = string
-        .chars()
-        .filter(|c| -> bool {
-            if *c == '\"' && !current_char_escaped {
-                inside_quotes = !inside_quotes;
-            }
-
-            current_char_escaped = *c == '\\' && !current_char_escaped;
-
-            if inside_quotes {
-                true
-            } else {
-                !c.is_whitespace()
-            }
-        })
-        .collect();
-    Ok(output)
+    let result = serde_json::to_string(value);
+    match result {
+        Ok(result_string) => Ok(result_string),
+        _ => Err(Error::Syntax(
+            ErrorCode::Custom("Unexpected error during deserialization".to_string()),
+            0,
+            0,
+        )),
+    }
 }
