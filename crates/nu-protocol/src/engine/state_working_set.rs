@@ -1023,6 +1023,18 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.spans.push(span);
         SpanId(num_permanent_spans + self.delta.spans.len() - 1)
     }
+
+    pub fn get_span(&self, span_id: SpanId) -> Span {
+        let num_permanent_spans = self.permanent_state.num_spans();
+        if span_id.0 < num_permanent_spans {
+            self.permanent_state.get_span(span_id)
+        } else {
+            *self.delta
+                .spans
+                .get(&span_id.0 - &num_permanent_spans)
+                .expect("internal error: missing span")
+        }
+    }
 }
 
 impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
