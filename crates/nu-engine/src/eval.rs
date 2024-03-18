@@ -512,7 +512,6 @@ fn eval_element_with_input<D: DebugContext>(
 
                     if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                         let save_call = gen_save_call(
-                            engine_state,
                             save_command,
                             (*span, expr.clone(), *is_append_mode),
                             None,
@@ -602,7 +601,6 @@ fn eval_element_with_input<D: DebugContext>(
                         _ => None,
                     };
                     let save_call = gen_save_call(
-                        engine_state,
                         save_command,
                         (*out_span, out_expr.clone(), *out_append_mode),
                         Some((*err_span, err_expr.clone(), *err_append_mode)),
@@ -1023,7 +1021,6 @@ pub fn eval_variable(
 }
 
 fn gen_save_call(
-    engine_state: &EngineState,
     save_decl_id: DeclId,
     out_info: (Span, Expression, bool),
     err_info: Option<(Span, Expression, bool)>,
