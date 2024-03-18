@@ -497,14 +497,14 @@ pub fn eval_block<D: DebugContext>(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
+            let (next_out, next_err) = next.stdio_redirect(engine_state);
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
                 element.redirection.as_ref(),
-                next.stdio_redirect(engine_state),
+                (next_out.or(Some(IoStream::Pipe)), next_err),
             )?;
-            let stack = &mut stack
-                .push_redirection(stdout.or(Some(Redirection::Pipe(IoStream::Pipe))), stderr);
+            let stack = &mut stack.push_redirection(stdout, stderr);
             let (output, failed) =
                 eval_element_with_input::<D>(engine_state, stack, element, input)?;
             if failed {
