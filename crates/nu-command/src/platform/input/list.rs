@@ -1,6 +1,6 @@
 use dialoguer::{console::Term, Select};
 use dialoguer::{FuzzySelect, MultiSelect};
-use nu_engine::CallExt;
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -52,8 +52,11 @@ impl Command for InputList {
             .switch("index", "Returns list indexes.", Some('i'))
             .named(
                 "display",
-                SyntaxShape::CellPath,
-                "Field to use as display value",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                ]),
+                "Field to use as display value, or closure to compute it",
                 Some('d'),
             )
             .allow_variants_without_examples(true)
@@ -84,27 +87,76 @@ impl Command for InputList {
         let multi = call.has_flag(engine_state, stack, "multi")?;
         let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
         let index = call.has_flag(engine_state, stack, "index")?;
-        let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
+        let display_arg: Option<Value> = call.get_flag(engine_state, stack, "display")?;
 
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => input
-                .into_iter()
-                .map(move |val| {
-                    let display_value = if let Some(ref cellpath) = display_path {
-                        val.clone()
-                            .follow_cell_path(&cellpath.members, false)?
-                            .to_expanded_string(", ", engine_state.get_config())
-                    } else {
-                        val.to_expanded_string(", ", engine_state.get_config())
-                    };
-                    Ok(Options {
-                        name: display_value,
-                        value: val,
+            | PipelineData::ListStream { .. } => {
+                let labels: Result<Vec<Options>, ShellError> = input
+                    .into_iter()
+                    .map(move |item: Value| {
+                        if let Some(display_arg) = &display_arg {
+                            match display_arg {
+                                // We match the closure that creates the display strings depending on whether the user haas given us a cell path/closure/nothing to use.
+                                Value::CellPath { val, .. } => Ok(Options {
+                                    name: item
+                                        .clone()
+                                        .follow_cell_path(&val.members, false)?
+                                        .to_expanded_string(", ", engine_state.get_config()),
+                                    value: item,
+                                }),
+                                Value::Closure { val, .. } => {
+                                    // See insert.rs:insert_value_by_closure
+                                    let span = display_arg.span();
+                                    let closure = val;
+                                    let block = engine_state.get_block(closure.block_id);
+                                    let mut stack_clone = stack.captures_to_stack(closure.captures.clone()).clone();  // Create a stack for our closure, containing the vars it captures.
+
+                                    // Closure argument
+                                    if let Some(var) = block.signature.get_positional(0) {  // If the closure takes a positional argument (ie.: {|arg| ... })
+                                        if let Some(var_id) = &var.var_id {
+                                            stack_clone.add_var(*var_id, item.clone());        // Add the item into the place of that argument.
+                                        }
+                                    }
+                                    
+                                    // Closure pipeline input
+                                    let closure_input = item.clone().into_pipeline_data();
+                                    
+                                    let output = eval_block(
+                                        engine_state,
+                                        &mut stack_clone,
+                                        block,
+                                        closure_input,
+                                        call.redirect_stdout,
+                                        call.redirect_stderr,
+                                    )?;
+
+                                    Ok(Options {
+                                        name: output
+                                            .into_value(span)
+                                            .to_expanded_string(", ", engine_state.get_config()),
+                                        value: item,
+                                    })
+                                }
+                                _ => Err(ShellError::TypeMismatch {
+                                    err_message: "--display expects either a cell path or a closure"
+                                        .to_string(),
+                                    span: head,
+                                }),
+                            }
+                        }
+                        else {
+                            Ok(Options {
+                                name: item.to_expanded_string(", ", engine_state.get_config()),
+                                value: item,
+                            })
+                        }
                     })
-                })
-                .collect::<Result<Vec<_>, ShellError>>()?,
+                    .collect();
+
+                labels?
+            }
 
             _ => {
                 return Err(ShellError::TypeMismatch {
@@ -253,7 +305,12 @@ impl Command for InputList {
             },
             Example {
                 description: "Choose an item from a table using a column as display value",
-                example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name"#,
+                example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d $.name"#,
+                result: None,
+            },
+            Example {
+                description: "Choose an item using a closure to compute display value",
+                example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d {|| get name}"#,
                 result: None,
             },
         ]
