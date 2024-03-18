@@ -125,10 +125,13 @@ impl Plugin for PolarsDataFramePlugin {
         let any = custom_value.as_any();
 
         if let Some(df) = any.downcast_ref::<NuDataFrameCustomValue>() {
-            eprintln!("removing id: {:?} from cache", df.id);
+            eprintln!("removing DataFrame id: {:?} from cache", df.id);
             DATAFRAME_CACHE.remove(&df.id);
         } else if let Some(lazy) = any.downcast_ref::<NuLazyFrameCustomValue>() {
-            eprintln!("removing id: {:?} from cache", lazy.id);
+            eprintln!("removing LazyFrame id: {:?} from cache", lazy.id);
+            DATAFRAME_CACHE.remove(&lazy.id);
+        } else if let Some(lazy) = any.downcast_ref::<NuLazyGroupBy>() {
+            eprintln!("removing GroupBy id: {:?} from cache", lazy.id);
             DATAFRAME_CACHE.remove(&lazy.id);
         }
         Ok(())
