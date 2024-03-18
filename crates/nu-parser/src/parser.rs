@@ -752,6 +752,7 @@ pub fn parse_internal_call(
     let mut call = Call::new(command_span);
     call.decl_id = decl_id;
     call.head = command_span;
+    let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
@@ -872,6 +873,8 @@ pub fn parse_internal_call(
                 call.add_unknown(arg);
             } else {
                 for flag in short_flags {
+                    let _ = working_set.add_span(spans[spans_idx]);
+
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
                             let arg = parse_value(working_set, *arg, &arg_shape);
