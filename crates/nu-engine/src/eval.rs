@@ -1038,6 +1038,9 @@ fn gen_save_call(
         parser_info: HashMap::new(),
     };
 
+    let out_expr_span = out_expr.span;
+    let out_span_id = out_expr.span_id;
+
     let mut args = vec![
         Argument::Positional(out_expr),
         Argument::Named((
@@ -1060,10 +1063,13 @@ fn gen_save_call(
     if out_append_mode {
         call.set_parser_info(
             "out-append".to_string(),
-            Expression::new_existing(engine_state, Expr::Bool(true), out_span, Type::Bool),
+            Expression::new_existing(Expr::Bool(true), out_expr_span, out_span_id, Type::Bool),
         );
     }
     if let Some((err_span, err_expr, err_append_mode)) = err_info {
+        let err_expr_span = err_expr.span;
+        let err_span_id = err_expr.span_id;
+
         args.push(Argument::Named((
             Spanned {
                 item: "stderr".into(),
@@ -1075,7 +1081,7 @@ fn gen_save_call(
         if err_append_mode {
             call.set_parser_info(
                 "err-append".to_string(),
-                Expression::new_existing(engine_state, Expr::Bool(true), err_span, Type::Bool),
+                Expression::new_existing(Expr::Bool(true), err_expr_span, err_span_id, Type::Bool),
             );
         }
     }

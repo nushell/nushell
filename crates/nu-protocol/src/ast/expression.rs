@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use super::{Argument, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
-use crate::engine::EngineState;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 use crate::{DeclId, SpanId};
 
@@ -474,12 +473,11 @@ impl Expression {
     }
 
     pub fn new_existing(
-        engine_state: &EngineState,
         expr: Expr,
         span: Span,
+        span_id: SpanId,
         ty: Type,
     ) -> Expression {
-        let span_id = engine_state.get_span_id(span);
         Expression {
             expr,
             span,
