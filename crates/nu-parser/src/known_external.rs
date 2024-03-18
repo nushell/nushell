@@ -56,11 +56,12 @@ impl Command for KnownExternal {
         };
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
+        let call_head_id = engine_state.find_span_id(call.head).expect("missing head span");
 
         let arg_extern_name = Expression::new_existing(
-            engine_state,
             Expr::String(extern_name[0].to_string()),
             call.head,
+            call_head_id,
             Type::String,
         );
 
@@ -68,9 +69,9 @@ impl Command for KnownExternal {
 
         for subcommand in extern_name.into_iter().skip(1) {
             extern_call.add_positional(Expression::new_existing(
-                engine_state,
                 Expr::String(subcommand.to_string()),
                 call.head,
+                call_head_id,
                 Type::String,
             ));
         }
@@ -79,18 +80,19 @@ impl Command for KnownExternal {
             match arg {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
                 Argument::Named(named) => {
+                    let named_span_id = engine_state.find_span_id(named.0.span).expect("missing named span");
                     if let Some(short) = &named.1 {
                         extern_call.add_positional(Expression::new_existing(
-                            engine_state,
                             Expr::String(format!("-{}", short.item)),
                             named.0.span,
+                            named_span_id,
                             Type::String,
                         ));
                     } else {
                         extern_call.add_positional(Expression::new_existing(
-                            engine_state,
                             Expr::String(format!("--{}", named.0.item)),
                             named.0.span,
+                            named_span_id,
                             Type::String,
                         ));
                     }
