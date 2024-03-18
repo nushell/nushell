@@ -5,7 +5,7 @@ use std::{
 
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, PipelineData,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    PluginExample, PluginSignature, ShellError, Span, Spanned, Value,
 };
 
 use crate::{
@@ -779,6 +779,48 @@ fn interface_write_signature() -> Result<(), ShellError> {
             assert_eq!(36, id, "id");
             match response {
                 PluginCallResponse::Signature(sigs) => assert_eq!(1, sigs.len(), "sigs.len"),
+                _ => panic!("unexpected response: {response:?}"),
+            }
+        }
+        _ => panic!("unexpected message written: {written:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_write_signature_custom_value() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let interface = test.engine().interface_for_context(38);
+    let signatures = vec![PluginSignature::build("test command").plugin_examples(vec![
+        PluginExample {
+            example: "test command".into(),
+            description: "a test".into(),
+            result: Some(Value::test_custom_value(Box::new(
+                expected_test_custom_value(),
+            ))),
+        },
+    ])];
+    interface.write_signature(signatures.clone())?;
+
+    let written = test.next_written().expect("nothing written");
+
+    match written {
+        PluginOutput::CallResponse(id, response) => {
+            assert_eq!(38, id, "id");
+            match response {
+                PluginCallResponse::Signature(sigs) => {
+                    assert_eq!(1, sigs.len(), "sigs.len");
+
+                    let sig = &sigs[0];
+                    assert_eq!(1, sig.examples.len(), "sig.examples.len");
+
+                    assert_eq!(
+                        Some(Value::test_int(expected_test_custom_value().0 as i64)),
+                        sig.examples[0].result,
+                    );
+                }
                 _ => panic!("unexpected response: {response:?}"),
             }
         }

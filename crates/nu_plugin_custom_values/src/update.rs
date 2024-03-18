@@ -3,7 +3,7 @@ use crate::{
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, ShellError, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, ShellError, Span, Value};
 
 pub struct Update;
 
@@ -14,6 +14,18 @@ impl SimplePluginCommand for Update {
         PluginSignature::build("custom-value update")
             .usage("PluginSignature for a plugin that updates a custom value")
             .category(Category::Experimental)
+            .plugin_examples(vec![
+                PluginExample {
+                    example: "custom-value generate | custom-value update".into(),
+                    description: "Update a CoolCustomValue".into(),
+                    result: Some(CoolCustomValue::new("abcxyz").into_value(Span::test_data())),
+                },
+                PluginExample {
+                    example: "custom-value generate | custom-value update".into(),
+                    description: "Update a SecondCustomValue".into(),
+                    result: Some(CoolCustomValue::new("xyzabc").into_value(Span::test_data())),
+                },
+            ])
     }
 
     fn run(
