@@ -571,6 +571,9 @@ impl EngineState {
         self.modules.len()
     }
 
+    pub fn num_spans(&self) -> usize {
+        self.spans.len()
+    }
     pub fn print_vars(&self) {
         for var in self.vars.iter().enumerate() {
             println!("var{}: {:?}", var.0, var.1);
@@ -1029,12 +1032,12 @@ impl EngineState {
     /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
         self.spans.push(span);
-        SpanId(self.spans.len() - 1)
+        SpanId(self.num_spans() - 1)
     }
 
     /// Get existing span
     pub fn get_span(&self, span_id: SpanId) -> Span {
-        self.spans[span_id.0]
+        *self.spans.get(&span_id.0).expect("internal error: missing span")
     }
 
     /// Find ID of a span (should be avoided if possible)
