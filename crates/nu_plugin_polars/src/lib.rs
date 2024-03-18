@@ -12,7 +12,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    eager::{ColumnsDF, FirstDF, LastDF, OpenDataFrame, ToCSV, ToDataFrame, ToNu},
+    eager::{ColumnsDF, FirstDF, LastDF, OpenDataFrame, ToArrow, ToCSV, ToDataFrame, ToNu},
     lazy::{LazyAggregate, LazyCollect},
 };
 
@@ -111,6 +111,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(LastDF),
             Box::new(ColumnsDF),
             Box::new(ToNu),
+            Box::new(ToArrow),
             Box::new(ToCSV),
             Box::new(LazyAggregate),
             Box::new(LazyCollect),

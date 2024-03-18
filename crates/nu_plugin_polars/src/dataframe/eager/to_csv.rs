@@ -62,7 +62,7 @@ fn command(call: &EvaluatedCall, input: PipelineData) -> Result<PipelineData, Sh
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
 
-    let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
@@ -103,7 +103,7 @@ fn command(call: &EvaluatedCall, input: PipelineData) -> Result<PipelineData, Sh
     };
 
     writer
-        .finish(df.as_mut())
+        .finish(&mut df.to_polars())
         .map_err(|e| ShellError::GenericError {
             error: "Error writing to file".into(),
             msg: e.to_string(),

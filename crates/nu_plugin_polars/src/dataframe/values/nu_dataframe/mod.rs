@@ -92,12 +92,6 @@ impl AsRef<DataFrame> for NuDataFrame {
     }
 }
 
-impl AsMut<DataFrame> for NuDataFrame {
-    fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
-        Arc::<DataFrame>::get_mut(&mut self.df).expect("should be able to get mut")
-    }
-}
-
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
         Self::new(false, df)
@@ -116,8 +110,12 @@ impl NuDataFrame {
         s
     }
 
+    pub fn to_polars(&self) -> DataFrame {
+        (*self.df).clone()
+    }
+
     pub fn lazy(&self) -> LazyFrame {
-        (*self.df).clone().lazy()
+        self.to_polars().lazy()
     }
 
     fn default_value(span: Span) -> Value {
