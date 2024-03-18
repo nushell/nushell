@@ -64,6 +64,12 @@ impl Clone for IsDebugging {
 /// will refer to the corresponding IDs rather than their definitions directly. At runtime, this means
 /// less copying and smaller structures.
 ///
+/// Many of the larger objects in this structure are stored within `Arc` to decrease the cost of
+/// cloning `EngineState`. While `Arc`s are generally immutable, they can be modified using
+/// `Arc::make_mut`, which automatically clones to a new allocation if there are other copies of
+/// the `Arc` already in use, but will let us modify the `Arc` directly if we have the only
+/// reference to it.
+///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
 #[derive(Clone)]
