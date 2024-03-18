@@ -372,19 +372,29 @@ impl CustomValue for SQLiteDatabase {
         self
     }
 
-    fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
+    fn follow_path_int(
+        &self,
+        _self_span: Span,
+        _index: usize,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
         // In theory we could support this, but tables don't have an especially well-defined order
-        Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span })
+        Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span: path_span })
     }
 
-    fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, span)?;
+    fn follow_path_string(
+        &self,
+        _self_span: Span,
+        _column_name: String,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let db = open_sqlite_db(&self.path, path_span)?;
 
-        read_single_table(db, _column_name, span, self.ctrlc.clone()).map_err(|e| {
+        read_single_table(db, _column_name, path_span, self.ctrlc.clone()).map_err(|e| {
             ShellError::GenericError {
                 error: "Failed to read from SQLite database".into(),
                 msg: e.to_string(),
-                span: Some(span),
+                span: Some(path_span),
                 help: None,
                 inner: vec![],
             }

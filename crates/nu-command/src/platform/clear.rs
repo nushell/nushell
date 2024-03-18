@@ -3,6 +3,7 @@ use crossterm::{
     terminal::{Clear as ClearCommand, ClearType},
     QueueableCommand,
 };
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type};
@@ -24,17 +25,26 @@ impl Command for Clear {
         Signature::build("clear")
             .category(Category::Platform)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .switch(
+                "all",
+                "Clear the terminal and its scroll-back history",
+                Some('a'),
+            )
     }
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let clear_type: ClearType = match call.has_flag(engine_state, stack, "all")? {
+            true => ClearType::Purge,
+            _ => ClearType::All,
+        };
         std::io::stdout()
-            .queue(ClearCommand(ClearType::All))?
+            .queue(ClearCommand(clear_type))?
             .queue(MoveTo(0, 0))?
             .flush()?;
 
@@ -42,10 +52,17 @@ impl Command for Clear {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Clear the terminal",
-            example: "clear",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Clear the terminal",
+                example: "clear",
+                result: None,
+            },
+            Example {
+                description: "Clear the terminal and its scroll-back history",
+                example: "clear --all",
+                result: None,
+            },
+        ]
     }
 }

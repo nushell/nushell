@@ -164,7 +164,7 @@ fn redirection_keep_exit_codes() {
     Playground::setup("redirection preserves exit code", |dirs, _| {
         let out = nu!(
             cwd: dirs.test(),
-            "do -i { nu --testbin fail e> a.txt } | complete | get exit_code"
+            "nu --testbin fail e> a.txt | complete | get exit_code"
         );
         // needs to use contains "1", because it complete will output `Some(RawStream)`.
         assert!(out.out.contains('1'));
@@ -358,7 +358,7 @@ fn redirection_with_out_pipe() {
             r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
         );
 
-        assert_eq!(actual.out, "8");
+        assert_eq!(actual.out, "7");
         // check for stderr redirection file.
         let expected_out_file = dirs.test().join("tmp_file");
         let actual_len = file_contents(expected_out_file).len();
@@ -376,7 +376,7 @@ fn redirection_with_err_pipe() {
             r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out> tmp_file e>| str length"#,
         );
 
-        assert_eq!(actual.out, "8");
+        assert_eq!(actual.out, "7");
         // check for stdout redirection file.
         let expected_out_file = dirs.test().join("tmp_file");
         let actual_len = file_contents(expected_out_file).len();
@@ -392,7 +392,7 @@ fn no_redirection_with_outerr_pipe() {
                 cwd: dirs.test(),
                 &format!("echo 3 {redirect_type} a.txt o+e>| str length")
             );
-            assert!(actual.err.contains("not allowed to use with redirection"));
+            assert!(actual.err.contains("Multiple redirections provided"));
             assert!(
                 !dirs.test().join("a.txt").exists(),
                 "No file should be created on error"
@@ -404,7 +404,7 @@ fn no_redirection_with_outerr_pipe() {
             cwd: dirs.test(),
             "echo 3 o> a.txt e> b.txt o+e>| str length"
         );
-        assert!(actual.err.contains("not allowed to use with redirection"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"
@@ -423,7 +423,7 @@ fn no_duplicate_redirection() {
             cwd: dirs.test(),
             "echo 3 o> a.txt o> a.txt"
         );
-        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"
@@ -432,7 +432,7 @@ fn no_duplicate_redirection() {
             cwd: dirs.test(),
             "echo 3 e> a.txt e> a.txt"
         );
-        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"

@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, IntoSpanned, IoStream, PipelineData, Record, ShellError,
+    Signature, Type, Value,
 };
 
 use std::thread;
@@ -52,9 +53,9 @@ impl Command for Complete {
                 // consumes the first 65535 bytes
                 // So we need a thread to receive stderr message, then the current thread can continue to consume
                 // stdout messages.
-                let stderr_handler = stderr.map(|stderr| {
-                    let stderr_span = stderr.span;
-                    (
+                let stderr_handler = stderr
+                    .map(|stderr| {
+                        let stderr_span = stderr.span;
                         thread::Builder::new()
                             .name("stderr consumer".to_string())
                             .spawn(move || {
@@ -65,10 +66,10 @@ impl Command for Complete {
                                     Ok::<_, ShellError>(Value::binary(stderr.item, stderr.span))
                                 }
                             })
-                            .expect("failed to create thread"),
-                        stderr_span,
-                    )
-                });
+                            .map(|handle| (handle, stderr_span))
+                            .map_err(|err| err.into_spanned(call.head))
+                    })
+                    .transpose()?;
 
                 if let Some(stdout) = stdout {
                     let stdout = stdout.into_bytes()?;
@@ -114,19 +115,15 @@ impl Command for Complete {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description:
-                    "Run the external command to completion, capturing stdout and exit_code",
-                example: "^external arg1 | complete",
-                result: None,
-            },
-            Example {
-                description:
-                    "Run external command to completion, capturing, stdout, stderr and exit_code",
-                example: "do { ^external arg1 } | complete",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description:
+                "Run the external command to completion, capturing stdout, stderr, and exit_code",
+            example: "^external arg1 | complete",
+            result: None,
+        }]
+    }
+
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+        (Some(IoStream::Capture), Some(IoStream::Capture))
     }
 }

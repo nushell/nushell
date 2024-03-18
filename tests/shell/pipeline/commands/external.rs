@@ -1,4 +1,6 @@
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
@@ -93,8 +95,7 @@ fn single_quote_dollar_external() {
 #[test]
 fn redirects_custom_command_external() {
     let actual = nu!("def foo [] { nu --testbin cococo foo bar }; foo | str length");
-
-    assert_eq!(actual.out, "8");
+    assert_eq!(actual.out, "7");
 }
 
 #[test]
@@ -145,8 +146,7 @@ fn command_substitution_wont_output_extra_newline() {
 #[test]
 fn basic_err_pipe_works() {
     let actual = nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr FOO e>| str length }"#);
-    // there is a `newline` output from nu --testbin
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "3");
 }
 
 #[test]
@@ -154,16 +154,43 @@ fn basic_outerr_pipe_works() {
     let actual = nu!(
         r#"with-env [FOO "bar"] { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
     );
-    // there is a `newline` output from nu --testbin
-    assert_eq!(actual.out, "8");
+    assert_eq!(actual.out, "7");
 }
 
 #[test]
 fn err_pipe_with_failed_external_works() {
     let actual =
         nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
-    // there is a `newline` output from nu --testbin
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn dont_run_glob_if_pass_variable_to_external() {
+    Playground::setup("dont_run_glob", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("jt_likes_cake.txt"),
+            EmptyFile("andres_likes_arepas.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nonu $f"#);
+
+        assert_eq!(actual.out, "*.txt");
+    })
+}
+
+#[test]
+fn run_glob_if_pass_variable_to_external() {
+    Playground::setup("run_glob_on_external", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("jt_likes_cake.txt"),
+            EmptyFile("andres_likes_arepas.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nonu ...(glob $f)"#);
+
+        assert!(actual.out.contains("jt_likes_cake.txt"));
+        assert!(actual.out.contains("andres_likes_arepas.txt"));
+    })
 }
 
 mod it_evaluation {

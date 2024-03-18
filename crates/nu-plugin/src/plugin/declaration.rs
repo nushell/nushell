@@ -1,32 +1,27 @@
-use crate::EvaluatedCall;
+use super::{PersistentPlugin, PluginExecutionCommandContext, PluginSource};
+use crate::protocol::{CallInfo, EvaluatedCall};
+use std::sync::Arc;
 
-use super::{call_plugin, create_command, get_plugin_encoding};
-use crate::protocol::{
-    CallInfo, CallInput, PluginCall, PluginCustomValue, PluginData, PluginResponse,
-};
-use std::path::{Path, PathBuf};
+use nu_engine::get_eval_expression;
 
-use nu_engine::eval_block;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
-use nu_protocol::{Example, PipelineData, ShellError, Value};
+use nu_protocol::{Example, PipelineData, PluginIdentity, RegisteredPlugin, ShellError};
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
 pub struct PluginDeclaration {
     name: String,
     signature: PluginSignature,
-    filename: PathBuf,
-    shell: Option<PathBuf>,
+    source: PluginSource,
 }
 
 impl PluginDeclaration {
-    pub fn new(filename: PathBuf, signature: PluginSignature, shell: Option<PathBuf>) -> Self {
+    pub fn new(plugin: &Arc<PersistentPlugin>, signature: PluginSignature) -> Self {
         Self {
             name: signature.sig.name.clone(),
             signature,
-            filename,
-            shell,
+            source: PluginSource::new(plugin),
         }
     }
 }
@@ -76,158 +71,65 @@ impl Command for PluginDeclaration {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Call the command with self path
-        // Decode information from plugin
-        // Create PipelineData
-        let source_file = Path::new(&self.filename);
-        let mut plugin_cmd = create_command(source_file, self.shell.as_deref());
-        // We need the current environment variables for `python` based plugins
-        // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
-        let current_envs = nu_engine::env::env_to_strings(engine_state, stack).unwrap_or_default();
-        plugin_cmd.envs(current_envs);
+        let eval_expression = get_eval_expression(engine_state);
 
-        let mut child = plugin_cmd.spawn().map_err(|err| {
-            let decl = engine_state.get_decl(call.decl_id);
-            ShellError::GenericError {
-                error: format!("Unable to spawn plugin for {}", decl.name()),
-                msg: format!("{err}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            }
-        })?;
+        // Create the EvaluatedCall to send to the plugin first - it's best for this to fail early,
+        // before we actually try to run the plugin command
+        let evaluated_call =
+            EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?;
 
-        let input = input.into_value(call.head);
-        let span = input.span();
-        let input = match input {
-            Value::CustomValue { val, .. } => {
-                match val.as_any().downcast_ref::<PluginCustomValue>() {
-                    Some(plugin_data) if plugin_data.filename == self.filename => {
-                        CallInput::Data(PluginData {
-                            data: plugin_data.data.clone(),
-                            span,
-                        })
-                    }
-                    _ => {
-                        let custom_value_name = val.value_string();
-                        return Err(ShellError::GenericError {
-                            error: format!(
-                                "Plugin {} can not handle the custom value {}",
-                                self.name, custom_value_name
-                            ),
-                            msg: format!("custom value {custom_value_name}"),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![],
-                        });
-                    }
-                }
-            }
-            Value::LazyRecord { val, .. } => CallInput::Value(val.collect()?),
-            value => CallInput::Value(value),
-        };
+        // Get the engine config
+        let engine_config = nu_engine::get_config(engine_state, stack);
 
-        // Fetch the configuration for a plugin
-        //
-        // The `plugin` must match the registered name of a plugin.  For
-        // `register nu_plugin_example` the plugin config lookup uses `"example"`
-        let config = self
-            .filename
-            .file_stem()
-            .and_then(|file| {
-                file.to_string_lossy()
-                    .clone()
-                    .strip_prefix("nu_plugin_")
-                    .map(|name| {
-                        nu_engine::get_config(engine_state, stack)
-                            .plugins
-                            .get(name)
-                            .cloned()
-                    })
+        // Get, or start, the plugin.
+        let plugin = self
+            .source
+            .persistent(None)
+            .and_then(|p| {
+                // Set the garbage collector config from the local config before running
+                p.set_gc_config(engine_config.plugin_gc.get(p.identity().name()));
+                p.get(|| {
+                    // We need the current environment variables for `python` based plugins. Or
+                    // we'll likely have a problem when a plugin is implemented in a virtual Python
+                    // environment.
+                    let stack = &mut stack.start_capture();
+                    nu_engine::env::env_to_strings(engine_state, stack)
+                })
             })
-            .flatten()
-            .map(|value| {
-                let span = value.span();
-                match value {
-                    Value::Closure { val, .. } => {
-                        let input = PipelineData::Empty;
-
-                        let block = engine_state.get_block(val.block_id).clone();
-                        let mut stack = stack.captures_to_stack(val.captures);
-
-                        match eval_block(engine_state, &mut stack, &block, input, false, false) {
-                            Ok(v) => v.into_value(span),
-                            Err(e) => Value::error(e, call.head),
-                        }
-                    }
-                    _ => value.clone(),
+            .map_err(|err| {
+                let decl = engine_state.get_decl(call.decl_id);
+                ShellError::GenericError {
+                    error: format!("Unable to spawn plugin for `{}`", decl.name()),
+                    msg: err.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
                 }
-            });
+            })?;
 
-        let plugin_call = PluginCall::CallInfo(CallInfo {
-            name: self.name.clone(),
-            call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
-            input,
-            config,
-        });
+        // Create the context to execute in - this supports engine calls and custom values
+        let mut context = PluginExecutionCommandContext::new(
+            self.source.identity.clone(),
+            engine_state,
+            stack,
+            call,
+        );
 
-        let encoding = {
-            let stdout_reader = match &mut child.stdout {
-                Some(out) => out,
-                None => {
-                    return Err(ShellError::PluginFailedToLoad {
-                        msg: "Plugin missing stdout reader".into(),
-                    })
-                }
-            };
-            get_plugin_encoding(stdout_reader)?
-        };
-        let response = call_plugin(&mut child, plugin_call, &encoding, call.head).map_err(|err| {
-            let decl = engine_state.get_decl(call.decl_id);
-            ShellError::GenericError {
-                error: format!("Unable to decode call for {}", decl.name()),
-                msg: err.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            }
-        });
-
-        let pipeline_data = match response {
-            Ok(PluginResponse::Value(value)) => {
-                Ok(PipelineData::Value(value.as_ref().clone(), None))
-            }
-            Ok(PluginResponse::PluginData(name, plugin_data)) => Ok(PipelineData::Value(
-                Value::custom_value(
-                    Box::new(PluginCustomValue {
-                        name,
-                        data: plugin_data.data,
-                        filename: self.filename.clone(),
-                        shell: self.shell.clone(),
-                        source: engine_state.get_decl(call.decl_id).name().to_owned(),
-                    }),
-                    plugin_data.span,
-                ),
-                None,
-            )),
-            Ok(PluginResponse::Error(err)) => Err(err.into()),
-            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError {
-                error: "Plugin missing value".into(),
-                msg: "Received a signature from plugin instead of value".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            }),
-            Err(err) => Err(err),
-        };
-
-        // We need to call .wait() on the child, or we'll risk summoning the zombie horde
-        let _ = child.wait();
-
-        pipeline_data
+        plugin.run(
+            CallInfo {
+                name: self.name.clone(),
+                call: evaluated_call,
+                input,
+            },
+            &mut context,
+        )
     }
 
-    fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
-        Some((&self.filename, self.shell.as_deref()))
+    fn is_plugin(&self) -> bool {
+        true
+    }
+
+    fn plugin_identity(&self) -> Option<&PluginIdentity> {
+        Some(&self.source.identity)
     }
 }

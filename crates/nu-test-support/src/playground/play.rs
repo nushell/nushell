@@ -25,7 +25,7 @@ pub struct Playground<'a> {
     root: TempDir,
     tests: String,
     cwd: PathBuf,
-    config: PathBuf,
+    config: Option<PathBuf>,
     environment_vars: Vec<EnvironmentVariable>,
     dirs: &'a Dirs,
 }
@@ -40,10 +40,6 @@ pub struct Dirs {
 impl Dirs {
     pub fn formats(&self) -> PathBuf {
         self.fixtures.join("formats")
-    }
-
-    pub fn config_fixtures(&self) -> PathBuf {
-        self.fixtures.join("playground/config")
     }
 
     pub fn root(&self) -> &Path {
@@ -97,7 +93,7 @@ impl<'a> Playground<'a> {
             root,
             tests: topic.to_string(),
             cwd: nuplay_dir,
-            config: fixtures.join("playground/config/default.toml"),
+            config: None,
             environment_vars: Vec::default(),
             dirs: &Dirs::default(),
         };
@@ -135,7 +131,7 @@ impl<'a> Playground<'a> {
     }
 
     pub fn with_config(&mut self, source_file: impl AsRef<Path>) -> &mut Self {
-        self.config = source_file.as_ref().to_path_buf();
+        self.config = Some(source_file.as_ref().to_path_buf());
         self
     }
 
@@ -145,14 +141,16 @@ impl<'a> Playground<'a> {
         self
     }
 
-    pub fn get_config(&self) -> &str {
-        self.config.to_str().expect("could not convert path.")
+    pub fn get_config(&self) -> Option<&str> {
+        self.config
+            .as_ref()
+            .map(|cfg| cfg.to_str().expect("could not convert path."))
     }
 
     pub fn build(&mut self) -> Director {
         Director {
             cwd: Some(self.dirs.test().into()),
-            config: Some(self.config.clone().into()),
+            config: self.config.clone().map(|cfg| cfg.into()),
             environment_vars: self.environment_vars.clone(),
             ..Default::default()
         }

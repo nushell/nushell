@@ -253,7 +253,7 @@ mod command_completions_tests {
 
     #[test]
     fn test_find_non_whitespace_index() {
-        let commands = vec![
+        let commands = [
             ("    hello", 4),
             ("sudo ", 0),
             (" 	sudo ", 2),
@@ -273,7 +273,7 @@ mod command_completions_tests {
 
     #[test]
     fn test_is_last_command_passthrough() {
-        let commands = vec![
+        let commands = [
             ("    hello", false),
             ("    sudo ", true),
             ("sudo ", true),

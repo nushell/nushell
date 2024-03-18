@@ -1,44 +1,40 @@
 mod custom_value;
+mod duration;
+mod filesize;
 mod from;
 mod from_value;
 mod glob;
 mod lazy_record;
 mod range;
-mod stream;
-mod unit;
 
 pub mod record;
+pub use custom_value::CustomValue;
+pub use duration::*;
+pub use filesize::*;
+pub use from_value::FromValue;
+pub use glob::*;
+pub use lazy_record::LazyRecord;
+pub use range::*;
+pub use record::Record;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
 use crate::engine::{Closure, EngineState};
 use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
 
-use byte_unit::UnitType;
-use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
-pub use custom_value::CustomValue;
 use fancy_regex::Regex;
-pub use from_value::FromValue;
-pub use glob::*;
-pub use lazy_record::LazyRecord;
 use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
-use nu_utils::{
-    contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
-};
-use num_format::ToFormattedString;
-pub use range::*;
-pub use record::Record;
+use nu_utils::{contains_emoji, locale::get_system_locale_string, IgnoreCaseExt};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
 use std::{
     borrow::Cow,
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::Display,
     path::PathBuf,
     {cmp::Ordering, fmt::Debug},
 };
-pub use stream::*;
-pub use unit::*;
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
@@ -49,48 +45,56 @@ pub enum Value {
         val: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Int {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Float {
         val: f64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Filesize {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Duration {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Date {
         val: DateTime<FixedOffset>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Range {
         val: Box<Range>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     String {
         val: String,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Glob {
@@ -98,60 +102,69 @@ pub enum Value {
         no_expand: bool,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Record {
         val: Record,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     List {
         vals: Vec<Value>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Block {
         val: BlockId,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Closure {
         val: Closure,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Nothing {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Error {
         error: Box<ShellError>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     Binary {
         val: Vec<u8>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     CellPath {
         val: CellPath,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
-    #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[serde(skip)]
@@ -987,7 +1000,7 @@ impl Value {
     /// The other `Value` cases are already parsable when converted strings
     /// or are not yet handled by this function.
     ///
-    /// This functions behaves like [`to_formatted_string`](Self::to_formatted_string)
+    /// This functions behaves like [`to_expanded_string`](Self::to_expanded_string)
     /// and will recurse into records and lists.
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
@@ -1093,18 +1106,19 @@ impl Value {
                                 });
                             }
                         }
-                        Value::CustomValue { val, .. } => {
-                            current = match val.follow_path_int(*count, *origin_span) {
-                                Ok(val) => val,
-                                Err(err) => {
-                                    if *optional {
-                                        return Ok(Value::nothing(*origin_span));
-                                    // short-circuit
-                                    } else {
-                                        return Err(err);
+                        Value::CustomValue { ref val, .. } => {
+                            current =
+                                match val.follow_path_int(current.span(), *count, *origin_span) {
+                                    Ok(val) => val,
+                                    Err(err) => {
+                                        if *optional {
+                                            return Ok(Value::nothing(*origin_span));
+                                        // short-circuit
+                                        } else {
+                                            return Err(err);
+                                        }
                                     }
-                                }
-                            };
+                                };
                         }
                         Value::Nothing { .. } if *optional => {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
@@ -1236,8 +1250,22 @@ impl Value {
 
                             current = Value::list(list, span);
                         }
-                        Value::CustomValue { val, .. } => {
-                            current = val.follow_path_string(column_name.clone(), *origin_span)?;
+                        Value::CustomValue { ref val, .. } => {
+                            current = match val.follow_path_string(
+                                current.span(),
+                                column_name.clone(),
+                                *origin_span,
+                            ) {
+                                Ok(val) => val,
+                                Err(err) => {
+                                    if *optional {
+                                        return Ok(Value::nothing(*origin_span));
+                                    // short-circuit
+                                    } else {
+                                        return Err(err);
+                                    }
+                                }
+                            }
                         }
                         Value::Nothing { .. } if *optional => {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
@@ -1738,14 +1766,10 @@ impl Value {
                             }
                         } else {
                             let new_col = if path.is_empty() {
-                                new_val.clone()
+                                new_val
                             } else {
                                 let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.insert_data_at_cell_path(
-                                    path,
-                                    new_val.clone(),
-                                    head_span,
-                                )?;
+                                new_col.insert_data_at_cell_path(path, new_val, head_span)?;
                                 new_col
                             };
                             record.push(col_name, new_col);
@@ -1802,6 +1826,60 @@ impl Value {
             *self = new_val;
         }
         Ok(())
+    }
+
+    /// Visits all values contained within the value (including this value) with a mutable reference
+    /// given to the closure.
+    ///
+    /// If the closure returns `Err`, the traversal will stop.
+    ///
+    /// If collecting lazy records to check them as well is desirable, make sure to do it in your
+    /// closure. The traversal continues on whatever modifications you make during the closure.
+    /// Captures of closure values are currently visited, as they are values owned by the closure.
+    pub fn recurse_mut<E>(
+        &mut self,
+        f: &mut impl FnMut(&mut Value) -> Result<(), E>,
+    ) -> Result<(), E> {
+        // Visit this value
+        f(self)?;
+        // Check for contained values
+        match self {
+            // Any values that can contain other values need to be handled recursively
+            Value::Range { ref mut val, .. } => {
+                val.from.recurse_mut(f)?;
+                val.to.recurse_mut(f)?;
+                val.incr.recurse_mut(f)
+            }
+            Value::Record { ref mut val, .. } => val
+                .iter_mut()
+                .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
+            Value::List { ref mut vals, .. } => vals
+                .iter_mut()
+                .try_for_each(|list_value| list_value.recurse_mut(f)),
+            // Closure captures are visited. Maybe these don't have to be if they are changed to
+            // more opaque references.
+            Value::Closure { ref mut val, .. } => val
+                .captures
+                .iter_mut()
+                .map(|(_, captured_value)| captured_value)
+                .try_for_each(|captured_value| captured_value.recurse_mut(f)),
+            // All of these don't contain other values
+            Value::Bool { .. }
+            | Value::Int { .. }
+            | Value::Float { .. }
+            | Value::Filesize { .. }
+            | Value::Duration { .. }
+            | Value::Date { .. }
+            | Value::String { .. }
+            | Value::Glob { .. }
+            | Value::Block { .. }
+            | Value::Nothing { .. }
+            | Value::Error { .. }
+            | Value::Binary { .. }
+            | Value::CellPath { .. } => Ok(()),
+            // These could potentially contain values, but we expect the closure to handle them
+            Value::LazyRecord { .. } | Value::CustomValue { .. } => Ok(()),
+        }
     }
 
     /// Check if the content is empty
@@ -2021,6 +2099,12 @@ impl Value {
     /// when used in errors.
     pub fn test_string(val: impl Into<String>) -> Value {
         Value::string(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_glob(val: impl Into<String>) -> Value {
+        Value::glob(val, false, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -2632,6 +2716,9 @@ impl Value {
                 let mut val = lhs.clone();
                 val.extend(rhs);
                 Ok(Value::binary(val, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Append), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3673,287 +3760,14 @@ fn reorder_record_inner(record: &Record) -> (Vec<&String>, Vec<&Value>) {
     kv_pairs.into_iter().unzip()
 }
 
+// TODO: The name of this function is overly broad with partial compatibility
+// Should be replaced by an explicitly named helper on `Type` (take `Any` into account)
 fn type_compatible(a: Type, b: Type) -> bool {
     if a == b {
         return true;
     }
 
     matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
-}
-
-/// Is the given year a leap year?
-#[allow(clippy::nonminimal_bool)]
-pub fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0) && (year % 100 != 0 || (year % 100 == 0 && year % 400 == 0))
-}
-
-#[derive(Clone, Copy)]
-pub enum TimePeriod {
-    Nanos(i64),
-    Micros(i64),
-    Millis(i64),
-    Seconds(i64),
-    Minutes(i64),
-    Hours(i64),
-    Days(i64),
-    Weeks(i64),
-    Months(i64),
-    Years(i64),
-}
-
-impl TimePeriod {
-    pub fn to_text(self) -> Cow<'static, str> {
-        match self {
-            Self::Nanos(n) => format!("{n} ns").into(),
-            Self::Micros(n) => format!("{n} µs").into(),
-            Self::Millis(n) => format!("{n} ms").into(),
-            Self::Seconds(n) => format!("{n} sec").into(),
-            Self::Minutes(n) => format!("{n} min").into(),
-            Self::Hours(n) => format!("{n} hr").into(),
-            Self::Days(n) => format!("{n} day").into(),
-            Self::Weeks(n) => format!("{n} wk").into(),
-            Self::Months(n) => format!("{n} month").into(),
-            Self::Years(n) => format!("{n} yr").into(),
-        }
-    }
-}
-
-impl Display for TimePeriod {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.to_text())
-    }
-}
-
-pub fn format_duration(duration: i64) -> String {
-    let (sign, periods) = format_duration_as_timeperiod(duration);
-
-    let text = periods
-        .into_iter()
-        .map(|p| p.to_text().to_string().replace(' ', ""))
-        .collect::<Vec<String>>();
-
-    format!(
-        "{}{}",
-        if sign == -1 { "-" } else { "" },
-        text.join(" ").trim()
-    )
-}
-
-pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
-    // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
-    // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
-    // Current duration doesn't know a date it's based on, weeks is the max time unit it can normalize into.
-    // Don't guess or estimate how many years or months it might contain.
-
-    let (sign, duration) = if duration >= 0 {
-        (1, duration)
-    } else {
-        (-1, -duration)
-    };
-
-    let dur = Duration::nanoseconds(duration);
-
-    /// Split this a duration into number of whole weeks and the remainder
-    fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
-        let weeks = duration.num_weeks();
-        let remainder = duration - Duration::weeks(weeks);
-        normalize_split(weeks, remainder)
-    }
-
-    /// Split this a duration into number of whole days and the remainder
-    fn split_days(duration: Duration) -> (Option<i64>, Duration) {
-        let days = duration.num_days();
-        let remainder = duration - Duration::days(days);
-        normalize_split(days, remainder)
-    }
-
-    /// Split this a duration into number of whole hours and the remainder
-    fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
-        let hours = duration.num_hours();
-        let remainder = duration - Duration::hours(hours);
-        normalize_split(hours, remainder)
-    }
-
-    /// Split this a duration into number of whole minutes and the remainder
-    fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
-        let minutes = duration.num_minutes();
-        let remainder = duration - Duration::minutes(minutes);
-        normalize_split(minutes, remainder)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
-        let seconds = duration.num_seconds();
-        let remainder = duration - Duration::seconds(seconds);
-        normalize_split(seconds, remainder)
-    }
-
-    /// Split this a duration into number of whole milliseconds and the remainder
-    fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let millis = duration.num_milliseconds();
-        let remainder = duration - Duration::milliseconds(millis);
-        normalize_split(millis, remainder)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let micros = duration.num_microseconds().unwrap_or_default();
-        let remainder = duration - Duration::microseconds(micros);
-        normalize_split(micros, remainder)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let nanos = duration.num_nanoseconds().unwrap_or_default();
-        let remainder = duration - Duration::nanoseconds(nanos);
-        normalize_split(nanos, remainder)
-    }
-
-    fn normalize_split(
-        wholes: impl Into<Option<i64>>,
-        remainder: Duration,
-    ) -> (Option<i64>, Duration) {
-        let wholes = wholes.into().map(i64::abs).filter(|x| *x > 0);
-        (wholes, remainder)
-    }
-
-    let mut periods = vec![];
-
-    let (weeks, remainder) = split_weeks(dur);
-    if let Some(weeks) = weeks {
-        periods.push(TimePeriod::Weeks(weeks));
-    }
-
-    let (days, remainder) = split_days(remainder);
-    if let Some(days) = days {
-        periods.push(TimePeriod::Days(days));
-    }
-
-    let (hours, remainder) = split_hours(remainder);
-    if let Some(hours) = hours {
-        periods.push(TimePeriod::Hours(hours));
-    }
-
-    let (minutes, remainder) = split_minutes(remainder);
-    if let Some(minutes) = minutes {
-        periods.push(TimePeriod::Minutes(minutes));
-    }
-
-    let (seconds, remainder) = split_seconds(remainder);
-    if let Some(seconds) = seconds {
-        periods.push(TimePeriod::Seconds(seconds));
-    }
-
-    let (millis, remainder) = split_milliseconds(remainder);
-    if let Some(millis) = millis {
-        periods.push(TimePeriod::Millis(millis));
-    }
-
-    let (micros, remainder) = split_microseconds(remainder);
-    if let Some(micros) = micros {
-        periods.push(TimePeriod::Micros(micros));
-    }
-
-    let (nanos, _remainder) = split_nanoseconds(remainder);
-    if let Some(nanos) = nanos {
-        periods.push(TimePeriod::Nanos(nanos));
-    }
-
-    if periods.is_empty() {
-        periods.push(TimePeriod::Seconds(0));
-    }
-
-    (sign, periods)
-}
-
-pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
-    // We need to take into account config.filesize_metric so, if someone asks for KB
-    // and filesize_metric is false, return KiB
-    format_filesize(
-        num_bytes,
-        config.filesize_format.as_str(),
-        Some(config.filesize_metric),
-    )
-}
-
-// filesize_metric is explicit when printed a value according to user config;
-// other places (such as `format filesize`) don't.
-pub fn format_filesize(
-    num_bytes: i64,
-    format_value: &str,
-    filesize_metric: Option<bool>,
-) -> String {
-    // Allow the user to specify how they want their numbers formatted
-
-    // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
-    // and is always B.
-    let filesize_unit = get_filesize_format(format_value, filesize_metric);
-    let byte = byte_unit::Byte::from_u64(num_bytes.unsigned_abs());
-    let adj_byte = if let Some(unit) = filesize_unit {
-        byte.get_adjusted_unit(unit)
-    } else {
-        // When filesize_metric is None, format_value should never be "auto", so this
-        // unwrap_or() should always work.
-        byte.get_appropriate_unit(if filesize_metric.unwrap_or(false) {
-            UnitType::Decimal
-        } else {
-            UnitType::Binary
-        })
-    };
-
-    match adj_byte.get_unit() {
-        byte_unit::Unit::B => {
-            let locale = get_system_locale();
-            let locale_byte = adj_byte.get_value() as u64;
-            let locale_byte_string = locale_byte.to_formatted_string(&locale);
-            let locale_signed_byte_string = if num_bytes.is_negative() {
-                format!("-{locale_byte_string}")
-            } else {
-                locale_byte_string
-            };
-
-            if filesize_unit.is_none() {
-                format!("{locale_signed_byte_string} B")
-            } else {
-                locale_signed_byte_string
-            }
-        }
-        _ => {
-            if num_bytes.is_negative() {
-                format!("-{:.1}", adj_byte)
-            } else {
-                format!("{:.1}", adj_byte)
-            }
-        }
-    }
-}
-
-/// Get the filesize unit, or None if format is "auto"
-fn get_filesize_format(
-    format_value: &str,
-    filesize_metric: Option<bool>,
-) -> Option<byte_unit::Unit> {
-    // filesize_metric always overrides the unit of filesize_format.
-    let metric = filesize_metric.unwrap_or(!format_value.ends_with("ib"));
-    macro_rules! either {
-        ($metric:ident, $binary:ident) => {
-            Some(if metric {
-                byte_unit::Unit::$metric
-            } else {
-                byte_unit::Unit::$binary
-            })
-        };
-    }
-    match format_value {
-        "b" => Some(byte_unit::Unit::B),
-        "kb" | "kib" => either!(KB, KiB),
-        "mb" | "mib" => either!(MB, MiB),
-        "gb" | "gib" => either!(GB, GiB),
-        "tb" | "tib" => either!(TB, TiB),
-        "pb" | "pib" => either!(TB, TiB),
-        "eb" | "eib" => either!(EB, EiB),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -4034,19 +3848,17 @@ mod tests {
     }
 
     mod into_string {
-        use chrono::{DateTime, FixedOffset, NaiveDateTime};
-        use rstest::rstest;
+        use chrono::{DateTime, FixedOffset};
 
         use super::*;
-        use crate::format_filesize;
 
         #[test]
         fn test_datetime() {
-            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
-                NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
-                FixedOffset::east_opt(0).unwrap(),
-            ))
-            .to_expanded_string("", &Default::default());
+            let date = DateTime::from_timestamp_millis(-123456789)
+                .unwrap()
+                .with_timezone(&FixedOffset::east_opt(0).unwrap());
+
+            let string = Value::test_date(date).to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
@@ -4056,32 +3868,16 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
-                NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
-                FixedOffset::east_opt(0).unwrap(),
-            ))
-            .to_expanded_string("", &Default::default());
+            let date = DateTime::from_timestamp_millis(-72135596800000)
+                .unwrap()
+                .with_timezone(&FixedOffset::east_opt(0).unwrap());
+
+            let string = Value::test_date(date).to_expanded_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
             let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
-        }
-
-        #[rstest]
-        #[case(1000, Some(true), "auto", "1.0 KB")]
-        #[case(1000, Some(false), "auto", "1,000 B")]
-        #[case(1000, Some(false), "kb", "1.0 KiB")]
-        #[case(3000, Some(false), "auto", "2.9 KiB")]
-        #[case(3_000_000, None, "auto", "2.9 MiB")]
-        #[case(3_000_000, None, "kib", "2929.7 KiB")]
-        fn test_filesize(
-            #[case] val: i64,
-            #[case] filesize_metric: Option<bool>,
-            #[case] filesize_format: String,
-            #[case] exp: &str,
-        ) {
-            assert_eq!(exp, format_filesize(val, &filesize_format, filesize_metric));
         }
     }
 }

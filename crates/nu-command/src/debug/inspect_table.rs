@@ -48,7 +48,6 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
 
     add_padding_to_widths(&mut widths);
 
-    #[allow(clippy::manual_clamp)]
     let width = val_table_width.max(desc_table_width).min(termsize);
 
     let mut desc_table = Table::from_iter([[String::from("description"), desc]]);

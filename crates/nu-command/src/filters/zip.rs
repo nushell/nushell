@@ -1,4 +1,4 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -30,7 +30,11 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required("other", SyntaxShape::Any, "The other input.")
+            .required(
+                "other",
+                SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::Closure(Some(vec![]))]),
+                "The other input, or closure returning a stream.",
+            )
             .category(Category::Filters)
     }
 
@@ -102,20 +106,14 @@ impl Command for Zip {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         let other: PipelineData = match call.req(engine_state, stack, 0)? {
             // If a closure was provided, evaluate it and consume its stream output
             Value::Closure { val, .. } => {
                 let block = engine_state.get_block(val.block_id);
                 let mut stack = stack.captures_to_stack(val.captures);
-                eval_block_with_early_return(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::Empty,
-                    true,
-                    false,
-                )?
+                eval_block_with_early_return(engine_state, &mut stack, block, PipelineData::Empty)?
             }
             // If any other value, use it as-is.
             val => val.into_pipeline_data(),

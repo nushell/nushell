@@ -2,22 +2,30 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use super::{
+    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
+};
 use crate::ast::Block;
+use crate::debugger::{Debugger, NoopDebugger};
 use crate::{
     BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
+    ShellError, Signature, Span, Type, VarId, VirtualPathId,
 };
 use crate::{Category, Value};
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::{
     atomic::{AtomicBool, AtomicU32},
-    Arc, Mutex,
+    Arc, Mutex, MutexGuard, PoisonError,
 };
+
+type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
+
+#[cfg(feature = "plugin")]
+use crate::RegisteredPlugin;
 
 pub static PWD_ENV: &str = "PWD";
 
@@ -33,6 +41,20 @@ pub struct ReplState {
     pub cursor_pos: usize,
 }
 
+pub struct IsDebugging(AtomicBool);
+
+impl IsDebugging {
+    pub fn new(val: bool) -> Self {
+        IsDebugging(AtomicBool::new(val))
+    }
+}
+
+impl Clone for IsDebugging {
+    fn clone(&self) -> Self {
+        IsDebugging(AtomicBool::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -44,37 +66,6 @@ pub struct ReplState {
 ///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
-///
-/// A note on implementation:
-///
-/// Much of the global definitions are built on the Bodil's 'im' crate. This gives us a way of working with
-/// lists of definitions in a way that is very cheap to access, while also allowing us to update them at
-/// key points in time (often, the transition between parsing and evaluation).
-///
-/// Over the last two years we tried a few different approaches to global state like this. I'll list them
-/// here for posterity, so we can more easily know how we got here:
-///
-/// * `Rc` - Rc is cheap, but not thread-safe. The moment we wanted to work with external processes, we
-/// needed a way send to stdin/stdout. In Rust, the current practice is to spawn a thread to handle both.
-/// These threads would need access to the global state, as they'll need to process data as it streams out
-/// of the data pipeline. Because Rc isn't thread-safe, this breaks.
-///
-/// * `Arc` - Arc is the thread-safe version of the above. Often Arc is used in combination with a Mutex or
-/// RwLock, but you can use Arc by itself. We did this a few places in the original Nushell. This *can* work
-/// but because of Arc's nature of not allowing mutation if there's a second copy of the Arc around, this
-/// ultimately becomes limiting.
-///
-/// * `Arc` + `Mutex/RwLock` - the standard practice for thread-safe containers. Unfortunately, this would
-/// have meant we would incur a lock penalty every time we needed to access any declaration or block. As we
-/// would be reading far more often than writing, it made sense to explore solutions that favor large amounts
-/// of reads.
-///
-/// * `im` - the `im` crate was ultimately chosen because it has some very nice properties: it gives the
-/// ability to cheaply clone these structures, which is nice as EngineState may need to be cloned a fair bit
-/// to follow ownership rules for closures and iterators. It also is cheap to access. Favoring reads here fits
-/// more closely to what we need with Nushell. And, of course, it's still thread-safe, so we get the same
-/// benefits as above.
-///
 #[derive(Clone)]
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
@@ -95,6 +86,8 @@ pub struct EngineState {
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
+    #[cfg(feature = "plugin")]
+    plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
@@ -104,6 +97,8 @@ pub struct EngineState {
     pub is_interactive: bool,
     pub is_login: bool,
     startup_time: i64,
+    is_debugging: IsDebugging,
+    pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -151,6 +146,8 @@ impl EngineState {
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
+            #[cfg(feature = "plugin")]
+            plugins: vec![],
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
@@ -161,6 +158,8 @@ impl EngineState {
             is_interactive: false,
             is_login: false,
             startup_time: -1,
+            is_debugging: IsDebugging::new(false),
+            debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
         }
     }
 
@@ -233,14 +232,27 @@ impl EngineState {
         self.scope.active_overlays.append(&mut activated_ids);
 
         #[cfg(feature = "plugin")]
-        if delta.plugins_changed {
-            let result = self.update_plugin_file();
-
-            if result.is_ok() {
-                delta.plugins_changed = false;
+        if !delta.plugins.is_empty() {
+            // Replace plugins that overlap in identity.
+            for plugin in std::mem::take(&mut delta.plugins) {
+                if let Some(existing) = self
+                    .plugins
+                    .iter_mut()
+                    .find(|p| p.identity() == plugin.identity())
+                {
+                    // Stop the existing plugin, so that the new plugin definitely takes over
+                    existing.stop()?;
+                    *existing = plugin;
+                } else {
+                    self.plugins.push(plugin);
+                }
             }
+        }
 
-            return result;
+        #[cfg(feature = "plugin")]
+        if delta.plugins_changed {
+            // Update the plugin file with the new signatures.
+            self.update_plugin_file()?;
         }
 
         Ok(())
@@ -252,6 +264,8 @@ impl EngineState {
         stack: &mut Stack,
         cwd: impl AsRef<Path>,
     ) -> Result<(), ShellError> {
+        let mut config_updated = false;
+
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
                 if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
@@ -263,6 +277,7 @@ impl EngineState {
                             let mut new_record = v.clone();
                             let (config, error) = new_record.into_config(&self.config);
                             self.config = config;
+                            config_updated = true;
                             env_vars.insert(k, new_record);
                             if let Some(e) = error {
                                 return Err(e);
@@ -280,6 +295,12 @@ impl EngineState {
 
         // TODO: better error
         std::env::set_current_dir(cwd)?;
+
+        if config_updated {
+            // Make plugin GC config changes take effect immediately.
+            #[cfg(feature = "plugin")]
+            self.update_plugin_gc_configs(&self.config.plugin_gc);
+        }
 
         Ok(())
     }
@@ -444,6 +465,11 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
+    pub fn plugins(&self) -> &[Arc<dyn RegisteredPlugin>] {
+        &self.plugins
+    }
+
+    #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
 
@@ -468,8 +494,9 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let (path, shell) = decl.is_plugin().expect("plugin should have file name");
-                    let mut file_name = path
+                    let identity = decl.plugin_identity().expect("plugin should have identity");
+                    let mut file_name = identity
+                        .filename()
                         .to_str()
                         .expect("path was checked during registration as a str")
                         .to_string();
@@ -496,8 +523,8 @@ impl EngineState {
                     serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = shell
-                                .as_ref()
+                            let shell_str = identity
+                                .shell()
                                 .map(|path| {
                                     format!(
                                         "-s {}",
@@ -534,6 +561,14 @@ impl EngineState {
                         })
                 })
             })
+    }
+
+    /// Update plugins with new garbage collection config
+    #[cfg(feature = "plugin")]
+    fn update_plugin_gc_configs(&self, plugin_gc: &crate::PluginGcConfigs) {
+        for plugin in &self.plugins {
+            plugin.set_gc_config(plugin_gc.get(plugin.identity().name()));
+        }
     }
 
     pub fn num_files(&self) -> usize {
@@ -628,7 +663,7 @@ impl EngineState {
         let mut unique_plugin_decls = HashMap::new();
 
         // Make sure there are no duplicate decls: Newer one overwrites the older one
-        for decl in self.decls.iter().filter(|d| d.is_plugin().is_some()) {
+        for decl in self.decls.iter().filter(|d| d.is_plugin()) {
             unique_plugin_decls.insert(decl.name(), decl);
         }
 
@@ -711,6 +746,12 @@ impl EngineState {
     }
 
     pub fn set_config(&mut self, conf: Config) {
+        #[cfg(feature = "plugin")]
+        if conf.plugin_gc != self.config.plugin_gc {
+            // Make plugin GC config changes take effect immediately.
+            self.update_plugin_gc_configs(&conf.plugin_gc);
+        }
+
         self.config = conf;
     }
 
@@ -746,11 +787,11 @@ impl EngineState {
         self.vars[var_id].const_val = Some(val);
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
+    pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
+            .as_ref()
     }
 
     /// Get all commands within scope, sorted by the commands' names
@@ -781,8 +822,7 @@ impl EngineState {
         decls.into_iter()
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_signature(&self, decl: &Box<dyn Command>) -> Signature {
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
         if let Some(block_id) = decl.get_block_id() {
             *self.blocks[block_id].signature.clone()
         } else {
@@ -796,7 +836,7 @@ impl EngineState {
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                self.get_signature(decl).update_from_command(decl.borrow())
+                self.get_signature(decl).update_from_command(decl)
             })
             .collect()
     }
@@ -814,12 +854,12 @@ impl EngineState {
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                let signature = self.get_signature(decl).update_from_command(decl.borrow());
+                let signature = self.get_signature(decl).update_from_command(decl);
 
                 (
                     signature,
                     decl.examples(),
-                    decl.is_plugin().is_some(),
+                    decl.is_plugin(),
                     decl.get_block_id().is_some(),
                     decl.is_parser_keyword(),
                 )
@@ -831,6 +871,15 @@ impl EngineState {
         self.blocks
             .get(block_id)
             .expect("internal error: missing block")
+    }
+
+    /// Optionally get a block by id, if it exists
+    ///
+    /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
+    /// compiler error. This only exists to stop plugins from crashing the engine if they send us
+    /// something invalid.
+    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Block> {
+        self.blocks.get(block_id)
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
@@ -914,6 +963,29 @@ impl EngineState {
 
     pub fn set_startup_time(&mut self, startup_time: i64) {
         self.startup_time = startup_time;
+    }
+
+    pub fn activate_debugger(
+        &self,
+        debugger: Box<dyn Debugger>,
+    ) -> Result<(), PoisonDebuggerError> {
+        let mut locked_debugger = self.debugger.lock()?;
+        *locked_debugger = debugger;
+        locked_debugger.activate();
+        self.is_debugging.0.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
+        let mut locked_debugger = self.debugger.lock()?;
+        locked_debugger.deactivate();
+        let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));
+        self.is_debugging.0.store(false, Ordering::Relaxed);
+        Ok(ret)
+    }
+
+    pub fn is_debugging(&self) -> bool {
+        self.is_debugging.0.load(Ordering::Relaxed)
     }
 
     pub fn recover_from_panic(&mut self) {

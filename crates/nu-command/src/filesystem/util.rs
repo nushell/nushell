@@ -1,5 +1,5 @@
 use dialoguer::Input;
-use nu_engine::eval_expression;
+use nu_engine::get_eval_expression;
 use nu_protocol::ast::Expr;
 use nu_protocol::{
     ast::Call,
@@ -39,7 +39,6 @@ pub fn try_interaction(
     (interaction, confirmed)
 }
 
-#[allow(dead_code)]
 fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> {
     let input = Input::new()
         .with_prompt(prompt)
@@ -66,6 +65,7 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
 
 /// Return `Some(true)` if the last change time of the `src` old than the `dst`,
 /// otherwisie return `Some(false)`. Return `None` if the `src` or `dst` doesn't exist.
+#[allow(dead_code)]
 pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
     if !dst.exists() || !src.exists() {
         return None;
@@ -220,6 +220,7 @@ pub fn get_rest_for_glob_pattern(
     starting_pos: usize,
 ) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
     let mut output = vec![];
+    let eval_expression = get_eval_expression(engine_state);
 
     for result in call.rest_iter_flattened(starting_pos, |expr| {
         let result = eval_expression(engine_state, stack, expr);
@@ -260,6 +261,7 @@ pub fn opt_for_glob_pattern(
     pos: usize,
 ) -> Result<Option<Spanned<NuGlob>>, ShellError> {
     if let Some(expr) = call.positional_nth(pos) {
+        let eval_expression = get_eval_expression(engine_state);
         let result = eval_expression(engine_state, stack, expr)?;
         let result_span = result.span();
         let result = match result {

@@ -1,9 +1,37 @@
 use gjson::Value as gjValue;
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Record, Span, Spanned, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_protocol::{Category, PluginSignature, Record, Span, Spanned, SyntaxShape, Value};
+
+use crate::Query;
+
+pub struct QueryJson;
+
+impl SimplePluginCommand for QueryJson {
+    type Plugin = Query;
+
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("query json")
+            .usage(
+                "execute json query on json file (open --raw <file> | query json 'query string')",
+            )
+            .required("query", SyntaxShape::String, "json query")
+            .category(Category::Filters)
+    }
+
+    fn run(
+        &self,
+        _plugin: &Query,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let query: Option<Spanned<String>> = call.opt(0)?;
+
+        execute_json_query(call, input, query)
+    }
+}
 
 pub fn execute_json_query(
-    _name: &str,
     call: &EvaluatedCall,
     input: &Value,
     query: Option<Spanned<String>>,

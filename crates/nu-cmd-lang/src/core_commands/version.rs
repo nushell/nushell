@@ -130,11 +130,11 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
         Value::string(features_enabled().join(", "), call.head),
     );
 
-    // Get a list of command names and check for plugins
+    // Get a list of plugin names
     let installed_plugins = engine_state
-        .plugin_decls()
-        .filter(|x| x.is_plugin().is_some())
-        .map(|x| x.name())
+        .plugins()
+        .iter()
+        .map(|x| x.identity().name())
         .collect::<Vec<_>>();
 
     record.push(
@@ -163,9 +163,6 @@ fn features_enabled() -> Vec<String> {
         names.push("which".to_string());
     }
 
-    // always include it?
-    names.push("zip".to_string());
-
     #[cfg(feature = "trash-support")]
     {
         names.push("trash".to_string());
@@ -184,11 +181,6 @@ fn features_enabled() -> Vec<String> {
     #[cfg(feature = "static-link-openssl")]
     {
         names.push("static-link-openssl".to_string());
-    }
-
-    #[cfg(feature = "extra")]
-    {
-        names.push("extra".to_string());
     }
 
     #[cfg(feature = "wasi")]

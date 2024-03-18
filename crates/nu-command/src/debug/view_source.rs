@@ -46,8 +46,19 @@ impl Command for ViewSource {
                     let vec_of_optional = &sig.optional_positional;
                     let rest = &sig.rest_positional;
                     let vec_of_flags = &sig.named;
+
+                    if decl.is_alias() {
+                        if let Some(alias) = &decl.as_alias() {
+                            let contents = String::from_utf8_lossy(
+                                engine_state.get_span_contents(alias.wrapped_call.span),
+                            );
+                            Ok(Value::string(contents, call.head).into_pipeline_data())
+                        } else {
+                            Ok(Value::string("no alias found", call.head).into_pipeline_data())
+                        }
+                    }
                     // gets vector of positionals.
-                    if let Some(block_id) = decl.get_block_id() {
+                    else if let Some(block_id) = decl.get_block_id() {
                         let block = engine_state.get_block(block_id);
                         if let Some(block_span) = block.span {
                             let contents = engine_state.get_span_contents(block_span);
@@ -87,7 +98,7 @@ impl Command for ViewSource {
                         } else {
                             Err(ShellError::GenericError {
                                 error: "Cannot view value".to_string(),
-                                msg: "the command does not have a viewable block".to_string(),
+                                msg: "the command does not have a viewable block span".to_string(),
                                 span: Some(arg_span),
                                 help: None,
                                 inner: vec![],

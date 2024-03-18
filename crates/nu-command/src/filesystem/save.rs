@@ -3,8 +3,9 @@ use nu_engine::CallExt;
 use nu_path::expand_path_with;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::IntoSpanned;
 use nu_protocol::{
-    Category, DataSource, Example, PipelineData, PipelineMetadata, RawStream, ShellError,
+    Category, DataSource, Example, IoStream, PipelineData, PipelineMetadata, RawStream, ShellError,
     Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::fs::File;
@@ -103,16 +104,7 @@ impl Command for Save {
             });
 
         match input {
-            PipelineData::ExternalStream { stdout: None, .. } => {
-                // Open files to possibly truncate them
-                let _ = get_files(&path, stderr_path.as_ref(), append, false, false, force)?;
-                Ok(PipelineData::empty())
-            }
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                stderr,
-                ..
-            } => {
+            PipelineData::ExternalStream { stdout, stderr, .. } => {
                 let (file, stderr_file) = get_files(
                     &path,
                     stderr_path.as_ref(),
@@ -122,32 +114,42 @@ impl Command for Save {
                     force,
                 )?;
 
-                // delegate a thread to redirect stderr to result.
-                let handler = stderr.map(|stderr_stream| match stderr_file {
-                    Some(stderr_file) => thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || stream_to_file(stderr_stream, stderr_file, span, progress))
-                        .expect("Failed to create thread"),
-                    None => thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || {
-                            let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::empty())
-                        })
-                        .expect("Failed to create thread"),
-                });
+                match (stdout, stderr) {
+                    (Some(stdout), stderr) => {
+                        // delegate a thread to redirect stderr to result.
+                        let handler = stderr
+                            .map(|stderr| match stderr_file {
+                                Some(stderr_file) => thread::Builder::new()
+                                    .name("stderr redirector".to_string())
+                                    .spawn(move || {
+                                        stream_to_file(stderr, stderr_file, span, progress)
+                                    }),
+                                None => thread::Builder::new()
+                                    .name("stderr redirector".to_string())
+                                    .spawn(move || stderr.drain()),
+                            })
+                            .transpose()
+                            .map_err(|e| e.into_spanned(span))?;
 
-                let res = stream_to_file(stream, file, span, progress);
-                if let Some(h) = handler {
-                    h.join().map_err(|err| ShellError::ExternalCommand {
-                        label: "Fail to receive external commands stderr message".to_string(),
-                        help: format!("{err:?}"),
-                        span,
-                    })??;
-                    res
-                } else {
-                    res
-                }
+                        let res = stream_to_file(stdout, file, span, progress);
+                        if let Some(h) = handler {
+                            h.join().map_err(|err| ShellError::ExternalCommand {
+                                label: "Fail to receive external commands stderr message"
+                                    .to_string(),
+                                help: format!("{err:?}"),
+                                span,
+                            })??;
+                        }
+                        res?;
+                    }
+                    (None, Some(stderr)) => match stderr_file {
+                        Some(stderr_file) => stream_to_file(stderr, stderr_file, span, progress)?,
+                        None => stderr.drain()?,
+                    },
+                    (None, None) => {}
+                };
+
+                Ok(PipelineData::Empty)
             }
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
@@ -260,6 +262,10 @@ impl Command for Save {
                 result: None,
             },
         ]
+    }
+
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+        (Some(IoStream::Capture), Some(IoStream::Capture))
     }
 }
 
@@ -426,13 +432,13 @@ fn get_files(
 
 fn stream_to_file(
     mut stream: RawStream,
-    file: File,
+    mut file: File,
     span: Span,
     progress: bool,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(), ShellError> {
     // https://github.com/nushell/nushell/pull/9377 contains the reason
     // for not using BufWriter<File>
-    let mut writer = file;
+    let writer = &mut file;
 
     let mut bytes_processed: u64 = 0;
     let bytes_processed_p = &mut bytes_processed;
@@ -452,47 +458,45 @@ fn stream_to_file(
         (None, None)
     };
 
-    let result = stream
-        .try_for_each(move |result| {
-            let buf = match result {
-                Ok(v) => match v {
-                    Value::String { val, .. } => val.into_bytes(),
-                    Value::Binary { val, .. } => val,
-                    // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error, .. } => return Err(*error),
-                    other => {
-                        return Err(ShellError::OnlySupportsThisInputType {
-                            exp_input_type: "string or binary".into(),
-                            wrong_type: other.get_type().to_string(),
-                            dst_span: span,
-                            src_span: other.span(),
-                        });
-                    }
-                },
-                Err(err) => {
-                    *process_failed_p = true;
-                    return Err(err);
+    stream.try_for_each(move |result| {
+        let buf = match result {
+            Ok(v) => match v {
+                Value::String { val, .. } => val.into_bytes(),
+                Value::Binary { val, .. } => val,
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error, .. } => return Err(*error),
+                other => {
+                    return Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "string or binary".into(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: span,
+                        src_span: other.span(),
+                    });
                 }
-            };
-
-            // If the `progress` flag is set then
-            if progress {
-                // Update the total amount of bytes that has been saved and then print the progress bar
-                *bytes_processed_p += buf.len() as u64;
-                if let Some(bar) = &mut bar_opt {
-                    bar.update_bar(*bytes_processed_p);
-                }
-            }
-
-            if let Err(err) = writer.write(&buf) {
+            },
+            Err(err) => {
                 *process_failed_p = true;
-                return Err(ShellError::IOError {
-                    msg: err.to_string(),
-                });
+                return Err(err);
             }
-            Ok(())
-        })
-        .map(|_| PipelineData::empty());
+        };
+
+        // If the `progress` flag is set then
+        if progress {
+            // Update the total amount of bytes that has been saved and then print the progress bar
+            *bytes_processed_p += buf.len() as u64;
+            if let Some(bar) = &mut bar_opt {
+                bar.update_bar(*bytes_processed_p);
+            }
+        }
+
+        if let Err(err) = writer.write_all(&buf) {
+            *process_failed_p = true;
+            return Err(ShellError::IOError {
+                msg: err.to_string(),
+            });
+        }
+        Ok(())
+    })?;
 
     // If the `progress` flag is set then
     if progress {
@@ -504,6 +508,7 @@ fn stream_to_file(
         }
     }
 
-    // And finally return the stream result.
-    result
+    file.flush()?;
+
+    Ok(())
 }

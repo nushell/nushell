@@ -52,7 +52,6 @@ fn each_uses_enumerate_index() {
 }
 
 #[test]
-#[cfg(feature = "extra")]
 fn each_while_uses_enumerate_index() {
     let actual = nu!("[7 8 9 10] | enumerate | each while {|el| $el.index } | to nuon");
 

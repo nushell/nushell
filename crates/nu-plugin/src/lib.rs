@@ -15,20 +15,31 @@
 //! function, which will handle all of the input and output serialization when
 //! invoked by Nushell.
 //!
-//! ```
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, serve_plugin};
+//! ```rust,no_run
+//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, serve_plugin};
+//! use nu_plugin::{Plugin, PluginCommand, SimplePluginCommand, EngineInterface};
 //! use nu_protocol::{PluginSignature, Value};
 //!
 //! struct MyPlugin;
+//! struct MyCommand;
 //!
 //! impl Plugin for MyPlugin {
-//!     fn signature(&self) -> Vec<PluginSignature> {
+//!     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+//!         vec![Box::new(MyCommand)]
+//!     }
+//! }
+//!
+//! impl SimplePluginCommand for MyCommand {
+//!     type Plugin = MyPlugin;
+//!
+//!     fn signature(&self) -> PluginSignature {
 //!         todo!();
 //!     }
+//!
 //!     fn run(
-//!         &mut self,
-//!         name: &str,
-//!         config: &Option<Value>,
+//!         &self,
+//!         plugin: &MyPlugin,
+//!         engine: &EngineInterface,
 //!         call: &EvaluatedCall,
 //!         input: &Value
 //!     ) -> Result<Value, LabeledError> {
@@ -37,7 +48,7 @@
 //! }
 //!
 //! fn main() {
-//!    serve_plugin(&mut MyPlugin{}, MsgPackSerializer)
+//!    serve_plugin(&MyPlugin{}, MsgPackSerializer)
 //! }
 //! ```
 //!
@@ -46,8 +57,24 @@
 //! that demonstrates the full range of plugin capabilities.
 mod plugin;
 mod protocol;
+mod sequence;
 mod serializers;
+mod util;
 
-pub use plugin::{get_signature, serve_plugin, Plugin, PluginDeclaration};
-pub use protocol::{EvaluatedCall, LabeledError, PluginResponse};
-pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer, EncodingType};
+pub use plugin::{
+    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
+};
+pub use protocol::{EvaluatedCall, LabeledError};
+pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
+
+// Used by other nu crates.
+#[doc(hidden)]
+pub use plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+#[doc(hidden)]
+pub use serializers::EncodingType;
+
+// Used by external benchmarks.
+#[doc(hidden)]
+pub use plugin::Encoder;
+#[doc(hidden)]
+pub use protocol::{PluginCallResponse, PluginOutput};

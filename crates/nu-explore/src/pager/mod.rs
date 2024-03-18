@@ -148,7 +148,6 @@ impl<'a> Pager<'a> {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum Transition {
     Ok,
     Exit,

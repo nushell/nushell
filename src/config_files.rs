@@ -225,8 +225,9 @@ pub(crate) fn set_config_path(
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
         None => nu_path::config_dir().map(|mut p| {
             p.push(NUSHELL_FOLDER);
+            let mut p = canonicalize_with(&p, cwd).unwrap_or(p);
             p.push(default_config_name);
-            p
+            canonicalize_with(&p, cwd).unwrap_or(p)
         }),
     };
 

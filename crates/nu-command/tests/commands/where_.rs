@@ -1,5 +1,5 @@
 use nu_test_support::nu;
-#[allow(unused_imports)]
+#[cfg(feature = "sqlite")]
 use nu_test_support::pipeline;
 
 #[test]
