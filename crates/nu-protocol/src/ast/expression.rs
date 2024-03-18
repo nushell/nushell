@@ -474,12 +474,7 @@ impl Expression {
         }
     }
 
-    pub fn new_existing(
-        expr: Expr,
-        span: Span,
-        span_id: SpanId,
-        ty: Type,
-    ) -> Expression {
+    pub fn new_existing(expr: Expr, span: Span, span_id: SpanId, ty: Type) -> Expression {
         Expression {
             expr,
             span,
