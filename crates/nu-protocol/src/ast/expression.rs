@@ -4,6 +4,7 @@ use super::{Argument, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 use crate::{DeclId, SpanId};
+use crate::engine::EngineState;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
@@ -500,5 +501,9 @@ impl Expression {
             ty: self.ty,
             custom_completion: self.custom_completion,
         }
+    }
+
+    pub fn span(&self, engine_state: &EngineState) -> Span {
+        engine_state.get_span(self.span_id)
     }
 }
