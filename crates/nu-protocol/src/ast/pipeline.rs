@@ -1,4 +1,4 @@
-use crate::{ast::Expression, engine::StateWorkingSet, Span};
+use crate::{ast::Expression, engine::StateWorkingSet, Span, SpanId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -51,33 +51,35 @@ impl PipelineElement {
     }
 
     pub fn span(&self) -> Span {
-        match self {
-            PipelineElement::Expression(None, expression)
-            | PipelineElement::ErrPipedExpression(None, expression)
-            | PipelineElement::OutErrPipedExpression(None, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (None, expression),
-                ..
-            } => expression.span,
-            PipelineElement::Expression(Some(span), expression)
-            | PipelineElement::ErrPipedExpression(Some(span), expression)
-            | PipelineElement::OutErrPipedExpression(Some(span), expression)
-            | PipelineElement::Redirection(span, _, expression, _)
-            | PipelineElement::SeparateRedirection {
-                out: (span, expression, _),
-                ..
-            }
-            | PipelineElement::And(span, expression)
-            | PipelineElement::Or(span, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (Some(span), expression),
-                ..
-            } => Span {
-                start: span.start,
-                end: expression.span.end,
-            },
-        }
+        todo!()
+    //     match self {
+    //         PipelineElement::Expression(None, expression)
+    //         | PipelineElement::ErrPipedExpression(None, expression)
+    //         | PipelineElement::OutErrPipedExpression(None, expression)
+    //         | PipelineElement::SameTargetRedirection {
+    //             cmd: (None, expression),
+    //             ..
+    //         } => expression.span,
+    //         PipelineElement::Expression(Some(span), expression)
+    //         | PipelineElement::ErrPipedExpression(Some(span), expression)
+    //         | PipelineElement::OutErrPipedExpression(Some(span), expression)
+    //         | PipelineElement::Redirection(span, _, expression, _)
+    //         | PipelineElement::SeparateRedirection {
+    //             out: (span, expression, _),
+    //             ..
+    //         }
+    //         | PipelineElement::And(span, expression)
+    //         | PipelineElement::Or(span, expression)
+    //         | PipelineElement::SameTargetRedirection {
+    //             cmd: (Some(span), expression),
+    //             ..
+    //         } => Span {
+    //             start: span.start,
+    //             end: expression.span.end,
+    //         },
+    //     }
     }
+
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match self {
             PipelineElement::Expression(_, expression)
@@ -101,7 +103,8 @@ impl PipelineElement {
         &mut self,
         working_set: &mut StateWorkingSet,
         replaced: Span,
-        new_span: Span,
+        // new_span: Span,
+        new_span_id: SpanId,
     ) {
         match self {
             PipelineElement::Expression(_, expression)
@@ -117,7 +120,7 @@ impl PipelineElement {
             | PipelineElement::SeparateRedirection {
                 out: (_, expression, _),
                 ..
-            } => expression.replace_span(working_set, replaced, new_span),
+            } => expression.replace_span(working_set, replaced, new_span_id),
         }
     }
 }

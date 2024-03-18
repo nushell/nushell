@@ -92,7 +92,7 @@ impl Command for FromNuon {
         let head_id = engine_state.find_span_id(head).unwrap_or(UNKNOWN_SPAN_ID);
 
         let expr = if block.pipelines.is_empty() {
-            Expression::new_existing(Expr::Nothing, head, head_id, Type::Nothing)
+            Expression::new_existing(Expr::Nothing, head_id, Type::Nothing)
         } else {
             let mut pipeline = block.pipelines.remove(0);
 
@@ -112,7 +112,7 @@ impl Command for FromNuon {
             }
 
             if pipeline.elements.is_empty() {
-                Expression::new_existing(Expr::Nothing, head, head_id, Type::Nothing)
+                Expression::new_existing(Expr::Nothing, head_id, Type::Nothing)
             } else {
                 match pipeline.elements.remove(0) {
                     PipelineElement::Expression(_, expression)

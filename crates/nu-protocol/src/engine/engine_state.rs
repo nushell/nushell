@@ -7,10 +7,7 @@ use super::{
 };
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
-use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, SpanId, Type, VarId, VirtualPathId,
-};
+use crate::{BlockId, Config, DeclId, Example, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId, ShellError, Signature, Span, SpanId, Type, VarId, VirtualPathId};
 use crate::{Category, Value};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -1017,14 +1014,16 @@ impl EngineState {
         SpanId(self.num_spans() - 1)
     }
 
-    /// Get existing span
-    pub fn get_span(&self, span_id: SpanId) -> Span {
-        *self.spans.get(&span_id.0).expect("internal error: missing span")
-    }
-
     /// Find ID of a span (should be avoided if possible)
     pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
         self.spans.iter().position(|sp| sp == &span).map(SpanId)
+    }
+}
+
+impl<'a> GetSpan for &'a EngineState {
+    /// Get existing span
+    fn get_span(&self, span_id: SpanId) -> Span {
+        *self.spans.get(span_id.0).expect("internal error: missing span")
     }
 }
 

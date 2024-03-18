@@ -3,9 +3,7 @@ use super::{
     Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{
-    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, SpanId, Type, VarId, VirtualPathId,
-};
+use crate::{BlockId, Config, DeclId, FileId, GetSpan, Module, ModuleId, Span, SpanId, Type, VarId, VirtualPathId};
 use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};
@@ -1024,17 +1022,29 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.spans.push(span);
         SpanId(num_permanent_spans + self.delta.spans.len() - 1)
     }
+}
 
-    pub fn get_span(&self, span_id: SpanId) -> Span {
-        let num_permanent_spans = self.permanent_state.num_spans();
-        if span_id.0 < num_permanent_spans {
-            self.permanent_state.get_span(span_id)
-        } else {
-            *self.delta
-                .spans
-                .get(&span_id.0 - &num_permanent_spans)
-                .expect("internal error: missing span")
-        }
+impl<'a> GetSpan for StateWorkingSet<'a> {
+    fn get_span(&self, span_id: SpanId) -> Span {
+        get_span(&self, span_id)
+    }
+}
+
+impl<'a> GetSpan for &'a StateWorkingSet<'a> {
+    fn get_span(&self, span_id: SpanId) -> Span {
+        get_span(&self, span_id)
+    }
+}
+
+fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> Span {
+    let num_permanent_spans = working_set.permanent_state.num_spans();
+    if span_id.0 < num_permanent_spans {
+        working_set.permanent_state.get_span(span_id)
+    } else {
+        *working_set.delta
+            .spans
+            .get(&span_id.0 - &num_permanent_spans)
+            .expect("internal error: missing span")
     }
 }
 
