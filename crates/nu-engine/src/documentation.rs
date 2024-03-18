@@ -2,12 +2,11 @@ use crate::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
-    engine::{EngineState, Stack},
+    engine::{EngineState, Stack, UNKNOWN_SPAN_ID},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value, SpanId
 };
 use std::{collections::HashMap, fmt::Write};
-use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
 pub fn get_full_help(
     sig: &Signature,

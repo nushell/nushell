@@ -992,10 +992,7 @@ impl EngineState {
 
     /// Find ID of a span
     pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
-            self.spans
-                .iter()
-                .position(|sp| sp == &span)
-                .map(SpanId)
+        self.spans.iter().position(|sp| sp == &span).map(SpanId)
     }
 }
 
