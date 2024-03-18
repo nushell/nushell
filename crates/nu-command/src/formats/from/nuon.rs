@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Expr, Expression, RecordItem},
-    engine::StateWorkingSet,
+    engine::{StateWorkingSet, UNKNOWN_SPAN_ID},
     Range, Unit,
 };
 use std::sync::Arc;
@@ -91,7 +91,7 @@ impl Command for FromNuon {
             }
         }
 
-        let head_id = engine_state.find_span_id(head).expect("missing nuon head span");
+        let head_id = engine_state.find_span_id(head).unwrap_or(UNKNOWN_SPAN_ID);
 
         let expr = if block.pipelines.is_empty() {
             Expression::new_existing(Expr::Nothing, head, head_id, Type::Nothing)
