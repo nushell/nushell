@@ -1,6 +1,6 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
-    engine::StateWorkingSet,
+    engine::{EngineState, StateWorkingSet},
     BlockId, DeclId, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
@@ -512,5 +512,9 @@ impl Expression {
             ty: self.ty,
             custom_completion: self.custom_completion,
         }
+    }
+
+    pub fn span(&self, engine_state: &EngineState) -> Span {
+        engine_state.get_span(self.span_id)
     }
 }
