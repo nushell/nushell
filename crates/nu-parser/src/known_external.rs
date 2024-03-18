@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Argument, Expr, Expression},
-    engine::CommandType,
+    engine::{CommandType, UNKNOWN_SPAN_ID},
 };
 
 #[derive(Clone)]
@@ -56,7 +56,7 @@ impl Command for KnownExternal {
         };
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
-        let call_head_id = engine_state.find_span_id(call.head).expect("missing head span");
+        let call_head_id = engine_state.find_span_id(call.head).unwrap_or(UNKNOWN_SPAN_ID);
 
         let arg_extern_name = Expression::new_existing(
             Expr::String(extern_name[0].to_string()),
@@ -80,7 +80,7 @@ impl Command for KnownExternal {
             match arg {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
                 Argument::Named(named) => {
-                    let named_span_id = engine_state.find_span_id(named.0.span).expect("missing named span");
+                    let named_span_id = engine_state.find_span_id(named.0.span).unwrap_or(UNKNOWN_SPAN_ID);
                     if let Some(short) = &named.1 {
                         extern_call.add_positional(Expression::new_existing(
                             Expr::String(format!("-{}", short.item)),
