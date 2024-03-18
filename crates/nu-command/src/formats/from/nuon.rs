@@ -1,5 +1,5 @@
 use nu_protocol::ast::{Call, Expr, Expression, PipelineElement, RecordItem};
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet, UNKNOWN_SPAN_ID};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
     Signature, Span, Type, Unit, Value,
@@ -89,7 +89,7 @@ impl Command for FromNuon {
             }
         }
 
-        let head_id = engine_state.find_span_id(head).expect("missing nuon head span");
+        let head_id = engine_state.find_span_id(head).unwrap_or(UNKNOWN_SPAN_ID);
 
         let expr = if block.pipelines.is_empty() {
             Expression::new_existing(Expr::Nothing, head, head_id, Type::Nothing)
