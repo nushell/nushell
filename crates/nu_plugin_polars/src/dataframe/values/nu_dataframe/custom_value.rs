@@ -1,4 +1,4 @@
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -47,44 +47,52 @@ impl CustomValue for NuDataFrameCustomValue {
         self
     }
 
-    // fn follow_path_int(
-    //     &self,
-    //     _self_span: Span,
-    //     count: usize,
-    //     path_span: Span,
-    // ) -> Result<Value, ShellError> {
-    //     self.get_value(count, path_span)
-    // }
-    //
-    // fn follow_path_string(
-    //     &self,
-    //     _self_span: Span,
-    //     column_name: String,
-    //     path_span: Span,
-    // ) -> Result<Value, ShellError> {
-    //     let column = self.column(&column_name, path_span)?;
-    //     Ok(column.into_value(path_span))
-    // }
-    //
-    // fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
-    //     match other {
-    //         Value::CustomValue { val, .. } => val
-    //             .as_any()
-    //             .downcast_ref::<Self>()
-    //             .and_then(|other| self.is_equal(other)),
-    //         _ => None,
-    //     }
-    // }
-    //
-    // fn operation(
-    //     &self,
-    //     lhs_span: Span,
-    //     operator: Operator,
-    //     op: Span,
-    //     right: &Value,
-    // ) -> Result<Value, ShellError> {
-    //     self.compute_with_value(lhs_span, operator, op, right)
-    // }
+    fn follow_path_int(
+        &self,
+        _self_span: Span,
+        count: usize,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from(self)?;
+        df.get_value(count, path_span)
+    }
+
+    fn follow_path_string(
+        &self,
+        _self_span: Span,
+        column_name: String,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from(self)?;
+        let column = df.column(&column_name, path_span)?;
+        Ok(column.into_value(path_span))
+    }
+
+    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
+        if let Ok(df) = NuDataFrame::try_from(self) {
+            if let Value::CustomValue { val, .. } = other {
+                val.as_any()
+                    .downcast_ref::<NuDataFrameCustomValue>()
+                    .and_then(|other| NuDataFrame::try_from(other).ok())
+                    .and_then(|ref other| df.is_equal(other))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn operation(
+        &self,
+        lhs_span: Span,
+        operator: Operator,
+        op: Span,
+        right: &Value,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from(self)?;
+        df.compute_with_value(lhs_span, operator, op, right)
+    }
 
     fn notify_plugin_on_drop(&self) -> bool {
         true
