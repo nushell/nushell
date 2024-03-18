@@ -193,7 +193,7 @@ fn from_parquet(
             })?
             .into();
 
-        df.into_value(call.head)
+        Ok(df.into_value(call.head))
     }
 }
 
@@ -229,7 +229,7 @@ fn from_avro(
         })?
         .into();
 
-    df.into_value(call.head)
+    Ok(df.into_value(call.head))
 }
 
 fn from_ipc(
@@ -286,7 +286,7 @@ fn from_ipc(
             })?
             .into();
 
-        df.into_value(call.head)
+        Ok(df.into_value(call.head))
     }
 }
 
@@ -326,7 +326,7 @@ fn from_json(
         })?
         .into();
 
-    df.into_value(call.head)
+    Ok(df.into_value(call.head))
 }
 
 fn from_jsonl(
@@ -368,7 +368,7 @@ fn from_jsonl(
         })?
         .into();
 
-    df.into_value(call.head)
+    Ok(df.into_value(call.head))
 }
 
 fn from_csv(
@@ -506,6 +506,6 @@ fn from_csv(
             })?
             .into();
 
-        df.into_value(call.head)
+        Ok(df.into_value(call.head))
     }
 }

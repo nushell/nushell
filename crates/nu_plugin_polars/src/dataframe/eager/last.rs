@@ -1,9 +1,10 @@
-use crate::PolarsDataFramePlugin;
+use crate::{values::Column, PolarsDataFramePlugin};
 
 use super::super::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, SyntaxShape, Type,
+    Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -58,18 +59,17 @@ fn examples() -> Vec<PluginExample> {
         PluginExample {
             description: "Create new dataframe with last rows".into(),
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars last 1".into(),
-            // result: Some(
-            //     NuDataFrame::try_from_columns(
-            //         vec![
-            //             Column::new("a".to_string(), vec![Value::test_int(3)]),
-            //             Column::new("b".to_string(), vec![Value::test_int(4)]),
-            //         ],
-            //         None,
-            //     )
-            //     .expect("simple df for test should not fail")
-            //     .into_value(Span::test_data()),
-            // ),
-            result: None,
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_int(3)]),
+                        Column::new("b".to_string(), vec![Value::test_int(4)]),
+                    ],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         },
         PluginExample {
             description: "Creates a last expression from a column".into(),

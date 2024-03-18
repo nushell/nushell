@@ -74,14 +74,14 @@ impl NuLazyFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
-            Ok(Value::custom_value(Box::new(df.custom_value()?), span))
+            Ok(Value::custom_value(Box::new(df.custom_value()), span))
         } else {
-            Ok(Value::custom_value(Box::new(self.custom_value()?), span))
+            Ok(Value::custom_value(Box::new(self.custom_value()), span))
         }
     }
 
-    pub fn custom_value(&self) -> Result<NuLazyFrameCustomValue, ShellError> {
-        Ok(NuLazyFrameCustomValue { id: self.id })
+    pub fn custom_value(&self) -> NuLazyFrameCustomValue {
+        NuLazyFrameCustomValue { id: self.id }
     }
 
     pub fn base_value(&self, span: Span) -> Result<Value, ShellError> {

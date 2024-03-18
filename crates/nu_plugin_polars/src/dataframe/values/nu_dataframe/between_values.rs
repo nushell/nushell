@@ -20,7 +20,7 @@ pub(super) fn between_dataframes(
     let operation_span = span(&[left.span(), right.span()]);
     match operator.item {
         Operator::Math(Math::Plus) => match lhs.append_df(rhs, Axis::Row, operation_span) {
-            Ok(df) => df.into_value(operation_span),
+            Ok(df) => Ok(df.into_value(operation_span)),
             Err(e) => Err(e),
         },
         _ => Err(ShellError::OperatorMismatch {
@@ -791,9 +791,7 @@ mod test {
             .as_series(Span::test_data())
             .expect("should be able to get series");
 
-        let c0_value = c0
-            .into_value(Span::test_data())
-            .expect("should be able to convert to a value");
+        let c0_value = c0.into_value(Span::test_data());
 
         let c1 = df
             .column("c", Span::test_data())
@@ -803,9 +801,7 @@ mod test {
             .as_series(Span::test_data())
             .expect("should be able to get series");
 
-        let c1_value = c1
-            .into_value(Span::test_data())
-            .expect("should be able to convert to a value");
+        let c1_value = c1.into_value(Span::test_data());
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::NotEqual),

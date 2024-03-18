@@ -1,9 +1,10 @@
-use crate::PolarsDataFramePlugin;
+use crate::{values::Column, PolarsDataFramePlugin};
 
 use super::super::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, SyntaxShape, Type,
+    Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -35,40 +36,38 @@ impl PluginCommand for FirstDF {
                 PluginExample {
                     description: "Return the first row of a dataframe".into(),
                     example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first".into(),
-                    //     result: Some(
-                    //         NuDataFrame::try_from_columns(
-                    //             vec![
-                    //                 Column::new("a".to_string(), vec![Value::test_int(1)]),
-                    //                 Column::new("b".to_string(), vec![Value::test_int(2)]),
-                    //             ],
-                    //             None,
-                    //         )
-                    //         .expect("should not fail")
-                    //         .into_value(Span::test_data()),
-                    //     ),
-                    result: None,
+                    result: Some(
+                        NuDataFrame::try_from_columns(
+                            vec![
+                                Column::new("a".to_string(), vec![Value::test_int(1)]),
+                                Column::new("b".to_string(), vec![Value::test_int(2)]),
+                            ],
+                            None,
+                        )
+                        .expect("should not fail")
+                        .into_value(Span::test_data()),
+                    ),
                 },
                 PluginExample {
                     description: "Return the first two rows of a dataframe".into(),
                     example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first 2".into(),
-                    //     result: Some(
-                    //         NuDataFrame::try_from_columns(
-                    //             vec![
-                    //                 Column::new(
-                    //                     "a".to_string(),
-                    //                     vec![Value::test_int(1), Value::test_int(3)],
-                    //                 ),
-                    //                 Column::new(
-                    //                     "b".to_string(),
-                    //                     vec![Value::test_int(2), Value::test_int(4)],
-                    //                 ),
-                    //             ],
-                    //             None,
-                    //         )
-                    //         .expect("should not fail")
-                    //         .into_value(Span::test_data()),
-                    //     ),
-                    result: None,
+                    result: Some(
+                        NuDataFrame::try_from_columns(
+                            vec![
+                                Column::new(
+                                    "a".to_string(),
+                                    vec![Value::test_int(1), Value::test_int(3)],
+                                ),
+                                Column::new(
+                                    "b".to_string(),
+                                    vec![Value::test_int(2), Value::test_int(4)],
+                                ),
+                            ],
+                            None,
+                        )
+                        .expect("should not fail")
+                        .into_value(Span::test_data()),
+                    ),
                 },
                 PluginExample {
                     description: "Creates a first expression from a column".into(),

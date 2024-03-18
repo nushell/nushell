@@ -127,22 +127,22 @@ impl NuDataFrame {
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Result<Value, ShellError> {
         Ok(Value::custom_value(
-            Box::new(Self::new(false, dataframe).custom_value()?),
+            Box::new(Self::new(false, dataframe).custom_value()),
             span,
         ))
     }
 
-    pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
+    pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Ok(Value::custom_value(Box::new(lazy.custom_value()?), span))
+            Value::custom_value(Box::new(lazy.custom_value()), span)
         } else {
-            Ok(Value::custom_value(Box::new(self.custom_value()?), span))
+            Value::custom_value(Box::new(self.custom_value()), span)
         }
     }
 
-    pub fn custom_value(&self) -> Result<NuDataFrameCustomValue, ShellError> {
-        Ok(NuDataFrameCustomValue { id: self.id })
+    pub fn custom_value(&self) -> NuDataFrameCustomValue {
+        NuDataFrameCustomValue { id: self.id }
     }
 
     pub fn base_value(self, span: Span) -> Result<Value, ShellError> {
