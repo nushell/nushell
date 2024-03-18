@@ -1124,7 +1124,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 span: _,
                 span_id: _,
                 ty,
-                custom_completion: _,
+                custom_completion,
             } = &alias.clone().wrapped_call
             {
                 trace!("parsing: alias of external call");
@@ -2279,7 +2279,6 @@ pub fn parse_unit_value<'res>(
         let value = ValueWithUnit {
             expr: Expression::new_unknown(
                 Expr::Int(num),
-                lhs_span,
                 Type::Number,
             ),
             unit: Spanned {
@@ -2289,7 +2288,6 @@ pub fn parse_unit_value<'res>(
         };
         let expr = Expression::new_unknown(
             Expr::ValueWithUnit(Box::new(value)),
-            span,
             ty,
         );
 

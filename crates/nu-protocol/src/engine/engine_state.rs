@@ -7,7 +7,7 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId, GetSpan,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -993,14 +993,16 @@ impl EngineState {
         SpanId(self.num_spans() - 1)
     }
 
-    /// Get existing span
-    pub fn get_span(&self, span_id: SpanId) -> Span {
-        *self.spans.get(&span_id.0).expect("internal error: missing span")
-    }
-
     /// Find ID of a span (should be avoided if possible)
     pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
         self.spans.iter().position(|sp| sp == &span).map(SpanId)
+    }
+}
+
+impl<'a> GetSpan for &'a EngineState {
+    /// Get existing span
+    fn get_span(&self, span_id: SpanId) -> Span {
+        *self.spans.get(span_id.0).expect("internal error: missing span")
     }
 }
 
