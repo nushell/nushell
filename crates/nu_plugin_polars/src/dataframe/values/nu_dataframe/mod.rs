@@ -278,26 +278,17 @@ impl NuDataFrame {
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val
-                .as_any()
-                .downcast_ref::<NuDataFrameCustomValue>()
-            {
-                Some(custom_val) => DataFrameCache::instance()
-                    .get_df(&custom_val.id)
-                    .ok_or_else(|| ShellError::GenericError {
-                        error: format!("Dataframe cache does not contain id: {:?}", custom_val.id),
-                        msg: "".into(),
-                        span: Some(span),
+            Value::CustomValue { val, .. } => {
+                match val.as_any().downcast_ref::<NuDataFrameCustomValue>() {
+                    Some(custom_val) => Self::try_from(custom_val),
+                    None => Err(ShellError::CantConvert {
+                        to_type: "dataframe".into(),
+                        from_type: "non-dataframe".into(),
+                        span,
                         help: None,
-                        inner: vec![],
                     }),
-                None => Err(ShellError::CantConvert {
-                    to_type: "dataframe".into(),
-                    from_type: "non-dataframe".into(),
-                    span,
-                    help: None,
-                }),
-            },
+                }
+            }
             x => Err(ShellError::CantConvert {
                 to_type: "dataframe".into(),
                 from_type: x.get_type().to_string(),

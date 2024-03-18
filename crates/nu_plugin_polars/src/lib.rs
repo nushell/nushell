@@ -1,10 +1,11 @@
 use dashmap::DashMap;
-use dataframe::values::{NuDataFrame, NuLazyFrame, NuLazyFrameCustomValue};
+use dataframe::values::{
+    NuDataFrame, NuDataFrameCustomValue, NuLazyFrame, NuLazyFrameCustomValue, NuLazyGroupBy,
+};
 use lazy_static::lazy_static;
 use nu_plugin::{EngineInterface, LabeledError, Plugin, PluginCommand};
 
 pub mod dataframe;
-pub use dataframe::values::NuDataFrameCustomValue;
 pub use dataframe::*;
 use nu_protocol::CustomValue;
 use std::sync::Arc;
@@ -20,6 +21,7 @@ lazy_static! {
 pub(crate) enum CacheValue {
     DataFrame(NuDataFrame),
     LazyFrame(NuLazyFrame),
+    LazyGroupBy(NuLazyGroupBy),
 }
 
 pub(crate) struct DataFrameCache {
@@ -70,6 +72,26 @@ impl DataFrameCache {
             None
         }
     }
+
+    pub(crate) fn insert_group_by(&self, group_by: NuLazyGroupBy) {
+        eprintln!("Adding lazy groupby to cache: {:?}", group_by.id);
+        let _ = self
+            .internal
+            .insert(group_by.id, CacheValue::LazyGroupBy(group_by));
+    }
+
+    pub(crate) fn get_group_by(&self, uuid: &Uuid) -> Option<NuLazyGroupBy> {
+        if let Some(get) = self.internal.get(uuid) {
+            if let CacheValue::LazyGroupBy(df) = get.value() {
+                Some(df.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn instance() -> Arc<DataFrameCache> {
         Arc::clone(&DATAFRAME_CACHE)
     }

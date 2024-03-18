@@ -4,14 +4,21 @@ use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use polars::prelude::{LazyGroupBy, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::sync::Arc;
+use uuid::Uuid;
+
+use crate::DataFrameCache;
+
+pub use self::custom_value::NuLazyGroupByCustomValue;
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of
 // the Deserialize trait
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct NuLazyGroupBy {
-    pub group_by: Option<LazyGroupBy>,
-    pub schema: Option<Schema>,
+    pub id: Uuid,
+    pub group_by: Option<Arc<LazyGroupBy>>,
+    pub schema: Option<Arc<Schema>>,
     pub from_eager: bool,
 }
 
@@ -52,51 +59,53 @@ impl AsRef<LazyGroupBy> for NuLazyGroupBy {
     }
 }
 
-impl AsMut<LazyGroupBy> for NuLazyGroupBy {
-    fn as_mut(&mut self) -> &mut polars::prelude::LazyGroupBy {
-        // The only case when there cannot be a lazy frame is if it is created
-        // using the default function or if created by deserializing something
-        self.group_by
-            .as_mut()
-            .expect("there should always be a frame")
-    }
-}
-
 impl From<LazyGroupBy> for NuLazyGroupBy {
     fn from(group_by: LazyGroupBy) -> Self {
-        Self {
-            group_by: Some(group_by),
-            from_eager: false,
-            schema: None,
-        }
+        NuLazyGroupBy::new(Some(group_by), false, None)
     }
 }
 
 impl NuLazyGroupBy {
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+    pub fn new(group_by: Option<LazyGroupBy>, from_eager: bool, schema: Option<Schema>) -> Self {
+        let instance = NuLazyGroupBy {
+            id: Uuid::new_v4(),
+            group_by: group_by.map(Arc::new),
+            from_eager,
+            schema: schema.map(Arc::new),
+        };
+        DataFrameCache::instance().insert_group_by(instance.clone());
+        instance
     }
 
-    pub fn into_polars(self) -> LazyGroupBy {
-        self.group_by.expect("GroupBy cannot be none to convert")
+    pub fn into_value(self, span: Span) -> Value {
+        Value::custom_value(Box::new(self.custom_value()), span)
+    }
+
+    pub fn custom_value(&self) -> NuLazyGroupByCustomValue {
+        NuLazyGroupByCustomValue { id: self.id }
+    }
+
+    pub fn into_polars(&self) -> LazyGroupBy {
+        self.group_by
+            .as_ref()
+            .map(|arc| (**arc).clone())
+            .expect("GroupBy cannot be none to convert")
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<NuLazyGroupBy>() {
-                Some(group) => Ok(Self {
-                    group_by: group.group_by.clone(),
-                    schema: group.schema.clone(),
-                    from_eager: group.from_eager,
-                }),
-                None => Err(ShellError::CantConvert {
-                    to_type: "lazy groupby".into(),
-                    from_type: "custom value".into(),
-                    span,
-                    help: None,
-                }),
-            },
+            Value::CustomValue { val, .. } => {
+                match val.as_any().downcast_ref::<NuLazyGroupByCustomValue>() {
+                    Some(group) => Self::try_from(group),
+                    None => Err(ShellError::CantConvert {
+                        to_type: "lazy groupby".into(),
+                        from_type: "custom value".into(),
+                        span,
+                        help: None,
+                    }),
+                }
+            }
             x => Err(ShellError::CantConvert {
                 to_type: "lazy groupby".into(),
                 from_type: x.get_type().to_string(),

@@ -1,28 +1,39 @@
+use crate::DataFrameCache;
+
 use super::NuLazyGroupBy;
 use nu_protocol::{record, CustomValue, ShellError, Span, Value};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-// CustomValue implementation for NuDataFrame
-impl CustomValue for NuLazyGroupBy {
-    fn typetag_name(&self) -> &'static str {
-        "lazygroupby"
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NuLazyGroupByCustomValue {
+    pub id: Uuid,
+}
+
+impl TryFrom<&NuLazyGroupByCustomValue> for NuLazyGroupBy {
+    type Error = ShellError;
+
+    fn try_from(value: &NuLazyGroupByCustomValue) -> Result<Self, Self::Error> {
+        DataFrameCache::instance()
+            .get_group_by(&value.id)
+            .ok_or_else(|| ShellError::GenericError {
+                error: format!("GroupBy {:?} not found in cache", value.id),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
     }
+}
 
-    fn typetag_deserialize(&self) {
-        unimplemented!("typetag_deserialize")
-    }
-
+#[typetag::serde]
+impl CustomValue for NuLazyGroupByCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuLazyGroupBy {
-            group_by: self.group_by.clone(),
-            schema: self.schema.clone(),
-            from_eager: self.from_eager,
-        };
-
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom_value(Box::new(self.clone()), span)
     }
 
     fn value_string(&self) -> String {
-        self.typetag_name().to_string()
+        "NuLazyGroupByCustomValue".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
