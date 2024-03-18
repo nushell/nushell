@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     eager::{ColumnsDF, FirstDF, LastDF, OpenDataFrame, ToCSV, ToDataFrame, ToNu},
-    lazy::LazyAggregate,
+    lazy::{LazyAggregate, LazyCollect},
 };
 
 lazy_static! {
@@ -113,6 +113,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(ToNu),
             Box::new(ToCSV),
             Box::new(LazyAggregate),
+            Box::new(LazyCollect),
         ]
     }
 

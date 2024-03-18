@@ -1,5 +1,5 @@
-pub mod aggregate;
-// mod collect;
+mod aggregate;
+mod collect;
 // mod explode;
 // mod fetch;
 // mod fill_nan;
@@ -17,7 +17,7 @@ pub mod aggregate;
 // use nu_protocol::engine::StateWorkingSet;
 
 pub use crate::dataframe::lazy::aggregate::LazyAggregate;
-// pub use crate::dataframe::lazy::collect::LazyCollect;
+pub use crate::dataframe::lazy::collect::LazyCollect;
 // use crate::dataframe::lazy::fetch::LazyFetch;
 // use crate::dataframe::lazy::fill_nan::LazyFillNA;
 // pub use crate::dataframe::lazy::fill_null::LazyFillNull;

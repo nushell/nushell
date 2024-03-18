@@ -140,15 +140,17 @@ impl NuLazyFrame {
     pub fn get_lazy_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
-                Some(expr) => Ok(Self::new_with_option_lazy(false, expr.lazy.clone())),
-                None => Err(ShellError::CantConvert {
-                    to_type: "lazy frame".into(),
-                    from_type: "non-dataframe".into(),
-                    span,
-                    help: None,
-                }),
-            },
+            Value::CustomValue { val, .. } => {
+                match val.as_any().downcast_ref::<NuLazyFrameCustomValue>() {
+                    Some(expr) => NuLazyFrame::try_from(expr),
+                    None => Err(ShellError::CantConvert {
+                        to_type: "lazy frame".into(),
+                        from_type: "non-dataframe".into(),
+                        span,
+                        help: None,
+                    }),
+                }
+            }
             x => Err(ShellError::CantConvert {
                 to_type: "lazy frame".into(),
                 from_type: x.get_type().to_string(),
@@ -160,7 +162,9 @@ impl NuLazyFrame {
 
     pub fn can_downcast(value: &Value) -> bool {
         if let Value::CustomValue { val, .. } = value {
-            val.as_any().downcast_ref::<Self>().is_some()
+            val.as_any()
+                .downcast_ref::<NuLazyFrameCustomValue>()
+                .is_some()
         } else {
             false
         }
