@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_protocol::ast::{Call, Expr, Expression, RecordItem};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
@@ -97,7 +99,7 @@ impl Command for FromNuon {
                 ty: Type::Nothing,
             }
         } else {
-            let mut pipeline = block.pipelines.remove(0);
+            let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
             if let Some(expr) = pipeline.elements.get(1) {
                 return Err(ShellError::GenericError {

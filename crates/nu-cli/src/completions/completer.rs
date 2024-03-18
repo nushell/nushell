@@ -124,9 +124,9 @@ impl NuCompleter {
 
         let output = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
-        for pipeline in output.pipelines.into_iter() {
-            for pipeline_element in pipeline.elements {
-                let flattened = flatten_pipeline_element(&working_set, &pipeline_element);
+        for pipeline in output.pipelines.iter() {
+            for pipeline_element in &pipeline.elements {
+                let flattened = flatten_pipeline_element(&working_set, pipeline_element);
                 let mut spans: Vec<String> = vec![];
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {

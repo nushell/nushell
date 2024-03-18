@@ -7,6 +7,7 @@ use nu_protocol::{
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct UpdateCells;
@@ -102,7 +103,7 @@ impl Command for UpdateCells {
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let block: Block = engine_state.get_block(block.block_id).clone();
+        let block: Arc<Block> = engine_state.get_block(block.block_id).clone();
         let eval_block_fn = get_eval_block(&engine_state);
 
         let span = call.head;
@@ -140,7 +141,7 @@ struct UpdateCellIterator {
     columns: Option<HashSet<String>>,
     engine_state: EngineState,
     stack: Stack,
-    block: Block,
+    block: Arc<Block>,
     eval_block_fn: EvalBlockFn,
     span: Span,
 }
