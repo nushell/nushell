@@ -385,7 +385,6 @@ fn get_converted_value(
                     }
 
                     let val_span = orig_val.span();
-                    // TODO DEBUG
                     let result = eval_block::<WithoutDebug>(
                         engine_state,
                         &mut stack,
