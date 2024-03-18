@@ -1,8 +1,13 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
 use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::{ast::Call, engine::{EngineState, Stack}, record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value, SpanId};
-use std::{collections::HashMap, fmt::Write};
 use nu_protocol::engine::UNKNOWN_SPAN_ID;
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
+    SyntaxShape, Type, Value,
+};
+use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
 
