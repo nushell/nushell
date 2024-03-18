@@ -18,7 +18,7 @@ impl PluginCommand for LazyAggregate {
     type Plugin = PolarsDataFramePlugin;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("dfr agg")
+        PluginSignature::build("polars agg")
             .usage("Performs a series of aggregations from a group-by.")
             .rest(
                 "Group-by expressions",
