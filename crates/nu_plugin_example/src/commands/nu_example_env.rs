@@ -19,6 +19,12 @@ impl SimplePluginCommand for NuExampleEnv {
                 "The name of the environment variable to get",
             )
             .switch("cwd", "Get current working directory instead", None)
+            .named(
+                "set",
+                SyntaxShape::Any,
+                "Set an environment variable to the value",
+                None,
+            )
             .search_terms(vec!["example".into(), "env".into()])
             .input_output_type(Type::Nothing, Type::Any)
     }
@@ -31,8 +37,22 @@ impl SimplePluginCommand for NuExampleEnv {
         _input: &Value,
     ) -> Result<Value, LabeledError> {
         if call.has_flag("cwd")? {
-            // Get working directory
-            Ok(Value::string(engine.get_current_dir()?, call.head))
+            match call.get_flag_value("set") {
+                None => {
+                    // Get working directory
+                    Ok(Value::string(engine.get_current_dir()?, call.head))
+                }
+                Some(value) => Err(LabeledError {
+                    label: "Invalid arguments".into(),
+                    msg: "--cwd can't be used with --set".into(),
+                    span: Some(value.span()),
+                }),
+            }
+        } else if let Some(value) = call.get_flag_value("set") {
+            // Set single env var
+            let name = call.req::<String>(0)?;
+            engine.add_env_var(name, value)?;
+            Ok(Value::nothing(call.head))
         } else if let Some(name) = call.opt::<String>(0)? {
             // Get single env var
             Ok(engine

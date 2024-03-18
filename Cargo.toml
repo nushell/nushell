@@ -159,7 +159,7 @@ wasi = ["nu-cmd-lang/wasi"]
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
-system-clipboard = ["reedline/system_clipboard"]
+system-clipboard = ["reedline/system_clipboard", "nu-cli/system-clipboard"]
 
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]

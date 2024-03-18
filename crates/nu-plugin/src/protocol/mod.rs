@@ -348,6 +348,21 @@ impl PluginCallResponse<PipelineDataHeader> {
     }
 }
 
+impl PluginCallResponse<PipelineData> {
+    /// Does this response have a stream?
+    pub(crate) fn has_stream(&self) -> bool {
+        match self {
+            PluginCallResponse::PipelineData(data) => match data {
+                PipelineData::Empty => false,
+                PipelineData::Value(..) => false,
+                PipelineData::ListStream(..) => true,
+                PipelineData::ExternalStream { .. } => true,
+            },
+            _ => false,
+        }
+    }
+}
+
 /// Options that can be changed to affect how the engine treats the plugin
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginOption {
@@ -447,6 +462,8 @@ pub enum EngineCall<D> {
     GetEnvVars,
     /// Get current working directory
     GetCurrentDir,
+    /// Set an environment variable in the caller's scope
+    AddEnvVar(String, Value),
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -473,6 +490,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetEnvVar(_) => "GetEnv",
             EngineCall::GetEnvVars => "GetEnvs",
             EngineCall::GetCurrentDir => "GetCurrentDir",
+            EngineCall::AddEnvVar(..) => "AddEnvVar",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }

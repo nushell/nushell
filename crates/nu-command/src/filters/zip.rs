@@ -30,7 +30,11 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required("other", SyntaxShape::Any, "The other input.")
+            .required(
+                "other",
+                SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::Closure(Some(vec![]))]),
+                "The other input, or closure returning a stream.",
+            )
             .category(Category::Filters)
     }
 

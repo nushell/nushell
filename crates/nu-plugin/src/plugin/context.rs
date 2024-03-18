@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -9,6 +10,8 @@ use nu_protocol::{
     engine::{Closure, EngineState, Redirection, Stack},
     Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
+
+use crate::util::MutableCow;
 
 /// Object safe trait for abstracting operations required of the plugin context.
 pub(crate) trait PluginExecutionContext: Send + Sync {
@@ -26,8 +29,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError>;
     /// Get all environment variables
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError>;
-    // Get current working directory
+    /// Get current working directory
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError>;
+    /// Set an environment variable
+    fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -37,33 +42,35 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
         redirect_stdout: bool,
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError>;
+    /// Create an owned version of the context with `'static` lifetime
+    fn boxed(&self) -> Box<dyn PluginExecutionContext>;
 }
 
-/// The execution context of a plugin command.
-pub(crate) struct PluginExecutionCommandContext {
+/// The execution context of a plugin command. Can be borrowed.
+pub(crate) struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
-    engine_state: EngineState,
-    stack: Stack,
-    call: Call,
+    engine_state: Cow<'a, EngineState>,
+    stack: MutableCow<'a, Stack>,
+    call: Cow<'a, Call>,
 }
 
-impl PluginExecutionCommandContext {
+impl<'a> PluginExecutionCommandContext<'a> {
     pub fn new(
         identity: Arc<PluginIdentity>,
-        engine_state: &EngineState,
-        stack: &Stack,
-        call: &Call,
-    ) -> PluginExecutionCommandContext {
+        engine_state: &'a EngineState,
+        stack: &'a mut Stack,
+        call: &'a Call,
+    ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
-            engine_state: engine_state.clone(),
-            stack: stack.clone(),
-            call: call.clone(),
+            engine_state: Cow::Borrowed(engine_state),
+            stack: MutableCow::Borrowed(stack),
+            call: Cow::Borrowed(call),
         }
     }
 }
 
-impl PluginExecutionContext for PluginExecutionCommandContext {
+impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn command_span(&self) -> Span {
         self.call.head
     }
@@ -131,6 +138,11 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
         Ok(cwd.into_spanned(self.call.head))
     }
 
+    fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError> {
+        self.stack.add_env_var(name, value);
+        Ok(())
+    }
+
     fn eval_closure(
         &self,
         closure: Spanned<Closure>,
@@ -191,6 +203,15 @@ impl PluginExecutionContext for PluginExecutionCommandContext {
 
         eval_block_with_early_return(&self.engine_state, stack, block, input)
     }
+
+    fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
+        Box::new(PluginExecutionCommandContext {
+            identity: self.identity.clone(),
+            engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
+            stack: self.stack.owned(),
+            call: Cow::Owned(self.call.clone().into_owned()),
+        })
+    }
 }
 
 /// A bogus execution context for testing that doesn't really implement anything properly
@@ -239,6 +260,12 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         })
     }
 
+    fn add_env_var(&mut self, _name: String, _value: Value) -> Result<(), ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "add_env_var not implemented on bogus".into(),
+        })
+    }
+
     fn eval_closure(
         &self,
         _closure: Spanned<Closure>,
@@ -250,5 +277,9 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Err(ShellError::NushellFailed {
             msg: "eval_closure not implemented on bogus".into(),
         })
+    }
+
+    fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
+        Box::new(PluginExecutionBogusContext)
     }
 }

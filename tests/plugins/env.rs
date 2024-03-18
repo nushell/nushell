@@ -42,3 +42,14 @@ fn get_current_dir() {
     assert!(result.status.success());
     assert_eq!(cwd, result.out);
 }
+
+#[test]
+fn set_env() {
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_example"),
+        "nu-example-env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION"
+    );
+    assert!(result.status.success());
+    assert_eq!("rocks", result.out);
+}
