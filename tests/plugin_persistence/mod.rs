@@ -101,12 +101,12 @@ fn plugin_commands_run_without_error() {
         cwd: ".",
         plugins: [
             ("nu_plugin_inc"),
-            ("nu_plugin_stream_example"),
+            ("nu_plugin_example"),
             ("nu_plugin_custom_values"),
         ],
         r#"
             "2.0.0" | inc -m | ignore
-            stream_example seq 1 10 | ignore
+            example seq 1 10 | ignore
             custom-value generate | ignore
         "#
     );
@@ -120,14 +120,14 @@ fn plugin_commands_run_multiple_times_without_error() {
         cwd: ".",
         plugins: [
             ("nu_plugin_inc"),
-            ("nu_plugin_stream_example"),
+            ("nu_plugin_example"),
             ("nu_plugin_custom_values"),
         ],
         r#"
             ["2.0.0" "2.1.0" "2.2.0"] | each { inc -m } | print
-            stream_example seq 1 10 | ignore
+            example seq 1 10 | ignore
             custom-value generate | ignore
-            stream_example seq 1 20 | ignore
+            example seq 1 20 | ignore
             custom-value generate2 | ignore
         "#
     );
@@ -355,11 +355,11 @@ fn plugin_gc_can_be_disabled_by_plugin() {
 fn plugin_gc_does_not_stop_plugin_while_stream_output_is_active() {
     let out = nu_with_plugins!(
         cwd: ".",
-        plugin: ("nu_plugin_stream_example"),
+        plugin: ("nu_plugin_example"),
         r#"
             $env.config.plugin_gc = { default: { stop_after: 10ms } }
             # This would exceed the configured time
-            stream_example seq 1 500 | each { |n| sleep 1ms; $n } | length | print
+            example seq 1 500 | each { |n| sleep 1ms; $n } | length | print
         "#
     );
     assert!(out.status.success());

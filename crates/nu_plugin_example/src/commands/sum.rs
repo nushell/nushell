@@ -1,16 +1,16 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, Span, Type, Value};
 
-use crate::StreamExample;
+use crate::Example;
 
-/// `<list> | stream_example sum`
+/// `<list> | example sum`
 pub struct Sum;
 
 impl PluginCommand for Sum {
-    type Plugin = StreamExample;
+    type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("stream_example sum")
+        PluginSignature::build("example sum")
             .usage("Example stream consumer for a list of values")
             .search_terms(vec!["example".into()])
             .input_output_types(vec![
@@ -18,7 +18,7 @@ impl PluginCommand for Sum {
                 (Type::List(Type::Float.into()), Type::Float),
             ])
             .plugin_examples(vec![PluginExample {
-                example: "seq 1 5 | stream_example sum".into(),
+                example: "seq 1 5 | example sum".into(),
                 description: "sum values from 1 to 5".into(),
                 result: Some(Value::test_int(15)),
             }])
@@ -27,7 +27,7 @@ impl PluginCommand for Sum {
 
     fn run(
         &self,
-        _plugin: &StreamExample,
+        _plugin: &Example,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,

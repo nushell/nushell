@@ -1,16 +1,16 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, SyntaxShape, Type};
 
-use crate::StreamExample;
+use crate::Example;
 
-/// `<list> | stream_example for-each { |value| ... }`
+/// `<list> | example for-each { |value| ... }`
 pub struct ForEach;
 
 impl PluginCommand for ForEach {
-    type Plugin = StreamExample;
+    type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("stream_example for-each")
+        PluginSignature::build("example for-each")
             .usage("Example execution of a closure with a stream")
             .extra_usage("Prints each value the closure returns to stderr")
             .input_output_type(Type::ListStream, Type::Nothing)
@@ -20,7 +20,7 @@ impl PluginCommand for ForEach {
                 "The closure to run for each input value",
             )
             .plugin_examples(vec![PluginExample {
-                example: "ls | get name | stream_example for-each { |f| ^file $f }".into(),
+                example: "ls | get name | example for-each { |f| ^file $f }".into(),
                 description: "example with an external command".into(),
                 result: None,
             }])
@@ -29,7 +29,7 @@ impl PluginCommand for ForEach {
 
     fn run(
         &self,
-        _plugin: &StreamExample,
+        _plugin: &Example,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,

@@ -21,6 +21,7 @@ particularly useful.
 "#
                 .trim(),
             )
+            .search_terms(vec!["example".into()])
             .category(Category::Experimental)
     }
 

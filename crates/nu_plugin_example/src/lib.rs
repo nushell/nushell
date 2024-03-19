@@ -14,12 +14,20 @@ impl Plugin for Example {
         // If it doesn't appear on this list, it won't be added.
         vec![
             Box::new(Main),
+            // Basic demos
             Box::new(One),
             Box::new(Two),
             Box::new(Three),
+            // Engine interface demos
             Box::new(Config),
             Box::new(Env),
             Box::new(DisableGc),
+            // Stream demos
+            Box::new(CollectExternal),
+            Box::new(ForEach),
+            Box::new(Generate),
+            Box::new(Seq),
+            Box::new(Sum),
         ]
     }
 }
