@@ -1,8 +1,9 @@
 use std::vec;
 
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::{get_eval_expression, CallExt};
 use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
+
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -54,8 +55,8 @@ impl Command for FormatPattern {
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
-                let string_pattern = pattern.as_string()?;
                 let string_span = pattern.span();
+                let string_pattern = pattern.coerce_into_string()?;
                 // the string span is start as `"`, we don't need the character
                 // to generate proper span for sub expression.
                 let ops = extract_formatting_operations(
@@ -271,6 +272,7 @@ fn format_record(
 ) -> Result<String, ShellError> {
     let config = engine_state.get_config();
     let mut output = String::new();
+    let eval_expression = get_eval_expression(engine_state);
 
     for op in format_operations {
         match op {
@@ -287,18 +289,18 @@ fn format_record(
                     .collect();
                 match data_as_value.clone().follow_cell_path(&path_members, false) {
                     Ok(value_at_column) => {
-                        output.push_str(value_at_column.into_string(", ", config).as_str())
+                        output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
                     }
                     Err(se) => return Err(se),
                 }
             }
             FormatOperation::ValueNeedEval(_col_name, span) => {
-                let exp = parse_expression(working_set, &[*span], false);
+                let exp = parse_expression(working_set, &[*span]);
                 match working_set.parse_errors.first() {
                     None => {
                         let parsed_result = eval_expression(engine_state, stack, &exp);
                         if let Ok(val) = parsed_result {
-                            output.push_str(&val.into_abbreviated_string(config))
+                            output.push_str(&val.to_abbreviated_string(config))
                         }
                     }
                     Some(err) => {

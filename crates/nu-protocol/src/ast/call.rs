@@ -2,14 +2,17 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::Expression;
-use crate::{DeclId, Span, Spanned};
+use crate::{
+    ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
+    ShellError, Span, Spanned, Value,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
     Positional(Expression),
     Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
     Unknown(Expression), // unknown argument used in "fall-through" signatures
+    Spread(Expression),  // a list spread to fill in rest arguments
 }
 
 impl Argument {
@@ -30,8 +33,15 @@ impl Argument {
                 Span::new(start, end)
             }
             Argument::Unknown(e) => e.span,
+            Argument::Spread(e) => e.span,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ExternalArgument {
+    Regular(Expression),
+    Spread(Expression),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -40,8 +50,6 @@ pub struct Call {
     pub decl_id: DeclId,
     pub head: Span,
     pub arguments: Vec<Argument>,
-    pub redirect_stdout: bool,
-    pub redirect_stderr: bool,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
@@ -52,8 +60,6 @@ impl Call {
             decl_id: 0,
             head,
             arguments: vec![],
-            redirect_stdout: true,
-            redirect_stderr: false,
             parser_info: HashMap::new(),
         }
     }
@@ -85,6 +91,7 @@ impl Call {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
+            Argument::Spread(_) => None,
         })
     }
 
@@ -96,6 +103,7 @@ impl Call {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
+            Argument::Spread(_) => None,
         })
     }
 
@@ -118,32 +126,69 @@ impl Call {
         self.arguments.push(Argument::Unknown(unknown));
     }
 
+    pub fn add_spread(&mut self, args: Expression) {
+        self.arguments.push(Argument::Spread(args));
+    }
+
     pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
-        self.arguments.iter().filter_map(|arg| match arg {
-            Argument::Named(_) => None,
-            Argument::Positional(positional) => Some(positional),
-            Argument::Unknown(unknown) => Some(unknown),
-        })
+        self.arguments
+            .iter()
+            .take_while(|arg| match arg {
+                Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
+                _ => true,
+            })
+            .filter_map(|arg| match arg {
+                Argument::Named(_) => None,
+                Argument::Positional(positional) => Some(positional),
+                Argument::Unknown(unknown) => Some(unknown),
+                Argument::Spread(_) => None,
+            })
     }
 
     pub fn positional_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
-        self.arguments.iter_mut().filter_map(|arg| match arg {
-            Argument::Named(_) => None,
-            Argument::Positional(positional) => Some(positional),
-            Argument::Unknown(unknown) => Some(unknown),
-        })
+        self.arguments
+            .iter_mut()
+            .take_while(|arg| match arg {
+                Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
+                _ => true,
+            })
+            .filter_map(|arg| match arg {
+                Argument::Named(_) => None,
+                Argument::Positional(positional) => Some(positional),
+                Argument::Unknown(unknown) => Some(unknown),
+                Argument::Spread(_) => None,
+            })
     }
 
     pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
         self.positional_iter().nth(i)
     }
 
+    // TODO this method is never used. Delete?
     pub fn positional_nth_mut(&mut self, i: usize) -> Option<&mut Expression> {
         self.positional_iter_mut().nth(i)
     }
 
     pub fn positional_len(&self) -> usize {
         self.positional_iter().count()
+    }
+
+    /// Returns every argument to the rest parameter, as well as whether each argument
+    /// is spread or a normal positional argument (true for spread, false for normal)
+    pub fn rest_iter(&self, start: usize) -> impl Iterator<Item = (&Expression, bool)> {
+        // todo maybe rewrite to be more elegant or something
+        let args = self
+            .arguments
+            .iter()
+            .filter_map(|arg| match arg {
+                Argument::Named(_) => None,
+                Argument::Positional(positional) => Some((positional, false)),
+                Argument::Unknown(unknown) => Some((unknown, false)),
+                Argument::Spread(args) => Some((args, true)),
+            })
+            .collect::<Vec<_>>();
+        let spread_start = args.iter().position(|(_, spread)| *spread).unwrap_or(start);
+        args.into_iter().skip(start.min(spread_start))
     }
 
     pub fn get_parser_info(&self, name: &str) -> Option<&Expression> {
@@ -154,20 +199,10 @@ impl Call {
         self.parser_info.insert(name, val)
     }
 
-    pub fn has_flag(&self, flag_name: &str) -> bool {
+    pub fn get_flag_expr(&self, flag_name: &str) -> Option<&Expression> {
         for name in self.named_iter() {
             if flag_name == name.0.item {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    pub fn get_flag_expr(&self, flag_name: &str) -> Option<Expression> {
-        for name in self.named_iter() {
-            if flag_name == name.0.item {
-                return name.2.clone();
+                return name.2.as_ref();
             }
         }
 
@@ -182,6 +217,108 @@ impl Call {
         }
 
         None
+    }
+
+    /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`)
+    /// evaluating the expression after = as a constant command
+    pub fn has_flag_const(
+        &self,
+        working_set: &StateWorkingSet,
+        flag_name: &str,
+    ) -> Result<bool, ShellError> {
+        for name in self.named_iter() {
+            if flag_name == name.0.item {
+                return if let Some(expr) = &name.2 {
+                    // Check --flag=false
+                    let result = eval_constant(working_set, expr)?;
+                    match result {
+                        Value::Bool { val, .. } => Ok(val),
+                        _ => Err(ShellError::CantConvert {
+                            to_type: "bool".into(),
+                            from_type: result.get_type().to_string(),
+                            span: result.span(),
+                            help: Some("".into()),
+                        }),
+                    }
+                } else {
+                    Ok(true)
+                };
+            }
+        }
+
+        Ok(false)
+    }
+
+    pub fn get_flag_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        name: &str,
+    ) -> Result<Option<T>, ShellError> {
+        if let Some(expr) = self.get_flag_expr(name) {
+            let result = eval_constant(working_set, expr)?;
+            FromValue::from_value(result).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn rest_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        starting_pos: usize,
+    ) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+
+        for result in
+            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
+        {
+            output.push(FromValue::from_value(result)?);
+        }
+
+        Ok(output)
+    }
+
+    pub fn rest_iter_flattened<F>(
+        &self,
+        start: usize,
+        mut eval: F,
+    ) -> Result<Vec<Value>, ShellError>
+    where
+        F: FnMut(&Expression) -> Result<Value, ShellError>,
+    {
+        let mut output = Vec::new();
+
+        for (expr, spread) in self.rest_iter(start) {
+            let result = eval(expr)?;
+            if spread {
+                match result {
+                    Value::List { mut vals, .. } => output.append(&mut vals),
+                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                }
+            } else {
+                output.push(result);
+            }
+        }
+
+        Ok(output)
+    }
+
+    pub fn req_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        pos: usize,
+    ) -> Result<T, ShellError> {
+        if let Some(expr) = self.positional_nth(pos) {
+            let result = eval_constant(working_set, expr)?;
+            FromValue::from_value(result)
+        } else if self.positional_len() == 0 {
+            Err(ShellError::AccessEmptyContent { span: self.head })
+        } else {
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.positional_len() - 1,
+                span: self.head,
+            })
+        }
     }
 
     pub fn span(&self) -> Span {

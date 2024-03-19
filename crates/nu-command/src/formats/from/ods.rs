@@ -134,18 +134,18 @@ fn from_ods(
     for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
-        if let Some(Ok(current_sheet)) = ods.worksheet_range(&sheet_name) {
+        if let Ok(current_sheet) = ods.worksheet_range(&sheet_name) {
             for row in current_sheet.rows() {
                 let record = row
                     .iter()
                     .enumerate()
                     .map(|(i, cell)| {
                         let value = match cell {
-                            DataType::Empty => Value::nothing(head),
-                            DataType::String(s) => Value::string(s, head),
-                            DataType::Float(f) => Value::float(*f, head),
-                            DataType::Int(i) => Value::int(*i, head),
-                            DataType::Bool(b) => Value::bool(*b, head),
+                            Data::Empty => Value::nothing(head),
+                            Data::String(s) => Value::string(s, head),
+                            Data::Float(f) => Value::float(*f, head),
+                            Data::Int(i) => Value::int(*i, head),
+                            Data::Bool(b) => Value::bool(*b, head),
                             _ => Value::nothing(head),
                         };
 

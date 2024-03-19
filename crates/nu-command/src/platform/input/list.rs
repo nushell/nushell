@@ -1,7 +1,7 @@
 use dialoguer::{console::Term, Select};
 use dialoguer::{FuzzySelect, MultiSelect};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -39,10 +39,6 @@ impl Command for InputList {
     fn signature(&self) -> Signature {
         Signature::build("input list")
             .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
                 (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Range, Type::Int),
             ])
@@ -53,6 +49,13 @@ impl Command for InputList {
                 Some('m'),
             )
             .switch("fuzzy", "Use a fuzzy select.", Some('f'))
+            .switch("index", "Returns list indexes.", Some('i'))
+            .named(
+                "display",
+                SyntaxShape::CellPath,
+                "Field to use as display value",
+                Some('d'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
@@ -78,17 +81,30 @@ impl Command for InputList {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
+        let multi = call.has_flag(engine_state, stack, "multi")?;
+        let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
+        let index = call.has_flag(engine_state, stack, "index")?;
+        let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
 
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => input
                 .into_iter()
-                .map(move |val| Options {
-                    name: val.into_string(", ", engine_state.get_config()),
-                    value: val,
+                .map(move |val| {
+                    let display_value = if let Some(ref cellpath) = display_path {
+                        val.clone()
+                            .follow_cell_path(&cellpath.members, false)?
+                            .to_expanded_string(", ", engine_state.get_config())
+                    } else {
+                        val.to_expanded_string(", ", engine_state.get_config())
+                    };
+                    Ok(Options {
+                        name: display_value,
+                        value: val,
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, ShellError>>()?,
 
             _ => {
                 return Err(ShellError::TypeMismatch {
@@ -105,7 +121,7 @@ impl Command for InputList {
             });
         }
 
-        if call.has_flag("multi") && call.has_flag("fuzzy") {
+        if multi && fuzzy {
             return Err(ShellError::TypeMismatch {
                 err_message: "Fuzzy search is not supported for multi select".to_string(),
                 span: head,
@@ -118,7 +134,7 @@ impl Command for InputList {
         //     ..Default::default()
         // };
 
-        let ans: InteractMode = if call.has_flag("multi") {
+        let ans: InteractMode = if multi {
             let multi_select = MultiSelect::new(); //::with_theme(&theme);
 
             InteractMode::Multi(
@@ -134,7 +150,7 @@ impl Command for InputList {
                     msg: format!("{}: {}", INTERACT_ERROR, err),
                 })?,
             )
-        } else if call.has_flag("fuzzy") {
+        } else if fuzzy {
             let fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
 
             InteractMode::Single(
@@ -170,17 +186,40 @@ impl Command for InputList {
         };
 
         Ok(match ans {
-            InteractMode::Multi(res) => match res {
-                Some(opts) => Value::list(
-                    opts.iter().map(|s| options[*s].value.clone()).collect(),
-                    head,
-                ),
-                None => Value::nothing(head),
-            },
-            InteractMode::Single(res) => match res {
-                Some(opt) => options[opt].value.clone(),
-                None => Value::nothing(head),
-            },
+            InteractMode::Multi(res) => {
+                if index {
+                    match res {
+                        Some(opts) => Value::list(
+                            opts.into_iter()
+                                .map(|s| Value::int(s as i64, head))
+                                .collect(),
+                            head,
+                        ),
+                        None => Value::nothing(head),
+                    }
+                } else {
+                    match res {
+                        Some(opts) => Value::list(
+                            opts.iter().map(|s| options[*s].value.clone()).collect(),
+                            head,
+                        ),
+                        None => Value::nothing(head),
+                    }
+                }
+            }
+            InteractMode::Single(res) => {
+                if index {
+                    match res {
+                        Some(opt) => Value::int(opt as i64, head),
+                        None => Value::nothing(head),
+                    }
+                } else {
+                    match res {
+                        Some(opt) => options[opt].value.clone(),
+                        None => Value::nothing(head),
+                    }
+                }
+            }
         }
         .into_pipeline_data())
     }
@@ -205,6 +244,16 @@ impl Command for InputList {
             Example {
                 description: "Choose an item from a range",
                 example: r#"1..10 | input list"#,
+                result: None,
+            },
+            Example {
+                description: "Return the index of a selected item",
+                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --index"#,
+                result: None,
+            },
+            Example {
+                description: "Choose an item from a table using a column as display value",
+                example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name"#,
                 result: None,
             },
         ]

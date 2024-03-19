@@ -44,8 +44,8 @@ impl Command for ToJson {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let use_tabs = call.has_flag("tabs");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let use_tabs = call.has_flag(engine_state, stack, "tabs")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array
@@ -115,6 +115,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::Int { val, .. } => nu_json::Value::I64(*val),
         Value::Nothing { .. } => nu_json::Value::Null,
         Value::String { val, .. } => nu_json::Value::String(val.to_string()),
+        Value::Glob { val, .. } => nu_json::Value::String(val.to_string()),
         Value::CellPath { val, .. } => nu_json::Value::Array(
             val.members
                 .iter()

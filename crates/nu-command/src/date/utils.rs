@@ -46,7 +46,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         description: &'a str,
     }
 
-    let specifications = vec![
+    let specifications = [
         FormatSpecification {
             spec: "%Y",
             description: "The full proleptic Gregorian year, zero-padded to 4 digits.",

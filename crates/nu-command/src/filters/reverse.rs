@@ -15,13 +15,10 @@ impl Command for Reverse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("reverse")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .category(Category::Filters)
     }
 
@@ -69,7 +66,6 @@ impl Command for Reverse {
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
 
-        #[allow(clippy::needless_collect)]
         let v: Vec<_> = input.into_iter_strict(call.head)?.collect();
         let iter = v.into_iter().rev();
         Ok(iter.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))

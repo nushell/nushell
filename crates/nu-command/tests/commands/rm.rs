@@ -1,6 +1,7 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use rstest::rstest;
 use std::fs;
 use std::path::Path;
 
@@ -42,7 +43,7 @@ fn removes_files_with_wildcard() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm "src/*/*/*.rs""#
+            r#"rm src/*/*/*.rs"#
         );
 
         assert!(!files_exist_at(
@@ -376,6 +377,19 @@ fn removes_symlink() {
 }
 
 #[test]
+fn removes_symlink_pointing_to_directory() {
+    Playground::setup("rm_symlink_to_directory", |dirs, sandbox| {
+        sandbox.mkdir("test").symlink("test", "test_link");
+
+        nu!(cwd: sandbox.cwd(), "rm test_link");
+
+        assert!(!dirs.test().join("test_link").exists());
+        // The pointed directory should not be deleted.
+        assert!(dirs.test().join("test").exists());
+    });
+}
+
+#[test]
 fn removes_file_after_cd() {
     Playground::setup("rm_after_cd", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("delete.txt")]);
@@ -444,5 +458,83 @@ fn rm_prints_filenames_on_error() {
                 actual.err
             );
         }
+    });
+}
+
+#[test]
+fn rm_files_inside_glob_metachars_dir() {
+    Playground::setup("rm_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "rm test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+    });
+}
+
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn rm_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("rm_files_with_glob_metachars", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile(src_name)]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm '{}'",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+
+        // test with variables
+        sandbox.with_files(vec![EmptyFile(src_name)]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; rm $f",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case("a]?c")]
+#[case("a*.?c")]
+// windows doesn't allow filename with `*`.
+fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    rm_files_with_glob_metachars(src_name);
+}
+
+#[test]
+fn force_rm_suppress_error() {
+    Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+
+        // the second rm should suppress error.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm test_file.txt; rm -f test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
     });
 }

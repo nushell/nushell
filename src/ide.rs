@@ -607,7 +607,10 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         });
 
     if let Ok(location) = location.as_i64() {
-        let results = completer.complete(&String::from_utf8_lossy(&file), location as usize);
+        let results = completer.complete(
+            &String::from_utf8_lossy(&file)[..location as usize],
+            location as usize,
+        );
         print!("{{\"completions\": [");
         let mut first = true;
         for result in results {

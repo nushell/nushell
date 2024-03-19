@@ -1,4 +1,4 @@
-use nu_protocol::ast::{Call, Expr, Expression, PipelineElement, RecordItem};
+use nu_protocol::ast::{Call, Expr, Expression, RecordItem};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
@@ -69,7 +69,7 @@ impl Command for FromNuon {
                         src: string_input,
                         error: "error when loading".into(),
                         msg: "excess values when loading".into(),
-                        span: element.span(),
+                        span: element.expr.span,
                     }],
                 });
             } else {
@@ -109,7 +109,7 @@ impl Command for FromNuon {
                         src: string_input,
                         error: "error when loading".into(),
                         msg: "detected a pipeline in nuon file".into(),
-                        span: expr.span(),
+                        span: expr.expr.span,
                     }],
                 });
             }
@@ -122,20 +122,7 @@ impl Command for FromNuon {
                     ty: Type::Nothing,
                 }
             } else {
-                match pipeline.elements.remove(0) {
-                    PipelineElement::Expression(_, expression)
-                    | PipelineElement::Redirection(_, _, expression, _)
-                    | PipelineElement::And(_, expression)
-                    | PipelineElement::Or(_, expression)
-                    | PipelineElement::SameTargetRedirection {
-                        cmd: (_, expression),
-                        ..
-                    }
-                    | PipelineElement::SeparateRedirection {
-                        out: (_, expression, _),
-                        ..
-                    } => expression,
-                }
+                pipeline.elements.remove(0).expr
             }
         };
 
@@ -220,8 +207,8 @@ fn convert_to_value(
             msg: "calls not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Filepath(val) => Ok(Value::string(val, span)),
-        Expr::Directory(val) => Ok(Value::string(val, span)),
+        Expr::Filepath(val, _) => Ok(Value::string(val, span)),
+        Expr::Directory(val, _) => Ok(Value::string(val, span)),
         Expr::Float(val) => Ok(Value::float(val, span)),
         Expr::FullCellPath(full_cell_path) => {
             if !full_cell_path.tail.is_empty() {
@@ -242,13 +229,7 @@ fn convert_to_value(
             msg: "extra tokens in input file".into(),
             span: expr.span,
         }),
-        Expr::MatchPattern(..) => Err(ShellError::OutsideSpannedLabeledError {
-            src: original_text.to_string(),
-            error: "Error when loading".into(),
-            msg: "extra tokens in input file".into(),
-            span: expr.span,
-        }),
-        Expr::GlobPattern(val) => Ok(Value::string(val, span)),
+        Expr::GlobPattern(val, _) => Ok(Value::string(val, span)),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
@@ -314,7 +295,8 @@ fn convert_to_value(
             ))
         }
         Expr::Record(key_vals) => {
-            let mut record = Record::new();
+            let mut record = Record::with_capacity(key_vals.len());
+            let mut key_spans = Vec::with_capacity(key_vals.len());
 
             for key_val in key_vals {
                 match key_val {
@@ -331,9 +313,16 @@ fn convert_to_value(
                             }
                         };
 
-                        let value = convert_to_value(val, span, original_text)?;
-
-                        record.push(key_str, value);
+                        if let Some(i) = record.index_of(&key_str) {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                col_name: key_str,
+                                second_use: key.span,
+                                first_use: key_spans[i],
+                            });
+                        } else {
+                            key_spans.push(key.span);
+                            record.push(key_str, convert_to_value(val, span, original_text)?);
+                        }
                     }
                     RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError {
@@ -409,13 +398,7 @@ fn convert_to_value(
             }
 
             for row in cells {
-                let mut vals = vec![];
-
-                for cell in row {
-                    vals.push(convert_to_value(cell, span, original_text)?);
-                }
-
-                if cols.len() != vals.len() {
+                if cols.len() != row.len() {
                     return Err(ShellError::OutsideSpannedLabeledError {
                         src: original_text.to_string(),
                         error: "Error when loading".into(),
@@ -424,13 +407,15 @@ fn convert_to_value(
                     });
                 }
 
-                output.push(Value::record(
-                    Record {
-                        cols: cols.clone(),
-                        vals,
-                    },
-                    span,
-                ));
+                let record = cols
+                    .iter()
+                    .zip(row)
+                    .map(|(col, cell)| {
+                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                output.push(Value::record(record, span));
             }
 
             Ok(Value::list(output, span))

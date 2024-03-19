@@ -1,5 +1,6 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
@@ -28,8 +29,8 @@ impl Command for ParEach {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Range, Type::List(Box::new(Type::Any))),
                 (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::Any, Type::Any),
             ])
             .named(
                 "threads",
@@ -121,15 +122,13 @@ impl Command for ParEach {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let threads: Option<usize> = call.get_flag(engine_state, stack, "threads")?;
         let max_threads = threads.unwrap_or(0);
-        let keep_order = call.has_flag("keep-order");
+        let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let outer_ctrlc = engine_state.ctrlc.clone();
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(capture_block.captures);
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
 
         // A helper function sorts the output if needed
         let apply_order = |mut vec: Vec<(usize, Value)>| {
@@ -141,6 +140,8 @@ impl Command for ParEach {
 
             vec.into_iter().map(|(_, val)| val)
         };
+
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -170,8 +171,6 @@ impl Command for ParEach {
                                 &mut stack,
                                 block,
                                 x.into_pipeline_data(),
-                                redirect_stdout,
-                                redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -210,8 +209,6 @@ impl Command for ParEach {
                                 &mut stack,
                                 block,
                                 x.clone().into_pipeline_data(),
-                                redirect_stdout,
-                                redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -249,8 +246,6 @@ impl Command for ParEach {
                             &mut stack,
                             block,
                             x.into_pipeline_data(),
-                            redirect_stdout,
-                            redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(
@@ -294,8 +289,6 @@ impl Command for ParEach {
                             &mut stack,
                             block,
                             x.into_pipeline_data(),
-                            redirect_stdout,
-                            redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(error, span),
@@ -323,8 +316,6 @@ impl Command for ParEach {
                     &mut stack,
                     block,
                     x.into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 )
             }
         }

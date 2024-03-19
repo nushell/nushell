@@ -18,15 +18,6 @@ impl Command for First {
         Signature::build("first")
             .input_output_types(vec![
                 (
-                    // TODO: This variant duplicates the functionality of
-                    // `take`. See #6611, #6611, #6893
-                    // TODO: This is too permissive; if we could express this
-                    // using a type parameter style it would be List<T> ->
-                    // List<T>.
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
                     // TODO: This is too permissive; if we could express this
                     // using a type parameter it would be List<T> -> T.
                     Type::List(Box::new(Type::Any)),
@@ -77,6 +68,11 @@ impl Command for First {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | first 2",
                 result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
+            },
+            Example {
+                description: "Return the first item of a range",
+                example: "1..3 | first",
+                result: Some(Value::test_int(1)),
             },
         ]
     }

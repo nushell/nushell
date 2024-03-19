@@ -119,9 +119,9 @@ fn split_column(
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
-    let collapse_empty = call.has_flag("collapse-empty");
+    let collapse_empty = call.has_flag(engine_state, stack, "collapse-empty")?;
 
-    let regex = if call.has_flag("regex") {
+    let regex = if call.has_flag(engine_state, stack, "regex")? {
         Regex::new(&separator.item)
     } else {
         let escaped = regex::escape(&separator.item);
@@ -148,7 +148,7 @@ fn split_column_helper(
     collapse_empty: bool,
     head: Span,
 ) -> Vec<Value> {
-    if let Ok(s) = v.as_string() {
+    if let Ok(s) = v.coerce_str() {
         let split_result: Vec<_> = separator
             .split(&s)
             .filter(|x| !(collapse_empty && x.is_empty()))

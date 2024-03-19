@@ -74,9 +74,9 @@ impl Command for BytesRemove {
         let pattern_to_remove: Vec<u8> = pattern_to_remove.item;
         let arg = Arguments {
             pattern: pattern_to_remove,
-            end: call.has_flag("end"),
+            end: call.has_flag(engine_state, stack, "end")?,
             cell_paths,
-            all: call.has_flag("all"),
+            all: call.has_flag(engine_state, stack, "all")?,
         };
 
         operate(remove, arg, input, call.head, engine_state.ctrlc.clone())
@@ -103,6 +103,13 @@ impl Command for BytesRemove {
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[10]",
                 result: Some(Value::test_binary (
                     vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA],
+                )),
+            },
+            Example {
+                description: "Remove find binary from end not found",
+                example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[11]",
+                result: Some(Value::test_binary (
+                    vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA, 0x10],
                 )),
             },
             Example {
@@ -159,8 +166,11 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         }
         // append the remaining thing to result, this can be happening when
         // we have something to remove and remove_all is False.
-        let mut remain = input[..left as usize].iter().copied().rev().collect();
-        result.append(&mut remain);
+        // check if the left is positive, if it is not, we don't need to append anything.
+        if left > 0 {
+            let mut remain = input[..left as usize].iter().copied().rev().collect();
+            result.append(&mut remain);
+        }
         result = result.into_iter().rev().collect();
         Value::binary(result, span)
     } else {

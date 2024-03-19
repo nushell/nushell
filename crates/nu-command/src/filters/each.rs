@@ -1,11 +1,13 @@
-use super::utils::chain_error_with_input;
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct Each;
@@ -112,9 +114,11 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let keep_empty = call.has_flag("keep-empty");
+        let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
@@ -125,8 +129,6 @@ with 'transpose' first."#
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -153,8 +155,6 @@ with 'transpose' first."#
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -199,8 +199,6 @@ with 'transpose' first."#
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -226,8 +224,6 @@ with 'transpose' first."#
                     &mut stack,
                     &block,
                     x.into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 )
             }
         }

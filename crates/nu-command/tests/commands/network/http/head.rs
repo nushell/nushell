@@ -39,3 +39,75 @@ fn http_head_failed_due_to_server_error() {
 
     assert!(actual.err.contains("Bad request (400)"))
 }
+
+#[test]
+fn http_head_follows_redirect() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("HEAD", "/bar")
+        .with_header("bar", "bar")
+        .create();
+    let _mock = server
+        .mock("HEAD", "/foo")
+        .with_status(301)
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http head {url}/foo | (where name == bar).0.value",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(&actual.out, "bar");
+}
+
+#[test]
+fn http_head_redirect_mode_manual() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("HEAD", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http head --redirect-mode manual {url}/foo | (where name == location).0.value",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(&actual.out, "/bar");
+}
+
+#[test]
+fn http_head_redirect_mode_error() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("HEAD", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http head --redirect-mode error {url}/foo",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::network_failure"));
+    assert!(&actual.err.contains(
+        "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
+    ));
+}

@@ -1,5 +1,5 @@
 use crate::Value;
-#[allow(unused_imports)]
+#[cfg(feature = "plugin")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]

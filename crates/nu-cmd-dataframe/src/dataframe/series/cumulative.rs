@@ -69,16 +69,19 @@ impl Command for Cumulative {
             description: "Cumulative sum for a series",
             example: "[1 2 3 4 5] | dfr into-df | dfr cumulative sum",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0_cumulative_sum".to_string(),
-                    vec![
-                        Value::test_int(1),
-                        Value::test_int(3),
-                        Value::test_int(6),
-                        Value::test_int(10),
-                        Value::test_int(15),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0_cumulative_sum".to_string(),
+                        vec![
+                            Value::test_int(1),
+                            Value::test_int(3),
+                            Value::test_int(6),
+                            Value::test_int(10),
+                            Value::test_int(15),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -103,12 +106,12 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let cum_type: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let reverse = call.has_flag("reverse");
+    let reverse = call.has_flag(engine_state, stack, "reverse")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    if let DataType::Object(_) = series.dtype() {
+    if let DataType::Object(..) = series.dtype() {
         return Err(ShellError::GenericError {
             error: "Found object series".into(),
             msg: "Series of type object cannot be used for cumulative operation".into(),

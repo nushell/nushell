@@ -1,12 +1,12 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
 use nu_protocol::ast::{Block, Call};
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
-use std::iter::FromIterator;
 
 #[derive(Clone)]
 pub struct UpdateCells;
@@ -26,7 +26,7 @@ impl Command for UpdateCells {
             )
             .named(
                 "columns",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "list of columns to update",
                 Some('c'),
             )
@@ -103,9 +103,7 @@ impl Command for UpdateCells {
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block: Block = engine_state.get_block(block.block_id).clone();
-
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
+        let eval_block_fn = get_eval_block(&engine_state);
 
         let span = call.head;
 
@@ -114,14 +112,12 @@ impl Command for UpdateCells {
         // the columns to update
         let columns: Option<Value> = call.get_flag(&engine_state, &mut stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
-            Some(val) => {
-                let cols = val
-                    .as_list()?
-                    .iter()
-                    .map(|val| val.as_string())
-                    .collect::<Result<Vec<String>, ShellError>>()?;
-                Some(HashSet::from_iter(cols))
-            }
+            Some(val) => Some(
+                val.into_list()?
+                    .into_iter()
+                    .map(Value::coerce_into_string)
+                    .collect::<Result<HashSet<String>, ShellError>>()?,
+            ),
             None => None,
         };
 
@@ -131,9 +127,8 @@ impl Command for UpdateCells {
             stack,
             block,
             columns,
-            redirect_stdout,
-            redirect_stderr,
             span,
+            eval_block_fn,
         }
         .into_pipeline_data(ctrlc)
         .set_metadata(metadata))
@@ -146,8 +141,7 @@ struct UpdateCellIterator {
     engine_state: EngineState,
     stack: Stack,
     block: Block,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
+    eval_block_fn: EvalBlockFn,
     span: Span,
 }
 
@@ -176,9 +170,8 @@ impl Iterator for UpdateCellIterator {
                                         &self.engine_state,
                                         &mut self.stack,
                                         &self.block,
-                                        self.redirect_stdout,
-                                        self.redirect_stderr,
                                         span,
+                                        self.eval_block_fn,
                                     ),
                                 ),
                             })
@@ -190,9 +183,8 @@ impl Iterator for UpdateCellIterator {
                         &self.engine_state,
                         &mut self.stack,
                         &self.block,
-                        self.redirect_stdout,
-                        self.redirect_stderr,
                         self.span,
+                        self.eval_block_fn,
                     )),
                 }
             }
@@ -201,28 +193,22 @@ impl Iterator for UpdateCellIterator {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_cell(
     val: Value,
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     span: Span,
+    eval_block_fn: EvalBlockFn,
 ) -> Value {
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {
             stack.add_var(*var_id, val.clone());
         }
     }
-    match eval_block(
-        engine_state,
-        stack,
-        block,
-        val.into_pipeline_data(),
-        redirect_stdout,
-        redirect_stderr,
-    ) {
+
+    match eval_block_fn(engine_state, stack, block, val.into_pipeline_data()) {
         Ok(pd) => pd.into_value(span),
         Err(e) => Value::error(e, span),
     }

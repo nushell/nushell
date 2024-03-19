@@ -21,14 +21,12 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
+        feature: [default, dataframe]
         include:
           - feature: default
             flags: ""
           - feature: dataframe
             flags: "--features=dataframe"
-          - feature: extra
-            flags: "--features=extra"
         exclude:
           - platform: windows-latest
             feature: dataframe
@@ -38,10 +36,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.2
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
         with:
           rustflags: ""
 
@@ -56,41 +54,53 @@ jobs:
       - name: Clippy of tests
         run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
 
+      - name: Clippy of benchmarks
+        run: cargo clippy --benches --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+
   tests:
     strategy:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
+        feature: [default, dataframe]
         include:
+          # linux CI cannot handle clipboard feature
+          - default-flags: ""
+          - platform:  ubuntu-20.04
+            default-flags: "--no-default-features --features=default-no-clipboard"
           - feature: default
             flags: ""
           - feature: dataframe
             flags: "--features=dataframe"
-          - feature: extra
-            flags: "--features=extra"
         exclude:
           - platform: windows-latest
             feature: dataframe
           - platform: macos-latest
             feature: dataframe
-          - platform: windows-latest
-            feature: extra
-          - platform: macos-latest
-            feature: extra
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.2
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
         with:
           rustflags: ""
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }} ${{ matrix.flags }}
+
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi
 
   std-lib-and-python-virtualenv:
     strategy:
@@ -103,10 +113,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.2
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
         with:
           rustflags: ""
 
@@ -114,7 +124,7 @@ jobs:
         run: cargo install --path . --locked --no-default-features
 
       - name: Standard library tests
-        run: nu -c 'use std testing; testing run-tests --path crates/nu-std'
+        run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -129,6 +139,17 @@ jobs:
         run: nu scripts/test_virtualenv.nu
         shell: bash
 
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi
+
   plugins:
     strategy:
       fail-fast: true
@@ -138,10 +159,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.2
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
         with:
           rustflags: ""
 
@@ -150,3 +171,14 @@ jobs:
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
+
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi

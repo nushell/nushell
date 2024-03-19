@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -186,7 +187,7 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -194,14 +195,14 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: span });
         }
-        let is_path = call.has_flag("path");
+        let is_path = call.has_flag(engine_state, stack, "path")?;
         input.map(
             move |v| {
                 let value_span = v.span();
-                match v.as_string() {
+                match v.coerce_into_string() {
                     Ok(s) => {
                         let contents = if is_path { s.replace('\\', "\\\\") } else { s };
-                        str_expand(&contents, span, v.span())
+                        str_expand(&contents, span, value_span)
                     }
                     Err(_) => Value::error(
                         ShellError::PipelineMismatch {

@@ -65,7 +65,7 @@ fn bits_shift_left_negative() -> TestResult {
 fn bits_shift_left_list() -> TestResult {
     run_test(
         "[1 2 7 32 9 10] | bits shl 3 | str join '.'",
-        "8.16.56.256.72.80",
+        "8.16.56.0.72.80",
     )
 }
 
@@ -101,7 +101,7 @@ fn bits_rotate_left_negative() -> TestResult {
 fn bits_rotate_left_list() -> TestResult {
     run_test(
         "[1 2 7 32 9 10] | bits rol 3 | str join '.'",
-        "8.16.56.256.72.80",
+        "8.16.56.1.72.80",
     )
 }
 
@@ -119,6 +119,6 @@ fn bits_rotate_right_negative() -> TestResult {
 fn bits_rotate_right_list() -> TestResult {
     run_test(
         "[1 2 7 32 23 10] | bits ror 60 | str join '.'",
-        "16.32.112.512.368.160",
+        "16.32.112.2.113.160",
     )
 }

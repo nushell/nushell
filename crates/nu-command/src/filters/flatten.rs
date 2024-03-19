@@ -128,7 +128,7 @@ fn flatten(
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
-    let flatten_all = call.has_flag("all");
+    let flatten_all = call.has_flag(engine_state, stack, "all")?;
 
     input
         .flat_map(
@@ -201,13 +201,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             if need_flatten {
                                 let records = vals
                                     .into_iter()
-                                    .filter_map(|v| {
-                                        if let Value::Record { val, .. } = v {
-                                            Some(val)
-                                        } else {
-                                            None
-                                        }
-                                    })
+                                    .filter_map(|v| v.into_record().ok())
                                     .collect();
 
                                 inner_table = Some(TableInside::FlattenedRows {

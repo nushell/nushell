@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::NuGlob;
 use crate::ast::{CellPath, PathMember};
 use crate::engine::{Block, Closure};
 use crate::{Range, Record, ShellError, Spanned, Value};
@@ -189,6 +190,65 @@ impl FromValue for Spanned<String> {
             item: match v {
                 Value::CellPath { val, .. } => val.to_string(),
                 Value::String { val, .. } => val,
+                v => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: v.get_type().to_string(),
+                        span: v.span(),
+                        help: None,
+                    })
+                }
+            },
+            span,
+        })
+    }
+}
+
+impl FromValue for NuGlob {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
+            Value::String { val, .. } => Ok(NuGlob::DoNotExpand(val)),
+            Value::Glob {
+                val,
+                no_expand: quoted,
+                ..
+            } => {
+                if quoted {
+                    Ok(NuGlob::DoNotExpand(val))
+                } else {
+                    Ok(NuGlob::Expand(val))
+                }
+            }
+            v => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+}
+
+impl FromValue for Spanned<NuGlob> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        Ok(Spanned {
+            item: match v {
+                Value::CellPath { val, .. } => NuGlob::Expand(val.to_string()),
+                Value::String { val, .. } => NuGlob::DoNotExpand(val),
+                Value::Glob {
+                    val,
+                    no_expand: quoted,
+                    ..
+                } => {
+                    if quoted {
+                        NuGlob::DoNotExpand(val)
+                    } else {
+                        NuGlob::Expand(val)
+                    }
+                }
                 v => {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),

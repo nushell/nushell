@@ -551,6 +551,16 @@ fn unbalanced_delimiter4() -> TestResult {
 }
 
 #[test]
+fn unbalanced_parens1() -> TestResult {
+    fail_test(r#")"#, "unbalanced ( and )")
+}
+
+#[test]
+fn unbalanced_parens2() -> TestResult {
+    fail_test(r#"("("))"#, "unbalanced ( and )")
+}
+
+#[test]
 fn register_with_string_literal() -> TestResult {
     fail_test(r#"register 'nu-plugin-math'"#, "File not found")
 }
@@ -762,4 +772,20 @@ fn properly_typecheck_rest_param() -> TestResult {
 #[test]
 fn implied_collect_has_compatible_type() -> TestResult {
     run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
+}
+
+#[test]
+fn record_expected_colon() -> TestResult {
+    fail_test(r#"{ a: 2 b }"#, "expected ':'")?;
+    fail_test(r#"{ a: 2 b 3 }"#, "expected ':'")
+}
+
+#[test]
+fn record_missing_value() -> TestResult {
+    fail_test(r#"{ a: 2 b: }"#, "expected value for record field")
+}
+
+#[test]
+fn def_requires_body_closure() -> TestResult {
+    fail_test("def a [] (echo 4)", "expected definition body closure")
 }

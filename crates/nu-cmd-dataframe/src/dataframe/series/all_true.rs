@@ -33,10 +33,13 @@ impl Command for AllTrue {
                 description: "Returns true if all values are true",
                 example: "[true true true] | dfr into-df | dfr all-true",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "all_true".to_string(),
-                        vec![Value::test_bool(true)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "all_true".to_string(),
+                            vec![Value::test_bool(true)],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -47,10 +50,13 @@ impl Command for AllTrue {
     let res = ($s > 9);
     $res | dfr all-true"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "all_true".to_string(),
-                        vec![Value::test_bool(false)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "all_true".to_string(),
+                            vec![Value::test_bool(false)],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -88,7 +94,7 @@ fn command(
 
     let value = Value::bool(bool.all(), call.head);
 
-    NuDataFrame::try_from_columns(vec![Column::new("all_true".to_string(), vec![value])])
+    NuDataFrame::try_from_columns(vec![Column::new("all_true".to_string(), vec![value])], None)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

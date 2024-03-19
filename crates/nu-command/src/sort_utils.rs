@@ -137,7 +137,10 @@ pub fn sort(
                     };
 
                     if natural {
-                        match (folded_left.as_string(), folded_right.as_string()) {
+                        match (
+                            folded_left.coerce_into_string(),
+                            folded_right.coerce_into_string(),
+                        ) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
@@ -147,7 +150,7 @@ pub fn sort(
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
-                    match (a.as_string(), b.as_string()) {
+                    match (a.coerce_str(), b.coerce_str()) {
                         (Ok(left), Ok(right)) => compare_str(left, right),
                         _ => Ordering::Equal,
                     }
@@ -196,7 +199,10 @@ pub fn compare(
                 _ => right_res,
             };
             if natural {
-                match (folded_left.as_string(), folded_right.as_string()) {
+                match (
+                    folded_left.coerce_into_string(),
+                    folded_right.coerce_into_string(),
+                ) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }
@@ -206,7 +212,10 @@ pub fn compare(
                     .unwrap_or(Ordering::Equal)
             }
         } else if natural {
-            match (left_res.as_string(), right_res.as_string()) {
+            match (
+                left_res.coerce_into_string(),
+                right_res.coerce_into_string(),
+            ) {
                 (Ok(left), Ok(right)) => compare_str(left, right),
                 _ => Ordering::Equal,
             }

@@ -1,9 +1,9 @@
-use super::DescriptionMenu;
 use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -12,7 +12,8 @@ use nu_protocol::{
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
+    ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu,
+    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
 };
 use std::sync::Arc;
 
@@ -84,7 +85,7 @@ pub(crate) fn add_menus(
     }
 
     // Checking if the default menus have been added from the config file
-    let default_menus = vec![
+    let default_menus = [
         ("completion_menu", DEFAULT_COMPLETION_MENU),
         ("history_menu", DEFAULT_HISTORY_MENU),
         ("help_menu", DEFAULT_HELP_MENU),
@@ -94,7 +95,7 @@ pub(crate) fn add_menus(
         if !config
             .menus
             .iter()
-            .any(|menu| menu.name.into_string("", config) == name)
+            .any(|menu| menu.name.to_expanded_string("", config) == name)
         {
             let (block, _) = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
@@ -108,9 +109,9 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::new();
+            let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-            let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
+            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {
@@ -133,22 +134,23 @@ fn add_menu(
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
     if let Value::Record { val, .. } = &menu.menu_type {
-        let layout = extract_value("layout", val, span)?.into_string("", config);
+        let layout = extract_value("layout", val, span)?.to_expanded_string("", config);
 
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
             "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
+            "ide" => add_ide_menu(line_editor, menu, engine_state, stack, config),
             "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
             _ => Err(ShellError::UnsupportedConfigValue {
-                expected: "columnar, list or description".to_string(),
-                value: menu.menu_type.into_abbreviated_string(config),
+                expected: "columnar, list, ide or description".to_string(),
+                value: menu.menu_type.to_abbreviated_string(config),
                 span: menu.menu_type.span(),
             }),
         }
     } else {
         Err(ShellError::UnsupportedConfigValue {
             expected: "only record type".to_string(),
-            value: menu.menu_type.into_abbreviated_string(config),
+            value: menu.menu_type.to_abbreviated_string(config),
             span: menu.menu_type.span(),
         })
     }
@@ -180,7 +182,7 @@ pub(crate) fn add_columnar_menu(
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
-    let name = menu.name.into_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
     if let Value::Record { val, .. } = &menu.menu_type {
@@ -235,10 +237,26 @@ pub(crate) fn add_columnar_menu(
             columnar_menu,
             ColumnarMenu::with_description_text_style
         );
+        add_style!(
+            "match_text",
+            val,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_match_text_style
+        );
+        add_style!(
+            "selected_match_text",
+            val,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_selected_match_text_style
+        );
     }
 
-    let marker = menu.marker.into_string("", config);
-    columnar_menu = columnar_menu.with_marker(marker);
+    let marker = menu.marker.to_expanded_string("", config);
+    columnar_menu = columnar_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
@@ -263,7 +281,7 @@ pub(crate) fn add_columnar_menu(
         }
         _ => Err(ShellError::UnsupportedConfigValue {
             expected: "block or omitted value".to_string(),
-            value: menu.source.into_abbreviated_string(config),
+            value: menu.source.to_abbreviated_string(config),
             span,
         }),
     }
@@ -277,7 +295,7 @@ pub(crate) fn add_list_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    let name = menu.name.into_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
     let span = menu.menu_type.span();
@@ -319,8 +337,8 @@ pub(crate) fn add_list_menu(
         );
     }
 
-    let marker = menu.marker.into_string("", config);
-    list_menu = list_menu.with_marker(marker);
+    let marker = menu.marker.to_expanded_string("", config);
+    list_menu = list_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
@@ -345,8 +363,231 @@ pub(crate) fn add_list_menu(
         }
         _ => Err(ShellError::UnsupportedConfigValue {
             expected: "block or omitted value".to_string(),
-            value: menu.source.into_abbreviated_string(config),
+            value: menu.source.to_abbreviated_string(config),
             span: menu.source.span(),
+        }),
+    }
+}
+
+// Adds an IDE menu to the line editor
+pub(crate) fn add_ide_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: Arc<EngineState>,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    let span = menu.menu_type.span();
+    let name = menu.name.to_expanded_string("", config);
+    let mut ide_menu = IdeMenu::default().with_name(&name);
+
+    if let Value::Record { val, .. } = &menu.menu_type {
+        ide_menu = match extract_value("min_completion_width", val, span) {
+            Ok(min_completion_width) => {
+                let min_completion_width = min_completion_width.as_int()?;
+                ide_menu.with_min_completion_width(min_completion_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_completion_width", val, span) {
+            Ok(max_completion_width) => {
+                let max_completion_width = max_completion_width.as_int()?;
+                ide_menu.with_max_completion_width(max_completion_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_completion_height", val, span) {
+            Ok(max_completion_height) => {
+                let max_completion_height = max_completion_height.as_int()?;
+                ide_menu.with_max_completion_height(max_completion_height as u16)
+            }
+            Err(_) => ide_menu.with_max_completion_height(10u16),
+        };
+
+        ide_menu = match extract_value("padding", val, span) {
+            Ok(padding) => {
+                let padding = padding.as_int()?;
+                ide_menu.with_padding(padding as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("border", val, span) {
+            Ok(border) => {
+                if let Ok(border) = border.as_bool() {
+                    if border {
+                        ide_menu.with_default_border()
+                    } else {
+                        ide_menu
+                    }
+                } else if let Ok(border_chars) = border.as_record() {
+                    let top_right = extract_value("top_right", border_chars, span)?.as_char()?;
+                    let top_left = extract_value("top_left", border_chars, span)?.as_char()?;
+                    let bottom_right =
+                        extract_value("bottom_right", border_chars, span)?.as_char()?;
+                    let bottom_left =
+                        extract_value("bottom_left", border_chars, span)?.as_char()?;
+                    let horizontal = extract_value("horizontal", border_chars, span)?.as_char()?;
+                    let vertical = extract_value("vertical", border_chars, span)?.as_char()?;
+
+                    ide_menu.with_border(
+                        top_right,
+                        top_left,
+                        bottom_right,
+                        bottom_left,
+                        horizontal,
+                        vertical,
+                    )
+                } else {
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "bool or record".to_string(),
+                        value: border.to_abbreviated_string(config),
+                        span: border.span(),
+                    });
+                }
+            }
+            Err(_) => ide_menu.with_default_border(),
+        };
+
+        ide_menu = match extract_value("cursor_offset", val, span) {
+            Ok(cursor_offset) => {
+                let cursor_offset = cursor_offset.as_int()?;
+                ide_menu.with_cursor_offset(cursor_offset as i16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("description_mode", val, span) {
+            Ok(description_mode) => match description_mode.coerce_str()?.as_ref() {
+                "left" => ide_menu.with_description_mode(DescriptionMode::Left),
+                "right" => ide_menu.with_description_mode(DescriptionMode::Right),
+                "prefer_right" => ide_menu.with_description_mode(DescriptionMode::PreferRight),
+                _ => {
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "\"left\", \"right\" or \"prefer_right\"".to_string(),
+                        value: description_mode.to_abbreviated_string(config),
+                        span: description_mode.span(),
+                    });
+                }
+            },
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("min_description_width", val, span) {
+            Ok(min_description_width) => {
+                let min_description_width = min_description_width.as_int()?;
+                ide_menu.with_min_description_width(min_description_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_description_width", val, span) {
+            Ok(max_description_width) => {
+                let max_description_width = max_description_width.as_int()?;
+                ide_menu.with_max_description_width(max_description_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_description_height", val, span) {
+            Ok(max_description_height) => {
+                let max_description_height = max_description_height.as_int()?;
+                ide_menu.with_max_description_height(max_description_height as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("description_offset", val, span) {
+            Ok(description_padding) => {
+                let description_padding = description_padding.as_int()?;
+                ide_menu.with_description_offset(description_padding as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("correct_cursor_pos", val, span) {
+            Ok(correct_cursor_pos) => {
+                let correct_cursor_pos = correct_cursor_pos.as_bool()?;
+                ide_menu.with_correct_cursor_pos(correct_cursor_pos)
+            }
+            Err(_) => ide_menu,
+        };
+    }
+
+    let span = menu.style.span();
+    if let Value::Record { val, .. } = &menu.style {
+        add_style!(
+            "text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_text_style
+        );
+        add_style!(
+            "selected_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_selected_text_style
+        );
+        add_style!(
+            "description_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_description_text_style
+        );
+        add_style!(
+            "match_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_match_text_style
+        );
+        add_style!(
+            "selected_match_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_selected_match_text_style
+        );
+    }
+
+    let marker = menu.marker.to_expanded_string("", config);
+    ide_menu = ide_menu.with_marker(&marker);
+
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
+
+    let span = menu.source.span();
+    match &menu.source {
+        Value::Nothing { .. } => {
+            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(ide_menu))))
+        }
+        Value::Closure { val, .. } => {
+            let menu_completer = NuMenuCompleter::new(
+                val.block_id,
+                span,
+                stack.captures_to_stack(val.captures.clone()),
+                engine_state,
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(ide_menu),
+                completer: Box::new(menu_completer),
+            }))
+        }
+        _ => Err(ShellError::UnsupportedConfigValue {
+            expected: "block or omitted value".to_string(),
+            value: menu.source.to_abbreviated_string(config),
+            span,
         }),
     }
 }
@@ -359,7 +600,7 @@ pub(crate) fn add_description_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    let name = menu.name.into_string("", config);
+    let name = menu.name.to_expanded_string("", config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
     let span = menu.menu_type.span();
@@ -433,8 +674,8 @@ pub(crate) fn add_description_menu(
         );
     }
 
-    let marker = menu.marker.into_string("", config);
-    description_menu = description_menu.with_marker(marker);
+    let marker = menu.marker.to_expanded_string("", config);
+    description_menu = description_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
@@ -463,7 +704,7 @@ pub(crate) fn add_description_menu(
         }
         _ => Err(ShellError::UnsupportedConfigValue {
             expected: "closure or omitted value".to_string(),
-            value: menu.source.into_abbreviated_string(config),
+            value: menu.source.to_abbreviated_string(config),
             span: menu.source.span(),
         }),
     }
@@ -602,7 +843,7 @@ fn add_keybinding(
         }
         v => Err(ShellError::UnsupportedConfigValue {
             expected: "string or list of strings".to_string(),
-            value: v.into_abbreviated_string(config),
+            value: v.to_abbreviated_string(config),
             span: v.span(),
         }),
     }
@@ -615,7 +856,7 @@ fn add_parsed_keybinding(
 ) -> Result<(), ShellError> {
     let modifier = match keybinding
         .modifier
-        .into_string("", config)
+        .to_expanded_string("", config)
         .to_ascii_lowercase()
         .as_str()
     {
@@ -632,7 +873,7 @@ fn add_parsed_keybinding(
         _ => {
             return Err(ShellError::UnsupportedConfigValue {
                 expected: "CONTROL, SHIFT, ALT or NONE".to_string(),
-                value: keybinding.modifier.into_abbreviated_string(config),
+                value: keybinding.modifier.to_abbreviated_string(config),
                 span: keybinding.modifier.span(),
             })
         }
@@ -640,7 +881,7 @@ fn add_parsed_keybinding(
 
     let keycode = match keybinding
         .keycode
-        .into_string("", config)
+        .to_expanded_string("", config)
         .to_ascii_lowercase()
         .as_str()
     {
@@ -693,7 +934,7 @@ fn add_parsed_keybinding(
         _ => {
             return Err(ShellError::UnsupportedConfigValue {
                 expected: "crossterm KeyCode".to_string(),
-                value: keybinding.keycode.into_abbreviated_string(config),
+                value: keybinding.keycode.to_abbreviated_string(config),
                 span: keybinding.keycode.span(),
             })
         }
@@ -731,7 +972,10 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
     match value {
         Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
             EventType::Send(value) => event_from_record(
-                value.into_string("", config).to_ascii_lowercase().as_str(),
+                value
+                    .to_expanded_string("", config)
+                    .to_ascii_lowercase()
+                    .as_str(),
                 record,
                 config,
                 span,
@@ -739,7 +983,10 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
             .map(Some),
             EventType::Edit(value) => {
                 let edit = edit_from_record(
-                    value.into_string("", config).to_ascii_lowercase().as_str(),
+                    value
+                        .to_expanded_string("", config)
+                        .to_ascii_lowercase()
+                        .as_str(),
                     record,
                     config,
                     span,
@@ -767,7 +1014,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                 }
                 v => Err(ShellError::UnsupportedConfigValue {
                     expected: "list of events".to_string(),
-                    value: v.into_abbreviated_string(config),
+                    value: v.to_abbreviated_string(config),
                     span: v.span(),
                 }),
             },
@@ -793,7 +1040,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
         Value::Nothing { .. } => Ok(None),
         v => Err(ShellError::UnsupportedConfigValue {
             expected: "record or list of records, null to unbind key".to_string(),
-            value: v.into_abbreviated_string(config),
+            value: v.to_abbreviated_string(config),
             span: v.span(),
         }),
     }
@@ -836,11 +1083,11 @@ fn event_from_record(
         "openeditor" => ReedlineEvent::OpenEditor,
         "menu" => {
             let menu = extract_value("name", record, span)?;
-            ReedlineEvent::Menu(menu.into_string("", config))
+            ReedlineEvent::Menu(menu.to_expanded_string("", config))
         }
         "executehostcommand" => {
             let cmd = extract_value("cmd", record, span)?;
-            ReedlineEvent::ExecuteHostCommand(cmd.into_string("", config))
+            ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
         v => {
             return Err(ShellError::UnsupportedConfigValue {
@@ -861,22 +1108,82 @@ fn edit_from_record(
     span: Span,
 ) -> Result<EditCommand, ShellError> {
     let edit = match name {
-        "movetostart" => EditCommand::MoveToStart,
-        "movetolinestart" => EditCommand::MoveToLineStart,
-        "movetoend" => EditCommand::MoveToEnd,
-        "movetolineend" => EditCommand::MoveToLineEnd,
-        "moveleft" => EditCommand::MoveLeft,
-        "moveright" => EditCommand::MoveRight,
-        "movewordleft" => EditCommand::MoveWordLeft,
-        "movebigwordleft" => EditCommand::MoveBigWordLeft,
-        "movewordright" => EditCommand::MoveWordRight,
-        "movewordrightend" => EditCommand::MoveWordRightEnd,
-        "movebigwordrightend" => EditCommand::MoveBigWordRightEnd,
-        "movewordrightstart" => EditCommand::MoveWordRightStart,
-        "movebigwordrightstart" => EditCommand::MoveBigWordRightStart,
+        "movetostart" => EditCommand::MoveToStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movetolinestart" => EditCommand::MoveToLineStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+
+        "movetoend" => EditCommand::MoveToEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movetolineend" => EditCommand::MoveToLineEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "moveleft" => EditCommand::MoveLeft {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "moveright" => EditCommand::MoveRight {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordleft" => EditCommand::MoveWordLeft {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movebigwordleft" => EditCommand::MoveBigWordLeft {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordright" => EditCommand::MoveWordRight {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordrightend" => EditCommand::MoveWordRightEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movebigwordrightend" => EditCommand::MoveBigWordRightEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordrightstart" => EditCommand::MoveWordRightStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movebigwordrightstart" => EditCommand::MoveBigWordRightStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
         "movetoposition" => {
             let value = extract_value("value", record, span)?;
-            EditCommand::MoveToPosition(value.as_int()? as usize)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+
+            EditCommand::MoveToPosition {
+                position: value.as_int()? as usize,
+                select,
+            }
         }
         "insertchar" => {
             let value = extract_value("value", record, span)?;
@@ -885,7 +1192,7 @@ fn edit_from_record(
         }
         "insertstring" => {
             let value = extract_value("value", record, span)?;
-            EditCommand::InsertString(value.into_string("", config))
+            EditCommand::InsertString(value.to_expanded_string("", config))
         }
         "insertnewline" => EditCommand::InsertNewline,
         "backspace" => EditCommand::Backspace,
@@ -928,12 +1235,18 @@ fn edit_from_record(
         "moverightuntil" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveRightUntil(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveRightUntil { c: char, select }
         }
         "moverightbefore" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveRightBefore(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveRightBefore { c: char, select }
         }
         "cutleftuntil" => {
             let value = extract_value("value", record, span)?;
@@ -948,14 +1261,30 @@ fn edit_from_record(
         "moveleftuntil" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveLeftUntil(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveLeftUntil { c: char, select }
         }
         "moveleftbefore" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveLeftBefore(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveLeftBefore { c: char, select }
         }
         "complete" => EditCommand::Complete,
+        "cutselection" => EditCommand::CutSelection,
+        #[cfg(feature = "system-clipboard")]
+        "cutselectionsystem" => EditCommand::CutSelectionSystem,
+        "copyselection" => EditCommand::CopySelection,
+        #[cfg(feature = "system-clipboard")]
+        "copyselectionsystem" => EditCommand::CopySelectionSystem,
+        "paste" => EditCommand::Paste,
+        #[cfg(feature = "system-clipboard")]
+        "pastesystem" => EditCommand::PasteSystem,
+        "selectall" => EditCommand::SelectAll,
         e => {
             return Err(ShellError::UnsupportedConfigValue {
                 expected: "reedline EditCommand".to_string(),
@@ -971,7 +1300,7 @@ fn edit_from_record(
 fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
     let span = value.span();
     value
-        .into_string("", config)
+        .to_expanded_string("", config)
         .chars()
         .next()
         .ok_or_else(|| ShellError::MissingConfigValue {
@@ -1108,5 +1437,58 @@ mod test {
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);
         assert!(matches!(b, Err(ShellError::MissingConfigValue { .. })));
+    }
+
+    #[test]
+    fn test_move_without_optional_select() {
+        let event = record! {
+            "edit" => Value::test_string("moveleft")
+        };
+        let event = Value::test_record(event);
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
+                select: false
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_move_with_select_false() {
+        let event = record! {
+            "edit" => Value::test_string("moveleft"),
+            "select" => Value::test_bool(false)
+        };
+        let event = Value::test_record(event);
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
+                select: false
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_move_with_select_true() {
+        let event = record! {
+            "edit" => Value::test_string("moveleft"),
+            "select" => Value::test_bool(true)
+        };
+        let event = Value::test_record(event);
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
+                select: true
+            }]))
+        );
     }
 }

@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
+use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct ReplaceAll;
@@ -46,14 +46,17 @@ impl Command for ReplaceAll {
             description: "Replaces string",
             example: "[abac abac abac] | dfr into-df | dfr replace-all --pattern a --replace A",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("AbAc"),
-                        Value::test_string("AbAc"),
-                        Value::test_string("AbAc"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("AbAc"),
+                            Value::test_string("AbAc"),
+                            Value::test_string("AbAc"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -86,7 +89,7 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
-    let chunked = series.utf8().map_err(|e| ShellError::GenericError {
+    let chunked = series.str().map_err(|e| ShellError::GenericError {
         error: "Error conversion to string".into(),
         msg: e.to_string(),
         span: Some(call.head),

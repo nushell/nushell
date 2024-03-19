@@ -2,20 +2,20 @@ use nu_plugin::LabeledError;
 use nu_protocol::{ast::CellPath, Span, Value};
 use semver::{BuildMetadata, Prerelease, Version};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Action {
     SemVerAction(SemVerAction),
     Default,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum SemVerAction {
     Major,
     Minor,
     Patch,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Inc {
     pub error: Option<String>,
     pub cell_path: Option<CellPath>,
@@ -119,7 +119,7 @@ impl Inc {
             Value::Int { val, .. } => Ok(Value::int(val + 1, head)),
             Value::String { val, .. } => Ok(self.apply(val, head)),
             x => {
-                let msg = x.as_string().map_err(|e| LabeledError {
+                let msg = x.coerce_string().map_err(|e| LabeledError {
                     label: "Unable to extract string".into(),
                     msg: format!("value cannot be converted to string {x:?} - {e}"),
                     span: Some(head),

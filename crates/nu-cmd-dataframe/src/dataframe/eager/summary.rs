@@ -10,7 +10,7 @@ use polars::{
     chunked_array::ChunkedArray,
     prelude::{
         AnyValue, DataFrame, DataType, Float64Type, IntoSeries, NewChunkedArray,
-        QuantileInterpolOptions, Series, Utf8Type,
+        QuantileInterpolOptions, Series, StringType,
     },
 };
 
@@ -46,53 +46,56 @@ impl Command for Summary {
             description: "list dataframe descriptives",
             example: "[[a b]; [1 1] [1 1]] | dfr into-df | dfr summary",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "descriptor".to_string(),
-                        vec![
-                            Value::test_string("count"),
-                            Value::test_string("sum"),
-                            Value::test_string("mean"),
-                            Value::test_string("median"),
-                            Value::test_string("std"),
-                            Value::test_string("min"),
-                            Value::test_string("25%"),
-                            Value::test_string("50%"),
-                            Value::test_string("75%"),
-                            Value::test_string("max"),
-                        ],
-                    ),
-                    Column::new(
-                        "a (i64)".to_string(),
-                        vec![
-                            Value::test_float(2.0),
-                            Value::test_float(2.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(0.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                        ],
-                    ),
-                    Column::new(
-                        "b (i64)".to_string(),
-                        vec![
-                            Value::test_float(2.0),
-                            Value::test_float(2.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(0.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                        ],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "descriptor".to_string(),
+                            vec![
+                                Value::test_string("count"),
+                                Value::test_string("sum"),
+                                Value::test_string("mean"),
+                                Value::test_string("median"),
+                                Value::test_string("std"),
+                                Value::test_string("min"),
+                                Value::test_string("25%"),
+                                Value::test_string("50%"),
+                                Value::test_string("75%"),
+                                Value::test_string("max"),
+                            ],
+                        ),
+                        Column::new(
+                            "a (i64)".to_string(),
+                            vec![
+                                Value::test_float(2.0),
+                                Value::test_float(2.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(0.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                            ],
+                        ),
+                        Column::new(
+                            "b (i64)".to_string(),
+                            vec![
+                                Value::test_float(2.0),
+                                Value::test_float(2.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(0.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                            ],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -171,7 +174,7 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let names = ChunkedArray::<Utf8Type>::from_slice_options("descriptor", &labels).into_series();
+    let names = ChunkedArray::<StringType>::from_slice_options("descriptor", &labels).into_series();
 
     let head = std::iter::once(names);
 
@@ -179,42 +182,50 @@ fn command(
         .as_ref()
         .get_columns()
         .iter()
-        .filter(|col| col.dtype() != &DataType::Object("object"))
+        .filter(|col| !matches!(col.dtype(), &DataType::Object("object", _)))
         .map(|col| {
             let count = col.len() as f64;
 
-            let sum = col
-                .sum_as_series()
-                .cast(&DataType::Float64)
-                .ok()
-                .and_then(|ca| match ca.get(0) {
-                    Ok(AnyValue::Float64(v)) => Some(v),
-                    _ => None,
-                });
+            let sum = col.sum_as_series().ok().and_then(|series| {
+                series
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .and_then(|ca| match ca.get(0) {
+                        Ok(AnyValue::Float64(v)) => Some(v),
+                        _ => None,
+                    })
+            });
 
             let mean = match col.mean_as_series().get(0) {
                 Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
-            let median = match col.median_as_series().get(0) {
-                Ok(AnyValue::Float64(v)) => Some(v),
-                _ => None,
-            };
-
-            let std = match col.std_as_series(0).get(0) {
-                Ok(AnyValue::Float64(v)) => Some(v),
-                _ => None,
-            };
-
-            let min = col
-                .min_as_series()
-                .cast(&DataType::Float64)
-                .ok()
-                .and_then(|ca| match ca.get(0) {
+            let median = match col.median_as_series() {
+                Ok(v) => match v.get(0) {
                     Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
-                });
+                },
+                _ => None,
+            };
+
+            let std = match col.std_as_series(0) {
+                Ok(v) => match v.get(0) {
+                    Ok(AnyValue::Float64(v)) => Some(v),
+                    _ => None,
+                },
+                _ => None,
+            };
+
+            let min = col.min_as_series().ok().and_then(|series| {
+                series
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .and_then(|ca| match ca.get(0) {
+                        Ok(AnyValue::Float64(v)) => Some(v),
+                        _ => None,
+                    })
+            });
 
             let mut quantiles = quantiles
                 .clone()
@@ -230,14 +241,15 @@ fn command(
                 })
                 .collect::<Vec<Option<f64>>>();
 
-            let max = col
-                .max_as_series()
-                .cast(&DataType::Float64)
-                .ok()
-                .and_then(|ca| match ca.get(0) {
-                    Ok(AnyValue::Float64(v)) => Some(v),
-                    _ => None,
-                });
+            let max = col.max_as_series().ok().and_then(|series| {
+                series
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .and_then(|ca| match ca.get(0) {
+                        Ok(AnyValue::Float64(v)) => Some(v),
+                        _ => None,
+                    })
+            });
 
             let mut descriptors = vec![Some(count), sum, mean, median, std, min];
             descriptors.append(&mut quantiles);

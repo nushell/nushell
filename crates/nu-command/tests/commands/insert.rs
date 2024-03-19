@@ -147,14 +147,14 @@ fn record_replacement_closure() {
     let actual = nu!("{ a: text } | insert b {|r| $r.a | str upcase } | to nuon");
     assert_eq!(actual.out, "{a: text, b: TEXT}");
 
-    let actual = nu!("{ a: text } | insert b { default TEXT } | to nuon");
+    let actual = nu!("{ a: text } | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "{a: text, b: TEXT}");
 
     let actual = nu!("{ a: { b: 1 } } | insert a.c {|r| $r.a.b } | to nuon");
     assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
 
-    let actual = nu!("{ a: { b: 1 } } | insert a.c { default 0 } | to nuon");
-    assert_eq!(actual.out, "{a: {b: 1, c: 0}}");
+    let actual = nu!("{ a: { b: 1 } } | insert a.c { $in.a.b } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
 }
 
 #[test]
@@ -162,14 +162,14 @@ fn table_replacement_closure() {
     let actual = nu!("[[a]; [text]] | insert b {|r| $r.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 
-    let actual = nu!("[[a]; [text]] | insert b { default TEXT } | to nuon");
+    let actual = nu!("[[a]; [text]] | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 
     let actual = nu!("[[b]; [1]] | wrap a | insert a.c {|r| $r.a.b } | to nuon");
     assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
 
-    let actual = nu!("[[b]; [1]] | wrap a | insert a.c { default 0 } | to nuon");
-    assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+    let actual = nu!("[[b]; [1]] | wrap a | insert a.c { $in.a.b } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
 }
 
 #[test]
@@ -191,6 +191,6 @@ fn list_stream_replacement_closure() {
     let actual = nu!("[[a]; [text]] | every 1 | insert b {|r| $r.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 
-    let actual = nu!("[[a]; [text]] | every 1 | insert b { default TEXT } | to nuon");
+    let actual = nu!("[[a]; [text]] | every 1 | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 }

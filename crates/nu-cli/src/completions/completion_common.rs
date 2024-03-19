@@ -1,6 +1,11 @@
 use crate::completions::{matches, CompletionOptions};
+use nu_ansi_term::Style;
+use nu_engine::env_to_string;
 use nu_path::home_dir;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{engine::StateWorkingSet, Span};
+use nu_utils::get_ls_colors;
+use std::ffi::OsStr;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
 fn complete_rec(
@@ -22,7 +27,10 @@ fn complete_rec(
                     Some(base) if matches(base, &entry_name, options) => {
                         let partial = &partial[1..];
                         if !partial.is_empty() || isdir {
-                            completions.extend(complete_rec(partial, &path, options, dir, isdir))
+                            completions.extend(complete_rec(partial, &path, options, dir, isdir));
+                            if entry_name.eq(base) {
+                                break;
+                            }
                         } else {
                             completions.push(path)
                         }
@@ -89,12 +97,31 @@ pub fn complete_item(
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
-) -> Vec<(nu_protocol::Span, String)> {
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
+    let ls_colors = (engine_state.config.use_ls_colors_completions
+        && engine_state.config.use_ansi_coloring)
+        .then(|| {
+            let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
+                Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
+                None => None,
+            };
+            get_ls_colors(ls_colors_env_str)
+        });
     let mut original_cwd = OriginalCwd::None;
-    let mut components = Path::new(&partial).components().peekable();
+    let mut components_vec: Vec<Component> = Path::new(&partial).components().collect();
+
+    // Path components that end with a single "." get normalized away,
+    // so if the partial path ends in a literal "." we must add it back in manually
+    if partial.ends_with('.') && partial.len() > 1 {
+        components_vec.push(Component::Normal(OsStr::new(".")));
+    };
+    let mut components = components_vec.into_iter().peekable();
+
     let mut cwd = match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
@@ -145,12 +172,35 @@ pub fn complete_item(
 
     complete_rec(partial.as_slice(), &cwd, options, want_directory, isdir)
         .into_iter()
-        .map(|p| (span, escape_path(original_cwd.apply(&p), want_directory)))
+        .map(|p| {
+            let path = original_cwd.apply(&p);
+            let style = ls_colors.as_ref().map(|lsc| {
+                lsc.style_for_path_with_metadata(
+                    &path,
+                    std::fs::symlink_metadata(&path).ok().as_ref(),
+                )
+                .map(lscolors::Style::to_nu_ansi_term_style)
+                .unwrap_or_default()
+            });
+            (span, escape_path(path, want_directory), style)
+        })
         .collect()
 }
 
 // Fix files or folders with quotes or hashes
 pub fn escape_path(path: String, dir: bool) -> String {
+    // make glob pattern have the highest priority.
+    let glob_contaminated = path.contains(['[', '*', ']', '?']);
+    if glob_contaminated {
+        return if path.contains('\'') {
+            // decide to use double quote, also need to escape `"` in path
+            // or else users can't do anything with completed path either.
+            format!("\"{}\"", path.replace('"', r#"\""#))
+        } else {
+            format!("'{path}'")
+        };
+    }
+
     let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
     let maybe_flag = path.starts_with('-');

@@ -1,6 +1,6 @@
 use nu_test_support::fs::{file_contents, Stub};
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 use std::io::Write;
 
 #[test]
@@ -323,5 +323,47 @@ fn save_file_correct_relative_path() {
 
         let actual = file_contents(expected_file);
         assert_eq!(actual, "foo!");
+    })
+}
+
+#[test]
+fn save_same_file_with_extension() {
+    Playground::setup("save_test_16", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                echo 'world'
+                | save --raw hello.md;
+                open --raw hello.md
+                | prepend 'hello'
+                | save --raw --force hello.md
+            "
+            )
+        );
+
+        assert!(actual
+            .err
+            .contains("pipeline input and output are same file"));
+    })
+}
+
+#[test]
+fn save_same_file_without_extension() {
+    Playground::setup("save_test_17", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | save --force hello
+            "
+            )
+        );
+
+        assert!(actual
+            .err
+            .contains("pipeline input and output are same file"));
     })
 }

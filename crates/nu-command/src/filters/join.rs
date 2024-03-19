@@ -75,7 +75,7 @@ impl Command for Join {
             .opt(engine_state, stack, 2)?
             .unwrap_or_else(|| l_on.clone());
         let span = call.head;
-        let join_type = join_type(call)?;
+        let join_type = join_type(engine_state, stack, call)?;
 
         // FIXME: we should handle ListStreams properly instead of collecting
         let collected_input = input.into_value(span);
@@ -116,12 +116,16 @@ impl Command for Join {
     }
 }
 
-fn join_type(call: &Call) -> Result<JoinType, nu_protocol::ShellError> {
+fn join_type(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<JoinType, nu_protocol::ShellError> {
     match (
-        call.has_flag("inner"),
-        call.has_flag("left"),
-        call.has_flag("right"),
-        call.has_flag("outer"),
+        call.has_flag(engine_state, stack, "inner")?,
+        call.has_flag(engine_state, stack, "left")?,
+        call.has_flag(engine_state, stack, "right")?,
+        call.has_flag(engine_state, stack, "outer")?,
     ) {
         (_, false, false, false) => Ok(JoinType::Inner),
         (false, true, false, false) => Ok(JoinType::Left),
@@ -260,7 +264,7 @@ fn join_rows(
         } = this_row
         {
             if let Some(this_valkey) = this_record.get(this_join_key) {
-                if let Some(other_rows) = other.get(&this_valkey.into_string(sep, config)) {
+                if let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
                         for other_record in other_rows {
                             // `other` table contains rows matching `this` row on the join column
@@ -342,7 +346,7 @@ fn lookup_table<'a>(
     for row in rows {
         if let Value::Record { val: record, .. } = row {
             if let Some(val) = record.get(on) {
-                let valkey = val.into_string(sep, config);
+                let valkey = val.to_expanded_string(sep, config);
                 map.entry(valkey).or_default().push(record);
             }
         };

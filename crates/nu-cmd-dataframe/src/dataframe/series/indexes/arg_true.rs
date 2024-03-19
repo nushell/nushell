@@ -37,10 +37,13 @@ impl Command for ArgTrue {
             description: "Returns indexes where values are true",
             example: "[false true false] | dfr into-df | dfr arg-true",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_true".to_string(),
-                    vec![Value::test_int(1)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "arg_true".to_string(),
+                        vec![Value::test_int(1)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

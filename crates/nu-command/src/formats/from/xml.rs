@@ -1,5 +1,6 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::map::IndexMap;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -46,14 +47,14 @@ string. This way content of every tag is always a table and is easier to parse"#
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let keep_comments = call.has_flag("keep-comments");
-        let keep_processing_instructions = call.has_flag("keep-pi");
+        let keep_comments = call.has_flag(engine_state, stack, "keep-comments")?;
+        let keep_processing_instructions = call.has_flag(engine_state, stack, "keep-pi")?;
         let info = ParsingInfo {
             span: head,
             keep_comments,
@@ -279,7 +280,39 @@ fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
         roxmltree::Error::NamespacesLimitReached => {
             make_cant_convert_error("Namespace limit reached", span)
         }
-        roxmltree::Error::ParserError(_) => make_cant_convert_error("Parser error", span),
+        roxmltree::Error::UnexpectedDeclaration(_) => {
+            make_cant_convert_error("An XML document can have only one XML declaration and it must be at the start of the document.", span)
+        }
+        roxmltree::Error::InvalidName(_) => {
+            make_cant_convert_error("Invalid name found.", span)
+        }
+        roxmltree::Error::NonXmlChar(_, _) => {
+            make_cant_convert_error("A non-XML character has occurred. Valid characters are: <https://www.w3.org/TR/xml/#char32>", span)
+        }
+        roxmltree::Error::InvalidChar(_, _, _) => {
+            make_cant_convert_error("An invalid/unexpected character in XML.", span)
+        }
+        roxmltree::Error::InvalidChar2(_, _, _) => {
+            make_cant_convert_error("An invalid/unexpected character in XML.", span)
+        }
+        roxmltree::Error::InvalidString(_, _) => {
+            make_cant_convert_error("An invalid/unexpected string in XML.", span)
+        }
+        roxmltree::Error::InvalidExternalID(_) => {
+            make_cant_convert_error("An invalid ExternalID in the DTD.", span)
+        }
+        roxmltree::Error::InvalidComment(_) => {
+            make_cant_convert_error("A comment cannot contain `--` or end with `-`.", span)
+        }
+        roxmltree::Error::InvalidCharacterData(_) => {
+            make_cant_convert_error("A Character Data node contains an invalid data. Currently, only `]]>` is not allowed.", span)
+        }
+        roxmltree::Error::UnknownToken(_) => {
+            make_cant_convert_error("Unknown token in XML.", span)
+        }
+        roxmltree::Error::UnexpectedEndOfStream => {
+            make_cant_convert_error("Unexpected end of stream while parsing XML.", span)
+        }
     }
 }
 

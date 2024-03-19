@@ -1,6 +1,12 @@
-use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, VirtualPath};
+use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath};
 use crate::ast::Block;
-use crate::{Module, Variable};
+use crate::Module;
+
+#[cfg(feature = "plugin")]
+use std::sync::Arc;
+
+#[cfg(feature = "plugin")]
+use crate::RegisteredPlugin;
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
 /// can be applied to the global state to update it to contain both previous state and the state held
@@ -17,6 +23,8 @@ pub struct StateDelta {
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     pub(super) plugins_changed: bool, // marks whether plugin file should be updated
+    #[cfg(feature = "plugin")]
+    pub(super) plugins: Vec<Arc<dyn RegisteredPlugin>>,
 }
 
 impl StateDelta {
@@ -40,6 +48,8 @@ impl StateDelta {
             usage: Usage::new(),
             #[cfg(feature = "plugin")]
             plugins_changed: false,
+            #[cfg(feature = "plugin")]
+            plugins: vec![],
         }
     }
 

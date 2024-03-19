@@ -3,7 +3,7 @@ use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::report_error;
 use nu_protocol::{
-    ast::{Call, Expr, Expression, PipelineElement},
+    ast::{Call, Expr, Expression},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Value,
@@ -82,34 +82,28 @@ pub(crate) fn parse_commandline_args(
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.first() {
-        if let Some(PipelineElement::Expression(
-            _,
-            Expression {
-                expr: Expr::Call(call),
-                ..
-            },
-        )) = pipeline.elements.first()
-        {
+        if let Some(Expr::Call(call)) = pipeline.elements.first().map(|e| &e.expr.expr) {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
-            let commands: Option<Expression> = call.get_flag_expr("commands");
-            let testbin: Option<Expression> = call.get_flag_expr("testbin");
+            let commands = call.get_flag_expr("commands");
+            let testbin = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
-            let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
+            let plugin_file = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
+            let no_history = call.get_named_arg("no-history");
             let no_std_lib = call.get_named_arg("no-std-lib");
-            let config_file: Option<Expression> = call.get_flag_expr("config");
-            let env_file: Option<Expression> = call.get_flag_expr("env-config");
-            let log_level: Option<Expression> = call.get_flag_expr("log-level");
-            let log_target: Option<Expression> = call.get_flag_expr("log-target");
-            let execute: Option<Expression> = call.get_flag_expr("execute");
+            let config_file = call.get_flag_expr("config");
+            let env_file = call.get_flag_expr("env-config");
+            let log_level = call.get_flag_expr("log-level");
+            let log_target = call.get_flag_expr("log-target");
+            let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
             // ide flags
-            let lsp = call.has_flag("lsp");
-            let include_path: Option<Expression> = call.get_flag_expr("include-path");
+            let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
+            let include_path = call.get_flag_expr("include-path");
             let ide_goto_def: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
             let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
@@ -119,7 +113,7 @@ pub(crate) fn parse_commandline_args(
             let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
             fn extract_contents(
-                expression: Option<Expression>,
+                expression: Option<&Expression>,
             ) -> Result<Option<Spanned<String>>, ShellError> {
                 if let Some(expr) = expression {
                     let str = expr.as_string();
@@ -150,7 +144,7 @@ pub(crate) fn parse_commandline_args(
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
 
-            let help = call.has_flag("help");
+            let help = call.has_flag(engine_state, &mut stack, "help")?;
 
             if help {
                 let full_help = get_full_help(
@@ -166,7 +160,7 @@ pub(crate) fn parse_commandline_args(
                 std::process::exit(0);
             }
 
-            if call.has_flag("version") {
+            if call.has_flag(engine_state, &mut stack, "version")? {
                 let version = env!("CARGO_PKG_VERSION").to_string();
                 let _ = std::panic::catch_unwind(move || {
                     stdout_write_all_and_flush(format!("{version}\n"))
@@ -184,6 +178,7 @@ pub(crate) fn parse_commandline_args(
                 #[cfg(feature = "plugin")]
                 plugin_file,
                 no_config_file,
+                no_history,
                 no_std_lib,
                 config_file,
                 env_file,
@@ -214,6 +209,7 @@ pub(crate) fn parse_commandline_args(
     std::process::exit(1);
 }
 
+#[derive(Clone)]
 pub(crate) struct NushellCliArgs {
     pub(crate) redirect_stdin: Option<Spanned<String>>,
     pub(crate) login_shell: Option<Spanned<String>>,
@@ -223,6 +219,7 @@ pub(crate) struct NushellCliArgs {
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
     pub(crate) no_config_file: Option<Spanned<String>>,
+    pub(crate) no_history: Option<Spanned<String>>,
     pub(crate) no_std_lib: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
@@ -280,6 +277,11 @@ impl Command for Nu {
                 "no-config-file",
                 "start with no config file and no env file",
                 Some('n'),
+            )
+            .switch(
+                "no-history",
+                "disable reading and writing to command history",
+                None,
             )
             .switch("no-std-lib", "start with no standard library", None)
             .named(

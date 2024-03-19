@@ -1,15 +1,19 @@
 use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, VirtualPath, Visibility,
-    PWD_ENV,
+    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
+    Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{
-    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, Variable, VirtualPathId,
-};
-use crate::{Category, ParseError, Value};
+use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
+use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+
+#[cfg(feature = "plugin")]
+use std::sync::Arc;
+
+#[cfg(feature = "plugin")]
+use crate::{PluginIdentity, RegisteredPlugin};
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -27,6 +31,7 @@ pub struct StateWorkingSet<'a> {
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
+    pub parse_warnings: Vec<ParseWarning>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -39,6 +44,7 @@ impl<'a> StateWorkingSet<'a> {
             parsed_module_files: vec![],
             search_predecls: true,
             parse_errors: vec![],
+            parse_warnings: vec![],
         }
     }
 
@@ -48,6 +54,10 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn error(&mut self, parse_error: ParseError) {
         self.parse_errors.push(parse_error)
+    }
+
+    pub fn warning(&mut self, parse_warning: ParseWarning) {
+        self.parse_warnings.push(parse_warning)
     }
 
     pub fn num_files(&self) -> usize {
@@ -147,6 +157,28 @@ impl<'a> StateWorkingSet<'a> {
     #[cfg(feature = "plugin")]
     pub fn mark_plugins_file_dirty(&mut self) {
         self.delta.plugins_changed = true;
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn find_or_create_plugin(
+        &mut self,
+        identity: &PluginIdentity,
+        make: impl FnOnce() -> Arc<dyn RegisteredPlugin>,
+    ) -> Arc<dyn RegisteredPlugin> {
+        // Check in delta first, then permanent_state
+        if let Some(plugin) = self
+            .delta
+            .plugins
+            .iter()
+            .chain(self.permanent_state.plugins())
+            .find(|p| p.identity() == identity)
+        {
+            plugin.clone()
+        } else {
+            let plugin = make();
+            self.delta.plugins.push(plugin.clone());
+            plugin
+        }
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
@@ -349,11 +381,10 @@ impl<'a> StateWorkingSet<'a> {
                     return &contents[begin..end];
                 }
             }
-        } else {
-            return self.permanent_state.get_span_contents(span);
         }
 
-        panic!("internal error: missing span contents in file cache")
+        // if no files with span were found, fall back on permanent ones
+        return self.permanent_state.get_span_contents(span);
     }
 
     pub fn enter_scope(&mut self) {
@@ -576,7 +607,8 @@ impl<'a> StateWorkingSet<'a> {
             .permanent_state
             .get_env_var(PWD_ENV)
             .expect("internal error: can't find PWD");
-        pwd.as_string().expect("internal error: PWD not a string")
+        pwd.coerce_string()
+            .expect("internal error: PWD not a string")
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
@@ -653,8 +685,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
+    pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         let num_permanent_decls = self.permanent_state.num_decls();
         if decl_id < num_permanent_decls {
             self.permanent_state.get_decl(decl_id)
@@ -663,6 +694,7 @@ impl<'a> StateWorkingSet<'a> {
                 .decls
                 .get(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
+                .as_ref()
         }
     }
 

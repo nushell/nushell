@@ -71,8 +71,13 @@ pub use try_::Try;
 pub use use_::Use;
 pub use version::Version;
 pub use while_::While;
-//#[cfg(feature = "plugin")]
+
+mod plugin;
+mod plugin_list;
+mod plugin_stop;
 mod register;
 
-//#[cfg(feature = "plugin")]
+pub use plugin::PluginCommand;
+pub use plugin_list::PluginList;
+pub use plugin_stop::PluginStop;
 pub use register::Register;

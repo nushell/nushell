@@ -43,16 +43,19 @@ impl Command for SetSeries {
     let mask = ($s | dfr is-null);
     $s | dfr set 0 --mask $mask"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(2),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_int(0),
+                            Value::test_int(0),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(2),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -148,7 +151,7 @@ fn command(
             NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         }
         Value::String { val, .. } => {
-            let chunked = series.utf8().map_err(|e| ShellError::GenericError {
+            let chunked = series.str().map_err(|e| ShellError::GenericError {
                 error: "Error casting to string".into(),
                 msg: e.to_string(),
                 span: Some(span),

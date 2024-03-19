@@ -9,13 +9,16 @@ use polars::chunked_array::ChunkedArray;
 use polars::datatypes::AnyValue;
 use polars::export::arrow::Either;
 use polars::prelude::{
-    DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
-    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType,
-    ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray, ObjectType, Series, TemporalMethods,
-    TimeUnit,
+    DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type,
+    Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
+    ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom, NewChunkedArray,
+    ObjectType, Schema, Series, StructChunked, TemporalMethods, TimeUnit, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
+
+use crate::dataframe::values::NuSchema;
 
 use super::{DataFrameValue, NuDataFrame};
 
@@ -27,6 +30,39 @@ const NANOS_PER_DAY: i64 = 86_400_000_000_000;
 // between nushell tables the values shouldn't be too extremely large for
 // practical reasons (~ a few thousand rows).
 const VALUES_CAPACITY: usize = 10;
+
+macro_rules! value_to_primitive {
+    ($value:ident, u8) => {
+        $value.as_i64().map(|v| v as u8)
+    };
+    ($value:ident, u16) => {
+        $value.as_i64().map(|v| v as u16)
+    };
+    ($value:ident, u32) => {
+        $value.as_i64().map(|v| v as u32)
+    };
+    ($value:ident, u64) => {
+        $value.as_i64().map(|v| v as u64)
+    };
+    ($value:ident, i8) => {
+        $value.as_i64().map(|v| v as i8)
+    };
+    ($value:ident, i16) => {
+        $value.as_i64().map(|v| v as i16)
+    };
+    ($value:ident, i32) => {
+        $value.as_i64().map(|v| v as i32)
+    };
+    ($value:ident, i64) => {
+        $value.as_i64()
+    };
+    ($value:ident, f32) => {
+        $value.as_f64().map(|v| v as f32)
+    };
+    ($value:ident, f64) => {
+        $value.as_f64()
+    };
+}
 
 #[derive(Debug)]
 pub struct Column {
@@ -75,22 +111,9 @@ impl DerefMut for Column {
 }
 
 #[derive(Debug)]
-pub enum InputType {
-    Integer,
-    Float,
-    String,
-    Boolean,
-    Object,
-    Date,
-    Duration,
-    Filesize,
-    List(Box<InputType>),
-}
-
-#[derive(Debug)]
 pub struct TypedColumn {
     column: Column,
-    column_type: Option<InputType>,
+    column_type: Option<DataType>,
 }
 
 impl TypedColumn {
@@ -144,9 +167,13 @@ pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
 }
 
 // Inserting the values found in a Value::List or Value::Record
-pub fn insert_record(column_values: &mut ColumnMap, record: Record) -> Result<(), ShellError> {
+pub fn insert_record(
+    column_values: &mut ColumnMap,
+    record: Record,
+    maybe_schema: &Option<NuSchema>,
+) -> Result<(), ShellError> {
     for (col, value) in record {
-        insert_value(value, col, column_values)?;
+        insert_value(value, col, column_values, maybe_schema)?;
     }
 
     Ok(())
@@ -156,16 +183,26 @@ pub fn insert_value(
     value: Value,
     key: String,
     column_values: &mut ColumnMap,
+    maybe_schema: &Option<NuSchema>,
 ) -> Result<(), ShellError> {
     let col_val = match column_values.entry(key.clone()) {
-        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
+        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key.clone())),
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
     // Checking that the type for the value is the same
     // for the previous value in the column
     if col_val.values.is_empty() {
-        col_val.column_type = Some(value_to_input_type(&value));
+        if let Some(schema) = maybe_schema {
+            if let Some(field) = schema.schema.get_field(&key) {
+                col_val.column_type = Some(field.data_type().clone());
+            }
+        }
+
+        if col_val.column_type.is_none() {
+            col_val.column_type = Some(value_to_data_type(&value));
+        }
+
         col_val.values.push(value);
     } else {
         let prev_value = &col_val.values[col_val.values.len() - 1];
@@ -179,11 +216,11 @@ pub fn insert_value(
             | (Value::Filesize { .. }, Value::Filesize { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
             (Value::List { .. }, _) => {
-                col_val.column_type = Some(value_to_input_type(&value));
+                col_val.column_type = Some(value_to_data_type(&value));
                 col_val.values.push(value);
             }
             _ => {
-                col_val.column_type = Some(InputType::Object);
+                col_val.column_type = Some(DataType::Object("Value", None));
                 col_val.values.push(value);
             }
         }
@@ -192,15 +229,15 @@ pub fn insert_value(
     Ok(())
 }
 
-fn value_to_input_type(value: &Value) -> InputType {
+fn value_to_data_type(value: &Value) -> DataType {
     match &value {
-        Value::Int { .. } => InputType::Integer,
-        Value::Float { .. } => InputType::Float,
-        Value::String { .. } => InputType::String,
-        Value::Bool { .. } => InputType::Boolean,
-        Value::Date { .. } => InputType::Date,
-        Value::Duration { .. } => InputType::Duration,
-        Value::Filesize { .. } => InputType::Filesize,
+        Value::Int { .. } => DataType::Int64,
+        Value::Float { .. } => DataType::Float64,
+        Value::String { .. } => DataType::String,
+        Value::Bool { .. } => DataType::Boolean,
+        Value::Date { .. } => DataType::Date,
+        Value::Duration { .. } => DataType::Duration(TimeUnit::Nanoseconds),
+        Value::Filesize { .. } => DataType::Int64,
         Value::List { vals, .. } => {
             // We need to determined the type inside of the list.
             // Since Value::List does not have any kind of
@@ -211,13 +248,213 @@ fn value_to_input_type(value: &Value) -> InputType {
             let list_type = vals
                 .iter()
                 .filter(|v| !matches!(v, Value::Nothing { .. }))
-                .map(value_to_input_type)
+                .map(value_to_data_type)
                 .nth(1)
-                .unwrap_or(InputType::Object);
+                .unwrap_or(DataType::Object("Value", None));
 
-            InputType::List(Box::new(list_type))
+            DataType::List(Box::new(list_type))
         }
-        _ => InputType::Object,
+        _ => DataType::Object("Value", None),
+    }
+}
+
+fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, ShellError> {
+    if let Some(column_type) = &column.column_type {
+        match column_type {
+            DataType::Float32 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_f64().map(|v| v as f32))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Float64 => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_f64()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt8 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u8))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt16 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u16))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt32 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u32))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt64 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u64))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int8 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as i8))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int16 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as i16))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int32 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as i32))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int64 => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_i64()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Boolean => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_bool()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::String => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.coerce_string()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Object(_, _) => value_to_series(name, &column.values),
+            DataType::Duration(time_unit) => {
+                //todo - finish type conversion
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| nanos_from_timeunit(v, *time_unit)))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::List(list_type) => {
+                match input_type_list_to_series(name, list_type.as_ref(), &column.values) {
+                    Ok(series) => Ok(series),
+                    Err(_) => {
+                        // An error case will occur when there are lists of mixed types.
+                        // If this happens, fallback to object list
+                        input_type_list_to_series(
+                            name,
+                            &DataType::Object("unknown", None),
+                            &column.values,
+                        )
+                    }
+                }
+            }
+            DataType::Date => {
+                let it = column.values.iter().map(|v| {
+                    if let Value::Date { val, .. } = &v {
+                        Some(val.timestamp_nanos_opt().unwrap_or_default())
+                    } else {
+                        None
+                    }
+                });
+
+                let res: DatetimeChunked = ChunkedArray::<Int64Type>::from_iter_options(name, it)
+                    .into_datetime(TimeUnit::Nanoseconds, None);
+
+                Ok(res.into_series())
+            }
+            DataType::Datetime(tu, maybe_tz) => {
+                let dates = column
+                    .values
+                    .iter()
+                    .map(|v| {
+                        if let Value::Date { val, .. } = &v {
+                            // If there is a timezone specified, make sure
+                            // the value is converted to it
+                            Ok(maybe_tz
+                                .as_ref()
+                                .map(|tz| tz.parse::<Tz>().map(|tz| val.with_timezone(&tz)))
+                                .transpose()
+                                .map_err(|e| ShellError::GenericError {
+                                    error: "Error parsing timezone".into(),
+                                    msg: "".into(),
+                                    span: None,
+                                    help: Some(e.to_string()),
+                                    inner: vec![],
+                                })?
+                                .and_then(|dt| dt.timestamp_nanos_opt())
+                                .map(|nanos| nanos_from_timeunit(nanos, *tu)))
+                        } else {
+                            Ok(None)
+                        }
+                    })
+                    .collect::<Result<Vec<Option<i64>>, ShellError>>()?;
+
+                let res: DatetimeChunked =
+                    ChunkedArray::<Int64Type>::from_iter_options(name, dates.into_iter())
+                        .into_datetime(*tu, maybe_tz.clone());
+
+                Ok(res.into_series())
+            }
+            DataType::Struct(fields) => {
+                let schema = Some(NuSchema::new(Schema::from_iter(fields.clone())));
+                let mut structs: Vec<Series> = Vec::new();
+
+                for v in column.values.iter() {
+                    let mut column_values: ColumnMap = IndexMap::new();
+                    let record = v.as_record()?;
+                    insert_record(&mut column_values, record.clone(), &schema)?;
+                    let df = from_parsed_columns(column_values)?;
+                    structs.push(df.as_series(Span::unknown())?);
+                }
+
+                let chunked = StructChunked::new(column.name(), structs.as_ref()).map_err(|e| {
+                    ShellError::GenericError {
+                        error: format!("Error creating struct: {e}"),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    }
+                })?;
+                Ok(chunked.into_series())
+            }
+            _ => Err(ShellError::GenericError {
+                error: format!("Error creating dataframe: Unsupported type: {column_type:?}"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        }
+    } else {
+        Err(ShellError::GenericError {
+            error: "Passed a type column with no type".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
     }
 }
 
@@ -227,80 +464,22 @@ fn value_to_input_type(value: &Value) -> InputType {
 pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, ShellError> {
     let mut df_series: Vec<Series> = Vec::new();
     for (name, column) in column_values {
-        if let Some(column_type) = &column.column_type {
-            match column_type {
-                InputType::Float => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_f64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::Integer | InputType::Filesize | InputType::Duration => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_i64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::String => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_string()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::Boolean => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_bool()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::Object => {
-                    df_series.push(input_type_object_to_series(&name, &column.values)?)
-                }
-                InputType::List(list_type) => {
-                    match input_type_list_to_series(&name, list_type.as_ref(), &column.values) {
-                        Ok(series) => df_series.push(series),
-                        Err(_) => {
-                            // An error case will occur when there are lists of mixed types.
-                            // If this happens, fallback to object list
-                            df_series.push(input_type_list_to_series(
-                                &name,
-                                &InputType::Object,
-                                &column.values,
-                            )?)
-                        }
-                    }
-                }
-                InputType::Date => {
-                    let it = column.values.iter().map(|v| {
-                        if let Value::Date { val, .. } = &v {
-                            Some(val.timestamp_nanos_opt().unwrap_or_default())
-                        } else {
-                            None
-                        }
-                    });
-
-                    let res: DatetimeChunked =
-                        ChunkedArray::<Int64Type>::from_iter_options(&name, it)
-                            .into_datetime(TimeUnit::Nanoseconds, None);
-
-                    df_series.push(res.into_series())
-                }
-            }
-        }
+        let series = typed_column_to_series(&name, column)?;
+        df_series.push(series);
     }
 
     DataFrame::new(df_series)
         .map(|df| NuDataFrame::new(false, df))
         .map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
-            msg: "".into(),
+            msg: e.to_string(),
             span: None,
-            help: Some(e.to_string()),
+            help: None,
             inner: vec![],
         })
 }
 
-fn input_type_object_to_series(name: &str, values: &[Value]) -> Result<Series, ShellError> {
+fn value_to_series(name: &str, values: &[Value]) -> Result<Series, ShellError> {
     let mut builder = ObjectChunkedBuilder::<DataFrameValue>::new(name, values.len());
 
     for v in values {
@@ -313,21 +492,45 @@ fn input_type_object_to_series(name: &str, values: &[Value]) -> Result<Series, S
 
 fn input_type_list_to_series(
     name: &str,
-    list_type: &InputType,
+    data_type: &DataType,
     values: &[Value],
 ) -> Result<Series, ShellError> {
     let inconsistent_error = |_| ShellError::GenericError {
         error: format!(
-            "column {name} contains a list with inconsistent types: Expecting: {list_type:?}"
+            "column {name} contains a list with inconsistent types: Expecting: {data_type:?}"
         ),
         msg: "".into(),
         span: None,
         help: None,
         inner: vec![],
     };
-    match *list_type {
+
+    macro_rules! primitive_list_series {
+        ($list_type:ty, $vec_type:tt) => {{
+            let mut builder = ListPrimitiveChunkedBuilder::<$list_type>::new(
+                name,
+                values.len(),
+                VALUES_CAPACITY,
+                data_type.clone(),
+            );
+
+            for v in values {
+                let value_list = v
+                    .as_list()?
+                    .iter()
+                    .map(|v| value_to_primitive!(v, $vec_type))
+                    .collect::<Result<Vec<$vec_type>, _>>()
+                    .map_err(inconsistent_error)?;
+                builder.append_iter_values(value_list.iter().copied());
+            }
+            let res = builder.finish();
+            Ok(res.into_series())
+        }};
+    }
+
+    match *data_type {
         // list of boolean values
-        InputType::Boolean => {
+        DataType::Boolean => {
             let mut builder = ListBooleanChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
             for v in values {
                 let value_list = v
@@ -341,58 +544,24 @@ fn input_type_list_to_series(
             let res = builder.finish();
             Ok(res.into_series())
         }
-        // list of values that reduce down to i64
-        InputType::Integer | InputType::Filesize | InputType::Duration => {
-            let logical_type = match list_type {
-                InputType::Duration => DataType::Duration(TimeUnit::Milliseconds),
-                _ => DataType::Int64,
-            };
-
-            let mut builder = ListPrimitiveChunkedBuilder::<Int64Type>::new(
-                name,
-                values.len(),
-                VALUES_CAPACITY,
-                logical_type,
-            );
-
+        DataType::Duration(_) => primitive_list_series!(Int64Type, i64),
+        DataType::UInt8 => primitive_list_series!(UInt8Type, u8),
+        DataType::UInt16 => primitive_list_series!(UInt16Type, u16),
+        DataType::UInt32 => primitive_list_series!(UInt32Type, u32),
+        DataType::UInt64 => primitive_list_series!(UInt64Type, u64),
+        DataType::Int8 => primitive_list_series!(Int8Type, i8),
+        DataType::Int16 => primitive_list_series!(Int16Type, i16),
+        DataType::Int32 => primitive_list_series!(Int32Type, i32),
+        DataType::Int64 => primitive_list_series!(Int64Type, i64),
+        DataType::Float32 => primitive_list_series!(Float32Type, f32),
+        DataType::Float64 => primitive_list_series!(Float64Type, f64),
+        DataType::String => {
+            let mut builder = ListStringChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
             for v in values {
                 let value_list = v
                     .as_list()?
                     .iter()
-                    .map(|v| v.as_i64())
-                    .collect::<Result<Vec<i64>, _>>()
-                    .map_err(inconsistent_error)?;
-                builder.append_iter_values(value_list.iter().copied());
-            }
-            let res = builder.finish();
-            Ok(res.into_series())
-        }
-        InputType::Float => {
-            let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
-                name,
-                values.len(),
-                VALUES_CAPACITY,
-                DataType::Float64,
-            );
-            for v in values {
-                let value_list = v
-                    .as_list()?
-                    .iter()
-                    .map(|v| v.as_f64())
-                    .collect::<Result<Vec<f64>, _>>()
-                    .map_err(inconsistent_error)?;
-                builder.append_iter_values(value_list.iter().copied());
-            }
-            let res = builder.finish();
-            Ok(res.into_series())
-        }
-        InputType::String => {
-            let mut builder = ListUtf8ChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
-            for v in values {
-                let value_list = v
-                    .as_list()?
-                    .iter()
-                    .map(|v| v.as_string())
+                    .map(|v| v.coerce_string())
                     .collect::<Result<Vec<String>, _>>()
                     .map_err(inconsistent_error)?;
                 builder.append_values_iter(value_list.iter().map(AsRef::as_ref));
@@ -400,9 +569,7 @@ fn input_type_list_to_series(
             let res = builder.finish();
             Ok(res.into_series())
         }
-        // Treat lists as objects at this depth as it is expensive to calculate the list type
-        // We can revisit this later if necessary
-        InputType::Date => {
+        DataType::Date => {
             let mut builder = AnonymousOwnedListBuilder::new(
                 name,
                 values.len(),
@@ -434,11 +601,11 @@ fn input_type_list_to_series(
             let res = builder.finish();
             Ok(res.into_series())
         }
-        InputType::List(ref sub_list_type) => {
+        DataType::List(ref sub_list_type) => {
             Ok(input_type_list_to_series(name, sub_list_type, values)?)
         }
         // treat everything else as an object
-        _ => Ok(input_type_object_to_series(name, values)?),
+        _ => Ok(value_to_series(name, values)?),
     }
 }
 
@@ -713,8 +880,8 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Utf8 => {
-            let casted = series.utf8().map_err(|e| ShellError::GenericError {
+        DataType::String => {
+            let casted = series.str().map_err(|e| ShellError::GenericError {
                 error: "Error casting column to string".into(),
                 msg: "".into(),
                 span: None,
@@ -736,7 +903,7 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Object(x) => {
+        DataType::Object(x, _) => {
             let casted = series
                 .as_any()
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
@@ -866,15 +1033,14 @@ fn series_to_values(
                     Either::Right(it)
                 }
                 .map(|any_values| {
-                    let vals: Result<Vec<Value>, ShellError> = any_values
+                    let record = polar_fields
                         .iter()
-                        .map(|v| any_value_to_value(v, span))
-                        .collect();
-                    let cols: Vec<String> = polar_fields
-                        .iter()
-                        .map(|field| field.name.to_string())
-                        .collect();
-                    let record = Record { cols, vals: vals? };
+                        .zip(any_values)
+                        .map(|(field, val)| {
+                            any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                        })
+                        .collect::<Result<_, _>>()?;
+
                     Ok(Value::record(record, span))
                 })
                 .collect();
@@ -920,7 +1086,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
     match any_value {
         AnyValue::Null => Ok(Value::nothing(span)),
         AnyValue::Boolean(b) => Ok(Value::bool(*b, span)),
-        AnyValue::Utf8(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::String(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::UInt8(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt16(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt32(i) => Ok(Value::int(*i as i64, span)),
@@ -971,25 +1137,18 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
             any_value_to_value(&static_value, span)
         }
         AnyValue::StructOwned(struct_tuple) => {
-            let values: Result<Vec<Value>, ShellError> = struct_tuple
-                .0
-                .iter()
-                .map(|s| any_value_to_value(s, span))
-                .collect();
-            let fields = struct_tuple
+            let record = struct_tuple
                 .1
                 .iter()
-                .map(|f| f.name().to_string())
-                .collect();
-            Ok(Value::Record {
-                val: Record {
-                    cols: fields,
-                    vals: values?,
-                },
-                internal_span: span,
-            })
+                .zip(&struct_tuple.0)
+                .map(|(field, val)| {
+                    any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                })
+                .collect::<Result<_, _>>()?;
+
+            Ok(Value::record(record, span))
         }
-        AnyValue::Utf8Owned(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
         e => Err(ShellError::GenericError {
@@ -1059,6 +1218,7 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
+    use nu_protocol::record;
     use polars::export::arrow::array::{BooleanArray, PrimitiveArray};
     use polars::prelude::Field;
     use polars_io::prelude::StructArray;
@@ -1083,7 +1243,7 @@ mod tests {
         };
         let typed_column = TypedColumn {
             column,
-            column_type: Some(InputType::List(Box::new(InputType::String))),
+            column_type: Some(DataType::List(Box::new(DataType::String))),
         };
 
         let column_map = indexmap!("foo".to_string() => typed_column);
@@ -1115,11 +1275,11 @@ mod tests {
 
         let test_str = "foo";
         assert_eq!(
-            any_value_to_value(&AnyValue::Utf8(test_str), span)?,
+            any_value_to_value(&AnyValue::String(test_str), span)?,
             Value::string(test_str.to_string(), span)
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::Utf8Owned(test_str.into()), span)?,
+            any_value_to_value(&AnyValue::StringOwned(test_str.into()), span)?,
             Value::string(test_str.to_owned(), span)
         );
 
@@ -1249,13 +1409,10 @@ mod tests {
             Field::new(field_name_1, DataType::Boolean),
         ];
         let test_owned_struct = AnyValue::StructOwned(Box::new((values, fields.clone())));
-        let comparison_owned_record = Value::record(
-            Record {
-                cols: vec![field_name_0.to_owned(), field_name_1.to_owned()],
-                vals: vec![Value::int(1, span), Value::bool(true, span)],
-            },
-            span,
-        );
+        let comparison_owned_record = Value::test_record(record!(
+            field_name_0 => Value::int(1, span),
+            field_name_1 => Value::bool(true, span),
+        ));
         assert_eq!(
             any_value_to_value(&test_owned_struct, span)?,
             comparison_owned_record.clone()
@@ -1264,7 +1421,7 @@ mod tests {
         let test_int_arr = PrimitiveArray::from([Some(1_i32)]);
         let test_bool_arr = BooleanArray::from([Some(true)]);
         let test_struct_arr = StructArray::new(
-            DataType::Struct(fields.clone()).to_arrow(),
+            DataType::Struct(fields.clone()).to_arrow(true),
             vec![Box::new(test_int_arr), Box::new(test_bool_arr)],
             None,
         );

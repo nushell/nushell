@@ -47,24 +47,27 @@ impl Command for LazyAggregate {
         (dfr col b | dfr sum | dfr as "b_sum")
      ]"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "b_min".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b_max".to_string(),
-                            vec![Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b_sum".to_string(),
-                            vec![Value::test_int(6), Value::test_int(10)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "b_min".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b_max".to_string(),
+                                vec![Value::test_int(4), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b_sum".to_string(),
+                                vec![Value::test_int(6), Value::test_int(10)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -81,24 +84,27 @@ impl Command for LazyAggregate {
      ]
     | dfr collect"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(2)],
-                        ),
-                        Column::new(
-                            "b_min".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "b_max".to_string(),
-                            vec![Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b_sum".to_string(),
-                            vec![Value::test_int(6), Value::test_int(10)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "b_min".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b_max".to_string(),
+                                vec![Value::test_int(4), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b_sum".to_string(),
+                                vec![Value::test_int(6), Value::test_int(10)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -160,7 +166,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::Last(e)
             | polars::prelude::AggExpr::Mean(e)
             | polars::prelude::AggExpr::Implode(e)
-            | polars::prelude::AggExpr::Count(e)
+            | polars::prelude::AggExpr::Count(e, _)
             | polars::prelude::AggExpr::Sum(e)
             | polars::prelude::AggExpr::AggGroups(e)
             | polars::prelude::AggExpr::Std(e, _)
@@ -187,7 +193,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Window { .. }
         | Expr::Wildcard
         | Expr::RenameAlias { .. }
-        | Expr::Count
+        | Expr::Len
         | Expr::Nth(_)
         | Expr::SubPlan(_, _)
         | Expr::Selector(_) => None,

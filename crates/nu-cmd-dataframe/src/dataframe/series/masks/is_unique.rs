@@ -34,18 +34,21 @@ impl Command for IsUnique {
                 description: "Create mask indicating unique values",
                 example: "[5 6 6 6 8 8 8] | dfr into-df | dfr is-unique",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "is_unique".to_string(),
-                        vec![
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "is_unique".to_string(),
+                            vec![
+                                Value::test_bool(true),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -54,16 +57,19 @@ impl Command for IsUnique {
                 description: "Create mask indicating duplicated rows in a dataframe",
                 example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | dfr into-df | dfr is-unique",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "is_unique".to_string(),
-                        vec![
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                            Value::test_bool(true),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "is_unique".to_string(),
+                            vec![
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                                Value::test_bool(true),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

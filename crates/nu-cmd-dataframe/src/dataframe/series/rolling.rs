@@ -72,15 +72,18 @@ impl Command for Rolling {
                 description: "Rolling sum for a series",
                 example: "[1 2 3 4 5] | dfr into-df | dfr rolling sum 2 | dfr drop-nulls",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "0_rolling_sum".to_string(),
-                        vec![
-                            Value::test_int(3),
-                            Value::test_int(5),
-                            Value::test_int(7),
-                            Value::test_int(9),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0_rolling_sum".to_string(),
+                            vec![
+                                Value::test_int(3),
+                                Value::test_int(5),
+                                Value::test_int(7),
+                                Value::test_int(9),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -89,15 +92,18 @@ impl Command for Rolling {
                 description: "Rolling max for a series",
                 example: "[1 2 3 4 5] | dfr into-df | dfr rolling max 2 | dfr drop-nulls",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "0_rolling_max".to_string(),
-                        vec![
-                            Value::test_int(2),
-                            Value::test_int(3),
-                            Value::test_int(4),
-                            Value::test_int(5),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0_rolling_max".to_string(),
+                            vec![
+                                Value::test_int(2),
+                                Value::test_int(3),
+                                Value::test_int(4),
+                                Value::test_int(5),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -128,7 +134,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    if let DataType::Object(_) = series.dtype() {
+    if let DataType::Object(..) = series.dtype() {
         return Err(ShellError::GenericError {
             error: "Found object series".into(),
             msg: "Series of type object cannot be used for rolling operation".into(),

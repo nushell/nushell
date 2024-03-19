@@ -7,6 +7,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct SeqDate;
@@ -129,7 +130,7 @@ impl Command for SeqDate {
         let end_date: Option<Spanned<String>> = call.get_flag(engine_state, stack, "end-date")?;
         let increment: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "increment")?;
         let days: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "days")?;
-        let reverse = call.has_flag("reverse");
+        let reverse = call.has_flag(engine_state, stack, "reverse")?;
 
         let outformat = match output_format {
             Some(s) => Some(Value::string(s.item, s.span)),
@@ -204,7 +205,7 @@ pub fn run_seq_dates(
     }
 
     let in_format = match input_format {
-        Some(i) => match i.as_string() {
+        Some(i) => match i.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -220,7 +221,7 @@ pub fn run_seq_dates(
     };
 
     let out_format = match output_format {
-        Some(i) => match i.as_string() {
+        Some(o) => match o.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -279,7 +280,9 @@ pub fn run_seq_dates(
     }
 
     if days_to_output != 0 {
-        end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
+        end_date = match Duration::try_days(days_to_output)
+            .and_then(|days| start_date.checked_add_signed(days))
+        {
             Some(date) => date,
             None => {
                 return Err(ShellError::GenericError {
@@ -302,6 +305,16 @@ pub fn run_seq_dates(
     let is_out_of_range =
         |next| (step_size > 0 && next > end_date) || (step_size < 0 && next < end_date);
 
+    let Some(step_size) = Duration::try_days(step_size) else {
+        return Err(ShellError::GenericError {
+            error: "increment magnitude is too large".into(),
+            msg: "increment magnitude is too large".into(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        });
+    };
+
     let mut next = start_date;
     if is_out_of_range(next) {
         return Err(ShellError::GenericError {
@@ -315,9 +328,21 @@ pub fn run_seq_dates(
 
     let mut ret = vec![];
     loop {
-        let date_string = &next.format(&out_format).to_string();
+        let mut date_string = String::new();
+        match write!(date_string, "{}", next.format(&out_format)) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(ShellError::GenericError {
+                    error: "Invalid output format".into(),
+                    msg: e.to_string(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+        }
         ret.push(Value::string(date_string, call_span));
-        next += Duration::days(step_size);
+        next += step_size;
 
         if is_out_of_range(next) {
             break;

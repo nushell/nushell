@@ -9,11 +9,12 @@ pub use operations::Axis;
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
-use polars_arrow::util::total_ord::TotalEq;
+use polars_plan::prelude::{lit, Expr, Null};
+use polars_utils::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display, hash::Hasher};
+use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher};
 
-use super::{utils::DEFAULT_ROWS, NuLazyFrame};
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -141,7 +142,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn try_from_iter<T>(iter: T) -> Result<Self, ShellError>
+    pub fn try_from_iter<T>(iter: T, maybe_schema: Option<NuSchema>) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
     {
@@ -154,23 +155,26 @@ impl NuDataFrame {
             match value {
                 Value::CustomValue { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
-                    let cols = (0..vals.len())
-                        .map(|i| format!("{i}"))
-                        .collect::<Vec<String>>();
+                    let record = vals
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, val)| (format!("{i}"), val))
+                        .collect();
 
-                    conversion::insert_record(&mut column_values, Record { cols, vals })?
+                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
                 Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, record)?
+                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
                 _ => {
                     let key = "0".to_string();
-                    conversion::insert_value(value, key, &mut column_values)?
+                    conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
                 }
             }
         }
 
-        conversion::from_parsed_columns(column_values)
+        let df = conversion::from_parsed_columns(column_values)?;
+        add_missing_columns(df, &maybe_schema, Span::unknown())
     }
 
     pub fn try_from_series(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
@@ -185,17 +189,21 @@ impl NuDataFrame {
         Ok(Self::new(false, dataframe))
     }
 
-    pub fn try_from_columns(columns: Vec<Column>) -> Result<Self, ShellError> {
+    pub fn try_from_columns(
+        columns: Vec<Column>,
+        maybe_schema: Option<NuSchema>,
+    ) -> Result<Self, ShellError> {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
             let name = column.name().to_string();
             for value in column {
-                conversion::insert_value(value, name.clone(), &mut column_values)?;
+                conversion::insert_value(value, name.clone(), &mut column_values, &maybe_schema)?;
             }
         }
 
-        conversion::from_parsed_columns(column_values)
+        let df = conversion::from_parsed_columns(column_values)?;
+        add_missing_columns(df, &maybe_schema, Span::unknown())
     }
 
     pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
@@ -493,11 +501,56 @@ impl NuDataFrame {
                 _ => self_series.clone(),
             };
 
-            if !self_series.series_equal(other_series) {
+            if !self_series.equals(other_series) {
                 return None;
             }
         }
 
         Some(Ordering::Equal)
+    }
+
+    pub fn schema(&self) -> NuSchema {
+        NuSchema::new(self.df.schema())
+    }
+}
+
+fn add_missing_columns(
+    df: NuDataFrame,
+    maybe_schema: &Option<NuSchema>,
+    span: Span,
+) -> Result<NuDataFrame, ShellError> {
+    // If there are fields that are in the schema, but not in the dataframe
+    // add them to the dataframe.
+    if let Some(schema) = maybe_schema {
+        let fields = df.df.fields();
+        let df_field_names: HashSet<&str> = fields.iter().map(|f| f.name().as_str()).collect();
+
+        let missing: Vec<(&str, &DataType)> = schema
+            .schema
+            .iter()
+            .filter_map(|(name, dtype)| {
+                let name = name.as_str();
+                if !df_field_names.contains(name) {
+                    Some((name, dtype))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let missing_exprs: Vec<Expr> = missing
+            .iter()
+            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(name))
+            .collect();
+
+        let df = if !missing.is_empty() {
+            let with_columns = df.lazy().with_columns(missing_exprs);
+            NuLazyFrame::new(true, with_columns).collect(span)?
+        } else {
+            df
+        };
+        Ok(df)
+    } else {
+        Ok(df)
     }
 }

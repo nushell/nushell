@@ -13,6 +13,7 @@ pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
+pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
@@ -22,8 +23,28 @@ mod completer;
 mod helper;
 mod hooks;
 mod output;
+mod plugin_gc;
 mod reedline;
 mod table;
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct HistoryConfig {
+    pub max_size: i64,
+    pub sync_on_enter: bool,
+    pub file_format: HistoryFileFormat,
+    pub isolation: bool,
+}
+
+impl Default for HistoryConfig {
+    fn default() -> Self {
+        Self {
+            max_size: 100_000,
+            sync_on_enter: true,
+            file_format: HistoryFileFormat::PlainText,
+            isolation: false,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
@@ -46,10 +67,7 @@ pub struct Config {
     pub partial_completions: bool,
     pub completion_algorithm: CompletionAlgorithm,
     pub edit_mode: EditBindings,
-    pub max_history_size: i64,
-    pub sync_history_on_enter: bool,
-    pub history_file_format: HistoryFileFormat,
-    pub history_isolation: bool,
+    pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
@@ -73,6 +91,15 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    pub use_ls_colors_completions: bool,
+    /// Configuration for plugins.
+    ///
+    /// Users can provide configuration for a plugin through this entry.  The entry name must
+    /// match the registered plugin name so `register nu_plugin_example` will be able to place
+    /// its configuration under a `nu_plugin_example` column.
+    pub plugins: HashMap<String, Value>,
+    /// Configuration for plugin garbage collection.
+    pub plugin_gc: PluginGcConfigs,
 }
 
 impl Default for Config {
@@ -98,10 +125,7 @@ impl Default for Config {
 
             explore: HashMap::new(),
 
-            max_history_size: 100_000,
-            sync_history_on_enter: true,
-            history_file_format: HistoryFileFormat::PlainText,
-            history_isolation: false,
+            history: HistoryConfig::default(),
 
             case_sensitive_completions: false,
             quick_completions: true,
@@ -110,6 +134,7 @@ impl Default for Config {
             enable_external_completion: true,
             max_external_completion_results: 100,
             external_completer: None,
+            use_ls_colors_completions: true,
 
             filesize_metric: false,
             filesize_format: "auto".into(),
@@ -139,6 +164,9 @@ impl Default for Config {
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
+
+            plugins: HashMap::new(),
+            plugin_gc: PluginGcConfigs::default(),
         }
     }
 }
@@ -164,7 +192,7 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut( |key, value| {
+            val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
@@ -224,22 +252,23 @@ impl Value {
                         }
                     }
                     "history" => {
+                        let history = &mut config.history;
                         if let Value::Record { val, .. } = value {
                             val.retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
-                                        process_bool_config(value, &mut errors, &mut config.history_isolation);
+                                        process_bool_config(value, &mut errors, &mut history.isolation);
                                     }
                                     "sync_on_enter" => {
-                                        process_bool_config(value, &mut errors, &mut config.sync_history_on_enter);
+                                        process_bool_config(value, &mut errors, &mut history.sync_on_enter);
                                     }
                                     "max_size" => {
-                                        process_int_config(value, &mut errors, &mut config.max_history_size);
+                                        process_int_config(value, &mut errors, &mut history.max_size);
                                     }
                                     "file_format" => {
                                         process_string_enum(
-                                            &mut config.history_file_format,
+                                            &mut history.file_format,
                                             &[key, key2],
                                             value,
                                             &mut errors);
@@ -256,10 +285,10 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "sync_on_enter" => Value::bool(config.sync_history_on_enter, span),
-                                    "max_size" => Value::int(config.max_history_size, span),
-                                    "file_format" => config.history_file_format.reconstruct_value(span),
-                                    "isolation" => Value::bool(config.history_isolation, span),
+                                    "sync_on_enter" => Value::bool(history.sync_on_enter, span),
+                                    "max_size" => Value::int(history.max_size, span),
+                                    "file_format" => history.file_format.reconstruct_value(span),
+                                    "isolation" => Value::bool(history.isolation, span),
                                 },
                                 span,
                             );
@@ -296,7 +325,7 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.as_block() {
+                                                            if let Ok(v) = value.coerce_block() {
                                                                 config.external_completer = Some(v)
                                                             } else {
                                                                 match value {
@@ -327,6 +356,9 @@ impl Value {
                                             *value = reconstruct_external(&config, span);
                                         }
                                     }
+                                    "use_ls_colors" => {
+                                        process_bool_config(value, &mut errors, &mut config.use_ls_colors_completions);
+                                    }
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -344,6 +376,7 @@ impl Value {
                                     "algorithm" => config.completion_algorithm.reconstruct_value(span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
                                     "external" => reconstruct_external(&config, span),
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
                                 },
                                 span,
                             );
@@ -356,7 +389,7 @@ impl Value {
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
                                     "vi_normal" => &mut config.cursor_shape_vi_normal,
-                                    "emacs" =>  &mut config.cursor_shape_emacs,
+                                    "emacs" => &mut config.cursor_shape_emacs,
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -511,7 +544,7 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_str() {
                                         config.filesize_format = v.to_lowercase();
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
@@ -627,6 +660,25 @@ impl Value {
                     "highlight_resolved_externals" => {
                         process_bool_config(value, &mut errors, &mut config.highlight_resolved_externals);
                     }
+                    "plugins" => {
+                        if let Ok(map) = create_map(value) {
+                            config.plugins = map;
+                        } else {
+                            report_invalid_value("should be a record", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                config
+                                    .explore
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                    .collect(),
+                                span,
+                            );
+                        }
+                    }
+                    "plugin_gc" => {
+                        config.plugin_gc.process(&[key], value, &mut errors);
+                    }
                     // Menus
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
@@ -663,14 +715,14 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                 "normal" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_normal_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
                                     }
                                 }
                                 "table" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_table_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
@@ -696,12 +748,12 @@ impl Value {
                     }
                     // Catch all
                     _ => {
-                    report_invalid_key(&[key], span, &mut errors);
+                        report_invalid_key(&[key], span, &mut errors);
                         return false;
                     }
-            };
-            true
-        });
+                };
+                true
+            });
         } else {
             return (
                 config,

@@ -95,22 +95,23 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        split_chars(engine_state, call, input)
+        split_chars(engine_state, stack, call, input)
     }
 }
 
 fn split_chars(
     engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
 
-    let graphemes = grapheme_flags(call)?;
+    let graphemes = grapheme_flags(engine_state, stack, call)?;
     input.map(
         move |x| split_chars_helper(&x, span, graphemes),
         engine_state.ctrlc.clone(),
@@ -123,7 +124,7 @@ fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
         Value::Error { error, .. } => Value::error(*error.clone(), span),
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 Value::list(
                     if graphemes {
                         s.graphemes(true)

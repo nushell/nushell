@@ -95,7 +95,7 @@ mod tests {
     use lsp_types::{Range, Url};
     use nu_test_support::fs::fixtures;
 
-    use crate::tests::{hover, initialize_language_server, open, update};
+    use crate::tests::{hover, initialize_language_server, open, open_unchecked, update};
 
     #[test]
     fn hover_correct_documentation_on_let() {
@@ -107,7 +107,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = hover(&client_connection, script.clone(), 0, 0);
         let result = if let Message::Response(response) = resp {
@@ -137,7 +137,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
         update(
             &client_connection,
             script.clone(),
@@ -178,7 +178,7 @@ hello"#,
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
         update(
             &client_connection,
             script.clone(),
@@ -211,5 +211,20 @@ hello"#,
                 }
             })
         );
+    }
+
+    #[test]
+    fn open_document_with_utf_char() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("notifications");
+        script.push("issue_11522.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        let result = open(&client_connection, script);
+
+        assert_eq!(result.map(|_| ()), Ok(()))
     }
 }

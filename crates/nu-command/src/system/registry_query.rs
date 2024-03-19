@@ -88,13 +88,13 @@ fn registry_query(
 ) -> Result<PipelineData, ShellError> {
     let call_span = call.head;
 
-    let skip_expand = call.has_flag("no-expand");
+    let skip_expand = call.has_flag(engine_state, stack, "no-expand")?;
 
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
-    let reg_hive = get_reg_hive(call)?;
+    let reg_hive = get_reg_hive(engine_state, stack, call)?;
     let reg_key = reg_hive.open_subkey(registry_key.item)?;
 
     if registry_value.is_none() {
@@ -144,14 +144,22 @@ fn registry_query(
     }
 }
 
-fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
-    let flags: Vec<_> = [
+fn get_reg_hive(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<RegKey, ShellError> {
+    let flags = [
         "hkcr", "hkcu", "hklm", "hku", "hkpd", "hkpt", "hkpnls", "hkcc", "hkdd", "hkculs",
     ]
     .iter()
     .copied()
-    .filter(|flag| call.has_flag(flag))
-    .collect();
+    .filter_map(|flag| match call.has_flag(engine_state, stack, flag) {
+        Ok(true) => Some(Ok(flag)),
+        Ok(false) => None,
+        Err(e) => Some(Err(e)),
+    })
+    .collect::<Result<Vec<_>, ShellError>>()?;
     if flags.len() > 1 {
         return Err(ShellError::GenericError {
             error: "Only one registry key can be specified".into(),
@@ -288,13 +296,13 @@ fn no_expand_does_not_expand() {
 
     // normally we do expand
     let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
-    assert!(nu_val_expanded.as_string().is_ok());
-    assert_ne!(nu_val_expanded.as_string().unwrap(), unexpanded);
+    assert!(nu_val_expanded.coerce_string().is_ok());
+    assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
 
     // unless we skip expansion
     let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
-    assert!(nu_val_skip_expand.as_string().is_ok());
-    assert_eq!(nu_val_skip_expand.as_string().unwrap(), unexpanded);
+    assert!(nu_val_skip_expand.coerce_string().is_ok());
+    assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
 }
 
 fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {

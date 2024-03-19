@@ -54,8 +54,7 @@ where
         Signature::build(self.name())
             .category(Category::Hash)
             .input_output_types(vec![
-                (Type::String, Type::String),
-                (Type::String, Type::Binary),
+                (Type::String, Type::Any),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
@@ -87,7 +86,7 @@ where
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let binary = call.has_flag("binary");
+        let binary = call.has_flag(engine_state, stack, "binary")?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments { binary, cell_paths };

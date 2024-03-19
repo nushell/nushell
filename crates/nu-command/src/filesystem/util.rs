@@ -1,83 +1,14 @@
-use std::path::{Path, PathBuf};
-
-use nu_engine::env::current_dir_str;
-use nu_path::canonicalize_with;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::ShellError;
-
 use dialoguer::Input;
+use nu_engine::get_eval_expression;
+use nu_protocol::ast::Expr;
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    ShellError, Spanned, Value,
+};
+use nu_protocol::{FromValue, NuGlob, Type};
 use std::error::Error;
-
-#[derive(Default)]
-pub struct FileStructure {
-    pub resources: Vec<Resource>,
-}
-
-impl FileStructure {
-    pub fn new() -> FileStructure {
-        FileStructure { resources: vec![] }
-    }
-
-    pub fn paths_applying_with<F>(
-        &mut self,
-        to: F,
-    ) -> Result<Vec<(PathBuf, PathBuf)>, Box<dyn std::error::Error>>
-    where
-        F: Fn((PathBuf, usize)) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>>,
-    {
-        self.resources
-            .iter()
-            .map(|f| (PathBuf::from(&f.location), f.at))
-            .map(to)
-            .collect()
-    }
-
-    pub fn walk_decorate(
-        &mut self,
-        start_path: &Path,
-        engine_state: &EngineState,
-        stack: &Stack,
-    ) -> Result<(), ShellError> {
-        self.resources = Vec::<Resource>::new();
-        self.build(start_path, 0, engine_state, stack)?;
-        self.resources.sort();
-
-        Ok(())
-    }
-
-    fn build(
-        &mut self,
-        src: &Path,
-        lvl: usize,
-        engine_state: &EngineState,
-        stack: &Stack,
-    ) -> Result<(), ShellError> {
-        let source = canonicalize_with(src, current_dir_str(engine_state, stack)?)?;
-
-        if source.is_dir() {
-            for entry in std::fs::read_dir(src)? {
-                let entry = entry?;
-                let path = entry.path();
-
-                if path.is_dir() {
-                    self.build(&path, lvl + 1, engine_state, stack)?;
-                }
-
-                self.resources.push(Resource {
-                    location: path.to_path_buf(),
-                    at: lvl,
-                });
-            }
-        } else {
-            self.resources.push(Resource {
-                location: source,
-                at: lvl,
-            });
-        }
-
-        Ok(())
-    }
-}
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Resource {
@@ -108,7 +39,6 @@ pub fn try_interaction(
     (interaction, confirmed)
 }
 
-#[allow(dead_code)]
 fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> {
     let input = Input::new()
         .with_prompt(prompt)
@@ -133,8 +63,9 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
     }
 }
 
-/// Return `Some(true)` if the last change time of the `src` old than the `dst`,  
+/// Return `Some(true)` if the last change time of the `src` old than the `dst`,
 /// otherwisie return `Some(false)`. Return `None` if the `src` or `dst` doesn't exist.
+#[allow(dead_code)]
 pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
     if !dst.exists() || !src.exists() {
         return None;
@@ -184,7 +115,7 @@ pub mod users {
         Gid::current().as_raw()
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_current_username() -> Option<String> {
         User::from_uid(Uid::current())
             .ok()
@@ -192,7 +123,7 @@ pub mod users {
             .map(|user| user.name)
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     pub fn current_user_groups() -> Option<Vec<Gid>> {
         // SAFETY:
         // if first arg is 0 then it ignores second argument and returns number of groups present for given user.
@@ -231,7 +162,7 @@ pub mod users {
     ///     println!("User is a member of group #{group}");
     /// }
     /// ```
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_user_groups(username: &str, gid: gid_t) -> Option<Vec<Gid>> {
         use std::ffi::CString;
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
@@ -275,5 +206,78 @@ pub mod users {
                 .collect::<Vec<_>>()
                 .into()
         }
+    }
+}
+
+/// Get rest arguments from given `call`, starts with `starting_pos`.
+///
+/// It's similar to `call.rest`, except that it always returns NuGlob.  And if input argument has
+/// Type::Glob, the NuGlob is unquoted, which means it's required to expand.
+pub fn get_rest_for_glob_pattern(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    starting_pos: usize,
+) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
+    let mut output = vec![];
+    let eval_expression = get_eval_expression(engine_state);
+
+    for result in call.rest_iter_flattened(starting_pos, |expr| {
+        let result = eval_expression(engine_state, stack, expr);
+        match result {
+            Err(e) => Err(e),
+            Ok(result) => {
+                let span = result.span();
+                // convert from string to quoted string if expr is a variable
+                // or string interpolation
+                match result {
+                    Value::String { val, .. }
+                        if matches!(
+                            &expr.expr,
+                            Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                        ) =>
+                    {
+                        // should not expand if given input type is not glob.
+                        Ok(Value::glob(val, expr.ty != Type::Glob, span))
+                    }
+                    other => Ok(other),
+                }
+            }
+        }
+    })? {
+        output.push(FromValue::from_value(result)?);
+    }
+
+    Ok(output)
+}
+
+/// Get optional arguments from given `call` with position `pos`.
+///
+/// It's similar to `call.opt`, except that it always returns NuGlob.
+pub fn opt_for_glob_pattern(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    pos: usize,
+) -> Result<Option<Spanned<NuGlob>>, ShellError> {
+    if let Some(expr) = call.positional_nth(pos) {
+        let eval_expression = get_eval_expression(engine_state);
+        let result = eval_expression(engine_state, stack, expr)?;
+        let result_span = result.span();
+        let result = match result {
+            Value::String { val, .. }
+                if matches!(
+                    &expr.expr,
+                    Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                ) =>
+            {
+                // should quote if given input type is not glob.
+                Value::glob(val, expr.ty != Type::Glob, result_span)
+            }
+            other => other,
+        };
+        FromValue::from_value(result).map(Some)
+    } else {
+        Ok(None)
     }
 }

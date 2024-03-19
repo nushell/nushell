@@ -1,5 +1,6 @@
 use super::super::super::values::{Column, NuDataFrame};
 
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -45,16 +46,19 @@ impl Command for ArgSort {
                 description: "Returns indexes for a sorted series",
                 example: "[1 2 2 3 3] | dfr into-df | dfr arg-sort",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "arg_sort".to_string(),
-                        vec![
-                            Value::test_int(0),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(3),
-                            Value::test_int(4),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "arg_sort".to_string(),
+                            vec![
+                                Value::test_int(0),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(3),
+                                Value::test_int(4),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -63,16 +67,19 @@ impl Command for ArgSort {
                 description: "Returns indexes for a sorted series",
                 example: "[1 2 2 3 3] | dfr into-df | dfr arg-sort --reverse",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "arg_sort".to_string(),
-                        vec![
-                            Value::test_int(3),
-                            Value::test_int(4),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(0),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "arg_sort".to_string(),
+                            vec![
+                                Value::test_int(3),
+                                Value::test_int(4),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(0),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -92,18 +99,18 @@ impl Command for ArgSort {
 }
 
 fn command(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let sort_options = SortOptions {
-        descending: call.has_flag("reverse"),
-        nulls_last: call.has_flag("nulls-last"),
+        descending: call.has_flag(engine_state, stack, "reverse")?,
+        nulls_last: call.has_flag(engine_state, stack, "nulls-last")?,
         multithreaded: true,
-        maintain_order: call.has_flag("maintain-order"),
+        maintain_order: call.has_flag(engine_state, stack, "maintain-order")?,
     };
 
     let mut res = df

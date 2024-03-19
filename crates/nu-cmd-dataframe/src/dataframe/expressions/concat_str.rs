@@ -41,27 +41,30 @@ impl Command for ExprConcatStr {
             example: r#"let df = ([[a b c]; [one two 1] [three four 2]] | dfr into-df);
     $df | dfr with-column ((dfr concat-str "-" [(dfr col a) (dfr col b) ((dfr col c) * 2)]) | dfr as concat)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("three")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_string("two"), Value::test_string("four")],
-                    ),
-                    Column::new(
-                        "c".to_string(),
-                        vec![Value::test_int(1), Value::test_int(2)],
-                    ),
-                    Column::new(
-                        "concat".to_string(),
-                        vec![
-                            Value::test_string("one-two-2"),
-                            Value::test_string("three-four-4"),
-                        ],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("three")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_string("two"), Value::test_string("four")],
+                        ),
+                        Column::new(
+                            "c".to_string(),
+                            vec![Value::test_int(1), Value::test_int(2)],
+                        ),
+                        Column::new(
+                            "concat".to_string(),
+                            vec![
+                                Value::test_string("one-two-2"),
+                                Value::test_string("three-four-4"),
+                            ],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -83,7 +86,7 @@ impl Command for ExprConcatStr {
         let value: Value = call.req(engine_state, stack, 1)?;
 
         let expressions = NuExpression::extract_exprs(value)?;
-        let expr: NuExpression = concat_str(expressions, &separator).into();
+        let expr: NuExpression = concat_str(expressions, &separator, false).into();
 
         Ok(PipelineData::Value(expr.into_value(call.head), None))
     }

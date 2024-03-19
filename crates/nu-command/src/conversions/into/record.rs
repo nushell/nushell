@@ -22,7 +22,6 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
                 (Type::Range, Type::Record(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Record(vec![])),
             ])
             .category(Category::Conversions)
     }
@@ -139,11 +138,9 @@ fn into_record(
         Value::Record { val, .. } => Value::record(val, span),
         Value::Error { .. } => input,
         other => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: call.head,
-                src_span: other.span(),
+            ShellError::TypeMismatch {
+                err_message: format!("Can't convert {} to record", other.get_type()),
+                span: other.span(),
             },
             call.head,
         ),

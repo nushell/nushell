@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
-    Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
-    PipelineElement, RecordItem,
+    Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
+    PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection, RecordItem,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -193,17 +193,28 @@ pub fn flatten_expression(
             }
 
             let mut args = vec![];
-            for positional in call.positional_iter() {
-                let flattened = flatten_expression(working_set, positional);
-                args.extend(flattened);
-            }
-            for named in call.named_iter() {
-                if named.0.span.end != 0 {
-                    // Ignore synthetic flags
-                    args.push((named.0.span, FlatShape::Flag));
-                }
-                if let Some(expr) = &named.2 {
-                    args.extend(flatten_expression(working_set, expr));
+            for arg in &call.arguments {
+                match arg {
+                    Argument::Positional(positional) | Argument::Unknown(positional) => {
+                        let flattened = flatten_expression(working_set, positional);
+                        args.extend(flattened);
+                    }
+                    Argument::Named(named) => {
+                        if named.0.span.end != 0 {
+                            // Ignore synthetic flags
+                            args.push((named.0.span, FlatShape::Flag));
+                        }
+                        if let Some(expr) = &named.2 {
+                            args.extend(flatten_expression(working_set, expr));
+                        }
+                    }
+                    Argument::Spread(expr) => {
+                        args.push((
+                            Span::new(expr.span.start - 3, expr.span.start),
+                            FlatShape::Operator,
+                        ));
+                        args.extend(flatten_expression(working_set, expr));
+                    }
                 }
             }
             // sort these since flags and positional args can be intermixed
@@ -212,7 +223,7 @@ pub fn flatten_expression(
             output.extend(args);
             output
         }
-        Expr::ExternalCall(head, args, _) => {
+        Expr::ExternalCall(head, args) => {
             let mut output = vec![];
 
             match **head {
@@ -231,15 +242,24 @@ pub fn flatten_expression(
             for arg in args {
                 //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
-                    Expression {
-                        expr: Expr::String(..),
-                        span,
-                        ..
-                    } => {
-                        output.push((*span, FlatShape::ExternalArg));
-                    }
-                    _ => {
-                        output.extend(flatten_expression(working_set, arg));
+                    ExternalArgument::Regular(expr) => match expr {
+                        Expression {
+                            expr: Expr::String(..),
+                            span,
+                            ..
+                        } => {
+                            output.push((*span, FlatShape::ExternalArg));
+                        }
+                        _ => {
+                            output.extend(flatten_expression(working_set, expr));
+                        }
+                    },
+                    ExternalArgument::Spread(expr) => {
+                        output.push((
+                            Span::new(expr.span.start - 3, expr.span.start),
+                            FlatShape::Operator,
+                        ));
+                        output.extend(flatten_expression(working_set, expr));
                     }
                 }
             }
@@ -263,10 +283,6 @@ pub fn flatten_expression(
         }
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
-        }
-        Expr::MatchPattern(pattern) => {
-            // FIXME: do nicer flattening later
-            flatten_pattern(pattern)
         }
         Expr::MatchBlock(matches) => {
             let mut output = vec![];
@@ -345,13 +361,13 @@ pub fn flatten_expression(
         Expr::Bool(_) => {
             vec![(expr.span, FlatShape::Bool)]
         }
-        Expr::Filepath(_) => {
+        Expr::Filepath(_, _) => {
             vec![(expr.span, FlatShape::Filepath)]
         }
-        Expr::Directory(_) => {
+        Expr::Directory(_, _) => {
             vec![(expr.span, FlatShape::Directory)]
         }
-        Expr::GlobPattern(_) => {
+        Expr::GlobPattern(_, _) => {
             vec![(expr.span, FlatShape::GlobPattern)]
         }
         Expr::List(list) => {
@@ -543,57 +559,42 @@ pub fn flatten_pipeline_element(
     working_set: &StateWorkingSet,
     pipeline_element: &PipelineElement,
 ) -> Vec<(Span, FlatShape)> {
-    match pipeline_element {
-        PipelineElement::Expression(span, expr) => {
-            if let Some(span) = span {
-                let mut output = vec![(*span, FlatShape::Pipe)];
-                output.append(&mut flatten_expression(working_set, expr));
-                output
-            } else {
-                flatten_expression(working_set, expr)
+    let mut output = if let Some(span) = pipeline_element.pipe {
+        let mut output = vec![(span, FlatShape::Pipe)];
+        output.extend(flatten_expression(working_set, &pipeline_element.expr));
+        output
+    } else {
+        flatten_expression(working_set, &pipeline_element.expr)
+    };
+
+    if let Some(redirection) = pipeline_element.redirection.as_ref() {
+        match redirection {
+            PipelineRedirection::Single { target, .. } => {
+                output.push((target.span(), FlatShape::Redirection));
+                if let Some(expr) = target.expr() {
+                    output.extend(flatten_expression(working_set, expr));
+                }
+            }
+            PipelineRedirection::Separate { out, err } => {
+                let (out, err) = if out.span() <= err.span() {
+                    (out, err)
+                } else {
+                    (err, out)
+                };
+
+                output.push((out.span(), FlatShape::Redirection));
+                if let Some(expr) = out.expr() {
+                    output.extend(flatten_expression(working_set, expr));
+                }
+                output.push((err.span(), FlatShape::Redirection));
+                if let Some(expr) = err.expr() {
+                    output.extend(flatten_expression(working_set, expr));
+                }
             }
         }
-        PipelineElement::Redirection(span, _, expr, _) => {
-            let mut output = vec![(*span, FlatShape::Redirection)];
-            output.append(&mut flatten_expression(working_set, expr));
-            output
-        }
-        PipelineElement::SeparateRedirection {
-            out: (out_span, out_expr, _),
-            err: (err_span, err_expr, _),
-        } => {
-            let mut output = vec![(*out_span, FlatShape::Redirection)];
-            output.append(&mut flatten_expression(working_set, out_expr));
-            output.push((*err_span, FlatShape::Redirection));
-            output.append(&mut flatten_expression(working_set, err_expr));
-            output
-        }
-        PipelineElement::SameTargetRedirection {
-            cmd: (cmd_span, cmd_expr),
-            redirection: (redirect_span, redirect_expr, _),
-        } => {
-            let mut output = if let Some(span) = cmd_span {
-                let mut output = vec![(*span, FlatShape::Pipe)];
-                output.append(&mut flatten_expression(working_set, cmd_expr));
-                output
-            } else {
-                flatten_expression(working_set, cmd_expr)
-            };
-            output.push((*redirect_span, FlatShape::Redirection));
-            output.append(&mut flatten_expression(working_set, redirect_expr));
-            output
-        }
-        PipelineElement::And(span, expr) => {
-            let mut output = vec![(*span, FlatShape::And)];
-            output.append(&mut flatten_expression(working_set, expr));
-            output
-        }
-        PipelineElement::Or(span, expr) => {
-            let mut output = vec![(*span, FlatShape::Or)];
-            output.append(&mut flatten_expression(working_set, expr));
-            output
-        }
     }
+
+    output
 }
 
 pub fn flatten_pipeline(

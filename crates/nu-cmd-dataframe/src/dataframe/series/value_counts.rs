@@ -34,16 +34,19 @@ impl Command for ValueCount {
             description: "Calculates value counts",
             example: "[5 5 5 5 6 6] | dfr into-df | dfr value-counts",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "0".to_string(),
-                        vec![Value::test_int(5), Value::test_int(6)],
-                    ),
-                    Column::new(
-                        "counts".to_string(),
-                        vec![Value::test_int(4), Value::test_int(2)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "0".to_string(),
+                            vec![Value::test_int(5), Value::test_int(6)],
+                        ),
+                        Column::new(
+                            "count".to_string(),
+                            vec![Value::test_int(4), Value::test_int(2)],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

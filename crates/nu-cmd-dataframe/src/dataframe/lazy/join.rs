@@ -53,53 +53,56 @@ impl Command for LazyJoin {
     let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | dfr into-lazy);
     $df_a | dfr join $df_b a foo | dfr collect"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(1),
-                                Value::test_int(1),
-                            ],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                                Value::test_string("c"),
-                            ],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![
-                                Value::test_int(0),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                            ],
-                        ),
-                        Column::new(
-                            "bar".to_string(),
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("c"),
-                                Value::test_string("a"),
-                                Value::test_string("a"),
-                            ],
-                        ),
-                        Column::new(
-                            "ham".to_string(),
-                            vec![
-                                Value::test_string("let"),
-                                Value::test_string("var"),
-                                Value::test_string("let"),
-                                Value::test_string("let"),
-                            ],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![
+                                    Value::test_int(0),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "bar".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("c"),
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                ],
+                            ),
+                            Column::new(
+                                "ham".to_string(),
+                                vec![
+                                    Value::test_string("let"),
+                                    Value::test_string("var"),
+                                    Value::test_string("let"),
+                                    Value::test_string("let"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -110,53 +113,56 @@ impl Command for LazyJoin {
     let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | dfr into-lazy);
     $df_a | dfr join $df_b a foo"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(1),
-                                Value::test_int(1),
-                            ],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                                Value::test_string("c"),
-                            ],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![
-                                Value::test_int(0),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                            ],
-                        ),
-                        Column::new(
-                            "bar".to_string(),
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("c"),
-                                Value::test_string("a"),
-                                Value::test_string("a"),
-                            ],
-                        ),
-                        Column::new(
-                            "ham".to_string(),
-                            vec![
-                                Value::test_string("let"),
-                                Value::test_string("var"),
-                                Value::test_string("let"),
-                                Value::test_string("let"),
-                            ],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![
+                                    Value::test_int(0),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "bar".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("c"),
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                ],
+                            ),
+                            Column::new(
+                                "ham".to_string(),
+                                vec![
+                                    Value::test_string("let"),
+                                    Value::test_string("var"),
+                                    Value::test_string("let"),
+                                    Value::test_string("let"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -171,14 +177,14 @@ impl Command for LazyJoin {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let left = call.has_flag("left");
-        let outer = call.has_flag("outer");
-        let cross = call.has_flag("cross");
+        let left = call.has_flag(engine_state, stack, "left")?;
+        let outer = call.has_flag(engine_state, stack, "outer")?;
+        let cross = call.has_flag(engine_state, stack, "cross")?;
 
         let how = if left {
             JoinType::Left
         } else if outer {
-            JoinType::Outer
+            JoinType::Outer { coalesce: true }
         } else if cross {
             JoinType::Cross
         } else {

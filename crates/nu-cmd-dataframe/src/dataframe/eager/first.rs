@@ -44,10 +44,13 @@ impl Command for FirstDF {
                 description: "Return the first row of a dataframe",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr first",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(1)]),
-                        Column::new("b".to_string(), vec![Value::test_int(2)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(1)]),
+                            Column::new("b".to_string(), vec![Value::test_int(2)]),
+                        ],
+                        None,
+                    )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -56,16 +59,19 @@ impl Command for FirstDF {
                 description: "Return the first two rows of a dataframe",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr first 2",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
                 ),

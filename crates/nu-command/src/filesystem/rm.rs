@@ -5,16 +5,18 @@ use std::io::ErrorKind;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
+use super::util::get_rest_for_glob_pattern;
 use super::util::try_interaction;
 
-use nu_cmd_base::arg_glob_leading_dot;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_glob::MatchOptions;
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 
 const TRASH_SUPPORTED: bool = cfg!(all(
@@ -39,13 +41,9 @@ impl Command for Rm {
     }
 
     fn signature(&self) -> Signature {
-        let sig = Signature::build("rm")
+        Signature::build("rm")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required(
-                "filename",
-                SyntaxShape::GlobPattern,
-                "The file or files you want to remove.",
-            )
+            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
             .switch(
                 "trash",
                 "move to the platform's trash instead of permanently deleting. not used on android and ios",
@@ -55,8 +53,8 @@ impl Command for Rm {
                 "permanent",
                 "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
-            );
-        sig.switch("recursive", "delete subdirectories recursively", Some('r'))
+            )
+            .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
             .switch("verbose", "print names of deleted files", Some('v'))
             .switch("interactive", "ask user to confirm action", Some('i'))
@@ -64,11 +62,6 @@ impl Command for Rm {
                 "interactive-once",
                 "ask user to confirm action only once",
                 Some('I'),
-            )
-            .rest(
-                "rest",
-                SyntaxShape::GlobPattern,
-                "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)
     }
@@ -124,17 +117,24 @@ fn rm(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let trash = call.has_flag("trash");
-    let permanent = call.has_flag("permanent");
-    let recursive = call.has_flag("recursive");
-    let force = call.has_flag("force");
-    let verbose = call.has_flag("verbose");
-    let interactive = call.has_flag("interactive");
-    let interactive_once = call.has_flag("interactive-once") && !interactive;
+    let trash = call.has_flag(engine_state, stack, "trash")?;
+    let permanent = call.has_flag(engine_state, stack, "permanent")?;
+    let recursive = call.has_flag(engine_state, stack, "recursive")?;
+    let force = call.has_flag(engine_state, stack, "force")?;
+    let verbose = call.has_flag(engine_state, stack, "verbose")?;
+    let interactive = call.has_flag(engine_state, stack, "interactive")?;
+    let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+
+    if paths.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "requires file paths".to_string(),
+            span: call.head,
+        });
+    }
 
     let mut unique_argument_check = None;
 
@@ -155,17 +155,26 @@ fn rm(
         .into()
     });
 
-    for (idx, path) in targets.clone().into_iter().enumerate() {
+    for (idx, path) in paths.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
-            if &path.item == home {
+            if expand_path_with(path.item.as_ref(), &currentdir_path)
+                .to_string_lossy()
+                .as_ref()
+                == home.as_str()
+            {
                 unique_argument_check = Some(path.span);
             }
         }
         let corrected_path = Spanned {
-            item: nu_utils::strip_ansi_string_unlikely(path.item),
+            item: match path.item {
+                NuGlob::DoNotExpand(s) => {
+                    NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s))
+                }
+                NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
+            },
             span: path.span,
         };
-        let _ = std::mem::replace(&mut targets[idx], corrected_path);
+        let _ = std::mem::replace(&mut paths[idx], corrected_path);
     }
 
     let span = call.head;
@@ -196,7 +205,7 @@ fn rm(
         }
     }
 
-    if targets.is_empty() {
+    if paths.is_empty() {
         return Err(ShellError::GenericError {
             error: "rm requires target paths".into(),
             msg: "needs parameter".into(),
@@ -217,12 +226,12 @@ fn rm(
     }
 
     let targets_span = Span::new(
-        targets
+        paths
             .iter()
             .map(|x| x.span.start)
             .min()
             .expect("targets were empty"),
-        targets
+        paths
             .iter()
             .map(|x| x.span.end)
             .max()
@@ -232,8 +241,9 @@ fn rm(
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
-    for target in targets {
-        if currentdir_path.to_string_lossy() == target.item
+    for target in paths {
+        let path = expand_path_with(target.item.as_ref(), &currentdir_path);
+        if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError {
@@ -245,10 +255,17 @@ fn rm(
             });
         }
 
-        let path = currentdir_path.join(&target.item);
-        match arg_glob_leading_dot(&target, &currentdir_path) {
+        match nu_engine::glob_from(
+            &target,
+            &currentdir_path,
+            call.head,
+            Some(MatchOptions {
+                require_literal_leading_dot: true,
+                ..Default::default()
+            }),
+        ) {
             Ok(files) => {
-                for file in files {
+                for file in files.1 {
                     match file {
                         Ok(f) => {
                             if !target_exists {
@@ -285,13 +302,11 @@ fn rm(
                 }
             }
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: e.to_string(),
-                    msg: e.to_string(),
-                    span: Some(target.span),
-                    help: None,
-                    inner: vec![],
-                })
+                // glob_from may canonicalize path and return `DirectoryNotFound`
+                // nushell should suppress the error if `--force` is used.
+                if !(force && matches!(e, ShellError::DirectoryNotFound { .. })) {
+                    return Err(e);
+                }
             }
         };
     }
@@ -381,11 +396,23 @@ fn rm(
                         {
                             unreachable!()
                         }
-                    } else if metadata.is_file()
-                        || is_socket
-                        || is_fifo
-                        || metadata.file_type().is_symlink()
-                    {
+                    } else if metadata.is_symlink() {
+                        // In Windows, symlink pointing to a directory can be removed using
+                        // std::fs::remove_dir instead of std::fs::remove_file.
+                        #[cfg(windows)]
+                        {
+                            f.metadata().and_then(|metadata| {
+                                if metadata.is_dir() {
+                                    std::fs::remove_dir(&f)
+                                } else {
+                                    std::fs::remove_file(&f)
+                                }
+                            })
+                        }
+
+                        #[cfg(not(windows))]
+                        std::fs::remove_file(&f)
+                    } else if metadata.is_file() || is_socket || is_fifo {
                         std::fs::remove_file(&f)
                     } else {
                         std::fs::remove_dir_all(&f)

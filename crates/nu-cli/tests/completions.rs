@@ -66,7 +66,7 @@ fn custom_completer() -> NuCompleter {
 
     // Add record value as example
     let record = r#"
-        let external_completer = {|spans| 
+        let external_completer = {|spans|
             $spans
         }
 
@@ -244,6 +244,16 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![file(dir.join("another").join("newfile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completions for hidden files
+    let target_dir = format!("ls {}/.", folder(dir.join(".hidden_folder")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> =
+        vec![file(dir.join(".hidden_folder").join(".hidden_subfile"))];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
@@ -584,6 +594,7 @@ fn file_completion_quoted() {
     let suggestions = completer.complete(target_dir, target_dir.len());
 
     let expected_paths: Vec<String> = vec![
+        "\'[a] bc.txt\'".to_string(),
         "`--help`".to_string(),
         "`-42`".to_string(),
         "`-inf`".to_string(),
@@ -684,13 +695,14 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(14, suggestions.len());
+    assert_eq!(15, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
         "current-exe".into(),
         "default-config-dir".into(),
         "env-path".into(),
+        "history-enabled".into(),
         "history-path".into(),
         "home-path".into(),
         "is-interactive".into(),
@@ -709,9 +721,13 @@ fn variables_completions() {
     // Test completions for $nu.h (filter)
     let suggestions = completer.complete("$nu.h", 5);
 
-    assert_eq!(2, suggestions.len());
+    assert_eq!(3, suggestions.len());
 
-    let expected: Vec<String> = vec!["history-path".into(), "home-path".into()];
+    let expected: Vec<String> = vec![
+        "history-enabled".into(),
+        "history-path".into(),
+        "home-path".into(),
+    ];
 
     // Match results
     match_suggestions(expected, suggestions);

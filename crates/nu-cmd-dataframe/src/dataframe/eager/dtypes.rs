@@ -31,16 +31,19 @@ impl Command for DataTypes {
             description: "Dataframe dtypes",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr dtypes",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "column".to_string(),
-                        vec![Value::test_string("a"), Value::test_string("b")],
-                    ),
-                    Column::new(
-                        "dtype".to_string(),
-                        vec![Value::test_string("i64"), Value::test_string("i64")],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "column".to_string(),
+                            vec![Value::test_string("a"), Value::test_string("b")],
+                        ),
+                        Column::new(
+                            "dtype".to_string(),
+                            vec![Value::test_string("i64"), Value::test_string("i64")],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -79,6 +82,7 @@ fn command(
                 .dtype();
 
             let dtype_str = dtype.to_string();
+
             dtypes.push(Value::string(dtype_str, call.head));
 
             Value::string(*v, call.head)
@@ -88,7 +92,7 @@ fn command(
     let names_col = Column::new("column".to_string(), names);
     let dtypes_col = Column::new("dtype".to_string(), dtypes);
 
-    NuDataFrame::try_from_columns(vec![names_col, dtypes_col])
+    NuDataFrame::try_from_columns(vec![names_col, dtypes_col], None)
         .map(|df| PipelineData::Value(df.into_value(call.head), None))
 }
 

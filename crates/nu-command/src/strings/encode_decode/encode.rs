@@ -83,7 +83,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let encoding: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         match input {
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),

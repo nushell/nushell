@@ -5,7 +5,8 @@ use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned,
+    Value,
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
@@ -26,21 +27,37 @@ pub enum BodyType {
     Unknown,
 }
 
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
+#[derive(Clone, Copy, PartialEq)]
+pub enum RedirectMode {
+    Follow,
+    Error,
+    Manual,
+}
+
 pub fn http_client(
     allow_insecure: bool,
+    redirect_mode: RedirectMode,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> ureq::Agent {
+) -> Result<ureq::Agent, ShellError> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .expect("Failed to build network tls");
+        .map_err(|e| ShellError::GenericError {
+            error: format!("Failed to build network tls: {}", e),
+            msg: String::new(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
 
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
         .tls_connector(std::sync::Arc::new(tls));
+
+    if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
+        agent_builder = agent_builder.redirects(0);
+    }
 
     if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
         if let Ok(proxy) = ureq::Proxy::new(http_proxy) {
@@ -48,7 +65,7 @@ pub fn http_client(
         }
     };
 
-    agent_builder.build()
+    Ok(agent_builder.build())
 }
 
 pub fn http_parse_url(
@@ -56,7 +73,7 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.as_string()?;
+    let requested_url = raw_url.coerce_into_string()?;
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
@@ -66,6 +83,18 @@ pub fn http_parse_url(
     };
 
     Ok((requested_url, url))
+}
+
+pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
+    mode.map_or(Ok(RedirectMode::Follow), |v| match &v.item[..] {
+        "follow" | "f" => Ok(RedirectMode::Follow),
+        "error" | "e" => Ok(RedirectMode::Error),
+        "manual" | "m" => Ok(RedirectMode::Manual),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "Invalid redirect handling mode".to_string(),
+            span: v.span,
+        }),
+    })
 }
 
 pub fn response_to_buffer(
@@ -193,8 +222,7 @@ pub fn send_request(
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
             for (col, val) in val {
-                let val_string = val.as_string()?;
-                data.push((col, val_string))
+                data.push((col, val.coerce_into_string()?))
             }
 
             let request_fn = move || {
@@ -216,7 +244,7 @@ pub fn send_request(
 
             let data = vals
                 .chunks(2)
-                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
+                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
                 .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
 
             let request_fn = move || {
@@ -255,7 +283,7 @@ fn send_cancellable_request(
             let ret = request_fn();
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
-        .expect("Failed to create thread");
+        .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
     loop {
@@ -335,7 +363,7 @@ pub fn request_add_custom_headers(
                     // primitive values ([key1 val1 key2 val2])
                     for row in table.chunks(2) {
                         if row.len() == 2 {
-                            custom_headers.insert(row[0].as_string()?, row[1].clone());
+                            custom_headers.insert(row[0].coerce_string()?, row[1].clone());
                         }
                     }
                 }
@@ -351,9 +379,9 @@ pub fn request_add_custom_headers(
             }
         };
 
-        for (k, v) in &custom_headers {
-            if let Ok(s) = v.as_string() {
-                request = request.set(k, &s);
+        for (k, v) in custom_headers {
+            if let Ok(s) = v.coerce_into_string() {
+                request = request.set(&k, &s);
             }
         }
     }
@@ -393,7 +421,6 @@ pub struct RequestFlags {
     pub full: bool,
 }
 
-#[allow(clippy::needless_return)]
 fn transform_response_using_content_type(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -436,9 +463,9 @@ fn transform_response_using_content_type(
 
     let output = response_to_buffer(resp, engine_state, span);
     if flags.raw {
-        return Ok(output);
+        Ok(output)
     } else if let Some(ext) = ext {
-        return match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
@@ -446,10 +473,30 @@ fn transform_response_using_content_type(
                 output,
             ),
             None => Ok(output),
-        };
+        }
     } else {
-        return Ok(output);
-    };
+        Ok(output)
+    }
+}
+
+pub fn check_response_redirection(
+    redirect_mode: RedirectMode,
+    span: Span,
+    response: &Result<Response, ShellErrorOrRequestError>,
+) -> Result<(), ShellError> {
+    if let Ok(resp) = response {
+        if RedirectMode::Error == redirect_mode && (300..400).contains(&resp.status()) {
+            return Err(ShellError::NetworkFailure {
+                msg: format!(
+                    "Redirect encountered when redirect handling mode was 'error' ({} {})",
+                    resp.status(),
+                    resp.status_text()
+                ),
+                span,
+            });
+        }
+    }
+    Ok(())
 }
 
 fn request_handle_response_content(
@@ -635,17 +682,11 @@ pub fn request_handle_response_headers(
 }
 
 fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
-    let proxy_value: Option<Value> = stack
+    stack
         .get_env_var(engine_state, "http_proxy")
         .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
         .or(stack.get_env_var(engine_state, "https_proxy"))
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
-        .or(stack.get_env_var(engine_state, "ALL_PROXY"));
-    match proxy_value {
-        Some(value) => match value.as_string() {
-            Ok(proxy) => Some(proxy),
-            _ => None,
-        },
-        _ => None,
-    }
+        .or(stack.get_env_var(engine_state, "ALL_PROXY"))
+        .and_then(|proxy| proxy.coerce_into_string().ok())
 }

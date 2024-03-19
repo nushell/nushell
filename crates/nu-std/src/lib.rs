@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
 use nu_protocol::{report_error, PipelineData};
 
@@ -18,7 +19,6 @@ pub fn load_standard_library(
 
         let mut std_files = vec![
             ("mod.nu", include_str!("../std/mod.nu")),
-            ("testing.nu", include_str!("../std/testing.nu")),
             ("dirs.nu", include_str!("../std/dirs.nu")),
             ("dt.nu", include_str!("../std/dt.nu")),
             ("help.nu", include_str!("../std/help.nu")),
@@ -93,14 +93,8 @@ use std pwd
     // We need to evaluate the module in order to run the `export-env` blocks.
     let mut stack = Stack::new();
     let pipeline_data = PipelineData::Empty;
-    eval_block(
-        engine_state,
-        &mut stack,
-        &block,
-        pipeline_data,
-        false,
-        false,
-    )?;
+
+    eval_block::<WithoutDebug>(engine_state, &mut stack, &block, pipeline_data)?;
 
     let cwd = current_dir(engine_state, &stack)?;
     engine_state.merge_env(&mut stack, cwd)?;

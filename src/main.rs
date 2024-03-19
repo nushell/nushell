@@ -4,6 +4,7 @@ mod ide;
 mod logger;
 mod run;
 mod signals;
+#[cfg(unix)]
 mod terminal;
 mod test_bins;
 #[cfg(test)]
@@ -17,7 +18,6 @@ use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
-    terminal::acquire_terminal,
 };
 use command::gather_commandline_args;
 use log::Level;
@@ -27,14 +27,15 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_protocol::{
     engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
-    PipelineData, RawStream, Span, Value, NU_VARIABLE_ID,
+    PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
-use signals::{ctrlc_protection, sigquit_protection};
+use signals::ctrlc_protection;
 use std::{
     io::BufReader,
+    path::Path,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -42,7 +43,6 @@ use std::{
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
-    #[cfg(feature = "extra")]
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     #[cfg(feature = "dataframe")]
     let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);
@@ -53,6 +53,7 @@ fn get_engine_state() -> EngineState {
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
     let mut start_time = std::time::Instant::now();
+    miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -78,7 +79,6 @@ fn main() -> Result<()> {
     let ctrlc = Arc::new(AtomicBool::new(false));
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state, &ctrlc);
-    sigquit_protection(&mut engine_state);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
@@ -91,6 +91,37 @@ fn main() -> Result<()> {
         // Not really sure what to default this to if nu_path::config_dir() returns None
         std::path::PathBuf::new()
     };
+
+    if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
+        if !xdg_config_home.is_empty() {
+            if nushell_config_path != Path::new(&xdg_config_home).join("nushell") {
+                report_error_new(
+                    &engine_state,
+                    &ShellError::InvalidXdgConfig {
+                        xdg: xdg_config_home,
+                        default: nushell_config_path.display().to_string(),
+                    },
+                );
+            } else if let Some(old_config) = nu_path::config_dir_old().map(|p| p.join("nushell")) {
+                let xdg_config_empty = nushell_config_path
+                    .read_dir()
+                    .map_or(true, |mut dir| dir.next().is_none());
+                let old_config_empty = old_config
+                    .read_dir()
+                    .map_or(true, |mut dir| dir.next().is_none());
+                if !old_config_empty && xdg_config_empty {
+                    eprintln!(
+                        "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n",
+                        nushell_config_path.display(),
+                    );
+                    eprintln!(
+                        "Nushell will not move your configuration files from {}",
+                        old_config.display()
+                    );
+                }
+            }
+        }
+    }
 
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
@@ -128,6 +159,8 @@ fn main() -> Result<()> {
             && script_name.is_empty());
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
+
+    engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args
@@ -186,16 +219,19 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    start_time = std::time::Instant::now();
-    acquire_terminal(engine_state.is_interactive);
-    perf(
-        "acquire_terminal",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    #[cfg(unix)]
+    {
+        start_time = std::time::Instant::now();
+        terminal::acquire(engine_state.is_interactive);
+        perf(
+            "acquire_terminal",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
 
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
@@ -265,6 +301,7 @@ fn main() -> Result<()> {
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
             "echo_env_stderr" => test_bins::echo_env(false),
+            "echo_env_stderr_fail" => test_bins::echo_env_and_fail(false),
             "echo_env_mixed" => test_bins::echo_env_mixed(),
             "cococo" => test_bins::cococo(),
             "meow" => test_bins::meow(),

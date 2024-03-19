@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Block, RangeInclusion},
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
@@ -111,11 +112,11 @@ pub fn eval_block(
         .merge_delta(delta)
         .expect("Error merging delta");
 
-    let mut stack = Stack::new();
+    let mut stack = Stack::new().capture();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
-    match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
+    match nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input) {
         Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
         Ok(result) => result.into_value(Span::test_data()),
     }
@@ -126,7 +127,7 @@ pub fn check_example_evaluates_to_expected_output(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) {
-    let mut stack = Stack::new();
+    let mut stack = Stack::new().capture();
 
     // Set up PWD
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
@@ -228,7 +229,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                     val.from, val.to, val.incr
                 ),
             },
-            Value::String { val, .. } => {
+            Value::String { val, .. } | Value::Glob { val, .. } => {
                 write!(f, "{:?}", val)
             }
             Value::Record { val, .. } => {

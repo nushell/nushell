@@ -53,10 +53,10 @@ impl Command for Unique {
                 description: "Returns unique values from a series",
                 example: "[2 2 2 2 2] | dfr into-df | dfr unique",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "0".to_string(),
-                        vec![Value::test_int(2)],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new("0".to_string(), vec![Value::test_int(2)])],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -114,8 +114,8 @@ fn command_lazy(
     call: &Call,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let last = call.has_flag("last");
-    let maintain = call.has_flag("maintain-order");
+    let last = call.has_flag(engine_state, stack, "last")?;
+    let maintain = call.has_flag(engine_state, stack, "maintain-order")?;
 
     let subset: Option<Value> = call.get_flag(engine_state, stack, "subset")?;
     let subset = match subset {

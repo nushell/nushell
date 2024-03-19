@@ -903,7 +903,7 @@ fn test_cp_debug_default() {
         {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if !actual
             .out
             .contains("copy offload: unknown, reflink: unsupported, sparse detection: no")
@@ -986,10 +986,10 @@ fn test_cp_destination_after_cd() {
 }
 
 #[rstest]
-#[case(r#"'a]c'"#)]
-#[case(r#"'a[c'"#)]
-#[case(r#"'a[bc]d'"#)]
-#[case(r#"'a][c'"#)]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
 fn copies_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -1005,7 +1005,41 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "cp {} {}",
+            "cp '{}' {}",
+            src.display(),
+            TEST_HELLO_WORLD_DEST
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+
+        //// Get the hash of the copied file content to check against first_hash.
+        //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
+        //assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn copies_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        // -- open command doesn't like file name
+        //// Get the hash of the file content to check integrity after copy.
+        //let src_hash = get_file_hash(src.display());
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; cp $f {}",
             src.display(),
             TEST_HELLO_WORLD_DEST
         );
@@ -1026,4 +1060,165 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 // windows doesn't allow filename with `*`.
 fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
     copies_files_with_glob_metachars(src_name);
+    copies_files_with_glob_metachars_when_input_are_variables(src_name);
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_timestamps() {
+    // Preserve timestamp and mode
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [ mode timestamps ] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            $old_attrs == $new_attrs
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_only_timestamps() {
+    // Preserve timestamps and discard all other attributes including mode
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [ timestamps ] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            print (($old_attrs | select mode) != ($new_attrs | select mode))
+            print (($old_attrs | select accessed modified) == ($new_attrs | select accessed modified))
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "truetrue");
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_nothing() {
+    // Preserve no attributes
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            $old_attrs != $new_attrs
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn test_cp_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "cp test_file.txt ../",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+        assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_to_customized_home_directory() {
+    Playground::setup("cp_to_home", |dirs, sandbox| {
+        std::env::set_var("HOME", dirs.test());
+        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+        let actual = nu!(cwd: dirs.test(), "mkdir test; cp test_file.txt ~/test/");
+
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join("test")
+        ));
+    })
+}
+
+#[test]
+fn copy_file_with_update_flag() {
+    copy_file_with_update_flag_impl(false);
+    copy_file_with_update_flag_impl(true);
+}
+
+fn copy_file_with_update_flag_impl(progress: bool) {
+    Playground::setup("cp_test_36", |_dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("valid.txt"),
+            FileWithContent("newer_valid.txt", "body"),
+        ]);
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp {} -u valid.txt newer_valid.txt; open newer_valid.txt",
+            progress_flag,
+        );
+        assert!(actual.out.contains("body"));
+
+        // create a file after assert to make sure that newest_valid.txt is newest
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} -u newest_valid.txt valid.txt; open valid.txt", progress_flag);
+        assert_eq!(actual.out, "newest_body");
+
+        // when destination doesn't exist
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} -u newest_valid.txt des_missing.txt; open des_missing.txt", progress_flag);
+        assert_eq!(actual.out, "newest_body");
+    });
+}
+
+#[test]
+fn cp_with_cd() {
+    Playground::setup("cp_test_37", |_dirs, sandbox| {
+        sandbox
+            .mkdir("tmp_dir")
+            .with_files(vec![FileWithContent("tmp_dir/file.txt", "body")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            r#"do { cd tmp_dir; let f = 'file.txt'; cp $f .. }; open file.txt"#,
+        );
+        assert!(actual.out.contains("body"));
+    });
 }

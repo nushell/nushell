@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, TimeUnit, Utf8Methods};
+use polars::prelude::{IntoSeries, StringMethods, TimeUnit};
 
 #[derive(Clone)]
 pub struct AsDateTime;
@@ -53,27 +53,30 @@ impl Command for AsDateTime {
                 description: "Converts string to datetime",
                 example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S""#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "datetime".to_string(),
-                        vec![
-                            Value::date(
-                                DateTime::parse_from_str(
-                                    "2021-12-30 00:00:00 +0000",
-                                    "%Y-%m-%d %H:%M:%S %z",
-                                )
-                                .expect("date calculation should not fail in test"),
-                                Span::test_data(),
-                            ),
-                            Value::date(
-                                DateTime::parse_from_str(
-                                    "2021-12-31 00:00:00 +0000",
-                                    "%Y-%m-%d %H:%M:%S %z",
-                                )
-                                .expect("date calculation should not fail in test"),
-                                Span::test_data(),
-                            ),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "datetime".to_string(),
+                            vec![
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-30 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-31 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -82,27 +85,30 @@ impl Command for AsDateTime {
                 description: "Converts string to datetime with high resolutions",
                 example: r#"["2021-12-30 00:00:00.123456789" "2021-12-31 00:00:00.123456789"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S.%9f""#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "datetime".to_string(),
-                        vec![
-                            Value::date(
-                                DateTime::parse_from_str(
-                                    "2021-12-30 00:00:00.123456789 +0000",
-                                    "%Y-%m-%d %H:%M:%S.%9f %z",
-                                )
-                                .expect("date calculation should not fail in test"),
-                                Span::test_data(),
-                            ),
-                            Value::date(
-                                DateTime::parse_from_str(
-                                    "2021-12-31 00:00:00.123456789 +0000",
-                                    "%Y-%m-%d %H:%M:%S.%9f %z",
-                                )
-                                .expect("date calculation should not fail in test"),
-                                Span::test_data(),
-                            ),
-                        ],
-                    )])
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "datetime".to_string(),
+                            vec![
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-30 00:00:00.123456789 +0000",
+                                        "%Y-%m-%d %H:%M:%S.%9f %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-31 00:00:00.123456789 +0000",
+                                        "%Y-%m-%d %H:%M:%S.%9f %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -128,11 +134,11 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let format: String = call.req(engine_state, stack, 0)?;
-    let not_exact = call.has_flag("not-exact");
+    let not_exact = call.has_flag(engine_state, stack, "not-exact")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
-    let casted = series.utf8().map_err(|e| ShellError::GenericError {
+    let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
         msg: e.to_string(),
         span: Some(call.head),

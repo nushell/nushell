@@ -1,4 +1,5 @@
 use chrono::Local;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -39,25 +40,19 @@ impl Command for ConfigReset {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let only_nu = call.has_flag("nu");
-        let only_env = call.has_flag("env");
-        let no_backup = call.has_flag("without-backup");
+        let only_nu = call.has_flag(engine_state, stack, "nu")?;
+        let only_env = call.has_flag(engine_state, stack, "env")?;
+        let no_backup = call.has_flag(engine_state, stack, "without-backup")?;
         let span = call.head;
         let mut config_path = match nu_path::config_dir() {
             Some(path) => path,
             None => {
-                return Err(ShellError::GenericError {
-                    error: "Could not find config path".into(),
-                    msg: "Could not find config path".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::ConfigDirNotFound { span: None });
             }
         };
         config_path.push("nushell");

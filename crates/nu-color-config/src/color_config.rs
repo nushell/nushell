@@ -92,7 +92,7 @@ fn color_string_to_nustyle(color_string: String) -> Style {
 mod tests {
     use super::*;
     use nu_ansi_term::{Color, Style};
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{record, Span, Value};
 
     #[test]
     fn test_color_string_to_nustyle_empty_string() {
@@ -120,13 +120,10 @@ mod tests {
     #[test]
     fn test_get_style_from_value() {
         // Test case 1: all values are valid
-        let record = Record {
-            cols: vec!["bg".to_string(), "fg".to_string(), "attr".to_string()],
-            vals: vec![
-                Value::string("red", Span::unknown()),
-                Value::string("blue", Span::unknown()),
-                Value::string("bold", Span::unknown()),
-            ],
+        let record = record! {
+            "bg" =>   Value::test_string("red"),
+            "fg" =>   Value::test_string("blue"),
+            "attr" => Value::test_string("bold"),
         };
         let expected_style = NuStyle {
             bg: Some("red".to_string()),
@@ -136,19 +133,15 @@ mod tests {
         assert_eq!(get_style_from_value(&record), Some(expected_style));
 
         // Test case 2: no values are valid
-        let record = Record {
-            cols: vec!["invalid".to_string()],
-            vals: vec![Value::nothing(Span::unknown())],
+        let record = record! {
+            "invalid" => Value::nothing(Span::test_data()),
         };
         assert_eq!(get_style_from_value(&record), None);
 
         // Test case 3: some values are valid
-        let record = Record {
-            cols: vec!["bg".to_string(), "invalid".to_string()],
-            vals: vec![
-                Value::string("green", Span::unknown()),
-                Value::nothing(Span::unknown()),
-            ],
+        let record = record! {
+            "bg" =>      Value::test_string("green"),
+            "invalid" => Value::nothing(Span::unknown()),
         };
         let expected_style = NuStyle {
             bg: Some("green".to_string()),

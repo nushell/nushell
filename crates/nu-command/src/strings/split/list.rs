@@ -27,8 +27,8 @@ impl Command for SubCommand {
                 "The value that denotes what separates the list.",
             )
             .switch(
-                "regex", 
-                "separator is a regular expression, matching values that can be coerced into a string", 
+                "regex",
+                "separator is a regular expression, matching values that can be coerced into a string",
                 Some('r'))
             .category(Category::Filters)
     }
@@ -160,7 +160,7 @@ enum Matcher {
 impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
-            Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
+            Ok(Matcher::Regex(Regex::new(&lhs.coerce_str()?).map_err(
                 |e| ShellError::GenericError {
                     error: "Error with regular expression".into(),
                     msg: e.to_string(),
@@ -180,7 +180,7 @@ impl Matcher {
     pub fn compare(&self, rhs: &Value) -> Result<bool, ShellError> {
         Ok(match self {
             Matcher::Regex(regex) => {
-                if let Ok(rhs_str) = rhs.as_string() {
+                if let Ok(rhs_str) = rhs.coerce_str() {
                     regex.is_match(&rhs_str)
                 } else {
                     false
@@ -202,7 +202,7 @@ fn split_list(
     let mut returned_list = Vec::new();
 
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
-    let matcher = Matcher::new(call.has_flag("regex"), separator)?;
+    let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
     for val in iter {
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {

@@ -1,10 +1,9 @@
-use nu_cmd_base::arg_glob;
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, CallExt};
-use nu_glob::GlobResult;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -53,8 +52,16 @@ impl Command for UCp {
             )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .named(
+                "preserve",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "preserve only the specified attributes (empty list means no attributes preserved)
+                    if not specified only mode is preserved
+                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
+                None
+            )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST.")
+            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -86,6 +93,16 @@ impl Command for UCp {
                 example: "cp -u a b",
                 result: None,
             },
+            Example {
+                description: "Copy file preserving mode and timestamps attributes",
+                example: "cp --preserve [ mode timestamps ] a b",
+                result: None,
+            },
+            Example {
+                description: "Copy file erasing all attributes",
+                example: "cp --preserve [] a b",
+                result: None,
+            },
         ]
     }
 
@@ -96,19 +113,21 @@ impl Command for UCp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let interactive = call.has_flag("interactive");
-        let (update, copy_mode) = if call.has_flag("update") {
+        let interactive = call.has_flag(engine_state, stack, "interactive")?;
+        let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
             (UpdateMode::ReplaceIfOlder, CopyMode::Update)
         } else {
             (UpdateMode::ReplaceAll, CopyMode::Copy)
         };
-        let force = call.has_flag("force");
-        let no_clobber = call.has_flag("no-clobber");
-        let progress = call.has_flag("progress");
-        let recursive = call.has_flag("recursive");
-        let verbose = call.has_flag("verbose");
 
-        let debug = call.has_flag("debug");
+        let force = call.has_flag(engine_state, stack, "force")?;
+        let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
+        let recursive = call.has_flag(engine_state, stack, "recursive")?;
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let preserve: Option<Value> = call.get_flag(engine_state, stack, "preserve")?;
+
+        let debug = call.has_flag(engine_state, stack, "debug")?;
         let overwrite = if no_clobber {
             uu_cp::OverwriteMode::NoClobber
         } else if interactive {
@@ -122,18 +141,21 @@ impl Command for UCp {
         } else {
             uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
         };
-        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        ))]
         let reflink_mode = uu_cp::ReflinkMode::Auto;
-        #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "macos"
+        )))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let paths: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let mut paths: Vec<Spanned<String>> = paths
-            .into_iter()
-            .map(|p| Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(p.item),
-                span: p.span,
-            })
-            .collect();
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -147,15 +169,22 @@ impl Command for UCp {
         if paths.len() == 1 {
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
-                msg: format!("Missing destination path operand after {}", paths[0].item),
+                msg: format!(
+                    "Missing destination path operand after {}",
+                    paths[0].item.as_ref()
+                ),
                 span: Some(paths[0].span),
                 help: None,
                 inner: vec![],
             });
         }
         let target = paths.pop().expect("Should not be reached?");
-        let target_path = PathBuf::from(&target.item);
-        if target.item.ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
+        let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
+            target.item.to_string(),
+        ));
+        let cwd = current_dir(engine_state, stack)?;
+        let target_path = nu_path::expand_path_with(target_path, &cwd);
+        if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError {
                 error: "is not a directory".into(),
                 msg: "is not a directory".into(),
@@ -167,13 +196,19 @@ impl Command for UCp {
 
         // paths now contains the sources
 
-        let cwd = current_dir(engine_state, stack)?;
         let mut sources: Vec<PathBuf> = Vec::new();
 
-        for p in paths {
-            let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
+        for mut p in paths {
+            p.item = p.item.strip_ansi_string_unlikely();
+            let exp_files: Vec<Result<PathBuf, ShellError>> =
+                nu_engine::glob_from(&p, &cwd, call.head, None)
+                    .map(|f| f.1)?
+                    .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -192,12 +227,7 @@ impl Command for UCp {
                         };
                         app_vals.push(path)
                     }
-                    Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob {
-                            msg: format!("error {} in path {}", e.error(), e.path().display()),
-                            span: p.span,
-                        });
-                    }
+                    Err(e) => return Err(e),
                 }
             }
             sources.append(&mut app_vals);
@@ -211,13 +241,14 @@ impl Command for UCp {
             }
         }
 
-        let target_path = nu_path::expand_path_with(&target_path, &cwd);
+        let attributes = make_attributes(preserve)?;
 
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,
             recursive,
             debug,
+            attributes,
             verbose: verbose || debug,
             dereference: !recursive,
             progress_bar: progress,
@@ -231,7 +262,6 @@ impl Command for UCp {
             parents: false,
             sparse_mode: uu_cp::SparseMode::Auto,
             strip_trailing_slashes: false,
-            attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
@@ -255,6 +285,107 @@ impl Command for UCp {
             // uucore::error::set_exit_code(EXIT_ERR);
         }
         Ok(PipelineData::empty())
+    }
+}
+
+const ATTR_UNSET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
+const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::Yes { required: true };
+
+fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellError> {
+    if let Some(preserve) = preserve {
+        let mut attributes = uu_cp::Attributes {
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))]
+            ownership: ATTR_UNSET,
+            mode: ATTR_UNSET,
+            timestamps: ATTR_UNSET,
+            context: ATTR_UNSET,
+            links: ATTR_UNSET,
+            xattr: ATTR_UNSET,
+        };
+        parse_and_set_attributes_list(&preserve, &mut attributes)?;
+
+        Ok(attributes)
+    } else {
+        // By default preseerve only mode
+        Ok(uu_cp::Attributes {
+            mode: ATTR_SET,
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))]
+            ownership: ATTR_UNSET,
+            timestamps: ATTR_UNSET,
+            context: ATTR_UNSET,
+            links: ATTR_UNSET,
+            xattr: ATTR_UNSET,
+        })
+    }
+}
+
+fn parse_and_set_attributes_list(
+    list: &Value,
+    attribute: &mut uu_cp::Attributes,
+) -> Result<(), ShellError> {
+    match list {
+        Value::List { vals, .. } => {
+            for val in vals {
+                parse_and_set_attribute(val, attribute)?;
+            }
+            Ok(())
+        }
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "--preserve flag expects a list of strings".into(),
+            span: list.span(),
+        }),
+    }
+}
+
+fn parse_and_set_attribute(
+    value: &Value,
+    attribute: &mut uu_cp::Attributes,
+) -> Result<(), ShellError> {
+    match value {
+        Value::String { val, .. } => {
+            let attribute = match val.as_str() {
+                "mode" => &mut attribute.mode,
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "freebsd",
+                    target_os = "android",
+                    target_os = "macos",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                ))]
+                "ownership" => &mut attribute.ownership,
+                "timestamps" => &mut attribute.timestamps,
+                "context" => &mut attribute.context,
+                "link" | "links" => &mut attribute.links,
+                "xattr" => &mut attribute.xattr,
+                _ => {
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: format!("--preserve flag got an unexpected attribute \"{}\"", val),
+                        span: value.span(),
+                    });
+                }
+            };
+            *attribute = ATTR_SET;
+            Ok(())
+        }
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "--preserve flag expects a list of strings".into(),
+            span: value.span(),
+        }),
     }
 }
 

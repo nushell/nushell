@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
+use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct ToLowerCase;
@@ -33,14 +33,17 @@ impl Command for ToLowerCase {
             description: "Modifies strings to lowercase",
             example: "[Abc aBc abC] | dfr into-df | dfr lowercase",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("abc"),
-                        Value::test_string("abc"),
-                        Value::test_string("abc"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("abc"),
+                            Value::test_string("abc"),
+                            Value::test_string("abc"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -67,7 +70,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let casted = series.utf8().map_err(|e| ShellError::GenericError {
+    let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
         msg: e.to_string(),
         span: Some(call.head),

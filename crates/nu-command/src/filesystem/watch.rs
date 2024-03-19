@@ -9,8 +9,9 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
-use nu_engine::{current_dir, eval_block, CallExt};
+use nu_engine::{current_dir, get_eval_block, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
@@ -96,7 +97,7 @@ impl Command for Watch {
             .get_block(capture_block.block_id)
             .clone();
 
-        let verbose = call.has_flag("verbose");
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
 
         let debounce_duration_flag: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "debounce-ms")?;
@@ -168,6 +169,8 @@ impl Command for Watch {
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
+        let eval_block = get_eval_block(engine_state);
+
         let event_handler =
             |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {
                 let glob_pattern = glob_pattern.clone();
@@ -214,8 +217,6 @@ impl Command for Watch {
                         stack,
                         &block,
                         Value::nothing(call.span()).into_pipeline_data(),
-                        call.redirect_stdout,
-                        call.redirect_stderr,
                     );
 
                     match eval_result {

@@ -123,7 +123,7 @@ fn split_row(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let regex = if call.has_flag("regex") {
+    let regex = if call.has_flag(engine_state, stack, "regex")? {
         Regex::new(&separator.item)
     } else {
         let escaped = regex::escape(&separator.item);
@@ -152,7 +152,7 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
         v => {
             let v_span = v.span();
 
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 match max_split {
                     Some(max_split) => regex
                         .splitn(&s, max_split)

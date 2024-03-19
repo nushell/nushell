@@ -372,19 +372,29 @@ impl CustomValue for SQLiteDatabase {
         self
     }
 
-    fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
+    fn follow_path_int(
+        &self,
+        _self_span: Span,
+        _index: usize,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
         // In theory we could support this, but tables don't have an especially well-defined order
-        Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span })
+        Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span: path_span })
     }
 
-    fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, span)?;
+    fn follow_path_string(
+        &self,
+        _self_span: Span,
+        _column_name: String,
+        path_span: Span,
+    ) -> Result<Value, ShellError> {
+        let db = open_sqlite_db(&self.path, path_span)?;
 
-        read_single_table(db, _column_name, span, self.ctrlc.clone()).map_err(|e| {
+        read_single_table(db, _column_name, path_span, self.ctrlc.clone()).map_err(|e| {
             ShellError::GenericError {
                 error: "Failed to read from SQLite database".into(),
                 msg: e.to_string(),
-                span: Some(span),
+                span: Some(path_span),
                 help: None,
                 inner: vec![],
             }
@@ -441,15 +451,15 @@ fn prepared_statement_to_nu_list(
 ) -> Result<Value, SqliteError> {
     let column_names = stmt
         .column_names()
-        .iter()
-        .map(|c| c.to_string())
+        .into_iter()
+        .map(String::from)
         .collect::<Vec<String>>();
 
     let row_results = stmt.query_map([], |row| {
         Ok(convert_sqlite_row_to_nu_value(
             row,
             call_span,
-            column_names.clone(),
+            &column_names,
         ))
     })?;
 
@@ -491,21 +501,19 @@ fn read_entire_sqlite_db(
     Ok(Value::record(tables, call_span))
 }
 
-pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<String>) -> Value {
-    let mut vals = Vec::with_capacity(column_names.len());
+pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: &[String]) -> Value {
+    let record = column_names
+        .iter()
+        .enumerate()
+        .map(|(i, col)| {
+            (
+                col.clone(),
+                convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span),
+            )
+        })
+        .collect();
 
-    for i in 0..column_names.len() {
-        let val = convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span);
-        vals.push(val);
-    }
-
-    Value::record(
-        Record {
-            cols: column_names,
-            vals,
-        },
-        span,
-    )
+    Value::record(record, span)
 }
 
 pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
@@ -522,6 +530,27 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
         }
         ValueRef::Blob(u) => Value::binary(u.to_vec(), span),
     }
+}
+
+pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
+    let flags = OpenFlags::default();
+    Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
+        error: "Failed to open SQLite custom connection in memory".into(),
+        msg: e.to_string(),
+        span: Some(Span::test_data()),
+        help: None,
+        inner: vec![],
+    })
+}
+
+pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
+    Connection::open_in_memory().map_err(|e| ShellError::GenericError {
+        error: "Failed to open SQLite standard connection in memory".into(),
+        msg: e.to_string(),
+        span: Some(Span::test_data()),
+        help: None,
+        inner: vec![],
+    })
 }
 
 #[cfg(test)]
@@ -600,25 +629,4 @@ mod test {
 
         assert_eq!(converted_db, expected);
     }
-}
-
-pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
-    let flags = OpenFlags::default();
-    Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
-        error: "Failed to open SQLite custom connection in memory".into(),
-        msg: e.to_string(),
-        span: Some(Span::test_data()),
-        help: None,
-        inner: vec![],
-    })
-}
-
-pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    Connection::open_in_memory().map_err(|e| ShellError::GenericError {
-        error: "Failed to open SQLite standard connection in memory".into(),
-        msg: e.to_string(),
-        span: Some(Span::test_data()),
-        help: None,
-        inner: vec![],
-    })
 }

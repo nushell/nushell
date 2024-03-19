@@ -67,7 +67,7 @@ fn fancy_default_errors() {
 
     assert_eq!(
         actual.err,
-        "Error:   \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline1\u{1b}[0m:1:1]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n\n"
+        "Error:   \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline1\u{1b}[0m:1:13]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n\n"
     );
 }
 
@@ -99,4 +99,14 @@ snippet line 1: force_error "my error"
 
 "#,
     );
+}
+
+#[test]
+fn plugins() {
+    let code = &[
+        r#"$env.config = { plugins: { nu_plugin_config: { key: value } } }"#,
+        r#"$env.config.plugins"#,
+    ];
+    let actual = nu!(nu_repl_code(code));
+    assert_eq!(actual.out, r#"{nu_plugin_config: {key: value}}"#);
 }

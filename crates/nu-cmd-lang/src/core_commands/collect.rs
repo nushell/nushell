@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{get_eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -44,7 +45,8 @@ impl Command for Collect {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack_captures = stack.captures_to_stack(capture_block.captures.clone());
+        let mut stack_captures =
+            stack.captures_to_stack_preserve_stdio(capture_block.captures.clone());
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);
@@ -57,17 +59,17 @@ impl Command for Collect {
             }
         }
 
+        let eval_block = get_eval_block(engine_state);
+
         let result = eval_block(
             engine_state,
             &mut stack_captures,
             &block,
             input.into_pipeline_data(),
-            call.redirect_stdout,
-            call.redirect_stderr,
         )
         .map(|x| x.set_metadata(metadata));
 
-        if call.has_flag("keep-env") {
+        if call.has_flag(engine_state, stack, "keep-env")? {
             redirect_env(engine_state, stack, &stack_captures);
             // for when we support `data | let x = $in;`
             // remove the variables added earlier

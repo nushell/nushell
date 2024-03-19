@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
+use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct Contains;
@@ -39,14 +39,17 @@ impl Command for Contains {
             description: "Returns boolean indicating if pattern was found",
             example: "[abc acb acb] | dfr into-df | dfr contains ab",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_bool(true),
+                            Value::test_bool(false),
+                            Value::test_bool(false),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -74,7 +77,7 @@ fn command(
     let pattern: String = call.req(engine_state, stack, 0)?;
 
     let series = df.as_series(call.head)?;
-    let chunked = series.utf8().map_err(|e| ShellError::GenericError {
+    let chunked = series.str().map_err(|e| ShellError::GenericError {
         error: "The contains command only with string columns".into(),
         msg: e.to_string(),
         span: Some(call.head),

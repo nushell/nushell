@@ -1,13 +1,12 @@
+use std::collections::VecDeque;
+
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, RawStream,
+    ShellError, Signature, Span, Type, Value,
 };
-use once_cell::sync::Lazy;
-// regex can be replaced with fancy-regex once it supports `split()`
-// https://github.com/fancy-regex/fancy-regex/issues/104
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct Lines;
@@ -30,46 +29,32 @@ impl Command for Lines {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
-        let skip_empty = call.has_flag("skip-empty");
+        let skip_empty = call.has_flag(engine_state, stack, "skip-empty")?;
 
-        // match \r\n or \n
-        static LINE_BREAK_REGEX: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
         let span = input.span().unwrap_or(call.head);
         match input {
-            #[allow(clippy::needless_collect)]
-            // Collect is needed because the string may not live long enough for
-            // the Rc structure to continue using it. If split could take ownership
-            // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, .. }, ..) => {
-                let mut lines = LINE_BREAK_REGEX
-                    .split(&val)
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>();
+                let lines = if skip_empty {
+                    val.lines()
+                        .filter_map(|s| {
+                            if s.trim().is_empty() {
+                                None
+                            } else {
+                                Some(Value::string(s, span))
+                            }
+                        })
+                        .collect()
+                } else {
+                    val.lines().map(|s| Value::string(s, span)).collect()
+                };
 
-                // if the last one is empty, remove it, as it was just
-                // a newline at the end of the input we got
-                if let Some(last) = lines.last() {
-                    if last.is_empty() {
-                        lines.pop();
-                    }
-                }
-
-                let iter = lines.into_iter().filter_map(move |s| {
-                    if skip_empty && s.trim().is_empty() {
-                        None
-                    } else {
-                        Some(Value::string(s, span))
-                    }
-                });
-
-                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+                Ok(Value::list(lines, span).into_pipeline_data())
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => {
@@ -78,26 +63,17 @@ impl Command for Lines {
                     .filter_map(move |value| {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
-                            let mut lines = LINE_BREAK_REGEX
-                                .split(&val)
-                                .filter_map(|s| {
-                                    if skip_empty && s.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(s.to_string())
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-
-                            // if the last one is empty, remove it, as it was just
-                            // a newline at the end of the input we got
-                            if let Some(last) = lines.last() {
-                                if last.is_empty() {
-                                    lines.pop();
-                                }
-                            }
-
-                            Some(lines.into_iter().map(move |x| Value::string(x, span)))
+                            Some(
+                                val.lines()
+                                    .filter_map(|s| {
+                                        if skip_empty && s.trim().is_empty() {
+                                            None
+                                        } else {
+                                            Some(Value::string(s, span))
+                                        }
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
                         } else {
                             None
                         }
@@ -123,11 +99,7 @@ impl Command for Lines {
                 stdout: Some(stream),
                 ..
             } => Ok(RawStreamLinesAdapter::new(stream, head, skip_empty)
-                .enumerate()
-                .map(move |(_idx, x)| match x {
-                    Ok(x) => x,
-                    Err(err) => Value::error(err, head),
-                })
+                .map(move |x| x.unwrap_or_else(|err| Value::error(err, head)))
                 .into_pipeline_data(ctrlc)),
         }
     }
@@ -151,38 +123,30 @@ struct RawStreamLinesAdapter {
     skip_empty: bool,
     span: Span,
     incomplete_line: String,
-    queue: Vec<String>,
+    queue: VecDeque<String>,
 }
 
 impl Iterator for RawStreamLinesAdapter {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        static LINE_BREAK_REGEX: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
-
         loop {
-            if !self.queue.is_empty() {
-                let s = self.queue.remove(0usize);
-
+            if let Some(s) = self.queue.pop_front() {
                 if self.skip_empty && s.trim().is_empty() {
                     continue;
                 }
-
                 return Some(Ok(Value::string(s, self.span)));
             } else {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
-                    if !self.incomplete_line.is_empty() {
-                        let r = Some(Ok(Value::string(
-                            self.incomplete_line.to_string(),
+                    return if self.incomplete_line.is_empty() {
+                        None
+                    } else {
+                        Some(Ok(Value::string(
+                            std::mem::take(&mut self.incomplete_line),
                             self.span,
-                        )));
-                        self.incomplete_line = String::new();
-                        return r;
-                    }
-
-                    return None;
+                        )))
+                    };
                 }
 
                 // pull more data from inner
@@ -195,36 +159,29 @@ impl Iterator for RawStreamLinesAdapter {
                                 Value::String { val, .. } => {
                                     self.span = span;
 
-                                    let mut lines = LINE_BREAK_REGEX
-                                        .split(&val)
-                                        .map(|s| s.to_string())
-                                        .collect::<Vec<_>>();
+                                    let mut lines = val.lines();
 
                                     // handle incomplete line from previous
                                     if !self.incomplete_line.is_empty() {
-                                        if let Some(first) = lines.first() {
-                                            let new_incomplete_line =
-                                                self.incomplete_line.to_string() + first.as_str();
-                                            lines.splice(0..1, vec![new_incomplete_line]);
-                                            self.incomplete_line = String::new();
-                                        }
-                                    }
-
-                                    // store incomplete line from current
-                                    if let Some(last) = lines.last() {
-                                        if last.is_empty() {
-                                            // we ended on a line ending
-                                            lines.pop();
-                                        } else {
-                                            // incomplete line, save for next time
-                                            if let Some(s) = lines.pop() {
-                                                self.incomplete_line = s;
-                                            }
+                                        if let Some(first) = lines.next() {
+                                            self.incomplete_line.push_str(first);
+                                            self.queue.push_back(std::mem::take(
+                                                &mut self.incomplete_line,
+                                            ));
                                         }
                                     }
 
                                     // save completed lines
-                                    self.queue.append(&mut lines);
+                                    self.queue.extend(lines.map(String::from));
+
+                                    if !val.ends_with('\n') {
+                                        // incomplete line, save for next time
+                                        // if `val` and `incomplete_line` were empty,
+                                        // then pop will return none
+                                        if let Some(s) = self.queue.pop_back() {
+                                            self.incomplete_line = s;
+                                        }
+                                    }
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
                                 Value::Error { error, .. } => return Some(Err(*error)),
@@ -255,7 +212,7 @@ impl RawStreamLinesAdapter {
             span,
             skip_empty,
             incomplete_line: String::new(),
-            queue: Vec::<String>::new(),
+            queue: VecDeque::new(),
             inner_complete: false,
         }
     }

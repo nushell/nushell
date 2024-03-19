@@ -1,4 +1,5 @@
-use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_engine::{get_eval_block, redirect_env, CallExt};
+
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -37,16 +38,13 @@ impl Command for ExportEnv {
     ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, caller_stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
-        let mut callee_stack = caller_stack.captures_to_stack(capture_block.captures);
+        let mut callee_stack = caller_stack
+            .captures_to_stack(capture_block.captures)
+            .reset_pipes();
 
-        let _ = eval_block(
-            engine_state,
-            &mut callee_stack,
-            block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        );
+        let eval_block = get_eval_block(engine_state);
+
+        let _ = eval_block(engine_state, &mut callee_stack, block, input);
 
         redirect_env(engine_state, caller_stack, &callee_stack);
 

@@ -43,10 +43,13 @@ impl Command for FilterWith {
                 example: r#"let mask = ([true false] | dfr into-df);
     [[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with $mask"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(1)]),
-                        Column::new("b".to_string(), vec![Value::test_int(2)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(1)]),
+                            Column::new("b".to_string(), vec![Value::test_int(2)]),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -55,10 +58,13 @@ impl Command for FilterWith {
                 description: "Filter dataframe using an expression",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with ((dfr col a) > 1)",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![Value::test_int(3)]),
-                        Column::new("b".to_string(), vec![Value::test_int(4)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(3)]),
+                            Column::new("b".to_string(), vec![Value::test_int(4)]),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

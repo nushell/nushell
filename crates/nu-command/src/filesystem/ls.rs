@@ -1,12 +1,14 @@
+use super::util::opt_for_glob_pattern;
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_glob::MatchOptions;
+use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::NuGlob;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
@@ -38,8 +40,9 @@ impl Command for Ls {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
-            // Using a string instead of a glob pattern shape so it won't auto-expand
-            .optional("pattern", SyntaxShape::String, "The glob pattern to use.")
+            // LsGlobPattern is similar to string, it won't auto-expand
+            // and we use it to track if the user input is quoted.
+            .optional("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -73,34 +76,49 @@ impl Command for Ls {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let all = call.has_flag("all");
-        let long = call.has_flag("long");
-        let short_names = call.has_flag("short-names");
-        let full_paths = call.has_flag("full-paths");
-        let du = call.has_flag("du");
-        let directory = call.has_flag("directory");
-        let use_mime_type = call.has_flag("mime-type");
+        let all = call.has_flag(engine_state, stack, "all")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
+        let short_names = call.has_flag(engine_state, stack, "short-names")?;
+        let full_paths = call.has_flag(engine_state, stack, "full-paths")?;
+        let du = call.has_flag(engine_state, stack, "du")?;
+        let directory = call.has_flag(engine_state, stack, "directory")?;
+        let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
-
+        let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
-                    span: path.span,
-                })
+                // it makes no sense to list an empty string.
+                if path.item.as_ref().is_empty() {
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "empty string('') directory or file does not exist".to_string(),
+                        span: path.span,
+                    });
+                }
+                match path.item {
+                    NuGlob::DoNotExpand(p) => Some(Spanned {
+                        item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
+                        span: path.span,
+                    }),
+                    NuGlob::Expand(p) => Some(Spanned {
+                        item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
+                        span: path.span,
+                    }),
+                }
             } else {
                 pattern_arg
             }
         };
 
-        let (path, p_tag, absolute_path) = match pattern_arg {
-            Some(p) => {
-                let p_tag = p.span;
-                let mut p = expand_to_real_path(p.item);
+        // it indicates we need to append an extra '*' after pattern for listing given directory
+        // Example: 'ls directory' -> 'ls directory/*'
+        let mut extra_star_under_given_directory = false;
+        let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+            Some(pat) => {
+                let p_tag = pat.span;
+                let p = expand_to_real_path(pat.item.as_ref());
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
@@ -131,27 +149,52 @@ impl Command for Ls {
                     if is_empty_dir(&expanded) {
                         return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
-                    p.push("*");
+                    extra_star_under_given_directory = true;
                 }
                 let absolute_path = p.is_absolute();
-                (p, p_tag, absolute_path)
+                (
+                    p,
+                    p_tag,
+                    absolute_path,
+                    matches!(pat.item, NuGlob::DoNotExpand(_)),
+                )
             }
             None => {
                 // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
                 if directory {
-                    (PathBuf::from("."), call_span, false)
+                    (PathBuf::from("."), call_span, false, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("*"), call_span, false)
+                    (PathBuf::from("*"), call_span, false, false)
                 }
             }
         };
 
         let hidden_dir_specified = is_hidden_dir(&path);
+        // when it's quoted, we need to escape our glob pattern(but without the last extra
+        // start which may be added under given directory)
+        // so we can do ls for a file or directory like `a[123]b`
+        let path = if quoted {
+            let p = path.display().to_string();
+            let mut glob_escaped = Pattern::escape(&p);
+            if extra_star_under_given_directory {
+                glob_escaped.push(std::path::MAIN_SEPARATOR);
+                glob_escaped.push('*');
+            }
+            glob_escaped
+        } else {
+            let mut p = path.display().to_string();
+            if extra_star_under_given_directory {
+                p.push(std::path::MAIN_SEPARATOR);
+                p.push('*');
+            }
+            p
+        };
 
         let glob_path = Spanned {
-            item: path.display().to_string(),
+            // use NeedExpand, the relative escaping logic is handled previously
+            item: NuGlob::Expand(path.clone()),
             span: p_tag,
         };
 
@@ -169,7 +212,7 @@ impl Command for Ls {
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
             return Err(ShellError::GenericError {
-                error: format!("No matches found for {}", &path.display().to_string()),
+                error: format!("No matches found for {}", &path),
                 msg: "Pattern, file or folder not found".into(),
                 span: Some(p_tag),
                 help: Some("no matches found".into()),
@@ -596,6 +639,11 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
         }
     };
 
+    const NEG_UNIX_EPOCH: i64 = -11644473600; // t was invalid 0, UNIX_EPOCH subtracted above.
+    if sec == NEG_UNIX_EPOCH {
+        // do not tz lookup invalid SystemTime
+        return None;
+    }
     match Utc.timestamp_opt(sec, nsec) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
@@ -641,14 +689,10 @@ mod windows_helper {
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
             Err(e) => {
-                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
+                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.', pipes)
                 // For now, we just log it and give up on returning metadata columns
                 // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
-                eprintln!(
-                    "Failed to read metadata for '{}'. It may have an illegal filename",
-                    filename.to_string_lossy()
-                );
-                log::error!("{e}");
+                log::error!("ls: '{}' {}", filename.to_string_lossy(), e);
                 return Value::record(record, span);
             }
         };
@@ -722,10 +766,12 @@ mod windows_helper {
         const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
 
         let time_u64 = ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64);
-        let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
-        let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
-
-        seconds_since_unix_epoch as i64
+        if time_u64 > 0 {
+            let rel_to_linux_epoch = time_u64.saturating_sub(EPOCH_AS_FILETIME);
+            let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
+            return seconds_since_unix_epoch as i64;
+        }
+        0
     }
 
     // wrapper around the FindFirstFileW Win32 API

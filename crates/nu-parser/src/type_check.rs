@@ -1,7 +1,6 @@
 use nu_protocol::{
     ast::{
         Assignment, Bits, Block, Boolean, Comparison, Expr, Expression, Math, Operator, Pipeline,
-        PipelineElement,
     },
     engine::StateWorkingSet,
     ParseError, Type,
@@ -63,6 +62,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
             is_compatible(lhs, rhs)
         }
+        (Type::Glob, Type::String) => true,
         (lhs, rhs) => lhs == rhs,
     }
 }
@@ -429,6 +429,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Number) => (Type::Bool, None),
                 (Type::Number, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Number) => (Type::Bool, None),
+                (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
@@ -478,6 +479,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Number) => (Type::Bool, None),
                 (Type::Number, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Number) => (Type::Bool, None),
+                (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
@@ -527,6 +529,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Number) => (Type::Bool, None),
                 (Type::Number, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Number) => (Type::Bool, None),
+                (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
@@ -576,6 +579,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Number) => (Type::Bool, None),
                 (Type::Number, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Number) => (Type::Bool, None),
+                (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
@@ -912,62 +916,51 @@ pub fn check_pipeline_type(
     let mut output_errors: Option<Vec<ParseError>> = None;
 
     'elem: for elem in &pipeline.elements {
-        match elem {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let decl = working_set.get_decl(call.decl_id);
+        if elem.redirection.is_some() {
+            current_type = Type::Any;
+        } else if let Expr::Call(call) = &elem.expr.expr {
+            let decl = working_set.get_decl(call.decl_id);
 
-                if current_type == Type::Any {
-                    let mut new_current_type = None;
-                    for (_, call_output) in decl.signature().input_output_types {
-                        if let Some(inner_current_type) = &new_current_type {
-                            if inner_current_type == &Type::Any {
-                                break;
-                            } else if inner_current_type != &call_output {
-                                // Union unequal types to Any for now
-                                new_current_type = Some(Type::Any)
-                            }
-                        } else {
-                            new_current_type = Some(call_output.clone())
+            if current_type == Type::Any {
+                let mut new_current_type = None;
+                for (_, call_output) in decl.signature().input_output_types {
+                    if let Some(inner_current_type) = &new_current_type {
+                        if inner_current_type == &Type::Any {
+                            break;
+                        } else if inner_current_type != &call_output {
+                            // Union unequal types to Any for now
+                            new_current_type = Some(Type::Any)
                         }
-                    }
-
-                    if let Some(new_current_type) = new_current_type {
-                        current_type = new_current_type
                     } else {
-                        current_type = Type::Any;
+                        new_current_type = Some(call_output.clone())
                     }
-                    continue 'elem;
+                }
+
+                if let Some(new_current_type) = new_current_type {
+                    current_type = new_current_type
                 } else {
-                    for (call_input, call_output) in decl.signature().input_output_types {
-                        if type_compatible(&call_input, &current_type) {
-                            current_type = call_output.clone();
-                            continue 'elem;
-                        }
+                    current_type = Type::Any;
+                }
+                continue 'elem;
+            } else {
+                for (call_input, call_output) in decl.signature().input_output_types {
+                    if type_compatible(&call_input, &current_type) {
+                        current_type = call_output.clone();
+                        continue 'elem;
                     }
                 }
+            }
 
-                if !decl.signature().input_output_types.is_empty() {
-                    if let Some(output_errors) = &mut output_errors {
-                        output_errors.push(ParseError::InputMismatch(current_type, call.head))
-                    } else {
-                        output_errors =
-                            Some(vec![ParseError::InputMismatch(current_type, call.head)]);
-                    }
+            if !decl.signature().input_output_types.is_empty() {
+                if let Some(output_errors) = &mut output_errors {
+                    output_errors.push(ParseError::InputMismatch(current_type, call.head))
+                } else {
+                    output_errors = Some(vec![ParseError::InputMismatch(current_type, call.head)]);
                 }
-                current_type = Type::Any;
             }
-            PipelineElement::Expression(_, Expression { ty, .. }) => {
-                current_type = ty.clone();
-            }
-            _ => {
-                current_type = Type::Any;
-            }
+            current_type = Type::Any;
+        } else {
+            current_type = elem.expr.ty.clone();
         }
     }
 
@@ -1010,7 +1003,8 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .elements
                     .last()
                     .expect("internal error: we should have elements")
-                    .span()
+                    .expr
+                    .span
             };
 
             output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))

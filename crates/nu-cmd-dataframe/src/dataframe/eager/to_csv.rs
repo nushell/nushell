@@ -70,7 +70,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
-    let no_header: bool = call.has_flag("no-header");
+    let no_header: bool = call.has_flag(engine_state, stack, "no-header")?;
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 

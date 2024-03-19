@@ -37,10 +37,10 @@ impl Command for ArgMax {
             description: "Returns index for max value",
             example: "[1 3 2] | dfr into-df | dfr arg-max",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_max".to_string(),
-                    vec![Value::test_int(1)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new("arg_max".to_string(), vec![Value::test_int(1)])],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

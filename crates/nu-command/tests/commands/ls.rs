@@ -115,6 +115,8 @@ fn lists_regular_files_in_special_folder() {
 #[case("[[]?bcd].txt", 2)]
 #[case("[[]abcd].txt", 1)]
 #[case("[[][abcd]bcd[]].txt", 2)]
+#[case("'[abcd].txt'", 1)]
+#[case("'[bbcd].txt'", 1)]
 fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox.mkdir("abcd").mkdir("bbcd").with_files(vec![
@@ -491,7 +493,7 @@ fn lists_with_directory_flag() {
             r#"
                 cd dir_empty;
                 ['.' '././.' '..' '../dir_files' '../dir_files/*']
-                | each { |it| ls --directory $it }
+                | each { |it| ls --directory ($it | into glob) }
                 | flatten
                 | get name
                 | to text
@@ -601,7 +603,7 @@ fn list_a_directory_not_exists() {
     })
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[test]
 fn list_directory_contains_invalid_utf8() {
     use std::ffi::OsStr;
@@ -654,4 +656,58 @@ fn list_unknown_flag() {
     assert!(actual
         .err
         .contains("Available flags: --help(-h), --all(-a),"));
+}
+
+#[test]
+fn list_flag_false() {
+    // Check that ls flags respect explicit values
+    Playground::setup("ls_test_false_flag", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile(".hidden"),
+            EmptyFile("normal"),
+            EmptyFile("another_normal"),
+        ]);
+
+        // TODO Remove this cfg value when we have an OS-agnostic way
+        // of creating hidden files using the playground.
+        #[cfg(unix)]
+        {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                "
+                ls --all=false | length
+            "
+            ));
+
+            assert_eq!(actual.out, "2");
+        }
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls --long=false | columns | length
+            "
+        ));
+
+        assert_eq!(actual.out, "4");
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls --full-paths=false | get name | any { $in =~ / }
+            "
+        ));
+
+        assert_eq!(actual.out, "false");
+    })
+}
+
+#[test]
+fn list_empty_string() {
+    Playground::setup("ls_empty_string", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("yehuda.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "ls ''");
+        assert!(actual.err.contains("does not exist"));
+    })
 }
