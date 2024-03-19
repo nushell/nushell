@@ -13,12 +13,13 @@ impl Plugin for Example {
         //
         // If it doesn't appear on this list, it won't be added.
         vec![
-            Box::new(NuExample1),
-            Box::new(NuExample2),
-            Box::new(NuExample3),
-            Box::new(NuExampleConfig),
-            Box::new(NuExampleEnv),
-            Box::new(NuExampleDisableGc),
+            Box::new(Main),
+            Box::new(One),
+            Box::new(Two),
+            Box::new(Three),
+            Box::new(Config),
+            Box::new(Env),
+            Box::new(DisableGc),
         ]
     }
 }

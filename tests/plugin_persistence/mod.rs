@@ -340,9 +340,9 @@ fn plugin_gc_can_be_disabled_by_plugin() {
         cwd: ".",
         plugin: ("nu_plugin_example"),
         r#"
-            nu-example-disable-gc
+            example disable-gc
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
-            nu-example-1 1 foo | ignore # ensure we've run the plugin with the new config
+            example one 1 foo | ignore # ensure we've run the plugin with the new config
             sleep 100ms
             (plugin list | where name == example).0.is_running
         "#
