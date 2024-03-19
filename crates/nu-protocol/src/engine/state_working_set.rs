@@ -301,7 +301,7 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
 
-    pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
+    pub fn get_contents_of_file(&self, file_id: FileId) -> Option<&[u8]> {
         if let Some(cached_file) = self.permanent_state.get_file_contents().get(file_id) {
             return Some(&cached_file.content);
         }
