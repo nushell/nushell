@@ -967,7 +967,7 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
-        for block in &self.permanent_state.blocks {
+        for block in self.permanent_state.blocks.iter() {
             if Some(span) == block.span {
                 return Some(block.clone());
             }

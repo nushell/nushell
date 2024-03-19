@@ -90,8 +90,8 @@ fn eval_source2(
     //
     // So we LITERALLY ignore all expressions except the LAST.
     if block.len() > 1 {
-        let range = ..block.pipelines.len() - 1;
-        Arc::make_mut(&mut block).pipelines.drain(range);
+        let block = Arc::make_mut(&mut block);
+        block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
     let stack = &mut stack.push_redirection(
