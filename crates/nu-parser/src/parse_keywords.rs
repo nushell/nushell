@@ -2972,9 +2972,12 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     };
 
                     let mut idx = 0;
-
                     let (lvalue, explicit_type) =
                         parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                    // check for extra tokens after the identifier
+                    if idx + 1 < span.0 - 1 {
+                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    }
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
@@ -3080,6 +3083,10 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                     let (lvalue, explicit_type) =
                         parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                    // check for extra tokens after the identifier
+                    if idx + 1 < span.0 - 1 {
+                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    }
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
@@ -3232,6 +3239,10 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let (lvalue, explicit_type) =
                         parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, true);
+                    // check for extra tokens after the identifier
+                    if idx + 1 < span.0 - 1 {
+                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    }
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))

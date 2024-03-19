@@ -2890,6 +2890,10 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     }
 }
 
+/// Parse `spans[spans_idx..]` into a variable, with optional type annotation.
+/// If the name of the variable ends with a colon (no space in-between allowed), then a type annotation
+/// can appear after the variable, in which case the colon is stripped from the name of the variable.
+/// `spans_idx` is updated to point to the last span that has been parsed.
 pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2925,7 +2929,7 @@ pub fn parse_var_with_opt_type(
             }
 
             let ty = parse_type(working_set, &type_bytes, tokens[0].span);
-            *spans_idx += spans.len() - *spans_idx - 1;
+            *spans_idx = spans.len() - 1;
 
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
@@ -2993,7 +2997,7 @@ pub fn parse_var_with_opt_type(
         (
             Expression {
                 expr: Expr::VarDecl(id),
-                span: span(&spans[*spans_idx..*spans_idx + 1]),
+                span: spans[*spans_idx],
                 ty: Type::Any,
                 custom_completion: None,
             },
