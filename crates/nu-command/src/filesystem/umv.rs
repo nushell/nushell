@@ -148,7 +148,7 @@ impl Command for UMv {
                 }
             }
         }
-        let mut files: Vec<PathBuf> = files.into_iter().map(|x| x.0).flatten().collect();
+        let mut files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
 
         // Add back the target after globbing
         let abs_target_path = expand_path_with(

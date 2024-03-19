@@ -242,7 +242,7 @@ impl Command for UCp {
                 }
             }
         }
-        let sources: Vec<PathBuf> = sources.into_iter().map(|x| x.0).flatten().collect();
+        let sources: Vec<PathBuf> = sources.into_iter().flat_map(|x| x.0).collect();
 
         let attributes = make_attributes(preserve)?;
 
