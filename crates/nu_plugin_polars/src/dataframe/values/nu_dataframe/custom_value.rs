@@ -35,9 +35,8 @@ impl TryFrom<&NuDataFrameCustomValue> for NuDataFrame {
 
 impl From<NuDataFrame> for NuDataFrameCustomValue {
     fn from(df: NuDataFrame) -> Self {
-        let id = Uuid::new_v4();
         Self {
-            id,
+            id: df.id,
             dataframe: Some(df),
         }
     }

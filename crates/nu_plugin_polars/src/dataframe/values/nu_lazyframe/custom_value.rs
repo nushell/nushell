@@ -34,9 +34,8 @@ impl TryFrom<&NuLazyFrameCustomValue> for NuLazyFrame {
 
 impl From<NuLazyFrame> for NuLazyFrameCustomValue {
     fn from(lf: NuLazyFrame) -> Self {
-        let id = Uuid::new_v4();
         Self {
-            id,
+            id: lf.id,
             lazyframe: Some(lf),
         }
     }

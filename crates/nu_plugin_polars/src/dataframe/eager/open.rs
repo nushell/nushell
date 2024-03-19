@@ -95,6 +95,7 @@ fn examples() -> Vec<PluginExample> {
         result: None,
     }]
 }
+
 fn command(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
