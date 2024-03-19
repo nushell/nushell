@@ -428,7 +428,10 @@ impl ExternalCommand {
                                         err_str = format!("{}\n{}", err_str, val);
                                     }
 
-                                    Err(err) => return Err(err),
+                                    Err(err) => {
+                                        stack.remove_env_var(&engine_state, canary);
+                                        return Err(err);
+                                    }
                                     _ => {}
                                 }
                                 stack.remove_env_var(&engine_state, canary);
