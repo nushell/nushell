@@ -9,20 +9,36 @@ use super::NuLazyFrame;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuLazyFrameCustomValue {
     pub id: Uuid,
+    #[serde(skip)]
+    pub lazyframe: Option<NuLazyFrame>,
 }
 
 impl TryFrom<&NuLazyFrameCustomValue> for NuLazyFrame {
     type Error = ShellError;
     fn try_from(value: &NuLazyFrameCustomValue) -> Result<Self, Self::Error> {
-        DataFrameCache::instance()
-            .get_lazy(&value.id)
-            .ok_or_else(|| ShellError::GenericError {
-                error: format!("LazyFrame {:?} not found in cache", value.id),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+        if let Some(lf) = value.lazyframe {
+            Ok(lf)
+        } else {
+            DataFrameCache::instance()
+                .get_lazy(&value.id)
+                .ok_or_else(|| ShellError::GenericError {
+                    error: format!("LazyFrame {:?} not found in cache", value.id),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })
+        }
+    }
+}
+
+impl From<NuLazyFrame> for NuLazyFrameCustomValue {
+    fn from(lf: NuLazyFrame) -> Self {
+        let id = Uuid::new_v4();
+        Self {
+            id,
+            lazyframe: Some(lf),
+        }
     }
 }
 

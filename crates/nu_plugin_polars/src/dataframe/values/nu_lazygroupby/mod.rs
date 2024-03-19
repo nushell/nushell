@@ -73,7 +73,6 @@ impl NuLazyGroupBy {
             from_eager,
             schema: schema.map(Arc::new),
         };
-        DataFrameCache::instance().insert_group_by(instance.clone());
         instance
     }
 
@@ -81,8 +80,8 @@ impl NuLazyGroupBy {
         Value::custom_value(Box::new(self.custom_value()), span)
     }
 
-    pub fn custom_value(&self) -> NuLazyGroupByCustomValue {
-        NuLazyGroupByCustomValue { id: self.id }
+    pub fn custom_value(self) -> NuLazyGroupByCustomValue {
+        self.into()
     }
 
     pub fn into_polars(&self) -> LazyGroupBy {
@@ -118,5 +117,10 @@ impl NuLazyGroupBy {
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
+    }
+
+    pub fn insert_cache(self) -> Self {
+        DataFrameCache::instance().insert_group_by(self.clone());
+        self
     }
 }

@@ -8,21 +8,36 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuLazyGroupByCustomValue {
     pub id: Uuid,
+    pub groupby: Option<NuLazyGroupBy>,
 }
 
 impl TryFrom<&NuLazyGroupByCustomValue> for NuLazyGroupBy {
     type Error = ShellError;
 
     fn try_from(value: &NuLazyGroupByCustomValue) -> Result<Self, Self::Error> {
-        DataFrameCache::instance()
-            .get_group_by(&value.id)
-            .ok_or_else(|| ShellError::GenericError {
-                error: format!("GroupBy {:?} not found in cache", value.id),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+        if let Some(gb) = value.groupby {
+            Ok(gb)
+        } else {
+            DataFrameCache::instance()
+                .get_group_by(&value.id)
+                .ok_or_else(|| ShellError::GenericError {
+                    error: format!("GroupBy {:?} not found in cache", value.id),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })
+        }
+    }
+}
+
+impl From<NuLazyGroupBy> for NuLazyGroupByCustomValue {
+    fn from(gb: NuLazyGroupBy) -> Self {
+        let id = Uuid::new_v4();
+        Self {
+            id,
+            groupby: Some(gb),
+        }
     }
 }
 

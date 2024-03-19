@@ -9,21 +9,37 @@ use super::NuDataFrame;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NuDataFrameCustomValue {
     pub id: Uuid,
+    #[serde(skip)]
+    pub dataframe: Option<NuDataFrame>,
 }
 
 impl TryFrom<&NuDataFrameCustomValue> for NuDataFrame {
     type Error = ShellError;
 
     fn try_from(value: &NuDataFrameCustomValue) -> Result<Self, Self::Error> {
-        DataFrameCache::instance()
-            .get_df(&value.id)
-            .ok_or_else(|| ShellError::GenericError {
-                error: format!("Dataframe {:?} not found in cache", value.id),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+        if let Some(df) = value.dataframe {
+            Ok(df)
+        } else {
+            DataFrameCache::instance()
+                .get_df(&value.id)
+                .ok_or_else(|| ShellError::GenericError {
+                    error: format!("Dataframe {:?} not found in cache", value.id),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })
+        }
+    }
+}
+
+impl From<NuDataFrame> for NuDataFrameCustomValue {
+    fn from(df: NuDataFrame) -> Self {
+        let id = Uuid::new_v4();
+        Self {
+            id,
+            dataframe: Some(df),
+        }
     }
 }
 

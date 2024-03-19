@@ -3,8 +3,8 @@ use crate::{values::Column, PolarsDataFramePlugin};
 use super::super::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type,
-    Value,
+    Category, CustomValue, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -68,7 +68,9 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile"),
             ),
         },
         PluginExample {
@@ -83,8 +85,9 @@ fn command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineData, ShellE
     let rows = rows.unwrap_or(DEFAULT_ROWS);
 
     let res = df.as_ref().tail(Some(rows));
+    let res = NuDataFrame::new(false, res);
     Ok(PipelineData::Value(
-        NuDataFrame::dataframe_into_value(res, call.head)?,
+        res.insert_cache().into_value(call.head),
         None,
     ))
 }

@@ -56,14 +56,12 @@ impl NuLazyFrame {
     }
 
     fn new_with_option_lazy(from_eager: bool, lazy: Option<LazyFrame>) -> Self {
-        let instance = Self {
+        Self {
             id: Uuid::new_v4(),
             lazy,
             from_eager,
             schema: None,
-        };
-        DataFrameCache::instance().insert_lazy(instance.clone());
-        instance
+        }
     }
 
     pub fn from_dataframe(df: NuDataFrame) -> Self {
@@ -80,8 +78,8 @@ impl NuLazyFrame {
         }
     }
 
-    pub fn custom_value(&self) -> NuLazyFrameCustomValue {
-        NuLazyFrameCustomValue { id: self.id }
+    pub fn custom_value(self) -> NuLazyFrameCustomValue {
+        self.into()
     }
 
     pub fn base_value(&self, span: Span) -> Result<Value, ShellError> {
@@ -178,5 +176,10 @@ impl NuLazyFrame {
         let expr = expr.into_polars();
         let new_frame = f(df, expr);
         Self::new(self.from_eager, new_frame)
+    }
+
+    pub fn insert_cache(self) -> Self {
+        DataFrameCache::instance().insert_lazy(self.clone());
+        self
     }
 }

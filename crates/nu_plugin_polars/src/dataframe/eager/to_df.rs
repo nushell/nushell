@@ -4,7 +4,8 @@ use super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, Span, SyntaxShape, Type, Value,
+    Category, CustomValue, PipelineData, PluginExample, PluginSignature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
@@ -46,7 +47,7 @@ impl PluginCommand for ToDataFrame {
         let df = NuDataFrame::try_from_iter(input.into_iter(), maybe_schema.clone())?;
 
         Ok(PipelineData::Value(
-            NuDataFrame::into_value(df, call.head),
+            df.insert_cache().into_value(call.head),
             None,
         ))
     }
@@ -73,7 +74,9 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile")
             ),
         },
         PluginExample {
@@ -102,7 +105,9 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile")
             ),
         },
         PluginExample {
@@ -121,7 +126,9 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile")
             ),
         },
         PluginExample {
@@ -140,7 +147,9 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile")
             ),
         },
         PluginExample {
@@ -164,7 +173,9 @@ fn examples() -> Vec<PluginExample> {
                     }
                 ], Span::test_data())
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile")
             ),
         },
         PluginExample {
@@ -176,7 +187,9 @@ fn examples() -> Vec<PluginExample> {
                     Series::new("c", [3i64, 3]),
                 ], Span::test_data())
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data())
+                .custom_value()
+                .to_base_value(Span::test_data())
+                .expect("rendering base value should not faile")
             ),
         }
     ]

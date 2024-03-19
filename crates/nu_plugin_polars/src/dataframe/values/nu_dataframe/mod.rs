@@ -101,13 +101,11 @@ impl From<DataFrame> for NuDataFrame {
 impl NuDataFrame {
     pub fn new(from_lazy: bool, df: DataFrame) -> Self {
         let id = Uuid::new_v4();
-        let s = Self {
+        Self {
             id,
             df: Arc::new(df),
             from_lazy,
-        };
-        DataFrameCache::instance().insert_df(s.clone());
-        s
+        }
     }
 
     pub fn to_polars(&self) -> DataFrame {
@@ -139,8 +137,8 @@ impl NuDataFrame {
         }
     }
 
-    pub fn custom_value(&self) -> NuDataFrameCustomValue {
-        NuDataFrameCustomValue { id: self.id }
+    pub fn custom_value(self) -> NuDataFrameCustomValue {
+        self.into()
     }
 
     pub fn base_value(self, span: Span) -> Result<Value, ShellError> {
@@ -528,6 +526,11 @@ impl NuDataFrame {
 
     pub fn schema(&self) -> NuSchema {
         NuSchema::new(self.df.schema())
+    }
+
+    pub fn insert_cache(self) -> Self {
+        DataFrameCache::instance().insert_df(self.clone());
+        self
     }
 }
 

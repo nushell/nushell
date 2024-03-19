@@ -3,8 +3,8 @@ use crate::{values::Column, PolarsDataFramePlugin};
 use super::super::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type,
-    Value,
+    Category, CustomValue, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -45,7 +45,9 @@ impl PluginCommand for FirstDF {
                             None,
                         )
                         .expect("should not fail")
-                        .into_value(Span::test_data()),
+                        .custom_value()
+                        .to_base_value(Span::test_data())
+                        .expect("rendering base value should not faile"),
                     ),
                 },
                 PluginExample {
@@ -66,7 +68,9 @@ impl PluginCommand for FirstDF {
                             None,
                         )
                         .expect("should not fail")
-                        .into_value(Span::test_data()),
+                        .custom_value()
+                        .to_base_value(Span::test_data())
+                        .expect("rendering base value should not faile"),
                     ),
                 },
                 PluginExample {
@@ -105,8 +109,10 @@ fn command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineData, ShellE
     let rows = rows.unwrap_or(1);
 
     let res = df.as_ref().head(Some(rows));
+    let res = NuDataFrame::new(false, res);
+
     Ok(PipelineData::Value(
-        NuDataFrame::dataframe_into_value(res, call.head)?,
+        res.insert_cache().into_value(call.head),
         None,
     ))
 }
