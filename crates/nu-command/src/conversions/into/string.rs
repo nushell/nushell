@@ -238,7 +238,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 .and_then(|base_value| match action(&base_value, args, span) {
                     Value::Error { .. } => Err(ShellError::CantConvert {
                         to_type: String::from("string"),
-                        from_type: val.value_string(),
+                        from_type: val.type_name(),
                         span,
                         help: Some("this custom value can't be represented as a string".into()),
                     }),

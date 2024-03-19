@@ -34,7 +34,7 @@ pub struct PluginCustomValue {
 /// Content shared across copies of a plugin custom value.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct SharedContent {
-    /// The name of the custom value as defined by the plugin (`value_string()`)
+    /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     name: String,
     /// The bincoded representation of the custom value on the plugin side
     data: Vec<u8>,
@@ -146,7 +146,7 @@ impl PluginCustomValue {
         }
     }
 
-    /// The name of the custom value as defined by the plugin (`value_string()`)
+    /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     pub fn name(&self) -> &str {
         &self.shared.name
     }
