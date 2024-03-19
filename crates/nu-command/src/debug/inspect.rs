@@ -2,7 +2,7 @@ use super::inspect_table;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type,
 };
 use terminal_size::{terminal_size, Height, Width};
 
@@ -40,10 +40,7 @@ impl Command for Inspect {
             });
         }
         let original_input = input_val.clone();
-        let description = match input_val {
-            Value::CustomValue { ref val, .. } => val.value_string(),
-            _ => input_val.get_type().to_string(),
-        };
+        let description = input_val.get_type().to_string();
 
         let (cols, _rows) = match terminal_size() {
             Some((w, h)) => (Width(w.0), Height(h.0)),

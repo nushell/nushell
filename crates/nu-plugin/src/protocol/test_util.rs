@@ -14,7 +14,7 @@ impl CustomValue for TestCustomValue {
         Value::custom_value(Box::new(self.clone()), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         "TestCustomValue".into()
     }
 
