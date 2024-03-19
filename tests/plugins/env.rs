@@ -7,9 +7,9 @@ fn get_env_by_name() {
         plugin: ("nu_plugin_example"),
         r#"
             $env.FOO = bar
-            nu-example-env FOO | print
+            example env FOO | print
             $env.FOO = baz
-            nu-example-env FOO | print
+            example env FOO | print
         "#
     );
     assert!(result.status.success());
@@ -21,7 +21,7 @@ fn get_envs() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_example"),
-        "$env.BAZ = foo; nu-example-env | get BAZ"
+        "$env.BAZ = foo; example env | get BAZ"
     );
     assert!(result.status.success());
     assert_eq!("foo", result.out);
@@ -37,7 +37,7 @@ fn get_current_dir() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_example"),
-        "cd tests; nu-example-env --cwd"
+        "cd tests; example env --cwd"
     );
     assert!(result.status.success());
     assert_eq!(cwd, result.out);
@@ -48,7 +48,7 @@ fn set_env() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_example"),
-        "nu-example-env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION"
+        "example env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION"
     );
     assert!(result.status.success());
     assert_eq!("rocks", result.out);

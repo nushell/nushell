@@ -43,7 +43,6 @@ members = [
   "crates/nu_plugin_inc",
   "crates/nu_plugin_gstat",
   "crates/nu_plugin_example",
-  "crates/nu_plugin_stream_example",
   "crates/nu_plugin_query",
   "crates/nu_plugin_custom_values",
   "crates/nu_plugin_formats",

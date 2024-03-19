@@ -3,13 +3,13 @@ use nu_protocol::{Category, PluginSignature, Value};
 
 use crate::Example;
 
-pub struct NuExampleDisableGc;
+pub struct DisableGc;
 
-impl SimplePluginCommand for NuExampleDisableGc {
+impl SimplePluginCommand for DisableGc {
     type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("nu-example-disable-gc")
+        PluginSignature::build("example disable-gc")
             .usage("Disable the plugin garbage collector for `example`")
             .extra_usage(
                 "\

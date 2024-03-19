@@ -6,6 +6,7 @@ use nu_protocol::{
     Example, PipelineData, Signature, Span, Type, Value,
 };
 use std::collections::HashSet;
+use std::sync::Arc;
 
 pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,
@@ -76,7 +77,9 @@ fn eval_pipeline_without_terminal_expression(
     let (mut block, delta) = parse(src, engine_state);
     if block.pipelines.len() == 1 {
         let n_expressions = block.pipelines[0].elements.len();
-        block.pipelines[0].elements.truncate(&n_expressions - 1);
+        Arc::make_mut(&mut block).pipelines[0]
+            .elements
+            .truncate(&n_expressions - 1);
 
         if !block.pipelines[0].elements.is_empty() {
             let empty_input = PipelineData::empty();
@@ -90,7 +93,7 @@ fn eval_pipeline_without_terminal_expression(
     }
 }
 
-pub fn parse(contents: &str, engine_state: &EngineState) -> (Block, StateDelta) {
+pub fn parse(contents: &str, engine_state: &EngineState) -> (Arc<Block>, StateDelta) {
     let mut working_set = StateWorkingSet::new(engine_state);
     let output = nu_parser::parse(&mut working_set, None, contents.as_bytes(), false);
 
@@ -102,7 +105,7 @@ pub fn parse(contents: &str, engine_state: &EngineState) -> (Block, StateDelta) 
 }
 
 pub fn eval_block(
-    block: Block,
+    block: Arc<Block>,
     input: PipelineData,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,

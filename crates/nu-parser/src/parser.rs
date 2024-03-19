@@ -31,7 +31,10 @@ use crate::parse_keywords::{
 
 use itertools::Itertools;
 use log::trace;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use std::{num::ParseIntError, str};
 
 #[cfg(feature = "plugin")]
@@ -2096,7 +2099,7 @@ pub fn parse_full_cell_path(
 
             let ty = output.output_type();
 
-            let block_id = working_set.add_block(output);
+            let block_id = working_set.add_block(Arc::new(output));
             tokens.next();
 
             (
@@ -3146,7 +3149,7 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
                 default_value: None,
             });
 
-            working_set.add_block(block)
+            working_set.add_block(Arc::new(block))
         }
     };
 
@@ -4136,7 +4139,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     working_set.exit_scope();
 
-    let block_id = working_set.add_block(output);
+    let block_id = working_set.add_block(Arc::new(output));
 
     Expression {
         expr: Expr::Block(block_id),
@@ -4477,7 +4480,7 @@ pub fn parse_closure_expression(
 
     working_set.exit_scope();
 
-    let block_id = working_set.add_block(output);
+    let block_id = working_set.add_block(Arc::new(output));
 
     Expression {
         expr: Expr::Closure(block_id),
@@ -5177,7 +5180,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let ty = output.ty.clone();
             block.pipelines = vec![Pipeline::from_vec(vec![output])];
 
-            let block_id = working_set.add_block(block);
+            let block_id = working_set.add_block(Arc::new(block));
 
             let mut env_vars = vec![];
             for sh in shorthand {
@@ -6176,7 +6179,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             ..Default::default()
         };
 
-        let block_id = working_set.add_block(block);
+        let block_id = working_set.add_block(Arc::new(block));
 
         output.push(Argument::Positional(Expression {
             expr: Expr::Closure(block_id),
@@ -6221,7 +6224,7 @@ pub fn parse(
     fname: Option<&str>,
     contents: &[u8],
     scoped: bool,
-) -> Block {
+) -> Arc<Block> {
     let name = match fname {
         Some(fname) => {
             // use the canonical name for this filename
@@ -6246,7 +6249,7 @@ pub fn parse(
                 working_set.error(err)
             }
 
-            parse_block(working_set, &output, new_span, scoped, false)
+            Arc::new(parse_block(working_set, &output, new_span, scoped, false))
         }
     };
 
@@ -6261,7 +6264,10 @@ pub fn parse(
         &mut seen_blocks,
         &mut captures,
     ) {
-        Ok(_) => output.captures = captures.into_iter().map(|(var_id, _)| var_id).collect(),
+        Ok(_) => {
+            Arc::make_mut(&mut output).captures =
+                captures.into_iter().map(|(var_id, _)| var_id).collect();
+        }
         Err(err) => working_set.error(err),
     }
 

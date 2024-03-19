@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::Write;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
+use std::sync::Arc;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
@@ -210,7 +211,7 @@ pub(crate) fn setup_config(
         eprintln!(
             "A panic occurred while reading configuration files, using default configuration."
         );
-        engine_state.config = Config::default()
+        engine_state.config = Arc::new(Config::default())
     }
 }
 

@@ -64,23 +64,29 @@ impl Clone for IsDebugging {
 /// will refer to the corresponding IDs rather than their definitions directly. At runtime, this means
 /// less copying and smaller structures.
 ///
+/// Many of the larger objects in this structure are stored within `Arc` to decrease the cost of
+/// cloning `EngineState`. While `Arc`s are generally immutable, they can be modified using
+/// `Arc::make_mut`, which automatically clones to a new allocation if there are other copies of
+/// the `Arc` already in use, but will let us modify the `Arc` directly if we have the only
+/// reference to it.
+///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
 #[derive(Clone)]
 pub struct EngineState {
-    files: Vec<(String, usize, usize)>,
-    file_contents: Vec<(Vec<u8>, usize, usize)>,
+    files: Vec<(Arc<String>, usize, usize)>,
+    file_contents: Vec<(Arc<Vec<u8>>, usize, usize)>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
-    decls: Vec<Box<dyn Command + 'static>>,
-    pub(super) blocks: Vec<Block>,
-    pub(super) modules: Vec<Module>,
+    decls: Arc<Vec<Box<dyn Command + 'static>>>,
+    pub(super) blocks: Vec<Arc<Block>>,
+    pub(super) modules: Vec<Arc<Module>>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub env_vars: EnvVars,
-    pub previous_env_vars: HashMap<String, Value>,
-    pub config: Config,
+    pub env_vars: Arc<EnvVars>,
+    pub previous_env_vars: Arc<HashMap<String, Value>>,
+    pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
@@ -122,9 +128,11 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
-            decls: vec![],
+            decls: Arc::new(vec![]),
             blocks: vec![],
-            modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
+            modules: vec![Arc::new(Module::new(
+                DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
+            ))],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -133,11 +141,13 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
-                .into_iter()
-                .collect(),
-            previous_env_vars: HashMap::new(),
-            config: Config::default(),
+            env_vars: Arc::new(
+                [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+                    .into_iter()
+                    .collect(),
+            ),
+            previous_env_vars: Arc::new(HashMap::new()),
+            config: Arc::new(Config::default()),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
@@ -175,11 +185,15 @@ impl EngineState {
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
         self.virtual_paths.extend(delta.virtual_paths);
-        self.decls.extend(delta.decls);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
         self.usage.merge_with(delta.usage);
+
+        // Avoid potentially cloning the Arc if we aren't adding anything
+        if !delta.decls.is_empty() {
+            Arc::make_mut(&mut self.decls).extend(delta.decls);
+        }
 
         let first = delta.scope.remove(0);
 
@@ -268,7 +282,7 @@ impl EngineState {
 
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
-                if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
                         if k == "config" {
@@ -276,7 +290,7 @@ impl EngineState {
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
                             let (config, error) = new_record.into_config(&self.config);
-                            self.config = config;
+                            self.config = Arc::new(config);
                             config_updated = true;
                             env_vars.insert(k, new_record);
                             if let Some(e) = error {
@@ -288,7 +302,7 @@ impl EngineState {
                     }
                 } else {
                     // Pushing a new overlay
-                    self.env_vars.insert(overlay_name, env);
+                    Arc::make_mut(&mut self.env_vars).insert(overlay_name, env);
                 }
             }
         }
@@ -422,10 +436,10 @@ impl EngineState {
     pub fn add_env_var(&mut self, name: String, val: Value) {
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
-        if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+        if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
             env_vars.insert(name, val);
         } else {
-            self.env_vars
+            Arc::make_mut(&mut self.env_vars)
                 .insert(overlay_name, [(name, val)].into_iter().collect());
         }
     }
@@ -752,7 +766,7 @@ impl EngineState {
             self.update_plugin_gc_configs(&conf.plugin_gc);
         }
 
-        self.config = conf;
+        self.config = Arc::new(conf);
     }
 
     /// Fetch the configuration for a plugin
@@ -867,7 +881,7 @@ impl EngineState {
             .collect()
     }
 
-    pub fn get_block(&self, block_id: BlockId) -> &Block {
+    pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         self.blocks
             .get(block_id)
             .expect("internal error: missing block")
@@ -878,7 +892,7 @@ impl EngineState {
     /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
     /// compiler error. This only exists to stop plugins from crashing the engine if they send us
     /// something invalid.
-    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Block> {
+    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id)
     }
 
@@ -902,7 +916,7 @@ impl EngineState {
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
+    pub fn files(&self) -> impl Iterator<Item = &(Arc<String>, usize, usize)> {
         self.files.iter()
     }
 
@@ -911,9 +925,10 @@ impl EngineState {
         let next_span_end = next_span_start + contents.len();
 
         self.file_contents
-            .push((contents, next_span_start, next_span_end));
+            .push((Arc::new(contents), next_span_start, next_span_end));
 
-        self.files.push((filename, next_span_start, next_span_end));
+        self.files
+            .push((Arc::new(filename), next_span_start, next_span_end));
 
         self.num_files() - 1
     }
@@ -953,7 +968,7 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
+    pub fn get_file_contents(&self) -> &[(Arc<Vec<u8>>, usize, usize)] {
         &self.file_contents
     }
 
@@ -1051,8 +1066,8 @@ mod engine_state_tests {
         engine_state.merge_delta(delta)?;
 
         assert_eq!(engine_state.num_files(), 2);
-        assert_eq!(&engine_state.files[0].0, "test.nu");
-        assert_eq!(&engine_state.files[1].0, "child.nu");
+        assert_eq!(&*engine_state.files[0].0, "test.nu");
+        assert_eq!(&*engine_state.files[1].0, "child.nu");
 
         Ok(())
     }

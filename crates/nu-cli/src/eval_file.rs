@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::util::eval_source;
 use log::info;
 use log::trace;
@@ -117,7 +119,7 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    for block in &mut working_set.delta.blocks {
+    for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
         } else if block.signature.name.starts_with("main ") {

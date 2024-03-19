@@ -31,7 +31,7 @@ impl CustomValue for DropCheckValue {
         self.clone().into_value(span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         "DropCheckValue".into()
     }
 
