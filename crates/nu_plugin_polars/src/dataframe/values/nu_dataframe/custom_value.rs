@@ -20,15 +20,13 @@ impl TryFrom<&NuDataFrameCustomValue> for NuDataFrame {
         if let Some(df) = &value.dataframe {
             Ok(df.clone())
         } else {
-            DataFrameCache::instance()
-                .get_df(&value.id)
-                .ok_or_else(|| ShellError::GenericError {
-                    error: format!("Dataframe {:?} not found in cache", value.id),
-                    msg: "".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                })
+            DataFrameCache::get_df(&value.id)?.ok_or_else(|| ShellError::GenericError {
+                error: format!("Dataframe {:?} not found in cache", value.id),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
         }
     }
 }

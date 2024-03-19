@@ -19,15 +19,13 @@ impl TryFrom<&NuLazyFrameCustomValue> for NuLazyFrame {
         if let Some(lf) = &value.lazyframe {
             Ok(lf.clone())
         } else {
-            DataFrameCache::instance()
-                .get_lazy(&value.id)
-                .ok_or_else(|| ShellError::GenericError {
-                    error: format!("LazyFrame {:?} not found in cache", value.id),
-                    msg: "".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                })
+            DataFrameCache::get_lazy(&value.id)?.ok_or_else(|| ShellError::GenericError {
+                error: format!("LazyFrame {:?} not found in cache", value.id),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
         }
     }
 }

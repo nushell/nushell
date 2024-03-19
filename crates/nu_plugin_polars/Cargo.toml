@@ -36,7 +36,6 @@ polars-ops = { version = "0.37"}
 polars-plan = { version = "0.37", features = ["regex"]}
 polars-utils = { version = "0.37"}
 typetag = "0.2"
-dashmap = "5.5"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 lazy_static = "1.4"
 

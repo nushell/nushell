@@ -178,8 +178,7 @@ impl NuLazyFrame {
         Self::new(self.from_eager, new_frame)
     }
 
-    pub fn insert_cache(self) -> Self {
-        DataFrameCache::instance().insert_lazy(self.clone());
-        self
+    pub fn insert_cache(self) -> Result<Self, ShellError> {
+        DataFrameCache::insert_lazy(self.clone()).map(|_| self)
     }
 }

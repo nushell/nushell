@@ -118,8 +118,7 @@ impl NuLazyGroupBy {
         Self::try_from_value(value)
     }
 
-    pub fn insert_cache(self) -> Self {
-        DataFrameCache::instance().insert_group_by(self.clone());
-        self
+    pub fn insert_cache(self) -> Result<Self, ShellError> {
+        DataFrameCache::insert_group_by(self.clone()).map(|_| self)
     }
 }

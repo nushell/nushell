@@ -3214,7 +3214,6 @@ version = "0.91.1"
 dependencies = [
  "chrono",
  "chrono-tz",
- "dashmap",
  "fancy-regex",
  "indexmap",
  "lazy_static",

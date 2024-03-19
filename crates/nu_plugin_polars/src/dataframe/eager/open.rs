@@ -164,7 +164,7 @@ fn from_parquet(
             })?
             .into();
 
-        df.insert_cache().into_value(call.head)
+        df.insert_cache()?.into_value(call.head)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -194,7 +194,7 @@ fn from_parquet(
             })?
             .into();
 
-        Ok(df.insert_cache().into_value(call.head))
+        Ok(df.insert_cache()?.into_value(call.head))
     }
 }
 
@@ -230,7 +230,7 @@ fn from_avro(
         })?
         .into();
 
-    Ok(df.insert_cache().into_value(call.head))
+    Ok(df.insert_cache()?.into_value(call.head))
 }
 
 fn from_ipc(
@@ -257,7 +257,7 @@ fn from_ipc(
             })?
             .into();
 
-        df.insert_cache().into_value(call.head)
+        df.insert_cache()?.into_value(call.head)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -287,7 +287,7 @@ fn from_ipc(
             })?
             .into();
 
-        Ok(df.insert_cache().into_value(call.head))
+        Ok(df.insert_cache()?.into_value(call.head))
     }
 }
 
@@ -327,7 +327,7 @@ fn from_json(
         })?
         .into();
 
-    Ok(df.insert_cache().into_value(call.head))
+    Ok(df.insert_cache()?.into_value(call.head))
 }
 
 fn from_jsonl(
@@ -369,7 +369,7 @@ fn from_jsonl(
         })?
         .into();
 
-    Ok(df.insert_cache().into_value(call.head))
+    Ok(df.insert_cache()?.into_value(call.head))
 }
 
 fn from_csv(
@@ -440,7 +440,7 @@ fn from_csv(
             })?
             .into();
 
-        df.insert_cache().into_value(call.head)
+        df.insert_cache()?.into_value(call.head)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let csv_reader = CsvReader::from_path(&file.item)
@@ -507,6 +507,6 @@ fn from_csv(
             })?
             .into();
 
-        Ok(df.insert_cache().into_value(call.head))
+        Ok(df.insert_cache()?.into_value(call.head))
     }
 }

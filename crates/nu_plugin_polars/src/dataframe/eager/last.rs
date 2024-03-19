@@ -87,7 +87,7 @@ fn command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineData, ShellE
     let res = df.as_ref().tail(Some(rows));
     let res = NuDataFrame::new(false, res);
     Ok(PipelineData::Value(
-        res.insert_cache().into_value(call.head),
+        res.insert_cache()?.into_value(call.head),
         None,
     ))
 }

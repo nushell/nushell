@@ -528,9 +528,8 @@ impl NuDataFrame {
         NuSchema::new(self.df.schema())
     }
 
-    pub fn insert_cache(self) -> Self {
-        DataFrameCache::instance().insert_df(self.clone());
-        self
+    pub fn insert_cache(self) -> Result<Self, ShellError> {
+        DataFrameCache::insert_df(self.clone()).map(|_| self)
     }
 }
 

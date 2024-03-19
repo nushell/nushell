@@ -1,4 +1,3 @@
-use dashmap::DashMap;
 use dataframe::values::{
     NuDataFrame, NuDataFrameCustomValue, NuLazyFrame, NuLazyFrameCustomValue, NuLazyGroupBy,
 };
@@ -7,8 +6,8 @@ use nu_plugin::{EngineInterface, LabeledError, Plugin, PluginCommand};
 
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::CustomValue;
-use std::sync::Arc;
+use nu_protocol::{CustomValue, ShellError};
+use std::{collections::BTreeMap, sync::Mutex};
 use uuid::Uuid;
 
 use crate::{
@@ -17,86 +16,104 @@ use crate::{
 };
 
 lazy_static! {
-    static ref DATAFRAME_CACHE: Arc<DataFrameCache> = Arc::new(DataFrameCache::new());
+    static ref CACHE: Mutex<BTreeMap<Uuid, CacheValue>> = Mutex::new(BTreeMap::new());
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum CacheValue {
     DataFrame(NuDataFrame),
     LazyFrame(NuLazyFrame),
     LazyGroupBy(NuLazyGroupBy),
 }
 
-pub(crate) struct DataFrameCache {
-    internal: DashMap<Uuid, CacheValue>,
-}
+pub(crate) struct DataFrameCache;
 
 impl DataFrameCache {
-    fn new() -> Self {
-        Self {
-            internal: DashMap::new(),
-        }
+    pub(crate) fn remove(uuid: &Uuid) -> Result<Option<CacheValue>, ShellError> {
+        let mut lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
+            error: format!("error removing id {uuid} from cache: {e}"),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
+        Ok(lock.remove(uuid))
     }
 
-    pub(crate) fn remove(&self, uuid: &Uuid) -> Option<CacheValue> {
-        self.internal.remove(uuid).map(|(_, v)| v)
+    fn insert(uuid: Uuid, value: CacheValue) -> Result<Option<CacheValue>, ShellError> {
+        let mut lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
+            error: format!("error inserting id {uuid} into cache: {e}"),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
+        Ok(lock.insert(uuid, value))
     }
 
-    pub(crate) fn insert_df(&self, df: NuDataFrame) {
+    fn get(uuid: &Uuid) -> Result<Option<CacheValue>, ShellError> {
+        let lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
+            error: format!("error getting id {uuid} from cache: {e}"),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
+        Ok(lock.get(uuid).cloned())
+    }
+
+    pub(crate) fn insert_df(df: NuDataFrame) -> Result<(), ShellError> {
         eprintln!("Adding dataframe to cache: {:?}", df.id);
-        let _ = self.internal.insert(df.id, CacheValue::DataFrame(df));
+        Self::insert(df.id, CacheValue::DataFrame(df)).map(|_| ())
     }
 
-    pub(crate) fn get_df(&self, uuid: &Uuid) -> Option<NuDataFrame> {
-        if let Some(get) = self.internal.get(uuid) {
-            if let CacheValue::DataFrame(df) = get.value() {
-                Some(df.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    pub(crate) fn get_df(uuid: &Uuid) -> Result<Option<NuDataFrame>, ShellError> {
+        Self::get(uuid).and_then(|get| match get {
+            Some(CacheValue::DataFrame(df)) => Ok(Some(df)),
+            _ => Err(ShellError::GenericError {
+                error: format!("Cache value {uuid} is not a NuDataFrame"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        })
     }
 
-    pub(crate) fn insert_lazy(&self, lazy: NuLazyFrame) {
+    pub(crate) fn insert_lazy(lazy: NuLazyFrame) -> Result<(), ShellError> {
         eprintln!("Adding lazy dataframe to cache: {:?}", lazy.id);
-        let _ = self.internal.insert(lazy.id, CacheValue::LazyFrame(lazy));
+        Self::insert(lazy.id, CacheValue::LazyFrame(lazy)).map(|_| ())
     }
 
-    pub(crate) fn get_lazy(&self, uuid: &Uuid) -> Option<NuLazyFrame> {
-        if let Some(get) = self.internal.get(uuid) {
-            if let CacheValue::LazyFrame(df) = get.value() {
-                Some(df.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    pub(crate) fn get_lazy(uuid: &Uuid) -> Result<Option<NuLazyFrame>, ShellError> {
+        Self::get(uuid).and_then(|get| match get {
+            Some(CacheValue::LazyFrame(df)) => Ok(Some(df)),
+            _ => Err(ShellError::GenericError {
+                error: format!("Cache value {uuid} is not a NuLazyFrame"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        })
     }
 
-    pub(crate) fn insert_group_by(&self, group_by: NuLazyGroupBy) {
+    pub(crate) fn insert_group_by(group_by: NuLazyGroupBy) -> Result<(), ShellError> {
         eprintln!("Adding lazy groupby to cache: {:?}", group_by.id);
-        let _ = self
-            .internal
-            .insert(group_by.id, CacheValue::LazyGroupBy(group_by));
+        Self::insert(group_by.id, CacheValue::LazyGroupBy(group_by)).map(|_| ())
     }
 
-    pub(crate) fn get_group_by(&self, uuid: &Uuid) -> Option<NuLazyGroupBy> {
-        if let Some(get) = self.internal.get(uuid) {
-            if let CacheValue::LazyGroupBy(df) = get.value() {
-                Some(df.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    pub fn instance() -> Arc<DataFrameCache> {
-        Arc::clone(&DATAFRAME_CACHE)
+    pub(crate) fn get_group_by(uuid: &Uuid) -> Result<Option<NuLazyGroupBy>, ShellError> {
+        Self::get(uuid).and_then(|get| match get {
+            Some(CacheValue::LazyGroupBy(df)) => Ok(Some(df)),
+            _ => Err(ShellError::GenericError {
+                error: format!("Cache value {uuid} is not a LazyGroupBy"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        })
     }
 }
 
@@ -125,16 +142,23 @@ impl Plugin for PolarsDataFramePlugin {
     ) -> Result<(), LabeledError> {
         let any = custom_value.as_any();
 
-        if let Some(df) = any.downcast_ref::<NuDataFrameCustomValue>() {
+        let maybe_id = if let Some(df) = any.downcast_ref::<NuDataFrameCustomValue>() {
             eprintln!("removing DataFrame id: {:?} from cache", df.id);
-            DATAFRAME_CACHE.remove(&df.id);
+            Some(df.id)
         } else if let Some(lazy) = any.downcast_ref::<NuLazyFrameCustomValue>() {
             eprintln!("removing LazyFrame id: {:?} from cache", lazy.id);
-            DATAFRAME_CACHE.remove(&lazy.id);
-        } else if let Some(lazy) = any.downcast_ref::<NuLazyGroupBy>() {
-            eprintln!("removing GroupBy id: {:?} from cache", lazy.id);
-            DATAFRAME_CACHE.remove(&lazy.id);
+            Some(lazy.id)
+        } else if let Some(gb) = any.downcast_ref::<NuLazyGroupBy>() {
+            eprintln!("removing GroupBy id: {:?} from cache", gb.id);
+            Some(gb.id)
+        } else {
+            None
+        };
+
+        if let Some(ref id) = maybe_id {
+            let _ = DataFrameCache::remove(id).map_err(|e: ShellError| LabeledError::from(e))?;
         }
+
         Ok(())
     }
 }
