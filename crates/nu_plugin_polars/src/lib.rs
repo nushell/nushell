@@ -29,7 +29,10 @@ pub(crate) enum CacheValue {
 pub(crate) struct DataFrameCache;
 
 impl DataFrameCache {
-    pub(crate) fn remove(uuid: &Uuid) -> Result<Option<CacheValue>, ShellError> {
+    pub(crate) fn remove(
+        engine: &EngineInterface,
+        uuid: &Uuid,
+    ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
             error: format!("error removing id {uuid} from cache: {e}"),
             msg: "".into(),
@@ -37,10 +40,20 @@ impl DataFrameCache {
             help: None,
             inner: vec![],
         })?;
-        Ok(lock.remove(uuid))
+        let removed = lock.remove(uuid);
+        // Once there are no more entries in the cache
+        // we can turn plugin gc back on
+        if lock.is_empty() {
+            engine.set_gc_disabled(false).map_err(LabeledError::from)?;
+        }
+        Ok(removed)
     }
 
-    fn insert(uuid: Uuid, value: CacheValue) -> Result<Option<CacheValue>, ShellError> {
+    fn insert(
+        engine: &EngineInterface,
+        uuid: Uuid,
+        value: CacheValue,
+    ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
             error: format!("error inserting id {uuid} into cache: {e}"),
             msg: "".into(),
@@ -48,6 +61,12 @@ impl DataFrameCache {
             help: None,
             inner: vec![],
         })?;
+        // turn off plugin gc the first time an entry is added to the cache
+        // as we don't want the plugin to be garbage collected if there
+        // is any live data
+        if lock.is_empty() {
+            engine.set_gc_disabled(true).map_err(LabeledError::from)?;
+        }
         Ok(lock.insert(uuid, value))
     }
 
@@ -62,9 +81,9 @@ impl DataFrameCache {
         Ok(lock.get(uuid).cloned())
     }
 
-    pub(crate) fn insert_df(df: NuDataFrame) -> Result<(), ShellError> {
+    pub(crate) fn insert_df(engine: &EngineInterface, df: NuDataFrame) -> Result<(), ShellError> {
         eprintln!("Adding dataframe to cache: {:?}", df.id);
-        Self::insert(df.id, CacheValue::DataFrame(df)).map(|_| ())
+        Self::insert(engine, df.id, CacheValue::DataFrame(df)).map(|_| ())
     }
 
     pub(crate) fn get_df(uuid: &Uuid) -> Result<Option<NuDataFrame>, ShellError> {
@@ -80,9 +99,12 @@ impl DataFrameCache {
         })
     }
 
-    pub(crate) fn insert_lazy(lazy: NuLazyFrame) -> Result<(), ShellError> {
+    pub(crate) fn insert_lazy(
+        engine: &EngineInterface,
+        lazy: NuLazyFrame,
+    ) -> Result<(), ShellError> {
         eprintln!("Adding lazy dataframe to cache: {:?}", lazy.id);
-        Self::insert(lazy.id, CacheValue::LazyFrame(lazy)).map(|_| ())
+        Self::insert(engine, lazy.id, CacheValue::LazyFrame(lazy)).map(|_| ())
     }
 
     pub(crate) fn get_lazy(uuid: &Uuid) -> Result<Option<NuLazyFrame>, ShellError> {
@@ -98,9 +120,12 @@ impl DataFrameCache {
         })
     }
 
-    pub(crate) fn insert_group_by(group_by: NuLazyGroupBy) -> Result<(), ShellError> {
+    pub(crate) fn insert_group_by(
+        engine: &EngineInterface,
+        group_by: NuLazyGroupBy,
+    ) -> Result<(), ShellError> {
         eprintln!("Adding lazy groupby to cache: {:?}", group_by.id);
-        Self::insert(group_by.id, CacheValue::LazyGroupBy(group_by)).map(|_| ())
+        Self::insert(engine, group_by.id, CacheValue::LazyGroupBy(group_by)).map(|_| ())
     }
 
     pub(crate) fn get_group_by(uuid: &Uuid) -> Result<Option<NuLazyGroupBy>, ShellError> {
@@ -137,7 +162,7 @@ impl Plugin for PolarsDataFramePlugin {
 
     fn custom_value_dropped(
         &self,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
         let any = custom_value.as_any();
@@ -156,7 +181,8 @@ impl Plugin for PolarsDataFramePlugin {
         };
 
         if let Some(ref id) = maybe_id {
-            let _ = DataFrameCache::remove(id).map_err(|e: ShellError| LabeledError::from(e))?;
+            let _ = DataFrameCache::remove(engine, id)
+                .map_err(|e: ShellError| LabeledError::from(e))?;
         }
 
         Ok(())

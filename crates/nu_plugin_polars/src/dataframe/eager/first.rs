@@ -84,14 +84,14 @@ impl PluginCommand for FirstDF {
     fn run(
         &self,
         _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
         if NuDataFrame::can_downcast(&value) {
             let df = NuDataFrame::try_from_value(value)?;
-            command(call, df).map_err(|e| e.into())
+            command(engine, call, df).map_err(|e| e.into())
         } else {
             let expr = NuExpression::try_from_value(value)?;
             let expr: NuExpression = expr.into_polars().first().into();
@@ -104,7 +104,11 @@ impl PluginCommand for FirstDF {
     }
 }
 
-fn command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineData, ShellError> {
+fn command(
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.opt(0)?;
     let rows = rows.unwrap_or(1);
 
@@ -112,7 +116,7 @@ fn command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineData, ShellE
     let res = NuDataFrame::new(false, res);
 
     Ok(PipelineData::Value(
-        res.insert_cache()?.into_value(call.head),
+        res.insert_cache(engine)?.into_value(call.head),
         None,
     ))
 }

@@ -1,6 +1,7 @@
 mod custom_value;
 
 use core::fmt;
+use nu_plugin::EngineInterface;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use polars::prelude::{LazyGroupBy, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -118,7 +119,7 @@ impl NuLazyGroupBy {
         Self::try_from_value(value)
     }
 
-    pub fn insert_cache(self) -> Result<Self, ShellError> {
-        DataFrameCache::insert_group_by(self.clone()).map(|_| self)
+    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
+        DataFrameCache::insert_group_by(engine, self.clone()).map(|_| self)
     }
 }

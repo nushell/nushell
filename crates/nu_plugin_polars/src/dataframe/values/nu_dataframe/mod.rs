@@ -4,6 +4,7 @@ mod custom_value;
 mod operations;
 
 pub use conversion::{Column, ColumnMap};
+use nu_plugin::EngineInterface;
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
@@ -528,8 +529,8 @@ impl NuDataFrame {
         NuSchema::new(self.df.schema())
     }
 
-    pub fn insert_cache(self) -> Result<Self, ShellError> {
-        DataFrameCache::insert_df(self.clone()).map(|_| self)
+    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
+        DataFrameCache::insert_df(engine, self.clone()).map(|_| self)
     }
 }
 

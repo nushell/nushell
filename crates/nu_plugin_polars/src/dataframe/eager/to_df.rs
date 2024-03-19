@@ -35,7 +35,7 @@ impl PluginCommand for ToDataFrame {
     fn run(
         &self,
         _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
@@ -47,7 +47,7 @@ impl PluginCommand for ToDataFrame {
         let df = NuDataFrame::try_from_iter(input.into_iter(), maybe_schema.clone())?;
 
         Ok(PipelineData::Value(
-            df.insert_cache()?.into_value(call.head),
+            df.insert_cache(engine)?.into_value(call.head),
             None,
         ))
     }

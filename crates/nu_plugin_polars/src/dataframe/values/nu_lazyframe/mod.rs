@@ -4,6 +4,7 @@ use crate::DataFrameCache;
 
 use super::{NuDataFrame, NuExpression};
 use core::fmt;
+use nu_plugin::EngineInterface;
 use nu_protocol::{record, PipelineData, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
 use uuid::Uuid;
@@ -178,7 +179,7 @@ impl NuLazyFrame {
         Self::new(self.from_eager, new_frame)
     }
 
-    pub fn insert_cache(self) -> Result<Self, ShellError> {
-        DataFrameCache::insert_lazy(self.clone()).map(|_| self)
+    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
+        DataFrameCache::insert_lazy(engine, self.clone()).map(|_| self)
     }
 }
