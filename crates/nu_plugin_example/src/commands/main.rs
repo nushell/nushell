@@ -35,7 +35,7 @@ particularly useful.
         Err(LabeledError {
             label: "No subcommand provided".into(),
             msg: "add --help to see a list of subcommands".into(),
-            span: Some(call.head.past()),
+            span: Some(call.head),
         })
     }
 }
