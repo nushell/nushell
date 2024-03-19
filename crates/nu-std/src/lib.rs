@@ -94,14 +94,7 @@ use std pwd
     let mut stack = Stack::new();
     let pipeline_data = PipelineData::Empty;
 
-    eval_block::<WithoutDebug>(
-        engine_state,
-        &mut stack,
-        &block,
-        pipeline_data,
-        false,
-        false,
-    )?;
+    eval_block::<WithoutDebug>(engine_state, &mut stack, &block, pipeline_data)?;
 
     let cwd = current_dir(engine_state, &stack)?;
     engine_state.merge_env(&mut stack, cwd)?;

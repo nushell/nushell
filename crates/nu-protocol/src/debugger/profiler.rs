@@ -142,19 +142,14 @@ impl Debugger for Profiler {
         };
 
         let expr_opt = if self.collect_exprs {
-            Some(match element {
-                PipelineElement::Expression(_, expression) => {
-                    expr_to_string(engine_state, &expression.expr)
-                }
-                _ => "other".to_string(),
-            })
+            Some(expr_to_string(engine_state, &element.expr.expr))
         } else {
             None
         };
 
         let new_id = ElementId(self.elements.len());
 
-        let mut new_element = ElementInfo::new(self.depth, element.span());
+        let mut new_element = ElementInfo::new(self.depth, element.expr.span);
         new_element.expr = expr_opt;
 
         self.elements.push(new_element);
@@ -178,7 +173,7 @@ impl Debugger for Profiler {
             return;
         }
 
-        let element_span = element.span();
+        let element_span = element.expr.span;
 
         let out_opt = if self.collect_values {
             Some(match result {
@@ -250,7 +245,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Closure(_) => "closure".to_string(),
         Expr::DateTime(_) => "datetime".to_string(),
         Expr::Directory(_, _) => "directory".to_string(),
-        Expr::ExternalCall(_, _, _) => "external call".to_string(),
+        Expr::ExternalCall(_, _) => "external call".to_string(),
         Expr::Filepath(_, _) => "filepath".to_string(),
         Expr::Float(_) => "float".to_string(),
         Expr::FullCellPath(full_cell_path) => {

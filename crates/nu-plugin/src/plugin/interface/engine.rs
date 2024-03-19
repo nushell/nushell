@@ -406,10 +406,20 @@ impl EngineInterface {
     }
 
     /// Write a call response of plugin signatures.
+    ///
+    /// Any custom values in the examples will be rendered using `to_base_value()`.
     pub(crate) fn write_signature(
         &self,
-        signature: Vec<PluginSignature>,
+        mut signature: Vec<PluginSignature>,
     ) -> Result<(), ShellError> {
+        // Render any custom values in the examples to plain values so that the engine doesn't
+        // have to keep custom values around just to render the help pages.
+        for sig in signature.iter_mut() {
+            for value in sig.examples.iter_mut().flat_map(|e| e.result.as_mut()) {
+                PluginCustomValue::render_to_base_value_in(value)?;
+            }
+        }
+
         let response = PluginCallResponse::Signature(signature);
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
@@ -458,6 +468,9 @@ impl EngineInterface {
             EngineCall::GetEnvVar(name) => (EngineCall::GetEnvVar(name), Default::default()),
             EngineCall::GetEnvVars => (EngineCall::GetEnvVars, Default::default()),
             EngineCall::GetCurrentDir => (EngineCall::GetCurrentDir, Default::default()),
+            EngineCall::AddEnvVar(name, value) => {
+                (EngineCall::AddEnvVar(name, value), Default::default())
+            }
         };
 
         // Register the channel
@@ -618,6 +631,30 @@ impl EngineInterface {
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::GetEnvVars".into(),
+            }),
+        }
+    }
+
+    /// Set an environment variable in the caller's scope.
+    ///
+    /// If called after the plugin response has already been sent (i.e. during a stream), this will
+    /// only affect the environment for engine calls related to this plugin call, and will not be
+    /// propagated to the environment of the caller.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface) -> Result<(), ShellError> {
+    /// engine.add_env_var("FOO", Value::test_string("bar"))
+    /// # }
+    /// ```
+    pub fn add_env_var(&self, name: impl Into<String>, value: Value) -> Result<(), ShellError> {
+        match self.engine_call(EngineCall::AddEnvVar(name.into(), value))? {
+            EngineCallResponse::PipelineData(_) => Ok(()),
+            EngineCallResponse::Error(err) => Err(err),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::AddEnvVar".into(),
             }),
         }
     }

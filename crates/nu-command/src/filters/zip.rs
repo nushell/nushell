@@ -30,7 +30,11 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required("other", SyntaxShape::Any, "The other input.")
+            .required(
+                "other",
+                SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::Closure(Some(vec![]))]),
+                "The other input, or closure returning a stream.",
+            )
             .category(Category::Filters)
     }
 
@@ -109,14 +113,7 @@ impl Command for Zip {
             Value::Closure { val, .. } => {
                 let block = engine_state.get_block(val.block_id);
                 let mut stack = stack.captures_to_stack(val.captures);
-                eval_block_with_early_return(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::Empty,
-                    true,
-                    false,
-                )?
+                eval_block_with_early_return(engine_state, &mut stack, block, PipelineData::Empty)?
             }
             // If any other value, use it as-is.
             val => val.into_pipeline_data(),

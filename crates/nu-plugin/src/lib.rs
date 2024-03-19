@@ -16,18 +16,29 @@
 //! invoked by Nushell.
 //!
 //! ```rust,no_run
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, EngineInterface, serve_plugin};
+//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, serve_plugin};
+//! use nu_plugin::{Plugin, PluginCommand, SimplePluginCommand, EngineInterface};
 //! use nu_protocol::{PluginSignature, Value};
 //!
 //! struct MyPlugin;
+//! struct MyCommand;
 //!
 //! impl Plugin for MyPlugin {
-//!     fn signature(&self) -> Vec<PluginSignature> {
+//!     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+//!         vec![Box::new(MyCommand)]
+//!     }
+//! }
+//!
+//! impl SimplePluginCommand for MyCommand {
+//!     type Plugin = MyPlugin;
+//!
+//!     fn signature(&self) -> PluginSignature {
 //!         todo!();
 //!     }
+//!
 //!     fn run(
 //!         &self,
-//!         name: &str,
+//!         plugin: &MyPlugin,
 //!         engine: &EngineInterface,
 //!         call: &EvaluatedCall,
 //!         input: &Value
@@ -48,8 +59,11 @@ mod plugin;
 mod protocol;
 mod sequence;
 mod serializers;
+mod util;
 
-pub use plugin::{serve_plugin, EngineInterface, Plugin, PluginEncoder, StreamingPlugin};
+pub use plugin::{
+    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
+};
 pub use protocol::{EvaluatedCall, LabeledError};
 pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 

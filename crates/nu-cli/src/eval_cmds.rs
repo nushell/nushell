@@ -56,27 +56,21 @@ pub fn evaluate_commands(
     }
 
     // Run the block
-    let exit_code =
-        match eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false) {
-            Ok(pipeline_data) => {
-                let mut config = engine_state.get_config().clone();
-                if let Some(t_mode) = table_mode {
-                    config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
-                }
-                crate::eval_file::print_table_or_error(
-                    engine_state,
-                    stack,
-                    pipeline_data,
-                    &mut config,
-                )
+    let exit_code = match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+        Ok(pipeline_data) => {
+            let mut config = engine_state.get_config().clone();
+            if let Some(t_mode) = table_mode {
+                config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
             }
-            Err(err) => {
-                let working_set = StateWorkingSet::new(engine_state);
+            crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
+        }
+        Err(err) => {
+            let working_set = StateWorkingSet::new(engine_state);
 
-                report_error(&working_set, &err);
-                std::process::exit(1);
-            }
-        };
+            report_error(&working_set, &err);
+            std::process::exit(1);
+        }
+    };
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 

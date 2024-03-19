@@ -1,4 +1,4 @@
-use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
+use crate::{ast::Call, Alias, BlockId, Example, IoStream, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
 
@@ -132,6 +132,10 @@ pub trait Command: Send + Sync + CommandClone {
             (true, false, false, false, false, true) => CommandType::Plugin,
             _ => CommandType::Other,
         }
+    }
+
+    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+        (None, None)
     }
 }
 

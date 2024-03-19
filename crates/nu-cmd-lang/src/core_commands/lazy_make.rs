@@ -86,10 +86,12 @@ impl Command for LazyMake {
             }
         }
 
+        let stack = stack.clone().reset_stdio().capture();
+
         Ok(Value::lazy_record(
             Box::new(NuLazyRecord {
                 engine_state: engine_state.clone(),
-                stack: Arc::new(Mutex::new(stack.clone())),
+                stack: Arc::new(Mutex::new(stack)),
                 columns: columns.into_iter().map(|s| s.item).collect(),
                 get_value,
                 span,
@@ -152,8 +154,6 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
             &mut stack,
             block,
             PipelineData::Value(column_value, None),
-            false,
-            false,
         );
 
         pipeline_result.map(|data| match data {

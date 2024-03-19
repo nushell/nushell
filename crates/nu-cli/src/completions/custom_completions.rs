@@ -25,7 +25,7 @@ impl CustomCompletion {
     pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
             engine_state,
-            stack,
+            stack: stack.reset_stdio().capture(),
             decl_id,
             line,
             sort_by: SortBy::None,
@@ -67,8 +67,6 @@ impl Completer for CustomCompletion {
                         custom_completion: None,
                     }),
                 ],
-                redirect_stdout: true,
-                redirect_stderr: true,
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),

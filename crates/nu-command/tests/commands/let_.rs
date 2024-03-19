@@ -65,9 +65,7 @@ fn let_err_pipeline_redirects_externals() {
     let actual = nu!(
         r#"let x = with-env [FOO "foo"] {nu --testbin echo_env_stderr FOO e>| str length}; $x"#
     );
-
-    // have an extra \n, so length is 4.
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "3");
 }
 
 #[test]
@@ -75,9 +73,7 @@ fn let_outerr_pipeline_redirects_externals() {
     let actual = nu!(
         r#"let x = with-env [FOO "foo"] {nu --testbin echo_env_stderr FOO o+e>| str length}; $x"#
     );
-
-    // have an extra \n, so length is 4.
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "3");
 }
 
 #[ignore]

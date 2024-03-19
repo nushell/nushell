@@ -140,8 +140,6 @@ fn rename(
         }
         None => None,
     };
-    let redirect_stdout = call.redirect_stdout;
-    let redirect_stderr = call.redirect_stderr;
     let block_info =
         if let Some(capture_block) = call.get_flag::<Closure>(engine_state, stack, "block")? {
             let engine_state = engine_state.clone();
@@ -185,8 +183,6 @@ fn rename(
                                     &mut stack,
                                     &block,
                                     Value::string(c.clone(), span).into_pipeline_data(),
-                                    redirect_stdout,
-                                    redirect_stderr,
                                 );
 
                                 match eval_result {

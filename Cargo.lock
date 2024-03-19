@@ -774,18 +774,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
-name = "comfy-table"
-version = "7.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c64043d6c7b7a4c58e39e7efccfdea7b93d885a795d0c054a69dbbf4dd52686"
-dependencies = [
- "crossterm",
- "strum 0.25.0",
- "strum_macros 0.25.3",
- "unicode-width",
-]
-
-[[package]]
 name = "compact_str"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2461,12 +2449,13 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "7.1.0"
+version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baed61d13cc3723ee6dbed730a82bfacedc60a85d81da2d77e9c3e8ebc0b504a"
+checksum = "4edc8853320c2a0dab800fbda86253c8938f6ea88510dc92c5f1ed20e794afc1"
 dependencies = [
  "backtrace",
  "backtrace-ext",
+ "cfg-if",
  "miette-derive",
  "owo-colors",
  "supports-color",
@@ -2480,9 +2469,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "7.1.0"
+version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f301c3f54f98abc6c212ee722f5e5c62e472a334415840669e356f04850051ec"
+checksum = "dcf09caffaac8068c346b6df2a7fc27a177fd20b39421a39ce0a211bde679a6c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2951,6 +2940,7 @@ dependencies = [
  "uu_mktemp",
  "uu_mv",
  "uu_whoami",
+ "uucore",
  "uuid",
  "v_htmlescape",
  "wax",
@@ -3097,7 +3087,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "strum 0.26.1",
+ "strum",
  "strum_macros 0.26.1",
  "thiserror",
  "typetag",
@@ -3854,7 +3844,6 @@ dependencies = [
  "bytemuck",
  "chrono",
  "chrono-tz",
- "comfy-table",
  "either",
  "hashbrown 0.14.3",
  "indexmap",
@@ -4466,16 +4455,16 @@ dependencies = [
  "lru",
  "paste",
  "stability",
- "strum 0.26.1",
+ "strum",
  "unicode-segmentation",
  "unicode-width",
 ]
 
 [[package]]
 name = "rayon"
-version = "1.8.1"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa7237101a77a10773db45d62004a272517633fbcc3df19d96455ede1122e051"
+checksum = "e4963ed1bc86e4f3ee217022bd855b297cef07fb9eac5dfa1f788b220b49b3bd"
 dependencies = [
  "either",
  "rayon-core",
@@ -4514,7 +4503,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.30.0"
-source = "git+https://github.com/nushell/reedline?branch=main#0698712701418a7212ebf75d5724d72eccc4b43f"
+source = "git+https://github.com/nushell/reedline?branch=main#dc7063ea4260b7a74ad055f9c34ed14a70333afe"
 dependencies = [
  "arboard",
  "chrono",
@@ -4526,7 +4515,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum 0.26.1",
+ "strum",
  "strum_macros 0.26.1",
  "thiserror",
  "unicode-segmentation",
@@ -5334,12 +5323,6 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "strum"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 
 [[package]]
 name = "strum"

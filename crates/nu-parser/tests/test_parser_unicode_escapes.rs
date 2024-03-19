@@ -1,13 +1,9 @@
 #![cfg(test)]
 
-//use nu_parser::ParseError;
 use nu_parser::*;
 use nu_protocol::{
-    //ast::{Expr, Expression, PipelineElement},
-    ast::{Expr, PipelineElement},
-    //engine::{Command, EngineState, Stack, StateWorkingSet},
+    ast::Expr,
     engine::{EngineState, StateWorkingSet},
-    //Signature, SyntaxShape,
 };
 
 pub fn do_test(test: &[u8], expected: &str, error_contains: Option<&str>) {
@@ -19,13 +15,11 @@ pub fn do_test(test: &[u8], expected: &str, error_contains: Option<&str>) {
     match working_set.parse_errors.first() {
         None => {
             assert_eq!(block.len(), 1);
-            let expressions = &block.pipelines[0];
-            assert_eq!(expressions.len(), 1);
-            if let PipelineElement::Expression(_, expr) = &expressions.elements[0] {
-                assert_eq!(expr.expr, Expr::String(expected.to_string()))
-            } else {
-                panic!("Not an expression")
-            }
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+            assert_eq!(element.expr.expr, Expr::String(expected.to_string()));
         }
         Some(pev) => match error_contains {
             None => {

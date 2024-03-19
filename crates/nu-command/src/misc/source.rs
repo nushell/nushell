@@ -51,14 +51,7 @@ impl Command for Source {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        eval_block_with_early_return(
-            engine_state,
-            stack,
-            &block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        )
+        eval_block_with_early_return(engine_state, stack, &block, input)
     }
 
     fn examples(&self) -> Vec<Example> {

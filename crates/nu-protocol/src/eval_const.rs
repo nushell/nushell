@@ -1,6 +1,6 @@
 use crate::debugger::{DebugContext, WithoutDebug};
 use crate::{
-    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PipelineElement},
+    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
     record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
@@ -54,7 +54,8 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                 |e| e,
                 |mut path| {
                     path.push("config.nu");
-                    Value::string(path.to_string_lossy(), span)
+                    let canon_config_path = canonicalize_path(engine_state, &path);
+                    Value::string(canon_config_path.to_string_lossy(), span)
                 },
             )
         },
@@ -70,7 +71,8 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                 |e| e,
                 |mut path| {
                     path.push("env.nu");
-                    Value::string(path.to_string_lossy(), span)
+                    let canon_env_path = canonicalize_path(engine_state, &path);
+                    Value::string(canon_env_path.to_string_lossy(), span)
                 },
             )
         },
@@ -225,11 +227,11 @@ pub fn eval_const_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for element in pipeline.elements.iter() {
-            let PipelineElement::Expression(_, expr) = element else {
+            if element.redirection.is_some() {
                 return Err(ShellError::NotAConstant { span });
-            };
+            }
 
-            input = eval_constant_with_input(working_set, expr, input)?
+            input = eval_constant_with_input(working_set, &element.expr, input)?
         }
     }
 
@@ -319,7 +321,6 @@ impl Eval for EvalConst {
         _: &mut (),
         _: &Expression,
         _: &[ExternalArgument],
-        _: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: It may be more helpful to give not_a_const_command error

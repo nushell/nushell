@@ -79,7 +79,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// copies of this custom value are dropped in the engine.
     ///
     /// The notification will take place via
-    /// [`.custom_value_dropped()`](crate::StreamingPlugin::custom_value_dropped) on the plugin.
+    /// [`.custom_value_dropped()`](crate::Plugin::custom_value_dropped) on the plugin.
     ///
     /// The default is `false`.
     fn notify_plugin_on_drop(&self) -> bool {

@@ -28,7 +28,7 @@ impl NuMenuCompleter {
         Self {
             block_id,
             span,
-            stack,
+            stack: stack.reset_stdio().capture(),
             engine_state,
             only_buffer_difference,
         }
@@ -57,14 +57,7 @@ impl Completer for NuMenuCompleter {
 
         let input = Value::nothing(self.span).into_pipeline_data();
 
-        let res = eval_block::<WithoutDebug>(
-            &self.engine_state,
-            &mut self.stack,
-            block,
-            input,
-            false,
-            false,
-        );
+        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input);
 
         if let Ok(values) = res {
             let values = values.into_value(self.span);

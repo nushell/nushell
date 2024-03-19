@@ -81,12 +81,11 @@ fn with_env(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    // let external_redirection = args.call_info.args.external_redirection;
     let variable: Value = call.req(engine_state, stack, 0)?;
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(capture_block.captures);
+    let mut stack = stack.captures_to_stack_preserve_stdio(capture_block.captures);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 
@@ -145,14 +144,7 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block::<WithoutDebug>(
-        engine_state,
-        &mut stack,
-        block,
-        input,
-        call.redirect_stdout,
-        call.redirect_stderr,
-    )
+    eval_block::<WithoutDebug>(engine_state, &mut stack, block, input)
 }
 
 #[cfg(test)]

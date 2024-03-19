@@ -217,8 +217,6 @@ impl Command for Watch {
                         stack,
                         &block,
                         Value::nothing(call.span()).into_pipeline_data(),
-                        call.redirect_stdout,
-                        call.redirect_stderr,
                     );
 
                     match eval_result {

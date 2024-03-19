@@ -116,7 +116,7 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input, false, false) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -244,14 +244,7 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block::<WithoutDebug>(
-                            engine_state,
-                            stack,
-                            &block,
-                            input,
-                            false,
-                            false,
-                        ) {
+                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
@@ -327,7 +320,9 @@ fn run_hook_block(
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 
-    let mut callee_stack = stack.gather_captures(engine_state, &block.captures);
+    let mut callee_stack = stack
+        .gather_captures(engine_state, &block.captures)
+        .reset_pipes();
 
     for (idx, PositionalArg { var_id, .. }) in
         block.signature.required_positional.iter().enumerate()
@@ -349,8 +344,6 @@ fn run_hook_block(
         &mut callee_stack,
         block,
         input,
-        false,
-        false,
     )?;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {

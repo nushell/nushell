@@ -74,8 +74,10 @@ pub fn add_plugin_file(
     } else if let Some(mut plugin_path) = nu_path::config_dir() {
         // Path to store plugins signatures
         plugin_path.push(storage_path);
+        let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
         plugin_path.push(PLUGIN_FILE);
-        engine_state.plugin_signatures = Some(plugin_path.clone());
+        let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+        engine_state.plugin_signatures = Some(plugin_path);
     }
 }
 

@@ -109,17 +109,9 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let mut temp_stack = Stack::new();
+            let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-
-            let res = eval_block::<WithoutDebug>(
-                &engine_state,
-                &mut temp_stack,
-                &block,
-                input,
-                false,
-                false,
-            )?;
+            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {
@@ -1284,7 +1276,14 @@ fn edit_from_record(
         }
         "complete" => EditCommand::Complete,
         "cutselection" => EditCommand::CutSelection,
+        #[cfg(feature = "system-clipboard")]
+        "cutselectionsystem" => EditCommand::CutSelectionSystem,
         "copyselection" => EditCommand::CopySelection,
+        #[cfg(feature = "system-clipboard")]
+        "copyselectionsystem" => EditCommand::CopySelectionSystem,
+        "paste" => EditCommand::Paste,
+        #[cfg(feature = "system-clipboard")]
+        "pastesystem" => EditCommand::PasteSystem,
         "selectall" => EditCommand::SelectAll,
         e => {
             return Err(ShellError::UnsupportedConfigValue {

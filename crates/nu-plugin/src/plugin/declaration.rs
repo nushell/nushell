@@ -92,6 +92,7 @@ impl Command for PluginDeclaration {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python
                     // environment.
+                    let stack = &mut stack.start_capture();
                     nu_engine::env::env_to_strings(engine_state, stack)
                 })
             })
@@ -107,12 +108,12 @@ impl Command for PluginDeclaration {
             })?;
 
         // Create the context to execute in - this supports engine calls and custom values
-        let context = Arc::new(PluginExecutionCommandContext::new(
+        let mut context = PluginExecutionCommandContext::new(
             self.source.identity.clone(),
             engine_state,
             stack,
             call,
-        ));
+        );
 
         plugin.run(
             CallInfo {
@@ -120,7 +121,7 @@ impl Command for PluginDeclaration {
                 call: evaluated_call,
                 input,
             },
-            context,
+            &mut context,
         )
     }
 

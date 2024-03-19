@@ -129,8 +129,6 @@ impl Command for ParEach {
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(capture_block.captures);
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
 
         // A helper function sorts the output if needed
         let apply_order = |mut vec: Vec<(usize, Value)>| {
@@ -173,8 +171,6 @@ impl Command for ParEach {
                                 &mut stack,
                                 block,
                                 x.into_pipeline_data(),
-                                redirect_stdout,
-                                redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -213,8 +209,6 @@ impl Command for ParEach {
                                 &mut stack,
                                 block,
                                 x.clone().into_pipeline_data(),
-                                redirect_stdout,
-                                redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -252,8 +246,6 @@ impl Command for ParEach {
                             &mut stack,
                             block,
                             x.into_pipeline_data(),
-                            redirect_stdout,
-                            redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(
@@ -297,8 +289,6 @@ impl Command for ParEach {
                             &mut stack,
                             block,
                             x.into_pipeline_data(),
-                            redirect_stdout,
-                            redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(error, span),
@@ -326,8 +316,6 @@ impl Command for ParEach {
                     &mut stack,
                     block,
                     x.into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
                 )
             }
         }

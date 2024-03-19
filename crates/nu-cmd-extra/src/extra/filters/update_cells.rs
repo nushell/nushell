@@ -105,9 +105,6 @@ impl Command for UpdateCells {
         let block: Block = engine_state.get_block(block.block_id).clone();
         let eval_block_fn = get_eval_block(&engine_state);
 
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
-
         let span = call.head;
 
         stack.with_env(&orig_env_vars, &orig_env_hidden);
@@ -130,8 +127,6 @@ impl Command for UpdateCells {
             stack,
             block,
             columns,
-            redirect_stdout,
-            redirect_stderr,
             span,
             eval_block_fn,
         }
@@ -146,8 +141,6 @@ struct UpdateCellIterator {
     engine_state: EngineState,
     stack: Stack,
     block: Block,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     eval_block_fn: EvalBlockFn,
     span: Span,
 }
@@ -177,8 +170,6 @@ impl Iterator for UpdateCellIterator {
                                         &self.engine_state,
                                         &mut self.stack,
                                         &self.block,
-                                        self.redirect_stdout,
-                                        self.redirect_stderr,
                                         span,
                                         self.eval_block_fn,
                                     ),
@@ -192,8 +183,6 @@ impl Iterator for UpdateCellIterator {
                         &self.engine_state,
                         &mut self.stack,
                         &self.block,
-                        self.redirect_stdout,
-                        self.redirect_stderr,
                         self.span,
                         self.eval_block_fn,
                     )),
@@ -210,8 +199,6 @@ fn process_cell(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
     span: Span,
     eval_block_fn: EvalBlockFn,
 ) -> Value {
@@ -221,14 +208,7 @@ fn process_cell(
         }
     }
 
-    match eval_block_fn(
-        engine_state,
-        stack,
-        block,
-        val.into_pipeline_data(),
-        redirect_stdout,
-        redirect_stderr,
-    ) {
+    match eval_block_fn(engine_state, stack, block, val.into_pipeline_data()) {
         Ok(pd) => pd.into_value(span),
         Err(e) => Value::error(e, span),
     }

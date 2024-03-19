@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::Expression;
 use crate::{
-    engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue, ShellError, Span,
-    Spanned, Value,
+    ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
+    ShellError, Span, Spanned, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -51,8 +50,6 @@ pub struct Call {
     pub decl_id: DeclId,
     pub head: Span,
     pub arguments: Vec<Argument>,
-    pub redirect_stdout: bool,
-    pub redirect_stderr: bool,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
@@ -63,8 +60,6 @@ impl Call {
             decl_id: 0,
             head,
             arguments: vec![],
-            redirect_stdout: true,
-            redirect_stderr: false,
             parser_info: HashMap::new(),
         }
     }

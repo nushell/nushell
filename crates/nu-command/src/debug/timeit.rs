@@ -55,25 +55,11 @@ impl Command for TimeIt {
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);
-                eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )?
+                eval_block(engine_state, stack, block, input)?
             } else {
                 let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-                eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    command_to_run,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )
-                .map(|res| res.0)?
+                eval_expression_with_input(engine_state, stack, command_to_run, input)
+                    .map(|res| res.0)?
             }
         } else {
             PipelineData::empty()
