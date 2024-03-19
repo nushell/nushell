@@ -55,7 +55,7 @@ impl CustomValue for PluginCustomValue {
         Value::custom_value(Box::new(self.clone()), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         self.name().to_owned()
     }
 
@@ -212,7 +212,7 @@ impl PluginCustomValue {
         custom_value: &dyn CustomValue,
         span: Span,
     ) -> Result<PluginCustomValue, ShellError> {
-        let name = custom_value.value_string();
+        let name = custom_value.type_name();
         let notify_on_drop = custom_value.notify_plugin_on_drop();
         bincode::serialize(custom_value)
             .map(|data| PluginCustomValue::new(name, data, notify_on_drop, None))
@@ -297,7 +297,7 @@ impl PluginCustomValue {
                     } else {
                         // Only PluginCustomValues can be sent
                         Err(ShellError::CustomValueIncorrectForPlugin {
-                            name: val.value_string(),
+                            name: val.type_name(),
                             span,
                             dest_plugin: source.name().to_owned(),
                             src_plugin: None,
