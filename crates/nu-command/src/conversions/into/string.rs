@@ -231,6 +231,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
+        Value::CustomValue { val, .. } => {
+            // Only custom values that have a base value that can be converted to string are
+            // accepted.
+            val.to_base_value(input.span())
+                .and_then(|base_value| match action(&base_value, args, span) {
+                    Value::Error { .. } => Err(ShellError::CantConvert {
+                        to_type: String::from("string"),
+                        from_type: val.value_string(),
+                        span,
+                        help: Some("this custom value can't be represented as a string".into()),
+                    }),
+                    success => Ok(success),
+                })
+                .unwrap_or_else(|err| Value::error(err, span))
+        }
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("string"),
