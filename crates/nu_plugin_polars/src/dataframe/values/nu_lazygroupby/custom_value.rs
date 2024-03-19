@@ -15,8 +15,8 @@ impl TryFrom<&NuLazyGroupByCustomValue> for NuLazyGroupBy {
     type Error = ShellError;
 
     fn try_from(value: &NuLazyGroupByCustomValue) -> Result<Self, Self::Error> {
-        if let Some(gb) = value.groupby {
-            Ok(gb)
+        if let Some(gb) = &value.groupby {
+            Ok(gb.clone())
         } else {
             DataFrameCache::instance()
                 .get_group_by(&value.id)

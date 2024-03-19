@@ -17,8 +17,8 @@ impl TryFrom<&NuDataFrameCustomValue> for NuDataFrame {
     type Error = ShellError;
 
     fn try_from(value: &NuDataFrameCustomValue) -> Result<Self, Self::Error> {
-        if let Some(df) = value.dataframe {
-            Ok(df)
+        if let Some(df) = &value.dataframe {
+            Ok(df.clone())
         } else {
             DataFrameCache::instance()
                 .get_df(&value.id)

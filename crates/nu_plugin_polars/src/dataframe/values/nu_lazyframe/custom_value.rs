@@ -16,8 +16,8 @@ pub struct NuLazyFrameCustomValue {
 impl TryFrom<&NuLazyFrameCustomValue> for NuLazyFrame {
     type Error = ShellError;
     fn try_from(value: &NuLazyFrameCustomValue) -> Result<Self, Self::Error> {
-        if let Some(lf) = value.lazyframe {
-            Ok(lf)
+        if let Some(lf) = &value.lazyframe {
+            Ok(lf.clone())
         } else {
             DataFrameCache::instance()
                 .get_lazy(&value.id)
