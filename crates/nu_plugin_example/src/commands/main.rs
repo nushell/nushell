@@ -28,11 +28,10 @@ particularly useful.
     fn run(
         &self,
         _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: &Value,
     ) -> Result<Value, LabeledError> {
-        Err(LabeledError::new("No subcommand provided")
-            .with_label("add --help to see a list of subcommands", call.head))
+        Ok(Value::string(engine.get_help()?, call.head))
     }
 }

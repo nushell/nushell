@@ -3254,7 +3254,6 @@ name = "nu_plugin_query"
 version = "0.91.1"
 dependencies = [
  "gjson",
- "nu-engine",
  "nu-plugin",
  "nu-protocol",
  "scraper",
