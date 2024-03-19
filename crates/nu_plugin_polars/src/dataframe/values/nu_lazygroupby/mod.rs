@@ -67,13 +67,12 @@ impl From<LazyGroupBy> for NuLazyGroupBy {
 
 impl NuLazyGroupBy {
     pub fn new(group_by: Option<LazyGroupBy>, from_eager: bool, schema: Option<Schema>) -> Self {
-        let instance = NuLazyGroupBy {
+        NuLazyGroupBy {
             id: Uuid::new_v4(),
             group_by: group_by.map(Arc::new),
             from_eager,
             schema: schema.map(Arc::new),
-        };
-        instance
+        }
     }
 
     pub fn into_value(self, span: Span) -> Value {
