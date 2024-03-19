@@ -5,7 +5,7 @@ use super::between_values::{
     between_dataframes, compute_between_series, compute_series_single_value,
 };
 
-use super::NuDataFrame;
+use super::{NuDataFrame, NuDataFrameCustomValue};
 
 pub enum Axis {
     Row,
@@ -23,12 +23,14 @@ impl NuDataFrame {
         let rhs_span = right.span();
         match right {
             Value::CustomValue { val: rhs, .. } => {
-                let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
-                    ShellError::DowncastNotPossible {
+                let rhs = rhs
+                    .as_any()
+                    .downcast_ref::<NuDataFrameCustomValue>()
+                    .ok_or_else(|| ShellError::DowncastNotPossible {
                         msg: "Unable to create dataframe".to_string(),
                         span: rhs_span,
-                    }
-                })?;
+                    })?;
+                let rhs = Self::try_from(rhs)?;
 
                 match (self.is_series(), rhs.is_series()) {
                     (true, true) => {
@@ -90,7 +92,7 @@ impl NuDataFrame {
                             &NuDataFrame::default_value(lhs_span),
                             self,
                             right,
-                            rhs,
+                            &rhs,
                         )
                     }
                 }
