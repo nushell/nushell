@@ -1,8 +1,8 @@
-use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use std::path::PathBuf;
 
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
@@ -60,11 +60,10 @@ impl Command for UMkdir {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cwd = current_dir(engine_state, stack)?;
         let mut directories = call
             .rest::<String>(engine_state, stack, 0)?
             .into_iter()
-            .map(|dir| nu_path::expand_path_with(dir, &cwd, true))
+            .map(PathBuf::from)
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;

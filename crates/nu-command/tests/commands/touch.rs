@@ -1,7 +1,8 @@
 use chrono::{DateTime, Local};
-use nu_test_support::fs::Stub;
+use nu_test_support::fs::{files_exist_at, Stub};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use std::path::Path;
 
 // Use 1 instead of 0 because 0 has a special meaning in Windows
 const TIME_ONE: filetime::FileTime = filetime::FileTime::from_unix_time(1, 0);
@@ -485,5 +486,19 @@ fn change_dir_atime_to_reference() {
             target_original_mtime,
             target.metadata().unwrap().modified().unwrap()
         );
+    })
+}
+
+#[test]
+fn create_a_file_with_tilde() {
+    Playground::setup("touch with tilde", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), "touch '~tilde'");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; touch $f");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
     })
 }

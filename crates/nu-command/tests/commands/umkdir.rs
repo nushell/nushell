@@ -145,3 +145,17 @@ fn mkdir_umask_permission() {
         );
     })
 }
+
+#[test]
+fn mkdir_with_tilde() {
+    Playground::setup("mkdir with tilde", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), "mkdir '~tilde'");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; mkdir $f");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
+    })
+}
