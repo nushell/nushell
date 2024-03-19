@@ -3,15 +3,15 @@ use nu_protocol::{record, Category, PluginSignature, SyntaxShape, Value};
 
 use crate::Example;
 
-pub struct NuExample2;
+pub struct Two;
 
-impl SimplePluginCommand for NuExample2 {
+impl SimplePluginCommand for Two {
     type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
         // The signature defines the usage of the command inside Nu, and also automatically
         // generates its help page.
-        PluginSignature::build("nu-example-2")
+        PluginSignature::build("example two")
             .usage("PluginSignature test 2 for plugin. Returns list of records")
             .required("a", SyntaxShape::Int, "required integer value")
             .required("b", SyntaxShape::String, "required string value")

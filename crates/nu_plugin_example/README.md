@@ -29,6 +29,6 @@ $env.config = {
 To list plugin values run:
 
 ```nushell
-nu-example-config
+example config
 ```
 

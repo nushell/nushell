@@ -3,13 +3,13 @@ use nu_protocol::{Category, PluginSignature, Type, Value};
 
 use crate::Example;
 
-pub struct NuExampleConfig;
+pub struct Config;
 
-impl SimplePluginCommand for NuExampleConfig {
+impl SimplePluginCommand for Config {
     type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("nu-example-config")
+        PluginSignature::build("example config")
             .usage("Show plugin configuration")
             .extra_usage("The configuration is set under $env.config.plugins.example")
             .category(Category::Experimental)
