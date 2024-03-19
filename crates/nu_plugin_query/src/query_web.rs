@@ -1,6 +1,9 @@
 use crate::{web_tables::WebTable, Query};
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginExample, PluginSignature, Record, Span, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    Category, LabeledError, PluginExample, PluginSignature, Record, Span, Spanned, SyntaxShape,
+    Value,
+};
 use scraper::{Html, Selector as ScraperSelector};
 
 pub struct QueryWeb;
@@ -99,10 +102,7 @@ impl Default for Selector {
 
 pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
     let head = call.head;
-    let query: String = match call.get_flag("query")? {
-        Some(q2) => q2,
-        None => "".to_string(),
-    };
+    let query: Option<Spanned<String>> = call.get_flag("query")?;
     let as_html = call.has_flag("as-html")?;
     let attribute = call.get_flag("attribute")?.unwrap_or_default();
     let as_table: Value = call
@@ -111,16 +111,20 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
 
     let inspect = call.has_flag("inspect")?;
 
-    if !&query.is_empty() && ScraperSelector::parse(&query).is_err() {
-        return Err(LabeledError {
-            msg: "Cannot parse this query as a valid css selector".to_string(),
-            label: "Parse error".to_string(),
-            span: Some(head),
-        });
+    if let Some(query) = &query {
+        if let Err(err) = ScraperSelector::parse(&query.item) {
+            return Err(LabeledError::new("CSS query parse error")
+                .with_label(err.to_string(), query.span)
+                .with_help("cannot parse this query as a valid CSS selector"));
+        }
+    } else {
+        return Err(
+            LabeledError::new("Missing query argument").with_label("add --query here", call.head)
+        );
     }
 
     let selector = Selector {
-        query,
+        query: query.map(|q| q.item).unwrap_or_default(),
         as_html,
         attribute,
         as_table,
@@ -130,11 +134,8 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     let span = input.span();
     match input {
         Value::String { val, .. } => Ok(begin_selector_query(val.to_string(), selector, span)),
-        _ => Err(LabeledError {
-            label: "requires text input".to_string(),
-            msg: "Expected text from pipeline".to_string(),
-            span: Some(span),
-        }),
+        _ => Err(LabeledError::new("Requires text input")
+            .with_label("expected text from pipeline", span)),
     }
 }
 

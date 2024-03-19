@@ -1097,6 +1097,11 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// This is a generic error type used for user and plugin-generated errors.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    LabeledError(#[from] super::LabeledError),
+
     /// Attempted to use a command that has been removed from Nushell.
     ///
     /// ## Resolution

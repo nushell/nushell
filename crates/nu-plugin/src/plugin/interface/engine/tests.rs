@@ -4,8 +4,8 @@ use std::{
 };
 
 use nu_protocol::{
-    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, PipelineData,
-    PluginExample, PluginSignature, ShellError, Span, Spanned, Value,
+    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
+    PipelineData, PluginExample, PluginSignature, ShellError, Span, Spanned, Value,
 };
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
         ListStreamInfo, PipelineDataHeader, PluginCall, PluginCustomValue, PluginInput, Protocol,
         ProtocolInfo, RawStreamInfo, StreamData, StreamMessage,
     },
-    EvaluatedCall, LabeledError, PluginCallResponse, PluginOutput,
+    EvaluatedCall, PluginCallResponse, PluginOutput,
 };
 
 use super::{EngineInterfaceManager, ReceivedPluginCall};
@@ -738,11 +738,7 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
 fn interface_write_response_with_error() -> Result<(), ShellError> {
     let test = TestCase::new();
     let interface = test.engine().interface_for_context(35);
-    let labeled_error = LabeledError {
-        label: "this is an error".into(),
-        msg: "a test error".into(),
-        span: None,
-    };
+    let labeled_error = LabeledError::new("this is an error").with_help("a test error");
     interface
         .write_response(Err(labeled_error.clone()))?
         .write()?;
