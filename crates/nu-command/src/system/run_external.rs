@@ -360,14 +360,19 @@ impl ExternalCommand {
                             let mut engine_state = engine_state.clone();
                             if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
                             {
-                                if stack.is_overlay_active("command_not_found") {
+                                let canary = "ENTERED_COMMAND_NOT_FOUND";
+                                let stack = &mut stack.start_capture();
+                                if stack.has_env_var(&engine_state, canary) {
                                     return Err(ShellError::ExternalCommand {
                                         label: "command_not_found handler could not be run".into(),
                                         help: "make sure the command_not_found closure itself does not use unknown commands".to_string(),
                                         span: self.name.span,
                                     });
                                 }
-                                stack.add_overlay("command_not_found".into());
+                                stack.add_env_var(
+                                    canary.to_string(),
+                                    Value::bool(true, Span::unknown()),
+                                );
                                 match eval_hook(
                                     &mut engine_state,
                                     stack,
@@ -386,7 +391,7 @@ impl ExternalCommand {
                                     Err(err) => return Err(err),
                                     _ => {}
                                 }
-                                stack.remove_overlay("command_not_found");
+                                stack.remove_env_var(&engine_state, canary);
                             }
                         }
 
