@@ -20,7 +20,7 @@ nu-cmd-base = { path = "../nu-cmd-base", version = "0.91.1" }
 nu-utils = { path = "../nu-utils", version = "0.91.1" }
 
 # Potential dependencies for extras
-heck = "0.4.1"
+heck = "0.5.0"
 num-traits = "0.2"
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
