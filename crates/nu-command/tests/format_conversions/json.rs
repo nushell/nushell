@@ -239,31 +239,31 @@ fn inf_in_range_fails() {
 #[test]
 fn test_indent_flag() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
-                echo '{ "a": 1, "b": 2, "c": 3 }'
-                | from json
-                | to json --indent 3
-            "#
-        ));
+    cwd: "tests/fixtures/formats", pipeline(
+    r#"
+        echo '{ "a": 1, "b": 2, "c": 3 }'
+        | from json
+        | to json --indent 3
+    "#
+    ));
 
-        let expected_output = "{   \"a\": 1,   \"b\": 2,   \"c\": 3}";
+    let expected_output = "{   \"a\": 1,   \"b\": 2,   \"c\": 3}";
 
-        assert_eq!(actual.out, expected_output);
+    assert_eq!(actual.out, expected_output);
 }
 
 #[test]
 fn test_tabs_indent_flag() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
-                echo '{ "a": 1, "b": 2, "c": 3 }'
-                | from json
-                | to json --tabs 2
-            "#
-        ));
+    cwd: "tests/fixtures/formats", pipeline(
+    r#"
+        echo '{ "a": 1, "b": 2, "c": 3 }'
+        | from json
+        | to json --tabs 2
+    "#
+    ));
 
-        let expected_output = "{\t\t\"a\": 1,\t\t\"b\": 2,\t\t\"c\": 3}";
+    let expected_output = "{\t\t\"a\": 1,\t\t\"b\": 2,\t\t\"c\": 3}";
 
-        assert_eq!(actual.out, expected_output);
+    assert_eq!(actual.out, expected_output);
 }
