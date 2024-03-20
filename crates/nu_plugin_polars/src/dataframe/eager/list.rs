@@ -1,73 +1,60 @@
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    record, Category, IntoPipelineData, PipelineData, PluginExample, PluginSignature, Value,
 };
 
-use crate::dataframe::values::NuDataFrame;
+use crate::{CacheValue, DataFrameCache, PolarsDataFramePlugin};
 
 #[derive(Clone)]
 pub struct ListDF;
 
-impl Command for ListDF {
-    fn name(&self) -> &str {
-        "dfr ls"
-    }
+impl PluginCommand for ListDF {
+    type Plugin = PolarsDataFramePlugin;
 
-    fn usage(&self) -> &str {
-        "Lists stored dataframes."
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Creates a new dataframe and shows it in the dataframe list",
-            example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
-    ls"#,
-            result: None,
-        }]
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("polars ls")
+            .usage("Lists stored dataframes.")
+            .category(Category::Custom("dataframe".into()))
+            .plugin_examples(vec![PluginExample {
+                description: "Creates a new dataframe and shows it in the dataframe list".into(),
+                example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
+    ls"#
+                .into(),
+                result: None,
+            }])
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _plugin: &Self::Plugin,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
         _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let mut vals: Vec<(String, Value)> = vec![];
-
-        for overlay_frame in engine_state.active_overlays(&[]) {
-            for var in &overlay_frame.vars {
-                if let Ok(value) = stack.get_var(*var.1, call.head) {
-                    let name = String::from_utf8_lossy(var.0).to_string();
-                    vals.push((name, value));
-                }
-            }
-        }
-
-        let vals = vals
-            .into_iter()
-            .filter_map(|(name, value)| {
-                NuDataFrame::try_from_value(value).ok().map(|df| (name, df))
-            })
-            .map(|(name, df)| {
-                Value::record(
+    ) -> Result<PipelineData, LabeledError> {
+        let vals = DataFrameCache::process_entries(|(key, value)| match value {
+            CacheValue::DataFrame(df) => Ok(Some(Value::record(
+                record! {
+                    "key" => Value::string(key.to_string(), call.head),
+                    "columns" => Value::int(df.as_ref().width() as i64, call.head),
+                    "rows" => Value::int(df.as_ref().height() as i64, call.head),
+                },
+                call.head,
+            ))),
+            CacheValue::LazyFrame(lf) => {
+                let lf = lf.clone().collect(call.head)?;
+                Ok(Some(Value::record(
                     record! {
-                        "name" => Value::string(name, call.head),
-                        "columns" => Value::int(df.as_ref().width() as i64, call.head),
-                        "rows" => Value::int(df.as_ref().height() as i64, call.head),
+                        "key" => Value::string(key.to_string(), call.head),
+                        "columns" => Value::int(lf.as_ref().width() as i64, call.head),
+                        "rows" => Value::int(lf.as_ref().height() as i64, call.head),
                     },
                     call.head,
-                )
-            })
-            .collect::<Vec<Value>>();
-
+                )))
+            }
+            _ => Ok(None),
+        })?;
+        let vals = vals.into_iter().flatten().collect();
         let list = Value::list(vals, call.head);
-
         Ok(list.into_pipeline_data())
     }
 }

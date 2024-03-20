@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, sync::Mutex};
 use uuid::Uuid;
 
 use crate::{
-    eager::{ColumnsDF, FirstDF, LastDF, OpenDataFrame, ToArrow, ToCSV, ToDataFrame, ToNu},
+    eager::{ColumnsDF, FirstDF, LastDF, ListDF, OpenDataFrame, ToArrow, ToCSV, ToDataFrame, ToNu},
     lazy::{LazyAggregate, LazyCollect},
 };
 
@@ -79,6 +79,26 @@ impl DataFrameCache {
             inner: vec![],
         })?;
         Ok(lock.get(uuid).cloned())
+    }
+
+    pub(crate) fn process_entries<F, T>(mut func: F) -> Result<Vec<T>, ShellError>
+    where
+        F: FnMut((&Uuid, &CacheValue)) -> Result<T, ShellError>,
+    {
+        let lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
+            error: format!("error getting entries from cache: {e}"),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
+
+        let mut vals: Vec<T> = Vec::new();
+        for entry in lock.iter() {
+            let val = func(entry)?;
+            vals.push(val);
+        }
+        Ok(vals)
     }
 
     pub(crate) fn insert_df(engine: &EngineInterface, df: NuDataFrame) -> Result<(), ShellError> {
@@ -151,6 +171,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(ToDataFrame),
             Box::new(FirstDF),
             Box::new(LastDF),
+            Box::new(ListDF),
             Box::new(ColumnsDF),
             Box::new(ToNu),
             Box::new(ToArrow),
