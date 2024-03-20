@@ -71,7 +71,7 @@ serde_json = "1.0"
 sysinfo = "0.30"
 tempfile = "3.10"
 unicode-segmentation = "1.11"
-uuid = "1.6.0"
+uuid = "1.8.0"
 which = "6.0.0"
 
 [dependencies]
