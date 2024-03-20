@@ -149,7 +149,7 @@ impl Command for Sort {
             // Records have two sorting methods, toggled by presence or absence of -v
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag(engine_state, stack, "values")?;
-                let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
+                let record = sort_record(*val, span, sort_by_value, reverse, insensitive, natural);
                 Ok(record.into_pipeline_data())
             }
             // Other values are sorted here

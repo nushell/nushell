@@ -134,7 +134,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         }
         Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)

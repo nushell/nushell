@@ -90,7 +90,7 @@ fn build_table(
 
 fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue {
     match value {
-        Value::Record { val, .. } => build_vertical_map(val, config),
+        Value::Record { val, .. } => build_vertical_map(*val, config),
         Value::List { vals, .. } => {
             let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
             if rebuild_array_as_map {

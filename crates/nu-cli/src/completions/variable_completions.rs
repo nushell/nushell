@@ -292,7 +292,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
         let span = val.span();
         match val {
             Value::Record { val, .. } => {
-                for item in val {
+                for item in *val {
                     // Check if index matches with sublevel
                     if item.0.as_bytes().to_vec() == next_sublevel {
                         // If matches try to fetch recursively the next

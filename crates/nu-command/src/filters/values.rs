@@ -111,7 +111,7 @@ pub fn get_values<'a>(
     for item in input {
         match item {
             Value::Record { val, .. } => {
-                for (k, v) in val {
+                for (k, v) in &**val {
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
