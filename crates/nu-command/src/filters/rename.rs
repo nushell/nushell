@@ -169,7 +169,7 @@ fn rename(
                         if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
                             block_info.clone()
                         {
-                            for c in &mut record.cols {
+                            for c in &mut (*record.cols) {
                                 stack.with_env(&env_vars, &env_hidden);
 
                                 if let Some(var) = block.signature.get_positional(0) {

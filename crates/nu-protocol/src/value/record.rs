@@ -10,8 +10,8 @@ pub struct Record {
     ///
     /// Only public as command `rename` is not reimplemented in a sane way yet
     /// Using it or making `vals` public will draw shaming by @sholderbach
-    pub cols: Vec<String>,
-    vals: Vec<Value>,
+    pub cols: Box<Vec<String>>,
+    vals: Box<Vec<Value>>,
 }
 
 impl Record {
@@ -21,8 +21,8 @@ impl Record {
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            cols: Vec::with_capacity(capacity),
-            vals: Vec::with_capacity(capacity),
+            cols: Box::new(Vec::with_capacity(capacity)),
+            vals: Box::new(Vec::with_capacity(capacity)),
         }
     }
 
@@ -39,7 +39,10 @@ impl Record {
         creation_site_span: Span,
     ) -> Result<Self, ShellError> {
         if cols.len() == vals.len() {
-            Ok(Self { cols, vals })
+            Ok(Self {
+                cols: Box::new(cols),
+                vals: Box::new(vals),
+            })
         } else {
             Err(ShellError::RecordColsValsMismatch {
                 bad_value: input_span,
@@ -298,7 +301,10 @@ impl FromIterator<(String, Value)> for Record {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         let (cols, vals) = iter.into_iter().unzip();
         // TODO: should this check for duplicate keys/columns?
-        Self { cols, vals }
+        Self {
+            cols: Box::new(cols),
+            vals: Box::new(vals),
+        }
     }
 }
 
@@ -342,7 +348,7 @@ impl IntoIterator for Record {
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter {
-            iter: self.cols.into_iter().zip(self.vals),
+            iter: (*self.cols).into_iter().zip(*self.vals),
         }
     }
 }
@@ -378,7 +384,7 @@ impl<'a> IntoIterator for &'a Record {
 
     fn into_iter(self) -> Self::IntoIter {
         Iter {
-            iter: self.cols.iter().zip(&self.vals),
+            iter: (*self.cols).iter().zip(&*self.vals),
         }
     }
 }
@@ -414,7 +420,7 @@ impl<'a> IntoIterator for &'a mut Record {
 
     fn into_iter(self) -> Self::IntoIter {
         IterMut {
-            iter: self.cols.iter().zip(&mut self.vals),
+            iter: (*self.cols).iter().zip(&mut *self.vals),
         }
     }
 }
