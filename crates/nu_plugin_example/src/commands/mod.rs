@@ -1,13 +1,35 @@
-mod nu_example_1;
-mod nu_example_2;
-mod nu_example_3;
-mod nu_example_config;
-mod nu_example_disable_gc;
-mod nu_example_env;
+// `example` command - just suggests to call --help
+mod main;
 
-pub use nu_example_1::NuExample1;
-pub use nu_example_2::NuExample2;
-pub use nu_example_3::NuExample3;
-pub use nu_example_config::NuExampleConfig;
-pub use nu_example_disable_gc::NuExampleDisableGc;
-pub use nu_example_env::NuExampleEnv;
+pub use main::Main;
+
+// Basic demos
+mod one;
+mod three;
+mod two;
+
+pub use one::One;
+pub use three::Three;
+pub use two::Two;
+
+// Engine interface demos
+mod config;
+mod disable_gc;
+mod env;
+
+pub use config::Config;
+pub use disable_gc::DisableGc;
+pub use env::Env;
+
+// Stream demos
+mod collect_external;
+mod for_each;
+mod generate;
+mod seq;
+mod sum;
+
+pub use collect_external::CollectExternal;
+pub use for_each::ForEach;
+pub use generate::Generate;
+pub use seq::Seq;
+pub use sum::Sum;

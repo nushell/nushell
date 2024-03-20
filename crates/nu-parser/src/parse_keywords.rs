@@ -18,8 +18,11 @@ use nu_protocol::{
     span, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
-use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 #[cfg(feature = "plugin")]
@@ -1903,7 +1906,7 @@ fn parse_module_file(
     // Restore the currently parsed directory back
     working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
-    let _ = working_set.add_block(block);
+    let _ = working_set.add_block(Arc::new(block));
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)
@@ -2153,7 +2156,7 @@ pub fn parse_module(
     let (block, module, inner_comments) =
         parse_module_block(working_set, block_span, module_name.as_bytes());
 
-    let block_id = working_set.add_block(block);
+    let block_id = working_set.add_block(Arc::new(block));
 
     module_comments.extend(inner_comments);
     let module_id = working_set.add_module(&module_name, module, module_comments);
@@ -2962,7 +2965,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let output_type = rvalue_block.output_type();
 
-                    let block_id = working_set.add_block(rvalue_block);
+                    let block_id = working_set.add_block(Arc::new(rvalue_block));
 
                     let rvalue = Expression {
                         expr: Expr::Block(block_id),
@@ -3219,7 +3222,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let output_type = rvalue_block.output_type();
 
-                    let block_id = working_set.add_block(rvalue_block);
+                    let block_id = working_set.add_block(Arc::new(rvalue_block));
 
                     let rvalue = Expression {
                         expr: Expr::Block(block_id),
@@ -3516,8 +3519,6 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
-    use std::sync::Arc;
-
     use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
     use nu_protocol::{
         engine::Stack, IntoSpanned, PluginIdentity, PluginSignature, RegisteredPlugin,

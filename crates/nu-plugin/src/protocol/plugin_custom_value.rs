@@ -34,7 +34,7 @@ pub struct PluginCustomValue {
 /// Content shared across copies of a plugin custom value.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct SharedContent {
-    /// The name of the custom value as defined by the plugin (`value_string()`)
+    /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     name: String,
     /// The bincoded representation of the custom value on the plugin side
     data: Vec<u8>,
@@ -55,7 +55,7 @@ impl CustomValue for PluginCustomValue {
         Value::custom_value(Box::new(self.clone()), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         self.name().to_owned()
     }
 
@@ -146,7 +146,7 @@ impl PluginCustomValue {
         }
     }
 
-    /// The name of the custom value as defined by the plugin (`value_string()`)
+    /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     pub fn name(&self) -> &str {
         &self.shared.name
     }
@@ -212,7 +212,7 @@ impl PluginCustomValue {
         custom_value: &dyn CustomValue,
         span: Span,
     ) -> Result<PluginCustomValue, ShellError> {
-        let name = custom_value.value_string();
+        let name = custom_value.type_name();
         let notify_on_drop = custom_value.notify_plugin_on_drop();
         bincode::serialize(custom_value)
             .map(|data| PluginCustomValue::new(name, data, notify_on_drop, None))
@@ -297,7 +297,7 @@ impl PluginCustomValue {
                     } else {
                         // Only PluginCustomValues can be sent
                         Err(ShellError::CustomValueIncorrectForPlugin {
-                            name: val.value_string(),
+                            name: val.type_name(),
                             span,
                             dest_plugin: source.name().to_owned(),
                             src_plugin: None,
@@ -370,49 +370,21 @@ impl PluginCustomValue {
 
     /// Render any custom values in the `Value` using `to_base_value()`
     pub(crate) fn render_to_base_value_in(value: &mut Value) -> Result<(), ShellError> {
-        let span = value.span();
-        match value {
-            Value::CustomValue { ref val, .. } => {
-                *value = val.to_base_value(span)?;
-                Ok(())
+        value.recurse_mut(&mut |value| {
+            let span = value.span();
+            match value {
+                Value::CustomValue { ref val, .. } => {
+                    *value = val.to_base_value(span)?;
+                    Ok(())
+                }
+                // Collect LazyRecord before proceeding
+                Value::LazyRecord { ref val, .. } => {
+                    *value = val.collect()?;
+                    Ok(())
+                }
+                _ => Ok(()),
             }
-            // Any values that can contain other values need to be handled recursively
-            Value::Range { ref mut val, .. } => {
-                Self::render_to_base_value_in(&mut val.from)?;
-                Self::render_to_base_value_in(&mut val.to)?;
-                Self::render_to_base_value_in(&mut val.incr)
-            }
-            Value::Record { ref mut val, .. } => val
-                .iter_mut()
-                .try_for_each(|(_, rec_value)| Self::render_to_base_value_in(rec_value)),
-            Value::List { ref mut vals, .. } => {
-                vals.iter_mut().try_for_each(Self::render_to_base_value_in)
-            }
-            Value::Closure { ref mut val, .. } => val
-                .captures
-                .iter_mut()
-                .map(|(_, captured_value)| captured_value)
-                .try_for_each(Self::render_to_base_value_in),
-            // All of these don't contain other values
-            Value::Bool { .. }
-            | Value::Int { .. }
-            | Value::Float { .. }
-            | Value::Filesize { .. }
-            | Value::Duration { .. }
-            | Value::Date { .. }
-            | Value::String { .. }
-            | Value::Glob { .. }
-            | Value::Block { .. }
-            | Value::Nothing { .. }
-            | Value::Error { .. }
-            | Value::Binary { .. }
-            | Value::CellPath { .. } => Ok(()),
-            // Collect any lazy records that exist and try again
-            Value::LazyRecord { val, .. } => {
-                *value = val.collect()?;
-                Self::render_to_base_value_in(value)
-            }
-        }
+        })
     }
 }
 

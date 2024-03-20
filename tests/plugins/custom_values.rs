@@ -194,3 +194,14 @@ fn custom_value_in_example_is_rendered() {
         .contains("I used to be a custom value! My data was (abc)"));
     assert!(actual.status.success());
 }
+
+#[test]
+fn custom_value_into_string() {
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "custom-value generate | into string"
+    );
+
+    assert_eq!(actual.out, "I used to be a custom value! My data was (abc)");
+}

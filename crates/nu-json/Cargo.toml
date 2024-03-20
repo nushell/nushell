@@ -20,6 +20,7 @@ default = ["preserve_order"]
 linked-hash-map = { version = "0.5", optional = true }
 num-traits = "0.2"
 serde = "1.0"
+serde_json = "1.0.114"
 
 [dev-dependencies]
 # nu-path = { path="../nu-path", version = "0.91.1" }

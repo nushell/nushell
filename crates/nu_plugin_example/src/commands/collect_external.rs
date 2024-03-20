@@ -1,16 +1,16 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
 use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, RawStream, Type, Value};
 
-use crate::StreamExample;
+use crate::Example;
 
-/// `<list<string>> | stream_example collect-external`
+/// `<list<string>> | example collect-external`
 pub struct CollectExternal;
 
 impl PluginCommand for CollectExternal {
-    type Plugin = StreamExample;
+    type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("stream_example collect-external")
+        PluginSignature::build("example collect-external")
             .usage("Example transformer to raw external stream")
             .search_terms(vec!["example".into()])
             .input_output_types(vec![
@@ -18,7 +18,7 @@ impl PluginCommand for CollectExternal {
                 (Type::List(Type::Binary.into()), Type::Binary),
             ])
             .plugin_examples(vec![PluginExample {
-                example: "[a b] | stream_example collect-external".into(),
+                example: "[a b] | example collect-external".into(),
                 description: "collect strings into one stream".into(),
                 result: Some(Value::test_string("ab")),
             }])
@@ -27,7 +27,7 @@ impl PluginCommand for CollectExternal {
 
     fn run(
         &self,
-        _plugin: &StreamExample,
+        _plugin: &Example,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,

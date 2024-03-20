@@ -19,7 +19,7 @@ fn serialize_deserialize() -> Result<(), ShellError> {
     let original_value = TestCustomValue(32);
     let span = Span::test_data();
     let serialized = PluginCustomValue::serialize_from_custom_value(&original_value, span)?;
-    assert_eq!(original_value.value_string(), serialized.name());
+    assert_eq!(original_value.type_name(), serialized.name());
     assert!(serialized.source.is_none());
     let deserialized = serialized.deserialize_to_custom_value(span)?;
     let downcasted = deserialized

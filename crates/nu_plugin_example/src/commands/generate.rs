@@ -4,16 +4,16 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::StreamExample;
+use crate::Example;
 
-/// `stream_example generate <initial> { |previous| {out: ..., next: ...} }`
+/// `example generate <initial> { |previous| {out: ..., next: ...} }`
 pub struct Generate;
 
 impl PluginCommand for Generate {
-    type Plugin = StreamExample;
+    type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("stream_example generate")
+        PluginSignature::build("example generate")
             .usage("Example execution of a closure to produce a stream")
             .extra_usage("See the builtin `generate` command")
             .input_output_type(Type::Nothing, Type::ListStream)
@@ -28,9 +28,8 @@ impl PluginCommand for Generate {
                 "The closure to run to generate values",
             )
             .plugin_examples(vec![PluginExample {
-                example:
-                    "stream_example generate 0 { |i| if $i <= 10 { {out: $i, next: ($i + 2)} } }"
-                        .into(),
+                example: "example generate 0 { |i| if $i <= 10 { {out: $i, next: ($i + 2)} } }"
+                    .into(),
                 description: "Generate a sequence of numbers".into(),
                 result: Some(Value::test_list(
                     [0, 2, 4, 6, 8, 10]
@@ -44,7 +43,7 @@ impl PluginCommand for Generate {
 
     fn run(
         &self,
-        _plugin: &StreamExample,
+        _plugin: &Example,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: PipelineData,

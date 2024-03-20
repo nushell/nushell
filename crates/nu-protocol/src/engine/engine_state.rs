@@ -1,6 +1,7 @@
 use fancy_regex::Regex;
 use lru::LruCache;
 
+use super::cached_file::CachedFile;
 use super::{usage::build_usage, usage::Usage, StateDelta};
 use super::{
     Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
@@ -64,23 +65,31 @@ impl Clone for IsDebugging {
 /// will refer to the corresponding IDs rather than their definitions directly. At runtime, this means
 /// less copying and smaller structures.
 ///
+/// Many of the larger objects in this structure are stored within `Arc` to decrease the cost of
+/// cloning `EngineState`. While `Arc`s are generally immutable, they can be modified using
+/// `Arc::make_mut`, which automatically clones to a new allocation if there are other copies of
+/// the `Arc` already in use, but will let us modify the `Arc` directly if we have the only
+/// reference to it.
+///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
 #[derive(Clone)]
 pub struct EngineState {
-    files: Vec<(String, usize, usize)>,
-    file_contents: Vec<(Vec<u8>, usize, usize)>,
+    files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
-    decls: Vec<Box<dyn Command + 'static>>,
-    pub(super) blocks: Vec<Block>,
-    pub(super) modules: Vec<Module>,
+    decls: Arc<Vec<Box<dyn Command + 'static>>>,
+    // The Vec is wrapped in Arc so that if we don't need to modify the list, we can just clone
+    // the reference and not have to clone each individual Arc inside. These lists can be
+    // especially long, so it helps
+    pub(super) blocks: Arc<Vec<Arc<Block>>>,
+    pub(super) modules: Arc<Vec<Arc<Module>>>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub env_vars: EnvVars,
-    pub previous_env_vars: HashMap<String, Value>,
-    pub config: Config,
+    pub env_vars: Arc<EnvVars>,
+    pub previous_env_vars: Arc<HashMap<String, Value>>,
+    pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
@@ -113,7 +122,6 @@ impl EngineState {
     pub fn new() -> Self {
         Self {
             files: vec![],
-            file_contents: vec![],
             virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -122,9 +130,11 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
-            decls: vec![],
-            blocks: vec![],
-            modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
+            decls: Arc::new(vec![]),
+            blocks: Arc::new(vec![]),
+            modules: Arc::new(vec![Arc::new(Module::new(
+                DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
+            ))]),
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -133,11 +143,13 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
-                .into_iter()
-                .collect(),
-            previous_env_vars: HashMap::new(),
-            config: Config::default(),
+            env_vars: Arc::new(
+                [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+                    .into_iter()
+                    .collect(),
+            ),
+            previous_env_vars: Arc::new(HashMap::new()),
+            config: Arc::new(Config::default()),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
@@ -173,13 +185,20 @@ impl EngineState {
     pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
-        self.file_contents.extend(delta.file_contents);
         self.virtual_paths.extend(delta.virtual_paths);
-        self.decls.extend(delta.decls);
         self.vars.extend(delta.vars);
-        self.blocks.extend(delta.blocks);
-        self.modules.extend(delta.modules);
         self.usage.merge_with(delta.usage);
+
+        // Avoid potentially cloning the Arcs if we aren't adding anything
+        if !delta.decls.is_empty() {
+            Arc::make_mut(&mut self.decls).extend(delta.decls);
+        }
+        if !delta.blocks.is_empty() {
+            Arc::make_mut(&mut self.blocks).extend(delta.blocks);
+        }
+        if !delta.modules.is_empty() {
+            Arc::make_mut(&mut self.modules).extend(delta.modules);
+        }
 
         let first = delta.scope.remove(0);
 
@@ -268,7 +287,7 @@ impl EngineState {
 
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
-                if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
                         if k == "config" {
@@ -276,7 +295,7 @@ impl EngineState {
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
                             let (config, error) = new_record.into_config(&self.config);
-                            self.config = config;
+                            self.config = Arc::new(config);
                             config_updated = true;
                             env_vars.insert(k, new_record);
                             if let Some(e) = error {
@@ -288,7 +307,7 @@ impl EngineState {
                     }
                 } else {
                     // Pushing a new overlay
-                    self.env_vars.insert(overlay_name, env);
+                    Arc::make_mut(&mut self.env_vars).insert(overlay_name, env);
                 }
             }
         }
@@ -422,10 +441,10 @@ impl EngineState {
     pub fn add_env_var(&mut self, name: String, val: Value) {
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
-        if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+        if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
             env_vars.insert(name, val);
         } else {
-            self.env_vars
+            Arc::make_mut(&mut self.env_vars)
                 .insert(overlay_name, [(name, val)].into_iter().collect());
         }
     }
@@ -614,8 +633,8 @@ impl EngineState {
     }
 
     pub fn print_contents(&self) {
-        for (contents, _, _) in self.file_contents.iter() {
-            let string = String::from_utf8_lossy(contents);
+        for cached_file in self.files.iter() {
+            let string = String::from_utf8_lossy(&cached_file.content);
             println!("{string}");
         }
     }
@@ -733,9 +752,10 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        for (contents, start, finish) in &self.file_contents {
-            if span.start >= *start && span.end <= *finish {
-                return &contents[(span.start - start)..(span.end - start)];
+        for file in &self.files {
+            if file.covered_span.contains_span(span) {
+                return &file.content
+                    [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
             }
         }
         &[0u8; 0]
@@ -752,7 +772,7 @@ impl EngineState {
             self.update_plugin_gc_configs(&conf.plugin_gc);
         }
 
-        self.config = conf;
+        self.config = Arc::new(conf);
     }
 
     /// Fetch the configuration for a plugin
@@ -867,7 +887,7 @@ impl EngineState {
             .collect()
     }
 
-    pub fn get_block(&self, block_id: BlockId) -> &Block {
+    pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         self.blocks
             .get(block_id)
             .expect("internal error: missing block")
@@ -878,7 +898,7 @@ impl EngineState {
     /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
     /// compiler error. This only exists to stop plugins from crashing the engine if they send us
     /// something invalid.
-    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Block> {
+    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id)
     }
 
@@ -895,25 +915,28 @@ impl EngineState {
     }
 
     pub fn next_span_start(&self) -> usize {
-        if let Some((_, _, last)) = self.file_contents.last() {
-            *last
+        if let Some(cached_file) = self.files.last() {
+            cached_file.covered_span.end
         } else {
             0
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
+    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
         self.files.iter()
     }
 
-    pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
+    pub fn add_file(&mut self, filename: Arc<str>, content: Arc<[u8]>) -> FileId {
         let next_span_start = self.next_span_start();
-        let next_span_end = next_span_start + contents.len();
+        let next_span_end = next_span_start + content.len();
 
-        self.file_contents
-            .push((contents, next_span_start, next_span_end));
+        let covered_span = Span::new(next_span_start, next_span_end);
 
-        self.files.push((filename, next_span_start, next_span_end));
+        self.files.push(CachedFile {
+            name: filename,
+            content,
+            covered_span,
+        });
 
         self.num_files() - 1
     }
@@ -953,8 +976,9 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
-        &self.file_contents
+    // TODO: see if we can completely get rid of this
+    pub fn get_file_contents(&self) -> &[CachedFile] {
+        &self.files
     }
 
     pub fn get_startup_time(&self) -> i64 {
@@ -1028,7 +1052,7 @@ mod engine_state_tests {
     #[test]
     fn add_file_gives_id_including_parent() {
         let mut engine_state = EngineState::new();
-        let parent_id = engine_state.add_file("test.nu".into(), vec![]);
+        let parent_id = engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
@@ -1040,7 +1064,7 @@ mod engine_state_tests {
     #[test]
     fn merge_states() -> Result<(), ShellError> {
         let mut engine_state = EngineState::new();
-        engine_state.add_file("test.nu".into(), vec![]);
+        engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1051,8 +1075,8 @@ mod engine_state_tests {
         engine_state.merge_delta(delta)?;
 
         assert_eq!(engine_state.num_files(), 2);
-        assert_eq!(&engine_state.files[0].0, "test.nu");
-        assert_eq!(&engine_state.files[1].0, "child.nu");
+        assert_eq!(&*engine_state.files[0].name, "test.nu");
+        assert_eq!(&*engine_state.files[1].name, "child.nu");
 
         Ok(())
     }

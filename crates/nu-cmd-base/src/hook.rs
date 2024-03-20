@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
@@ -36,8 +38,7 @@ pub fn eval_env_change_hook(
                             "env_change",
                         )?;
 
-                        engine_state
-                            .previous_env_vars
+                        Arc::make_mut(&mut engine_state.previous_env_vars)
                             .insert(env_name.to_string(), after);
                     }
                 }

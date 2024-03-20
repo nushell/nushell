@@ -53,9 +53,9 @@ impl Command for Ast {
         if to_json {
             // Get the block as json
             let serde_block_str = if minify {
-                serde_json::to_string(&block_output)
+                serde_json::to_string(&*block_output)
             } else {
-                serde_json::to_string_pretty(&block_output)
+                serde_json::to_string_pretty(&*block_output)
             };
             let block_json = match serde_block_str {
                 Ok(json) => json,
