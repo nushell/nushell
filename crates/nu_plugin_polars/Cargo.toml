@@ -17,8 +17,6 @@ bench = false
 bench = false
 
 [dependencies]
-# nu-engine = { path = "../nu-engine", version = "0.91.1" }
-# nu-parser = { path = "../nu-parser", version = "0.91.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 nu-plugin = { path = "../nu-plugin", version = "0.91.1" }
 
@@ -75,3 +73,5 @@ version = "0.37"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
+nu-engine = { path = "../nu-engine", version = "0.91.1" }
+nu-parser = { path = "../nu-parser", version = "0.91.1" }

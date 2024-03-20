@@ -3218,6 +3218,8 @@ dependencies = [
  "indexmap",
  "lazy_static",
  "nu-cmd-lang",
+ "nu-engine",
+ "nu-parser",
  "nu-plugin",
  "nu-protocol",
  "num",
