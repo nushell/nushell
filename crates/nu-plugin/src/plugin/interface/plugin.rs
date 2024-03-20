@@ -460,15 +460,8 @@ impl InterfaceManager for PluginInterfaceManager {
             },
             PluginOutput::CallResponse(id, response) => {
                 // Handle reading the pipeline data, if any
-                let response = match response {
-                    PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
-                    PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
-                    PluginCallResponse::Ordering(ordering) => {
-                        PluginCallResponse::Ordering(ordering)
-                    }
-                    PluginCallResponse::PipelineData(data) => {
-                        // If there's an error with initializing this stream, change it to a plugin
-                        // error response, but send it anyway
+                let response = response
+                    .map_data(|data| {
                         let ctrlc = self.get_ctrlc(id)?;
 
                         // Register the streams in the response
@@ -476,12 +469,13 @@ impl InterfaceManager for PluginInterfaceManager {
                             self.recv_stream_started(id, stream_id);
                         }
 
-                        match self.read_pipeline_data(data, ctrlc.as_ref()) {
-                            Ok(data) => PluginCallResponse::PipelineData(data),
-                            Err(err) => PluginCallResponse::Error(err.into()),
-                        }
-                    }
-                };
+                        self.read_pipeline_data(data, ctrlc.as_ref())
+                    })
+                    .unwrap_or_else(|err| {
+                        // If there's an error with initializing this stream, change it to a plugin
+                        // error response, but send it anyway
+                        PluginCallResponse::Error(err.into())
+                    });
                 let result = self.send_plugin_call_response(id, response);
                 if result.is_ok() {
                     // When a call ends, it releases a lock on the GC
@@ -493,36 +487,19 @@ impl InterfaceManager for PluginInterfaceManager {
             }
             PluginOutput::EngineCall { context, id, call } => {
                 // Handle reading the pipeline data, if any
-                let ctrlc = self.get_ctrlc(context)?;
-                let call = match call {
-                    EngineCall::GetConfig => Ok(EngineCall::GetConfig),
-                    EngineCall::GetPluginConfig => Ok(EngineCall::GetPluginConfig),
-                    EngineCall::GetEnvVar(name) => Ok(EngineCall::GetEnvVar(name)),
-                    EngineCall::GetEnvVars => Ok(EngineCall::GetEnvVars),
-                    EngineCall::GetCurrentDir => Ok(EngineCall::GetCurrentDir),
-                    EngineCall::AddEnvVar(name, value) => Ok(EngineCall::AddEnvVar(name, value)),
-                    EngineCall::EvalClosure {
-                        closure,
-                        mut positional,
-                        input,
-                        redirect_stdout,
-                        redirect_stderr,
-                    } => {
-                        // Add source to any plugin custom values in the arguments
-                        for arg in positional.iter_mut() {
-                            PluginCustomValue::add_source(arg, &self.state.source);
-                        }
-                        self.read_pipeline_data(input, ctrlc.as_ref()).map(|input| {
-                            EngineCall::EvalClosure {
-                                closure,
-                                positional,
-                                input,
-                                redirect_stdout,
-                                redirect_stderr,
-                            }
-                        })
+                let mut call = call.map_data(|input| {
+                    let ctrlc = self.get_ctrlc(context)?;
+                    self.read_pipeline_data(input, ctrlc.as_ref())
+                });
+                // Add source to any plugin custom values in the arguments
+                if let Ok(EngineCall::EvalClosure {
+                    ref mut positional, ..
+                }) = call
+                {
+                    for arg in positional.iter_mut() {
+                        PluginCustomValue::add_source(arg, &self.state.source);
                     }
-                };
+                }
                 match call {
                     Ok(call) => self.send_engine_call(context, id, call),
                     // If there was an error with setting up the call, just write the error
@@ -603,16 +580,12 @@ impl PluginInterface {
         response: EngineCallResponse<PipelineData>,
     ) -> Result<(), ShellError> {
         // Set up any stream if necessary
-        let (response, writer) = match response {
-            EngineCallResponse::PipelineData(data) => {
-                let (header, writer) = self.init_write_pipeline_data(data)?;
-                (EngineCallResponse::PipelineData(header), Some(writer))
-            }
-            // No pipeline data:
-            EngineCallResponse::Error(err) => (EngineCallResponse::Error(err), None),
-            EngineCallResponse::Config(config) => (EngineCallResponse::Config(config), None),
-            EngineCallResponse::ValueMap(map) => (EngineCallResponse::ValueMap(map), None),
-        };
+        let mut writer = None;
+        let response = response.map_data(|data| {
+            let (data_header, data_writer) = self.init_write_pipeline_data(data)?;
+            writer = Some(data_writer);
+            Ok(data_header)
+        })?;
 
         // Write the response, including the pipeline data header if present
         self.write(PluginInput::EngineCallResponse(id, response))?;
@@ -753,20 +726,18 @@ impl PluginInterface {
         let resp =
             handle_engine_call(engine_call, context).unwrap_or_else(EngineCallResponse::Error);
         // Handle stream
-        let (resp, writer) = match resp {
-            EngineCallResponse::Error(error) => (EngineCallResponse::Error(error), None),
-            EngineCallResponse::Config(config) => (EngineCallResponse::Config(config), None),
-            EngineCallResponse::ValueMap(map) => (EngineCallResponse::ValueMap(map), None),
-            EngineCallResponse::PipelineData(data) => {
-                match self.init_write_pipeline_data(data) {
-                    Ok((header, writer)) => {
-                        (EngineCallResponse::PipelineData(header), Some(writer))
-                    }
-                    // just respond with the error if we fail to set it up
-                    Err(err) => (EngineCallResponse::Error(err), None),
-                }
-            }
-        };
+        let mut writer = None;
+        let resp = resp
+            .map_data(|data| {
+                let (data_header, data_writer) = self.init_write_pipeline_data(data)?;
+                writer = Some(data_writer);
+                Ok(data_header)
+            })
+            .unwrap_or_else(|err| {
+                // If we fail to set up the response write, change to an error response here
+                writer = None;
+                EngineCallResponse::Error(err)
+            });
         // Write the response, then the stream
         self.write(PluginInput::EngineCallResponse(engine_call_id, resp))?;
         self.flush()?;
