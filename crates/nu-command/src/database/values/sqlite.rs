@@ -4,7 +4,8 @@ use super::definitions::{
 };
 use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
 use rusqlite::{
-    types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement, ToSql
+    types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
+    ToSql,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -99,17 +100,23 @@ impl SQLiteDatabase {
         Value::custom_value(db, span)
     }
 
-    pub fn query(&self, sql: &Spanned<String>, params: NuSqlParams, call_span: Span) -> Result<Value, ShellError> {
+    pub fn query(
+        &self,
+        sql: &Spanned<String>,
+        params: NuSqlParams,
+        call_span: Span,
+    ) -> Result<Value, ShellError> {
         let conn = open_sqlite_db(&self.path, call_span)?;
 
-        let stream =
-            run_sql_query(conn, sql, params, self.ctrlc.clone()).map_err(|e| ShellError::GenericError {
+        let stream = run_sql_query(conn, sql, params, self.ctrlc.clone()).map_err(|e| {
+            ShellError::GenericError {
                 error: "Failed to query SQLite database".into(),
                 msg: e.to_string(),
                 span: Some(sql.span),
                 help: None,
                 inner: vec![],
-            })?;
+            }
+        })?;
 
         Ok(stream)
     }
@@ -451,17 +458,16 @@ pub fn nu_unit_value_to_sql_value(value: &Value) -> Result<&dyn ToSql, ShellErro
         // Value::Filesize { val, .. } => todo!(),
         // Value::Duration { val, .. } => todo!(),
         // Value::Date { val, .. } => todo!(),
-
         _ => Err(ShellError::TypeMismatch {
             err_message: "Unsupported primitive SQL value type".to_string(),
-            span: value.span()
-        })
+            span: value.span(),
+        }),
     }
 }
 
 pub enum NuSqlParams<'v> {
     List(Vec<&'v dyn ToSql>),
-    Named(Vec<(&'v str, &'v dyn ToSql)>)
+    Named(Vec<(&'v str, &'v dyn ToSql)>),
 }
 
 impl<'v> Default for NuSqlParams<'v> {
@@ -482,7 +488,7 @@ pub fn nu_value_to_params(value: &Value) -> Result<NuSqlParams, ShellError> {
             }
 
             Ok(NuSqlParams::Named(params))
-        },
+        }
         Value::List { vals, .. } => {
             let mut params: Vec<_> = Vec::with_capacity(vals.len());
 
@@ -493,15 +499,15 @@ pub fn nu_value_to_params(value: &Value) -> Result<NuSqlParams, ShellError> {
             }
 
             Ok(NuSqlParams::List(params))
-        },
+        }
 
         // We accept no parameters
         Value::Nothing { .. } => Ok(NuSqlParams::default()),
 
         _ => Err(ShellError::TypeMismatch {
             err_message: "temp err param to value".to_string(),
-            span: value.span()
-        })
+            span: value.span(),
+        }),
     }
 }
 
@@ -602,7 +608,12 @@ fn read_entire_sqlite_db(
         let table_name: String = row?;
         // TODO: Should use params here?
         let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
-        let rows = prepared_statement_to_nu_list(table_stmt, NuSqlParams::default(), call_span, ctrlc.clone())?;
+        let rows = prepared_statement_to_nu_list(
+            table_stmt,
+            NuSqlParams::default(),
+            call_span,
+            ctrlc.clone(),
+        )?;
         tables.push(table_name, rows);
     }
 

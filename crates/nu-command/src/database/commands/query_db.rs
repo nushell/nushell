@@ -1,6 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, engine::{Command, EngineState, Stack}, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use crate::database::values::sqlite::nu_value_to_params;
@@ -28,7 +31,7 @@ impl Command for QueryDb {
                 // TODO: Use SyntaxShape::OneOf with Records and Lists, when Lists no longer break inside OneOf
                 SyntaxShape::Any,
                 "List of parameters for the SQL statement",
-                Some('p')
+                Some('p'),
             )
             .category(Category::Database)
     }
@@ -53,7 +56,7 @@ impl Command for QueryDb {
                 description: "Execute a SQL statement with named parameters",
                 example: r#"stor open | query db "INSERT INTO my_table VALUES (:first, :second)" -p { ":first": "hello", ":second": 123 }"#,
                 result: None,
-            }
+            },
         ]
     }
 
@@ -69,7 +72,8 @@ impl Command for QueryDb {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sql: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let params_value: Value = call.get_flag(engine_state, stack, "params")?
+        let params_value: Value = call
+            .get_flag(engine_state, stack, "params")?
             .unwrap_or_else(|| Value::nothing(Span::unknown()));
 
         let params = nu_value_to_params(&params_value)?;
