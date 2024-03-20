@@ -143,7 +143,7 @@ pub fn evaluate_repl(
         let temp_file_cloned = temp_file.clone();
         let mut nu_prompt_cloned = nu_prompt.clone();
 
-        match catch_unwind(AssertUnwindSafe(move || {
+        let iteration_panic_state = catch_unwind(AssertUnwindSafe(move || {
             let (continue_loop, current_stack, line_editor) = loop_iteration(LoopContext {
                 engine_state: &mut current_engine_state,
                 stack: current_stack,
@@ -161,7 +161,8 @@ pub fn evaluate_repl(
                 current_stack,
                 line_editor,
             )
-        })) {
+        }));
+        match iteration_panic_state {
             Ok((continue_loop, es, s, le)) => {
                 // setup state for the next iteration of the repl loop
                 previous_engine_state = es;
