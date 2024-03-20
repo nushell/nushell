@@ -79,8 +79,11 @@ pub struct EngineState {
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     decls: Arc<Vec<Box<dyn Command + 'static>>>,
-    pub(super) blocks: Vec<Arc<Block>>,
-    pub(super) modules: Vec<Arc<Module>>,
+    // The Vec is wrapped in Arc so that if we don't need to modify the list, we can just clone
+    // the reference and not have to clone each individual Arc inside. These lists can be
+    // especially long, so it helps
+    pub(super) blocks: Arc<Vec<Arc<Block>>>,
+    pub(super) modules: Arc<Vec<Arc<Module>>>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -128,10 +131,10 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
             decls: Arc::new(vec![]),
-            blocks: vec![],
-            modules: vec![Arc::new(Module::new(
+            blocks: Arc::new(vec![]),
+            modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
-            ))],
+            ))]),
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -184,13 +187,17 @@ impl EngineState {
         self.files.extend(delta.files);
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
-        self.blocks.extend(delta.blocks);
-        self.modules.extend(delta.modules);
         self.usage.merge_with(delta.usage);
 
-        // Avoid potentially cloning the Arc if we aren't adding anything
+        // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
             Arc::make_mut(&mut self.decls).extend(delta.decls);
+        }
+        if !delta.blocks.is_empty() {
+            Arc::make_mut(&mut self.blocks).extend(delta.blocks);
+        }
+        if !delta.modules.is_empty() {
+            Arc::make_mut(&mut self.modules).extend(delta.modules);
         }
 
         let first = delta.scope.remove(0);

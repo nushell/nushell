@@ -10,7 +10,6 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-#[cfg(feature = "plugin")]
 use std::sync::Arc;
 
 #[cfg(feature = "plugin")]
@@ -960,7 +959,7 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
-        for block in &self.permanent_state.blocks {
+        for block in self.permanent_state.blocks.iter() {
             if Some(span) == block.span {
                 return Some(block.clone());
             }
