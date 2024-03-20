@@ -1,24 +1,31 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Value};
 
 use crate::Example;
 
-pub struct NuExample3;
+pub struct One;
 
-impl SimplePluginCommand for NuExample3 {
+impl SimplePluginCommand for One {
     type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
         // The signature defines the usage of the command inside Nu, and also automatically
         // generates its help page.
-        PluginSignature::build("nu-example-3")
-            .usage("PluginSignature test 3 for plugin. Returns labeled error")
+        PluginSignature::build("example one")
+            .usage("PluginSignature test 1 for plugin. Returns Value::Nothing")
+            .extra_usage("Extra usage for example one")
+            .search_terms(vec!["example".into()])
             .required("a", SyntaxShape::Int, "required integer value")
             .required("b", SyntaxShape::String, "required string value")
             .switch("flag", "a flag for the signature", Some('f'))
             .optional("opt", SyntaxShape::Int, "Optional number")
             .named("named", SyntaxShape::String, "named string", Some('n'))
             .rest("rest", SyntaxShape::String, "rest value string")
+            .plugin_examples(vec![PluginExample {
+                example: "example one 3 bb".into(),
+                description: "running example with an int value and string value".into(),
+                result: None,
+            }])
             .category(Category::Experimental)
     }
 
@@ -29,12 +36,8 @@ impl SimplePluginCommand for NuExample3 {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        plugin.print_values(3, call, input)?;
+        plugin.print_values(1, call, input)?;
 
-        Err(LabeledError {
-            label: "ERROR from plugin".into(),
-            msg: "error message pointing to call head span".into(),
-            span: Some(call.head),
-        })
+        Ok(Value::nothing(call.head))
     }
 }

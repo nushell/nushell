@@ -831,7 +831,7 @@ impl Value {
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
-            Value::CustomValue { val, .. } => Type::Custom(val.typetag_name().into()),
+            Value::CustomValue { val, .. } => Type::Custom(val.type_name()),
         }
     }
 
@@ -947,7 +947,12 @@ impl Value {
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.to_string(),
-            Value::CustomValue { val, .. } => val.value_string(),
+            // If we fail to collapse the custom value, just print <{type_name}> - failure is not
+            // that critical here
+            Value::CustomValue { val, .. } => val
+                .to_base_value(span)
+                .map(|val| val.to_expanded_string(separator, config))
+                .unwrap_or_else(|_| format!("<{}>", val.type_name())),
         }
     }
 

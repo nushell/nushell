@@ -34,7 +34,7 @@ pub struct PluginCustomValue {
 /// Content shared across copies of a plugin custom value.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct SharedContent {
-    /// The name of the custom value as defined by the plugin (`value_string()`)
+    /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     name: String,
     /// The bincoded representation of the custom value on the plugin side
     data: Vec<u8>,
@@ -55,7 +55,7 @@ impl CustomValue for PluginCustomValue {
         Value::custom_value(Box::new(self.clone()), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         self.name().to_owned()
     }
 
@@ -146,7 +146,7 @@ impl PluginCustomValue {
         }
     }
 
-    /// The name of the custom value as defined by the plugin (`value_string()`)
+    /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     pub fn name(&self) -> &str {
         &self.shared.name
     }
@@ -212,7 +212,7 @@ impl PluginCustomValue {
         custom_value: &dyn CustomValue,
         span: Span,
     ) -> Result<PluginCustomValue, ShellError> {
-        let name = custom_value.value_string();
+        let name = custom_value.type_name();
         let notify_on_drop = custom_value.notify_plugin_on_drop();
         bincode::serialize(custom_value)
             .map(|data| PluginCustomValue::new(name, data, notify_on_drop, None))
@@ -297,7 +297,7 @@ impl PluginCustomValue {
                     } else {
                         // Only PluginCustomValues can be sent
                         Err(ShellError::CustomValueIncorrectForPlugin {
-                            name: val.value_string(),
+                            name: val.type_name(),
                             span,
                             dest_plugin: source.name().to_owned(),
                             src_plugin: None,

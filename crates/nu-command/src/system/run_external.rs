@@ -18,6 +18,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
 
 #[derive(Clone)]
@@ -458,7 +459,7 @@ impl ExternalCommand {
                     let mut stack = stack.clone();
 
                     // Turn off color as we pass data through
-                    engine_state.config.use_ansi_coloring = false;
+                    Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
 
                     // Pipe input into the external command's stdin
                     if let Some(mut stdin_write) = child.as_mut().stdin.take() {

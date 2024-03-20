@@ -50,7 +50,7 @@ impl CustomValue for CoolCustomValue {
         Value::custom_value(Box::new(self.clone()), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         self.typetag_name().to_string()
     }
 

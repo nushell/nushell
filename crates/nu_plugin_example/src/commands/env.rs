@@ -3,13 +3,13 @@ use nu_protocol::{Category, PluginSignature, SyntaxShape, Type, Value};
 
 use crate::Example;
 
-pub struct NuExampleEnv;
+pub struct Env;
 
-impl SimplePluginCommand for NuExampleEnv {
+impl SimplePluginCommand for Env {
     type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("nu-example-env")
+        PluginSignature::build("example env")
             .usage("Get environment variable(s)")
             .extra_usage("Returns all environment variables if no name provided")
             .category(Category::Experimental)

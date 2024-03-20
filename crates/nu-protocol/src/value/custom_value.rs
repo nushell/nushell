@@ -13,8 +13,10 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
 
     //fn category(&self) -> Category;
 
-    /// Define string representation of the custom value
-    fn value_string(&self) -> String;
+    /// The friendly type name to show for the custom value, e.g. in `describe` and in error
+    /// messages. This does not have to be the same as the name of the struct or enum, but
+    /// conventionally often is.
+    fn type_name(&self) -> String;
 
     /// Converts the custom value to a base nushell value.
     ///
@@ -34,7 +36,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     ) -> Result<Value, ShellError> {
         let _ = (self_span, index);
         Err(ShellError::IncompatiblePathAccess {
-            type_name: self.value_string(),
+            type_name: self.type_name(),
             span: path_span,
         })
     }
@@ -48,7 +50,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     ) -> Result<Value, ShellError> {
         let _ = (self_span, column_name);
         Err(ShellError::IncompatiblePathAccess {
-            type_name: self.value_string(),
+            type_name: self.type_name(),
             span: path_span,
         })
     }

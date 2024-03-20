@@ -3,23 +3,23 @@ use nu_protocol::{
     Category, ListStream, PipelineData, PluginExample, PluginSignature, SyntaxShape, Type, Value,
 };
 
-use crate::StreamExample;
+use crate::Example;
 
-/// `stream_example seq <first> <last>`
+/// `example seq <first> <last>`
 pub struct Seq;
 
 impl PluginCommand for Seq {
-    type Plugin = StreamExample;
+    type Plugin = Example;
 
     fn signature(&self) -> PluginSignature {
-        PluginSignature::build("stream_example seq")
+        PluginSignature::build("example seq")
             .usage("Example stream generator for a list of values")
             .search_terms(vec!["example".into()])
             .required("first", SyntaxShape::Int, "first number to generate")
             .required("last", SyntaxShape::Int, "last number to generate")
             .input_output_type(Type::Nothing, Type::List(Type::Int.into()))
             .plugin_examples(vec![PluginExample {
-                example: "stream_example seq 1 3".into(),
+                example: "example seq 1 3".into(),
                 description: "generate a sequence from 1 to 3".into(),
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
@@ -32,7 +32,7 @@ impl PluginCommand for Seq {
 
     fn run(
         &self,
-        _plugin: &StreamExample,
+        _plugin: &Example,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: PipelineData,

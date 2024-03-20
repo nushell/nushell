@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
@@ -68,7 +69,8 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
     }
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
-        if let Some(env_vars) = engine_state.env_vars.get_mut(last_overlay_name) {
+        if let Some(env_vars) = Arc::make_mut(&mut engine_state.env_vars).get_mut(last_overlay_name)
+        {
             for (k, v) in new_scope {
                 env_vars.insert(k, v);
             }
