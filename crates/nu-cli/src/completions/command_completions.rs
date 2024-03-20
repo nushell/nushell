@@ -1,7 +1,7 @@
 use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_parser::FlatShape;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{CachedFile, EngineState, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
@@ -229,8 +229,9 @@ pub fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
     }
 }
 
-pub fn is_passthrough_command(working_set_file_contents: &[(Arc<Vec<u8>>, usize, usize)]) -> bool {
-    for (contents, _, _) in working_set_file_contents {
+pub fn is_passthrough_command(working_set_file_contents: &[CachedFile]) -> bool {
+    for cached_file in working_set_file_contents {
+        let contents = &cached_file.content;
         let last_pipe_pos_rev = contents.iter().rev().position(|x| x == &b'|');
         let last_pipe_pos = last_pipe_pos_rev.map(|x| contents.len() - x).unwrap_or(0);
 
@@ -295,7 +296,7 @@ mod command_completions_tests {
             let input = ele.0.as_bytes();
 
             let mut engine_state = EngineState::new();
-            engine_state.add_file("test.nu".into(), vec![]);
+            engine_state.add_file("test.nu".into(), Arc::new([]));
 
             let delta = {
                 let mut working_set = StateWorkingSet::new(&engine_state);

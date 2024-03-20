@@ -94,8 +94,8 @@ fn gather_env_vars(
     let span_offset = engine_state.next_span_start();
 
     engine_state.add_file(
-        "Host Environment Variables".to_string(),
-        fake_env_file.as_bytes().to_vec(),
+        "Host Environment Variables".into(),
+        fake_env_file.as_bytes().into(),
     );
 
     let (tokens, _) = lex(fake_env_file.as_bytes(), span_offset, &[], &[], true);

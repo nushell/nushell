@@ -284,11 +284,15 @@ impl LanguageServer {
                 if let Some(block_id) = working_set.get_decl(decl_id).get_block_id() {
                     let block = working_set.get_block(block_id);
                     if let Some(span) = &block.span {
-                        for (file_path, file_start, file_end) in working_set.files() {
-                            if span.start >= *file_start && span.start < *file_end {
+                        for cached_file in working_set.files() {
+                            if cached_file.covered_span.contains(span.start) {
                                 return Some(GotoDefinitionResponse::Scalar(Location {
-                                    uri: Url::from_file_path(&**file_path).ok()?,
-                                    range: Self::span_to_range(span, file, *file_start),
+                                    uri: Url::from_file_path(&*cached_file.name).ok()?,
+                                    range: Self::span_to_range(
+                                        span,
+                                        file,
+                                        cached_file.covered_span.start,
+                                    ),
                                 }));
                             }
                         }
@@ -297,9 +301,10 @@ impl LanguageServer {
             }
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
-                for (_, file_start, file_end) in working_set.files() {
-                    if var.declaration_span.start >= *file_start
-                        && var.declaration_span.start < *file_end
+                for cached_file in working_set.files() {
+                    if cached_file
+                        .covered_span
+                        .contains(var.declaration_span.start)
                     {
                         return Some(GotoDefinitionResponse::Scalar(Location {
                             uri: params
@@ -307,7 +312,11 @@ impl LanguageServer {
                                 .text_document
                                 .uri
                                 .clone(),
-                            range: Self::span_to_range(&var.declaration_span, file, *file_start),
+                            range: Self::span_to_range(
+                                &var.declaration_span,
+                                file,
+                                cached_file.covered_span.start,
+                            ),
                         }));
                     }
                 }

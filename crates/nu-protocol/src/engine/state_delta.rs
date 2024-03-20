@@ -1,3 +1,4 @@
+use super::cached_file::CachedFile;
 use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath};
 use crate::ast::Block;
 use crate::Module;
@@ -12,8 +13,7 @@ use crate::RegisteredPlugin;
 /// can be applied to the global state to update it to contain both previous state and the state held
 /// within the delta.
 pub struct StateDelta {
-    pub(super) files: Vec<(Arc<String>, usize, usize)>,
-    pub(crate) file_contents: Vec<(Arc<Vec<u8>>, usize, usize)>,
+    pub(super) files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     pub(super) vars: Vec<Variable>,          // indexed by VarId
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
@@ -38,7 +38,6 @@ impl StateDelta {
 
         StateDelta {
             files: vec![],
-            file_contents: vec![],
             virtual_paths: vec![],
             vars: vec![],
             decls: vec![],
@@ -131,7 +130,7 @@ impl StateDelta {
         self.scope.pop();
     }
 
-    pub fn get_file_contents(&self) -> &[(Arc<Vec<u8>>, usize, usize)] {
-        &self.file_contents
+    pub fn get_file_contents(&self) -> &[CachedFile] {
+        &self.files
     }
 }
