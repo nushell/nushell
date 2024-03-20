@@ -420,7 +420,7 @@ fn compound_where() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[{"a": 2,"b": 1}]"#);
+    assert_eq!(actual.out, r#"[{"a":2,"b":1}]"#);
 }
 
 #[test]
@@ -431,7 +431,7 @@ fn compound_where_paren() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
+    assert_eq!(actual.out, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
 }
 
 // TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them

@@ -32,7 +32,7 @@ fn each_window_stride() {
 fn each_no_args_in_block() {
     let actual = nu!("echo [[foo bar]; [a b] [c d] [e f]] | each {|i| $i | to json -r } | get 1");
 
-    assert_eq!(actual.out, r#"{"foo": "c","bar": "d"}"#);
+    assert_eq!(actual.out, r#"{"foo":"c","bar":"d"}"#);
 }
 
 #[test]
