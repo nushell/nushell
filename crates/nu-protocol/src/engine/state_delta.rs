@@ -2,7 +2,6 @@ use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variab
 use crate::ast::Block;
 use crate::Module;
 
-#[cfg(feature = "plugin")]
 use std::sync::Arc;
 
 #[cfg(feature = "plugin")]

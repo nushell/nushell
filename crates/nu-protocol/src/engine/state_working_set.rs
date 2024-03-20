@@ -9,7 +9,6 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-#[cfg(feature = "plugin")]
 use std::sync::Arc;
 
 #[cfg(feature = "plugin")]
