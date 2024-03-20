@@ -43,6 +43,20 @@ pub struct CallInfo<D> {
     pub input: D,
 }
 
+impl<D> CallInfo<D> {
+    /// Convert the type of `input` from `D` to `T`.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<CallInfo<T>, ShellError> {
+        Ok(CallInfo {
+            name: self.name,
+            call: self.call,
+            input: f(self.input)?,
+        })
+    }
+}
+
 /// The initial (and perhaps only) part of any [`nu_protocol::PipelineData`] sent over the wire.
 ///
 /// This may contain a single value, or may initiate a stream with a [`StreamId`].
@@ -126,6 +140,23 @@ pub enum PluginCall<D> {
     Signature,
     Run(CallInfo<D>),
     CustomValueOp(Spanned<PluginCustomValue>, CustomValueOp),
+}
+
+impl<D> PluginCall<D> {
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<PluginCall<T>, ShellError> {
+        Ok(match self {
+            PluginCall::Signature => PluginCall::Signature,
+            PluginCall::Run(call) => PluginCall::Run(call.map_data(f)?),
+            PluginCall::CustomValueOp(custom_value, op) => {
+                PluginCall::CustomValueOp(custom_value, op)
+            }
+        })
+    }
 }
 
 /// Operations supported for custom values.
@@ -337,6 +368,22 @@ pub enum PluginCallResponse<D> {
     PipelineData(D),
 }
 
+impl<D> PluginCallResponse<D> {
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<PluginCallResponse<T>, ShellError> {
+        Ok(match self {
+            PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
+            PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
+            PluginCallResponse::Ordering(ordering) => PluginCallResponse::Ordering(ordering),
+            PluginCallResponse::PipelineData(input) => PluginCallResponse::PipelineData(f(input)?),
+        })
+    }
+}
+
 impl PluginCallResponse<PipelineDataHeader> {
     /// Construct a plugin call response with a single value
     pub fn value(value: Value) -> PluginCallResponse<PipelineDataHeader> {
@@ -494,6 +541,35 @@ impl<D> EngineCall<D> {
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
+
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<EngineCall<T>, ShellError> {
+        Ok(match self {
+            EngineCall::GetConfig => EngineCall::GetConfig,
+            EngineCall::GetPluginConfig => EngineCall::GetPluginConfig,
+            EngineCall::GetEnvVar(name) => EngineCall::GetEnvVar(name),
+            EngineCall::GetEnvVars => EngineCall::GetEnvVars,
+            EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
+            EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
+            EngineCall::EvalClosure {
+                closure,
+                positional,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => EngineCall::EvalClosure {
+                closure,
+                positional,
+                input: f(input)?,
+                redirect_stdout,
+                redirect_stderr,
+            },
+        })
+    }
 }
 
 /// The response to an [EngineCall]. The type parameter determines the output type for pipeline
@@ -504,6 +580,22 @@ pub enum EngineCallResponse<D> {
     PipelineData(D),
     Config(Box<Config>),
     ValueMap(HashMap<String, Value>),
+}
+
+impl<D> EngineCallResponse<D> {
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<EngineCallResponse<T>, ShellError> {
+        Ok(match self {
+            EngineCallResponse::Error(err) => EngineCallResponse::Error(err),
+            EngineCallResponse::PipelineData(data) => EngineCallResponse::PipelineData(f(data)?),
+            EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
+            EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
+        })
+    }
 }
 
 impl EngineCallResponse<PipelineData> {
