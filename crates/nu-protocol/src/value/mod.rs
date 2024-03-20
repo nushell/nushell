@@ -2440,6 +2440,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::RawString { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2450,7 +2451,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
             },
             (Value::Glob { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),

@@ -85,6 +85,7 @@ impl Expr {
             | Expr::ValueWithUnit(_, _)
             | Expr::DateTime(_)
             | Expr::String(_)
+            | Expr::RawString(_)
             | Expr::CellPath(_)
             | Expr::StringInterpolation(_)
             | Expr::Nothing => {
