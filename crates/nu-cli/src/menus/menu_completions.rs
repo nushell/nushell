@@ -1,4 +1,5 @@
 use nu_engine::eval_block;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, Stack},
     IntoPipelineData, Span, Value,
@@ -27,7 +28,7 @@ impl NuMenuCompleter {
         Self {
             block_id,
             span,
-            stack,
+            stack: stack.reset_stdio().capture(),
             engine_state,
             only_buffer_difference,
         }
@@ -55,14 +56,8 @@ impl Completer for NuMenuCompleter {
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
-        let res = eval_block(
-            &self.engine_state,
-            &mut self.stack,
-            block,
-            input,
-            false,
-            false,
-        );
+
+        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input);
 
         if let Ok(values) = res {
             let values = values.into_value(self.span);
@@ -83,10 +78,12 @@ fn convert_to_suggestions(
         Value::Record { val, .. } => {
             let text = val
                 .get("value")
-                .and_then(|val| val.as_string().ok())
+                .and_then(|val| val.coerce_string().ok())
                 .unwrap_or_else(|| "No value key".to_string());
 
-            let description = val.get("description").and_then(|val| val.as_string().ok());
+            let description = val
+                .get("description")
+                .and_then(|val| val.coerce_string().ok());
 
             let span = match val.get("span") {
                 Some(Value::Record { val: span, .. }) => {

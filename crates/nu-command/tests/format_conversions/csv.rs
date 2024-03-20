@@ -183,7 +183,6 @@ fn from_csv_text_with_tab_separator_to_table() {
 }
 
 #[test]
-#[allow(clippy::needless_raw_string_hashes)]
 fn from_csv_text_with_comments_to_table() {
     Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
@@ -377,7 +376,7 @@ fn from_csv_text_with_wrong_type_separator() {
 fn table_with_record_error() {
     let actual = nu!(pipeline(
         r#"
-            [[a b]; [1 2] [3 {a: 1 b: 2}]] 
+            [[a b]; [1 2] [3 {a: 1 b: 2}]]
             | to csv
         "#
     ));

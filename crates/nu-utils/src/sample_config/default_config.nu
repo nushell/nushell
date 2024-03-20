@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.89.1"
+# version = "0.91.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -31,7 +31,7 @@ let dark_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: {bg: red fg: white}
+    search_result: { bg: red fg: white }
     shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
@@ -96,7 +96,7 @@ let light_theme = {
     list: dark_gray
     block: dark_gray
     hints: dark_gray
-    search_result: {fg: white bg: red}
+    search_result: { fg: white bg: red }
     shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
@@ -179,17 +179,17 @@ $env.config = {
     }
 
     explore: {
-        status_bar_background: {fg: "#1D1F21", bg: "#C4C9C6"},
-        command_bar_text: {fg: "#C4C9C6"},
-        highlight: {fg: "black", bg: "yellow"},
+        status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
+        command_bar_text: { fg: "#C4C9C6" },
+        highlight: { fg: "black", bg: "yellow" },
         status: {
-            error: {fg: "white", bg: "red"},
+            error: { fg: "white", bg: "red" },
             warn: {}
             info: {}
         },
         table: {
-            split_line: {fg: "#404040"},
-            selected_cell: {bg: light_blue},
+            split_line: { fg: "#404040" },
+            selected_cell: { bg: light_blue },
             selected_row: {},
             selected_column: {},
         },
@@ -212,6 +212,7 @@ $env.config = {
             max_results: 100 # setting it lower can improve completion performance at the cost of omitting some options
             completer: null # check 'carapace_completer' above as an example
         }
+        use_ls_colors: true # set this to true to enable file/path/directory completions using LS_COLORS
     }
 
     filesize: {
@@ -240,6 +241,21 @@ $env.config = {
 
     plugins: {} # Per-plugin configuration. See https://www.nushell.sh/contributor-book/plugins.html#configuration.
 
+    plugin_gc: {
+        # Configuration for plugin garbage collection
+        default: {
+            enabled: true # true to enable stopping of inactive plugins
+            stop_after: 10sec # how long to wait after a plugin is inactive to stop it
+        }
+        plugins: {
+            # alternate configuration for specific plugins, by name, for example:
+            #
+            # gstat: {
+            #     enabled: false
+            # }
+        }
+    }
+
     hooks: {
         pre_prompt: [{ null }] # run before the prompt is shown
         pre_execution: [{ null }] # run before the repl input is run
@@ -265,10 +281,10 @@ $env.config = {
             }
             style: {
                 text: green
-                selected_text: {attr: r}
+                selected_text: { attr: r }
                 description_text: yellow
-                match_text: {attr: u}
-                selected_match_text: {attr: ur}
+                match_text: { attr: u }
+                selected_match_text: { attr: ur }
             }
         }
         {
@@ -279,9 +295,9 @@ $env.config = {
                 layout: ide
                 min_completion_width: 0,
                 max_completion_width: 50,
-                # max_completion_height: 10, # will be limited by the available lines in the terminal
+                max_completion_height: 10, # will be limited by the available lines in the terminal
                 padding: 0,
-                border: false,
+                border: true,
                 cursor_offset: 0,
                 description_mode: "prefer_right"
                 min_description_width: 0
@@ -298,10 +314,10 @@ $env.config = {
             }
             style: {
                 text: green
-                selected_text: {attr: r}
+                selected_text: { attr: r }
                 description_text: yellow
-                match_text: {attr: u}
-                selected_match_text: {attr: ur}
+                match_text: { attr: u }
+                selected_match_text: { attr: ur }
             }
         }
         {
@@ -454,8 +470,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: menuup}
-                    {send: up}
+                    { send: menuup }
+                    { send: up }
                 ]
             }
         }
@@ -466,8 +482,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: menudown}
-                    {send: down}
+                    { send: menudown }
+                    { send: down }
                 ]
             }
         }
@@ -478,8 +494,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: menuleft}
-                    {send: left}
+                    { send: menuleft }
+                    { send: left }
                 ]
             }
         }
@@ -490,9 +506,9 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: historyhintcomplete}
-                    {send: menuright}
-                    {send: right}
+                    { send: historyhintcomplete }
+                    { send: menuright }
+                    { send: right }
                 ]
             }
         }
@@ -501,7 +517,7 @@ $env.config = {
             modifier: control
             keycode: left
             mode: [emacs, vi_normal, vi_insert]
-            event: {edit: movewordleft}
+            event: { edit: movewordleft }
         }
         {
             name: move_one_word_right_or_take_history_hint
@@ -510,8 +526,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: historyhintwordcomplete}
-                    {edit: movewordright}
+                    { send: historyhintwordcomplete }
+                    { edit: movewordright }
                 ]
             }
         }
@@ -520,14 +536,14 @@ $env.config = {
             modifier: none
             keycode: home
             mode: [emacs, vi_normal, vi_insert]
-            event: {edit: movetolinestart}
+            event: { edit: movetolinestart }
         }
         {
             name: move_to_line_start
             modifier: control
             keycode: char_a
             mode: [emacs, vi_normal, vi_insert]
-            event: {edit: movetolinestart}
+            event: { edit: movetolinestart }
         }
         {
             name: move_to_line_end_or_take_history_hint
@@ -536,8 +552,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: historyhintcomplete}
-                    {edit: movetolineend}
+                    { send: historyhintcomplete }
+                    { edit: movetolineend }
                 ]
             }
         }
@@ -548,8 +564,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: historyhintcomplete}
-                    {edit: movetolineend}
+                    { send: historyhintcomplete }
+                    { edit: movetolineend }
                 ]
             }
         }
@@ -558,14 +574,14 @@ $env.config = {
             modifier: control
             keycode: home
             mode: [emacs, vi_normal, vi_insert]
-            event: {edit: movetolinestart}
+            event: { edit: movetolinestart }
         }
         {
             name: move_to_line_end
             modifier: control
             keycode: end
             mode: [emacs, vi_normal, vi_insert]
-            event: {edit: movetolineend}
+            event: { edit: movetolineend }
         }
         {
             name: move_up
@@ -574,8 +590,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: menuup}
-                    {send: up}
+                    { send: menuup }
+                    { send: up }
                 ]
             }
         }
@@ -586,8 +602,8 @@ $env.config = {
             mode: [emacs, vi_normal, vi_insert]
             event: {
                 until: [
-                    {send: menudown}
-                    {send: down}
+                    { send: menudown }
+                    { send: down }
                 ]
             }
         }
@@ -596,56 +612,56 @@ $env.config = {
             modifier: none
             keycode: backspace
             mode: [emacs, vi_insert]
-            event: {edit: backspace}
+            event: { edit: backspace }
         }
         {
             name: delete_one_word_backward
             modifier: control
             keycode: backspace
             mode: [emacs, vi_insert]
-            event: {edit: backspaceword}
+            event: { edit: backspaceword }
         }
         {
             name: delete_one_character_forward
             modifier: none
             keycode: delete
             mode: [emacs, vi_insert]
-            event: {edit: delete}
+            event: { edit: delete }
         }
         {
             name: delete_one_character_forward
             modifier: control
             keycode: delete
             mode: [emacs, vi_insert]
-            event: {edit: delete}
+            event: { edit: delete }
         }
         {
-            name: delete_one_character_forward
+            name: delete_one_character_backward
             modifier: control
             keycode: char_h
             mode: [emacs, vi_insert]
-            event: {edit: backspace}
+            event: { edit: backspace }
         }
         {
             name: delete_one_word_backward
             modifier: control
             keycode: char_w
             mode: [emacs, vi_insert]
-            event: {edit: backspaceword}
+            event: { edit: backspaceword }
         }
         {
             name: move_left
             modifier: none
             keycode: backspace
             mode: vi_normal
-            event: {edit: moveleft}
+            event: { edit: moveleft }
         }
         {
             name: newline_or_run_command
             modifier: none
             keycode: enter
             mode: emacs
-            event: {send: enter}
+            event: { send: enter }
         }
         {
             name: move_left
@@ -654,8 +670,8 @@ $env.config = {
             mode: emacs
             event: {
                 until: [
-                    {send: menuleft}
-                    {send: left}
+                    { send: menuleft }
+                    { send: left }
                 ]
             }
         }
@@ -666,9 +682,9 @@ $env.config = {
             mode: emacs
             event: {
                 until: [
-                    {send: historyhintcomplete}
-                    {send: menuright}
-                    {send: right}
+                    { send: historyhintcomplete }
+                    { send: menuright }
+                    { send: right }
                 ]
             }
         }
@@ -677,56 +693,56 @@ $env.config = {
             modifier: control
             keycode: char_g
             mode: emacs
-            event: {edit: redo}
+            event: { edit: redo }
         }
         {
             name: undo_change
             modifier: control
             keycode: char_z
             mode: emacs
-            event: {edit: undo}
+            event: { edit: undo }
         }
         {
             name: paste_before
             modifier: control
             keycode: char_y
             mode: emacs
-            event: {edit: pastecutbufferbefore}
+            event: { edit: pastecutbufferbefore }
         }
         {
             name: cut_word_left
             modifier: control
             keycode: char_w
             mode: emacs
-            event: {edit: cutwordleft}
+            event: { edit: cutwordleft }
         }
         {
             name: cut_line_to_end
             modifier: control
             keycode: char_k
             mode: emacs
-            event: {edit: cuttoend}
+            event: { edit: cuttoend }
         }
         {
             name: cut_line_from_start
             modifier: control
             keycode: char_u
             mode: emacs
-            event: {edit: cutfromstart}
+            event: { edit: cutfromstart }
         }
         {
             name: swap_graphemes
             modifier: control
             keycode: char_t
             mode: emacs
-            event: {edit: swapgraphemes}
+            event: { edit: swapgraphemes }
         }
         {
             name: move_one_word_left
             modifier: alt
             keycode: left
             mode: emacs
-            event: {edit: movewordleft}
+            event: { edit: movewordleft }
         }
         {
             name: move_one_word_right_or_take_history_hint
@@ -735,8 +751,8 @@ $env.config = {
             mode: emacs
             event: {
                 until: [
-                    {send: historyhintwordcomplete}
-                    {edit: movewordright}
+                    { send: historyhintwordcomplete }
+                    { edit: movewordright }
                 ]
             }
         }
@@ -745,7 +761,7 @@ $env.config = {
             modifier: alt
             keycode: char_b
             mode: emacs
-            event: {edit: movewordleft}
+            event: { edit: movewordleft }
         }
         {
             name: move_one_word_right_or_take_history_hint
@@ -754,8 +770,8 @@ $env.config = {
             mode: emacs
             event: {
                 until: [
-                    {send: historyhintwordcomplete}
-                    {edit: movewordright}
+                    { send: historyhintwordcomplete }
+                    { edit: movewordright }
                 ]
             }
         }
@@ -764,63 +780,66 @@ $env.config = {
             modifier: alt
             keycode: delete
             mode: emacs
-            event: {edit: deleteword}
+            event: { edit: deleteword }
         }
         {
             name: delete_one_word_backward
             modifier: alt
             keycode: backspace
             mode: emacs
-            event: {edit: backspaceword}
+            event: { edit: backspaceword }
         }
         {
             name: delete_one_word_backward
             modifier: alt
             keycode: char_m
             mode: emacs
-            event: {edit: backspaceword}
+            event: { edit: backspaceword }
         }
         {
             name: cut_word_to_right
             modifier: alt
             keycode: char_d
             mode: emacs
-            event: {edit: cutwordright}
+            event: { edit: cutwordright }
         }
         {
             name: upper_case_word
             modifier: alt
             keycode: char_u
             mode: emacs
-            event: {edit: uppercaseword}
+            event: { edit: uppercaseword }
         }
         {
             name: lower_case_word
             modifier: alt
             keycode: char_l
             mode: emacs
-            event: {edit: lowercaseword}
+            event: { edit: lowercaseword }
         }
         {
             name: capitalize_char
             modifier: alt
             keycode: char_c
             mode: emacs
-            event: {edit: capitalizechar}
+            event: { edit: capitalizechar }
         }
+        # The *_system keybindings require terminal support to pass these
+        # keybindings through to nushell and nushell compiled with the
+        # `system-clipboard` feature
         {
-            name: copy_selection
+            name: copy_selection_system
             modifier: control_shift
             keycode: char_c
             mode: emacs
-            event: { edit: copyselection }
+            event: { edit: copyselectionsystem }
         }
         {
-            name: cut_selection
+            name: cut_selection_system
             modifier: control_shift
             keycode: char_x
             mode: emacs
-            event: { edit: cutselection }
+            event: { edit: cutselectionsystem }
         }
         {
             name: select_all
@@ -830,11 +849,11 @@ $env.config = {
             event: { edit: selectall }
         }
         {
-            name: paste
+            name: paste_system
             modifier: control_shift
             keycode: char_v
             mode: emacs
-            event: { edit: pastecutbufferbefore }
+            event: { edit: pastesystem }
         }
     ]
 }

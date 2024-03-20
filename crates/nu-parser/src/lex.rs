@@ -6,6 +6,8 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    ErrGreaterPipe,
+    OutErrGreaterPipe,
     Semicolon,
     OutGreaterThan,
     OutGreaterGreaterThan,
@@ -205,6 +207,23 @@ pub fn lex_item(
             // We encountered a closing `)` delimiter. Pop off the opening `(`.
             if let Some(BlockKind::Paren) = block_level.last() {
                 let _ = block_level.pop();
+            } else {
+                // We encountered a closing `)` delimiter, but the last opening
+                // delimiter was not a `(`. This is an error.
+                let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+
+                *curr_offset += 1;
+                return (
+                    Token {
+                        contents: TokenContents::Item,
+                        span,
+                    },
+                    Some(ParseError::Unbalanced(
+                        "(".to_string(),
+                        ")".to_string(),
+                        Span::new(span.end, span.end + 1),
+                    )),
+                );
             }
         } else if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
             break;
@@ -485,8 +504,14 @@ fn lex_internal(
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
-            // Otherwise, try to consume an unclassified token.
+            let token = try_lex_special_piped_item(input, &mut curr_offset, span_offset);
+            if let Some(token) = token {
+                output.push(token);
+                is_complete = false;
+                continue;
+            }
 
+            // Otherwise, try to consume an unclassified token.
             let (token, err) = lex_item(
                 input,
                 &mut curr_offset,
@@ -503,4 +528,50 @@ fn lex_internal(
         }
     }
     (output, error)
+}
+
+/// trying to lex for the following item:
+/// e>|, e+o>|, o+e>|
+///
+/// It returns Some(token) if we find the item, or else return None.
+fn try_lex_special_piped_item(
+    input: &[u8],
+    curr_offset: &mut usize,
+    span_offset: usize,
+) -> Option<Token> {
+    let c = input[*curr_offset];
+    let e_pipe_len = 3;
+    let eo_pipe_len = 5;
+    let offset = *curr_offset;
+    if c == b'e' {
+        // expect `e>|`
+        if (offset + e_pipe_len <= input.len()) && (&input[offset..offset + e_pipe_len] == b"e>|") {
+            *curr_offset += e_pipe_len;
+            return Some(Token::new(
+                TokenContents::ErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + e_pipe_len),
+            ));
+        }
+        if (offset + eo_pipe_len <= input.len())
+            && (&input[offset..offset + eo_pipe_len] == b"e+o>|")
+        {
+            *curr_offset += eo_pipe_len;
+            return Some(Token::new(
+                TokenContents::OutErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+            ));
+        }
+    } else if c == b'o' {
+        // it can be the following case: `o+e>|`
+        if (offset + eo_pipe_len <= input.len())
+            && (&input[offset..offset + eo_pipe_len] == b"o+e>|")
+        {
+            *curr_offset += eo_pipe_len;
+            return Some(Token::new(
+                TokenContents::OutErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+            ));
+        }
+    }
+    None
 }

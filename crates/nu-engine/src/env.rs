@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
 use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
+use nu_protocol::debugger::WithoutDebug;
 
 use crate::eval_block;
 
@@ -18,11 +20,9 @@ const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
-#[allow(dead_code)]
 enum ConversionResult {
     Ok(Value),
     ConversionError(ShellError), // Failure during the conversion itself
-    GeneralError(ShellError),    // Other error not directly connected to running the conversion
     CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
 }
 
@@ -45,7 +45,6 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
                 let _ = new_scope.insert(name.to_string(), v);
             }
             ConversionResult::ConversionError(e) => error = error.or(Some(e)),
-            ConversionResult::GeneralError(_) => continue,
             ConversionResult::CellPathError => {
                 let _ = new_scope.insert(name.to_string(), val.clone());
             }
@@ -70,7 +69,8 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
     }
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
-        if let Some(env_vars) = engine_state.env_vars.get_mut(last_overlay_name) {
+        if let Some(env_vars) = Arc::make_mut(&mut engine_state.env_vars).get_mut(last_overlay_name)
+        {
             for (k, v) in new_scope {
                 env_vars.insert(k, v);
             }
@@ -98,10 +98,9 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.as_string()?),
+        ConversionResult::Ok(v) => Ok(v.coerce_into_string()?),
         ConversionResult::ConversionError(e) => Err(e),
-        ConversionResult::GeneralError(e) => Err(e),
-        ConversionResult::CellPathError => match value.as_string() {
+        ConversionResult::CellPathError => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
                 if env_name == ENV_PATH_NAME {
@@ -110,10 +109,10 @@ pub fn env_to_string(
                         Value::List { vals, .. } => {
                             let paths = vals
                                 .iter()
-                                .map(|v| v.as_string())
+                                .map(Value::coerce_str)
                                 .collect::<Result<Vec<_>, _>>()?;
 
-                            match std::env::join_paths(paths) {
+                            match std::env::join_paths(paths.iter().map(AsRef::as_ref)) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
                                 Err(_) => Err(ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
@@ -333,7 +332,7 @@ pub fn find_in_dirs_env(
             .ok()?
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.as_path().ok()?;
+                let dir = lib_dir.to_path().ok()?;
                 let dir_abs = canonicalize_with(dir, &cwd).ok()?;
                 canonicalize_with(filename, dir_abs).ok()
             })
@@ -382,19 +381,18 @@ fn get_converted_value(
                 let block = engine_state.get_block(val.block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.gather_captures(engine_state, &block.captures);
+                    let mut stack = stack.captures_to_stack(val.captures.clone());
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, orig_val.clone());
                     }
 
                     let val_span = orig_val.span();
-                    let result = eval_block(
+                    // TODO DEBUG
+                    let result = eval_block::<WithoutDebug>(
                         engine_state,
                         &mut stack,
                         block,
                         PipelineData::new_with_metadata(None, val_span),
-                        true,
-                        true,
                     );
 
                     match result {

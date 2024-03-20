@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::cli_error::{report_error, report_error_new};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
 
@@ -35,8 +38,7 @@ pub fn eval_env_change_hook(
                             "env_change",
                         )?;
 
-                        engine_state
-                            .previous_env_vars
+                        Arc::make_mut(&mut engine_state.previous_env_vars)
                             .insert(env_name.to_string(), after);
                     }
                 }
@@ -115,7 +117,7 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block(engine_state, stack, &block, input, false, false) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -150,7 +152,7 @@ pub fn eval_hook(
             // If it returns true (the default if a condition block is not specified), the hook should be run.
             let do_run_hook = if let Some(condition) = val.get("condition") {
                 let other_span = condition.span();
-                if let Ok(block_id) = condition.as_block() {
+                if let Ok(block_id) = condition.coerce_block() {
                     match run_hook_block(
                         engine_state,
                         stack,
@@ -243,7 +245,7 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block(engine_state, stack, &block, input, false, false) {
+                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
@@ -319,7 +321,9 @@ fn run_hook_block(
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 
-    let mut callee_stack = stack.gather_captures(engine_state, &block.captures);
+    let mut callee_stack = stack
+        .gather_captures(engine_state, &block.captures)
+        .reset_pipes();
 
     for (idx, PositionalArg { var_id, .. }) in
         block.signature.required_positional.iter().enumerate()
@@ -336,8 +340,12 @@ fn run_hook_block(
         }
     }
 
-    let pipeline_data =
-        eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
+    let pipeline_data = eval_block_with_early_return::<WithoutDebug>(
+        engine_state,
+        &mut callee_stack,
+        block,
+        input,
+    )?;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);

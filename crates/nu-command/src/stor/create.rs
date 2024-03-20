@@ -89,7 +89,7 @@ fn process(
                     new_table_name
                 );
                 for (column_name, column_datatype) in record {
-                    match column_datatype.as_string()?.as_str() {
+                    match column_datatype.coerce_str()?.as_ref() {
                         "int" => {
                             create_stmt.push_str(&format!("{} INTEGER, ", column_name));
                         }

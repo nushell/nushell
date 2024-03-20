@@ -1,11 +1,14 @@
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -58,18 +61,38 @@ impl Command for LazyMake {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let columns: Vec<String> = call
+        let columns: Vec<Spanned<String>> = call
             .get_flag(engine_state, stack, "columns")?
             .expect("required flag");
+
         let get_value: Closure = call
             .get_flag(engine_state, stack, "get-value")?
             .expect("required flag");
 
+        let mut unique = HashMap::with_capacity(columns.len());
+
+        for col in &columns {
+            match unique.entry(&col.item) {
+                Entry::Occupied(entry) => {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        col_name: col.item.clone(),
+                        second_use: col.span,
+                        first_use: *entry.get(),
+                    });
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(col.span);
+                }
+            }
+        }
+
+        let stack = stack.clone().reset_stdio().capture();
+
         Ok(Value::lazy_record(
             Box::new(NuLazyRecord {
                 engine_state: engine_state.clone(),
-                stack: Arc::new(Mutex::new(stack.clone())),
-                columns,
+                stack: Arc::new(Mutex::new(stack)),
+                columns: columns.into_iter().map(|s| s.item).collect(),
                 get_value,
                 span,
             }),
@@ -126,13 +149,11 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
             }
         }
 
-        let pipeline_result = eval_block(
+        let pipeline_result = eval_block::<WithoutDebug>(
             &self.engine_state,
             &mut stack,
             block,
             PipelineData::Value(column_value, None),
-            false,
-            false,
         );
 
         pipeline_result.map(|data| match data {

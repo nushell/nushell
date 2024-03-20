@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -80,12 +81,11 @@ fn with_env(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    // let external_redirection = args.call_info.args.external_redirection;
     let variable: Value = call.req(engine_state, stack, 0)?;
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(capture_block.captures);
+    let mut stack = stack.captures_to_stack_preserve_stdio(capture_block.captures);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 
@@ -115,7 +115,7 @@ fn with_env(
                 // primitive values([X Y W Z])
                 for row in table.chunks(2) {
                     if row.len() == 2 {
-                        env.insert(row[0].as_string()?, row[1].clone());
+                        env.insert(row[0].coerce_string()?, row[1].clone());
                     }
                     // TODO: else error?
                 }
@@ -144,14 +144,7 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block(
-        engine_state,
-        &mut stack,
-        block,
-        input,
-        call.redirect_stdout,
-        call.redirect_stderr,
-    )
+    eval_block::<WithoutDebug>(engine_state, &mut stack, block, input)
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -171,7 +171,7 @@ pub fn group_by(
                 Value::CellPath { val, .. } => group_cell_path(val, values)?,
                 Value::Block { .. } | Value::Closure { .. } => {
                     let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
-                    group_closure(values, span, block, stack, engine_state, call)?
+                    group_closure(values, span, block, stack, engine_state)?
                 }
 
                 _ => {
@@ -208,7 +208,7 @@ pub fn group_cell_path(
             continue; // likely the result of a failed optional access, ignore this value
         }
 
-        let group_key = group_key.as_string()?;
+        let group_key = group_key.coerce_string()?;
         let group = groups.entry(group_key).or_default();
         group.push(value);
     }
@@ -220,7 +220,7 @@ pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for value in values.into_iter() {
-        let group_key = value.as_string()?;
+        let group_key = value.coerce_string()?;
         let group = groups.entry(group_key).or_default();
         group.push(value);
     }
@@ -234,23 +234,22 @@ fn group_closure(
     block: Option<Closure>,
     stack: &mut Stack,
     engine_state: &EngineState,
-    call: &Call,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let error_key = "error";
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
+    let eval_block = get_eval_block(engine_state);
 
     if let Some(capture_block) = &block {
         let block = engine_state.get_block(capture_block.block_id);
 
         for value in values {
             let mut stack = stack.captures_to_stack(capture_block.captures.clone());
+
             let pipeline = eval_block(
                 engine_state,
                 &mut stack,
                 block,
                 value.clone().into_pipeline_data(),
-                call.redirect_stdout,
-                call.redirect_stderr,
             );
 
             let group_key = match pipeline {
@@ -259,7 +258,7 @@ fn group_closure(
 
                     let key = match s.next() {
                         Some(Value::Error { .. }) | None => error_key.into(),
-                        Some(return_value) => return_value.as_string()?,
+                        Some(return_value) => return_value.coerce_into_string()?,
                     };
 
                     if s.next().is_some() {

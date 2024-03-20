@@ -521,6 +521,26 @@ fn run_dynamic_closures() {
     assert_eq!(actual.out, "holaaaa");
 }
 
+#[test]
+fn dynamic_closure_type_check() {
+    let actual = nu!(r#"let closure = {|x: int| echo $x}; do $closure "aa""#);
+    assert!(actual.err.contains("can't convert string to int"))
+}
+
+#[test]
+fn dynamic_closure_optional_arg() {
+    let actual = nu!(r#"let closure = {|x: int = 3| echo $x}; do $closure"#);
+    assert_eq!(actual.out, "3");
+    let actual = nu!(r#"let closure = {|x: int = 3| echo $x}; do $closure 10"#);
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn dynamic_closure_rest_args() {
+    let actual = nu!(r#"let closure = {|...args| $args | str join ""}; do $closure 1 2 3"#);
+    assert_eq!(actual.out, "123");
+}
+
 #[cfg(feature = "which-support")]
 #[test]
 fn argument_subexpression_reports_errors() {
@@ -1111,6 +1131,18 @@ fn pipe_input_to_print() {
     let actual = nu!(r#""foo" | print"#);
     assert_eq!(actual.out, "foo");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn err_pipe_input_to_print() {
+    let actual = nu!(r#""foo" e>| print"#);
+    assert!(actual.err.contains("only works on external streams"));
+}
+
+#[test]
+fn outerr_pipe_input_to_print() {
+    let actual = nu!(r#""foo" o+e>| print"#);
+    assert!(actual.err.contains("only works on external streams"));
 }
 
 #[test]

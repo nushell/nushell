@@ -3,7 +3,7 @@ use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
+use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
@@ -263,24 +263,38 @@ fn find_matching_block_end_in_block(
 ) -> Option<usize> {
     for p in &block.pipelines {
         for e in &p.elements {
-            match e {
-                PipelineElement::Expression(_, e)
-                | PipelineElement::Redirection(_, _, e, _)
-                | PipelineElement::And(_, e)
-                | PipelineElement::Or(_, e)
-                | PipelineElement::SameTargetRedirection { cmd: (_, e), .. }
-                | PipelineElement::SeparateRedirection { out: (_, e, _), .. } => {
-                    if e.span.contains(global_cursor_offset) {
-                        if let Some(pos) = find_matching_block_end_in_expr(
-                            line,
-                            working_set,
-                            e,
-                            global_span_offset,
-                            global_cursor_offset,
-                        ) {
+            if e.expr.span.contains(global_cursor_offset) {
+                if let Some(pos) = find_matching_block_end_in_expr(
+                    line,
+                    working_set,
+                    &e.expr,
+                    global_span_offset,
+                    global_cursor_offset,
+                ) {
+                    return Some(pos);
+                }
+            }
+
+            if let Some(redirection) = e.redirection.as_ref() {
+                match redirection {
+                    PipelineRedirection::Single { target, .. }
+                    | PipelineRedirection::Separate { out: target, .. }
+                    | PipelineRedirection::Separate { err: target, .. }
+                        if target.span().contains(global_cursor_offset) =>
+                    {
+                        if let Some(pos) = target.expr().and_then(|expr| {
+                            find_matching_block_end_in_expr(
+                                line,
+                                working_set,
+                                expr,
+                                global_span_offset,
+                                global_cursor_offset,
+                            )
+                        }) {
                             return Some(pos);
                         }
                     }
+                    _ => {}
                 }
             }
         }

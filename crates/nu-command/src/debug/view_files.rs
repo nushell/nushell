@@ -46,7 +46,7 @@ impl Command for ViewFiles {
         for (file, start, end) in engine_state.files() {
             records.push(Value::record(
                 record! {
-                    "filename" => Value::string(file, call.head),
+                    "filename" => Value::string(&**file, call.head),
                     "start" => Value::int(*start as i64, call.head),
                     "end" => Value::int(*end as i64, call.head),
                     "size" => Value::int(*end as i64 - *start as i64, call.head),

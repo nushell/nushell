@@ -5,6 +5,7 @@ use std::io::ErrorKind;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
+use super::util::get_rest_for_glob_pattern;
 use super::util::try_interaction;
 
 use nu_engine::env::current_dir;
@@ -14,7 +15,7 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
     Span, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -40,13 +41,9 @@ impl Command for Rm {
     }
 
     fn signature(&self) -> Signature {
-        let sig = Signature::build("rm")
+        Signature::build("rm")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required(
-                "filename",
-                SyntaxShape::GlobPattern,
-                "The file or files you want to remove.",
-            )
+            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
             .switch(
                 "trash",
                 "move to the platform's trash instead of permanently deleting. not used on android and ios",
@@ -56,8 +53,8 @@ impl Command for Rm {
                 "permanent",
                 "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
-            );
-        sig.switch("recursive", "delete subdirectories recursively", Some('r'))
+            )
+            .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
             .switch("verbose", "print names of deleted files", Some('v'))
             .switch("interactive", "ask user to confirm action", Some('i'))
@@ -65,11 +62,6 @@ impl Command for Rm {
                 "interactive-once",
                 "ask user to confirm action only once",
                 Some('I'),
-            )
-            .rest(
-                "rest",
-                SyntaxShape::GlobPattern,
-                "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)
     }
@@ -135,7 +127,14 @@ fn rm(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut targets: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+
+    if paths.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "requires file paths".to_string(),
+            span: call.head,
+        });
+    }
 
     let mut unique_argument_check = None;
 
@@ -156,7 +155,7 @@ fn rm(
         .into()
     });
 
-    for (idx, path) in targets.clone().into_iter().enumerate() {
+    for (idx, path) in paths.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
             if expand_path_with(path.item.as_ref(), &currentdir_path)
                 .to_string_lossy()
@@ -168,12 +167,14 @@ fn rm(
         }
         let corrected_path = Spanned {
             item: match path.item {
-                NuPath::Quoted(s) => NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
-                NuPath::UnQuoted(s) => NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuGlob::DoNotExpand(s) => {
+                    NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s))
+                }
+                NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
             },
             span: path.span,
         };
-        let _ = std::mem::replace(&mut targets[idx], corrected_path);
+        let _ = std::mem::replace(&mut paths[idx], corrected_path);
     }
 
     let span = call.head;
@@ -204,7 +205,7 @@ fn rm(
         }
     }
 
-    if targets.is_empty() {
+    if paths.is_empty() {
         return Err(ShellError::GenericError {
             error: "rm requires target paths".into(),
             msg: "needs parameter".into(),
@@ -225,12 +226,12 @@ fn rm(
     }
 
     let targets_span = Span::new(
-        targets
+        paths
             .iter()
             .map(|x| x.span.start)
             .min()
             .expect("targets were empty"),
-        targets
+        paths
             .iter()
             .map(|x| x.span.end)
             .max()
@@ -240,7 +241,7 @@ fn rm(
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
-    for target in targets {
+    for target in paths {
         let path = expand_path_with(target.item.as_ref(), &currentdir_path);
         if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))

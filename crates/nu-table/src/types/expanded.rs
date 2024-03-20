@@ -118,7 +118,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .as_record()
                 .ok()
                 .and_then(|val| val.get(INDEX_COLUMN_NAME))
-                .map(|value| value.into_string("", cfg.opts.config))
+                .map(|value| value.to_expanded_string("", cfg.opts.config))
                 .unwrap_or_else(|| index.to_string());
 
             let row = row + with_header as usize;

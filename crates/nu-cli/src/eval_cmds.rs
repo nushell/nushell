@@ -2,6 +2,7 @@ use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::Stack;
 use nu_protocol::report_error;
 use nu_protocol::{
@@ -28,7 +29,7 @@ pub fn evaluate_commands(
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
             let mut config = engine_state.get_config().clone();
-            config.table_mode = t_mode.as_string()?.parse().unwrap_or_default();
+            config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
             engine_state.set_config(config);
         }
 
@@ -55,11 +56,11 @@ pub fn evaluate_commands(
     }
 
     // Run the block
-    let exit_code = match eval_block(engine_state, stack, &block, input, false, false) {
+    let exit_code = match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
         Ok(pipeline_data) => {
             let mut config = engine_state.get_config().clone();
             if let Some(t_mode) = table_mode {
-                config.table_mode = t_mode.as_string()?.parse().unwrap_or_default();
+                config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
             }
             crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
         }

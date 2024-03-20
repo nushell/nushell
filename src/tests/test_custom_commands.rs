@@ -214,6 +214,18 @@ fn infinite_recursion_does_not_panic() {
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
 
+// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
+// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
+// TODO: investigate so we can enable on Windows
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn infinite_mutual_recursion_does_not_panic() {
+    let actual = nu!(r#"
+            def bang [] { def boom [] { bang }; boom }; bang
+        "#);
+    assert!(actual.err.contains("Recursion limit (50) reached"));
+}
+
 #[test]
 fn type_check_for_during_eval() -> TestResult {
     fail_test(
@@ -249,4 +261,16 @@ fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
 #[test]
 fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
     run_test(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#, "~/aa")
+}
+
+#[test]
+fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
+    let _ = fail_test(
+        r#"def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f"#,
+        "expected string",
+    );
+    fail_test(
+        r#"def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f"#,
+        "can't convert",
+    )
 }

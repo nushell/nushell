@@ -119,7 +119,7 @@ fn to_string_tagged_value(
         | Value::CustomValue { .. }
         | Value::Filesize { .. }
         | Value::CellPath { .. }
-        | Value::Float { .. } => Ok(v.clone().into_abbreviated_string(config)),
+        | Value::Float { .. } => Ok(v.clone().to_abbreviated_string(config)),
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors

@@ -1,4 +1,6 @@
-use nu_protocol::ast::{Call, Expr, Expression, PipelineElement, RecordItem};
+use std::sync::Arc;
+
+use nu_protocol::ast::{Call, Expr, Expression, RecordItem};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
@@ -69,7 +71,7 @@ impl Command for FromNuon {
                         src: string_input,
                         error: "error when loading".into(),
                         msg: "excess values when loading".into(),
-                        span: element.span(),
+                        span: element.expr.span,
                     }],
                 });
             } else {
@@ -97,7 +99,7 @@ impl Command for FromNuon {
                 ty: Type::Nothing,
             }
         } else {
-            let mut pipeline = block.pipelines.remove(0);
+            let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
             if let Some(expr) = pipeline.elements.get(1) {
                 return Err(ShellError::GenericError {
@@ -109,7 +111,7 @@ impl Command for FromNuon {
                         src: string_input,
                         error: "error when loading".into(),
                         msg: "detected a pipeline in nuon file".into(),
-                        span: expr.span(),
+                        span: expr.expr.span,
                     }],
                 });
             }
@@ -122,20 +124,7 @@ impl Command for FromNuon {
                     ty: Type::Nothing,
                 }
             } else {
-                match pipeline.elements.remove(0) {
-                    PipelineElement::Expression(_, expression)
-                    | PipelineElement::Redirection(_, _, expression, _)
-                    | PipelineElement::And(_, expression)
-                    | PipelineElement::Or(_, expression)
-                    | PipelineElement::SameTargetRedirection {
-                        cmd: (_, expression),
-                        ..
-                    }
-                    | PipelineElement::SeparateRedirection {
-                        out: (_, expression, _),
-                        ..
-                    } => expression,
-                }
+                pipeline.elements.remove(0).expr
             }
         };
 
@@ -308,7 +297,8 @@ fn convert_to_value(
             ))
         }
         Expr::Record(key_vals) => {
-            let mut record = Record::new();
+            let mut record = Record::with_capacity(key_vals.len());
+            let mut key_spans = Vec::with_capacity(key_vals.len());
 
             for key_val in key_vals {
                 match key_val {
@@ -325,9 +315,16 @@ fn convert_to_value(
                             }
                         };
 
-                        let value = convert_to_value(val, span, original_text)?;
-
-                        record.push(key_str, value);
+                        if let Some(i) = record.index_of(&key_str) {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                col_name: key_str,
+                                second_use: key.span,
+                                first_use: key_spans[i],
+                            });
+                        } else {
+                            key_spans.push(key.span);
+                            record.push(key_str, convert_to_value(val, span, original_text)?);
+                        }
                     }
                     RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError {
@@ -412,15 +409,16 @@ fn convert_to_value(
                         span: expr.span,
                     });
                 }
-                let vals: Vec<Value> = row
-                    .into_iter()
-                    .map(|cell| convert_to_value(cell, span, original_text))
+
+                let record = cols
+                    .iter()
+                    .zip(row)
+                    .map(|(col, cell)| {
+                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
+                    })
                     .collect::<Result<_, _>>()?;
 
-                output.push(Value::record(
-                    Record::from_raw_cols_vals(cols.clone(), vals),
-                    span,
-                ));
+                output.push(Value::record(record, span));
             }
 
             Ok(Value::list(output, span))

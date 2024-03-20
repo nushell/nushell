@@ -11,6 +11,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      # We release on Tuesdays and open dependabot PRs will rebase after the
+      # version bump and thus consume unnecessary workers during release, thus
+      # let's open new ones on Wednesday
+      day: "wednesday"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
@@ -18,3 +22,4 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "wednesday"

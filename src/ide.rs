@@ -165,7 +165,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
                                 "{}",
                                 json!(
                                     {
-                                        "file": file.0,
+                                        "file": &**file.0,
                                         "start": span.start - file.1,
                                         "end": span.end - file.1
                                     }
@@ -185,7 +185,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
                         "{}",
                         json!(
                             {
-                                "file": file.0,
+                                "file": &**file.0,
                                 "start": var.declaration_span.start - file.1,
                                 "end": var.declaration_span.end - file.1
                             }

@@ -120,12 +120,12 @@ fn fragment(input: Value, pretty: bool, config: &Config) -> String {
                 };
 
                 out.push_str(&markup);
-                out.push_str(&data.into_string("|", config));
+                out.push_str(&data.to_expanded_string("|", config));
             }
             _ => out = table(input.into_pipeline_data(), pretty, config),
         }
     } else {
-        out = input.into_string("|", config)
+        out = input.to_expanded_string("|", config)
     }
 
     out.push('\n');
@@ -151,7 +151,21 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 
 fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
     let vec_of_values = input.into_iter().collect::<Vec<Value>>();
-    let headers = merge_descriptors(&vec_of_values);
+    let mut headers = merge_descriptors(&vec_of_values);
+
+    let mut empty_header_index = 0;
+    for value in &vec_of_values {
+        if let Value::Record { val, .. } = value {
+            for column in val.columns() {
+                if column.is_empty() && !headers.contains(&String::new()) {
+                    headers.insert(empty_header_index, String::new());
+                    empty_header_index += 1;
+                    break;
+                }
+                empty_header_index += 1;
+            }
+        }
+    }
 
     let (escaped_headers, mut column_widths) = collect_headers(&headers);
 
@@ -168,7 +182,7 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
                         .get(&headers[i])
                         .cloned()
                         .unwrap_or_else(|| Value::nothing(span))
-                        .into_string(", ", config);
+                        .to_expanded_string(", ", config);
                     let new_column_width = value_string.len();
 
                     escaped_row.push(value_string);
@@ -180,7 +194,7 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
             }
             p => {
                 let value_string =
-                    v_htmlescape::escape(&p.into_abbreviated_string(config)).to_string();
+                    v_htmlescape::escape(&p.to_abbreviated_string(config)).to_string();
                 escaped_row.push(value_string);
             }
         }
@@ -215,7 +229,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
                 .or_insert_with(|| vec![val.clone()]);
         } else {
             lists
-                .entry(val.into_string(",", config))
+                .entry(val.to_expanded_string(",", config))
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         }
@@ -413,6 +427,34 @@ mod tests {
             | Ecuador     |
             | New Zealand |
             | USA         |
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_empty_column_header() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "" => Value::test_string("1"),
+                "foo" => Value::test_string("2"),
+            }),
+            Value::test_record(record! {
+                "" => Value::test_string("3"),
+                "foo" => Value::test_string("4"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            ||foo|
+            |-|-|
+            |1|2|
+            |3|4|
         "#)
         );
     }

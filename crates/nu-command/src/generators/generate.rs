@@ -1,5 +1,6 @@
 use itertools::unfold;
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{get_eval_block_with_early_return, CallExt};
+
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -105,8 +106,7 @@ used as the next argument to the closure, otherwise generation stops.
         let mut stack = stack.captures_to_stack(capture_block.item.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
@@ -133,8 +133,6 @@ used as the next argument to the closure, otherwise generation stops.
                 &mut stack,
                 &block,
                 arg.into_pipeline_data(),
-                redirect_stdout,
-                redirect_stderr,
             ) {
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),

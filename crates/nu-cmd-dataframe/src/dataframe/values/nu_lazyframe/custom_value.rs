@@ -21,7 +21,7 @@ impl CustomValue for NuLazyFrame {
         Value::custom_value(Box::new(cloned), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         self.typetag_name().to_string()
     }
 

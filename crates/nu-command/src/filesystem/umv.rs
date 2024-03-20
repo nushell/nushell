@@ -1,11 +1,10 @@
+use super::util::get_rest_for_glob_pattern;
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, NuPath, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use uu_mv::{BackupMode, UpdateMode};
@@ -15,28 +14,28 @@ pub struct UMv;
 
 impl Command for UMv {
     fn name(&self) -> &str {
-        "umv"
+        "mv"
     }
 
     fn usage(&self) -> &str {
-        "Move files or directories."
+        "Move files or directories using uutils/coreutils mv."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Rename a file",
-                example: "umv before.txt after.txt",
+                example: "mv before.txt after.txt",
                 result: None,
             },
             Example {
                 description: "Move a file into a directory",
-                example: "umv test.txt my/subdirectory",
+                example: "mv test.txt my/subdirectory",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "umv *.txt my/subdirectory",
+                example: "mv *.txt my/subdirectory",
                 result: None,
             },
         ]
@@ -47,7 +46,7 @@ impl Command for UMv {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("umv")
+        Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("force", "do not prompt before overwriting", Some('f'))
             .switch("verbose", "explain what is being done.", Some('v'))
@@ -56,7 +55,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)
@@ -83,7 +82,7 @@ impl Command for UMv {
         };
 
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -121,7 +120,10 @@ impl Command for UMv {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {

@@ -287,7 +287,7 @@ impl LanguageServer {
                         for (file_path, file_start, file_end) in working_set.files() {
                             if span.start >= *file_start && span.start < *file_end {
                                 return Some(GotoDefinitionResponse::Scalar(Location {
-                                    uri: Url::from_file_path(file_path).ok()?,
+                                    uri: Url::from_file_path(&**file_path).ok()?,
                                     range: Self::span_to_range(span, file, *file_start),
                                 }));
                             }

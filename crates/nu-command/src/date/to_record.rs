@@ -52,11 +52,6 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert the current date into a record.",
-                example: "date to-record",
-                result: None,
-            },
-            Example {
-                description: "Convert the current date into a record.",
                 example: "date now | date to-record",
                 result: None,
             },
@@ -123,7 +118,7 @@ fn helper(val: Value, head: Span) -> Value {
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
             DatetimeParseError {
-                msg: val.debug_value(),
+                msg: val.to_debug_string(),
                 span: head,
             },
             head,

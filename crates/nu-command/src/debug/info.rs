@@ -79,12 +79,7 @@ impl LazySystemInfoRecord {
             "ppid" => {
                 // only get information requested
                 let system_opt = SystemOpt::from((system_option, || {
-                    RefreshKind::new().with_processes(
-                        ProcessRefreshKind::new()
-                            .without_cpu()
-                            .without_disk_usage()
-                            .without_user(),
-                    )
+                    RefreshKind::new().with_processes(ProcessRefreshKind::everything())
                 }));
 
                 let system = system_opt.get_system();
@@ -117,16 +112,10 @@ impl LazySystemInfoRecord {
             "process" => {
                 // only get information requested
                 let system_opt = SystemOpt::from((system_option, || {
-                    RefreshKind::new().with_processes(
-                        ProcessRefreshKind::new()
-                            .without_cpu()
-                            .without_disk_usage()
-                            .without_user(),
-                    )
+                    RefreshKind::new().with_processes(ProcessRefreshKind::everything())
                 }));
 
                 let system = system_opt.get_system();
-                // get the process information for the nushell pid
                 let pinfo = system.process(pid);
 
                 if let Some(p) = pinfo {
@@ -236,12 +225,7 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
 
     fn collect(&'a self) -> Result<Value, ShellError> {
         let rk = RefreshKind::new()
-            .with_processes(
-                ProcessRefreshKind::new()
-                    .without_cpu()
-                    .without_disk_usage()
-                    .without_user(),
-            )
+            .with_processes(ProcessRefreshKind::everything())
             .with_memory(MemoryRefreshKind::everything());
         // only get information requested
         let system = System::new_with_specifics(rk);

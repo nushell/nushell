@@ -235,7 +235,7 @@ fn run(
                            if options.no_collect {
                             Value::string("any", head)
                            } else {
-                            describe_value(input.into_value(head), head, engine_state, call, options)?
+                            describe_value(input.into_value(head), head, engine_state, options)?
                            }
                         },
                         "metadata" => metadata_to_value(metadata, head),
@@ -246,10 +246,7 @@ fn run(
                 Value::string("stream", head)
             } else {
                 let value = input.into_value(head);
-                let base_description = match value {
-                    Value::CustomValue { val, .. } => val.value_string(),
-                    _ => value.get_type().to_string(),
-                };
+                let base_description = value.get_type().to_string();
 
                 Value::string(format!("{} (stream)", base_description), head)
             }
@@ -257,12 +254,9 @@ fn run(
         _ => {
             let value = input.into_value(head);
             if !options.detailed {
-                match value {
-                    Value::CustomValue { val, .. } => Value::string(val.value_string(), head),
-                    _ => Value::string(value.get_type().to_string(), head),
-                }
+                Value::string(value.get_type().to_string(), head)
             } else {
-                describe_value(value, head, engine_state, call, options)?
+                describe_value(value, head, engine_state, options)?
             }
         }
     };
@@ -286,14 +280,13 @@ fn describe_value(
     value: Value,
     head: nu_protocol::Span,
     engine_state: Option<&EngineState>,
-    call: &Call,
     options: Options,
 ) -> Result<Value, ShellError> {
     Ok(match value {
-        Value::CustomValue { val, internal_span } => Value::record(
+        Value::CustomValue { val, .. } => Value::record(
             record!(
                 "type" => Value::string("custom", head),
-                "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data(), options)?.into_value(head),
+                "subtype" => Value::string(val.type_name(), head),
             ),
             head,
         ),
@@ -305,7 +298,7 @@ fn describe_value(
         | Value::Date { .. }
         | Value::Range { .. }
         | Value::String { .. }
-        | Value::QuotedString { .. }
+        | Value::Glob { .. }
         | Value::RawString { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
@@ -319,7 +312,6 @@ fn describe_value(
                     std::mem::take(v),
                     head,
                     engine_state,
-                    call,
                     options,
                 )?);
             }
@@ -339,7 +331,7 @@ fn describe_value(
                 "length" => Value::int(vals.len() as i64, head),
                 "values" => Value::list(vals.into_iter().map(|v|
                     Ok(compact_primitive_description(
-                        describe_value(v, head, engine_state, call, options)?
+                        describe_value(v, head, engine_state, options)?
                     ))
                 )
                 .collect::<Result<Vec<Value>, ShellError>>()?, head),
@@ -407,7 +399,7 @@ fn describe_value(
             if options.collect_lazyrecords {
                 let collected = val.collect()?;
                 if let Value::Record { mut val, .. } =
-                    describe_value(collected, head, engine_state, call, options)?
+                    describe_value(collected, head, engine_state, options)?
                 {
                     record.push("length", Value::int(val.len() as i64, head));
                     for (_k, v) in val.iter_mut() {
@@ -415,7 +407,6 @@ fn describe_value(
                             std::mem::take(v),
                             head,
                             engine_state,
-                            call,
                             options,
                         )?);
                     }

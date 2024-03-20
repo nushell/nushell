@@ -45,7 +45,7 @@ use super::views::{Layout, View};
 
 use events::UIEvents;
 
-pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
 pub type ConfigMap = HashMap<String, Value>;
 
@@ -148,7 +148,6 @@ impl<'a> Pager<'a> {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum Transition {
     Ok,
     Exit,
@@ -1008,7 +1007,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
 }
 
 fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
-    match value.as_string() {
+    match value.coerce_str() {
         Ok(s) => {
             *style = lookup_ansi_color_style(&s);
             true

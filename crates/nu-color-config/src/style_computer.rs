@@ -3,11 +3,13 @@ use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
+    cli_error::CliError,
     engine::{EngineState, Stack, StateWorkingSet},
-    CliError, IntoPipelineData, Value,
+    IntoPipelineData, Value,
 };
 use std::collections::HashMap;
 
+use nu_protocol::debugger::WithoutDebug;
 use std::fmt::{Debug, Formatter, Result};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
@@ -71,13 +73,11 @@ impl<'a> StyleComputer<'a> {
                         }
 
                         // Run the block.
-                        match eval_block(
+                        match eval_block::<WithoutDebug>(
                             self.engine_state,
                             &mut stack,
                             &block,
                             value.clone().into_pipeline_data(),
-                            false,
-                            false,
                         ) {
                             Ok(v) => {
                                 let value = v.into_value(span);
@@ -122,7 +122,7 @@ impl<'a> StyleComputer<'a> {
             Value::Range { .. } => TextStyle::with_style(Left, s),
             Value::Float { .. } => TextStyle::with_style(Right, s),
             Value::String { .. } => TextStyle::with_style(Left, s),
-            Value::QuotedString { .. } => TextStyle::with_style(Left, s),
+            Value::Glob { .. } => TextStyle::with_style(Left, s),
             Value::RawString { .. } => TextStyle::with_style(Left, s),
             Value::Nothing { .. } => TextStyle::with_style(Left, s),
             Value::Binary { .. } => TextStyle::with_style(Left, s),

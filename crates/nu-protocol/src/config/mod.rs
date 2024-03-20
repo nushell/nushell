@@ -13,6 +13,7 @@ pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
+pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
@@ -22,6 +23,7 @@ mod completer;
 mod helper;
 mod hooks;
 mod output;
+mod plugin_gc;
 mod reedline;
 mod table;
 
@@ -89,12 +91,15 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    pub use_ls_colors_completions: bool,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
     /// match the registered plugin name so `register nu_plugin_example` will be able to place
     /// its configuration under a `nu_plugin_example` column.
     pub plugins: HashMap<String, Value>,
+    /// Configuration for plugin garbage collection.
+    pub plugin_gc: PluginGcConfigs,
 }
 
 impl Default for Config {
@@ -129,6 +134,7 @@ impl Default for Config {
             enable_external_completion: true,
             max_external_completion_results: 100,
             external_completer: None,
+            use_ls_colors_completions: true,
 
             filesize_metric: false,
             filesize_format: "auto".into(),
@@ -160,6 +166,7 @@ impl Default for Config {
             highlight_resolved_externals: false,
 
             plugins: HashMap::new(),
+            plugin_gc: PluginGcConfigs::default(),
         }
     }
 }
@@ -318,7 +325,7 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.as_block() {
+                                                            if let Ok(v) = value.coerce_block() {
                                                                 config.external_completer = Some(v)
                                                             } else {
                                                                 match value {
@@ -349,6 +356,9 @@ impl Value {
                                             *value = reconstruct_external(&config, span);
                                         }
                                     }
+                                    "use_ls_colors" => {
+                                        process_bool_config(value, &mut errors, &mut config.use_ls_colors_completions);
+                                    }
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -366,6 +376,7 @@ impl Value {
                                     "algorithm" => config.completion_algorithm.reconstruct_value(span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
                                     "external" => reconstruct_external(&config, span),
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
                                 },
                                 span,
                             );
@@ -533,7 +544,7 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_str() {
                                         config.filesize_format = v.to_lowercase();
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
@@ -665,6 +676,9 @@ impl Value {
                             );
                         }
                     }
+                    "plugin_gc" => {
+                        config.plugin_gc.process(&[key], value, &mut errors);
+                    }
                     // Menus
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
@@ -701,14 +715,14 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                 "normal" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_normal_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
                                     }
                                 }
                                 "table" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_table_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);

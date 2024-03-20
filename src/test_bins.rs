@@ -1,8 +1,9 @@
 use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, PipelineData, Value};
+use nu_protocol::{cli_error::CliError, PipelineData, Value};
 use nu_std::load_standard_library;
 use std::io::{self, BufRead, Read, Write};
 
@@ -14,6 +15,11 @@ pub fn echo_env(to_stdout: bool) {
     for arg in args {
         echo_one_env(&arg, to_stdout)
     }
+}
+
+pub fn echo_env_and_fail(to_stdout: bool) {
+    echo_env(to_stdout);
+    fail();
 }
 
 fn echo_one_env(arg: &str, to_stdout: bool) {
@@ -315,7 +321,8 @@ pub fn nu_repl() {
         let input = PipelineData::empty();
         let config = engine_state.get_config();
 
-        match eval_block(&engine_state, &mut stack, &block, input, false, false) {
+        let stack = &mut stack.start_capture();
+        match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
             Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                 Ok(s) => last_output = s,
                 Err(err) => outcome_err(&engine_state, &err),
@@ -325,9 +332,9 @@ pub fn nu_repl() {
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
             let path = cwd
-                .as_string()
+                .coerce_str()
                 .unwrap_or_else(|err| outcome_err(&engine_state, &err));
-            let _ = std::env::set_current_dir(path);
+            let _ = std::env::set_current_dir(path.as_ref());
             engine_state.add_env_var("PWD".into(), cwd);
         }
     }

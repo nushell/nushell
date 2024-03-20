@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::util::eval_source;
 use log::info;
 use log::trace;
@@ -6,6 +8,7 @@ use nu_engine::eval_block;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
@@ -116,7 +119,7 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    for block in &mut working_set.delta.blocks {
+    for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
         } else if block.signature.name.starts_with("main ") {
@@ -130,14 +133,8 @@ pub fn evaluate_file(
     if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        let pipeline_data = eval_block(
-            engine_state,
-            stack,
-            &block,
-            PipelineData::empty(),
-            false,
-            false,
-        );
+        let pipeline_data =
+            eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty());
         let pipeline_data = match pipeline_data {
             Err(ShellError::Return { .. }) => {
                 // allows early exists before `main` is run.
@@ -213,8 +210,7 @@ pub(crate) fn print_table_or_error(
             print_or_exit(pipeline_data, engine_state, config);
         } else {
             // The final call on table command, it's ok to set redirect_output to false.
-            let mut call = Call::new(Span::new(0, 0));
-            call.redirect_stdout = false;
+            let call = Call::new(Span::new(0, 0));
             let table = command.run(engine_state, stack, &call, pipeline_data);
 
             match table {
@@ -256,7 +252,7 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
             std::process::exit(1);
         }
 
-        let out = item.into_string("\n", config) + "\n";
+        let out = item.to_expanded_string("\n", config) + "\n";
         let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{err}"));
     }
 }

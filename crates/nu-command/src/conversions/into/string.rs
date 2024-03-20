@@ -36,6 +36,7 @@ impl Command for SubCommand {
                 (Type::Int, Type::String),
                 (Type::Number, Type::String),
                 (Type::String, Type::String),
+                (Type::Glob, Type::String),
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
@@ -202,9 +203,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
         Value::String { val, .. } => Value::string(val.to_string(), span),
+        Value::Glob { val, .. } => Value::string(val.to_string(), span),
 
-        Value::Filesize { val: _, .. } => Value::string(input.into_string(", ", config), span),
-        Value::Duration { val: _, .. } => Value::string(input.into_string("", config), span),
+        Value::Filesize { val: _, .. } => {
+            Value::string(input.to_expanded_string(", ", config), span)
+        }
+        Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
 
         Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
         Value::Nothing { .. } => Value::string("".to_string(), span),
@@ -227,6 +231,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
+        Value::CustomValue { val, .. } => {
+            // Only custom values that have a base value that can be converted to string are
+            // accepted.
+            val.to_base_value(input.span())
+                .and_then(|base_value| match action(&base_value, args, span) {
+                    Value::Error { .. } => Err(ShellError::CantConvert {
+                        to_type: String::from("string"),
+                        from_type: val.type_name(),
+                        span,
+                        help: Some("this custom value can't be represented as a string".into()),
+                    }),
+                    success => Ok(success),
+                })
+                .unwrap_or_else(|err| Value::error(err, span))
+        }
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("string"),

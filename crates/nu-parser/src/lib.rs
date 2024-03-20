@@ -1,4 +1,5 @@
 mod deparse;
+mod exportable;
 mod flatten;
 mod known_external;
 mod lex;
@@ -16,7 +17,7 @@ pub use flatten::{
 };
 pub use known_external::KnownExternal;
 pub use lex::{lex, lex_signature, Token, TokenContents};
-pub use lite_parser::{lite_parse, LiteBlock, LiteElement};
+pub use lite_parser::{lite_parse, LiteBlock, LiteCommand};
 pub use parse_keywords::*;
 pub use parser_path::*;
 

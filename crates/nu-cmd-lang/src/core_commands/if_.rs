@@ -1,5 +1,6 @@
-use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
+use nu_engine::{get_eval_block, get_eval_expression, get_eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
+
 use nu_protocol::engine::{Block, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input};
 use nu_protocol::{
@@ -105,53 +106,28 @@ impl Command for If {
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block: Block = call.req(engine_state, stack, 1)?;
         let else_case = call.positional_nth(2);
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
         let result = eval_expression(engine_state, stack, cond)?;
         match &result {
             Value::Bool { val, .. } => {
                 if *val {
                     let block = engine_state.get_block(then_block.block_id);
-                    eval_block(
-                        engine_state,
-                        stack,
-                        block,
-                        input,
-                        call.redirect_stdout,
-                        call.redirect_stderr,
-                    )
+                    eval_block(engine_state, stack, block, input)
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let block = engine_state.get_block(block_id);
-                            eval_block(
-                                engine_state,
-                                stack,
-                                block,
-                                input,
-                                call.redirect_stdout,
-                                call.redirect_stderr,
-                            )
+                            eval_block(engine_state, stack, block, input)
                         } else {
-                            eval_expression_with_input(
-                                engine_state,
-                                stack,
-                                else_expr,
-                                input,
-                                call.redirect_stdout,
-                                call.redirect_stderr,
-                            )
-                            .map(|res| res.0)
+                            eval_expression_with_input(engine_state, stack, else_expr, input)
+                                .map(|res| res.0)
                         }
                     } else {
-                        eval_expression_with_input(
-                            engine_state,
-                            stack,
-                            else_case,
-                            input,
-                            call.redirect_stdout,
-                            call.redirect_stderr,
-                        )
-                        .map(|res| res.0)
+                        eval_expression_with_input(engine_state, stack, else_case, input)
+                            .map(|res| res.0)
                     }
                 } else {
                     Ok(PipelineData::empty())

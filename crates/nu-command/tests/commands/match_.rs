@@ -1,4 +1,6 @@
 use nu_test_support::nu;
+use nu_test_support::playground::Playground;
+use std::fs;
 
 #[test]
 fn match_for_range() {
@@ -225,4 +227,41 @@ fn match_with_guard_no_expr_after_if() {
     );
 
     assert!(actual.err.contains("Match guard without an expression"));
+}
+
+#[test]
+fn match_with_comment_1() {
+    Playground::setup("match_with_comment", |dirs, _| {
+        let data = r#"
+match 1 {
+    # comment
+    _ => { print 'success' }
+}
+            "#;
+        fs::write(dirs.root().join("match_test"), data).expect("Unable to write file");
+        let actual = nu!(
+            cwd: dirs.root(),
+            "source match_test"
+        );
+
+        assert_eq!(actual.out, "success");
+    });
+}
+
+#[test]
+fn match_with_comment_2() {
+    Playground::setup("match_with_comment", |dirs, _| {
+        let data = r#"
+match 1 {
+    _ => { print 'success' } # comment
+}
+            "#;
+        fs::write(dirs.root().join("match_test"), data).expect("Unable to write file");
+        let actual = nu!(
+            cwd: dirs.root(),
+            "source match_test"
+        );
+
+        assert_eq!(actual.out, "success");
+    });
 }
