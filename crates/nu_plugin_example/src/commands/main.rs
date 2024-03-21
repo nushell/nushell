@@ -1,5 +1,5 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, PluginSignature, Value, LabeledError};
 
 use crate::Example;
 
@@ -32,10 +32,7 @@ particularly useful.
         call: &EvaluatedCall,
         _input: &Value,
     ) -> Result<Value, LabeledError> {
-        Err(LabeledError {
-            label: "No subcommand provided".into(),
-            msg: "add --help to see a list of subcommands".into(),
-            span: Some(call.head),
-        })
+        Err(LabeledError::new("No subcommand provided")
+            .with_label("add --help to see a list of subcommands", call.head))
     }
 }
