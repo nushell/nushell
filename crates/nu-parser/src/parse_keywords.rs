@@ -3305,6 +3305,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 }
 
 pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    trace!("parsing source");
     let spans = &lite_command.parts;
     let name = working_set.get_span_contents(spans[0]);
 

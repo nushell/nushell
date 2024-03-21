@@ -503,6 +503,43 @@ fn lex_internal(
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
+        } else if c == b'r' {
+            // A raw string literal looks like `echo r@"Look, I can use "double quotes"!"@`
+            // If the next character is `#` we're looking at a raw string literal
+            // so we need to read all the text until we find a closing `#`. This raw string
+            // can contain any character, including newlines and double quotes without needing
+            // to escape them.
+            if let Some(b'@') = input.get(curr_offset + 1) {
+                let start = curr_offset;
+                curr_offset += 2;
+                while let Some(ch) = input.get(curr_offset) {
+                    if *ch == b'@' {
+                        // Does the raw string end with `"@`
+                        if let Some(b'"') = input.get(curr_offset - 1) {
+                            curr_offset += 1;
+                            break;
+                        }
+                    }
+                    curr_offset += 1;
+                }
+                output.push(Token::new(
+                    TokenContents::Item,
+                    Span::new(span_offset + start, span_offset + curr_offset),
+                ));
+            } else {
+                let (token, err) = lex_item(
+                    input,
+                    &mut curr_offset,
+                    span_offset,
+                    additional_whitespace,
+                    special_tokens,
+                    in_signature,
+                );
+                if error.is_none() {
+                    error = err;
+                }
+                output.push(token);
+            }
         } else {
             let token = try_lex_special_piped_item(input, &mut curr_offset, span_offset);
             if let Some(token) = token {

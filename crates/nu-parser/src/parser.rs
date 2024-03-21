@@ -633,6 +633,7 @@ pub fn parse_multispan_value(
     spans_idx: &mut usize,
     shape: &SyntaxShape,
 ) -> Expression {
+    trace!("parse multispan value");
     match shape {
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
@@ -1623,42 +1624,26 @@ pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -
 }
 
 pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    trace!("parsing: raw string, with required delimiters");
+    trace!("parsing: raw-string, with required delimiters");
 
     let bytes = working_set.get_span_contents(span);
 
-    // Check for unbalanced quotes:
-    {
-        let bytes = if bytes.starts_with(b"r") {
-            &bytes[1..]
-        } else {
-            bytes
-        };
-        if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
-            working_set.error(ParseError::Unclosed("\"".into(), span));
-            return garbage(span);
-        }
-        if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
-            working_set.error(ParseError::Unclosed("\'".into(), span));
-            return garbage(span);
-        }
+    // Check for unbalanced double quotes:
+    if bytes.starts_with(b"r@\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"@")) {
+        working_set.error(ParseError::Unclosed("\"".into(), span));
+        return garbage(span);
     }
 
-    let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
-    {
-        (&bytes[1..(bytes.len() - 1)], true)
-    } else if (bytes.starts_with(b"r\"") && bytes.ends_with(b"\"") && bytes.len() > 2)
-        || (bytes.starts_with(b"r\'") && bytes.ends_with(b"\'") && bytes.len() > 2)
-    {
-        (&bytes[2..(bytes.len() - 1)], true)
-    } else {
-        (bytes, false)
-    };
+    // Check if it's a raw-string, r@"string"@
+    let (bytes, quoted) =
+        if bytes.starts_with(b"r@\"") && bytes.ends_with(b"\"@") && bytes.len() > 3 {
+            (&bytes[3..(bytes.len() - 2)], true)
+        } else {
+            working_set.error(ParseError::Unclosed("\"".into(), span));
+            return garbage(span);
+        };
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
-        trace!("-- found {}", token);
-
         if quoted {
             Expression {
                 expr: Expr::RawString(token),
@@ -1667,8 +1652,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
                 custom_completion: None,
             }
         } else if token.contains(' ') {
-            working_set.error(ParseError::Expected("raw string", span));
-
+            working_set.error(ParseError::Expected("raw-string", span));
             garbage(span)
         } else {
             Expression {
@@ -1679,7 +1663,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
             }
         }
     } else {
-        working_set.error(ParseError::Expected("raw string", span));
+        working_set.error(ParseError::Expected("raw-string", span));
         garbage(span)
     }
 }
@@ -4625,7 +4609,7 @@ pub fn parse_value(
                 return Expression::garbage(span);
             }
         },
-        b'r' if bytes.len() > 1 && (bytes[1] == b'"' || bytes[1] == b'\'') => {
+        b'r' if bytes.len() > 1 && bytes[1] == b'@' => {
             return parse_raw_string(working_set, span);
         }
         _ => {}
@@ -6291,6 +6275,7 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> Arc<Block> {
+    trace!("parse");
     let name = match fname {
         Some(fname) => {
             // use the canonical name for this filename
@@ -6308,9 +6293,13 @@ pub fn parse(
 
     let mut output = {
         if let Some(block) = previously_parsed_block {
+            // dbg!("previous block");
             return block;
         } else {
+            // dbg!("starting lex");
             let (output, err) = lex(contents, new_span.start, &[], &[], false);
+            // dbg!("finished lex");
+            // dbg!(&output);
             if let Some(err) = err {
                 working_set.error(err)
             }

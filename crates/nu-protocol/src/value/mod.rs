@@ -2131,6 +2131,12 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
+    pub fn test_raw_string(val: impl Into<String>) -> Value {
+        Value::raw_string(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_glob(val: impl Into<String>) -> Value {
         Value::glob(val, false, Span::test_data())
     }
@@ -2209,6 +2215,7 @@ impl Value {
             }),
             Value::test_float(0.0),
             Value::test_string(String::new()),
+            Value::test_raw_string(String::new()),
             Value::test_record(Record::new()),
             // Value::test_lazy_record(Box::new(todo!())),
             Value::test_list(Vec::new()),
@@ -2461,6 +2468,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::RawString { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
@@ -2472,7 +2480,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::RawString { val: rhs, .. } => lhs.partial_cmp(rhs),
             },
             (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),

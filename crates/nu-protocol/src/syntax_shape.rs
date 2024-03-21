@@ -110,7 +110,7 @@ pub enum SyntaxShape {
     /// Strings and string-like bare words are allowed
     String,
 
-    /// RawStrings and string-like bare words are allowed
+    /// RawStrings are allowed, e.g. `r"some string"`
     RawString,
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`

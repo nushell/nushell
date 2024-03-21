@@ -52,7 +52,6 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             match int_color {
                 Value::Record { .. } => color_record_to_nustyle(int_color),
                 Value::String { val, .. } => lookup_ansi_color_style(val),
-                Value::RawString { val, .. } => lookup_ansi_color_style(val),
                 // Defer to the default in the event of incorrect types being given
                 // (i.e. treat null, etc. as the value being unset)
                 _ => default_shape_color(shape),
