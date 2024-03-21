@@ -1628,13 +1628,13 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
 
     let bytes = working_set.get_span_contents(span);
 
-    // Check for unbalanced double quotes:
+    // Check for unbalanced # and double quotes:
     if bytes.starts_with(b"r#\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"#")) {
         working_set.error(ParseError::Unclosed("\"".into(), span));
         return garbage(span);
     }
 
-    // Check if it's a raw-string, r@"string"@
+    // Check if it's a raw-string, r#"string"#
     let (bytes, quoted) =
         if bytes.starts_with(b"r#\"") && bytes.ends_with(b"\"#") && bytes.len() > 3 {
             (&bytes[3..(bytes.len() - 2)], true)
