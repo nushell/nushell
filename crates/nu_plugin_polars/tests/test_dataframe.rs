@@ -6,7 +6,7 @@ use nu_plugin::{get_signature, PersistentPlugin, PluginCommand, PluginDeclaratio
 use nu_plugin_polars::dataframe::eager::ToDataFrame;
 use nu_plugin_polars::PolarsDataFramePlugin;
 use nu_protocol::{
-    engine::{Command, EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, PluginExample, PluginGcConfig, PluginIdentity, RegisteredPlugin, Span,
 };
 
@@ -30,7 +30,10 @@ pub fn build_test_engine_state() -> Box<EngineState> {
     let mut engine_state = Box::new(EngineState::new());
     let identity = PluginIdentity::new("../../target/debug/nu_plugin_polars", None)
         .expect("Error creating PluginIdentity");
-    let gc_config = PluginGcConfig::default();
+    let gc_config = PluginGcConfig {
+        enabled: false,
+        stop_after: 0,
+    };
     let persistent_plugin = Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()));
     let registered_plugin: Arc<dyn RegisteredPlugin> =
         Arc::new(PersistentPlugin::new(identity.clone(), gc_config));
@@ -43,16 +46,14 @@ pub fn build_test_engine_state() -> Box<EngineState> {
     let mut signatures = get_signature(Arc::clone(&persistent_plugin), get_envs)
         .expect("should be able to get plugin signature");
 
-    let signature = signatures
-        .pop()
-        .expect("there should be at least one entry");
-
-    let plugin_decl = PluginDeclaration::new(&persistent_plugin, signature);
-
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
         working_set.find_or_create_plugin(&identity, || Arc::clone(&registered_plugin));
-        working_set.add_decl(Box::new(plugin_decl));
+
+        for signature in signatures {
+            let plugin_decl = PluginDeclaration::new(&persistent_plugin, signature);
+            working_set.add_decl(Box::new(plugin_decl));
+        }
         working_set.render()
     };
 
