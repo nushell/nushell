@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_plugin::{PersistentPlugin, PluginCommand};
+use nu_plugin::{get_signature, PersistentPlugin, PluginCommand, PluginDeclaration};
 use nu_plugin_polars::dataframe::eager::ToDataFrame;
 use nu_plugin_polars::PolarsDataFramePlugin;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, PluginExample, PluginGcConfig, PluginIdentity, Span,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
+    PipelineData, PluginExample, PluginGcConfig, PluginIdentity, RegisteredPlugin, Span,
 };
 
 use nu_protocol::debugger::WithoutDebug;
@@ -27,29 +27,38 @@ pub fn test_dataframe(cmds: Vec<Box<dyn PluginCommand<Plugin = PolarsDataFramePl
 }
 
 pub fn build_test_engine_state() -> Box<EngineState> {
-    let identity = PluginIdentity::new("./target/debug/nu_plugin_polars", None)
+    let mut engine_state = Box::new(EngineState::new());
+    let identity = PluginIdentity::new("../../target/debug/nu_plugin_polars", None)
         .expect("Error creating PluginIdentity");
     let gc_config = PluginGcConfig::default();
-    let persistent_plugin = PersistentPlugin::new(identity.clone(), gc_config);
+    let persistent_plugin = Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()));
+    let registered_plugin: Arc<dyn RegisteredPlugin> =
+        Arc::new(PersistentPlugin::new(identity.clone(), gc_config));
 
-    let mut engine_state = Box::new(EngineState::new());
+    let get_envs = || {
+        let stack = Stack::new().capture();
+        nu_engine::env::env_to_strings(&engine_state, &stack)
+    };
+
+    let mut signatures = get_signature(Arc::clone(&persistent_plugin), get_envs)
+        .expect("should be able to get plugin signature");
+
+    let signature = signatures
+        .pop()
+        .expect("there should be at least one entry");
+
+    let plugin_decl = PluginDeclaration::new(&persistent_plugin, signature);
+
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
-        working_set.find_or_create_plugin(&identity, || Arc::new(persistent_plugin));
+        working_set.find_or_create_plugin(&identity, || Arc::clone(&registered_plugin));
+        working_set.add_decl(Box::new(plugin_decl));
         working_set.render()
     };
 
     engine_state
         .merge_delta(delta)
         .expect("Error merging delta");
-
-    // println!("plugin_signature: {:?}", engine_state.plugin_signatures);
-
-    //assert!(engine_state.plugins().len() > 0);
-    // for plugin in engine_state.plugins() {
-    //     println!("plugin: {:?}", plugin.identity());
-    // }
-    //assert!(engine_state.get_plugin_config("polars").is_some());
 
     engine_state
 }
