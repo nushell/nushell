@@ -1100,7 +1100,7 @@ pub enum ShellError {
     /// This is a generic error type used for user and plugin-generated errors.
     #[error(transparent)]
     #[diagnostic(transparent)]
-    LabeledError(#[from] super::LabeledError),
+    LabeledError(#[from] Box<super::LabeledError>),
 
     /// Attempted to use a command that has been removed from Nushell.
     ///
@@ -1398,6 +1398,12 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
         ShellError::IOError {
             msg: format!("{input:?}"),
         }
+    }
+}
+
+impl From<super::LabeledError> for ShellError {
+    fn from(value: super::LabeledError) -> Self {
+        ShellError::LabeledError(Box::new(value))
     }
 }
 
