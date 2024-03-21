@@ -509,11 +509,11 @@ fn lex_internal(
             // so we need to read all the text until we find a closing `@`. This raw string
             // can contain any character, including newlines and double quotes without needing
             // to escape them. `@` could maybe be changed to `#` to be more rust-like.
-            if let Some(b'@') = input.get(curr_offset + 1) {
+            if let Some(b'#') = input.get(curr_offset + 1) {
                 let start = curr_offset;
                 curr_offset += 2;
                 while let Some(ch) = input.get(curr_offset) {
-                    if *ch == b'@' {
+                    if *ch == b'#' {
                         // Does the raw string end with `"@`
                         if let Some(b'"') = input.get(curr_offset - 1) {
                             curr_offset += 1;

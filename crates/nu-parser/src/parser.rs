@@ -1629,14 +1629,14 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     let bytes = working_set.get_span_contents(span);
 
     // Check for unbalanced double quotes:
-    if bytes.starts_with(b"r@\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"@")) {
+    if bytes.starts_with(b"r#\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"#")) {
         working_set.error(ParseError::Unclosed("\"".into(), span));
         return garbage(span);
     }
 
     // Check if it's a raw-string, r@"string"@
     let (bytes, quoted) =
-        if bytes.starts_with(b"r@\"") && bytes.ends_with(b"\"@") && bytes.len() > 3 {
+        if bytes.starts_with(b"r#\"") && bytes.ends_with(b"\"#") && bytes.len() > 3 {
             (&bytes[3..(bytes.len() - 2)], true)
         } else {
             working_set.error(ParseError::Unclosed("\"".into(), span));
@@ -4609,7 +4609,7 @@ pub fn parse_value(
                 return Expression::garbage(span);
             }
         },
-        b'r' if bytes.len() > 1 && bytes[1] == b'@' => {
+        b'r' if bytes.len() > 1 && bytes[1] == b'#' => {
             return parse_raw_string(working_set, span);
         }
         _ => {}
