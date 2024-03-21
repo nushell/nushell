@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Argument, Expr, ExternalArgument, RecordItem};
+use super::{Argument, Block, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -327,7 +327,8 @@ impl Expression {
                 expr.replace_span(working_set, replaced, new_span);
             }
             Expr::Block(block_id) => {
-                let mut block = (**working_set.get_block(*block_id)).clone();
+                // We are cloning the Block itself, rather than the Arc around it.
+                let mut block = Block::clone(working_set.get_block(*block_id));
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {

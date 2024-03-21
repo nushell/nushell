@@ -1,3 +1,4 @@
+mod cached_file;
 mod call_info;
 mod capture_block;
 mod command;
@@ -10,6 +11,8 @@ mod state_working_set;
 mod stdio;
 mod usage;
 mod variable;
+
+pub use cached_file::CachedFile;
 
 pub use call_info::*;
 pub use capture_block::*;

@@ -1,6 +1,7 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, CustomValue, PluginSignature, ShellError, Span, SyntaxShape, Value,
+    record, Category, CustomValue, LabeledError, PluginSignature, ShellError, Span, SyntaxShape,
+    Value,
 };
 use serde::{Deserialize, Serialize};
 

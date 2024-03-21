@@ -6,7 +6,7 @@ use std::{
 };
 
 use nu_protocol::{
-    engine::Closure, Config, IntoInterruptiblePipelineData, ListStream, PipelineData,
+    engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
     PluginSignature, ShellError, Spanned, Value,
 };
 
@@ -16,7 +16,7 @@ use crate::{
         PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
         ProtocolInfo,
     },
-    LabeledError, PluginOutput,
+    PluginOutput,
 };
 
 use super::{
@@ -252,64 +252,58 @@ impl InterfaceManager for EngineInterfaceManager {
                 })
             }
             PluginInput::Stream(message) => self.consume_stream_message(message),
-            PluginInput::Call(id, call) => match call {
-                // We just let the receiver handle it rather than trying to store signature here
-                // or something
-                PluginCall::Signature => self.send_plugin_call(ReceivedPluginCall::Signature {
-                    engine: self.interface_for_context(id),
-                }),
-                // Set up the streams from the input and reformat to a ReceivedPluginCall
-                PluginCall::Run(CallInfo {
-                    name,
-                    mut call,
-                    input,
-                }) => {
-                    let interface = self.interface_for_context(id);
-                    // If there's an error with initialization of the input stream, just send
-                    // the error response rather than failing here
-                    match self.read_pipeline_data(input, None) {
-                        Ok(input) => {
-                            // Deserialize custom values in the arguments
-                            if let Err(err) = deserialize_call_args(&mut call) {
-                                return interface.write_response(Err(err))?.write();
-                            }
-                            // Send the plugin call to the receiver
-                            self.send_plugin_call(ReceivedPluginCall::Run {
-                                engine: interface,
-                                call: CallInfo { name, call, input },
-                            })
+            PluginInput::Call(id, call) => {
+                let interface = self.interface_for_context(id);
+                // Read streams in the input
+                let call = match call.map_data(|input| self.read_pipeline_data(input, None)) {
+                    Ok(call) => call,
+                    Err(err) => {
+                        // If there's an error with initialization of the input stream, just send
+                        // the error response rather than failing here
+                        return interface.write_response(Err(err))?.write();
+                    }
+                };
+                match call {
+                    // We just let the receiver handle it rather than trying to store signature here
+                    // or something
+                    PluginCall::Signature => {
+                        self.send_plugin_call(ReceivedPluginCall::Signature { engine: interface })
+                    }
+                    // Parse custom values and send a ReceivedPluginCall
+                    PluginCall::Run(mut call_info) => {
+                        // Deserialize custom values in the arguments
+                        if let Err(err) = deserialize_call_args(&mut call_info.call) {
+                            return interface.write_response(Err(err))?.write();
                         }
-                        err @ Err(_) => interface.write_response(err)?.write(),
+                        // Send the plugin call to the receiver
+                        self.send_plugin_call(ReceivedPluginCall::Run {
+                            engine: interface,
+                            call: call_info,
+                        })
+                    }
+                    // Send request with the custom value
+                    PluginCall::CustomValueOp(custom_value, op) => {
+                        self.send_plugin_call(ReceivedPluginCall::CustomValueOp {
+                            engine: interface,
+                            custom_value,
+                            op,
+                        })
                     }
                 }
-                // Send request with the custom value
-                PluginCall::CustomValueOp(custom_value, op) => {
-                    self.send_plugin_call(ReceivedPluginCall::CustomValueOp {
-                        engine: self.interface_for_context(id),
-                        custom_value,
-                        op,
-                    })
-                }
-            },
+            }
             PluginInput::Goodbye => {
                 // Remove the plugin call sender so it hangs up
                 drop(self.plugin_call_sender.take());
                 Ok(())
             }
             PluginInput::EngineCallResponse(id, response) => {
-                let response = match response {
-                    EngineCallResponse::Error(err) => EngineCallResponse::Error(err),
-                    EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
-                    EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
-                    EngineCallResponse::PipelineData(header) => {
+                let response = response
+                    .map_data(|header| self.read_pipeline_data(header, None))
+                    .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway
-                        match self.read_pipeline_data(header, None) {
-                            Ok(data) => EngineCallResponse::PipelineData(data),
-                            Err(err) => EngineCallResponse::Error(err),
-                        }
-                    }
-                };
+                        EngineCallResponse::Error(err)
+                    });
                 self.send_engine_call_response(id, response)
             }
         }
@@ -442,36 +436,13 @@ impl EngineInterface {
         let (tx, rx) = mpsc::channel();
 
         // Convert the call into one with a header and handle the stream, if necessary
-        let (call, writer) = match call {
-            EngineCall::EvalClosure {
-                closure,
-                positional,
-                input,
-                redirect_stdout,
-                redirect_stderr,
-            } => {
-                let (header, writer) = self.init_write_pipeline_data(input)?;
-                (
-                    EngineCall::EvalClosure {
-                        closure,
-                        positional,
-                        input: header,
-                        redirect_stdout,
-                        redirect_stderr,
-                    },
-                    writer,
-                )
-            }
-            // These calls have no pipeline data, so they're just the same on both sides
-            EngineCall::GetConfig => (EngineCall::GetConfig, Default::default()),
-            EngineCall::GetPluginConfig => (EngineCall::GetPluginConfig, Default::default()),
-            EngineCall::GetEnvVar(name) => (EngineCall::GetEnvVar(name), Default::default()),
-            EngineCall::GetEnvVars => (EngineCall::GetEnvVars, Default::default()),
-            EngineCall::GetCurrentDir => (EngineCall::GetCurrentDir, Default::default()),
-            EngineCall::AddEnvVar(name, value) => {
-                (EngineCall::AddEnvVar(name, value), Default::default())
-            }
-        };
+        let mut writer = None;
+
+        let call = call.map_data(|input| {
+            let (input_header, input_writer) = self.init_write_pipeline_data(input)?;
+            writer = Some(input_writer);
+            Ok(input_header)
+        })?;
 
         // Register the channel
         self.state
@@ -486,7 +457,7 @@ impl EngineInterface {
         self.write(PluginOutput::EngineCall { context, id, call })?;
         self.flush()?;
 
-        Ok((writer, rx))
+        Ok((writer.unwrap_or_default(), rx))
     }
 
     /// Perform an engine call. Input and output streams are handled.

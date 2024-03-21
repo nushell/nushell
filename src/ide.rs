@@ -160,14 +160,14 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
                 let block = working_set.get_block(block_id);
                 if let Some(span) = &block.span {
                     for file in working_set.files() {
-                        if span.start >= file.1 && span.start < file.2 {
+                        if file.covered_span.contains(span.start) {
                             println!(
                                 "{}",
                                 json!(
                                     {
-                                        "file": &**file.0,
-                                        "start": span.start - file.1,
-                                        "end": span.end - file.1
+                                        "file": &*file.name,
+                                        "start": span.start - file.covered_span.start,
+                                        "end": span.end - file.covered_span.start,
                                     }
                                 )
                             );
@@ -180,14 +180,14 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
         Some((Id::Variable(var_id), ..)) => {
             let var = working_set.get_variable(var_id);
             for file in working_set.files() {
-                if var.declaration_span.start >= file.1 && var.declaration_span.start < file.2 {
+                if file.covered_span.contains(var.declaration_span.start) {
                     println!(
                         "{}",
                         json!(
                             {
-                                "file": &**file.0,
-                                "start": var.declaration_span.start - file.1,
-                                "end": var.declaration_span.end - file.1
+                                "file": &*file.name,
+                                "start": var.declaration_span.start - file.covered_span.start,
+                                "end": var.declaration_span.end - file.covered_span.start,
                             }
                         )
                     );

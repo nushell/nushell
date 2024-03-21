@@ -12,8 +12,8 @@ use std::collections::HashMap;
 
 pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{
-    ast::Operator, engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError,
-    Span, Spanned, Value,
+    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
+    ShellError, Span, Spanned, Value,
 };
 pub use plugin_custom_value::PluginCustomValue;
 #[cfg(test)]
@@ -41,6 +41,20 @@ pub struct CallInfo<D> {
     pub call: EvaluatedCall,
     /// Pipeline input. This is usually [`nu_protocol::PipelineData`] or [`PipelineDataHeader`]
     pub input: D,
+}
+
+impl<D> CallInfo<D> {
+    /// Convert the type of `input` from `D` to `T`.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<CallInfo<T>, ShellError> {
+        Ok(CallInfo {
+            name: self.name,
+            call: self.call,
+            input: f(self.input)?,
+        })
+    }
 }
 
 /// The initial (and perhaps only) part of any [`nu_protocol::PipelineData`] sent over the wire.
@@ -126,6 +140,23 @@ pub enum PluginCall<D> {
     Signature,
     Run(CallInfo<D>),
     CustomValueOp(Spanned<PluginCustomValue>, CustomValueOp),
+}
+
+impl<D> PluginCall<D> {
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<PluginCall<T>, ShellError> {
+        Ok(match self {
+            PluginCall::Signature => PluginCall::Signature,
+            PluginCall::Run(call) => PluginCall::Run(call.map_data(f)?),
+            PluginCall::CustomValueOp(custom_value, op) => {
+                PluginCall::CustomValueOp(custom_value, op)
+            }
+        })
+    }
 }
 
 /// Operations supported for custom values.
@@ -258,73 +289,6 @@ pub enum StreamMessage {
     Ack(StreamId),
 }
 
-/// An error message with debugging information that can be passed to Nushell from the plugin
-///
-/// The `LabeledError` struct is a structured error message that can be returned from
-/// a [Plugin](crate::Plugin)'s [`run`](crate::Plugin::run()) method. It contains
-/// the error message along with optional [Span] data to support highlighting in the
-/// shell.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
-pub struct LabeledError {
-    /// The name of the error
-    pub label: String,
-    /// A detailed error description
-    pub msg: String,
-    /// The [Span] in which the error occurred
-    pub span: Option<Span>,
-}
-
-impl From<LabeledError> for ShellError {
-    fn from(error: LabeledError) -> Self {
-        if error.span.is_some() {
-            ShellError::GenericError {
-                error: error.label,
-                msg: error.msg,
-                span: error.span,
-                help: None,
-                inner: vec![],
-            }
-        } else {
-            ShellError::GenericError {
-                error: error.label,
-                msg: "".into(),
-                span: None,
-                help: (!error.msg.is_empty()).then_some(error.msg),
-                inner: vec![],
-            }
-        }
-    }
-}
-
-impl From<ShellError> for LabeledError {
-    fn from(error: ShellError) -> Self {
-        use miette::Diagnostic;
-        // This is not perfect - we can only take the first labeled span as that's all we have
-        // space for.
-        if let Some(labeled_span) = error.labels().and_then(|mut iter| iter.nth(0)) {
-            let offset = labeled_span.offset();
-            let span = Span::new(offset, offset + labeled_span.len());
-            LabeledError {
-                label: error.to_string(),
-                msg: labeled_span
-                    .label()
-                    .map(|label| label.to_owned())
-                    .unwrap_or_else(|| "".into()),
-                span: Some(span),
-            }
-        } else {
-            LabeledError {
-                label: error.to_string(),
-                msg: error
-                    .help()
-                    .map(|help| help.to_string())
-                    .unwrap_or_else(|| "".into()),
-                span: None,
-            }
-        }
-    }
-}
-
 /// Response to a [`PluginCall`]. The type parameter determines the output type for pipeline data.
 ///
 /// Note: exported for internal use, not public.
@@ -335,6 +299,22 @@ pub enum PluginCallResponse<D> {
     Signature(Vec<PluginSignature>),
     Ordering(Option<Ordering>),
     PipelineData(D),
+}
+
+impl<D> PluginCallResponse<D> {
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<PluginCallResponse<T>, ShellError> {
+        Ok(match self {
+            PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
+            PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
+            PluginCallResponse::Ordering(ordering) => PluginCallResponse::Ordering(ordering),
+            PluginCallResponse::PipelineData(input) => PluginCallResponse::PipelineData(f(input)?),
+        })
+    }
 }
 
 impl PluginCallResponse<PipelineDataHeader> {
@@ -494,6 +474,35 @@ impl<D> EngineCall<D> {
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
+
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<EngineCall<T>, ShellError> {
+        Ok(match self {
+            EngineCall::GetConfig => EngineCall::GetConfig,
+            EngineCall::GetPluginConfig => EngineCall::GetPluginConfig,
+            EngineCall::GetEnvVar(name) => EngineCall::GetEnvVar(name),
+            EngineCall::GetEnvVars => EngineCall::GetEnvVars,
+            EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
+            EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
+            EngineCall::EvalClosure {
+                closure,
+                positional,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => EngineCall::EvalClosure {
+                closure,
+                positional,
+                input: f(input)?,
+                redirect_stdout,
+                redirect_stderr,
+            },
+        })
+    }
 }
 
 /// The response to an [EngineCall]. The type parameter determines the output type for pipeline
@@ -504,6 +513,22 @@ pub enum EngineCallResponse<D> {
     PipelineData(D),
     Config(Box<Config>),
     ValueMap(HashMap<String, Value>),
+}
+
+impl<D> EngineCallResponse<D> {
+    /// Convert the data type from `D` to `T`. The function will not be called if the variant does
+    /// not contain data.
+    pub(crate) fn map_data<T>(
+        self,
+        f: impl FnOnce(D) -> Result<T, ShellError>,
+    ) -> Result<EngineCallResponse<T>, ShellError> {
+        Ok(match self {
+            EngineCallResponse::Error(err) => EngineCallResponse::Error(err),
+            EngineCallResponse::PipelineData(data) => EngineCallResponse::PipelineData(f(data)?),
+            EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
+            EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
+        })
+    }
 }
 
 impl EngineCallResponse<PipelineData> {

@@ -91,6 +91,8 @@ fn eval_source2(
     // So we LITERALLY ignore all expressions except the LAST.
     if block.len() > 1 {
         let range = ..block.pipelines.len() - 1;
+        // Note: `make_mut` will mutate `&mut block: &mut Arc<Block>`
+        // for the outer fn scope `eval_block`
         Arc::make_mut(&mut block).pipelines.drain(range);
     }
 

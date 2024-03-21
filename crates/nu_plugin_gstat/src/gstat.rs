@@ -1,6 +1,5 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
-use nu_plugin::LabeledError;
-use nu_protocol::{record, IntoSpanned, Span, Spanned, Value};
+use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value};
 use std::fmt::Write;
 use std::ops::BitAnd;
 use std::path::Path;
@@ -51,39 +50,38 @@ impl GStat {
 
         // This path has to exist
         if !absolute_path.exists() {
-            return Err(LabeledError {
-                label: "error with path".to_string(),
-                msg: format!("path does not exist [{}]", absolute_path.display()),
-                span: Some(path.span),
-            });
+            return Err(LabeledError::new("error with path").with_label(
+                format!("path does not exist [{}]", absolute_path.display()),
+                path.span,
+            ));
         }
-        let metadata = std::fs::metadata(&absolute_path).map_err(|e| LabeledError {
-            label: "error with metadata".to_string(),
-            msg: format!(
-                "unable to get metadata for [{}], error: {}",
-                absolute_path.display(),
-                e
-            ),
-            span: Some(path.span),
+        let metadata = std::fs::metadata(&absolute_path).map_err(|e| {
+            LabeledError::new("error with metadata").with_label(
+                format!(
+                    "unable to get metadata for [{}], error: {}",
+                    absolute_path.display(),
+                    e
+                ),
+                path.span,
+            )
         })?;
 
         // This path has to be a directory
         if !metadata.is_dir() {
-            return Err(LabeledError {
-                label: "error with directory".to_string(),
-                msg: format!("path is not a directory [{}]", absolute_path.display()),
-                span: Some(path.span),
-            });
+            return Err(LabeledError::new("error with directory").with_label(
+                format!("path is not a directory [{}]", absolute_path.display()),
+                path.span,
+            ));
         }
 
         let repo_path = match absolute_path.canonicalize() {
             Ok(p) => p,
             Err(e) => {
-                return Err(LabeledError {
-                    label: format!("error canonicalizing [{}]", absolute_path.display()),
-                    msg: e.to_string(),
-                    span: Some(path.span),
-                });
+                return Err(LabeledError::new(format!(
+                    "error canonicalizing [{}]",
+                    absolute_path.display()
+                ))
+                .with_label(e.to_string(), path.span));
             }
         };
 

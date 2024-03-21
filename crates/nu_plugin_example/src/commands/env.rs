@@ -1,5 +1,5 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, PluginSignature, SyntaxShape, Type, Value};
 
 use crate::Example;
 
@@ -42,11 +42,8 @@ impl SimplePluginCommand for Env {
                     // Get working directory
                     Ok(Value::string(engine.get_current_dir()?, call.head))
                 }
-                Some(value) => Err(LabeledError {
-                    label: "Invalid arguments".into(),
-                    msg: "--cwd can't be used with --set".into(),
-                    span: Some(value.span()),
-                }),
+                Some(value) => Err(LabeledError::new("Invalid arguments")
+                    .with_label("--cwd can't be used with --set", value.span())),
             }
         } else if let Some(value) = call.get_flag_value("set") {
             // Set single env var

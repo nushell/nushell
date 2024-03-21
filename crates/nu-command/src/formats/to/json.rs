@@ -45,7 +45,8 @@ impl Command for ToJson {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
-        let use_tabs = call.has_flag(engine_state, stack, "tabs")?;
+        let use_tabs = call.get_flag(engine_state, stack, "tabs")?;
+        let indent = call.get_flag(engine_state, stack, "indent")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array
@@ -55,12 +56,12 @@ impl Command for ToJson {
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
-        } else if use_tabs {
-            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+        } else if let Some(tab_count) = use_tabs {
             nu_json::to_string_with_tab_indentation(&json_value, tab_count)
-        } else {
-            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+        } else if let Some(indent) = indent {
             nu_json::to_string_with_indent(&json_value, indent)
+        } else {
+            nu_json::to_string(&json_value)
         };
 
         match json_result {

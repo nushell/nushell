@@ -1,9 +1,7 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
-use nu_plugin::{
-    EngineInterface, EvaluatedCall, LabeledError, Plugin, PluginCommand, SimplePluginCommand,
-};
-use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
+use nu_protocol::{ast::CellPath, LabeledError, PluginSignature, SyntaxShape, Value};
 
 pub struct IncPlugin;
 

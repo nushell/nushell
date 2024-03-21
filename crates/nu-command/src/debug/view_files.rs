@@ -43,13 +43,15 @@ impl Command for ViewFiles {
     ) -> Result<PipelineData, ShellError> {
         let mut records = vec![];
 
-        for (file, start, end) in engine_state.files() {
+        for file in engine_state.files() {
+            let start = file.covered_span.start;
+            let end = file.covered_span.end;
             records.push(Value::record(
                 record! {
-                    "filename" => Value::string(&**file, call.head),
-                    "start" => Value::int(*start as i64, call.head),
-                    "end" => Value::int(*end as i64, call.head),
-                    "size" => Value::int(*end as i64 - *start as i64, call.head),
+                    "filename" => Value::string(&*file.name, call.head),
+                    "start" => Value::int(start as i64, call.head),
+                    "end" => Value::int(end as i64, call.head),
+                    "size" => Value::int(end as i64 - start as i64, call.head),
                 },
                 call.head,
             ));
