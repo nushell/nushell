@@ -43,7 +43,7 @@ pub fn build_test_engine_state() -> Box<EngineState> {
         nu_engine::env::env_to_strings(&engine_state, &stack)
     };
 
-    let mut signatures = get_signature(Arc::clone(&persistent_plugin), get_envs)
+    let signatures = get_signature(Arc::clone(&persistent_plugin), get_envs)
         .expect("should be able to get plugin signature");
 
     let delta = {
