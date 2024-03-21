@@ -191,7 +191,7 @@ impl fmt::Display for LabeledError {
 
 impl std::error::Error for LabeledError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.inner.get(0).map(|r| r as _)
+        self.inner.first().map(|r| r as _)
     }
 }
 
