@@ -505,10 +505,10 @@ fn lex_internal(
             curr_offset += 1;
         } else if c == b'r' {
             // A raw string literal looks like `echo r@"Look, I can use "double quotes"!"@`
-            // If the next character is `#` we're looking at a raw string literal
-            // so we need to read all the text until we find a closing `#`. This raw string
+            // If the next character is `@` we're probably looking at a raw string literal
+            // so we need to read all the text until we find a closing `@`. This raw string
             // can contain any character, including newlines and double quotes without needing
-            // to escape them.
+            // to escape them. `@` could maybe be changed to `#` to be more rust-like.
             if let Some(b'@') = input.get(curr_offset + 1) {
                 let start = curr_offset;
                 curr_offset += 2;
