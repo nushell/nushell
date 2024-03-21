@@ -1,4 +1,5 @@
 use nu_color_config::TextStyle;
+use nu_pretty_hex::categorize_byte;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -311,7 +312,8 @@ fn render_segment(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWidge
             break;
         }
 
-        size += render_hex_u8(buf, x + size, y, n, false, get_segment_style(w, n));
+        let (_, style) = get_segment_char(w, n);
+        size += render_hex_u8(buf, x + size, y, n, false, style);
         count -= 1;
     }
 
@@ -332,7 +334,8 @@ fn render_ascii_line(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWi
             break;
         }
 
-        size += render_ascii_u8(buf, x + size, y, n, get_ascii_style(w, n));
+        let (c, style) = get_ascii_char(w, n);
+        size += render_ascii_char(buf, x + size, y, c, style);
         count += 1;
     }
 
@@ -343,9 +346,8 @@ fn render_ascii_line(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWi
     size
 }
 
-fn render_ascii_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, style: OptStyle) -> u16 {
-    let c = u8_to_ascii(n);
-    let text = c.to_string();
+fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: OptStyle) -> u16 {
+    let text = n.to_string();
 
     let mut p = Paragraph::new(text);
     if let Some(style) = style {
@@ -358,16 +360,6 @@ fn render_ascii_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, style: OptStyle) -> 
     p.render(area, buf);
 
     1
-}
-
-fn u8_to_ascii(n: u8) -> char {
-    if n == b' ' {
-        ' '
-    } else if n.is_ascii_graphic() {
-        n as char
-    } else {
-        '.'
-    }
 }
 
 fn render_hex_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, big: bool, style: OptStyle) -> u16 {
@@ -397,24 +389,20 @@ fn render_hex_usize(
     width
 }
 
-fn get_ascii_style(w: &BinaryWidget, n: u8) -> OptStyle {
-    if n == 0 {
-        w.style.colors.ascii.zero
-    } else if n.is_ascii_graphic() {
-        w.style.colors.ascii.default
-    } else {
-        w.style.colors.ascii.unknown
-    }
+fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
+    let (style, c) = categorize_byte(&n);
+    let c = c.unwrap_or(n as char);
+    let style = if style.is_plain() { None } else { Some(style) };
+
+    (c, style)
 }
 
-fn get_segment_style(w: &BinaryWidget, n: u8) -> OptStyle {
-    if n == 0 {
-        w.style.colors.data.zero
-    } else if n.is_ascii_graphic() {
-        w.style.colors.data.default
-    } else {
-        w.style.colors.data.unknown
-    }
+fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
+    let (style, c) = categorize_byte(&n);
+    let c = c.unwrap_or(n as char);
+    let style = if style.is_plain() { None } else { Some(style) };
+
+    (c, style)
 }
 
 fn get_index_style(w: &BinaryWidget) -> OptStyle {
