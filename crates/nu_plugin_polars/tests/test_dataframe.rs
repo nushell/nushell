@@ -19,15 +19,23 @@ pub fn test_dataframe(cmds: Vec<Box<dyn PluginCommand<Plugin = PolarsDataFramePl
 
     // The first element in the cmds vector must be the one tested
     let examples = cmds[0].signature().examples;
-    let mut engine_state = build_test_engine_state();
+    let (plugin_identity, persistent_plugin, registered_plugin) = build_plugin();
+    let mut engine_state = build_test_engine_state(
+        plugin_identity,
+        Arc::clone(&persistent_plugin),
+        Arc::clone(&registered_plugin),
+    );
 
     for example in examples {
         test_dataframe_example(&mut engine_state, &example);
     }
 }
 
-pub fn build_test_engine_state() -> Box<EngineState> {
-    let mut engine_state = Box::new(EngineState::new());
+pub fn build_plugin() -> (
+    PluginIdentity,
+    Arc<PersistentPlugin>,
+    Arc<dyn RegisteredPlugin>,
+) {
     let identity = PluginIdentity::new("../../target/debug/nu_plugin_polars", None)
         .expect("Error creating PluginIdentity");
     let gc_config = PluginGcConfig {
@@ -37,6 +45,16 @@ pub fn build_test_engine_state() -> Box<EngineState> {
     let persistent_plugin = Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()));
     let registered_plugin: Arc<dyn RegisteredPlugin> =
         Arc::new(PersistentPlugin::new(identity.clone(), gc_config));
+
+    (identity, persistent_plugin, registered_plugin)
+}
+
+pub fn build_test_engine_state(
+    identity: PluginIdentity,
+    persistent_plugin: Arc<PersistentPlugin>,
+    registered_plugin: Arc<dyn RegisteredPlugin>,
+) -> Box<EngineState> {
+    let mut engine_state = Box::new(EngineState::new());
 
     let get_envs = || {
         let stack = Stack::new().capture();
