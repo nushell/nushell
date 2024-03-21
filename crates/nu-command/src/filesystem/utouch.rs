@@ -2,6 +2,7 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 
 use chrono::{DateTime, FixedOffset};
+use filetime::FileTime;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -125,7 +126,10 @@ impl Command for UTouch {
                     right_span: date_span,
                 });
             }
-            Source::Timestamp(timestamp.item.into())
+            Source::Timestamp(FileTime::from_unix_time(
+                timestamp.item.timestamp(),
+                timestamp.item.timestamp_subsec_nanos(),
+            ))
         } else if let Some(reference_file) = reference_file {
             Source::Reference(reference_file)
         } else {
