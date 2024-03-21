@@ -1,5 +1,5 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::Value;
+use nu_plugin::EvaluatedCall;
+use nu_protocol::{LabeledError, Value};
 
 pub struct Example;
 

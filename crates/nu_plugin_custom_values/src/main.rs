@@ -1,6 +1,4 @@
-use nu_plugin::{
-    serve_plugin, EngineInterface, LabeledError, MsgPackSerializer, Plugin, PluginCommand,
-};
+use nu_plugin::{serve_plugin, EngineInterface, MsgPackSerializer, Plugin, PluginCommand};
 
 mod cool_custom_value;
 mod second_custom_value;
@@ -14,7 +12,7 @@ mod update_arg;
 use drop_check::{DropCheck, DropCheckValue};
 use generate::Generate;
 use generate2::Generate2;
-use nu_protocol::CustomValue;
+use nu_protocol::{CustomValue, LabeledError};
 use update::Update;
 use update_arg::UpdateArg;
 

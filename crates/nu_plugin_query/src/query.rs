@@ -3,8 +3,8 @@ use crate::query_web::QueryWeb;
 use crate::query_xml::QueryXml;
 
 use nu_engine::documentation::get_flags_section;
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin, PluginCommand, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, Value};
+use nu_plugin::{EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, PluginSignature, Value};
 use std::fmt::Write;
 
 #[derive(Default)]

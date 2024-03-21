@@ -1,5 +1,5 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, PluginSignature, SyntaxShape, Value};
 
 use crate::Example;
 
@@ -31,10 +31,7 @@ impl SimplePluginCommand for Three {
     ) -> Result<Value, LabeledError> {
         plugin.print_values(3, call, input)?;
 
-        Err(LabeledError {
-            label: "ERROR from plugin".into(),
-            msg: "error message pointing to call head span".into(),
-            span: Some(call.head),
-        })
+        Err(LabeledError::new("ERROR from plugin")
+            .with_label("error message pointing to call head span", call.head))
     }
 }

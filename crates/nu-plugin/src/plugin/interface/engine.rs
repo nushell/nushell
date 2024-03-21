@@ -6,7 +6,7 @@ use std::{
 };
 
 use nu_protocol::{
-    engine::Closure, Config, IntoInterruptiblePipelineData, ListStream, PipelineData,
+    engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
     PluginSignature, ShellError, Spanned, Value,
 };
 
@@ -16,7 +16,7 @@ use crate::{
         PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
         ProtocolInfo,
     },
-    LabeledError, PluginOutput,
+    PluginOutput,
 };
 
 use super::{

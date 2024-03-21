@@ -1,6 +1,6 @@
-use nu_protocol::{PipelineData, PluginSignature, Value};
+use nu_protocol::{LabeledError, PipelineData, PluginSignature, Value};
 
-use crate::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
+use crate::{EngineInterface, EvaluatedCall, Plugin};
 
 /// The API for a Nushell plugin command
 ///
@@ -18,7 +18,7 @@ use crate::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, PipelineData, Type, Value};
+/// # use nu_protocol::{PluginSignature, PipelineData, Type, Value, LabeledError};
 /// struct LowercasePlugin;
 /// struct Lowercase;
 ///
@@ -108,7 +108,7 @@ pub trait PluginCommand: Sync {
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, Type, Value};
+/// # use nu_protocol::{PluginSignature, Type, Value, LabeledError};
 /// struct HelloPlugin;
 /// struct Hello;
 ///

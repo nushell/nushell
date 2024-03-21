@@ -1,5 +1,5 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{record, Category, PluginSignature, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{record, Category, LabeledError, PluginSignature, SyntaxShape, Value};
 
 use crate::Example;
 

@@ -1,6 +1,8 @@
 use gjson::Value as gjValue;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, Record, Span, Spanned, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    Category, LabeledError, PluginSignature, Record, Span, Spanned, SyntaxShape, Value,
+};
 
 use crate::Query;
 
@@ -39,22 +41,15 @@ pub fn execute_json_query(
     let input_string = match input.coerce_str() {
         Ok(s) => s,
         Err(e) => {
-            return Err(LabeledError {
-                span: Some(call.head),
-                msg: e.to_string(),
-                label: "problem with input data".to_string(),
-            })
+            return Err(LabeledError::new("Problem with input data").with_inner(e));
         }
     };
 
     let query_string = match &query {
         Some(v) => &v.item,
         None => {
-            return Err(LabeledError {
-                msg: "problem with input data".to_string(),
-                label: "problem with input data".to_string(),
-                span: Some(call.head),
-            })
+            return Err(LabeledError::new("Problem with input data")
+                .with_label("query string missing", call.head));
         }
     };
 
@@ -62,11 +57,9 @@ pub fn execute_json_query(
     let is_valid_json = gjson::valid(&input_string);
 
     if !is_valid_json {
-        return Err(LabeledError {
-            msg: "invalid json".to_string(),
-            label: "invalid json".to_string(),
-            span: Some(call.head),
-        });
+        return Err(
+            LabeledError::new("Invalid JSON").with_label("this is not valid JSON", call.head)
+        );
     }
 
     let val: gjValue = gjson::get(&input_string, query_string);
