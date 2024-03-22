@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nu_protocol::{PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError, engine::{EngineState, Stack}};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
+};
 
 use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
 
@@ -217,13 +220,15 @@ impl GetPlugin for PersistentPlugin {
     ) -> Result<PluginInterface, ShellError> {
         self.get(|| {
             // Get envs from the context if provided.
-            let envs = context.map(|(engine_state, stack)| {
-                // We need the current environment variables for `python` based plugins. Or
-                // we'll likely have a problem when a plugin is implemented in a virtual Python
-                // environment.
-                let stack = &mut stack.start_capture();
-                nu_engine::env::env_to_strings(engine_state, stack)
-            }).transpose()?;
+            let envs = context
+                .map(|(engine_state, stack)| {
+                    // We need the current environment variables for `python` based plugins. Or
+                    // we'll likely have a problem when a plugin is implemented in a virtual Python
+                    // environment.
+                    let stack = &mut stack.start_capture();
+                    nu_engine::env::env_to_strings(engine_state, stack)
+                })
+                .transpose()?;
 
             Ok(envs.into_iter().flatten())
         })

@@ -1,7 +1,10 @@
 use std::sync::{mpsc, Arc};
 
-use nu_plugin::{PluginRead, PluginWrite, Plugin, PluginOutput, PluginInput, PluginInterfaceManager, PluginSource, InterfaceManager};
-use nu_protocol::{ShellError, PluginIdentity};
+use nu_plugin::{
+    InterfaceManager, Plugin, PluginInput, PluginInterfaceManager, PluginOutput, PluginRead,
+    PluginSource, PluginWrite,
+};
+use nu_protocol::{PluginIdentity, ShellError};
 
 use crate::fake_persistent_plugin::FakePersistentPlugin;
 
@@ -16,7 +19,11 @@ impl<T> PluginRead<T> for FakePluginRead<T> {
 
 impl<T: Clone + Send> PluginWrite<T> for FakePluginWrite<T> {
     fn write(&self, data: &T) -> Result<(), ShellError> {
-        self.0.send(data.clone()).map_err(|err| ShellError::IOError { msg: err.to_string() })
+        self.0
+            .send(data.clone())
+            .map_err(|err| ShellError::IOError {
+                msg: err.to_string(),
+            })
     }
 
     fn flush(&self) -> Result<(), ShellError> {
@@ -26,14 +33,14 @@ impl<T: Clone + Send> PluginWrite<T> for FakePluginWrite<T> {
 
 fn fake_plugin_channel<T: Clone + Send>() -> (FakePluginRead<T>, FakePluginWrite<T>) {
     let (tx, rx) = mpsc::channel();
-    (
-        FakePluginRead(rx),
-        FakePluginWrite(tx),
-    )
+    (FakePluginRead(rx), FakePluginWrite(tx))
 }
 
 /// Spawn a plugin on another thread and return the registration
-pub(crate) fn spawn_fake_plugin(name: &str, plugin: Arc<impl Plugin + Send + 'static>) -> Result<Arc<FakePersistentPlugin>, ShellError> {
+pub(crate) fn spawn_fake_plugin(
+    name: &str,
+    plugin: Arc<impl Plugin + Send + 'static>,
+) -> Result<Arc<FakePersistentPlugin>, ShellError> {
     let (input_read, input_write) = fake_plugin_channel::<PluginInput>();
     let (output_read, output_write) = fake_plugin_channel::<PluginOutput>();
 
@@ -50,17 +57,20 @@ pub(crate) fn spawn_fake_plugin(name: &str, plugin: Arc<impl Plugin + Send + 'st
     // Start the interface reader on another thread
     std::thread::Builder::new()
         .name(format!("fake plugin interface reader ({name})"))
-        .spawn(move || {
-            manager.consume_all(output_read).expect("Plugin read error")
-        })?;
+        .spawn(move || manager.consume_all(output_read).expect("Plugin read error"))?;
 
     // Start the plugin on another thread
     let name_string = name.to_owned();
     std::thread::Builder::new()
         .name(format!("fake plugin runner ({name})"))
         .spawn(move || {
-            nu_plugin::serve_plugin_io(&*plugin, &name_string, move || input_read, move || output_write)
-                .expect("Plugin runner error")
+            nu_plugin::serve_plugin_io(
+                &*plugin,
+                &name_string,
+                move || input_read,
+                move || output_write,
+            )
+            .expect("Plugin runner error")
         })?;
 
     Ok(reg_plugin)

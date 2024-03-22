@@ -63,9 +63,9 @@
 //! # test_lowercase().unwrap();
 //! ```
 
-mod plugin_test;
-mod spawn_fake_plugin;
 mod fake_persistent_plugin;
 mod fake_register;
+mod plugin_test;
+mod spawn_fake_plugin;
 
 pub use plugin_test::PluginTest;

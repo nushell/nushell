@@ -1,7 +1,13 @@
-use std::{sync::{Arc, OnceLock}, any::Any};
+use std::{
+    any::Any,
+    sync::{Arc, OnceLock},
+};
 
-use nu_plugin::{PluginInterface, GetPlugin};
-use nu_protocol::{RegisteredPlugin, PluginIdentity, engine::{EngineState, Stack}, ShellError, PluginGcConfig};
+use nu_plugin::{GetPlugin, PluginInterface};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
+};
 
 pub struct FakePersistentPlugin {
     identity: PluginIdentity,
@@ -10,7 +16,10 @@ pub struct FakePersistentPlugin {
 
 impl FakePersistentPlugin {
     pub fn new(identity: PluginIdentity) -> FakePersistentPlugin {
-        FakePersistentPlugin { identity, plugin: OnceLock::new() }
+        FakePersistentPlugin {
+            identity,
+            plugin: OnceLock::new(),
+        }
     }
 
     pub fn initialize(&self, interface: PluginInterface) {
@@ -52,10 +61,11 @@ impl GetPlugin for FakePersistentPlugin {
         self: Arc<Self>,
         _context: Option<(&EngineState, &mut Stack)>,
     ) -> Result<PluginInterface, ShellError> {
-        self.plugin.get().cloned().ok_or_else(|| {
-            ShellError::PluginFailedToLoad {
+        self.plugin
+            .get()
+            .cloned()
+            .ok_or_else(|| ShellError::PluginFailedToLoad {
                 msg: "FakePersistentPlugin was not initialized".into(),
-            }
-        })
+            })
     }
 }

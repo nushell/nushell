@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use nu_plugin::{Plugin, PluginDeclaration};
-use nu_protocol::{engine::{StateWorkingSet, EngineState}, ShellError, RegisteredPlugin};
+use nu_protocol::{
+    engine::{EngineState, StateWorkingSet},
+    RegisteredPlugin, ShellError,
+};
 
 use crate::spawn_fake_plugin::spawn_fake_plugin;
 
@@ -26,7 +29,10 @@ pub fn fake_register(
 }
 
 /// Create an [`EngineState`] with the plugin's commands in it.
-pub fn create_engine_state(plugin_name: &str, plugin: Arc<impl Plugin + Send + 'static>) -> Result<EngineState, ShellError> {
+pub fn create_engine_state(
+    plugin_name: &str,
+    plugin: Arc<impl Plugin + Send + 'static>,
+) -> Result<EngineState, ShellError> {
     let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
     fake_register(&mut working_set, plugin_name, plugin)?;

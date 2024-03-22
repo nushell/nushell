@@ -3,7 +3,11 @@ use std::sync::Arc;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::Plugin;
-use nu_protocol::{PipelineData, engine::{EngineState, StateWorkingSet, Stack}, ShellError, debugger::WithoutDebug};
+use nu_protocol::{
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    PipelineData, ShellError,
+};
 
 use crate::fake_register::create_engine_state;
 
@@ -15,7 +19,10 @@ pub struct PluginTest {
 
 impl PluginTest {
     /// Create a new test for the given `plugin` named `name`.
-    pub fn new(name: &str, plugin: Arc<impl Plugin + Send + 'static>) -> Result<PluginTest, ShellError> {
+    pub fn new(
+        name: &str,
+        plugin: Arc<impl Plugin + Send + 'static>,
+    ) -> Result<PluginTest, ShellError> {
         let engine_state = create_engine_state(name, plugin)?;
         Ok(PluginTest {
             engine_state,
@@ -25,7 +32,11 @@ impl PluginTest {
 
     /// Evaluate some Nushell source code with the plugin commands in scope with the given input to
     /// the pipeline.
-    pub fn eval_with(&mut self, nu_source: &str, input: PipelineData) -> Result<PipelineData, ShellError> {
+    pub fn eval_with(
+        &mut self,
+        nu_source: &str,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let fname = format!("entry #{}", self.entry_num);
         self.entry_num += 1;

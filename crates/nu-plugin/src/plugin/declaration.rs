@@ -1,4 +1,4 @@
-use super::{PluginExecutionCommandContext, PluginSource, GetPlugin};
+use super::{GetPlugin, PluginExecutionCommandContext, PluginSource};
 use crate::protocol::{CallInfo, EvaluatedCall};
 use std::sync::Arc;
 

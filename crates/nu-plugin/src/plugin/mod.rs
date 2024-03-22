@@ -42,10 +42,13 @@ mod source;
 
 pub use command::{PluginCommand, SimplePluginCommand};
 pub use declaration::PluginDeclaration;
-pub use interface::{InterfaceManager, Interface, EngineInterface, EngineInterfaceManager, PluginInterface, PluginInterfaceManager};
-pub use persistent::{PersistentPlugin, GetPlugin};
+pub use interface::{
+    EngineInterface, EngineInterfaceManager, Interface, InterfaceManager, PluginInterface,
+    PluginInterfaceManager,
+};
+pub use persistent::{GetPlugin, PersistentPlugin};
 
-pub use context::{PluginExecutionContext, PluginExecutionCommandContext};
+pub use context::{PluginExecutionCommandContext, PluginExecutionContext};
 pub use source::PluginSource;
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
@@ -513,24 +516,24 @@ trait TryToReport {
     fn try_to_report(self, engine: &EngineInterface) -> Result<Self::T, ServePluginError>;
 }
 
-impl<T, E> TryToReport for Result<T, E> where E: Into<ServePluginError> {
+impl<T, E> TryToReport for Result<T, E>
+where
+    E: Into<ServePluginError>,
+{
     type T = T;
     fn try_to_report(self, engine: &EngineInterface) -> Result<T, ServePluginError> {
-        self.map_err(|e| {
-            match e.into() {
-                ServePluginError::UnreportedError(err) => {
-                    if engine.write_response(Err(err.clone())).is_ok() {
-                        ServePluginError::ReportedError(err)
-                    } else {
-                        ServePluginError::UnreportedError(err)
-                    }
+        self.map_err(|e| match e.into() {
+            ServePluginError::UnreportedError(err) => {
+                if engine.write_response(Err(err.clone())).is_ok() {
+                    ServePluginError::ReportedError(err)
+                } else {
+                    ServePluginError::UnreportedError(err)
                 }
-                other => other,
             }
+            other => other,
         })
     }
 }
-
 
 /// Serve a plugin on the given input & output.
 ///
