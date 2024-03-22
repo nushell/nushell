@@ -138,7 +138,7 @@ mod record {
                 s.push_str(", ");
             }
         }
-        s.push_str("}");
+        s.push('}');
         s
     }
 
