@@ -1,70 +1,63 @@
+use crate::PolarsDataFramePlugin;
+
 use super::super::values::{Column, NuDataFrame};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
 pub struct DataTypes;
 
-impl Command for DataTypes {
-    fn name(&self) -> &str {
-        "dfr dtypes"
-    }
+impl PluginCommand for DataTypes {
+    type Plugin = PolarsDataFramePlugin;
 
-    fn usage(&self) -> &str {
-        "Show dataframe data types."
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build(self.name())
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("polars dtypes")
+            .usage("Show dataframe data types.")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Dataframe dtypes",
-            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr dtypes",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "column".to_string(),
-                            vec![Value::test_string("a"), Value::test_string("b")],
-                        ),
-                        Column::new(
-                            "dtype".to_string(),
-                            vec![Value::test_string("i64"), Value::test_string("i64")],
-                        ),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+            .plugin_examples(vec![PluginExample {
+                description: "Dataframe dtypes".into(),
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars dtypes".into(),
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "column".to_string(),
+                                vec![Value::test_string("a"), Value::test_string("b")],
+                            ),
+                            Column::new(
+                                "dtype".to_string(),
+                                vec![Value::test_string("i64"), Value::test_string("i64")],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            }])
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
-    call: &Call,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
@@ -92,17 +85,20 @@ fn command(
     let names_col = Column::new("column".to_string(), names);
     let dtypes_col = Column::new("dtype".to_string(), dtypes);
 
-    NuDataFrame::try_from_columns(vec![names_col, dtypes_col], None)
-        .map(|df| PipelineData::Value(df.into_value(call.head), None))
+    let df = NuDataFrame::try_from_columns(vec![names_col, dtypes_col], None)?;
+    Ok(PipelineData::Value(
+        df.insert_cache(engine)?.into_value(call.head),
+        None,
+    ))
 }
 
-#[cfg(test)]
-mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        test_dataframe(vec![Box::new(DataTypes {})])
-    }
-}
+// #[cfg(test)]
+// mod test {
+//     use super::super::super::test_dataframe::test_dataframe;
+//     use super::*;
+//
+//     #[test]
+//     fn test_examples() {
+//         test_dataframe(vec![Box::new(DataTypes {})])
+//     }
+// }
