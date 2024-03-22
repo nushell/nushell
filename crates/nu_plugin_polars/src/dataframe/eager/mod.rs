@@ -1,7 +1,7 @@
 mod append;
 mod cast;
 mod columns;
-// mod drop;
+mod drop;
 // mod drop_duplicates;
 // mod drop_nulls;
 // mod dtypes;
@@ -38,7 +38,7 @@ pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use cast::CastDF;
 pub use columns::ColumnsDF;
-// pub use drop::DropDF;
+pub use drop::DropDF;
 // pub use drop_duplicates::DropDuplicates;
 // pub use drop_nulls::DropNulls;
 // pub use dtypes::DataTypes;

@@ -122,7 +122,7 @@ impl NuDataFrame {
         NuDataFrame::dataframe_into_value(dataframe, span).unwrap_or_else(|_| Value::nothing(span))
     }
 
-    pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Result<Value, ShellError> {
+    fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Result<Value, ShellError> {
         Ok(Value::custom_value(
             Box::new(Self::new(false, dataframe).custom_value()),
             span,
