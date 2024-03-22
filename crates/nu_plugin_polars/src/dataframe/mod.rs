@@ -1,5 +1,5 @@
 pub mod eager;
-// mod expressions;
+pub mod expressions;
 pub mod lazy;
 // mod series;
 // mod stub;

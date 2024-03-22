@@ -16,6 +16,10 @@ use crate::{
         AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, FirstDF, LastDF, ListDF, OpenDataFrame,
         Summary, ToArrow, ToCSV, ToDataFrame, ToNu, ToParquet,
     },
+    expressions::{
+        ExprAggGroups, ExprCount, ExprList, ExprMax, ExprMean, ExprMedian, ExprMin, ExprNot,
+        ExprStd, ExprSum, ExprVar,
+    },
     lazy::{LazyAggregate, LazyCollect},
 };
 
@@ -214,6 +218,17 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(ToParquet),
             Box::new(LazyAggregate),
             Box::new(LazyCollect),
+            Box::new(ExprList),
+            Box::new(ExprAggGroups),
+            Box::new(ExprCount),
+            Box::new(ExprNot),
+            Box::new(ExprMax),
+            Box::new(ExprMin),
+            Box::new(ExprSum),
+            Box::new(ExprMean),
+            Box::new(ExprMedian),
+            Box::new(ExprStd),
+            Box::new(ExprVar),
         ]
     }
 
