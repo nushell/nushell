@@ -1,4 +1,5 @@
 use nu_engine::documentation::get_flags_section;
+use nu_protocol::LabeledError;
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -13,9 +14,7 @@ use std::sync::mpsc::TrySendError;
 use std::sync::{mpsc, Arc, Mutex};
 
 use crate::plugin::interface::{EngineInterfaceManager, ReceivedPluginCall};
-use crate::protocol::{
-    CallInfo, CustomValueOp, LabeledError, PluginCustomValue, PluginInput, PluginOutput,
-};
+use crate::protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use crate::EncodingType;
 
 #[cfg(unix)]
@@ -230,7 +229,7 @@ where
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, Type, Value};
+/// # use nu_protocol::{PluginSignature, LabeledError, Type, Value};
 /// struct HelloPlugin;
 /// struct Hello;
 ///
@@ -537,11 +536,12 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
             let result = if let Some(command) = commands.get(&name) {
                 command.run(plugin, &engine, &call, input)
             } else {
-                Err(LabeledError {
-                    label: format!("Plugin command not found: `{name}`"),
-                    msg: format!("plugin `{plugin_name}` doesn't have this command"),
-                    span: Some(call.head),
-                })
+                Err(
+                    LabeledError::new(format!("Plugin command not found: `{name}`")).with_label(
+                        format!("plugin `{plugin_name}` doesn't have this command"),
+                        call.head,
+                    ),
+                )
             };
             let write_result = engine
                 .write_response(result)

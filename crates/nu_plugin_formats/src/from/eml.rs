@@ -1,7 +1,8 @@
 use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::map::IndexMap;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::LabeledError;
 use nu_protocol::{
     record, Category, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type, Value,
 };

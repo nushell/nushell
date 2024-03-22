@@ -16,9 +16,9 @@
 //! invoked by Nushell.
 //!
 //! ```rust,no_run
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, serve_plugin};
+//! use nu_plugin::{EvaluatedCall, MsgPackSerializer, serve_plugin};
 //! use nu_plugin::{Plugin, PluginCommand, SimplePluginCommand, EngineInterface};
-//! use nu_protocol::{PluginSignature, Value};
+//! use nu_protocol::{PluginSignature, LabeledError, Value};
 //!
 //! struct MyPlugin;
 //! struct MyCommand;
@@ -64,7 +64,7 @@ mod util;
 pub use plugin::{
     serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
 };
-pub use protocol::{EvaluatedCall, LabeledError};
+pub use protocol::EvaluatedCall;
 pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 // Used by other nu crates.

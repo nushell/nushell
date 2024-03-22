@@ -1,6 +1,6 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, PluginExample, PluginSignature, Record, ShellError, Type, Value,
+    record, Category, LabeledError, PluginExample, PluginSignature, Record, ShellError, Type, Value,
 };
 
 use crate::FromCmds;

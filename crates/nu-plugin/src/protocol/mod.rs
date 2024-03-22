@@ -12,8 +12,8 @@ use std::collections::HashMap;
 
 pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{
-    ast::Operator, engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError,
-    Span, Spanned, Value,
+    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
+    ShellError, Span, Spanned, Value,
 };
 pub use plugin_custom_value::PluginCustomValue;
 #[cfg(test)]
@@ -287,73 +287,6 @@ pub enum StreamMessage {
     /// Acknowledge that a message has been consumed. This is used to implement flow control by
     /// the stream producer. Sent by the stream consumer.
     Ack(StreamId),
-}
-
-/// An error message with debugging information that can be passed to Nushell from the plugin
-///
-/// The `LabeledError` struct is a structured error message that can be returned from
-/// a [Plugin](crate::Plugin)'s [`run`](crate::Plugin::run()) method. It contains
-/// the error message along with optional [Span] data to support highlighting in the
-/// shell.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
-pub struct LabeledError {
-    /// The name of the error
-    pub label: String,
-    /// A detailed error description
-    pub msg: String,
-    /// The [Span] in which the error occurred
-    pub span: Option<Span>,
-}
-
-impl From<LabeledError> for ShellError {
-    fn from(error: LabeledError) -> Self {
-        if error.span.is_some() {
-            ShellError::GenericError {
-                error: error.label,
-                msg: error.msg,
-                span: error.span,
-                help: None,
-                inner: vec![],
-            }
-        } else {
-            ShellError::GenericError {
-                error: error.label,
-                msg: "".into(),
-                span: None,
-                help: (!error.msg.is_empty()).then_some(error.msg),
-                inner: vec![],
-            }
-        }
-    }
-}
-
-impl From<ShellError> for LabeledError {
-    fn from(error: ShellError) -> Self {
-        use miette::Diagnostic;
-        // This is not perfect - we can only take the first labeled span as that's all we have
-        // space for.
-        if let Some(labeled_span) = error.labels().and_then(|mut iter| iter.nth(0)) {
-            let offset = labeled_span.offset();
-            let span = Span::new(offset, offset + labeled_span.len());
-            LabeledError {
-                label: error.to_string(),
-                msg: labeled_span
-                    .label()
-                    .map(|label| label.to_owned())
-                    .unwrap_or_else(|| "".into()),
-                span: Some(span),
-            }
-        } else {
-            LabeledError {
-                label: error.to_string(),
-                msg: error
-                    .help()
-                    .map(|help| help.to_string())
-                    .unwrap_or_else(|| "".into()),
-                span: None,
-            }
-        }
-    }
 }
 
 /// Response to a [`PluginCall`]. The type parameter determines the output type for pipeline data.

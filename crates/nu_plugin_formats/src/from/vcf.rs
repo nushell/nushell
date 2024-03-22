@@ -1,9 +1,9 @@
 use ical::parser::vcard::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, PluginExample, PluginSignature, ShellError, Span, Type, Value,
+    record, Category, LabeledError, PluginExample, PluginSignature, ShellError, Span, Type, Value,
 };
 
 use crate::FromCmds;

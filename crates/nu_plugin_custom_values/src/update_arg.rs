@@ -1,7 +1,7 @@
 use crate::{update::Update, CustomValuePlugin};
 
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, PluginSignature, SyntaxShape, Value};
 
 pub struct UpdateArg;
 

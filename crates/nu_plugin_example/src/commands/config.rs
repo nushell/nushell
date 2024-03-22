@@ -1,5 +1,5 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, PluginSignature, Type, Value};
 
 use crate::Example;
 
@@ -27,12 +27,10 @@ impl SimplePluginCommand for Config {
         let config = engine.get_plugin_config()?;
         match config {
             Some(config) => Ok(config.clone()),
-            None => Err(LabeledError {
-                label: "No config sent".into(),
-                msg: "Configuration for this plugin was not found in `$env.config.plugins.example`"
-                    .into(),
-                span: Some(call.head),
-            }),
+            None => Err(LabeledError::new("No config sent").with_label(
+                "configuration for this plugin was not found in `$env.config.plugins.example`",
+                call.head,
+            )),
         }
     }
 }

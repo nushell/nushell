@@ -1,11 +1,11 @@
 macro_rules! generate_tests {
     ($encoder:expr) => {
         use crate::protocol::{
-            CallInfo, CustomValueOp, EvaluatedCall, LabeledError, PipelineDataHeader, PluginCall,
+            CallInfo, CustomValueOp, EvaluatedCall, PipelineDataHeader, PluginCall,
             PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
             StreamData, StreamMessage,
         };
-        use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
+        use nu_protocol::{LabeledError, PluginSignature, Span, Spanned, SyntaxShape, Value};
 
         #[test]
         fn decode_eof() {
@@ -364,11 +364,15 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_error() {
-            let error = LabeledError {
-                label: "label".into(),
-                msg: "msg".into(),
-                span: Some(Span::new(2, 30)),
-            };
+            let error = LabeledError::new("label")
+                .with_code("test::error")
+                .with_url("https://example.org/test/error")
+                .with_help("some help")
+                .with_label("msg", Span::new(2, 30))
+                .with_inner(ShellError::IOError {
+                    msg: "io error".into(),
+                });
+
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(6, response);
 
@@ -392,11 +396,7 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_error_none() {
-            let error = LabeledError {
-                label: "label".into(),
-                msg: "msg".into(),
-                span: None,
-            };
+            let error = LabeledError::new("error");
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(7, response);
 

@@ -1,5 +1,7 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
-use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, Span, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, Span, Type, Value,
+};
 
 use crate::Example;
 
@@ -33,18 +35,15 @@ impl PluginCommand for Sum {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let mut acc = IntOrFloat::Int(0);
-        let span = input.span();
         for value in input {
             if let Ok(n) = value.as_i64() {
                 acc.add_i64(n);
             } else if let Ok(n) = value.as_f64() {
                 acc.add_f64(n);
             } else {
-                return Err(LabeledError {
-                    label: "Stream only accepts ints and floats".into(),
-                    msg: format!("found {}", value.get_type()),
-                    span,
-                });
+                return Err(LabeledError::new("Sum only accepts ints and floats")
+                    .with_label(format!("found {} in input", value.get_type()), value.span())
+                    .with_label("can't be used here", call.head));
             }
         }
         Ok(PipelineData::Value(acc.to_value(call.head), None))
