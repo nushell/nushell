@@ -145,7 +145,7 @@ mod record {
     fn create_nested_record_string(depth: i32) -> String {
         let mut s = String::from("let record = {");
         for _ in 0..depth {
-            s.push_str(&format!("col: {{"));
+            s.push_str(&"col: {{".to_string());
         }
         s.push_str("col_final: 0");
         for _ in 0..depth {
