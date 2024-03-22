@@ -16,6 +16,7 @@ impl PluginCommand for AppendDF {
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars append")
+            .usage("Appends a new dataframe.")
             .required("other", SyntaxShape::Any, "other dataframe to append")
             .switch("col", "append as new columns instead of rows", None)
             .input_output_type(
