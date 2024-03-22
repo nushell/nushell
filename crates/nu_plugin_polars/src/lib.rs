@@ -11,7 +11,10 @@ use std::{collections::BTreeMap, sync::Mutex};
 use uuid::Uuid;
 
 use crate::{
-    eager::{ColumnsDF, FirstDF, LastDF, ListDF, OpenDataFrame, ToArrow, ToCSV, ToDataFrame, ToNu},
+    eager::{
+        AppendDF, ColumnsDF, FirstDF, LastDF, ListDF, OpenDataFrame, ToArrow, ToCSV, ToDataFrame,
+        ToNu,
+    },
     lazy::{LazyAggregate, LazyCollect},
 };
 
@@ -109,13 +112,14 @@ impl DataFrameCache {
     pub(crate) fn get_df(uuid: &Uuid) -> Result<Option<NuDataFrame>, ShellError> {
         Self::get(uuid).and_then(|get| match get {
             Some(CacheValue::DataFrame(df)) => Ok(Some(df)),
-            _ => Err(ShellError::GenericError {
-                error: format!("Cache value {uuid} is not a NuDataFrame"),
+            v @ Some(_) => Err(ShellError::GenericError {
+                error: format!("Cache key {uuid} is not a NuDataFrame: {v:?}"),
                 msg: "".into(),
                 span: None,
                 help: None,
                 inner: vec![],
             }),
+            _ => Ok(None),
         })
     }
 
@@ -130,13 +134,14 @@ impl DataFrameCache {
     pub(crate) fn get_lazy(uuid: &Uuid) -> Result<Option<NuLazyFrame>, ShellError> {
         Self::get(uuid).and_then(|get| match get {
             Some(CacheValue::LazyFrame(df)) => Ok(Some(df)),
-            _ => Err(ShellError::GenericError {
-                error: format!("Cache value {uuid} is not a NuLazyFrame"),
+            v @ Some(_) => Err(ShellError::GenericError {
+                error: format!("Cache key {uuid} is not a NuLazyFrame: {v:?}"),
                 msg: "".into(),
                 span: None,
                 help: None,
                 inner: vec![],
             }),
+            _ => Ok(None),
         })
     }
 
@@ -151,13 +156,14 @@ impl DataFrameCache {
     pub(crate) fn get_group_by(uuid: &Uuid) -> Result<Option<NuLazyGroupBy>, ShellError> {
         Self::get(uuid).and_then(|get| match get {
             Some(CacheValue::LazyGroupBy(df)) => Ok(Some(df)),
-            _ => Err(ShellError::GenericError {
-                error: format!("Cache value {uuid} is not a LazyGroupBy"),
+            v @ Some(_) => Err(ShellError::GenericError {
+                error: format!("Cache value {uuid} - {v:?} is not a LazyGroupBy"),
                 msg: "".into(),
                 span: None,
                 help: None,
                 inner: vec![],
             }),
+            _ => Ok(None),
         })
     }
 }
@@ -167,6 +173,7 @@ pub struct PolarsDataFramePlugin;
 impl Plugin for PolarsDataFramePlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![
+            Box::new(AppendDF),
             Box::new(OpenDataFrame),
             Box::new(ToDataFrame),
             Box::new(FirstDF),

@@ -1,4 +1,4 @@
-// mod append;
+mod append;
 // mod cast;
 mod columns;
 // mod drop;
@@ -35,7 +35,7 @@ mod to_nu;
 // use nu_protocol::engine::StateWorkingSet;
 
 pub use self::open::OpenDataFrame;
-// pub use append::AppendDF;
+pub use append::AppendDF;
 // pub use cast::CastDF;
 pub use columns::ColumnsDF;
 // pub use drop::DropDF;
@@ -66,49 +66,3 @@ pub use to_df::ToDataFrame;
 pub use to_nu::ToNu;
 // pub use to_parquet::ToParquet;
 // pub use with_column::WithColumn;
-
-// pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
-//     macro_rules! bind_command {
-//             ( $command:expr ) => {
-//                 working_set.add_decl(Box::new($command));
-//             };
-//             ( $( $command:expr ),* ) => {
-//                 $( working_set.add_decl(Box::new($command)); )*
-//             };
-//         }
-//
-//     // Dataframe commands
-//     bind_command!(
-//         AppendDF,
-//         CastDF,
-//         ColumnsDF,
-//         DataTypes,
-//         Summary,
-//         DropDF,
-//         DropDuplicates,
-//         DropNulls,
-//         Dummies,
-//         FilterWith,
-//         FirstDF,
-//         GetDF,
-//         LastDF,
-//         ListDF,
-//         MeltDF,
-//         OpenDataFrame,
-//         QueryDf,
-//         RenameDF,
-//         SampleDF,
-//         SchemaDF,
-//         ShapeDF,
-//         SliceDF,
-//         TakeDF,
-//         ToArrow,
-//         ToAvro,
-//         ToCSV,
-//         ToDataFrame,
-//         ToNu,
-//         ToParquet,
-//         ToJsonLines,
-//         WithColumn
-//     );
-// }
