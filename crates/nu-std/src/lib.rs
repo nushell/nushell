@@ -67,9 +67,9 @@ use std pwd
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
-        // Change the currently parsed directory
-        let prev_currently_parsed_cwd = working_set.currently_parsed_cwd.clone();
-        working_set.currently_parsed_cwd = Some(PathBuf::from(NU_STDLIB_VIRTUAL_DIR));
+        // Add a placeholder file to the stack of scripts being processed.
+        let placeholder = [NU_STDLIB_VIRTUAL_DIR, "placeholder"].iter().collect();
+        working_set.scripts.push(placeholder);
 
         let block = parse(
             &mut working_set,
@@ -78,12 +78,12 @@ use std pwd
             false,
         );
 
+        // Remove the placeholder file from the stack of scripts being processed.
+        working_set.scripts.pop();
+
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
         }
-
-        // Restore the currently parsed directory back
-        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
         (block, working_set.render())
     };

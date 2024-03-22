@@ -117,14 +117,8 @@ impl Command for NuCheck {
                         Err(error) => return Err(error),
                     };
 
-                    // Change currently parsed directory
-                    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                        let prev = working_set.currently_parsed_cwd.clone();
-                        working_set.currently_parsed_cwd = Some(parent.into());
-                        prev
-                    } else {
-                        working_set.currently_parsed_cwd.clone()
-                    };
+                    // Add the file to the stack of scripts being processed.
+                    working_set.scripts.push(path.clone());
 
                     let result = if as_module || path.is_dir() {
                         parse_file_or_dir_module(
@@ -138,8 +132,8 @@ impl Command for NuCheck {
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                     };
 
-                    // Restore the currently parsed directory back
-                    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+                    // Remove the file from the stack of scripts being processed.
+                    working_set.scripts.pop();
 
                     result
                 } else {

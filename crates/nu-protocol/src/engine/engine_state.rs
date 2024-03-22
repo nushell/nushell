@@ -100,8 +100,8 @@ pub struct EngineState {
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
-    // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
-    pub(super) currently_parsed_cwd: Option<PathBuf>,
+    // Path to the script Nushell is currently running, if any.
+    pub script: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
@@ -163,7 +163,7 @@ impl EngineState {
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
-            currently_parsed_cwd: None,
+            script: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
@@ -322,15 +322,6 @@ impl EngineState {
         }
 
         Ok(())
-    }
-
-    /// Mark a starting point if it is a script (e.g., nu spam.nu)
-    pub fn start_in_file(&mut self, file_path: Option<&str>) {
-        self.currently_parsed_cwd = if let Some(path) = file_path {
-            Path::new(path).parent().map(PathBuf::from)
-        } else {
-            None
-        };
     }
 
     pub fn has_overlay(&self, name: &[u8]) -> bool {
