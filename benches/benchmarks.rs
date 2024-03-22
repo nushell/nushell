@@ -85,9 +85,9 @@ mod eval_commands {
             .with_inputs(|| engine.clone())
             .bench_values(|mut engine| {
                 evaluate_commands(
-                    &commands,
                     &mut engine,
                     &mut nu_protocol::engine::Stack::new(),
+                    &commands,
                     PipelineData::empty(),
                     None,
                 )
@@ -119,9 +119,9 @@ mod eval_commands {
             .with_inputs(|| engine.clone())
             .bench_values(|mut engine| {
                 evaluate_commands(
-                    &commands,
                     &mut engine,
                     &mut nu_protocol::engine::Stack::new(),
+                    &commands,
                     PipelineData::empty(),
                     None,
                 )

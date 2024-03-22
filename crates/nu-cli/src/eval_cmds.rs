@@ -12,9 +12,9 @@ use nu_protocol::{
 
 /// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(
-    commands: &Spanned<String>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    commands: &Spanned<String>,
     input: PipelineData,
     table_mode: Option<Value>,
 ) -> Result<Option<i64>> {

@@ -19,10 +19,10 @@ use nu_utils::stdout_write_all_and_flush;
 
 /// Main function used when a file path is found as argument for nu
 pub fn evaluate_file(
-    path: String,
-    args: &[String],
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    path: String,
+    args: &[String],
     input: PipelineData,
 ) -> Result<()> {
     // Translate environment variables from Strings to Values

@@ -112,9 +112,9 @@ pub(crate) fn run_commands(
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_commands(
-        commands,
         engine_state,
         &mut stack,
+        commands,
         input,
         parsed_nu_cli_args.table_mode,
     );
@@ -201,10 +201,10 @@ pub(crate) fn run_file(
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_file(
-        script_name,
-        &args_to_script,
         engine_state,
         &mut stack,
+        script_name,
+        &args_to_script,
         input,
     );
     perf(
