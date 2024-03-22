@@ -130,7 +130,7 @@ mod record {
 
     use super::*;
 
-    fn create_record_string(n: i32) -> String {
+    fn create_flat_record_string(n: i32) -> String {
         let mut s = String::from("let record = {");
         for i in 0..n {
             s.push_str(&format!("col_{}: {}", i, i));
@@ -142,17 +142,43 @@ mod record {
         s
     }
 
-    #[divan::bench(args = [1, 10, 100, 1000])]
-    fn create(bencher: divan::Bencher, n: i32) {
-        bench_command(bencher, create_record_string(n));
+    fn create_nested_record_string(depth: i32) -> String {
+        let mut s = String::from("let record = {");
+        for _ in 0..depth {
+            s.push_str(&format!("col: {{"));
+        }
+        s.push_str("col_final: 0");
+        for _ in 0..depth {
+            s.push('}');
+        }
+        s.push('}');
+        s
     }
 
     #[divan::bench(args = [1, 10, 100, 1000])]
-    fn access(bencher: divan::Bencher, n: i32) {
-        let (stack, engine) = setup_stack_and_engine_from_command(&create_record_string(n));
+    fn create(bencher: divan::Bencher, n: i32) {
+        bench_command(bencher, create_flat_record_string(n));
+    }
+
+    #[divan::bench(args = [1, 10, 100, 1000])]
+    fn flat_access(bencher: divan::Bencher, n: i32) {
+        let (stack, engine) = setup_stack_and_engine_from_command(&create_flat_record_string(n));
         bench_command_with_custom_stack_and_engine(
             bencher,
             "$record.col_0 | ignore".to_string(),
+            stack,
+            engine,
+        );
+    }
+
+    #[divan::bench(args = [1, 2, 4, 8, 16, 32, 64, 128])]
+    fn nest_access(bencher: divan::Bencher, depth: i32) {
+        let (stack, engine) =
+            setup_stack_and_engine_from_command(&create_nested_record_string(depth));
+        let nested_access = ".col".repeat(depth as usize);
+        bench_command_with_custom_stack_and_engine(
+            bencher,
+            format!("$record{} | ignore", nested_access),
             stack,
             engine,
         );
