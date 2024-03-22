@@ -1,6 +1,7 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, IntoPipelineData, PipelineData, PluginExample, PluginSignature, Value,
+    record, Category, IntoPipelineData, LabeledError, PipelineData, PluginExample, PluginSignature,
+    Value,
 };
 
 use crate::{CacheValue, DataFrameCache, PolarsDataFramePlugin};

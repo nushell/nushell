@@ -1,9 +1,10 @@
 use crate::PolarsDataFramePlugin;
 
 use super::super::values::NuDataFrame;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type, Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]

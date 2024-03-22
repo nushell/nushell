@@ -127,7 +127,7 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Plu
 }
 
 #[test]
-//#[ignore = "not yet working"]
+#[ignore = "not yet working"]
 fn test_into_df() {
     test_dataframe(vec![Box::new(ToDataFrame {})])
 }

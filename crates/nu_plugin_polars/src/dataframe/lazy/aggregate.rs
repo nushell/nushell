@@ -4,10 +4,10 @@ use crate::{
     PolarsDataFramePlugin,
 };
 
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type,
-    Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    SyntaxShape, Type, Value,
 };
 use polars::{datatypes::DataType, prelude::Expr};
 

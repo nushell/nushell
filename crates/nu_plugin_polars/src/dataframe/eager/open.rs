@@ -3,8 +3,8 @@ use crate::{dataframe::values::NuSchema, values::NuLazyFrame, PolarsDataFramePlu
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Category, PipelineData, PluginExample, PluginSignature, ShellError, Spanned, SyntaxShape, Type,
-    Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use std::{fs::File, io::BufReader, path::PathBuf};
@@ -83,7 +83,7 @@ impl PluginCommand for OpenDataFrame {
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
         _input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_plugin::LabeledError> {
+    ) -> Result<nu_protocol::PipelineData, LabeledError> {
         command(engine, call).map_err(|e| e.into())
     }
 }

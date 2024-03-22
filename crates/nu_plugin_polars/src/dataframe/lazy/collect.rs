@@ -4,8 +4,10 @@ use crate::{
 };
 
 use super::super::values::NuLazyFrame;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
-use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, Span, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct LazyCollect;

@@ -2,11 +2,11 @@ use dataframe::values::{
     NuDataFrame, NuDataFrameCustomValue, NuLazyFrame, NuLazyFrameCustomValue, NuLazyGroupBy,
 };
 use lazy_static::lazy_static;
-use nu_plugin::{EngineInterface, LabeledError, Plugin, PluginCommand};
+use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{CustomValue, ShellError};
+use nu_protocol::{CustomValue, LabeledError, ShellError};
 use std::{collections::BTreeMap, sync::Mutex};
 use uuid::Uuid;
 

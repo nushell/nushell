@@ -1,7 +1,7 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, PipelineData, PluginExample, PluginSignature, ShellError, Span, SyntaxShape,
-    Type, Value,
+    record, Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    SyntaxShape, Type, Value,
 };
 
 use crate::{dataframe::values::NuExpression, PolarsDataFramePlugin};

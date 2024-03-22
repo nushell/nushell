@@ -2,10 +2,10 @@ use crate::{dataframe::values::NuSchema, values::Column, PolarsDataFramePlugin};
 
 use super::super::values::NuDataFrame;
 
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, CustomValue, PipelineData, PluginExample, PluginSignature, Span, SyntaxShape, Type,
-    Value,
+    Category, CustomValue, LabeledError, PipelineData, PluginExample, PluginSignature, Span,
+    SyntaxShape, Type, Value,
 };
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
