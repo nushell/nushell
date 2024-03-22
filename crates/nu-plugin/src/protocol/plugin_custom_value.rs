@@ -197,12 +197,9 @@ impl PluginCustomValue {
             })
         })?;
 
-        // Envs probably should be passed here, but it's likely that the plugin is already running
-        let empty_envs = std::iter::empty::<(&str, &str)>();
-
         source
             .persistent(span)
-            .and_then(|p| p.get(|| Ok(empty_envs)))
+            .and_then(|p| p.get_plugin(None))
             .map_err(wrap_err)
     }
 

@@ -3736,7 +3736,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         for signature in signatures {
             // create plugin command declaration (need struct impl Command)
             // store declaration in working set
-            let plugin_decl = PluginDeclaration::new(&plugin, signature);
+            let plugin_decl = PluginDeclaration::new(plugin.clone(), signature);
 
             working_set.add_decl(Box::new(plugin_decl));
         }

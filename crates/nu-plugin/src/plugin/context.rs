@@ -14,7 +14,10 @@ use nu_protocol::{
 use crate::util::MutableCow;
 
 /// Object safe trait for abstracting operations required of the plugin context.
-pub(crate) trait PluginExecutionContext: Send + Sync {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginExecutionContext: Send + Sync {
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
     /// Get engine configuration
@@ -43,7 +46,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
 }
 
 /// The execution context of a plugin command. Can be borrowed.
-pub(crate) struct PluginExecutionCommandContext<'a> {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,

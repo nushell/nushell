@@ -1,0 +1,14 @@
+[package]
+name = "nu-plugin-test-support"
+version = "0.91.1"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-test-support"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-engine = { path = "../nu-engine", version = "0.91.1", features = ["plugin"] }
+nu-protocol = { path = "../nu-protocol", version = "0.91.1", features = ["plugin"] }
+nu-parser = { path = "../nu-parser", version = "0.91.1", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.91.1" }

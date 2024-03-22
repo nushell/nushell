@@ -3069,8 +3069,19 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "thiserror",
  "typetag",
  "windows 0.52.0",
+]
+
+[[package]]
+name = "nu-plugin-test-support"
+version = "0.91.1"
+dependencies = [
+ "nu-engine",
+ "nu-parser",
+ "nu-plugin",
+ "nu-protocol",
 ]
 
 [[package]]
