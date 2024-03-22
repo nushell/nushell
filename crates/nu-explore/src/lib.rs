@@ -20,7 +20,7 @@ use nu_protocol::{
 use pager::{Page, Pager};
 use registry::{Command, CommandRegistry};
 use terminal_size::{Height, Width};
-use views::{InformationView, Orientation, Preview, RecordView};
+use views::{BinaryView, InformationView, Orientation, Preview, RecordView};
 
 use pager::{PagerConfig, StyleConfig};
 
@@ -36,11 +36,19 @@ fn run_pager(
     config: PagerConfig,
 ) -> io::Result<Option<Value>> {
     let mut p = Pager::new(config.clone());
+    let commands = create_command_registry();
 
     let is_record = matches!(input, PipelineData::Value(Value::Record { .. }, ..));
-    let (columns, data) = collect_pipeline(input);
+    let is_binary = matches!(input, PipelineData::Value(Value::Binary { .. }, ..));
 
-    let commands = create_command_registry();
+    if is_binary {
+        p.show_message("For help type :help");
+
+        let view = binary_view(input);
+        return p.run(engine_state, stack, ctrlc, view, commands);
+    }
+
+    let (columns, data) = collect_pipeline(input);
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
@@ -81,6 +89,17 @@ fn create_record_view(
 
 fn information_view() -> Option<Page> {
     Some(Page::new(InformationView, true))
+}
+
+fn binary_view(input: PipelineData) -> Option<Page> {
+    let data = match input {
+        PipelineData::Value(Value::Binary { val, .. }, _) => val,
+        _ => unreachable!("checked beforehand"),
+    };
+
+    let view = BinaryView::new(data);
+
+    Some(Page::new(view, false))
 }
 
 fn create_command_registry() -> CommandRegistry {

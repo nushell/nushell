@@ -1,3 +1,4 @@
+mod binary;
 mod coloredtextw;
 mod cursor;
 mod information;
@@ -22,6 +23,7 @@ use super::{
     pager::{Frame, Transition, ViewInfo},
 };
 
+pub use binary::BinaryView;
 pub use information::InformationView;
 pub use interactive::InteractiveView;
 pub use preview::Preview;

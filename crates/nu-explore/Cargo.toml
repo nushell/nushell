@@ -19,6 +19,7 @@ nu-table = { path = "../nu-table", version = "0.91.1" }
 nu-json = { path = "../nu-json", version = "0.91.1" }
 nu-utils = { path = "../nu-utils", version = "0.91.1" }
 nu-ansi-term = { workspace = true }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.91.1" }
 
 terminal_size = "0.3"
 strip-ansi-escapes = "0.2.0"
