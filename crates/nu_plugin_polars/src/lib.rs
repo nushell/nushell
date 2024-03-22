@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::{
     eager::{
         AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, FirstDF, LastDF, ListDF, OpenDataFrame,
-        Summary, ToArrow, ToCSV, ToDataFrame, ToNu,
+        Summary, ToArrow, ToCSV, ToDataFrame, ToNu, ToParquet,
     },
     lazy::{LazyAggregate, LazyCollect},
 };
@@ -211,6 +211,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(ToNu),
             Box::new(ToArrow),
             Box::new(ToCSV),
+            Box::new(ToParquet),
             Box::new(LazyAggregate),
             Box::new(LazyCollect),
         ]
