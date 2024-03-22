@@ -1,27 +1,67 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
+use crate::DataFrameCache;
+
 use super::NuExpression;
 use nu_protocol::{
     ast::{Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
 };
 use polars::prelude::Expr;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+const TYPE_NAME: &str = "NuExpression";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NuExpressionCustomValue {
+    pub id: Uuid,
+    #[serde(skip)]
+    pub expr: Option<NuExpression>,
+}
+
+impl TryFrom<&NuExpressionCustomValue> for NuExpression {
+    type Error = ShellError;
+
+    fn try_from(value: &NuExpressionCustomValue) -> Result<Self, Self::Error> {
+        if let Some(expr) = &value.expr {
+            Ok(expr.clone())
+        } else {
+            DataFrameCache::get_expr(&value.id)?.ok_or_else(|| ShellError::GenericError {
+                error: format!("Expression {:?} not found in cache", value.id),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+        }
+    }
+}
+
+impl From<NuExpression> for NuExpressionCustomValue {
+    fn from(expr: NuExpression) -> Self {
+        Self {
+            id: expr.id,
+            expr: Some(expr),
+        }
+    }
+}
 
 // CustomValue implementation for NuDataFrame
 #[typetag::serde]
-impl CustomValue for NuExpression {
+impl CustomValue for NuExpressionCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        let cloned = NuExpression(self.0.clone());
-
+        let cloned = self.clone();
         Value::custom_value(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {
-        "NuExpression".into()
+        TYPE_NAME.into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        self.to_value(span)
+        let expr = NuExpression::try_from(self)?;
+        expr.to_value(span)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -35,7 +75,8 @@ impl CustomValue for NuExpression {
         op: Span,
         right: &Value,
     ) -> Result<Value, ShellError> {
-        compute_with_value(self, lhs_span, operator, op, right)
+        let expr = NuExpression::try_from(self)?;
+        compute_with_value(&expr, lhs_span, operator, op, right)
     }
 
     fn notify_plugin_on_drop(&self) -> bool {
@@ -118,9 +159,9 @@ fn with_operator(
             .into_value(lhs_span)),
         _ => Err(ShellError::OperatorMismatch {
             op_span,
-            lhs_ty: Type::Custom(left.typetag_name().into()).to_string(),
+            lhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
             lhs_span,
-            rhs_ty: Type::Custom(right.typetag_name().into()).to_string(),
+            rhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
             rhs_span,
         }),
     }

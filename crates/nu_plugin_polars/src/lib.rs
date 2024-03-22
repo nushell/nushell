@@ -1,5 +1,6 @@
 use dataframe::values::{
-    NuDataFrame, NuDataFrameCustomValue, NuLazyFrame, NuLazyFrameCustomValue, NuLazyGroupBy,
+    NuDataFrame, NuDataFrameCustomValue, NuExpression, NuLazyFrame, NuLazyFrameCustomValue,
+    NuLazyGroupBy,
 };
 use lazy_static::lazy_static;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
@@ -12,8 +13,8 @@ use uuid::Uuid;
 
 use crate::{
     eager::{
-        AppendDF, ColumnsDF, FirstDF, LastDF, ListDF, OpenDataFrame, ToArrow, ToCSV, ToDataFrame,
-        ToNu,
+        AppendDF, CastDF, ColumnsDF, FirstDF, LastDF, ListDF, OpenDataFrame, ToArrow, ToCSV,
+        ToDataFrame, ToNu,
     },
     lazy::{LazyAggregate, LazyCollect},
 };
@@ -27,6 +28,7 @@ pub(crate) enum CacheValue {
     DataFrame(NuDataFrame),
     LazyFrame(NuLazyFrame),
     LazyGroupBy(NuLazyGroupBy),
+    Expression(NuExpression),
 }
 
 pub(crate) struct DataFrameCache;
@@ -155,7 +157,29 @@ impl DataFrameCache {
 
     pub(crate) fn get_group_by(uuid: &Uuid) -> Result<Option<NuLazyGroupBy>, ShellError> {
         Self::get(uuid).and_then(|get| match get {
-            Some(CacheValue::LazyGroupBy(df)) => Ok(Some(df)),
+            Some(CacheValue::LazyGroupBy(group_by)) => Ok(Some(group_by)),
+            v @ Some(_) => Err(ShellError::GenericError {
+                error: format!("Cache value {uuid} - {v:?} is not a LazyGroupBy"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+            _ => Ok(None),
+        })
+    }
+
+    pub(crate) fn insert_expr(
+        engine: &EngineInterface,
+        expr: NuExpression,
+    ) -> Result<(), ShellError> {
+        eprintln!("Adding expr to cache: {:?}", expr.id);
+        Self::insert(engine, expr.id, CacheValue::Expression(expr)).map(|_| ())
+    }
+
+    pub(crate) fn get_expr(uuid: &Uuid) -> Result<Option<NuExpression>, ShellError> {
+        Self::get(uuid).and_then(|get| match get {
+            Some(CacheValue::Expression(expr)) => Ok(Some(expr)),
             v @ Some(_) => Err(ShellError::GenericError {
                 error: format!("Cache value {uuid} - {v:?} is not a LazyGroupBy"),
                 msg: "".into(),
@@ -174,6 +198,7 @@ impl Plugin for PolarsDataFramePlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![
             Box::new(AppendDF),
+            Box::new(CastDF),
             Box::new(OpenDataFrame),
             Box::new(ToDataFrame),
             Box::new(FirstDF),

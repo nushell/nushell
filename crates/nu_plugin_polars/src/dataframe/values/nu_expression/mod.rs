@@ -1,14 +1,23 @@
 mod custom_value;
 
+use nu_plugin::EngineInterface;
 use nu_protocol::{record, PipelineData, ShellError, Span, Value};
 use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use uuid::Uuid;
+
+use crate::DataFrameCache;
+
+use self::custom_value::NuExpressionCustomValue;
 
 // Polars Expression wrapper for Nushell operations
 // Object is behind and Option to allow easy implementation of
 // the Deserialize trait
 #[derive(Default, Clone, Debug)]
-pub struct NuExpression(Option<Expr>);
+pub struct NuExpression {
+    pub id: Uuid,
+    expr: Option<Expr>,
+}
 
 // Mocked serialization of the LazyFrame object
 impl Serialize for NuExpression {
@@ -35,7 +44,7 @@ impl AsRef<Expr> for NuExpression {
     fn as_ref(&self) -> &polars::prelude::Expr {
         // The only case when there cannot be an expr is if it is created
         // using the default function or if created by deserializing something
-        self.0.as_ref().expect("there should always be a frame")
+        self.expr.as_ref().expect("there should always be a frame")
     }
 }
 
@@ -43,33 +52,51 @@ impl AsMut<Expr> for NuExpression {
     fn as_mut(&mut self) -> &mut polars::prelude::Expr {
         // The only case when there cannot be an expr is if it is created
         // using the default function or if created by deserializing something
-        self.0.as_mut().expect("there should always be a frame")
+        self.expr.as_mut().expect("there should always be a frame")
     }
 }
 
 impl From<Expr> for NuExpression {
     fn from(expr: Expr) -> Self {
-        Self(Some(expr))
+        Self::new(Some(expr))
     }
 }
 
 impl NuExpression {
+    fn new(expr: Option<Expr>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            expr,
+        }
+    }
+
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom_value(Box::new(self.custom_value()), span)
+    }
+
+    pub fn custom_value(self) -> NuExpressionCustomValue {
+        self.into()
+    }
+
+    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
+        DataFrameCache::insert_expr(engine, self.clone())?;
+        Ok(self)
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
-                Some(expr) => Ok(NuExpression(expr.0.clone())),
-                None => Err(ShellError::CantConvert {
-                    to_type: "lazy expression".into(),
-                    from_type: "non-dataframe".into(),
-                    span,
-                    help: None,
-                }),
-            },
+            Value::CustomValue { val, .. } => {
+                match val.as_any().downcast_ref::<NuExpressionCustomValue>() {
+                    Some(expr) => expr.try_into(),
+                    None => Err(ShellError::CantConvert {
+                        to_type: "lazy expression".into(),
+                        from_type: "non-dataframe".into(),
+                        span,
+                        help: None,
+                    }),
+                }
+            }
             Value::String { val, .. } => Ok(val.lit().into()),
             Value::Int { val, .. } => Ok(val.lit().into()),
             Value::Bool { val, .. } => Ok(val.lit().into()),
@@ -100,15 +127,19 @@ impl NuExpression {
     }
 
     pub fn into_polars(self) -> Expr {
-        self.0.expect("Expression cannot be none to convert")
+        self.expr.expect("Expression cannot be none to convert")
     }
 
     pub fn apply_with_expr<F>(self, other: NuExpression, f: F) -> Self
     where
         F: Fn(Expr, Expr) -> Expr,
     {
-        let expr = self.0.expect("Lazy expression must not be empty to apply");
-        let other = other.0.expect("Lazy expression must not be empty to apply");
+        let expr = self
+            .expr
+            .expect("Lazy expression must not be empty to apply");
+        let other = other
+            .expr
+            .expect("Lazy expression must not be empty to apply");
 
         f(expr, other).into()
     }
