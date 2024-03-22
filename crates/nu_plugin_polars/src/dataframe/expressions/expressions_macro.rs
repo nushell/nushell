@@ -151,6 +151,7 @@ macro_rules! lazy_expr_command {
                         ),
                     ])
                     .category(Category::Custom("expression".into()))
+                    .plugin_examples($examples)
             }
 
             fn run(
@@ -245,6 +246,7 @@ macro_rules! lazy_expr_command {
                         ),
                     ])
                     .category(Category::Custom("expression".into()))
+                    .plugin_examples($examples)
             }
 
             fn run(
