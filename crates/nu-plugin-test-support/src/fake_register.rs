@@ -35,7 +35,9 @@ pub fn create_engine_state(
 ) -> Result<EngineState, ShellError> {
     let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
+
     fake_register(&mut working_set, plugin_name, plugin)?;
+
     engine_state.merge_delta(working_set.render())?;
     Ok(engine_state)
 }

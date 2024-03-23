@@ -192,7 +192,10 @@ impl CustomValueOp {
 }
 
 /// Any data sent to the plugin
+///
+/// Note: exported for internal use, not public.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[doc(hidden)]
 pub enum PluginInput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),

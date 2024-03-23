@@ -170,7 +170,7 @@ impl<T> FromShellError for Result<T, ShellError> {
 ///
 /// The `signal` contained
 #[derive(Debug)]
-pub(crate) struct StreamWriter<W: WriteStreamMessage> {
+pub struct StreamWriter<W: WriteStreamMessage> {
     id: StreamId,
     signal: Arc<StreamWriterSignal>,
     writer: W,
@@ -308,7 +308,7 @@ impl StreamWriterSignal {
     /// If `notify_sent()` is called more than `high_pressure_mark` times, it will wait until
     /// `notify_acknowledge()` is called by another thread enough times to bring the number of
     /// unacknowledged sent messages below that threshold.
-    pub fn new(high_pressure_mark: i32) -> StreamWriterSignal {
+    pub(crate) fn new(high_pressure_mark: i32) -> StreamWriterSignal {
         assert!(high_pressure_mark > 0);
 
         StreamWriterSignal {
@@ -329,12 +329,12 @@ impl StreamWriterSignal {
 
     /// True if the stream was dropped and the consumer is no longer interested in it. Indicates
     /// that no more messages should be sent, other than `End`.
-    pub fn is_dropped(&self) -> Result<bool, ShellError> {
+    pub(crate) fn is_dropped(&self) -> Result<bool, ShellError> {
         Ok(self.lock()?.dropped)
     }
 
     /// Notify the writers that the stream has been dropped, so they can stop writing.
-    pub fn set_dropped(&self) -> Result<(), ShellError> {
+    pub(crate) fn set_dropped(&self) -> Result<(), ShellError> {
         let mut state = self.lock()?;
         state.dropped = true;
         // Unblock the writers so they can terminate
@@ -345,7 +345,7 @@ impl StreamWriterSignal {
     /// Track that a message has been sent. Returns `Ok(true)` if more messages can be sent,
     /// or `Ok(false)` if the high pressure mark has been reached and [`.wait_for_drain()`] should
     /// be called to block.
-    pub fn notify_sent(&self) -> Result<bool, ShellError> {
+    pub(crate) fn notify_sent(&self) -> Result<bool, ShellError> {
         let mut state = self.lock()?;
         state.unacknowledged =
             state
@@ -359,7 +359,7 @@ impl StreamWriterSignal {
     }
 
     /// Wait for acknowledgements before sending more data. Also returns if the stream is dropped.
-    pub fn wait_for_drain(&self) -> Result<(), ShellError> {
+    pub(crate) fn wait_for_drain(&self) -> Result<(), ShellError> {
         let mut state = self.lock()?;
         while !state.dropped && state.unacknowledged >= state.high_pressure_mark {
             state = self
@@ -374,7 +374,7 @@ impl StreamWriterSignal {
 
     /// Notify the writers that a message has been acknowledged, so they can continue to write
     /// if they were waiting.
-    pub fn notify_acknowledged(&self) -> Result<(), ShellError> {
+    pub(crate) fn notify_acknowledged(&self) -> Result<(), ShellError> {
         let mut state = self.lock()?;
         state.unacknowledged =
             state
@@ -390,7 +390,7 @@ impl StreamWriterSignal {
 }
 
 /// A sink for a [`StreamMessage`]
-pub(crate) trait WriteStreamMessage {
+pub trait WriteStreamMessage {
     fn write_stream_message(&mut self, msg: StreamMessage) -> Result<(), ShellError>;
     fn flush(&mut self) -> Result<(), ShellError>;
 }
@@ -413,7 +413,7 @@ impl StreamManagerState {
 }
 
 #[derive(Debug)]
-pub(crate) struct StreamManager {
+pub struct StreamManager {
     state: Arc<Mutex<StreamManagerState>>,
 }
 
@@ -532,7 +532,7 @@ impl Drop for StreamManager {
 /// Streams can be registered for reading, returning a [`StreamReader`], or for writing, returning
 /// a [`StreamWriter`].
 #[derive(Debug, Clone)]
-pub(crate) struct StreamManagerHandle {
+pub struct StreamManagerHandle {
     state: Weak<Mutex<StreamManagerState>>,
 }
 

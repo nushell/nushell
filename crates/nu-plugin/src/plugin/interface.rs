@@ -349,7 +349,7 @@ where
 /// [`PipelineDataWriter::write()`] to write all of the data contained within the streams.
 #[derive(Default)]
 #[must_use]
-pub(crate) enum PipelineDataWriter<W: WriteStreamMessage> {
+pub enum PipelineDataWriter<W: WriteStreamMessage> {
     #[default]
     None,
     ListStream(StreamWriter<W>, ListStream),
