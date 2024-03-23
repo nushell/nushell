@@ -13,8 +13,8 @@ use uuid::Uuid;
 
 use crate::{
     eager::{
-        AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, FirstDF, LastDF, ListDF, OpenDataFrame,
-        Summary, ToArrow, ToCSV, ToDataFrame, ToNu, ToParquet,
+        AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, DropDuplicates, FirstDF, LastDF, ListDF,
+        OpenDataFrame, Summary, ToArrow, ToCSV, ToDataFrame, ToNu, ToParquet,
     },
     expressions::{
         ExprAggGroups, ExprCount, ExprList, ExprMax, ExprMean, ExprMedian, ExprMin, ExprNot,
@@ -205,6 +205,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(CastDF),
             Box::new(DataTypes),
             Box::new(DropDF),
+            Box::new(DropDuplicates),
             Box::new(OpenDataFrame),
             Box::new(ToDataFrame),
             Box::new(Summary),
