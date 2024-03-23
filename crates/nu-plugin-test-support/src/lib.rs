@@ -47,7 +47,7 @@
 //!
 //! fn test_lowercase() -> Result<(), LabeledError> {
 //!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(None);
-//!     let output = PluginTest::new("lowercase", Arc::new(LowercasePlugin))?
+//!     let output = PluginTest::new("lowercase", LowercasePlugin.into())?
 //!         .eval_with("lowercase", input)?
 //!         .into_value(Span::test_data());
 //!

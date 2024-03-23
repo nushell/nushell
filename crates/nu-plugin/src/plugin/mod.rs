@@ -612,7 +612,7 @@ where
                 .and_then(|writer| writer.write())
                 .try_to_report(&engine);
             if let Err(err) = write_result {
-                let _ = error_tx.send(ServePluginError::from(err));
+                let _ = error_tx.send(err);
             }
         };
 
