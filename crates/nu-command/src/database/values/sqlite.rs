@@ -9,7 +9,11 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::{Borrow, Cow}, fs::File, io::Read, path::{Path, PathBuf}, sync::{atomic::AtomicBool, Arc}
+    borrow::{Borrow, Cow},
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+    sync::{atomic::AtomicBool, Arc},
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
@@ -455,7 +459,6 @@ pub fn nu_unit_value_to_sql_value(value: &Value) -> Result<&dyn ToSql, ShellErro
         Value::Date { val, .. } => Ok(val),
         // Value::Filesize { val, .. } => todo!(),
         // Value::Duration { val, .. } => todo!(),
-
         _ => Err(ShellError::TypeMismatch {
             err_message: "Unsupported primitive SQL value type".to_string(),
             span: value.span(),
@@ -571,7 +574,8 @@ fn prepared_statement_to_nu_list(
             row_values
         }
         NuSqlParams::Named(pairs) => {
-            let refs: Vec<_> = pairs.iter()
+            let refs: Vec<_> = pairs
+                .iter()
                 .map(|(column, value)| (column.borrow(), *value))
                 .collect();
 

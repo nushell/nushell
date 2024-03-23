@@ -1,7 +1,4 @@
-use nu_test_support::{
-    nu, nu_repl_code,
-    playground::Playground,
-};
+use nu_test_support::{nu, nu_repl_code, playground::Playground};
 
 // Multiple nu! calls don't persist state, so we can't store it in a function
 const DATABASE_INIT: &str = r#"stor open | query db "CREATE TABLE IF NOT EXISTS test_db (
@@ -52,7 +49,8 @@ fn ordered_params() {
             "#
         ]));
 
-        assert_eq!(results.out,
+        assert_eq!(
+            results.out,
             "nimurod-20-6-1-[104, 101, 108, 108, 111]_\
             string-int-float-int-binary"
         );
@@ -81,7 +79,8 @@ fn named_params() {
             "#
         ]));
 
-        assert_eq!(results.out,
+        assert_eq!(
+            results.out,
             "nimurod-20-6-1-[104, 101, 108, 108, 111]_\
             string-int-float-int-binary"
         );
