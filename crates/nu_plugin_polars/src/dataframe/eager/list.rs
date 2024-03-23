@@ -4,13 +4,13 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{CacheValue, DataFrameCache, PolarsDataFramePlugin};
+use crate::{CacheValue, DataFrameCache, PolarsPlugin};
 
 #[derive(Clone)]
 pub struct ListDF;
 
 impl PluginCommand for ListDF {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars ls")

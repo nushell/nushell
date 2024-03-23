@@ -2,7 +2,7 @@ use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::DataFrameCache;
+use crate::{DataFrameCache, PolarsPluginCustomValue};
 
 use super::NuDataFrame;
 
@@ -98,5 +98,22 @@ impl CustomValue for NuDataFrameCustomValue {
 
     fn notify_plugin_on_drop(&self) -> bool {
         true
+    }
+}
+
+impl PolarsPluginCustomValue for NuDataFrameCustomValue {
+    fn custom_value_operation(
+        &self,
+        _plugin: &crate::PolarsPlugin,
+        engine: &nu_plugin::EngineInterface,
+        lhs_span: Span,
+        operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
+        right: Value,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from(self)?;
+        Ok(df
+            .compute_with_value(lhs_span, operator.item, operator.span, &right)?
+            .insert_cache(engine)?
+            .into_value(lhs_span))
     }
 }

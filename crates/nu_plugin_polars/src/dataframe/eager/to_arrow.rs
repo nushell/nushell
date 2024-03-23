@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 use polars::prelude::{IpcWriter, SerWriter};
 
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 
 use super::super::values::NuDataFrame;
 
@@ -15,7 +15,7 @@ use super::super::values::NuDataFrame;
 pub struct ToArrow;
 
 impl PluginCommand for ToArrow {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars to-arrow")

@@ -1,4 +1,4 @@
-use crate::{values::Column, PolarsDataFramePlugin};
+use crate::{values::Column, PolarsPlugin};
 
 use super::super::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -11,7 +11,7 @@ use nu_protocol::{
 pub struct FirstDF;
 
 impl PluginCommand for FirstDF {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars first")

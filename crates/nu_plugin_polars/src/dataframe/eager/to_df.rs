@@ -1,4 +1,4 @@
-use crate::{dataframe::values::NuSchema, values::Column, PolarsDataFramePlugin};
+use crate::{dataframe::values::NuSchema, values::Column, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -16,7 +16,7 @@ use polars::{
 pub struct ToDataFrame;
 
 impl PluginCommand for ToDataFrame {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars into-df")

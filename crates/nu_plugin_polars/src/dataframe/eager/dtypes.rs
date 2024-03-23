@@ -1,4 +1,4 @@
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 
 use super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -11,7 +11,7 @@ use nu_protocol::{
 pub struct DataTypes;
 
 impl PluginCommand for DataTypes {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars dtypes")

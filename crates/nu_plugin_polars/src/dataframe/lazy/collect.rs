@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    PolarsDataFramePlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::NuLazyFrame;
@@ -13,7 +13,7 @@ use nu_protocol::{
 pub struct LazyCollect;
 
 impl PluginCommand for LazyCollect {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars collect")

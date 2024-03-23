@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::{dataframe::values::NuExpression, PolarsDataFramePlugin};
+use crate::{dataframe::values::NuExpression, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -12,7 +12,7 @@ use super::super::values::NuDataFrame;
 pub struct ToNu;
 
 impl PluginCommand for ToNu {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars into-nu")

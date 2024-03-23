@@ -1,4 +1,4 @@
-use crate::{values::Column, PolarsDataFramePlugin};
+use crate::{values::Column, PolarsPlugin};
 
 use super::super::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -11,7 +11,7 @@ use nu_protocol::{
 pub struct LastDF;
 
 impl PluginCommand for LastDF {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars last")

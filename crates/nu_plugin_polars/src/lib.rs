@@ -7,7 +7,7 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Spanned, Value};
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
 use std::{collections::BTreeMap, sync::Mutex};
 use uuid::Uuid;
 
@@ -196,9 +196,9 @@ impl DataFrameCache {
     }
 }
 
-pub struct PolarsDataFramePlugin;
+pub struct PolarsPlugin;
 
-impl Plugin for PolarsDataFramePlugin {
+impl Plugin for PolarsPlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![
             Box::new(AppendDF),
@@ -275,17 +275,24 @@ impl Plugin for PolarsDataFramePlugin {
         let any = left.item.as_any();
 
         if let Some(df_cv) = any.downcast_ref::<NuDataFrameCustomValue>() {
-            let df = NuDataFrame::try_from(df_cv).map_err(LabeledError::from)?;
-            Ok(df
-                .compute_with_value(left.span, operator.item, operator.span, &right)
-                .map_err(LabeledError::from)?
-                .insert_cache(engine)
-                .map_err(LabeledError::from)?
-                .into_value(left.span))
+            df_cv
+                .custom_value_operation(self, engine, left.span, operator, right)
+                .map_err(LabeledError::from)
         } else {
             left.item
                 .operation(left.span, operator.item, operator.span, &right)
                 .map_err(LabeledError::from)
         }
     }
+}
+
+pub trait PolarsPluginCustomValue {
+    fn custom_value_operation(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        lhs_span: Span,
+        operator: Spanned<Operator>,
+        right: Value,
+    ) -> Result<Value, ShellError>;
 }

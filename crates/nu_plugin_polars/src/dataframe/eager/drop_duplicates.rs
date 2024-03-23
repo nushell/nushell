@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -14,7 +14,7 @@ use super::super::values::{Column, NuDataFrame};
 pub struct DropDuplicates;
 
 impl PluginCommand for DropDuplicates {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars drop-duplicates")

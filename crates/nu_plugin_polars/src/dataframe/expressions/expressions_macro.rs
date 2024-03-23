@@ -2,7 +2,7 @@
 /// All of these expressions have an identical body and only require
 /// to have a change in the name, description and expression function
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
@@ -17,7 +17,7 @@ macro_rules! expr_command {
         pub struct $command;
 
         impl PluginCommand for $command {
-            type Plugin = PolarsDataFramePlugin;
+            type Plugin = PolarsPlugin;
 
             fn signature(&self) -> PluginSignature {
                 PluginSignature::build($name)
@@ -74,7 +74,7 @@ macro_rules! expr_command {
         pub struct $command;
 
         impl PluginCommand for $command {
-            type Plugin = PolarsDataFramePlugin;
+            type Plugin = PolarsPlugin;
 
             fn signature(&self) -> PluginSignature {
                 PluginSignature::build($name)
@@ -135,7 +135,7 @@ macro_rules! lazy_expr_command {
         pub struct $command;
 
         impl PluginCommand for $command {
-            type Plugin = PolarsDataFramePlugin;
+            type Plugin = PolarsPlugin;
 
             fn signature(&self) -> PluginSignature {
                 PluginSignature::build($name)
@@ -230,7 +230,7 @@ macro_rules! lazy_expr_command {
         pub struct $command;
 
         impl PluginCommand for $command {
-            type Plugin = PolarsDataFramePlugin;
+            type Plugin = PolarsPlugin;
 
             fn signature(&self) -> PluginSignature {
                 PluginSignature::build($name)

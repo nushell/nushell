@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 
 use super::super::values::{Axis, Column, NuDataFrame};
 
@@ -12,7 +12,7 @@ use super::super::values::{Axis, Column, NuDataFrame};
 pub struct AppendDF;
 
 impl PluginCommand for AppendDF {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars append")

@@ -4,7 +4,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{get_signature, PersistentPlugin, PluginCommand, PluginDeclaration};
 use nu_plugin_polars::dataframe::eager::ToDataFrame;
-use nu_plugin_polars::PolarsDataFramePlugin;
+use nu_plugin_polars::PolarsPlugin;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, PluginExample, PluginGcConfig, PluginIdentity, RegisteredPlugin, Span,
@@ -12,7 +12,7 @@ use nu_protocol::{
 
 use nu_protocol::debugger::WithoutDebug;
 
-pub fn test_dataframe(cmds: Vec<Box<dyn PluginCommand<Plugin = PolarsDataFramePlugin> + 'static>>) {
+pub fn test_dataframe(cmds: Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin> + 'static>>) {
     if cmds.is_empty() {
         panic!("Empty commands vector")
     }

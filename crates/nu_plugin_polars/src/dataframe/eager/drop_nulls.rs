@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -13,7 +13,7 @@ use super::super::values::{Column, NuDataFrame};
 pub struct DropNulls;
 
 impl PluginCommand for DropNulls {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars drop-nulls")

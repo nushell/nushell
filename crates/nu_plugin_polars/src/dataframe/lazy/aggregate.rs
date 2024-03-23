@@ -1,7 +1,7 @@
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy},
     values::{Column, NuDataFrame},
-    PolarsDataFramePlugin,
+    PolarsPlugin,
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -15,7 +15,7 @@ use polars::{datatypes::DataType, prelude::Expr};
 pub struct LazyAggregate;
 
 impl PluginCommand for LazyAggregate {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars agg")

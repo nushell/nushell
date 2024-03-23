@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{str_to_dtype, NuExpression, NuLazyFrame},
-    PolarsDataFramePlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;
@@ -15,7 +15,7 @@ use polars::prelude::*;
 pub struct CastDF;
 
 impl PluginCommand for CastDF {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars cast")

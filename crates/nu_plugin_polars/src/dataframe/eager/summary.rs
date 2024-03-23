@@ -1,4 +1,4 @@
-use crate::PolarsDataFramePlugin;
+use crate::PolarsPlugin;
 
 use super::super::values::{Column, NuDataFrame};
 
@@ -19,7 +19,7 @@ use polars::{
 pub struct Summary;
 
 impl PluginCommand for Summary {
-    type Plugin = PolarsDataFramePlugin;
+    type Plugin = PolarsPlugin;
 
     fn signature(&self) -> PluginSignature {
         PluginSignature::build("polars summary")

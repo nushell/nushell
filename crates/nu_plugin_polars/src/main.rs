@@ -1,6 +1,6 @@
 use nu_plugin::{serve_plugin, MsgPackSerializer};
-use nu_plugin_polars::PolarsDataFramePlugin;
+use nu_plugin_polars::PolarsPlugin;
 
 fn main() {
-    serve_plugin(&PolarsDataFramePlugin {}, MsgPackSerializer {})
+    serve_plugin(&PolarsPlugin {}, MsgPackSerializer {})
 }
