@@ -20,7 +20,7 @@ use crate::{
         ExprAggGroups, ExprCount, ExprList, ExprMax, ExprMean, ExprMedian, ExprMin, ExprNot,
         ExprStd, ExprSum, ExprVar,
     },
-    lazy::{LazyAggregate, LazyCollect},
+    lazy::{LazyAggregate, LazyCache, LazyCollect, LazyMedian, LazyReverse},
 };
 
 lazy_static! {
@@ -217,7 +217,10 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(ToCSV),
             Box::new(ToParquet),
             Box::new(LazyAggregate),
+            Box::new(LazyCache),
             Box::new(LazyCollect),
+            Box::new(LazyMedian),
+            Box::new(LazyReverse),
             Box::new(ExprList),
             Box::new(ExprAggGroups),
             Box::new(ExprCount),

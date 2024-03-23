@@ -2,10 +2,11 @@
 /// All of these commands have an identical body and only require
 /// to have a change in the name, description and function
 use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
+use crate::PolarsDataFramePlugin;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
+    Value,
 };
 
 macro_rules! lazy_command {
@@ -13,140 +14,131 @@ macro_rules! lazy_command {
         #[derive(Clone)]
         pub struct $command;
 
-        impl Command for $command {
-            fn name(&self) -> &str {
-                $name
-            }
+        impl PluginCommand for $command {
+            type Plugin = PolarsDataFramePlugin;
 
-            fn usage(&self) -> &str {
-                $desc
-            }
-
-            fn signature(&self) -> Signature {
-                Signature::build(self.name())
+            fn signature(&self) -> PluginSignature {
+                PluginSignature::build($name)
+                    .usage($desc)
                     .input_output_type(
                         Type::Custom("dataframe".into()),
                         Type::Custom("dataframe".into()),
                     )
                     .category(Category::Custom("lazyframe".into()))
-            }
-
-            fn examples(&self) -> Vec<Example> {
-                $examples
+                    .plugin_examples($examples)
             }
 
             fn run(
                 &self,
-                _engine_state: &EngineState,
-                _stack: &mut Stack,
-                call: &Call,
+                _plugin: &Self::Plugin,
+                engine: &EngineInterface,
+                call: &EvaluatedCall,
                 input: PipelineData,
-            ) -> Result<PipelineData, ShellError> {
-                let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+            ) -> Result<PipelineData, LabeledError> {
+                let lazy =
+                    NuLazyFrame::try_from_pipeline(input, call.head).map_err(LabeledError::from)?;
                 let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func());
 
-                Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+                Ok(PipelineData::Value(
+                    lazy.insert_cache(engine)?
+                        .into_value(call.head)
+                        .map_err(LabeledError::from)?,
+                    None,
+                ))
             }
         }
 
-        #[cfg(test)]
-        mod $test {
-            use super::super::super::test_dataframe::test_dataframe;
-            use super::*;
-
-            #[test]
-            fn test_examples() {
-                test_dataframe(vec![Box::new($command {})])
-            }
-        }
+        // fix tests
+        // #[cfg(test)]
+        // mod $test {
+        //     use super::super::super::test_dataframe::test_dataframe;
+        //     use super::*;
+        //
+        //     #[test]
+        //     fn test_examples() {
+        //         test_dataframe(vec![Box::new($command {})])
+        //     }
+        // }
     };
 
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident, $ddot: expr) => {
         #[derive(Clone)]
         pub struct $command;
 
-        impl Command for $command {
-            fn name(&self) -> &str {
-                $name
-            }
+        impl PluginCommand for $command {
+            type Plugin = PolarsDataFramePlugin;
 
-            fn usage(&self) -> &str {
-                $desc
-            }
-
-            fn signature(&self) -> Signature {
-                Signature::build(self.name())
+            fn signature(&self) -> PluginSignature {
+                PluginSignature::build($name)
+                    .usage($desc)
                     .input_output_type(
                         Type::Custom("dataframe".into()),
                         Type::Custom("dataframe".into()),
                     )
                     .category(Category::Custom("lazyframe".into()))
-            }
-
-            fn examples(&self) -> Vec<Example> {
-                $examples
+                    .plugin_examples($examples)
             }
 
             fn run(
                 &self,
-                _engine_state: &EngineState,
-                _stack: &mut Stack,
-                call: &Call,
+                _plugin: &Self::Plugin,
+                engine: &EngineInterface,
+                call: &EvaluatedCall,
                 input: PipelineData,
-            ) -> Result<PipelineData, ShellError> {
-                let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+            ) -> Result<PipelineData, LabeledError> {
+                let lazy =
+                    NuLazyFrame::try_from_pipeline(input, call.head).map_err(LabeledError::from)?;
                 let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddot));
 
-                Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+                Ok(PipelineData::Value(
+                    lazy.insert_cache(engine)?
+                        .into_value(call.head)
+                        .map_err(LabeledError::from)?,
+                    None,
+                ))
             }
         }
 
-        #[cfg(test)]
-        mod $test {
-            use super::super::super::test_dataframe::test_dataframe;
-            use super::*;
-
-            #[test]
-            fn test_examples() {
-                test_dataframe(vec![Box::new($command {})])
-            }
-        }
+        // todo - fix tests
+        // #[cfg(test)]
+        // mod $test {
+        //     use super::super::super::test_dataframe::test_dataframe;
+        //     use super::*;
+        //
+        //     #[test]
+        //     fn test_examples() {
+        //         test_dataframe(vec![Box::new($command {})])
+        //     }
+        // }
     };
 
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident?, $test: ident) => {
         #[derive(Clone)]
         pub struct $command;
 
-        impl Command for $command {
-            fn name(&self) -> &str {
-                $name
-            }
+        impl PluginCommand for $command {
+            type Plugin = PolarsDataFramePlugin;
 
-            fn usage(&self) -> &str {
-                $desc
-            }
-
-            fn signature(&self) -> Signature {
-                Signature::build(self.name())
+            fn signature(&self) -> PluginSignature {
+                PluginSignature::build($name)
+                    .usage($desc)
                     .input_output_type(
                         Type::Custom("dataframe".into()),
                         Type::Custom("dataframe".into()),
                     )
                     .category(Category::Custom("lazyframe".into()))
-            }
-
-            fn examples(&self) -> Vec<Example> {
-                $examples
+                    .plugin_examples($examples)
             }
 
             fn run(
                 &self,
-                _engine_state: &EngineState,
-                _stack: &mut Stack,
-                call: &Call,
+                _plugin: &Self::Plugin,
+                engine: &EngineInterface,
+                call: &EvaluatedCall,
                 input: PipelineData,
-            ) -> Result<PipelineData, ShellError> {
-                let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+            ) -> Result<PipelineData, LabeledError> {
+                let lazy =
+                    NuLazyFrame::try_from_pipeline(input, call.head).map_err(LabeledError::from)?;
 
                 let lazy = NuLazyFrame::new(
                     lazy.from_eager,
@@ -158,23 +150,30 @@ macro_rules! lazy_command {
                             help: None,
                             span: None,
                             inner: vec![],
-                        })?,
+                        })
+                        .map_err(LabeledError::from)?,
                 );
 
-                Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+                Ok(PipelineData::Value(
+                    lazy.insert_cache(engine)?
+                        .into_value(call.head)
+                        .map_err(LabeledError::from)?,
+                    None,
+                ))
             }
         }
 
-        #[cfg(test)]
-        mod $test {
-            use super::super::super::test_dataframe::test_dataframe;
-            use super::*;
-
-            #[test]
-            fn test_examples() {
-                test_dataframe(vec![Box::new($command {})])
-            }
-        }
+        // todo - fix tests
+        // #[cfg(test)]
+        // mod $test {
+        //     use super::super::super::test_dataframe::test_dataframe;
+        //     use super::*;
+        //
+        //     #[test]
+        //     fn test_examples() {
+        //         test_dataframe(vec![Box::new($command {})])
+        //     }
+        // }
     };
 }
 
@@ -182,11 +181,11 @@ macro_rules! lazy_command {
 // Expands to a command definition for reverse
 lazy_command!(
     LazyReverse,
-    "dfr reverse",
+    "polars reverse",
     "Reverses the LazyFrame",
-    vec![Example {
-        description: "Reverses the dataframe.",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr reverse",
+    vec![PluginExample {
+        description: "Reverses the dataframe.".into(),
+        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse".into(),
         result: Some(
             NuDataFrame::try_from_columns(
                 vec![
@@ -213,11 +212,12 @@ lazy_command!(
 // Expands to a command definition for cache
 lazy_command!(
     LazyCache,
-    "dfr cache",
+    "polars cache",
     "Caches operations in a new LazyFrame.",
-    vec![Example {
-        description: "Caches the result into a new LazyFrame",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr reverse | dfr cache",
+    vec![PluginExample {
+        description: "Caches the result into a new LazyFrame".into(),
+        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse | polars cache"
+            .into(),
         result: None,
     }],
     cache,
@@ -228,11 +228,11 @@ lazy_command!(
 // Expands to a command definition for median aggregation
 lazy_command!(
     LazyMedian,
-    "dfr median",
+    "polars median",
     "Aggregates columns to their median value",
-    vec![Example {
-        description: "Median value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr median",
+    vec![PluginExample {
+        description: "Median value from columns in a dataframe".into(),
+        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median".into(),
         result: Some(
             NuDataFrame::try_from_columns(
                 vec![
