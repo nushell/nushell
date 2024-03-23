@@ -675,9 +675,7 @@ where
     drop(interface);
 
     // Receive any error left on the channel
-    drop(error_tx);
-
-    if let Ok(err) = error_rx.recv() {
+    if let Ok(err) = error_rx.try_recv() {
         Err(err)
     } else {
         Ok(())
