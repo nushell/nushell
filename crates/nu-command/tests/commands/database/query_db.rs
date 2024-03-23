@@ -6,6 +6,7 @@ const DATABASE_INIT: &str = r#"stor open | query db "CREATE TABLE IF NOT EXISTS 
     age INTEGER,
     height REAL,
     serious BOOLEAN,
+    created_at DATETIME,
     data BLOB
 )""#;
 
@@ -16,7 +17,7 @@ fn data_types() {
             DATABASE_INIT,
             // Add row with our data types
             r#"stor open
-                | query db "INSERT INTO test_db VALUES ('nimurod', 20, 6.0, true, x'68656c6c6f')"
+                | query db "INSERT INTO test_db VALUES ('nimurod', 20, 6.0, true, date('2024-03-23T00:15:24-03:00'), x'68656c6c6f')"
             "#,
             // Query our table with the row we just added to get its nushell types
             r#"
@@ -27,7 +28,7 @@ fn data_types() {
         // Assert data types match. Booleans are mapped to "numeric" due to internal SQLite representations:
         // https://www.sqlite.org/datatype3.html
         // They are simply 1 or 0 in practice, but the column could contain any valid SQLite value
-        assert_eq!(results.out, "string-int-float-int-binary");
+        assert_eq!(results.out, "string-int-float-int-string-binary");
     });
 }
 
@@ -38,8 +39,8 @@ fn ordered_params() {
             DATABASE_INIT,
             // Add row with our data types
             r#"(stor open
-                | query db "INSERT INTO test_db VALUES (?, ?, ?, ?, ?)"
-                -p [ 'nimurod', 20, 6.0, true, ("hello" | into binary) ]
+                | query db "INSERT INTO test_db VALUES (?, ?, ?, ?, ?, ?)"
+                -p [ 'nimurod', 20, 6.0, true, ('2024-03-23T00:15:24-03:00' | into datetime), ("hello" | into binary) ]
             )"#,
             // Query our nu values and types
             r#"
@@ -51,8 +52,8 @@ fn ordered_params() {
 
         assert_eq!(
             results.out,
-            "nimurod-20-6-1-[104, 101, 108, 108, 111]_\
-            string-int-float-int-binary"
+            "nimurod-20-6-1-2024-03-23 00:15:24-03:00-[104, 101, 108, 108, 111]_\
+            string-int-float-int-string-binary"
         );
     });
 }
@@ -68,8 +69,15 @@ fn named_params() {
             // promoted to from a bare word `key: value` property in the record
             // In practice, users should not use @param or $param
             r#"(stor open
-                | query db "INSERT INTO test_db VALUES (:name, :age, @height, $serious, :data)"
-                -p { name: 'nimurod', ':age': 20, '@height': 6.0, '$serious': true, data: ("hello" | into binary) }
+                | query db "INSERT INTO test_db VALUES (:name, :age, @height, $serious, :created_at, :data)"
+                -p {
+                    name: 'nimurod',
+                    ':age': 20,
+                    '@height': 6.0,
+                    '$serious': true,
+                    created_at: ('2024-03-23T00:15:24-03:00' | into datetime),
+                    data: ("hello" | into binary)
+                }
             )"#,
             // Query our nu values and types
             r#"
@@ -81,8 +89,8 @@ fn named_params() {
 
         assert_eq!(
             results.out,
-            "nimurod-20-6-1-[104, 101, 108, 108, 111]_\
-            string-int-float-int-binary"
+            "nimurod-20-6-1-2024-03-23 00:15:24-03:00-[104, 101, 108, 108, 111]_\
+            string-int-float-int-string-binary"
         );
     });
 }
