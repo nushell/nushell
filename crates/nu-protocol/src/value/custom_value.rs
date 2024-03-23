@@ -80,8 +80,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// For custom values in plugins: return `true` here if you would like to be notified when all
     /// copies of this custom value are dropped in the engine.
     ///
-    /// The notification will take place via
-    /// [`.custom_value_dropped()`](crate::Plugin::custom_value_dropped) on the plugin.
+    /// The notification will take place via `custom_value_dropped()` on the plugin type.
     ///
     /// The default is `false`.
     fn notify_plugin_on_drop(&self) -> bool {

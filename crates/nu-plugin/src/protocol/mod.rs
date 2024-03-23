@@ -353,7 +353,7 @@ pub enum PluginOption {
     GcDisabled(bool),
 }
 
-/// This is just a serializable version of [std::cmp::Ordering], and can be converted 1:1
+/// This is just a serializable version of [`std::cmp::Ordering`], and can be converted 1:1
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Ordering {
     Less,
@@ -505,7 +505,7 @@ impl<D> EngineCall<D> {
     }
 }
 
-/// The response to an [EngineCall]. The type parameter determines the output type for pipeline
+/// The response to an [`EngineCall`]. The type parameter determines the output type for pipeline
 /// data.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EngineCallResponse<D> {
