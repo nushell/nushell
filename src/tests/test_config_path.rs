@@ -126,7 +126,7 @@ fn test_default_symlinked_config_path_empty() {
     });
 }
 
-/// Like [[test_default_symlinked_config_path_empty]], but fill the temporary folder
+/// Like [`test_default_symlinked_config_path_empty`], but fill the temporary folder
 /// with broken symlinks and see if they're properly canonicalized
 #[test]
 fn test_default_symlink_config_path_broken_symlink_config_files() {
@@ -162,7 +162,7 @@ fn test_default_symlink_config_path_broken_symlink_config_files() {
     );
 }
 
-/// Like [[test_default_symlinked_config_path_empty]], but fill the temporary folder
+/// Like [`test_default_symlinked_config_path_empty`], but fill the temporary folder
 /// with working symlinks to empty files and see if they're properly canonicalized
 #[test]
 fn test_default_config_path_symlinked_config_files() {

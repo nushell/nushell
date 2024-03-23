@@ -9,7 +9,8 @@ pub enum IoStream {
     /// If both `stdout` and `stderr` are set to `Pipe`,
     /// then they will combined into `ExternalStream::stdout`.
     Pipe,
-    /// Capture output to later be collected into a [`Value`], `Vec`, or used in some other way.
+    /// Capture output to later be collected into a [`Value`](crate::Value), `Vec`, or used in some
+    /// other way.
     ///
     /// The output stream(s) will be available in
     /// `PipelineData::ExternalStream::stdout` or `PipelineData::ExternalStream::stderr`.

@@ -5,7 +5,8 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// The API for a Nushell plugin command
 ///
 /// This is the trait that Nushell plugin commands must implement. The methods defined on
-/// `PluginCommand` are invoked by [serve_plugin] during plugin registration and execution.
+/// `PluginCommand` are invoked by [`serve_plugin`](crate::serve_plugin) during plugin registration
+/// and execution.
 ///
 /// The plugin command must be able to be safely shared between threads, so that multiple
 /// invocations can be run in parallel. If interior mutability is desired, consider synchronization
@@ -73,8 +74,8 @@ pub trait PluginCommand: Sync {
     /// Perform the actual behavior of the plugin command
     ///
     /// The behavior of the plugin is defined by the implementation of this method. When Nushell
-    /// invoked the plugin [serve_plugin] will call this method and print the serialized returned
-    /// value or error to stdout, which Nushell will interpret.
+    /// invoked the plugin [`serve_plugin`](crate::serve_plugin) will call this method and print the
+    /// serialized returned value or error to stdout, which Nushell will interpret.
     ///
     /// `engine` provides an interface back to the Nushell engine. See [`EngineInterface`] docs for
     /// details on what methods are available.
@@ -156,8 +157,8 @@ pub trait SimplePluginCommand: Sync {
     /// Perform the actual behavior of the plugin command
     ///
     /// The behavior of the plugin is defined by the implementation of this method. When Nushell
-    /// invoked the plugin [serve_plugin] will call this method and print the serialized returned
-    /// value or error to stdout, which Nushell will interpret.
+    /// invoked the plugin [`serve_plugin`](crate::serve_plugin) will call this method and print the
+    /// serialized returned value or error to stdout, which Nushell will interpret.
     ///
     /// `engine` provides an interface back to the Nushell engine. See [`EngineInterface`] docs for
     /// details on what methods are available.

@@ -10,8 +10,8 @@
 //! over stdin and stdout using a standardizes serialization framework to exchange
 //! the typed data that Nushell commands utilize natively.
 //!
-//! A typical plugin application will define a struct that implements the [Plugin]
-//! trait and then, in it's main method, pass that [Plugin] to the [serve_plugin]
+//! A typical plugin application will define a struct that implements the [`Plugin`]
+//! trait and then, in its main method, pass that [`Plugin`] to the [`serve_plugin()`]
 //! function, which will handle all of the input and output serialization when
 //! invoked by Nushell.
 //!
