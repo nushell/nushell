@@ -16,6 +16,7 @@ pub(crate) fn run_commands(
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
+    args_to_commands: Vec<String>,
     input: PipelineData,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
@@ -114,6 +115,7 @@ pub(crate) fn run_commands(
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_commands(
         commands,
+        args_to_commands,
         engine_state,
         &mut stack,
         input,

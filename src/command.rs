@@ -7,11 +7,13 @@ use nu_protocol::{
 };
 use nu_utils::stdout_write_all_and_flush;
 
-pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
+pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>, Vec<String>) {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
     // then it'll be the script name
     // then the args to the script
     let mut args_to_nushell = Vec::from(["nu".into()]);
+    let mut args_to_commands_started: bool = false;
+    let mut args_to_commands: Vec<String> = Vec::from([]);
     let mut script_name = String::new();
     let mut args = std::env::args();
 
@@ -23,6 +25,14 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
     }
 
     while let Some(arg) = args.next() {
+        if args_to_commands_started {
+            args_to_commands.push(arg);
+            continue;
+        } else if arg == "--" {
+            args_to_commands_started = true;
+            continue;
+        }
+
         if !arg.starts_with('-') {
             script_name = arg;
             break;
@@ -51,7 +61,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
     } else {
         Vec::default()
     };
-    (args_to_nushell, script_name, args_to_script)
+    (args_to_nushell, script_name, args_to_script, args_to_commands)
 }
 
 pub(crate) fn parse_commandline_args(

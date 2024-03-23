@@ -11,6 +11,7 @@ use nu_protocol::{
 /// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(
     commands: &Spanned<String>,
+    args_to_commands: Vec<String>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
@@ -34,6 +35,9 @@ pub fn evaluate_commands(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
+        if !args_to_commands.is_empty() {
+            // Command args support: maybe wrap the commands inside a wrapped function and call it with args_to_commands
+        }
         let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
         if let Some(warning) = working_set.parse_warnings.first() {
             report_error(&working_set, warning);
