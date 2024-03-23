@@ -41,7 +41,10 @@ fn data_types() {
         // Assert data types match. Booleans are mapped to "numeric" due to internal SQLite representations:
         // https://www.sqlite.org/datatype3.html
         // They are simply 1 or 0 in practice, but the column could contain any valid SQLite value
-        assert_eq!(results.out, "string-int-float-int-string-int-int-nothing-binary");
+        assert_eq!(
+            results.out,
+            "string-int-float-int-string-int-int-nothing-binary"
+        );
     });
 }
 
