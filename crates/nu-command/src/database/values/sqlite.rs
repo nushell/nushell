@@ -9,7 +9,6 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::{Borrow, Cow},
     fs::File,
     io::Read,
     path::{Path, PathBuf},
@@ -444,55 +443,64 @@ fn run_sql_query(
     prepared_statement_to_nu_list(stmt, params, sql.span, ctrlc)
 }
 
-pub fn nu_unit_value_to_sql_value(value: &Value) -> Result<&dyn ToSql, ShellError> {
-    const NONE: Option<bool> = None;
-
-    match value {
-        Value::Bool { val, .. } => Ok(val),
-        Value::Int { val, .. } => Ok(val),
-        Value::Float { val, .. } => Ok(val),
-        Value::String { val, .. } => Ok(val),
-        Value::Binary { val, .. } => Ok(val),
-        Value::Nothing { .. } => Ok(&NONE),
-
-        // To consider:
-        Value::Date { val, .. } => Ok(val),
-        // Value::Filesize { val, .. } => todo!(),
-        // Value::Duration { val, .. } => todo!(),
-        _ => Err(ShellError::TypeMismatch {
-            err_message: "Unsupported primitive SQL value type".to_string(),
-            span: value.span(),
-        }),
-    }
+// This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
+pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
+    Ok(match value {
+        Value::Bool { val, .. } => Box::new(val),
+        Value::Int { val, .. } => Box::new(val),
+        Value::Float { val, .. } => Box::new(val),
+        Value::Filesize { val, .. } => Box::new(val),
+        Value::Duration { val, .. } => Box::new(val),
+        Value::Date { val, .. } => Box::new(val),
+        Value::String { val, .. } => {
+            // don't store ansi escape sequences in the database
+            // escape single quotes
+            Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
+        }
+        Value::Binary { val, .. } => Box::new(val),
+        val => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type:
+                    "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: Span::unknown(),
+                src_span: val.span(),
+            })
+        }
+    })
 }
 
-pub enum NuSqlParams<'v> {
-    List(Vec<&'v dyn ToSql>),
-    Named(Vec<(Cow<'v, str>, &'v dyn ToSql)>),
+pub fn values_to_sql(
+    values: impl IntoIterator<Item = Value>,
+) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
+    values
+        .into_iter()
+        .map(value_to_sql)
+        .collect::<Result<Vec<_>, _>>()
 }
 
-impl<'v> Default for NuSqlParams<'v> {
+pub enum NuSqlParams {
+    List(Vec<Box<dyn ToSql>>),
+    Named(Vec<(String, Box<dyn ToSql>)>),
+}
+
+impl Default for NuSqlParams {
     fn default() -> Self {
         NuSqlParams::List(Vec::new())
     }
 }
 
-pub fn nu_value_to_params(value: &Value) -> Result<NuSqlParams, ShellError> {
+pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
     match value {
         Value::Record { val, .. } => {
             let mut params: Vec<_> = Vec::with_capacity(val.len());
 
-            for (key, value) in val.iter() {
-                let sql_type_erased: &dyn ToSql = nu_unit_value_to_sql_value(value)?;
+            for (mut column, value) in val.into_iter() {
+                let sql_type_erased = value_to_sql(value)?;
 
-                let column = if key.starts_with([':', '@', '$']) {
-                    Cow::Borrowed(key.as_str())
-                } else {
-                    let mut s = String::with_capacity(key.len() + 1);
-                    s.push(':');
-                    s.push_str(key);
-                    Cow::Owned(s)
-                };
+                if column.starts_with([':', '@', '$']) {
+                    column.insert(0, ':');
+                }
 
                 params.push((column, sql_type_erased));
             }
@@ -502,8 +510,8 @@ pub fn nu_value_to_params(value: &Value) -> Result<NuSqlParams, ShellError> {
         Value::List { vals, .. } => {
             let mut params: Vec<_> = Vec::with_capacity(vals.len());
 
-            for value in vals.iter() {
-                let sql_type_erased: &dyn ToSql = nu_unit_value_to_sql_value(value)?;
+            for value in vals.into_iter() {
+                let sql_type_erased = value_to_sql(value)?;
 
                 params.push(sql_type_erased);
             }
@@ -549,7 +557,9 @@ fn prepared_statement_to_nu_list(
     // got heavily in the way
     let row_values = match params {
         NuSqlParams::List(params) => {
-            let row_results = stmt.query_map(params.as_slice(), |row| {
+            let refs: Vec<&dyn ToSql> = params.iter().map(|value| (&**value)).collect();
+
+            let row_results = stmt.query_map(refs.as_slice(), |row| {
                 Ok(convert_sqlite_row_to_nu_value(
                     row,
                     call_span,
@@ -576,7 +586,7 @@ fn prepared_statement_to_nu_list(
         NuSqlParams::Named(pairs) => {
             let refs: Vec<_> = pairs
                 .iter()
-                .map(|(column, value)| (column.borrow(), *value))
+                .map(|(column, value)| (column.as_str(), &**value))
                 .collect();
 
             let row_results = stmt.query_map(refs.as_slice(), |row| {
