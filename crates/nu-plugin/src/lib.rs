@@ -62,14 +62,21 @@ mod serializers;
 mod util;
 
 pub use plugin::{
-    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
+    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, PluginRead, PluginWrite,
+    SimplePluginCommand,
 };
 pub use protocol::EvaluatedCall;
 pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 // Used by other nu crates.
 #[doc(hidden)]
-pub use plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+pub use plugin::{
+    get_signature, serve_plugin_io, EngineInterfaceManager, GetPlugin, Interface, InterfaceManager,
+    PersistentPlugin, PluginDeclaration, PluginExecutionCommandContext, PluginExecutionContext,
+    PluginInterface, PluginInterfaceManager, PluginSource, ServePluginError,
+};
+#[doc(hidden)]
+pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
 #[doc(hidden)]
 pub use serializers::EncodingType;
 
@@ -77,4 +84,4 @@ pub use serializers::EncodingType;
 #[doc(hidden)]
 pub use plugin::Encoder;
 #[doc(hidden)]
-pub use protocol::{PluginCallResponse, PluginOutput};
+pub use protocol::PluginCallResponse;

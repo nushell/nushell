@@ -40,6 +40,7 @@ members = [
   "crates/nu-pretty-hex",
   "crates/nu-protocol",
   "crates/nu-plugin",
+  "crates/nu-plugin-test-support",
   "crates/nu_plugin_inc",
   "crates/nu_plugin_gstat",
   "crates/nu_plugin_example",

@@ -22,11 +22,10 @@ use crate::{
 mod stream;
 
 mod engine;
-pub use engine::EngineInterface;
-pub(crate) use engine::{EngineInterfaceManager, ReceivedPluginCall};
+pub use engine::{EngineInterface, EngineInterfaceManager, ReceivedPluginCall};
 
 mod plugin;
-pub(crate) use plugin::{PluginInterface, PluginInterfaceManager};
+pub use plugin::{PluginInterface, PluginInterfaceManager};
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
@@ -45,7 +44,10 @@ const LIST_STREAM_HIGH_PRESSURE: i32 = 100;
 const RAW_STREAM_HIGH_PRESSURE: i32 = 50;
 
 /// Read input/output from the stream.
-pub(crate) trait PluginRead<T> {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginRead<T> {
     /// Returns `Ok(None)` on end of stream.
     fn read(&mut self) -> Result<Option<T>, ShellError>;
 }
@@ -72,7 +74,10 @@ where
 /// Write input/output to the stream.
 ///
 /// The write should be atomic, without interference from other threads.
-pub(crate) trait PluginWrite<T>: Send + Sync {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginWrite<T>: Send + Sync {
     fn write(&self, data: &T) -> Result<(), ShellError>;
 
     /// Flush any internal buffers, if applicable.
@@ -136,7 +141,10 @@ where
 ///
 /// There is typically one [`InterfaceManager`] consuming input from a background thread, and
 /// managing shared state.
-pub(crate) trait InterfaceManager {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait InterfaceManager {
     /// The corresponding interface type.
     type Interface: Interface + 'static;
 
@@ -218,7 +226,10 @@ pub(crate) trait InterfaceManager {
 /// [`EngineInterface`] for the API from the plugin side to the engine.
 ///
 /// There can be multiple copies of the interface managed by a single [`InterfaceManager`].
-pub(crate) trait Interface: Clone + Send {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait Interface: Clone + Send {
     /// The output message type, which must be capable of encapsulating a [`StreamMessage`].
     type Output: From<StreamMessage>;
 
@@ -338,7 +349,7 @@ where
 /// [`PipelineDataWriter::write()`] to write all of the data contained within the streams.
 #[derive(Default)]
 #[must_use]
-pub(crate) enum PipelineDataWriter<W: WriteStreamMessage> {
+pub enum PipelineDataWriter<W: WriteStreamMessage> {
     #[default]
     None,
     ListStream(StreamWriter<W>, ListStream),

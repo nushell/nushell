@@ -30,8 +30,11 @@ use crate::sequence::Sequence;
 /// With each call, an [`EngineInterface`] is included that can be provided to the plugin code
 /// and should be used to send the response. The interface sent includes the [`PluginCallId`] for
 /// sending associated messages with the correct context.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) enum ReceivedPluginCall {
+#[doc(hidden)]
+pub enum ReceivedPluginCall {
     Signature {
         engine: EngineInterface,
     },
@@ -76,8 +79,11 @@ impl std::fmt::Debug for EngineInterfaceState {
 }
 
 /// Manages reading and dispatching messages for [`EngineInterface`]s.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) struct EngineInterfaceManager {
+#[doc(hidden)]
+pub struct EngineInterfaceManager {
     /// Shared state
     state: Arc<EngineInterfaceState>,
     /// Channel to send received PluginCalls to. This is removed after `Goodbye` is received.
