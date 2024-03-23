@@ -515,7 +515,7 @@ pub fn nu_value_to_params(value: &Value) -> Result<NuSqlParams, ShellError> {
         Value::Nothing { .. } => Ok(NuSqlParams::default()),
 
         _ => Err(ShellError::TypeMismatch {
-            err_message: "temp err param to value".to_string(),
+            err_message: "Invalid parameters value: expected record or list".to_string(),
             span: value.span(),
         }),
     }
