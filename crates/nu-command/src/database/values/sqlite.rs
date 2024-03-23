@@ -9,10 +9,7 @@ use rusqlite::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::File,
-    io::Read,
-    path::{Path, PathBuf},
-    sync::{atomic::AtomicBool, Arc},
+    borrow::{Borrow, Cow}, fs::File, io::Read, path::{Path, PathBuf}, sync::{atomic::AtomicBool, Arc}
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
@@ -455,9 +452,10 @@ pub fn nu_unit_value_to_sql_value(value: &Value) -> Result<&dyn ToSql, ShellErro
         Value::Nothing { .. } => Ok(&NONE),
 
         // To consider:
+        Value::Date { val, .. } => Ok(val),
         // Value::Filesize { val, .. } => todo!(),
         // Value::Duration { val, .. } => todo!(),
-        // Value::Date { val, .. } => todo!(),
+
         _ => Err(ShellError::TypeMismatch {
             err_message: "Unsupported primitive SQL value type".to_string(),
             span: value.span(),
@@ -467,7 +465,7 @@ pub fn nu_unit_value_to_sql_value(value: &Value) -> Result<&dyn ToSql, ShellErro
 
 pub enum NuSqlParams<'v> {
     List(Vec<&'v dyn ToSql>),
-    Named(Vec<(&'v str, &'v dyn ToSql)>),
+    Named(Vec<(Cow<'v, str>, &'v dyn ToSql)>),
 }
 
 impl<'v> Default for NuSqlParams<'v> {
@@ -484,7 +482,16 @@ pub fn nu_value_to_params(value: &Value) -> Result<NuSqlParams, ShellError> {
             for (key, value) in val.iter() {
                 let sql_type_erased: &dyn ToSql = nu_unit_value_to_sql_value(value)?;
 
-                params.push((key.as_str(), sql_type_erased));
+                let column = if key.starts_with([':', '@', '$']) {
+                    Cow::Borrowed(key.as_str())
+                } else {
+                    let mut s = String::with_capacity(key.len() + 1);
+                    s.push(':');
+                    s.push_str(key);
+                    Cow::Owned(s)
+                };
+
+                params.push((column, sql_type_erased));
             }
 
             Ok(NuSqlParams::Named(params))
@@ -564,7 +571,11 @@ fn prepared_statement_to_nu_list(
             row_values
         }
         NuSqlParams::Named(pairs) => {
-            let row_results = stmt.query_map(pairs.as_slice(), |row| {
+            let refs: Vec<_> = pairs.iter()
+                .map(|(column, value)| (column.borrow(), *value))
+                .collect();
+
+            let row_results = stmt.query_map(refs.as_slice(), |row| {
                 Ok(convert_sqlite_row_to_nu_value(
                     row,
                     call_span,
