@@ -1018,6 +1018,12 @@ pub(crate) fn handle_engine_call(
             context.add_env_var(name, value)?;
             Ok(EngineCallResponse::empty())
         }
+        EngineCall::GetHelp => {
+            let help = context.get_help()?;
+            Ok(EngineCallResponse::value(Value::string(
+                help.item, help.span,
+            )))
+        }
         EngineCall::EvalClosure {
             closure,
             positional,

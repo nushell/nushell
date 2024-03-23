@@ -636,6 +636,31 @@ impl EngineInterface {
         }
     }
 
+    /// Get the help string for the current command.
+    ///
+    /// This returns the same string as passing `--help` would, and can be used for the top-level
+    /// command in a command group that doesn't do anything on its own (e.g. `query`).
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface) -> Result<(), ShellError> {
+    /// eprintln!("{}", engine.get_help()?);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_help(&self) -> Result<String, ShellError> {
+        match self.engine_call(EngineCall::GetHelp)? {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+                Ok(val)
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetHelp".into(),
+            }),
+        }
+    }
+
     /// Ask the engine to evaluate a closure. Input to the closure is passed as a stream, and the
     /// output is available as a stream.
     ///
