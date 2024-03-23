@@ -12,5 +12,5 @@ bench = false
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.91.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.91.1", features = ["plugin"] }
-serde = { version = "1.0", default-features = false }
+serde = { workspace = true, default-features = false }
 typetag = "0.2"

@@ -13,24 +13,24 @@ version = "0.91.1"
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.91.1" }
-nu-parser = { path = "../nu-parser", version = "0.91.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.91.1" }
+nu-engine = { path = "../nu-engine", version = "0.91.1" }
+nu-json = { version = "0.91.1", path = "../nu-json" }
+nu-parser = { path = "../nu-parser", version = "0.91.1" }
+nu-pretty-hex = { version = "0.91.1", path = "../nu-pretty-hex" }
+nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 nu-utils = { path = "../nu-utils", version = "0.91.1" }
 
 # Potential dependencies for extras
-heck = "0.5.0"
-num-traits = "0.2"
+heck = { workspace = true }
+num-traits = { workspace = true }
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
-rust-embed = "8.2.0"
-serde = "1.0.164"
-nu-pretty-hex = { version = "0.91.1", path = "../nu-pretty-hex" }
-nu-json = { version = "0.91.1", path = "../nu-json" }
-serde_urlencoded = "0.7.1"
-v_htmlescape = "0.15.0"
-itertools = "0.12"
+rust-embed = { workspace = true }
+serde = { workspace = true }
+serde_urlencoded = { workspace = true }
+v_htmlescape = { workspace = true }
+itertools = { workspace = true }
 
 [features]
 extra = ["default"]
