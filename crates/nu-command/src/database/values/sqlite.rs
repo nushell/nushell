@@ -498,7 +498,7 @@ pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
             for (mut column, value) in val.into_iter() {
                 let sql_type_erased = value_to_sql(value)?;
 
-                if column.starts_with([':', '@', '$']) {
+                if !column.starts_with([':', '@', '$']) {
                     column.insert(0, ':');
                 }
 
