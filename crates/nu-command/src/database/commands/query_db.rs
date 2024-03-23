@@ -54,7 +54,7 @@ impl Command for QueryDb {
             },
             Example {
                 description: "Execute a SQL statement with named parameters",
-                example: r#"stor open | query db "INSERT INTO my_table VALUES (:first, :second)" -p { ":first": "hello", ":second": 123 }"#,
+                example: r#"stor open | query db "INSERT INTO my_table VALUES (:first, :second)" -p { first: "hello", second: 123 }"#,
                 result: None,
             },
         ]
