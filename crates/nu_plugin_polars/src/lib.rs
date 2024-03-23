@@ -7,14 +7,14 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{CustomValue, LabeledError, ShellError};
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Spanned, Value};
 use std::{collections::BTreeMap, sync::Mutex};
 use uuid::Uuid;
 
 use crate::{
     eager::{
-        AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, DropDuplicates, FirstDF, LastDF, ListDF,
-        OpenDataFrame, Summary, ToArrow, ToCSV, ToDataFrame, ToNu, ToParquet,
+        AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, DropDuplicates, DropNulls, FirstDF, LastDF,
+        ListDF, OpenDataFrame, Summary, ToArrow, ToCSV, ToDataFrame, ToNu, ToParquet,
     },
     expressions::{
         ExprAggGroups, ExprCount, ExprList, ExprMax, ExprMean, ExprMedian, ExprMin, ExprNot,
@@ -206,6 +206,7 @@ impl Plugin for PolarsDataFramePlugin {
             Box::new(DataTypes),
             Box::new(DropDF),
             Box::new(DropDuplicates),
+            Box::new(DropNulls),
             Box::new(OpenDataFrame),
             Box::new(ToDataFrame),
             Box::new(Summary),
@@ -262,5 +263,29 @@ impl Plugin for PolarsDataFramePlugin {
         }
 
         Ok(())
+    }
+
+    fn custom_value_operation(
+        &self,
+        engine: &EngineInterface,
+        left: Spanned<Box<dyn CustomValue>>,
+        operator: Spanned<Operator>,
+        right: Value,
+    ) -> Result<Value, LabeledError> {
+        let any = left.item.as_any();
+
+        if let Some(df_cv) = any.downcast_ref::<NuDataFrameCustomValue>() {
+            let df = NuDataFrame::try_from(df_cv).map_err(LabeledError::from)?;
+            Ok(df
+                .compute_with_value(left.span, operator.item, operator.span, &right)
+                .map_err(LabeledError::from)?
+                .insert_cache(engine)
+                .map_err(LabeledError::from)?
+                .into_value(left.span))
+        } else {
+            left.item
+                .operation(left.span, operator.item, operator.span, &right)
+                .map_err(LabeledError::from)
+        }
     }
 }

@@ -19,7 +19,7 @@ impl NuDataFrame {
         operator: Operator,
         op_span: Span,
         right: &Value,
-    ) -> Result<Value, ShellError> {
+    ) -> Result<NuDataFrame, ShellError> {
         let rhs_span = right.span();
         match right {
             Value::CustomValue { val: rhs, .. } => {
@@ -66,7 +66,7 @@ impl NuDataFrame {
 
                         compute_between_series(
                             op,
-                            &NuDataFrame::default_value(lhs_span),
+                            &NuDataFrame::default().into_value(lhs_span),
                             lhs,
                             right,
                             rhs,
@@ -89,7 +89,7 @@ impl NuDataFrame {
 
                         between_dataframes(
                             op,
-                            &NuDataFrame::default_value(lhs_span),
+                            &NuDataFrame::default().into_value(lhs_span),
                             self,
                             right,
                             &rhs,
@@ -103,7 +103,12 @@ impl NuDataFrame {
                     span: op_span,
                 };
 
-                compute_series_single_value(op, &NuDataFrame::default_value(lhs_span), self, right)
+                compute_series_single_value(
+                    op,
+                    &NuDataFrame::default().into_value(lhs_span),
+                    self,
+                    right,
+                )
             }
         }
     }
@@ -113,7 +118,7 @@ impl NuDataFrame {
         other: &NuDataFrame,
         axis: Axis,
         span: Span,
-    ) -> Result<Self, ShellError> {
+    ) -> Result<NuDataFrame, ShellError> {
         match axis {
             Axis::Row => {
                 let mut columns: Vec<&str> = Vec::new();

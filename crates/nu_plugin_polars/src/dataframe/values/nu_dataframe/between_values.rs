@@ -16,13 +16,10 @@ pub(super) fn between_dataframes(
     lhs: &NuDataFrame,
     right: &Value,
     rhs: &NuDataFrame,
-) -> Result<Value, ShellError> {
+) -> Result<NuDataFrame, ShellError> {
     let operation_span = span(&[left.span(), right.span()]);
     match operator.item {
-        Operator::Math(Math::Plus) => match lhs.append_df(rhs, Axis::Row, operation_span) {
-            Ok(df) => Ok(df.into_value(operation_span)),
-            Err(e) => Err(e),
-        },
+        Operator::Math(Math::Plus) => lhs.append_df(rhs, Axis::Row, operation_span),
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type().to_string(),
@@ -39,26 +36,26 @@ pub(super) fn compute_between_series(
     lhs: &Series,
     right: &Value,
     rhs: &Series,
-) -> Result<Value, ShellError> {
+) -> Result<NuDataFrame, ShellError> {
     let operation_span = span(&[left.span(), right.span()]);
     match operator.item {
         Operator::Math(Math::Plus) => {
             let mut res = lhs + rhs;
             let name = format!("sum_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Minus) => {
             let mut res = lhs - rhs;
             let name = format!("sub_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Multiply) => {
             let mut res = lhs * rhs;
             let name = format!("mul_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Divide) => {
             let res = lhs.checked_div(rhs);
@@ -66,7 +63,7 @@ pub(super) fn compute_between_series(
                 Ok(mut res) => {
                     let name = format!("div_{}_{}", lhs.name(), rhs.name());
                     res.rename(&name);
-                    NuDataFrame::series_to_value(res, operation_span)
+                    NuDataFrame::try_from_series(res, operation_span)
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Division error".into(),
@@ -80,32 +77,32 @@ pub(super) fn compute_between_series(
         Operator::Comparison(Comparison::Equal) => {
             let name = format!("eq_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Comparison(Comparison::NotEqual) => {
             let name = format!("neq_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::not_equal)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Comparison(Comparison::LessThan) => {
             let name = format!("lt_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::lt)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Comparison(Comparison::LessThanOrEqual) => {
             let name = format!("lte_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::lt_eq)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Comparison(Comparison::GreaterThan) => {
             let name = format!("gt_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::gt)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Comparison(Comparison::GreaterThanOrEqual) => {
             let name = format!("gte_{}_{}", lhs.name(), rhs.name());
             let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::gt_eq)?;
-            NuDataFrame::series_to_value(res, operation_span)
+            NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Boolean(Boolean::And) => match lhs.dtype() {
             DataType::Boolean => {
@@ -117,7 +114,7 @@ pub(super) fn compute_between_series(
                         let mut res = l.bitand(r).into_series();
                         let name = format!("and_{}_{}", lhs.name(), rhs.name());
                         res.rename(&name);
-                        NuDataFrame::series_to_value(res, operation_span)
+                        NuDataFrame::try_from_series(res, operation_span)
                     }
                     _ => Err(ShellError::GenericError {
                         error: "Incompatible types".into(),
@@ -146,7 +143,7 @@ pub(super) fn compute_between_series(
                         let mut res = l.bitor(r).into_series();
                         let name = format!("or_{}_{}", lhs.name(), rhs.name());
                         res.rename(&name);
-                        NuDataFrame::series_to_value(res, operation_span)
+                        NuDataFrame::try_from_series(res, operation_span)
                     }
                     _ => Err(ShellError::GenericError {
                         error: "Incompatible types".into(),
@@ -204,7 +201,7 @@ pub(super) fn compute_series_single_value(
     left: &Value,
     lhs: &NuDataFrame,
     right: &Value,
-) -> Result<Value, ShellError> {
+) -> Result<NuDataFrame, ShellError> {
     if !lhs.is_series() {
         return Err(ShellError::OperatorMismatch {
             op_span: operator.span,
@@ -443,7 +440,12 @@ pub(super) fn compute_series_single_value(
     }
 }
 
-fn compute_series_i64<F>(series: &Series, val: i64, f: F, span: Span) -> Result<Value, ShellError>
+fn compute_series_i64<F>(
+    series: &Series,
+    val: i64,
+    f: F,
+    span: Span,
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
 {
@@ -487,7 +489,7 @@ fn compute_casted_i64<F>(
     val: i64,
     f: F,
     span: Span,
-) -> Result<Value, ShellError>
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
 {
@@ -495,7 +497,7 @@ where
         Ok(casted) => {
             let res = f(casted.clone(), val);
             let res = res.into_series();
-            NuDataFrame::series_to_value(res, span)
+            NuDataFrame::try_from_series(res, span)
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to i64".into(),
@@ -507,7 +509,12 @@ where
     }
 }
 
-fn compute_series_float<F>(series: &Series, val: f64, f: F, span: Span) -> Result<Value, ShellError>
+fn compute_series_float<F>(
+    series: &Series,
+    val: f64,
+    f: F,
+    span: Span,
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
@@ -551,7 +558,7 @@ fn compute_casted_f64<F>(
     val: f64,
     f: F,
     span: Span,
-) -> Result<Value, ShellError>
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
@@ -559,7 +566,7 @@ where
         Ok(casted) => {
             let res = f(casted.clone(), val);
             let res = res.into_series();
-            NuDataFrame::series_to_value(res, span)
+            NuDataFrame::try_from_series(res, span)
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to f64".into(),
@@ -571,7 +578,12 @@ where
     }
 }
 
-fn compare_series_i64<F>(series: &Series, val: i64, f: F, span: Span) -> Result<Value, ShellError>
+fn compare_series_i64<F>(
+    series: &Series,
+    val: i64,
+    f: F,
+    span: Span,
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
@@ -636,7 +648,7 @@ fn compare_casted_i64<F>(
     val: i64,
     f: F,
     span: Span,
-) -> Result<Value, ShellError>
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
@@ -644,7 +656,7 @@ where
         Ok(casted) => {
             let res = f(casted, val);
             let res = res.into_series();
-            NuDataFrame::series_to_value(res, span)
+            NuDataFrame::try_from_series(res, span)
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to i64".into(),
@@ -656,7 +668,12 @@ where
     }
 }
 
-fn compare_series_float<F>(series: &Series, val: f64, f: F, span: Span) -> Result<Value, ShellError>
+fn compare_series_float<F>(
+    series: &Series,
+    val: f64,
+    f: F,
+    span: Span,
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
 {
@@ -700,7 +717,7 @@ fn compare_casted_f64<F>(
     val: f64,
     f: F,
     span: Span,
-) -> Result<Value, ShellError>
+) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
 {
@@ -708,7 +725,7 @@ where
         Ok(casted) => {
             let res = f(casted, val);
             let res = res.into_series();
-            NuDataFrame::series_to_value(res, span)
+            NuDataFrame::try_from_series(res, span)
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to f64".into(),
@@ -720,7 +737,7 @@ where
     }
 }
 
-fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, ShellError> {
+fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<NuDataFrame, ShellError> {
     let casted = series.str();
     match casted {
         Ok(casted) => {
@@ -729,7 +746,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
             match res {
                 Ok(res) => {
                     let res = res.into_series();
-                    NuDataFrame::series_to_value(res, span)
+                    NuDataFrame::try_from_series(res, span)
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Error using contains".into(),
@@ -750,14 +767,14 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
     }
 }
 
-fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<Value, ShellError> {
+fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<NuDataFrame, ShellError> {
     let casted = series.str();
     match casted {
         Ok(casted) => {
             let res = casted + pat;
             let res = res.into_series();
 
-            NuDataFrame::series_to_value(res, span)
+            NuDataFrame::try_from_series(res, span)
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to string".into(),
@@ -780,7 +797,7 @@ mod test {
     #[test]
     fn test_compute_between_series_comparisons() {
         let series = Series::new("c", &[1, 2]);
-        let df = NuDataFrame::try_from_series(vec![series], Span::test_data())
+        let df = NuDataFrame::try_from_series_columns(vec![series], Span::test_data())
             .expect("should be able to create a simple dataframe");
 
         let c0 = df
@@ -809,8 +826,6 @@ mod test {
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
-        let result = NuDataFrame::try_from_value(result)
-            .expect("should be able to create a dataframe from a value");
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
@@ -822,8 +837,6 @@ mod test {
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
-        let result = NuDataFrame::try_from_value(result)
-            .expect("should be able to create a dataframe from a value");
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
@@ -835,8 +848,6 @@ mod test {
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
-        let result = NuDataFrame::try_from_value(result)
-            .expect("should be able to create a dataframe from a value");
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
@@ -848,8 +859,6 @@ mod test {
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
-        let result = NuDataFrame::try_from_value(result)
-            .expect("should be able to create a dataframe from a value");
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
@@ -861,8 +870,6 @@ mod test {
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
-        let result = NuDataFrame::try_from_value(result)
-            .expect("should be able to create a dataframe from a value");
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
@@ -874,8 +881,6 @@ mod test {
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
-        let result = NuDataFrame::try_from_value(result)
-            .expect("should be able to create a dataframe from a value");
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");

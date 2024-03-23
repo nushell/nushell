@@ -1,4 +1,4 @@
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -94,17 +94,6 @@ impl CustomValue for NuDataFrameCustomValue {
         } else {
             None
         }
-    }
-
-    fn operation(
-        &self,
-        lhs_span: Span,
-        operator: Operator,
-        op: Span,
-        right: &Value,
-    ) -> Result<Value, ShellError> {
-        let df = NuDataFrame::try_from(self)?;
-        df.compute_with_value(lhs_span, operator, op, right)
     }
 
     fn notify_plugin_on_drop(&self) -> bool {

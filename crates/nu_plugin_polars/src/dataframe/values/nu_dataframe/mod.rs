@@ -80,7 +80,7 @@ impl PolarsObject for DataFrameValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct NuDataFrame {
     pub id: Uuid,
     pub df: Arc<DataFrame>,
@@ -117,18 +117,6 @@ impl NuDataFrame {
         self.to_polars().lazy()
     }
 
-    fn default_value(span: Span) -> Value {
-        let dataframe = DataFrame::default();
-        NuDataFrame::dataframe_into_value(dataframe, span).unwrap_or_else(|_| Value::nothing(span))
-    }
-
-    fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Result<Value, ShellError> {
-        Ok(Value::custom_value(
-            Box::new(Self::new(false, dataframe).custom_value()),
-            span,
-        ))
-    }
-
     pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
@@ -142,14 +130,16 @@ impl NuDataFrame {
         self.into()
     }
 
+    // Returns a rendered Value of base nushell types that does not include a CustomValue
+    // Used for display
     pub fn base_value(self, span: Span) -> Result<Value, ShellError> {
         let vals = self.print(span)?;
         Ok(Value::list(vals, span))
     }
 
-    pub fn series_to_value(series: Series, span: Span) -> Result<Value, ShellError> {
+    pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
         match DataFrame::new(vec![series]) {
-            Ok(dataframe) => NuDataFrame::dataframe_into_value(dataframe, span),
+            Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: e.to_string(),
@@ -195,7 +185,7 @@ impl NuDataFrame {
         add_missing_columns(df, &maybe_schema, Span::unknown())
     }
 
-    pub fn try_from_series(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_series_columns(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
         let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
             msg: format!("Unable to create DataFrame: {e}"),

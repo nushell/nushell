@@ -4,8 +4,8 @@ use super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, CustomValue, LabeledError, PipelineData, PluginExample, PluginSignature, Span,
-    SyntaxShape, Type, Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
@@ -74,9 +74,7 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .custom_value()
-                .to_base_value(Span::test_data())
-                .expect("rendering base value should not faile")
+                .into_value(Span::test_data())
             ),
         },
         PluginExample {
@@ -105,9 +103,7 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .custom_value()
-                .to_base_value(Span::test_data())
-                .expect("rendering base value should not faile")
+                .into_value(Span::test_data())
             ),
         },
         PluginExample {
@@ -126,9 +122,7 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .custom_value()
-                .to_base_value(Span::test_data())
-                .expect("rendering base value should not faile")
+                .into_value(Span::test_data())
             ),
         },
         PluginExample {
@@ -147,16 +141,14 @@ fn examples() -> Vec<PluginExample> {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .custom_value()
-                .to_base_value(Span::test_data())
-                .expect("rendering base value should not faile")
+                .into_value(Span::test_data())
             ),
         },
         PluginExample {
             description: "Convert to a dataframe and provide a schema".into(),
             example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| polars into-df -s {a: u8, b: {a: list<u64>}, c: list<str>}".into(),
             result: Some(
-                NuDataFrame::try_from_series(vec![
+                NuDataFrame::try_from_series_columns(vec![
                     Series::new("a", &[1u8]),
                     {
                         let dtype = DataType::Struct(vec![Field::new("a", DataType::List(Box::new(DataType::UInt64)))]);
@@ -173,23 +165,19 @@ fn examples() -> Vec<PluginExample> {
                     }
                 ], Span::test_data())
                 .expect("simple df for test should not fail")
-                .custom_value()
-                .to_base_value(Span::test_data())
-                .expect("rendering base value should not faile")
+                .into_value(Span::test_data())
             ),
         },
         PluginExample {
             description: "Convert to a dataframe and provide a schema that adds a new column".into(),
             example: r#"[[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s {a: u8, b:str, c:i64} | polars fill-null 3"#.into(),
-            result: Some(NuDataFrame::try_from_series(vec![
+            result: Some(NuDataFrame::try_from_series_columns(vec![
                     Series::new("a", [1u8, 2]),
                     Series::new("b", ["foo", "bar"]),
                     Series::new("c", [3i64, 3]),
                 ], Span::test_data())
                 .expect("simple df for test should not fail")
-                .custom_value()
-                .to_base_value(Span::test_data())
-                .expect("rendering base value should not faile")
+                .into_value(Span::test_data())
             ),
         }
     ]
