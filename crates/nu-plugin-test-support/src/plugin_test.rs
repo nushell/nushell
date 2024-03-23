@@ -3,18 +3,19 @@ use std::{convert::Infallible, sync::Arc};
 use difference::Changeset;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_plugin::{Plugin, PluginCommand};
+use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, LabeledError, PipelineData, PluginExample, ShellError, Span,
+    report_error_new, LabeledError, PipelineData, PluginExample, ShellError, Span, Value,
 };
 
-use crate::fake_register::create_engine_state;
+use crate::fake_register::fake_register;
 
 /// An object through which plugins can be tested.
 pub struct PluginTest {
     engine_state: EngineState,
+    source: Arc<PluginSource>,
     entry_num: usize,
 }
 
@@ -35,9 +36,17 @@ impl PluginTest {
         name: &str,
         plugin: Arc<impl Plugin + Send + 'static>,
     ) -> Result<PluginTest, ShellError> {
-        let engine_state = create_engine_state(name, plugin)?;
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let reg_plugin = fake_register(&mut working_set, name, plugin)?;
+        let source = Arc::new(PluginSource::new(reg_plugin));
+
+        engine_state.merge_delta(working_set.render())?;
+
         Ok(PluginTest {
             engine_state,
+            source,
             entry_num: 1,
         })
     }
@@ -108,9 +117,32 @@ impl PluginTest {
             return Err(error);
         }
 
+        // Serialize custom values in the input
+        let source = self.source.clone();
+        let input = input.map(
+            move |mut value| match PluginCustomValue::serialize_custom_values_in(&mut value) {
+                Ok(()) => {
+                    // Make sure to mark them with the source so they pass correctly, too.
+                    PluginCustomValue::add_source(&mut value, &source);
+                    value
+                }
+                Err(err) => Value::error(err, value.span()),
+            },
+            None,
+        )?;
+
         // Eval the block with the input
         let mut stack = Stack::new().capture();
-        eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)
+        eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?.map(
+            |mut value| {
+                // Make sure to deserialize custom values
+                match PluginCustomValue::deserialize_custom_values_in(&mut value) {
+                    Ok(()) => value,
+                    Err(err) => Value::error(err, value.span()),
+                }
+            },
+            None,
+        )
     }
 
     /// Evaluate some Nushell source code with the plugin commands in scope.

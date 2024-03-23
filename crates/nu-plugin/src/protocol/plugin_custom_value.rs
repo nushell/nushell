@@ -20,7 +20,10 @@ mod tests;
 /// appropriate [`PluginSource`](crate::plugin::PluginSource), ensuring that only
 /// [`PluginCustomData`] is contained within any values sent, and that the `source` of any
 /// values sent matches the plugin it is being sent to.
+///
+/// This is not a public API.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[doc(hidden)]
 pub struct PluginCustomValue {
     #[serde(flatten)]
     shared: SerdeArc<SharedContent>,
@@ -234,7 +237,7 @@ impl PluginCustomValue {
     }
 
     /// Add a [`PluginSource`] to all [`PluginCustomValue`]s within a value, recursively.
-    pub(crate) fn add_source(value: &mut Value, source: &Arc<PluginSource>) {
+    pub fn add_source(value: &mut Value, source: &Arc<PluginSource>) {
         // This can't cause an error.
         let _: Result<(), Infallible> = value.recurse_mut(&mut |value| {
             let span = value.span();
@@ -315,7 +318,7 @@ impl PluginCustomValue {
 
     /// Convert all plugin-native custom values to [`PluginCustomValue`] within the given `value`,
     /// recursively. This should only be done on the plugin side.
-    pub(crate) fn serialize_custom_values_in(value: &mut Value) -> Result<(), ShellError> {
+    pub fn serialize_custom_values_in(value: &mut Value) -> Result<(), ShellError> {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
@@ -341,7 +344,7 @@ impl PluginCustomValue {
 
     /// Convert all [`PluginCustomValue`]s to plugin-native custom values within the given `value`,
     /// recursively. This should only be done on the plugin side.
-    pub(crate) fn deserialize_custom_values_in(value: &mut Value) -> Result<(), ShellError> {
+    pub fn deserialize_custom_values_in(value: &mut Value) -> Result<(), ShellError> {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {

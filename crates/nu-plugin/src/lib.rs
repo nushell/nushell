@@ -76,7 +76,7 @@ pub use plugin::{
     PluginInterface, PluginInterfaceManager, PluginSource, ServePluginError,
 };
 #[doc(hidden)]
-pub use protocol::{PluginInput, PluginOutput};
+pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
 #[doc(hidden)]
 pub use serializers::EncodingType;
 
