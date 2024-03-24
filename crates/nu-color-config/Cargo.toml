@@ -16,7 +16,7 @@ nu-engine = { path = "../nu-engine", version = "0.91.1" }
 nu-json = { path = "../nu-json", version = "0.91.1" }
 nu-ansi-term = { workspace = true }
 
-serde = { version = "1.0", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.91.1" }

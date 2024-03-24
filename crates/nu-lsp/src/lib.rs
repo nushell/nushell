@@ -964,7 +964,7 @@ mod tests {
     }
 
     #[test]
-    fn hover_on_command() {
+    fn hover_on_custom_command() {
         let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
@@ -988,6 +988,36 @@ mod tests {
                 "contents": {
                     "kind": "markdown",
                     "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn hover_on_str_join() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = hover(&client_connection, script.clone(), 5, 8);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "contents": {
+                    "kind": "markdown",
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );

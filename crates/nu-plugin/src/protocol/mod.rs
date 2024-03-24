@@ -447,6 +447,8 @@ pub enum EngineCall<D> {
     GetCurrentDir,
     /// Set an environment variable in the caller's scope
     AddEnvVar(String, Value),
+    /// Get help for the current command
+    GetHelp,
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -474,6 +476,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetEnvVars => "GetEnvs",
             EngineCall::GetCurrentDir => "GetCurrentDir",
             EngineCall::AddEnvVar(..) => "AddEnvVar",
+            EngineCall::GetHelp => "GetHelp",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
@@ -491,6 +494,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetEnvVars => EngineCall::GetEnvVars,
             EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
             EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
+            EngineCall::GetHelp => EngineCall::GetHelp,
             EngineCall::EvalClosure {
                 closure,
                 positional,

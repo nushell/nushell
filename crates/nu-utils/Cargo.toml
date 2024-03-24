@@ -17,10 +17,10 @@ bench = false
 bench = false
 
 [dependencies]
-lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
+lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 log = { workspace = true }
-num-format = { version = "0.4" }
-strip-ansi-escapes = "0.2.0"
+num-format = { workspace = true }
+strip-ansi-escapes = { workspace = true }
 sys-locale = "0.3"
 unicase = "2.7.0"
 

@@ -28,93 +28,93 @@ nu-term-grid = { path = "../nu-term-grid", version = "0.91.1" }
 nu-utils = { path = "../nu-utils", version = "0.91.1" }
 nu-ansi-term = { workspace = true }
 
-alphanumeric-sort = "1.5"
-base64 = "0.22"
-byteorder = "1.5"
-bytesize = "1.3"
-calamine = { version = "0.24.0", features = ["dates"] }
+alphanumeric-sort = { workspace = true }
+base64 = { workspace = true }
+bracoxide = { workspace = true }
+byteorder = { workspace = true }
+bytesize = { workspace = true }
+calamine = { workspace = true, features = ["dates"] }
+chardetng = { workspace = true }
 chrono = { workspace = true, features = ["std", "unstable-locales", "clock"], default-features = false }
-chrono-humanize = "0.2.3"
-chrono-tz = "0.8"
+chrono-humanize = { workspace = true }
+chrono-tz = { workspace = true }
 crossterm = { workspace = true }
-csv = "1.3"
-dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.11" }
-digest = { default-features = false, version = "0.10" }
-dtparse = "2.0"
-encoding_rs = "0.8"
+csv = { workspace = true }
+dialoguer = { workspace = true, default-features = false, features = ["fuzzy-select"] }
+digest = { workspace = true, default-features = false }
+dtparse = { workspace = true }
+encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
-filesize = "0.2"
-filetime = "0.2"
-fs_extra = "1.3"
-human-date-parser = "0.1.1"
-indexmap = "2.2"
-indicatif = "0.17"
-itertools = "0.12"
-lscolors = { version = "0.17", default-features = false, features = ["nu-ansi-term"] }
+filesize = { workspace = true }
+filetime = { workspace = true }
+fs_extra = { workspace =  true }
+human-date-parser = { workspace = true }
+indexmap = { workspace = true }
+indicatif = { workspace = true }
+itertools = { workspace = true }
 log = { workspace = true }
-md5 = { package = "md-5", version = "0.10" }
-mime = "0.3"
-mime_guess = "2.0"
-native-tls = "0.2"
-notify-debouncer-full = { version = "0.3", default-features = false }
-num-format = { version = "0.4" }
-num-traits = "0.2"
-open = "5.1"
+lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
+md5 = { workspace = true }
+mime = { workspace = true }
+mime_guess = { workspace = true }
+native-tls = { workspace = true }
+notify-debouncer-full = { workspace = true, default-features = false }
+num-format = { workspace = true }
+num-traits = { workspace = true }
 once_cell = { workspace = true }
-os_pipe = "1.1"
+open = { workspace = true }
+os_pipe = { workspace = true }
 pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
-print-positions = "0.6"
-quick-xml = "0.31.0"
-rand = "0.8"
-rayon = "1.9"
-regex = "1.9.5"
-roxmltree = "0.19"
-rusqlite = { version = "0.31", features = ["bundled", "backup", "chrono"], optional = true }
-same-file = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+print-positions = { workspace = true }
+quick-xml = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+regex = { workspace = true }
+roxmltree = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }
+same-file = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
-serde_urlencoded = "0.7"
-serde_yaml = "0.9"
-sha2 = "0.10"
+serde_urlencoded = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
 sysinfo = { workspace = true }
-tabled = { version = "0.14.0", features = ["color"], default-features = false }
-terminal_size = "0.3"
-titlecase = "2.0"
-toml = "0.8"
+tabled = { workspace = true, features = ["color"], default-features = false }
+terminal_size = { workspace = true }
+titlecase = { workspace = true }
+toml = { workspace = true }
 unicode-segmentation = { workspace = true }
-ureq = { version = "2.9", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
-url = "2.2"
-uu_mv = "0.0.23"
-uu_cp = "0.0.23"
-uu_whoami = "0.0.23"
-uu_mkdir = "0.0.23"
-uu_mktemp = "0.0.23"
+ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+url = { workspace = true }
+uu_cp = { workspace = true }
+uu_mkdir = { workspace = true }
+uu_mktemp = { workspace = true }
+uu_mv = { workspace = true }
+uu_whoami = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
-v_htmlescape = "0.15.0"
-wax = { version = "0.6" }
+v_htmlescape = { workspace = true }
+wax = { workspace = true }
 which = { workspace = true, optional = true }
-bracoxide = "0.1.2"
-chardetng = "0.1.17"
-unicode-width = "0.1.11"
+unicode-width = {workspace = true}
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.52"
+winreg = { workspace = true }
 
 [target.'cfg(not(windows))'.dependencies]
-uucore = { version = "0.0.24", features = ["mode"] }
+uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2"
-umask = "2.1"
+libc = { workspace = true }
+umask = { workspace = true }
 nix = { workspace = true, default-features = false, features = ["user", "resource"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-procfs = "0.16.0"
+procfs = { workspace = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true
-version = "3.3"
+workspace = true
 
 [target.'cfg(windows)'.dependencies.windows]
 features = [
@@ -125,7 +125,7 @@ features = [
 	"Win32_Security",
 	"Win32_System_Threading",
 ]
-version = "0.54"
+workspace = true
 
 [features]
 plugin = ["nu-parser/plugin"]
@@ -137,8 +137,8 @@ which-support = ["which"]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.91.1" }
 
-dirs-next = "2.0"
-mockito = { version = "1.4", default-features = false }
-quickcheck = "1.0"
-quickcheck_macros = "1.0"
+dirs-next = { workspace = true }
+mockito = { workspace = true, default-features = false }
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }

@@ -2,10 +2,8 @@ use crate::query_json::QueryJson;
 use crate::query_web::QueryWeb;
 use crate::query_xml::QueryXml;
 
-use nu_engine::documentation::get_flags_section;
 use nu_plugin::{EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
 use nu_protocol::{Category, LabeledError, PluginSignature, Value};
-use std::fmt::Write;
 
 #[derive(Default)]
 pub struct Query;
@@ -46,36 +44,10 @@ impl SimplePluginCommand for QueryCommand {
     fn run(
         &self,
         _plugin: &Query,
-        _engine: &nu_plugin::EngineInterface,
+        engine: &nu_plugin::EngineInterface,
         call: &EvaluatedCall,
         _input: &Value,
     ) -> Result<Value, LabeledError> {
-        let help = get_brief_subcommand_help();
-        Ok(Value::string(help, call.head))
+        Ok(Value::string(engine.get_help()?, call.head))
     }
-}
-
-pub fn get_brief_subcommand_help() -> String {
-    let sigs: Vec<_> = Query
-        .commands()
-        .into_iter()
-        .map(|cmd| cmd.signature())
-        .collect();
-
-    let mut help = String::new();
-    let _ = write!(help, "{}\n\n", sigs[0].sig.usage);
-    let _ = write!(help, "Usage:\n  > {}\n\n", sigs[0].sig.name);
-    help.push_str("Subcommands:\n");
-
-    for x in sigs.iter().enumerate() {
-        if x.0 == 0 {
-            continue;
-        }
-        let _ = writeln!(help, "  {} - {}", x.1.sig.name, x.1.sig.usage);
-    }
-
-    help.push_str(&get_flags_section(None, &sigs[0].sig, |v| {
-        format!("{:#?}", v)
-    }));
-    help
 }

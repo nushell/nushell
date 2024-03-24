@@ -1006,6 +1006,24 @@ fn interface_add_env_var() -> Result<(), ShellError> {
 }
 
 #[test]
+fn interface_get_help() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::value(Value::test_string("help string"))
+    });
+
+    let help = interface.get_help()?;
+
+    assert_eq!("help string", help);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.engine();

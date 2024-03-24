@@ -14,12 +14,12 @@ nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 reedline = { workspace = true }
 
-crossbeam-channel = "0.5.8"
-lsp-types = "0.95.0"
-lsp-server = "0.7.5"
+crossbeam-channel = { workspace = true }
+lsp-types = { workspace = true }
+lsp-server = { workspace = true }
 miette = { workspace = true }
-ropey = "1.6.1"
-serde = "1.0"
+ropey = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

@@ -84,10 +84,7 @@ fn process(
     if let Ok(conn) = db.open_connection() {
         match columns {
             Some(record) => {
-                let mut create_stmt = format!(
-                    "CREATE TABLE {} ( id INTEGER NOT NULL PRIMARY KEY, ",
-                    new_table_name
-                );
+                let mut create_stmt = format!("CREATE TABLE {} ( ", new_table_name);
                 for (column_name, column_datatype) in record {
                     match column_datatype.coerce_str()?.as_ref() {
                         "int" => {
