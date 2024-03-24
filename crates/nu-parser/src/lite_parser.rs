@@ -1,11 +1,9 @@
 //! Lite parsing converts a flat stream of tokens from the lexer to a syntax element structure that
 //! can be parsed.
 
-use std::mem;
-
 use crate::{Token, TokenContents};
-
 use nu_protocol::{ast::RedirectionSource, ParseError, Span};
+use std::mem;
 
 #[derive(Debug, Clone, Copy)]
 pub enum LiteRedirectionTarget {

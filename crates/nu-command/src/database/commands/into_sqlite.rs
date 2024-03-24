@@ -315,6 +315,15 @@ fn insert_value(
     }
 }
 
+fn values_to_sql(
+    values: impl IntoIterator<Item = Value>,
+) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
+    values
+        .into_iter()
+        .map(value_to_sql)
+        .collect::<Result<Vec<_>, _>>()
+}
+
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
 fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
     Ok(match value {
@@ -324,7 +333,7 @@ fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
         Value::Filesize { val, .. } => Box::new(val),
         Value::Duration { val, .. } => Box::new(val),
         Value::Date { val, .. } => Box::new(val),
-        Value::String { val, .. } => {
+        Value::String { val, .. } | Value::RawString { val, .. } => {
             // don't store ansi escape sequences in the database
             // escape single quotes
             Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
@@ -332,23 +341,14 @@ fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
         Value::Binary { val, .. } => Box::new(val),
         val => {
             return Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type:
-                    "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
+                exp_input_type: "bool, int, float, filesize, duration, date string, nothing binary"
+                    .into(),
                 wrong_type: val.get_type().to_string(),
                 dst_span: Span::unknown(),
                 src_span: val.span(),
             })
         }
     })
-}
-
-fn values_to_sql(
-    values: impl IntoIterator<Item = Value>,
-) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
-    values
-        .into_iter()
-        .map(value_to_sql)
-        .collect::<Result<Vec<_>, _>>()
 }
 
 // Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
@@ -360,6 +360,7 @@ fn values_to_sql(
 fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
     match val.get_type() {
         Type::String => Ok("TEXT"),
+        Type::RawString => Ok("TEXT"),
         Type::Int => Ok("INTEGER"),
         Type::Float => Ok("REAL"),
         Type::Number => Ok("REAL"),

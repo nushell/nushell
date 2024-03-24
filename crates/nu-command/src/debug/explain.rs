@@ -269,6 +269,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         }
         Value::String { val, .. } => val.clone(),
         Value::Glob { val, .. } => val.clone(),
+        Value::RawString { val, .. } => val.clone(),
         Value::List { vals: val, .. } => format!(
             "[{}]",
             val.iter()
