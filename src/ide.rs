@@ -211,8 +211,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
         Some((Id::Declaration(decl_id), offset, span)) => {
             let decl = working_set.get_decl(decl_id);
 
-            //let mut description = "```\n### Signature\n```\n".to_string();
-            let mut description = "```\n".to_string();
+            let mut description = String::new();
 
             // first description
             description.push_str(&format!("{}\n", decl.usage()));
