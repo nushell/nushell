@@ -93,7 +93,7 @@ fn guess_width(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     use super::guess_width::GuessWidth;
-    let input_span = input.span().unwrap_or_else(|| call.head);
+    let input_span = input.span().unwrap_or(call.head);
 
     let mut input = input.collect_string("", engine_state.get_config())?;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
