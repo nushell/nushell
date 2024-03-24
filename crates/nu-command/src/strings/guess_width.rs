@@ -82,7 +82,7 @@ impl GuessWidth {
     fn scan(&mut self, num: u8) {
         for _ in 0..num {
             let mut buf = String::new();
-            if self.reader.read_line(&mut buf).unwrap() == 0 {
+            if self.reader.read_line(&mut buf).unwrap_or(0) == 0 {
                 break;
             }
 
@@ -175,14 +175,14 @@ fn separator_position(lr: &[char], p: usize, pos: &[usize], n: usize) -> usize {
 }
 
 fn split(line: &str, pos: &[usize], trim_space: bool) -> Vec<String> {
-    let mut n = 0;
+    let mut n: usize = 0;
     let mut start = 0;
     let mut columns = Vec::with_capacity(pos.len() + 1);
     let lr: Vec<char> = line.chars().collect();
     let mut w = 0;
 
     for p in 0..lr.len() {
-        if n > pos.len() - 1 {
+        if pos.is_empty() || n > pos.len() - 1 {
             start = p;
             break;
         }
@@ -312,7 +312,7 @@ pub fn to_table_n(
 
 #[cfg(test)]
 mod tests {
-    use crate::guess_width::{to_table, to_table_n, GuessWidth};
+    use super::{to_table, to_table_n, GuessWidth};
 
     #[test]
     fn test_guess_width_ps_trim() {

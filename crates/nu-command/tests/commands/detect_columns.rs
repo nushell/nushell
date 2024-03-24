@@ -1,7 +1,7 @@
 use nu_test_support::{nu, playground::Playground};
 
 #[test]
-fn detect_columns() {
+fn detect_columns_with_old() {
     let cases = [(
         "$\"c1 c2 c3 c4 c5(char nl)a b c d e\"",
         "[[c1,c2,c3,c4,c5]; [a,b,c,d,e]]",
@@ -11,14 +11,14 @@ fn detect_columns() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns) == {}",
+                "({} | detect columns --old) == {}",
                 case.0,
                 case.1
             );
 
             assert_eq!(
                 out.out, "true",
-                "({} | detect columns) == {}",
+                "({} | detect columns --old) == {}",
                 case.0, case.1
             );
         }
@@ -26,7 +26,7 @@ fn detect_columns() {
 }
 
 #[test]
-fn detect_columns_with_flag_c() {
+fn detect_columns_with_old_and_flag_c() {
     let cases = [
         (
             "$\"c1 c2 c3 c4 c5(char nl)a b c d e\"",
@@ -49,7 +49,7 @@ fn detect_columns_with_flag_c() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns --combine-columns {}) == {}",
+                "({} | detect columns --old --combine-columns {}) == {}",
                 case.0,
                 case.2,
                 case.1,
@@ -57,7 +57,7 @@ fn detect_columns_with_flag_c() {
 
             assert_eq!(
                 out.out, "true",
-                "({} | detect columns --combine-columns {}) == {}",
+                "({} | detect columns --old --combine-columns {}) == {}",
                 case.0, case.2, case.1
             );
         }

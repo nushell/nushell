@@ -38,11 +38,7 @@ impl Command for DetectColumns {
                 "columns to be combined; listed as a range",
                 Some('c'),
             )
-            .switch(
-                "guess",
-                "apply guess width algorithm to detect column",
-                None,
-            )
+            .switch("old", "use another algorithm to detect columns, it may be useful if default one doesn't work", None)
             .category(Category::Strings)
     }
 
@@ -61,46 +57,30 @@ impl Command for DetectColumns {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if call.has_flag(engine_state, stack, "guess")? {
+        if !call.has_flag(engine_state, stack, "old")? {
             guess_width(engine_state, stack, call, input)
         } else {
-            detect_columns(engine_state, stack, call, input)
+            detect_columns_old(engine_state, stack, call, input)
         }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Splits string across multiple columns",
-                example: "'a b c' | detect columns --no-headers",
+                description: "detect columns by df output",
+                example: "'Filesystem     1K-blocks      Used Available Use% Mounted on
+none             8150224         4   8150220   1% /mnt/wsl
+none           146801624 125954264  20847360  86% /usr/lib/wsl/drivers' | detect columns",
+                result: None,
+            },
+            Example {
+                description: "Use --old parameter if you find default one does not work",
+                example: "'a b c' | detect columns --old --no-headers",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "column0" => Value::test_string("a"),
                         "column1" => Value::test_string("b"),
                         "column2" => Value::test_string("c"),
                 })])),
-            },
-            Example {
-                description: "",
-                example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1",
-                result: None,
-            },
-            Example {
-                description: "Splits a multi-line string into columns with headers detected",
-                example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1",
-                result: None,
-            },
-            Example {
-                description: "Splits a multi-line string into columns with headers detected",
-                example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2..",
-                result: None,
-            },
-            Example {
-                description: "Parse external ls command and combine columns for datetime",
-                example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7",
-                result: None,
             },
         ]
     }
@@ -114,35 +94,70 @@ fn guess_width(
 ) -> Result<PipelineData, ShellError> {
     use super::guess_width::GuessWidth;
     let input_span = input.span().unwrap_or_else(|| call.head);
-    let input = input
-        .collect_string("", engine_state.get_config())?
-        .into_bytes();
+
+    let mut input = input.collect_string("", engine_state.get_config())?;
+    let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
+    if let Some(rows) = num_rows_to_skip {
+        input = input.lines().skip(rows).map(|x| x.to_string()).collect();
+    }
+
     let mut guess_width = GuessWidth::new_reader(Box::new(Cursor::new(input)));
+    let noheader = call.has_flag(engine_state, stack, "no-headers")?;
+
     let result = guess_width.read_all();
 
     if result.is_empty() {
         return Ok(Value::nothing(input_span).into_pipeline_data());
     }
-    let columns = result[0].clone();
-    Ok(result
-        .into_iter()
-        .skip(1)
-        .map(move |s| {
-            let values = s
-                .into_iter()
-                .map(|v| Value::string(v, input_span))
-                .collect();
-            let record =
-                Record::from_raw_cols_vals(columns.clone(), values, input_span, input_span);
-            match record {
-                Err(e) => Value::error(e, input_span),
-                Ok(r) => Value::record(r, input_span),
-            }
-        })
-        .into_pipeline_data(engine_state.ctrlc.clone()))
+
+    if !noheader {
+        let columns = result[0].clone();
+        Ok(result
+            .into_iter()
+            .skip(1)
+            .map(move |s| {
+                let mut values: Vec<Value> = s
+                    .into_iter()
+                    .map(|v| Value::string(v, input_span))
+                    .collect();
+                // some rows may has less columns, fill it with ""
+                for _ in values.len()..columns.len() {
+                    values.push(Value::string("", input_span));
+                }
+                let record =
+                    Record::from_raw_cols_vals(columns.clone(), values, input_span, input_span);
+                match record {
+                    Err(e) => Value::error(e, input_span),
+                    Ok(r) => Value::record(r, input_span),
+                }
+            })
+            .into_pipeline_data(engine_state.ctrlc.clone()))
+    } else {
+        let length = result[0].len();
+        let columns: Vec<String> = (0..length).map(|n| format!("column{n}")).collect();
+        Ok(result
+            .into_iter()
+            .map(move |s| {
+                let mut values: Vec<Value> = s
+                    .into_iter()
+                    .map(|v| Value::string(v, input_span))
+                    .collect();
+                // somes rows may has less columns, fill it with ""
+                for _ in values.len()..columns.len() {
+                    values.push(Value::string("", input_span));
+                }
+                let record =
+                    Record::from_raw_cols_vals(columns.clone(), values, input_span, input_span);
+                match record {
+                    Err(e) => Value::error(e, input_span),
+                    Ok(r) => Value::record(r, input_span),
+                }
+            })
+            .into_pipeline_data(engine_state.ctrlc.clone()))
+    }
 }
 
-fn detect_columns(
+fn detect_columns_old(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
