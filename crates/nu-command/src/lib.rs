@@ -37,7 +37,7 @@ pub use debug::*;
 pub use default_context::*;
 pub use env::*;
 #[cfg(test)]
-pub use example_test::test_examples;
+pub use example_test::{test_examples, test_examples_with_commands};
 pub use experimental::*;
 pub use filesystem::*;
 pub use filters::*;

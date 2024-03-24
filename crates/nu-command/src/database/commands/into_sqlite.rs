@@ -1,4 +1,4 @@
-use crate::database::values::sqlite::open_sqlite_db;
+use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -313,42 +313,6 @@ fn insert_value(
             src_span: val.span(),
         }),
     }
-}
-
-// This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
-fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
-    Ok(match value {
-        Value::Bool { val, .. } => Box::new(val),
-        Value::Int { val, .. } => Box::new(val),
-        Value::Float { val, .. } => Box::new(val),
-        Value::Filesize { val, .. } => Box::new(val),
-        Value::Duration { val, .. } => Box::new(val),
-        Value::Date { val, .. } => Box::new(val),
-        Value::String { val, .. } => {
-            // don't store ansi escape sequences in the database
-            // escape single quotes
-            Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
-        }
-        Value::Binary { val, .. } => Box::new(val),
-        val => {
-            return Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type:
-                    "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
-                wrong_type: val.get_type().to_string(),
-                dst_span: Span::unknown(),
-                src_span: val.span(),
-            })
-        }
-    })
-}
-
-fn values_to_sql(
-    values: impl IntoIterator<Item = Value>,
-) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
-    values
-        .into_iter()
-        .map(value_to_sql)
-        .collect::<Result<Vec<_>, _>>()
 }
 
 // Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
