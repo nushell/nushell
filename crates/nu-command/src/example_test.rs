@@ -52,8 +52,6 @@ mod test_examples {
                 continue;
             }
 
-            dbg!(example.example);
-
             witnessed_type_transformations.extend(
                 check_example_input_and_output_types_match_command_signature(
                     &example,

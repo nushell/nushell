@@ -495,7 +495,7 @@ impl Default for NuSqlParams {
 pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
     match value {
         Value::Record { val, .. } => {
-            let mut params: Vec<_> = Vec::with_capacity(val.len());
+            let mut params = Vec::with_capacity(val.len());
 
             for (mut column, value) in val.into_iter() {
                 let sql_type_erased = value_to_sql(value)?;
@@ -510,7 +510,7 @@ pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
             Ok(NuSqlParams::Named(params))
         }
         Value::List { vals, .. } => {
-            let mut params: Vec<_> = Vec::with_capacity(vals.len());
+            let mut params = Vec::with_capacity(vals.len());
 
             for value in vals.into_iter() {
                 let sql_type_erased = value_to_sql(value)?;
