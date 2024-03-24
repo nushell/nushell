@@ -792,7 +792,7 @@ mod test {
     use nu_protocol::Span;
     use polars::{prelude::NamedFrom, series::Series};
 
-    use crate::dataframe::values::NuDataFrame;
+    use crate::{dataframe::values::NuDataFrame, CustomValueSupport};
 
     #[test]
     fn test_compute_between_series_comparisons() {

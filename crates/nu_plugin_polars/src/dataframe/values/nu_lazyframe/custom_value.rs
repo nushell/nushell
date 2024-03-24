@@ -2,7 +2,7 @@ use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::DataFrameCache;
+use crate::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuLazyFrame;
 
@@ -11,32 +11,6 @@ pub struct NuLazyFrameCustomValue {
     pub id: Uuid,
     #[serde(skip)]
     pub lazyframe: Option<NuLazyFrame>,
-}
-
-impl TryFrom<&NuLazyFrameCustomValue> for NuLazyFrame {
-    type Error = ShellError;
-    fn try_from(value: &NuLazyFrameCustomValue) -> Result<Self, Self::Error> {
-        if let Some(lf) = &value.lazyframe {
-            Ok(lf.clone())
-        } else {
-            DataFrameCache::get_lazy(&value.id)?.ok_or_else(|| ShellError::GenericError {
-                error: format!("LazyFrame {:?} not found in cache", value.id),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
-        }
-    }
-}
-
-impl From<NuLazyFrame> for NuLazyFrameCustomValue {
-    fn from(lf: NuLazyFrame) -> Self {
-        Self {
-            id: lf.id,
-            lazyframe: Some(lf),
-        }
-    }
 }
 
 // CustomValue implementation for NuDataFrame
@@ -50,9 +24,8 @@ impl CustomValue for NuLazyFrameCustomValue {
         "NuLazyFrameCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let lazy = NuLazyFrame::try_from(self)?;
-        lazy.base_value(span)
+    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+        panic!("NuLazyFrameCustomValue: custom_value_to_base_value should've been called");
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -61,5 +34,26 @@ impl CustomValue for NuLazyFrameCustomValue {
 
     fn notify_plugin_on_drop(&self) -> bool {
         true
+    }
+}
+
+impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
+    type PhysicalType = NuLazyFrame;
+
+    fn custom_value_to_base_value(
+        &self,
+        plugin: &crate::PolarsPlugin,
+        _engine: &nu_plugin::EngineInterface,
+    ) -> Result<Value, ShellError> {
+        let lazy = NuLazyFrame::try_from_custom_value(plugin, self)?;
+        lazy.base_value(Span::unknown())
+    }
+
+    fn id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn internal(&self) -> &Option<Self::PhysicalType> {
+        &self.lazyframe
     }
 }

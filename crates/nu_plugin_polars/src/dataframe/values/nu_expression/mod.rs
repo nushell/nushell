@@ -1,14 +1,15 @@
 mod custom_value;
 
-use nu_plugin::EngineInterface;
-use nu_protocol::{record, PipelineData, ShellError, Span, Value};
+use nu_protocol::{record, ShellError, Span, Value};
 use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
-use crate::DataFrameCache;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
-use self::custom_value::NuExpressionCustomValue;
+pub use self::custom_value::NuExpressionCustomValue;
+
+use super::PhysicalType;
 
 // Polars Expression wrapper for Nushell operations
 // Object is behind and Option to allow easy implementation of
@@ -70,62 +71,6 @@ impl NuExpression {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.custom_value()), span)
-    }
-
-    pub fn custom_value(self) -> NuExpressionCustomValue {
-        self.into()
-    }
-
-    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
-        DataFrameCache::insert_expr(engine, self.clone())?;
-        Ok(self)
-    }
-
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
-        let span = value.span();
-        match value {
-            Value::CustomValue { val, .. } => {
-                match val.as_any().downcast_ref::<NuExpressionCustomValue>() {
-                    Some(expr) => expr.try_into(),
-                    None => Err(ShellError::CantConvert {
-                        to_type: "lazy expression".into(),
-                        from_type: "non-dataframe".into(),
-                        span,
-                        help: None,
-                    }),
-                }
-            }
-            Value::String { val, .. } => Ok(val.lit().into()),
-            Value::Int { val, .. } => Ok(val.lit().into()),
-            Value::Bool { val, .. } => Ok(val.lit().into()),
-            Value::Float { val, .. } => Ok(val.lit().into()),
-            x => Err(ShellError::CantConvert {
-                to_type: "lazy expression".into(),
-                from_type: x.get_type().to_string(),
-                span: x.span(),
-                help: None,
-            }),
-        }
-    }
-
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(value)
-    }
-
-    pub fn can_downcast(value: &Value) -> bool {
-        match value {
-            Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
-            Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
-            Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
-                true
-            }
-            _ => false,
-        }
-    }
-
     pub fn into_polars(self) -> Expr {
         self.expr.expect("Expression cannot be none to convert")
     }
@@ -149,8 +94,8 @@ impl NuExpression {
     }
 
     // Convenient function to extract multiple Expr that could be inside a nushell Value
-    pub fn extract_exprs(value: Value) -> Result<Vec<Expr>, ShellError> {
-        ExtractedExpr::extract_exprs(value).map(ExtractedExpr::into_exprs)
+    pub fn extract_exprs(plugin: &PolarsPlugin, value: Value) -> Result<Vec<Expr>, ShellError> {
+        ExtractedExpr::extract_exprs(plugin, value).map(ExtractedExpr::into_exprs)
     }
 }
 
@@ -172,15 +117,15 @@ impl ExtractedExpr {
         }
     }
 
-    fn extract_exprs(value: Value) -> Result<ExtractedExpr, ShellError> {
+    fn extract_exprs(plugin: &PolarsPlugin, value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
-            Value::CustomValue { .. } => NuExpression::try_from_value(value)
+            Value::CustomValue { .. } => NuExpression::try_from_value(plugin, &value)
                 .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),
             Value::List { vals, .. } => vals
                 .into_iter()
-                .map(Self::extract_exprs)
+                .map(|x| Self::extract_exprs(plugin, x))
                 .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
                 .map(ExtractedExpr::List),
             x => Err(ShellError::CantConvert {
@@ -466,5 +411,81 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg_span: span,
             input_span: Span::unknown(),
         }),
+    }
+}
+
+impl Cacheable for NuExpression {
+    fn cache_id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
+        Ok(PhysicalType::NuExpression(self.clone()))
+    }
+
+    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+        match cv {
+            PhysicalType::NuExpression(df) => Ok(df),
+            _ => Err(ShellError::GenericError {
+                error: "Cache value is not an expression".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        }
+    }
+}
+
+impl CustomValueSupport for NuExpression {
+    type CV = NuExpressionCustomValue;
+
+    fn custom_value(self) -> Self::CV {
+        NuExpressionCustomValue {
+            id: self.id,
+            expr: Some(self),
+        }
+    }
+
+    fn type_name() -> &'static str {
+        "NUExpression"
+    }
+
+    fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
+        match value {
+            Value::CustomValue { val, .. } => {
+                if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                    Self::try_from_custom_value(plugin, cv)
+                } else {
+                    Err(ShellError::CantConvert {
+                        to_type: Self::type_name().into(),
+                        from_type: value.get_type().to_string(),
+                        span: value.span(),
+                        help: None,
+                    })
+                }
+            }
+            Value::String { val, .. } => Ok(val.to_owned().lit().into()),
+            Value::Int { val, .. } => Ok(val.to_owned().lit().into()),
+            Value::Bool { val, .. } => Ok(val.to_owned().lit().into()),
+            Value::Float { val, .. } => Ok(val.to_owned().lit().into()),
+            x => Err(ShellError::CantConvert {
+                to_type: "lazy expression".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn can_downcast(value: &Value) -> bool {
+        match value {
+            Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
+            Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
+                true
+            }
+            _ => false,
+        }
     }
 }

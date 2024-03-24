@@ -2,7 +2,7 @@
 /// All of these expressions have an identical body and only require
 /// to have a change in the name, description and expression function
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::PolarsPlugin;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
@@ -32,17 +32,17 @@ macro_rules! expr_command {
 
             fn run(
                 &self,
-                _plugin: &Self::Plugin,
+                plugin: &Self::Plugin,
                 engine: &EngineInterface,
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let expr = NuExpression::try_from_pipeline(input, call.head)
+                let expr = NuExpression::try_from_pipeline(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
                 let expr: NuExpression = expr.into_polars().$func().into();
 
                 Ok(PipelineData::Value(
-                    expr.insert_cache(engine)
+                    expr.cache(plugin, engine)
                         .map_err(LabeledError::from)?
                         .into_value(call.head),
                     None,
@@ -156,14 +156,15 @@ macro_rules! lazy_expr_command {
 
             fn run(
                 &self,
-                _plugin: &Self::Plugin,
+                plugin: &Self::Plugin,
                 engine: &EngineInterface,
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
                 let value = input.into_value(call.head);
                 if NuDataFrame::can_downcast(&value) {
-                    let lazy = NuLazyFrame::try_from_value(value).map_err(LabeledError::from)?;
+                    let lazy =
+                        NuLazyFrame::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
                         lazy.from_eager,
                         lazy.into_polars()
@@ -178,13 +179,17 @@ macro_rules! lazy_expr_command {
                             .map_err(LabeledError::from)?,
                     );
 
-                    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+                    Ok(PipelineData::Value(
+                        lazy.cache(plugin, engine)?.into_value(call.head),
+                        None,
+                    ))
                 } else {
-                    let expr = NuExpression::try_from_value(value).map_err(LabeledError::from)?;
+                    let expr =
+                        NuExpression::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let expr: NuExpression = expr.into_polars().$func().into();
 
                     Ok(PipelineData::Value(
-                        expr.insert_cache(engine)
+                        expr.cache(plugin, engine)
                             .map_err(LabeledError::from)?
                             .into_value(call.head),
                         None,
@@ -251,14 +256,15 @@ macro_rules! lazy_expr_command {
 
             fn run(
                 &self,
-                _plugin: &Self::Plugin,
+                plugin: &Self::Plugin,
                 engine: &EngineInterface,
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
                 let value = input.into_value(call.head);
                 if NuDataFrame::can_downcast(&value) {
-                    let lazy = NuLazyFrame::try_from_value(value).map_err(LabeledError::from)?;
+                    let lazy =
+                        NuLazyFrame::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
                         lazy.from_eager,
                         lazy.into_polars()
@@ -274,18 +280,17 @@ macro_rules! lazy_expr_command {
                     );
 
                     Ok(PipelineData::Value(
-                        lazy.insert_cache(engine)
+                        lazy.cache(plugin, engine)
                             .map_err(LabeledError::from)?
-                            .into_value(call.head)
-                            .map_err(LabeledError::from)?,
+                            .into_value(call.head),
                         None,
                     ))
                 } else {
-                    let expr = NuExpression::try_from_value(value)?;
+                    let expr = NuExpression::try_from_value(plugin, &value)?;
                     let expr: NuExpression = expr.into_polars().$func($ddof).into();
 
                     Ok(PipelineData::Value(
-                        expr.insert_cache(engine)
+                        expr.cache(plugin, engine)
                             .map_err(LabeledError::from)?
                             .into_value(call.head),
                         None,

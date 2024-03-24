@@ -1,7 +1,7 @@
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy},
     values::{Column, NuDataFrame},
-    PolarsPlugin,
+    Cacheable, CustomValueSupport, PolarsPlugin,
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -35,16 +35,16 @@ impl PluginCommand for LazyAggregate {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
-        let expressions = NuExpression::extract_exprs(value)?;
+        let expressions = NuExpression::extract_exprs(plugin, value)?;
 
-        let group_by = NuLazyGroupBy::try_from_pipeline(input, call.head)?;
+        let group_by = NuLazyGroupBy::try_from_pipeline(plugin, input, call.head)?;
 
         if let Some(schema) = &group_by.schema {
             for expr in expressions.iter() {
@@ -68,7 +68,10 @@ impl PluginCommand for LazyAggregate {
 
         let lazy = NuLazyFrame::new(group_by.from_eager, polars.agg(&expressions));
 
-        let res = lazy.into_value(call.head)?;
+        let res = lazy
+            .cache(plugin, engine)
+            .map_err(LabeledError::from)?
+            .into_value(call.head);
         Ok(PipelineData::Value(res, None))
     }
 }

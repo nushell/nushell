@@ -1,16 +1,17 @@
 mod custom_value;
 
 use core::fmt;
-use nu_plugin::EngineInterface;
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::ShellError;
 use polars::prelude::{LazyGroupBy, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::DataFrameCache;
+use crate::{Cacheable, CustomValueSupport};
 
 pub use self::custom_value::NuLazyGroupByCustomValue;
+
+use super::PhysicalType;
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of
@@ -76,50 +77,48 @@ impl NuLazyGroupBy {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.custom_value()), span)
-    }
-
-    pub fn custom_value(self) -> NuLazyGroupByCustomValue {
-        self.into()
-    }
-
     pub fn into_polars(&self) -> LazyGroupBy {
         self.group_by
             .as_ref()
             .map(|arc| (**arc).clone())
             .expect("GroupBy cannot be none to convert")
     }
+}
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
-        let span = value.span();
-        match value {
-            Value::CustomValue { val, .. } => {
-                match val.as_any().downcast_ref::<NuLazyGroupByCustomValue>() {
-                    Some(group) => Self::try_from(group),
-                    None => Err(ShellError::CantConvert {
-                        to_type: "lazy groupby".into(),
-                        from_type: "custom value".into(),
-                        span,
-                        help: None,
-                    }),
-                }
-            }
-            x => Err(ShellError::CantConvert {
-                to_type: "lazy groupby".into(),
-                from_type: x.get_type().to_string(),
-                span: x.span(),
+impl Cacheable for NuLazyGroupBy {
+    fn cache_id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
+        Ok(PhysicalType::NuLazyGroupBy(self.clone()))
+    }
+
+    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+        match cv {
+            PhysicalType::NuLazyGroupBy(df) => Ok(df),
+            _ => Err(ShellError::GenericError {
+                error: "Cache value is not a group by".into(),
+                msg: "".into(),
+                span: None,
                 help: None,
+                inner: vec![],
             }),
         }
     }
+}
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(value)
+impl CustomValueSupport for NuLazyGroupBy {
+    type CV = NuLazyGroupByCustomValue;
+
+    fn custom_value(self) -> Self::CV {
+        NuLazyGroupByCustomValue {
+            id: self.id,
+            groupby: Some(self),
+        }
     }
 
-    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
-        DataFrameCache::insert_group_by(engine, self.clone()).map(|_| self)
+    fn type_name() -> &'static str {
+        "NuLazyGroupBy"
     }
 }

@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 use polars::prelude::{CsvWriter, SerWriter};
 
-use crate::PolarsPlugin;
+use crate::{CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -48,21 +48,25 @@ impl PluginCommand for ToCSV {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(call, input).map_err(|e| e.into())
+        command(plugin, call, input).map_err(|e| e.into())
     }
 }
 
-fn command(call: &EvaluatedCall, input: PipelineData) -> Result<PipelineData, ShellError> {
+fn command(
+    plugin: &PolarsPlugin,
+    call: &EvaluatedCall,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(0)?;
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),

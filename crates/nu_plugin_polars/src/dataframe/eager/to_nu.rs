@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::{dataframe::values::NuExpression, PolarsPlugin};
+use crate::{dataframe::values::NuExpression, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -35,16 +35,16 @@ impl PluginCommand for ToNu {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
         if NuDataFrame::can_downcast(&value) {
-            dataframe_command(call, value)
+            dataframe_command(plugin, call, value)
         } else {
-            expression_command(call, value)
+            expression_command(plugin, call, value)
         }
         .map_err(|e| e.into())
     }
@@ -90,11 +90,15 @@ fn examples() -> Vec<PluginExample> {
     ]
 }
 
-fn dataframe_command(call: &EvaluatedCall, input: Value) -> Result<PipelineData, ShellError> {
+fn dataframe_command(
+    plugin: &PolarsPlugin,
+    call: &EvaluatedCall,
+    input: Value,
+) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.get_flag("rows")?;
     let tail: bool = call.has_flag("tail")?;
 
-    let df = NuDataFrame::try_from_value(input)?;
+    let df = NuDataFrame::try_from_value(plugin, &input)?;
 
     let values = if tail {
         df.tail(rows, call.head)?
@@ -112,8 +116,12 @@ fn dataframe_command(call: &EvaluatedCall, input: Value) -> Result<PipelineData,
     Ok(PipelineData::Value(value, None))
 }
 
-fn expression_command(call: &EvaluatedCall, input: Value) -> Result<PipelineData, ShellError> {
-    let expr = NuExpression::try_from_value(input)?;
+fn expression_command(
+    plugin: &PolarsPlugin,
+    call: &EvaluatedCall,
+    input: Value,
+) -> Result<PipelineData, ShellError> {
+    let expr = NuExpression::try_from_value(plugin, &input)?;
     let value = expr.to_value(call.head)?;
 
     Ok(PipelineData::Value(value, None))

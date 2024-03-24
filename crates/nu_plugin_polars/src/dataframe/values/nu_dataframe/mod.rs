@@ -4,22 +4,21 @@ mod custom_value;
 mod operations;
 
 pub use conversion::{Column, ColumnMap};
-use nu_plugin::EngineInterface;
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
 use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher, sync::Arc};
 use uuid::Uuid;
 
-use crate::DataFrameCache;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 pub use self::custom_value::NuDataFrameCustomValue;
 
-use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame, PhysicalType};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -117,19 +116,6 @@ impl NuDataFrame {
         self.to_polars().lazy()
     }
 
-    pub fn into_value(self, span: Span) -> Value {
-        if self.from_lazy {
-            let lazy = NuLazyFrame::from_dataframe(self);
-            Value::custom_value(Box::new(lazy.custom_value()), span)
-        } else {
-            Value::custom_value(Box::new(self.custom_value()), span)
-        }
-    }
-
-    pub fn custom_value(self) -> NuDataFrameCustomValue {
-        self.into()
-    }
-
     // Returns a rendered Value of base nushell types that does not include a CustomValue
     // Used for display
     pub fn base_value(self, span: Span) -> Result<Value, ShellError> {
@@ -150,7 +136,11 @@ impl NuDataFrame {
         }
     }
 
-    pub fn try_from_iter<T>(iter: T, maybe_schema: Option<NuSchema>) -> Result<Self, ShellError>
+    pub fn try_from_iter<T>(
+        plugin: &PolarsPlugin,
+        iter: T,
+        maybe_schema: Option<NuSchema>,
+    ) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
     {
@@ -161,7 +151,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::CustomValue { .. } => return Self::try_from_value(value),
+                Value::CustomValue { .. } => return Self::try_from_value(plugin, &value),
                 Value::List { vals, .. } => {
                     let record = vals
                         .into_iter()
@@ -242,62 +232,6 @@ impl NuDataFrame {
             .iter()
             .map(|col| conversion::create_column(col, 0, height, span))
             .collect::<Result<Vec<Column>, ShellError>>()
-    }
-
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
-        if Self::can_downcast(&value) {
-            Ok(Self::get_df(value)?)
-        } else if NuLazyFrame::can_downcast(&value) {
-            let span = value.span();
-            let lazy = NuLazyFrame::try_from_value(value)?;
-            let df = lazy.collect(span)?;
-            Ok(df)
-        } else {
-            Err(ShellError::CantConvert {
-                to_type: "lazy or eager dataframe".into(),
-                from_type: value.get_type().to_string(),
-                span: value.span(),
-                help: None,
-            })
-        }
-    }
-
-    pub fn get_df(value: Value) -> Result<Self, ShellError> {
-        let span = value.span();
-        match value {
-            Value::CustomValue { val, .. } => {
-                match val.as_any().downcast_ref::<NuDataFrameCustomValue>() {
-                    Some(custom_val) => Self::try_from(custom_val),
-                    None => Err(ShellError::CantConvert {
-                        to_type: "dataframe".into(),
-                        from_type: "non-dataframe".into(),
-                        span,
-                        help: None,
-                    }),
-                }
-            }
-            x => Err(ShellError::CantConvert {
-                to_type: "dataframe".into(),
-                from_type: x.get_type().to_string(),
-                span: x.span(),
-                help: None,
-            }),
-        }
-    }
-
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(value)
-    }
-
-    pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
-            val.as_any()
-                .downcast_ref::<NuDataFrameCustomValue>()
-                .is_some()
-        } else {
-            false
-        }
     }
 
     pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {
@@ -518,10 +452,6 @@ impl NuDataFrame {
     pub fn schema(&self) -> NuSchema {
         NuSchema::new(self.df.schema())
     }
-
-    pub fn insert_cache(self, engine: &EngineInterface) -> Result<Self, ShellError> {
-        DataFrameCache::insert_df(engine, self.clone()).map(|_| self)
-    }
 }
 
 fn add_missing_columns(
@@ -563,5 +493,43 @@ fn add_missing_columns(
         Ok(df)
     } else {
         Ok(df)
+    }
+}
+
+impl Cacheable for NuDataFrame {
+    fn cache_id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
+        Ok(PhysicalType::NuDataFrame(self.clone()))
+    }
+
+    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+        match cv {
+            PhysicalType::NuDataFrame(df) => Ok(df),
+            _ => Err(ShellError::GenericError {
+                error: "Cache value is not a dataframe".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        }
+    }
+}
+
+impl CustomValueSupport for NuDataFrame {
+    type CV = NuDataFrameCustomValue;
+
+    fn custom_value(self) -> Self::CV {
+        NuDataFrameCustomValue {
+            id: self.id,
+            dataframe: Some(self),
+        }
+    }
+
+    fn type_name() -> &'static str {
+        "NuDataFrame"
     }
 }

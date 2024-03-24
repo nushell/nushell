@@ -1,4 +1,4 @@
-use crate::PolarsPlugin;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -46,21 +46,22 @@ impl PluginCommand for DataTypes {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(engine, call, input).map_err(LabeledError::from)
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let mut dtypes: Vec<Value> = Vec::new();
     let names: Vec<Value> = df
@@ -87,7 +88,7 @@ fn command(
 
     let df = NuDataFrame::try_from_columns(vec![names_col, dtypes_col], None)?;
     Ok(PipelineData::Value(
-        df.insert_cache(engine)?.into_value(call.head),
+        df.cache(plugin, engine)?.into_value(call.head),
         None,
     ))
 }

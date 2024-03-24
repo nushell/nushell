@@ -1,4 +1,6 @@
-use crate::{dataframe::values::NuSchema, values::Column, PolarsPlugin};
+use crate::{
+    dataframe::values::NuSchema, values::Column, Cacheable, CustomValueSupport, PolarsPlugin,
+};
 
 use super::super::values::NuDataFrame;
 
@@ -34,7 +36,7 @@ impl PluginCommand for ToDataFrame {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
@@ -44,10 +46,10 @@ impl PluginCommand for ToDataFrame {
             .map(|schema| NuSchema::try_from(&schema))
             .transpose()?;
 
-        let df = NuDataFrame::try_from_iter(input.into_iter(), maybe_schema.clone())?;
+        let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?;
 
         Ok(PipelineData::Value(
-            df.insert_cache(engine)?.into_value(call.head),
+            df.cache(plugin, engine)?.into_value(call.head),
             None,
         ))
     }

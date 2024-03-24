@@ -4,9 +4,10 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::PolarsPlugin;
-
-use super::super::values::{Axis, Column, NuDataFrame};
+use crate::{
+    values::{Axis, Column, NuDataFrame},
+    Cacheable, CustomValueSupport, PolarsPlugin,
+};
 
 #[derive(Clone)]
 pub struct AppendDF;
@@ -29,12 +30,12 @@ impl PluginCommand for AppendDF {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(engine, call, input).map_err(LabeledError::from)
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 fn examples() -> Vec<PluginExample> {
@@ -107,6 +108,7 @@ fn examples() -> Vec<PluginExample> {
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     input: PipelineData,
@@ -118,12 +120,12 @@ fn command(
     } else {
         Axis::Row
     };
-    let df_other = NuDataFrame::try_from_value(other)?;
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df_other = NuDataFrame::try_from_value(plugin, &other)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
     let df = df.append_df(&df_other, axis, call.head)?;
 
     Ok(PipelineData::Value(
-        df.insert_cache(engine)?.into_value(call.head),
+        df.cache(plugin, engine)?.into_value(call.head),
         None,
     ))
 }

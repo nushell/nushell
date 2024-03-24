@@ -2,7 +2,7 @@
 /// All of these commands have an identical body and only require
 /// to have a change in the name, description and function
 use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
-use crate::PolarsPlugin;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
@@ -30,19 +30,17 @@ macro_rules! lazy_command {
 
             fn run(
                 &self,
-                _plugin: &Self::Plugin,
+                plugin: &Self::Plugin,
                 engine: &EngineInterface,
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let lazy =
-                    NuLazyFrame::try_from_pipeline(input, call.head).map_err(LabeledError::from)?;
+                let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)
+                    .map_err(LabeledError::from)?;
                 let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func());
 
                 Ok(PipelineData::Value(
-                    lazy.insert_cache(engine)?
-                        .into_value(call.head)
-                        .map_err(LabeledError::from)?,
+                    lazy.cache(plugin, engine)?.into_value(call.head),
                     None,
                 ))
             }
@@ -132,13 +130,13 @@ macro_rules! lazy_command {
 
             fn run(
                 &self,
-                _plugin: &Self::Plugin,
+                plugin: &Self::Plugin,
                 engine: &EngineInterface,
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let lazy =
-                    NuLazyFrame::try_from_pipeline(input, call.head).map_err(LabeledError::from)?;
+                let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)
+                    .map_err(LabeledError::from)?;
 
                 let lazy = NuLazyFrame::new(
                     lazy.from_eager,
@@ -155,9 +153,7 @@ macro_rules! lazy_command {
                 );
 
                 Ok(PipelineData::Value(
-                    lazy.insert_cache(engine)?
-                        .into_value(call.head)
-                        .map_err(LabeledError::from)?,
+                    lazy.cache(plugin, engine)?.into_value(call.head),
                     None,
                 ))
             }

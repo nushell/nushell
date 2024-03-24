@@ -4,7 +4,7 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{CacheValue, DataFrameCache, PolarsPlugin};
+use crate::{values::PhysicalType, PolarsPlugin};
 
 #[derive(Clone)]
 pub struct ListDF;
@@ -27,13 +27,13 @@ impl PluginCommand for ListDF {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let vals = DataFrameCache::process_entries(|(key, value)| match value {
-            CacheValue::DataFrame(df) => Ok(Some(Value::record(
+        let vals = plugin.cache.process_entries(|(key, value)| match value {
+            PhysicalType::NuDataFrame(df) => Ok(Some(Value::record(
                 record! {
                     "key" => Value::string(key.to_string(), call.head),
                     "columns" => Value::int(df.as_ref().width() as i64, call.head),
@@ -41,7 +41,7 @@ impl PluginCommand for ListDF {
                 },
                 call.head,
             ))),
-            CacheValue::LazyFrame(lf) => {
+            PhysicalType::NuLazyFrame(lf) => {
                 let lf = lf.clone().collect(call.head)?;
                 Ok(Some(Value::record(
                     record! {

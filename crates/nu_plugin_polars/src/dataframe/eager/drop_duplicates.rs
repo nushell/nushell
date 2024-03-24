@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::PolarsPlugin;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -61,16 +61,17 @@ impl PluginCommand for DropDuplicates {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(engine, call, input).map_err(LabeledError::from)
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     input: PipelineData,
@@ -84,7 +85,7 @@ fn command(
         None => (None, call.head),
     };
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
@@ -106,7 +107,7 @@ fn command(
         })?;
 
     let df = NuDataFrame::new(false, polars_df);
-    let val = df.insert_cache(engine)?.into_value(call.head);
+    let val = df.cache(plugin, engine)?.into_value(call.head);
     Ok(PipelineData::Value(val, None))
 }
 

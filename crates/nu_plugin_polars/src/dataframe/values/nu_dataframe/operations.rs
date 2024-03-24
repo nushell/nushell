@@ -1,11 +1,13 @@
 use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
 use polars::prelude::{DataFrame, Series};
 
+use crate::{CustomValueSupport, PolarsPlugin};
+
 use super::between_values::{
     between_dataframes, compute_between_series, compute_series_single_value,
 };
 
-use super::{NuDataFrame, NuDataFrameCustomValue};
+use super::NuDataFrame;
 
 pub enum Axis {
     Row,
@@ -15,6 +17,7 @@ pub enum Axis {
 impl NuDataFrame {
     pub fn compute_with_value(
         &self,
+        plugin: &PolarsPlugin,
         lhs_span: Span,
         operator: Operator,
         op_span: Span,
@@ -22,15 +25,8 @@ impl NuDataFrame {
     ) -> Result<NuDataFrame, ShellError> {
         let rhs_span = right.span();
         match right {
-            Value::CustomValue { val: rhs, .. } => {
-                let rhs = rhs
-                    .as_any()
-                    .downcast_ref::<NuDataFrameCustomValue>()
-                    .ok_or_else(|| ShellError::DowncastNotPossible {
-                        msg: "Unable to create dataframe".to_string(),
-                        span: rhs_span,
-                    })?;
-                let rhs = Self::try_from(rhs)?;
+            Value::CustomValue { .. } => {
+                let rhs = NuDataFrame::try_from_value(plugin, right)?;
 
                 match (self.is_series(), rhs.is_series()) {
                     (true, true) => {

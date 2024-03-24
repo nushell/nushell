@@ -1,4 +1,4 @@
-use crate::PolarsPlugin;
+use crate::{CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -22,12 +22,12 @@ impl PluginCommand for ColumnsDF {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(call, input).map_err(|e| e.into())
+        command(plugin, call, input).map_err(|e| e.into())
     }
 }
 
@@ -41,8 +41,12 @@ fn examples() -> Vec<PluginExample> {
         )),
     }]
 }
-fn command(call: &EvaluatedCall, input: PipelineData) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+fn command(
+    plugin: &PolarsPlugin,
+    call: &EvaluatedCall,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let names: Vec<Value> = df
         .as_ref()

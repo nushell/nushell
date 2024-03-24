@@ -1,4 +1,6 @@
-use crate::{dataframe::values::NuSchema, values::NuLazyFrame, PolarsPlugin};
+use crate::{
+    dataframe::values::NuSchema, values::NuLazyFrame, Cacheable, CustomValueSupport, PolarsPlugin,
+};
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -79,12 +81,12 @@ impl PluginCommand for OpenDataFrame {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
         _input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, LabeledError> {
-        command(engine, call).map_err(|e| e.into())
+        command(plugin, engine, call).map_err(|e| e.into())
     }
 }
 
@@ -97,6 +99,7 @@ fn examples() -> Vec<PluginExample> {
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
@@ -117,12 +120,12 @@ fn command(
 
     match type_id {
         Some((e, msg, blamed)) => match e.as_str() {
-            "csv" | "tsv" => from_csv(engine, call),
-            "parquet" | "parq" => from_parquet(engine, call),
-            "ipc" | "arrow" => from_ipc(engine, call),
-            "json" => from_json(engine, call),
-            "jsonl" => from_jsonl(engine, call),
-            "avro" => from_avro(engine, call),
+            "csv" | "tsv" => from_csv(plugin, engine, call),
+            "parquet" | "parq" => from_parquet(plugin, engine, call),
+            "ipc" | "arrow" => from_ipc(plugin, engine, call),
+            "json" => from_json(plugin, engine, call),
+            "jsonl" => from_jsonl(plugin, engine, call),
+            "avro" => from_avro(plugin, engine, call),
             _ => Err(ShellError::FileNotFoundCustom {
                 msg: format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
                 span: blamed,
@@ -137,6 +140,7 @@ fn command(
 }
 
 fn from_parquet(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
@@ -164,7 +168,7 @@ fn from_parquet(
             })?
             .into();
 
-        df.insert_cache(engine)?.into_value(call.head)
+        Ok(df.cache(plugin, engine)?.into_value(call.head))
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -194,11 +198,12 @@ fn from_parquet(
             })?
             .into();
 
-        Ok(df.insert_cache(engine)?.into_value(call.head))
+        Ok(df.cache(plugin, engine)?.into_value(call.head))
     }
 }
 
 fn from_avro(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
@@ -230,10 +235,11 @@ fn from_avro(
         })?
         .into();
 
-    Ok(df.insert_cache(engine)?.into_value(call.head))
+    Ok(df.cache(plugin, engine)?.into_value(call.head))
 }
 
 fn from_ipc(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
@@ -257,7 +263,7 @@ fn from_ipc(
             })?
             .into();
 
-        df.insert_cache(engine)?.into_value(call.head)
+        Ok(df.cache(plugin, engine)?.into_value(call.head))
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -287,11 +293,12 @@ fn from_ipc(
             })?
             .into();
 
-        Ok(df.insert_cache(engine)?.into_value(call.head))
+        Ok(df.cache(plugin, engine)?.into_value(call.head))
     }
 }
 
 fn from_json(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
@@ -327,10 +334,11 @@ fn from_json(
         })?
         .into();
 
-    Ok(df.insert_cache(engine)?.into_value(call.head))
+    Ok(df.cache(plugin, engine)?.into_value(call.head))
 }
 
 fn from_jsonl(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
@@ -369,10 +377,11 @@ fn from_jsonl(
         })?
         .into();
 
-    Ok(df.insert_cache(engine)?.into_value(call.head))
+    Ok(df.cache(plugin, engine)?.into_value(call.head))
 }
 
 fn from_csv(
+    plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<Value, ShellError> {
@@ -440,7 +449,7 @@ fn from_csv(
             })?
             .into();
 
-        df.insert_cache(engine)?.into_value(call.head)
+        Ok(df.cache(plugin, engine)?.into_value(call.head))
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let csv_reader = CsvReader::from_path(&file.item)
@@ -507,6 +516,6 @@ fn from_csv(
             })?
             .into();
 
-        Ok(df.insert_cache(engine)?.into_value(call.head))
+        Ok(df.cache(plugin, engine)?.into_value(call.head))
     }
 }

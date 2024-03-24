@@ -1,12 +1,25 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::{ShellError, Span, Value};
-use polars::prelude::{col, when, ChainedThen, Then};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use nu_protocol::ShellError;
+use polars::prelude::{ChainedThen, Then};
+use serde::{Serialize, Serializer};
+use uuid::Uuid;
+
+use crate::{Cacheable, CustomValueSupport};
+
+pub use self::custom_value::NuWhenCustomValue;
+
+use super::PhysicalType;
+
+#[derive(Debug, Clone)]
+pub struct NuWhen {
+    pub id: Uuid,
+    pub when_type: NuWhenType,
+}
 
 #[derive(Clone)]
-pub enum NuWhen {
+pub enum NuWhenType {
     Then(Box<Then>),
     ChainedThen(ChainedThen),
 }
@@ -21,57 +34,67 @@ impl Serialize for NuWhen {
     }
 }
 
-// Mocked deserialization of the LazyFrame object
-impl<'de> Deserialize<'de> for NuWhen {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(NuWhen::Then(Box::new(when(col("a")).then(col("b")))))
-    }
-}
-
-impl fmt::Debug for NuWhen {
+impl fmt::Debug for NuWhenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NuWhen")
     }
 }
 
-impl From<Then> for NuWhen {
+impl From<Then> for NuWhenType {
     fn from(then: Then) -> Self {
-        NuWhen::Then(Box::new(then))
+        NuWhenType::Then(Box::new(then))
     }
 }
 
-impl From<ChainedThen> for NuWhen {
+impl From<ChainedThen> for NuWhenType {
     fn from(chained_when: ChainedThen) -> Self {
-        NuWhen::ChainedThen(chained_when)
+        NuWhenType::ChainedThen(chained_when)
     }
 }
 
 impl NuWhen {
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+    pub fn new(when_type: NuWhenType) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            when_type,
+        }
+    }
+}
+
+impl Cacheable for NuWhen {
+    fn cache_id(&self) -> &Uuid {
+        &self.id
     }
 
-    pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
-        let span = value.span();
-        match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
-                Some(expr) => Ok(expr.clone()),
-                None => Err(ShellError::CantConvert {
-                    to_type: "when expression".into(),
-                    from_type: "non when expression".into(),
-                    span,
-                    help: None,
-                }),
-            },
-            x => Err(ShellError::CantConvert {
-                to_type: "when expression".into(),
-                from_type: x.get_type().to_string(),
-                span: x.span(),
+    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
+        Ok(PhysicalType::NuWhen(self.clone()))
+    }
+
+    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+        match cv {
+            PhysicalType::NuWhen(when) => Ok(when),
+            _ => Err(ShellError::GenericError {
+                error: "Cache value is not a dataframe".into(),
+                msg: "".into(),
+                span: None,
                 help: None,
+                inner: vec![],
             }),
         }
+    }
+}
+
+impl CustomValueSupport for NuWhen {
+    type CV = NuWhenCustomValue;
+
+    fn custom_value(self) -> Self::CV {
+        NuWhenCustomValue {
+            id: self.id,
+            when: Some(self),
+        }
+    }
+
+    fn type_name() -> &'static str {
+        "NuWhen"
     }
 }

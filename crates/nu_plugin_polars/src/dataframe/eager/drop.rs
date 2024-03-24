@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::PolarsPlugin;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::utils::convert_columns;
 use super::super::values::{Column, NuDataFrame};
@@ -43,16 +43,17 @@ impl PluginCommand for DropDF {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(engine, call, input).map_err(LabeledError::from)
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     input: PipelineData,
@@ -60,7 +61,7 @@ fn command(
     let columns: Vec<Value> = call.rest(0)?;
     let (col_string, col_span) = convert_columns(columns, call.head)?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let new_df = col_string
         .first()
@@ -100,7 +101,7 @@ fn command(
     let final_df = NuDataFrame::new(df.from_lazy, polars_df);
 
     Ok(PipelineData::Value(
-        final_df.insert_cache(engine)?.into_value(call.head),
+        final_df.cache(plugin, engine)?.into_value(call.head),
         None,
     ))
 }

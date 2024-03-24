@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    PolarsPlugin,
+    Cacheable, CustomValueSupport, PolarsPlugin,
 };
 
 use super::super::values::NuLazyFrame;
@@ -48,14 +48,17 @@ impl PluginCommand for LazyCollect {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+        let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)?;
         let eager = lazy.collect(call.head)?;
-        let value = Value::custom_value(Box::new(eager.custom_value()), call.head);
+        let value = eager
+            .cache(plugin, engine)
+            .map_err(LabeledError::from)?
+            .into_value(call.head);
 
         Ok(PipelineData::Value(value, None))
     }

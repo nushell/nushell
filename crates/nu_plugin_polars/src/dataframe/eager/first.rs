@@ -1,10 +1,10 @@
-use crate::{values::Column, PolarsPlugin};
+use crate::{values::Column, Cacheable, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, CustomValue, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
-    Span, SyntaxShape, Type, Value,
+    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -45,9 +45,7 @@ impl PluginCommand for FirstDF {
                             None,
                         )
                         .expect("should not fail")
-                        .custom_value()
-                        .to_base_value(Span::test_data())
-                        .expect("rendering base value should not faile"),
+                        .into_value(Span::test_data()),
                     ),
                 },
                 PluginExample {
@@ -68,9 +66,7 @@ impl PluginCommand for FirstDF {
                             None,
                         )
                         .expect("should not fail")
-                        .custom_value()
-                        .to_base_value(Span::test_data())
-                        .expect("rendering base value should not faile"),
+                        .into_value(Span::test_data()),
                     ),
                 },
                 PluginExample {
@@ -83,21 +79,21 @@ impl PluginCommand for FirstDF {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
         if NuDataFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value(value)?;
-            command(engine, call, df).map_err(|e| e.into())
+            let df = NuDataFrame::try_from_value(plugin, &value)?;
+            command(plugin, engine, call, df).map_err(|e| e.into())
         } else {
-            let expr = NuExpression::try_from_value(value)?;
+            let expr = NuExpression::try_from_value(plugin, &value)?;
             let expr: NuExpression = expr.into_polars().first().into();
 
             Ok(PipelineData::Value(
-                NuExpression::into_value(expr, call.head),
+                expr.cache(plugin, engine)?.into_value(call.head),
                 None,
             ))
         }
@@ -105,6 +101,7 @@ impl PluginCommand for FirstDF {
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     df: NuDataFrame,
@@ -116,7 +113,7 @@ fn command(
     let res = NuDataFrame::new(false, res);
 
     Ok(PipelineData::Value(
-        res.insert_cache(engine)?.into_value(call.head),
+        res.cache(plugin, engine)?.into_value(call.head),
         None,
     ))
 }

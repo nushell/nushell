@@ -3230,7 +3230,6 @@ dependencies = [
  "chrono-tz",
  "fancy-regex",
  "indexmap",
- "lazy_static",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",

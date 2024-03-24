@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
-use crate::DataFrameCache;
+use crate::{CustomValueSupport, PolarsPlugin, PolarsPluginCustomValue};
 
 use super::NuExpression;
 use nu_protocol::{
@@ -20,33 +20,6 @@ pub struct NuExpressionCustomValue {
     pub expr: Option<NuExpression>,
 }
 
-impl TryFrom<&NuExpressionCustomValue> for NuExpression {
-    type Error = ShellError;
-
-    fn try_from(value: &NuExpressionCustomValue) -> Result<Self, Self::Error> {
-        if let Some(expr) = &value.expr {
-            Ok(expr.clone())
-        } else {
-            DataFrameCache::get_expr(&value.id)?.ok_or_else(|| ShellError::GenericError {
-                error: format!("Expression {:?} not found in cache", value.id),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
-        }
-    }
-}
-
-impl From<NuExpression> for NuExpressionCustomValue {
-    fn from(expr: NuExpression) -> Self {
-        Self {
-            id: expr.id,
-            expr: Some(expr),
-        }
-    }
-}
-
 // CustomValue implementation for NuDataFrame
 #[typetag::serde]
 impl CustomValue for NuExpressionCustomValue {
@@ -59,24 +32,12 @@ impl CustomValue for NuExpressionCustomValue {
         TYPE_NAME.into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let expr = NuExpression::try_from(self)?;
-        expr.to_value(span)
+    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+        panic!("NuExpressionCustomValue: custom_value_to_base_value should've been called")
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    fn operation(
-        &self,
-        lhs_span: Span,
-        operator: Operator,
-        op: Span,
-        right: &Value,
-    ) -> Result<Value, ShellError> {
-        let expr = NuExpression::try_from(self)?;
-        compute_with_value(&expr, lhs_span, operator, op, right)
     }
 
     fn notify_plugin_on_drop(&self) -> bool {
@@ -85,6 +46,7 @@ impl CustomValue for NuExpressionCustomValue {
 }
 
 fn compute_with_value(
+    plugin: &PolarsPlugin,
     left: &NuExpression,
     lhs_span: Span,
     operator: Operator,
@@ -112,7 +74,7 @@ fn compute_with_value(
             }
         }
         _ => {
-            let rhs = NuExpression::try_from_value(right.clone())?;
+            let rhs = NuExpression::try_from_value(plugin, right)?;
             with_operator(operator, left, &rhs, lhs_span, right.span(), op)
         }
     }
@@ -179,4 +141,44 @@ where
     let expr: NuExpression = f(left.as_ref().clone(), right.as_ref().clone()).into();
 
     Ok(expr.into_value(span))
+}
+
+impl PolarsPluginCustomValue for NuExpressionCustomValue {
+    type PhysicalType = NuExpression;
+
+    fn custom_value_operation(
+        &self,
+        plugin: &crate::PolarsPlugin,
+        _engine: &nu_plugin::EngineInterface,
+        lhs_span: Span,
+        operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
+        right: Value,
+    ) -> Result<Value, ShellError> {
+        let expr = NuExpression::try_from_custom_value(plugin, self)?;
+        compute_with_value(
+            plugin,
+            &expr,
+            lhs_span,
+            operator.item,
+            operator.span,
+            &right,
+        )
+    }
+
+    fn custom_value_to_base_value(
+        &self,
+        plugin: &crate::PolarsPlugin,
+        _engine: &nu_plugin::EngineInterface,
+    ) -> Result<Value, ShellError> {
+        let expr = NuExpression::try_from_custom_value(plugin, self)?;
+        expr.to_value(Span::unknown())
+    }
+
+    fn id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn internal(&self) -> &Option<Self::PhysicalType> {
+        &self.expr
+    }
 }

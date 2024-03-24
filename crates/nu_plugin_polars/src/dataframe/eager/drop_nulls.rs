@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::PolarsPlugin;
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -85,21 +85,22 @@ impl PluginCommand for DropNulls {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(engine, call, input).map_err(LabeledError::from)
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let columns: Option<Vec<Value>> = call.opt(0)?;
 
@@ -125,7 +126,7 @@ fn command(
         })?;
     let df = NuDataFrame::new(false, polars_df);
     Ok(PipelineData::Value(
-        df.insert_cache(engine)?.into_value(call.head),
+        df.cache(plugin, engine)?.into_value(call.head),
         None,
     ))
 }

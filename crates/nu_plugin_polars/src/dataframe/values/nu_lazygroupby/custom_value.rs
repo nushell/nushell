@@ -1,4 +1,4 @@
-use crate::DataFrameCache;
+use crate::PolarsPluginCustomValue;
 
 use super::NuLazyGroupBy;
 use nu_protocol::{record, CustomValue, ShellError, Span, Value};
@@ -9,33 +9,6 @@ use uuid::Uuid;
 pub struct NuLazyGroupByCustomValue {
     pub id: Uuid,
     pub groupby: Option<NuLazyGroupBy>,
-}
-
-impl TryFrom<&NuLazyGroupByCustomValue> for NuLazyGroupBy {
-    type Error = ShellError;
-
-    fn try_from(value: &NuLazyGroupByCustomValue) -> Result<Self, Self::Error> {
-        if let Some(gb) = &value.groupby {
-            Ok(gb.clone())
-        } else {
-            DataFrameCache::get_group_by(&value.id)?.ok_or_else(|| ShellError::GenericError {
-                error: format!("GroupBy {:?} not found in cache", value.id),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
-        }
-    }
-}
-
-impl From<NuLazyGroupBy> for NuLazyGroupByCustomValue {
-    fn from(gb: NuLazyGroupBy) -> Self {
-        Self {
-            id: gb.id,
-            groupby: Some(gb),
-        }
-    }
 }
 
 #[typetag::serde]
@@ -63,5 +36,30 @@ impl CustomValue for NuLazyGroupByCustomValue {
 
     fn notify_plugin_on_drop(&self) -> bool {
         true
+    }
+}
+
+impl PolarsPluginCustomValue for NuLazyGroupByCustomValue {
+    type PhysicalType = NuLazyGroupBy;
+
+    fn custom_value_to_base_value(
+        &self,
+        _plugin: &crate::PolarsPlugin,
+        _engine: &nu_plugin::EngineInterface,
+    ) -> Result<Value, ShellError> {
+        Ok(Value::record(
+            record! {
+                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", Span::unknown())
+            },
+            Span::unknown(),
+        ))
+    }
+
+    fn id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn internal(&self) -> &Option<Self::PhysicalType> {
+        &self.groupby
     }
 }

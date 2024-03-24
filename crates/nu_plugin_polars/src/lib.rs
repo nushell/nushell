@@ -1,14 +1,15 @@
+pub use cache::{Cache, Cacheable};
 use dataframe::values::{
-    NuDataFrame, NuDataFrameCustomValue, NuExpression, NuLazyFrame, NuLazyFrameCustomValue,
-    NuLazyGroupBy,
+    CustomValueType, NuDataFrameCustomValue, NuLazyFrameCustomValue, NuLazyGroupBy,
 };
-use lazy_static::lazy_static;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
+mod cache;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
-use std::{collections::BTreeMap, sync::Mutex};
+use nu_protocol::{
+    ast::Operator, CustomValue, LabeledError, PipelineData, ShellError, Span, Spanned, Value,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -23,180 +24,10 @@ use crate::{
     lazy::{LazyAggregate, LazyCache, LazyCollect, LazyMedian, LazyReverse},
 };
 
-lazy_static! {
-    static ref CACHE: Mutex<BTreeMap<Uuid, CacheValue>> = Mutex::new(BTreeMap::new());
+#[derive(Default)]
+pub struct PolarsPlugin {
+    pub(crate) cache: Cache,
 }
-
-#[derive(Debug, Clone)]
-pub(crate) enum CacheValue {
-    DataFrame(NuDataFrame),
-    LazyFrame(NuLazyFrame),
-    LazyGroupBy(NuLazyGroupBy),
-    Expression(NuExpression),
-}
-
-pub(crate) struct DataFrameCache;
-
-impl DataFrameCache {
-    pub(crate) fn remove(
-        engine: &EngineInterface,
-        uuid: &Uuid,
-    ) -> Result<Option<CacheValue>, ShellError> {
-        let mut lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
-            error: format!("error removing id {uuid} from cache: {e}"),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-        let removed = lock.remove(uuid);
-        // Once there are no more entries in the cache
-        // we can turn plugin gc back on
-        if lock.is_empty() {
-            engine.set_gc_disabled(false).map_err(LabeledError::from)?;
-        }
-        Ok(removed)
-    }
-
-    fn insert(
-        engine: &EngineInterface,
-        uuid: Uuid,
-        value: CacheValue,
-    ) -> Result<Option<CacheValue>, ShellError> {
-        let mut lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
-            error: format!("error inserting id {uuid} into cache: {e}"),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-        // turn off plugin gc the first time an entry is added to the cache
-        // as we don't want the plugin to be garbage collected if there
-        // is any live data
-        if lock.is_empty() {
-            engine.set_gc_disabled(true).map_err(LabeledError::from)?;
-        }
-        Ok(lock.insert(uuid, value))
-    }
-
-    fn get(uuid: &Uuid) -> Result<Option<CacheValue>, ShellError> {
-        let lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
-            error: format!("error getting id {uuid} from cache: {e}"),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-        Ok(lock.get(uuid).cloned())
-    }
-
-    pub(crate) fn process_entries<F, T>(mut func: F) -> Result<Vec<T>, ShellError>
-    where
-        F: FnMut((&Uuid, &CacheValue)) -> Result<T, ShellError>,
-    {
-        let lock = CACHE.try_lock().map_err(|e| ShellError::GenericError {
-            error: format!("error getting entries from cache: {e}"),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-
-        let mut vals: Vec<T> = Vec::new();
-        for entry in lock.iter() {
-            let val = func(entry)?;
-            vals.push(val);
-        }
-        Ok(vals)
-    }
-
-    pub(crate) fn insert_df(engine: &EngineInterface, df: NuDataFrame) -> Result<(), ShellError> {
-        eprintln!("Adding dataframe to cache: {:?}", df.id);
-        Self::insert(engine, df.id, CacheValue::DataFrame(df)).map(|_| ())
-    }
-
-    pub(crate) fn get_df(uuid: &Uuid) -> Result<Option<NuDataFrame>, ShellError> {
-        Self::get(uuid).and_then(|get| match get {
-            Some(CacheValue::DataFrame(df)) => Ok(Some(df)),
-            v @ Some(_) => Err(ShellError::GenericError {
-                error: format!("Cache key {uuid} is not a NuDataFrame: {v:?}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
-            _ => Ok(None),
-        })
-    }
-
-    pub(crate) fn insert_lazy(
-        engine: &EngineInterface,
-        lazy: NuLazyFrame,
-    ) -> Result<(), ShellError> {
-        eprintln!("Adding lazy dataframe to cache: {:?}", lazy.id);
-        Self::insert(engine, lazy.id, CacheValue::LazyFrame(lazy)).map(|_| ())
-    }
-
-    pub(crate) fn get_lazy(uuid: &Uuid) -> Result<Option<NuLazyFrame>, ShellError> {
-        Self::get(uuid).and_then(|get| match get {
-            Some(CacheValue::LazyFrame(df)) => Ok(Some(df)),
-            v @ Some(_) => Err(ShellError::GenericError {
-                error: format!("Cache key {uuid} is not a NuLazyFrame: {v:?}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
-            _ => Ok(None),
-        })
-    }
-
-    pub(crate) fn insert_group_by(
-        engine: &EngineInterface,
-        group_by: NuLazyGroupBy,
-    ) -> Result<(), ShellError> {
-        eprintln!("Adding lazy groupby to cache: {:?}", group_by.id);
-        Self::insert(engine, group_by.id, CacheValue::LazyGroupBy(group_by)).map(|_| ())
-    }
-
-    pub(crate) fn get_group_by(uuid: &Uuid) -> Result<Option<NuLazyGroupBy>, ShellError> {
-        Self::get(uuid).and_then(|get| match get {
-            Some(CacheValue::LazyGroupBy(group_by)) => Ok(Some(group_by)),
-            v @ Some(_) => Err(ShellError::GenericError {
-                error: format!("Cache value {uuid} - {v:?} is not a LazyGroupBy"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
-            _ => Ok(None),
-        })
-    }
-
-    pub(crate) fn insert_expr(
-        engine: &EngineInterface,
-        expr: NuExpression,
-    ) -> Result<(), ShellError> {
-        eprintln!("Adding expr to cache: {:?}", expr.id);
-        Self::insert(engine, expr.id, CacheValue::Expression(expr)).map(|_| ())
-    }
-
-    pub(crate) fn get_expr(uuid: &Uuid) -> Result<Option<NuExpression>, ShellError> {
-        Self::get(uuid).and_then(|get| match get {
-            Some(CacheValue::Expression(expr)) => Ok(Some(expr)),
-            v @ Some(_) => Err(ShellError::GenericError {
-                error: format!("Cache value {uuid} - {v:?} is not a LazyGroupBy"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
-            _ => Ok(None),
-        })
-    }
-}
-
-pub struct PolarsPlugin;
 
 impl Plugin for PolarsPlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
@@ -258,11 +89,37 @@ impl Plugin for PolarsPlugin {
         };
 
         if let Some(ref id) = maybe_id {
-            let _ = DataFrameCache::remove(engine, id)
+            let _ = self
+                .cache
+                .remove(engine, id)
                 .map_err(|e: ShellError| LabeledError::from(e))?;
         }
 
         Ok(())
+    }
+
+    fn custom_value_to_base_value(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+    ) -> Result<Value, LabeledError> {
+        match CustomValueType::try_from_custom_value(custom_value.item)? {
+            CustomValueType::NuDataFrame(cv) => cv
+                .custom_value_to_base_value(self, engine)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyFrame(cv) => cv
+                .custom_value_to_base_value(self, engine)
+                .map_err(LabeledError::from),
+            CustomValueType::NuExpression(cv) => cv
+                .custom_value_to_base_value(self, engine)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyGroupBy(cv) => cv
+                .custom_value_to_base_value(self, engine)
+                .map_err(LabeledError::from),
+            CustomValueType::NuWhen(cv) => cv
+                .custom_value_to_base_value(self, engine)
+                .map_err(LabeledError::from),
+        }
     }
 
     fn custom_value_operation(
@@ -272,27 +129,116 @@ impl Plugin for PolarsPlugin {
         operator: Spanned<Operator>,
         right: Value,
     ) -> Result<Value, LabeledError> {
-        let any = left.item.as_any();
-
-        if let Some(df_cv) = any.downcast_ref::<NuDataFrameCustomValue>() {
-            df_cv
+        match CustomValueType::try_from_custom_value(left.item)? {
+            CustomValueType::NuDataFrame(cv) => cv
                 .custom_value_operation(self, engine, left.span, operator, right)
-                .map_err(LabeledError::from)
-        } else {
-            left.item
-                .operation(left.span, operator.item, operator.span, &right)
-                .map_err(LabeledError::from)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyFrame(cv) => cv
+                .custom_value_operation(self, engine, left.span, operator, right)
+                .map_err(LabeledError::from),
+
+            CustomValueType::NuExpression(cv) => cv
+                .custom_value_operation(self, engine, left.span, operator, right)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyGroupBy(cv) => cv
+                .custom_value_operation(self, engine, left.span, operator, right)
+                .map_err(LabeledError::from),
+            CustomValueType::NuWhen(cv) => cv
+                .custom_value_operation(self, engine, left.span, operator, right)
+                .map_err(LabeledError::from),
         }
     }
 }
 
 pub trait PolarsPluginCustomValue {
+    type PhysicalType: Clone;
+
+    fn id(&self) -> &Uuid;
+
+    fn internal(&self) -> &Option<Self::PhysicalType>;
+
     fn custom_value_operation(
+        &self,
+        _plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        _lhs_span: Span,
+        operator: Spanned<Operator>,
+        _right: Value,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::UnsupportedOperator {
+            operator: operator.item,
+            span: operator.span,
+        })
+    }
+
+    fn custom_value_to_base_value(
         &self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
-        lhs_span: Span,
-        operator: Spanned<Operator>,
-        right: Value,
     ) -> Result<Value, ShellError>;
+}
+
+pub trait CustomValueSupport: Cacheable {
+    type CV: PolarsPluginCustomValue<PhysicalType = Self> + CustomValue + 'static;
+
+    fn type_name() -> &'static str;
+
+    fn custom_value(self) -> Self::CV;
+
+    fn into_value(self, span: Span) -> Value {
+        Value::custom_value(Box::new(self.custom_value()), span)
+    }
+
+    fn try_from_custom_value(plugin: &PolarsPlugin, cv: &Self::CV) -> Result<Self, ShellError> {
+        if let Some(internal) = cv.internal() {
+            Ok(internal.clone())
+        } else {
+            Self::get_cached(plugin, cv.id())?.ok_or_else(|| ShellError::GenericError {
+                error: format!("Dataframe {:?} not found in cache", cv.id()),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+        }
+    }
+
+    fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
+        if let Value::CustomValue { val, .. } = value {
+            if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                Self::try_from_custom_value(plugin, cv)
+            } else {
+                Err(ShellError::CantConvert {
+                    to_type: Self::type_name().into(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                })
+            }
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: Self::type_name().into(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            })
+        }
+    }
+
+    fn try_from_pipeline(
+        plugin: &PolarsPlugin,
+        input: PipelineData,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(plugin, &value)
+    }
+
+    fn can_downcast(value: &Value) -> bool {
+        if let Value::CustomValue { val, .. } = value {
+            val.as_any().downcast_ref::<Self::CV>().is_some()
+        } else {
+            false
+        }
+    }
 }
