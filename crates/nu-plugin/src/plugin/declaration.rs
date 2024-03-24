@@ -1,4 +1,4 @@
-use super::{PersistentPlugin, PluginExecutionCommandContext, PluginSource};
+use super::{GetPlugin, PluginExecutionCommandContext, PluginSource};
 use crate::protocol::{CallInfo, EvaluatedCall};
 use std::sync::Arc;
 
@@ -6,7 +6,7 @@ use nu_engine::get_eval_expression;
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
-use nu_protocol::{Example, PipelineData, PluginIdentity, RegisteredPlugin, ShellError};
+use nu_protocol::{Example, PipelineData, PluginIdentity, ShellError};
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
@@ -17,7 +17,7 @@ pub struct PluginDeclaration {
 }
 
 impl PluginDeclaration {
-    pub fn new(plugin: &Arc<PersistentPlugin>, signature: PluginSignature) -> Self {
+    pub fn new(plugin: Arc<dyn GetPlugin>, signature: PluginSignature) -> Self {
         Self {
             name: signature.sig.name.clone(),
             signature,
@@ -88,13 +88,7 @@ impl Command for PluginDeclaration {
             .and_then(|p| {
                 // Set the garbage collector config from the local config before running
                 p.set_gc_config(engine_config.plugin_gc.get(p.identity().name()));
-                p.get(|| {
-                    // We need the current environment variables for `python` based plugins. Or
-                    // we'll likely have a problem when a plugin is implemented in a virtual Python
-                    // environment.
-                    let stack = &mut stack.start_capture();
-                    nu_engine::env::env_to_strings(engine_state, stack)
-                })
+                p.get_plugin(Some((engine_state, stack)))
             })
             .map_err(|err| {
                 let decl = engine_state.get_decl(call.decl_id);

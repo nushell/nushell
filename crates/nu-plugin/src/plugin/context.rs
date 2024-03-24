@@ -4,7 +4,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use nu_engine::get_eval_block_with_early_return;
+use nu_engine::{get_eval_block_with_early_return, get_full_help};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
@@ -14,7 +14,10 @@ use nu_protocol::{
 use crate::util::MutableCow;
 
 /// Object safe trait for abstracting operations required of the plugin context.
-pub(crate) trait PluginExecutionContext: Send + Sync {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginExecutionContext: Send + Sync {
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
     /// Get engine configuration
@@ -29,6 +32,8 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError>;
     /// Set an environment variable
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
+    /// Get help for the current command
+    fn get_help(&self) -> Result<Spanned<String>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -43,7 +48,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
 }
 
 /// The execution context of a plugin command. Can be borrowed.
-pub(crate) struct PluginExecutionCommandContext<'a> {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
@@ -129,6 +137,19 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError> {
         self.stack.add_env_var(name, value);
         Ok(())
+    }
+
+    fn get_help(&self) -> Result<Spanned<String>, ShellError> {
+        let decl = self.engine_state.get_decl(self.call.decl_id);
+
+        Ok(get_full_help(
+            &decl.signature(),
+            &decl.examples(),
+            &self.engine_state,
+            &mut self.stack.clone(),
+            false,
+        )
+        .into_spanned(self.call.head))
     }
 
     fn eval_closure(
@@ -243,6 +264,12 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     fn add_env_var(&mut self, _name: String, _value: Value) -> Result<(), ShellError> {
         Err(ShellError::NushellFailed {
             msg: "add_env_var not implemented on bogus".into(),
+        })
+    }
+
+    fn get_help(&self) -> Result<Spanned<String>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_help not implemented on bogus".into(),
         })
     }
 

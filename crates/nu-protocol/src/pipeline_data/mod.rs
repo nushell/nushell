@@ -876,7 +876,7 @@ impl PipelineData {
 
     /// Consume and print self data immediately.
     ///
-    /// Unlike [print] does not call `table` to format data and just prints it
+    /// Unlike [`.print()`] does not call `table` to format data and just prints it
     /// one element on a line
     /// * `no_newline` controls if we need to attach newline character to output.
     /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.

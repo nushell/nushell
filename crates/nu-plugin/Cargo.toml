@@ -16,15 +16,16 @@ nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 bincode = "1.3"
 rmp-serde = "1.1"
-serde = "1.0"
+serde = { workspace = true }
 serde_json = { workspace = true }
 log = "0.4"
 miette = { workspace = true }
 semver = "1.0"
 typetag = "0.2"
+thiserror = "1.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.52", features = [
+windows = { workspace = true, features = [
   # For setting process creation flags
   "Win32_System_Threading",
 ] }

@@ -104,8 +104,11 @@ struct PluginCallState {
 }
 
 /// Manages reading and dispatching messages for [`PluginInterface`]s.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) struct PluginInterfaceManager {
+#[doc(hidden)]
+pub struct PluginInterfaceManager {
     /// Shared state
     state: Arc<PluginInterfaceState>,
     /// Manages stream messages and state
@@ -125,7 +128,7 @@ pub(crate) struct PluginInterfaceManager {
 }
 
 impl PluginInterfaceManager {
-    pub(crate) fn new(
+    pub fn new(
         source: Arc<PluginSource>,
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
@@ -152,7 +155,7 @@ impl PluginInterfaceManager {
     /// Add a garbage collector to this plugin. The manager will notify the garbage collector about
     /// the state of the plugin so that it can be automatically cleaned up if the plugin is
     /// inactive.
-    pub(crate) fn set_garbage_collector(&mut self, gc: Option<PluginGc>) {
+    pub fn set_garbage_collector(&mut self, gc: Option<PluginGc>) {
         self.gc = gc;
     }
 
@@ -359,14 +362,14 @@ impl PluginInterfaceManager {
 
     /// True if there are no other copies of the state (which would mean there are no interfaces
     /// and no stream readers/writers)
-    pub(crate) fn is_finished(&self) -> bool {
+    pub fn is_finished(&self) -> bool {
         Arc::strong_count(&self.state) < 2
     }
 
     /// Loop on input from the given reader as long as `is_finished()` is false
     ///
     /// Any errors will be propagated to all read streams automatically.
-    pub(crate) fn consume_all(
+    pub fn consume_all(
         &mut self,
         mut reader: impl PluginRead<PluginOutput>,
     ) -> Result<(), ShellError> {
@@ -545,8 +548,11 @@ impl InterfaceManager for PluginInterfaceManager {
 }
 
 /// A reference through which a plugin can be interacted with during execution.
+///
+/// This is not a public API.
 #[derive(Debug, Clone)]
-pub(crate) struct PluginInterface {
+#[doc(hidden)]
+pub struct PluginInterface {
     /// Shared state
     state: Arc<PluginInterfaceState>,
     /// Handle to stream manager
@@ -557,7 +563,7 @@ pub(crate) struct PluginInterface {
 
 impl PluginInterface {
     /// Write the protocol info. This should be done after initialization
-    pub(crate) fn hello(&self) -> Result<(), ShellError> {
+    pub fn hello(&self) -> Result<(), ShellError> {
         self.write(PluginInput::Hello(ProtocolInfo::default()))?;
         self.flush()
     }
@@ -567,14 +573,14 @@ impl PluginInterface {
     ///
     /// Note that this is automatically called when the last existing `PluginInterface` is dropped.
     /// You probably do not need to call this manually.
-    pub(crate) fn goodbye(&self) -> Result<(), ShellError> {
+    pub fn goodbye(&self) -> Result<(), ShellError> {
         self.write(PluginInput::Goodbye)?;
         self.flush()
     }
 
     /// Write an [`EngineCallResponse`]. Writes the full stream contained in any [`PipelineData`]
     /// before returning.
-    pub(crate) fn write_engine_call_response(
+    pub fn write_engine_call_response(
         &self,
         id: EngineCallId,
         response: EngineCallResponse<PipelineData>,
@@ -782,7 +788,7 @@ impl PluginInterface {
     }
 
     /// Get the command signatures from the plugin.
-    pub(crate) fn get_signature(&self) -> Result<Vec<PluginSignature>, ShellError> {
+    pub fn get_signature(&self) -> Result<Vec<PluginSignature>, ShellError> {
         match self.plugin_call(PluginCall::Signature, None)? {
             PluginCallResponse::Signature(sigs) => Ok(sigs),
             PluginCallResponse::Error(err) => Err(err.into()),
@@ -793,7 +799,7 @@ impl PluginInterface {
     }
 
     /// Run the plugin with the given call and execution context.
-    pub(crate) fn run(
+    pub fn run(
         &self,
         call: CallInfo<PipelineData>,
         context: &mut dyn PluginExecutionContext,
@@ -826,7 +832,7 @@ impl PluginInterface {
     }
 
     /// Collapse a custom value to its base value.
-    pub(crate) fn custom_value_to_base_value(
+    pub fn custom_value_to_base_value(
         &self,
         value: Spanned<PluginCustomValue>,
     ) -> Result<Value, ShellError> {
@@ -834,7 +840,7 @@ impl PluginInterface {
     }
 
     /// Follow a numbered cell path on a custom value - e.g. `value.0`.
-    pub(crate) fn custom_value_follow_path_int(
+    pub fn custom_value_follow_path_int(
         &self,
         value: Spanned<PluginCustomValue>,
         index: Spanned<usize>,
@@ -843,7 +849,7 @@ impl PluginInterface {
     }
 
     /// Follow a named cell path on a custom value - e.g. `value.column`.
-    pub(crate) fn custom_value_follow_path_string(
+    pub fn custom_value_follow_path_string(
         &self,
         value: Spanned<PluginCustomValue>,
         column_name: Spanned<String>,
@@ -852,7 +858,7 @@ impl PluginInterface {
     }
 
     /// Invoke comparison logic for custom values.
-    pub(crate) fn custom_value_partial_cmp(
+    pub fn custom_value_partial_cmp(
         &self,
         value: PluginCustomValue,
         mut other_value: Value,
@@ -874,7 +880,7 @@ impl PluginInterface {
     }
 
     /// Invoke functionality for an operator on a custom value.
-    pub(crate) fn custom_value_operation(
+    pub fn custom_value_operation(
         &self,
         left: Spanned<PluginCustomValue>,
         operator: Spanned<Operator>,
@@ -885,7 +891,7 @@ impl PluginInterface {
     }
 
     /// Notify the plugin about a dropped custom value.
-    pub(crate) fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
+    pub fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
         self.custom_value_op_expecting_value(
@@ -1011,6 +1017,12 @@ pub(crate) fn handle_engine_call(
         EngineCall::AddEnvVar(name, value) => {
             context.add_env_var(name, value)?;
             Ok(EngineCallResponse::empty())
+        }
+        EngineCall::GetHelp => {
+            let help = context.get_help()?;
+            Ok(EngineCallResponse::value(Value::string(
+                help.item, help.span,
+            )))
         }
         EngineCall::EvalClosure {
             closure,

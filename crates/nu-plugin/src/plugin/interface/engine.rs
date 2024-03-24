@@ -30,8 +30,11 @@ use crate::sequence::Sequence;
 /// With each call, an [`EngineInterface`] is included that can be provided to the plugin code
 /// and should be used to send the response. The interface sent includes the [`PluginCallId`] for
 /// sending associated messages with the correct context.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) enum ReceivedPluginCall {
+#[doc(hidden)]
+pub enum ReceivedPluginCall {
     Signature {
         engine: EngineInterface,
     },
@@ -76,8 +79,11 @@ impl std::fmt::Debug for EngineInterfaceState {
 }
 
 /// Manages reading and dispatching messages for [`EngineInterface`]s.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) struct EngineInterfaceManager {
+#[doc(hidden)]
+pub struct EngineInterfaceManager {
     /// Shared state
     state: Arc<EngineInterfaceState>,
     /// Channel to send received PluginCalls to. This is removed after `Goodbye` is received.
@@ -626,6 +632,31 @@ impl EngineInterface {
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::AddEnvVar".into(),
+            }),
+        }
+    }
+
+    /// Get the help string for the current command.
+    ///
+    /// This returns the same string as passing `--help` would, and can be used for the top-level
+    /// command in a command group that doesn't do anything on its own (e.g. `query`).
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface) -> Result<(), ShellError> {
+    /// eprintln!("{}", engine.get_help()?);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_help(&self) -> Result<String, ShellError> {
+        match self.engine_call(EngineCall::GetHelp)? {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+                Ok(val)
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetHelp".into(),
             }),
         }
     }

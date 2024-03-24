@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nu_protocol::{PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
+};
 
 use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
 
@@ -81,6 +84,9 @@ impl PersistentPlugin {
             //
             // We hold the lock the whole time to prevent others from trying to spawn and ending
             // up with duplicate plugins
+            //
+            // TODO: We should probably store the envs somewhere, in case we have to launch without
+            // envs (e.g. from a custom value)
             let new_running = self.clone().spawn(envs()?, &mutable.gc_config)?;
             let interface = new_running.interface.clone();
             mutable.running = Some(new_running);
@@ -126,7 +132,7 @@ impl PersistentPlugin {
 
         let pid = child.id();
         let interface =
-            make_plugin_interface(child, Arc::new(PluginSource::new(&self)), Some(gc.clone()))?;
+            make_plugin_interface(child, Arc::new(PluginSource::new(self)), Some(gc.clone()))?;
 
         Ok(RunningPlugin { pid, interface, gc })
     }
@@ -191,5 +197,40 @@ impl RegisteredPlugin for PersistentPlugin {
 
     fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {
         self
+    }
+}
+
+/// Anything that can produce a plugin interface.
+///
+/// This is not a public interface.
+#[doc(hidden)]
+pub trait GetPlugin: RegisteredPlugin {
+    /// Retrieve or spawn a [`PluginInterface`]. The `context` may be used for determining
+    /// environment variables to launch the plugin with.
+    fn get_plugin(
+        self: Arc<Self>,
+        context: Option<(&EngineState, &mut Stack)>,
+    ) -> Result<PluginInterface, ShellError>;
+}
+
+impl GetPlugin for PersistentPlugin {
+    fn get_plugin(
+        self: Arc<Self>,
+        context: Option<(&EngineState, &mut Stack)>,
+    ) -> Result<PluginInterface, ShellError> {
+        self.get(|| {
+            // Get envs from the context if provided.
+            let envs = context
+                .map(|(engine_state, stack)| {
+                    // We need the current environment variables for `python` based plugins. Or
+                    // we'll likely have a problem when a plugin is implemented in a virtual Python
+                    // environment.
+                    let stack = &mut stack.start_capture();
+                    nu_engine::env::env_to_strings(engine_state, stack)
+                })
+                .transpose()?;
+
+            Ok(envs.into_iter().flatten())
+        })
     }
 }

@@ -10,8 +10,8 @@
 //! over stdin and stdout using a standardizes serialization framework to exchange
 //! the typed data that Nushell commands utilize natively.
 //!
-//! A typical plugin application will define a struct that implements the [Plugin]
-//! trait and then, in it's main method, pass that [Plugin] to the [serve_plugin]
+//! A typical plugin application will define a struct that implements the [`Plugin`]
+//! trait and then, in its main method, pass that [`Plugin`] to the [`serve_plugin()`]
 //! function, which will handle all of the input and output serialization when
 //! invoked by Nushell.
 //!
@@ -62,14 +62,21 @@ mod serializers;
 mod util;
 
 pub use plugin::{
-    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
+    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, PluginRead, PluginWrite,
+    SimplePluginCommand,
 };
 pub use protocol::EvaluatedCall;
 pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 // Used by other nu crates.
 #[doc(hidden)]
-pub use plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+pub use plugin::{
+    get_signature, serve_plugin_io, EngineInterfaceManager, GetPlugin, Interface, InterfaceManager,
+    PersistentPlugin, PluginDeclaration, PluginExecutionCommandContext, PluginExecutionContext,
+    PluginInterface, PluginInterfaceManager, PluginSource, ServePluginError,
+};
+#[doc(hidden)]
+pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
 #[doc(hidden)]
 pub use serializers::EncodingType;
 
@@ -77,4 +84,4 @@ pub use serializers::EncodingType;
 #[doc(hidden)]
 pub use plugin::Encoder;
 #[doc(hidden)]
-pub use protocol::{PluginCallResponse, PluginOutput};
+pub use protocol::PluginCallResponse;

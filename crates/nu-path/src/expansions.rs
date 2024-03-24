@@ -38,7 +38,7 @@ fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
 /// absolute form.
 ///
 /// Fails under the same conditions as
-/// [std::fs::canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
+/// [`std::fs::canonicalize`](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
 /// The input path is specified relative to another path
 pub fn canonicalize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
 where

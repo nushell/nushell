@@ -754,9 +754,9 @@ impl Value {
         }
     }
 
-    /// Update the value with a new span
-    pub fn with_span(mut self, new_span: Span) -> Value {
-        match &mut self {
+    /// Set the value's span to a new span
+    pub fn set_span(&mut self, new_span: Span) {
+        match self {
             Value::Bool { internal_span, .. }
             | Value::Int { internal_span, .. }
             | Value::Float { internal_span, .. }
@@ -777,7 +777,11 @@ impl Value {
             | Value::CustomValue { internal_span, .. } => *internal_span = new_span,
             Value::Error { .. } => (),
         }
+    }
 
+    /// Update the value with a new span
+    pub fn with_span(mut self, new_span: Span) -> Value {
+        self.set_span(new_span);
         self
     }
 

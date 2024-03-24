@@ -19,13 +19,13 @@ nu-system = { path = "../nu-system", version = "0.91.1" }
 
 byte-unit = { version = "5.1", features = [ "serde" ] }
 chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
-chrono-humanize = "0.2"
+chrono-humanize = { workspace = true }
 fancy-regex = { workspace = true }
-indexmap = "2.2"
-lru = "0.12"
+indexmap = { workspace = true }
+lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
-num-format = "0.4"
-serde = { version = "1.0", default-features = false }
+num-format = { workspace = true }
+serde = { workspace = true, default-features = false }
 serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"

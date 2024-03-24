@@ -16,6 +16,6 @@ nu-path = { path = "../nu-path", version = "0.91.1" }
 nu-glob = { path = "../nu-glob", version = "0.91.1" }
 nu-utils = { path = "../nu-utils", version = "0.91.1" }
 
-num-format = "0.4"
+num-format = { workspace = true }
 which = { workspace = true }
 tempfile = { workspace = true }

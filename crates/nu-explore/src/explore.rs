@@ -13,7 +13,7 @@ use nu_protocol::{
 };
 use std::collections::HashMap;
 
-/// A `less` like program to render a [Value] as a table.
+/// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
 pub struct Explore;
 

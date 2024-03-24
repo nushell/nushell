@@ -4,7 +4,7 @@ use nu_protocol::ShellError;
 
 /// Implements an atomically incrementing sequential series of numbers
 #[derive(Debug, Default)]
-pub(crate) struct Sequence(AtomicUsize);
+pub struct Sequence(AtomicUsize);
 
 impl Sequence {
     /// Return the next available id from a sequence, returning an error on overflow
