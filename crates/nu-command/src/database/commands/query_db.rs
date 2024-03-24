@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 use crate::database::values::sqlite::nu_value_to_params;
@@ -49,13 +49,19 @@ impl Command for QueryDb {
             },
             Example {
                 description: "Execute a SQL statement with parameters",
-                example: r#"stor open | query db "INSERT INTO my_table VALUES (?, ?)" -p [hello 123]"#,
+                example: r#"stor create -t my_table -c { first: str, second: int }
+stor open | query db "INSERT INTO my_table VALUES (?, ?)" -p [hello 123]"#,
                 result: None,
             },
             Example {
                 description: "Execute a SQL statement with named parameters",
-                example: r#"stor open | query db "INSERT INTO my_table VALUES (:first, :second)" -p { first: "hello", second: 123 }"#,
-                result: None,
+                example: r#"stor create -t my_table -c { first: str, second: int }
+stor insert -t my_table -d { first: 'hello', second: '123' }
+stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p { search_second: 123 }"#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "first" => Value::test_string("hello"),
+                    "second" => Value::test_int(123)
+                })])),
             },
         ]
     }
@@ -81,5 +87,20 @@ impl Command for QueryDb {
         let db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
         db.query(&sql, params, call.head)
             .map(IntoPipelineData::into_pipeline_data)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{StorCreate, StorInsert, StorOpen};
+
+    use super::*;
+
+    #[ignore = "stor db does not persist changes between pipelines"]
+    #[test]
+    fn test_examples() {
+        use crate::test_examples_with_commands;
+
+        test_examples_with_commands(QueryDb {}, &[&StorOpen, &StorCreate, &StorInsert])
     }
 }
