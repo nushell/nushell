@@ -1,3 +1,5 @@
+use nu_protocol::IntoPipelineData;
+use std::io::Cursor;
 use std::iter::Peekable;
 use std::str::CharIndices;
 
@@ -36,6 +38,11 @@ impl Command for DetectColumns {
                 "columns to be combined; listed as a range",
                 Some('c'),
             )
+            .switch(
+                "guess",
+                "apply guess width algorithm to detect column",
+                None,
+            )
             .category(Category::Strings)
     }
 
@@ -54,7 +61,11 @@ impl Command for DetectColumns {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        detect_columns(engine_state, stack, call, input)
+        if call.has_flag(engine_state, stack, "guess")? {
+            guess_width(engine_state, stack, call, input)
+        } else {
+            detect_columns(engine_state, stack, call, input)
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -93,6 +104,26 @@ impl Command for DetectColumns {
             },
         ]
     }
+}
+
+fn guess_width(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    use super::guess_width::GuessWidth;
+    let input_span = input.span().unwrap_or_else(|| call.head);
+    let input = input.collect_string("", engine_state.get_config())?.into_bytes();
+    let mut guess_width = GuessWidth::new_reader(Box::new(Cursor::new(input)));
+    let result = guess_width.read_all();
+    
+    let columns = result[0].clone();
+    let mut records = vec![];
+    for v in result.into_iter().skip(1).map(|s| s.into_iter().map(|v| Value::string(v, call.head)).collect()) {
+        records.push(Value::record(Record::from_raw_cols_vals(columns.clone(), v, call.head, call.head)?, call.head))
+    }
+    Ok(Value::list(records, call.head).into_pipeline_data())
 }
 
 fn detect_columns(

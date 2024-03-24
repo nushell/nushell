@@ -2951,6 +2951,7 @@ dependencies = [
  "trash",
  "umask",
  "unicode-segmentation",
+ "unicode-width",
  "ureq",
  "url",
  "uu_cp",

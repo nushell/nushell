@@ -2,6 +2,7 @@ mod char_;
 mod detect_columns;
 mod encode_decode;
 mod format;
+mod guess_width;
 mod parse;
 mod split;
 mod str_;
