@@ -1,18 +1,23 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, PluginSignature, Value};
+use nu_protocol::{Category, LabeledError, Signature, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 pub struct DisableGc;
 
 impl SimplePluginCommand for DisableGc {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example disable-gc")
-            .usage("Disable the plugin garbage collector for `example`")
-            .extra_usage(
-                "\
+    fn name(&self) -> &str {
+        "example disable-gc"
+    }
+
+    fn usage(&self) -> &str {
+        "Disable the plugin garbage collector for `example`"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "\
 Plugins are garbage collected by default after a period of inactivity. This
 behavior is configurable with `$env.config.plugin_gc.default`, or to change it
 specifically for the example plugin, use
@@ -20,21 +25,22 @@ specifically for the example plugin, use
 
 This command demonstrates how plugins can control this behavior and disable GC
 temporarily if they need to. It is still possible to stop the plugin explicitly
-using `plugin stop example`.",
-            )
-            .search_terms(vec![
-                "example".into(),
-                "gc".into(),
-                "plugin_gc".into(),
-                "garbage".into(),
-            ])
+using `plugin stop example`."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .switch("reset", "Turn the garbage collector back on", None)
             .category(Category::Experimental)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["example", "gc", "plugin_gc", "garbage"]
+    }
+
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: &Value,

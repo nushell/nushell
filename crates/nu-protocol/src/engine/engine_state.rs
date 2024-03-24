@@ -530,11 +530,7 @@ impl EngineState {
                     let examples = decl
                         .examples()
                         .into_iter()
-                        .map(|eg| PluginExample {
-                            example: eg.example.into(),
-                            description: eg.description.into(),
-                            result: eg.result,
-                        })
+                        .map(PluginExample::from)
                         .collect();
                     let sig_with_examples = PluginSignature::new(sig, examples);
                     serde_json::to_string_pretty(&sig_with_examples)

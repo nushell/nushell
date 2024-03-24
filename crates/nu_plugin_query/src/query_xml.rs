@@ -1,7 +1,7 @@
 use crate::Query;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, PluginSignature, Record, Span, Spanned, SyntaxShape, Value,
+    record, Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
@@ -11,9 +11,16 @@ pub struct QueryXml;
 impl SimplePluginCommand for QueryXml {
     type Plugin = Query;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("query xml")
-            .usage("execute xpath query on xml")
+    fn name(&self) -> &str {
+        "query xml"
+    }
+
+    fn usage(&self) -> &str {
+        "execute xpath query on xml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("query", SyntaxShape::String, "xpath query")
             .category(Category::Filters)
     }

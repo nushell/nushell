@@ -1,21 +1,31 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, LabeledError, PipelineData, PluginExample,
-    PluginSignature, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, Signature,
+    SyntaxShape, Type, Value,
 };
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 /// `example generate <initial> { |previous| {out: ..., next: ...} }`
 pub struct Generate;
 
 impl PluginCommand for Generate {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example generate")
-            .usage("Example execution of a closure to produce a stream")
-            .extra_usage("See the builtin `generate` command")
+    fn name(&self) -> &str {
+        "example generate"
+    }
+
+    fn usage(&self) -> &str {
+        "Example execution of a closure to produce a stream"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "See the builtin `generate` command"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_type(Type::Nothing, Type::ListStream)
             .required(
                 "initial",
@@ -27,23 +37,25 @@ impl PluginCommand for Generate {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run to generate values",
             )
-            .plugin_examples(vec![PluginExample {
-                example: "example generate 0 { |i| if $i <= 10 { {out: $i, next: ($i + 2)} } }"
-                    .into(),
-                description: "Generate a sequence of numbers".into(),
-                result: Some(Value::test_list(
-                    [0, 2, 4, 6, 8, 10]
-                        .into_iter()
-                        .map(Value::test_int)
-                        .collect(),
-                )),
-            }])
             .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "example generate 0 { |i| if $i <= 10 { {out: $i, next: ($i + 2)} } }",
+            description: "Generate a sequence of numbers",
+            result: Some(Value::test_list(
+                [0, 2, 4, 6, 8, 10]
+                    .into_iter()
+                    .map(Value::test_int)
+                    .collect(),
+            )),
+        }]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: PipelineData,
@@ -81,7 +93,7 @@ impl PluginCommand for Generate {
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_cmd_lang::If;
     use nu_plugin_test_support::PluginTest;
-    PluginTest::new("example", Example.into())?
+    PluginTest::new("example", ExamplePlugin.into())?
         .add_decl(Box::new(If))?
         .test_command_examples(&Generate)
 }

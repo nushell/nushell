@@ -1,25 +1,34 @@
 use crate::FromCmds;
+
 use ical::{parser::ical::component::*, property::Property};
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, PluginExample, PluginSignature, ShellError, Span, Type, Value,
+    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
 };
 use std::io::BufReader;
-
-pub const CMD_NAME: &str = "from ics";
 
 pub struct FromIcs;
 
 impl SimplePluginCommand for FromIcs {
     type Plugin = FromCmds;
 
-    fn signature(&self) -> nu_protocol::PluginSignature {
-        PluginSignature::build(CMD_NAME)
+    fn name(&self) -> &str {
+        "from ics"
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .ics and create table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Table(vec![]))])
-            .usage("Parse text as .ics and create table.")
-            .plugin_examples(examples())
             .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
     }
 
     fn run(
@@ -71,13 +80,11 @@ impl SimplePluginCommand for FromIcs {
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
-        example: "
-'BEGIN:VCALENDAR
-END:VCALENDAR' | from ics"
-            .into(),
-        description: "Converts ics formatted string to table".into(),
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
+        example: "'BEGIN:VCALENDAR
+END:VCALENDAR' | from ics",
+        description: "Converts ics formatted string to table",
         result: Some(Value::test_list(vec![Value::test_record(record! {
                 "properties" => Value::test_list(vec![]),
                 "events" =>     Value::test_list(vec![]),
