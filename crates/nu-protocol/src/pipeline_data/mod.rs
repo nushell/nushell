@@ -706,7 +706,7 @@ impl PipelineData {
     ///
     /// Returns self and a flag indicates if the external stream runs to failed.
     /// If `self` is not Pipeline::ExternalStream, the flag will be false.
-    pub fn is_external_failed(self) -> (Self, bool) {
+    pub fn check_external_failed(self) -> (Self, bool) {
         let mut failed_to_run = false;
         // Only need ExternalStream without redirecting output.
         // It indicates we have no more commands to execute currently.

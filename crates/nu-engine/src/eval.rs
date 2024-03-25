@@ -314,7 +314,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
 
 // Try to catch and detect if external command runs to failed.
 fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
-    input.is_external_failed()
+    input.check_external_failed()
 }
 
 fn eval_redirection<D: DebugContext>(
