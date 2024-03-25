@@ -35,6 +35,8 @@ const SCAN_NUM: u8 = 128;
 const MIN_LINES: usize = 2;
 /// whether to trim the space in the value.
 const TRIM_SPACE: bool = true;
+/// the base line number.  It starts from 0.
+const HEADER: usize = 0;
 
 /// GuessWidth reads records from printf-like output.
 pub struct GuessWidth {
@@ -45,8 +47,6 @@ pub struct GuessWidth {
     pub(crate) pre_lines: Vec<String>,
     // the number returned by read.
     pub(crate) pre_count: usize,
-    // the base line number. It starts from 0.
-    pub(crate) header: usize,
     // the maximum number of columns to split.
     pub(crate) limit_split: usize,
 }
@@ -59,7 +59,6 @@ impl GuessWidth {
             pos: Vec::new(),
             pre_lines: Vec::new(),
             pre_count: 0,
-            header: 0,
             limit_split: 0,
         }
     }
@@ -82,7 +81,7 @@ impl GuessWidth {
     fn scan(&mut self, num: u8) {
         for _ in 0..num {
             let mut buf = String::new();
-            if self.reader.read_line(&mut buf).unwrap_or(0) == 0 {
+            if self.reader.read_line(&mut buf).unwrap() == 0 {
                 break;
             }
 
@@ -90,7 +89,7 @@ impl GuessWidth {
             self.pre_lines.push(line);
         }
 
-        self.pos = positions(&self.pre_lines, self.header, MIN_LINES);
+        self.pos = positions(&self.pre_lines, HEADER, MIN_LINES);
         if self.limit_split > 0 && self.pos.len() > self.limit_split {
             self.pos.truncate(self.limit_split);
         }
@@ -175,7 +174,7 @@ fn separator_position(lr: &[char], p: usize, pos: &[usize], n: usize) -> usize {
 }
 
 fn split(line: &str, pos: &[usize], trim_space: bool) -> Vec<String> {
-    let mut n: usize = 0;
+    let mut n = 0;
     let mut start = 0;
     let mut columns = Vec::with_capacity(pos.len() + 1);
     let lr: Vec<char> = line.chars().collect();
@@ -312,7 +311,7 @@ pub fn to_table_n(
 
 #[cfg(test)]
 mod tests {
-    use super::{to_table, to_table_n, GuessWidth};
+    use crate::guess_width::{to_table, to_table_n, GuessWidth};
 
     #[test]
     fn test_guess_width_ps_trim() {
@@ -328,7 +327,6 @@ mod tests {
             pos: Vec::new(),
             pre_lines: Vec::new(),
             pre_count: 0,
-            header: 0,
             limit_split: 0,
         };
 
@@ -357,7 +355,6 @@ noborus   721971  0.0  0.0  13716  3524 pts/3    R+   10:39   0:00 ps aux";
             pos: Vec::new(),
             pre_lines: Vec::new(),
             pre_count: 0,
-            header: 0,
             limit_split: 0,
         };
 
@@ -386,7 +383,6 @@ noborus   721971  0.0  0.0  13716  3524 pts/3    R+   10:39   0:00 ps aux";
             pos: Vec::new(),
             pre_lines: Vec::new(),
             pre_count: 0,
-            header: 0,
             limit_split: 2,
         };
 
@@ -414,7 +410,6 @@ D:             104792064  17042676  87749388  17% /d";
             pos: Vec::new(),
             pre_lines: Vec::new(),
             pre_count: 0,
-            header: 0,
             limit_split: 0,
         };
 
