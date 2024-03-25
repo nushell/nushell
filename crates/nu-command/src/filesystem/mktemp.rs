@@ -21,12 +21,12 @@ impl Command for Mktemp {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "coreutils",
             "create",
             "directory",
             "file",
             "folder",
             "temporary",
+            "coreutils",
         ]
     }
 

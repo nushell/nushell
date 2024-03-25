@@ -711,3 +711,25 @@ fn list_empty_string() {
         assert!(actual.err.contains("does not exist"));
     })
 }
+
+#[test]
+fn list_with_tilde() {
+    Playground::setup("ls_tilde", |dirs, sandbox| {
+        sandbox
+            .within("~tilde")
+            .with_files(vec![EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "ls '~tilde'");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(actual.out.contains("~tilde"));
+        let actual = nu!(cwd: dirs.test(), "ls ~tilde");
+        assert!(actual.err.contains("does not exist"));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; ls $f");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(actual.out.contains("~tilde"));
+    })
+}

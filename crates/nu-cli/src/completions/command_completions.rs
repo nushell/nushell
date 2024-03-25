@@ -1,4 +1,7 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
+use crate::{
+    completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy},
+    SuggestionKind,
+};
 use nu_parser::FlatShape;
 use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
@@ -6,6 +9,8 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::sync::Arc;
+
+use super::SemanticSuggestion;
 
 pub struct CommandCompletion {
     engine_state: Arc<EngineState>,
@@ -83,7 +88,7 @@ impl CommandCompletion {
         offset: usize,
         find_externals: bool,
         match_algorithm: MatchAlgorithm,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
 
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
@@ -91,13 +96,16 @@ impl CommandCompletion {
         let mut results = working_set
             .find_commands_by_predicate(filter_predicate, true)
             .into_iter()
-            .map(move |x| Suggestion {
-                value: String::from_utf8_lossy(&x.0).to_string(),
-                description: x.1,
-                style: None,
-                extra: None,
-                span: reedline::Span::new(span.start - offset, span.end - offset),
-                append_whitespace: true,
+            .map(move |x| SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: String::from_utf8_lossy(&x.0).to_string(),
+                    description: x.1,
+                    style: None,
+                    extra: None,
+                    span: reedline::Span::new(span.start - offset, span.end - offset),
+                    append_whitespace: true,
+                },
+                kind: Some(SuggestionKind::Command(x.2)),
             })
             .collect::<Vec<_>>();
 
@@ -108,27 +116,34 @@ impl CommandCompletion {
             let results_external = self
                 .external_command_completion(&partial, match_algorithm)
                 .into_iter()
-                .map(move |x| Suggestion {
-                    value: x,
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span: reedline::Span::new(span.start - offset, span.end - offset),
-                    append_whitespace: true,
-                });
-
-            let results_strings: Vec<String> =
-                results.clone().into_iter().map(|x| x.value).collect();
-
-            for external in results_external {
-                if results_strings.contains(&external.value) {
-                    results.push(Suggestion {
-                        value: format!("^{}", external.value),
+                .map(move |x| SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: x,
                         description: None,
                         style: None,
                         extra: None,
-                        span: external.span,
+                        span: reedline::Span::new(span.start - offset, span.end - offset),
                         append_whitespace: true,
+                    },
+                    // TODO: is there a way to create a test?
+                    kind: None,
+                });
+
+            let results_strings: Vec<String> =
+                results.iter().map(|x| x.suggestion.value.clone()).collect();
+
+            for external in results_external {
+                if results_strings.contains(&external.suggestion.value) {
+                    results.push(SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: format!("^{}", external.suggestion.value),
+                            description: None,
+                            style: None,
+                            extra: None,
+                            span: external.suggestion.span,
+                            append_whitespace: true,
+                        },
+                        kind: external.kind,
                     })
                 } else {
                     results.push(external)
@@ -151,7 +166,7 @@ impl Completer for CommandCompletion {
         offset: usize,
         pos: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let last = self
             .flattened
             .iter()

@@ -2,7 +2,7 @@ use crate::{ast::Call, Alias, BlockId, Example, IoStream, PipelineData, ShellErr
 
 use super::{EngineState, Stack, StateWorkingSet};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CommandType {
     Builtin,
     Custom,

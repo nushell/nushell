@@ -91,6 +91,7 @@ uu_cp = { workspace = true }
 uu_mkdir = { workspace = true }
 uu_mktemp = { workspace = true }
 uu_mv = { workspace = true }
+uu_uname = { workspace = true }
 uu_whoami = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 v_htmlescape = { workspace = true }

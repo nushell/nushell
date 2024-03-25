@@ -6,7 +6,7 @@ use super::helpers;
 use super::tilde::expand_tilde;
 
 // Join a path relative to another path. Paths starting with tilde are considered as absolute.
-fn join_path_relative<P, Q>(path: P, relative_to: Q) -> PathBuf
+fn join_path_relative<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -19,7 +19,7 @@ where
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
         relative_to.into()
-    } else if path.to_string_lossy().as_ref().starts_with('~') {
+    } else if path.to_string_lossy().as_ref().starts_with('~') && expand_tilde {
         // do not end up with "/some/path/~" or "/some/path/~user"
         path.into()
     } else {
@@ -45,13 +45,18 @@ where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = join_path_relative(path, relative_to);
+    let path = join_path_relative(path, relative_to, true);
 
     canonicalize(path)
 }
 
-fn expand_path(path: impl AsRef<Path>) -> PathBuf {
-    let path = expand_to_real_path(path);
+fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
+    let path = if need_expand_tilde {
+        expand_tilde(path)
+    } else {
+        PathBuf::from(path.as_ref())
+    };
+    let path = expand_ndots(path);
     expand_dots(path)
 }
 
@@ -64,14 +69,14 @@ fn expand_path(path: impl AsRef<Path>) -> PathBuf {
 ///
 /// Does not convert to absolute form nor does it resolve symlinks.
 /// The input path is specified relative to another path
-pub fn expand_path_with<P, Q>(path: P, relative_to: Q) -> PathBuf
+pub fn expand_path_with<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = join_path_relative(path, relative_to);
+    let path = join_path_relative(path, relative_to, expand_tilde);
 
-    expand_path(path)
+    expand_path(path, expand_tilde)
 }
 
 /// Resolve to a path that is accepted by the system and no further - tilde is expanded, and ndot path components are expanded.

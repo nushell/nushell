@@ -20,6 +20,10 @@ impl NuGlob {
             NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
         }
     }
+
+    pub fn is_expand(&self) -> bool {
+        matches!(self, NuGlob::Expand(..))
+    }
 }
 
 impl AsRef<str> for NuGlob {

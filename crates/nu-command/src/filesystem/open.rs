@@ -1,6 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
 use nu_engine::{current_dir, get_eval_block, CallExt};
-use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
@@ -153,7 +152,6 @@ impl Command for Open {
                     };
 
                     let buf_reader = BufReader::new(file);
-                    let real_path = expand_to_real_path(path);
 
                     let file_contents = PipelineData::ExternalStream {
                         stdout: Some(RawStream::new(
@@ -166,7 +164,7 @@ impl Command for Open {
                         exit_code: None,
                         span: call_span,
                         metadata: Some(PipelineMetadata {
-                            data_source: DataSource::FilePath(real_path),
+                            data_source: DataSource::FilePath(path.to_path_buf()),
                         }),
                         trim_end_newline: false,
                     };

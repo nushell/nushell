@@ -734,7 +734,7 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = nu_path::expand_path_with(&orig, &cwd);
+    let path = nu_path::expand_path_with(&orig, &cwd, true);
     if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
         Ok(ReplOperation::AutoCd {
             cwd,
