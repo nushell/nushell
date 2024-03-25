@@ -136,7 +136,7 @@ pub trait Eval {
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(e, unit) => match Self::eval::<D>(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+                Value::Int { val, .. } => unit.item.build_value(val, unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),

@@ -145,7 +145,7 @@ impl Matcher for Pattern {
                         let span = unit.span;
 
                         if let Expr::Int(size) = amount.expr {
-                            match &unit.item.to_value(size, span) {
+                            match &unit.item.build_value(size, span) {
                                 Ok(v) => v == value,
                                 _ => false,
                             }
