@@ -12,7 +12,8 @@ nu-engine = { path = "../nu-engine", version = "0.91.1", features = ["plugin"] }
 nu-protocol = { path = "../nu-protocol", version = "0.91.1", features = ["plugin"] }
 nu-parser = { path = "../nu-parser", version = "0.91.1", features = ["plugin"] }
 nu-plugin = { path = "../nu-plugin", version = "0.91.1" }
-difference = "2.0"
+similar = "2.4"
+crossterm = { workspace = true }
 
 [dev-dependencies]
 typetag = "0.2"

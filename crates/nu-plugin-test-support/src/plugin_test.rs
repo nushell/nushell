@@ -1,6 +1,6 @@
 use std::{convert::Infallible, sync::Arc};
 
-use difference::Changeset;
+use crossterm::style::Stylize;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
@@ -10,7 +10,7 @@ use nu_protocol::{
     report_error_new, LabeledError, PipelineData, PluginExample, ShellError, Span, Value,
 };
 
-use crate::fake_register::fake_register;
+use crate::{diff::diff_by_line, fake_register::fake_register};
 
 /// An object through which plugins can be tested.
 pub struct PluginTest {
@@ -192,8 +192,8 @@ impl PluginTest {
         for example in examples {
             let mut failed_header = || {
                 failed = true;
-                eprintln!("\x1b[1mExample:\x1b[0m {}", example.example);
-                eprintln!("\x1b[1mDescription:\x1b[0m {}", example.description);
+                eprintln!("{} {}", "Example:".bold(), example.example);
+                eprintln!("{} {}", "Description:".bold(), example.description);
             };
             if let Some(expectation) = &example.result {
                 match self.eval(&example.example) {
@@ -212,12 +212,9 @@ impl PluginTest {
                             // If they're not equal, print a diff of the debug format
                             let expectation_formatted = format!("{:#?}", expectation);
                             let value_formatted = format!("{:#?}", value);
-                            let diff =
-                                Changeset::new(&expectation_formatted, &value_formatted, "\n");
+                            let diff = diff_by_line(&expectation_formatted, &value_formatted);
                             failed_header();
-                            eprintln!("\x1b[1mResult:\x1b[0m {diff}");
-                        } else {
-                            println!("{:?}, {:?}", expectation, value);
+                            eprintln!("{} {}", "Result:".bold(), diff);
                         }
                     }
                     Err(err) => {
