@@ -81,7 +81,7 @@ impl GuessWidth {
     fn scan(&mut self, num: u8) {
         for _ in 0..num {
             let mut buf = String::new();
-            if self.reader.read_line(&mut buf).unwrap() == 0 {
+            if self.reader.read_line(&mut buf).unwrap_or(0) == 0 {
                 break;
             }
 
