@@ -68,16 +68,8 @@ impl Profiler {
             duration_sec: 0.0,
             depth: 0,
             element_span: span,
-            element_output: if collect_values {
-                Some(Value::nothing(span))
-            } else {
-                None
-            },
-            expr: if collect_exprs {
-                Some("call".to_string())
-            } else {
-                None
-            },
+            element_output: collect_values.then(|| Value::nothing(span)),
+            expr: collect_exprs.then(|| "call".to_string()),
             children: vec![],
         };
 
