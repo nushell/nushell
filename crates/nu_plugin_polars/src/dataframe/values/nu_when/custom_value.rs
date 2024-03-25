@@ -23,8 +23,11 @@ impl CustomValue for NuWhenCustomValue {
         "NuWhenCustomValue".into()
     }
 
-    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
-        panic!("NuWhenCustomValue: custom_value_to_base_value should've been called")
+    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::string(
+            "NuWhenCustomValue: custom_value_to_base_value should've been called",
+            span,
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

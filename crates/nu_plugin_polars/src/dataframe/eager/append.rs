@@ -6,7 +6,7 @@ use nu_protocol::{
 
 use crate::{
     values::{Axis, Column, NuDataFrame},
-    Cacheable, CustomValueSupport, PolarsPlugin, PolarsPluginCustomValue,
+    Cacheable, CustomValueSupport, PolarsPlugin,
 };
 
 #[derive(Clone)]

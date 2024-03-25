@@ -98,7 +98,7 @@ impl CustomValueSupport for NuWhen {
         "NuWhen"
     }
 
-    fn base_value(self, span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+    fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
         let val: String = match self.when_type {
             NuWhenType::Then(_) => "whenthen".into(),
             NuWhenType::ChainedThen(_) => "whenthenthen".into(),

@@ -122,7 +122,7 @@ impl CustomValueSupport for NuLazyGroupBy {
         "NuLazyGroupBy"
     }
 
-    fn base_value(self, span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+    fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
         Ok(Value::record(
             record! {
                 "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", Span::unknown())

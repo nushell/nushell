@@ -24,8 +24,11 @@ impl CustomValue for NuDataFrameCustomValue {
         "NuDataFrameCustomValue".into()
     }
 
-    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
-        panic!("NuDataFrameCustomValue: custom_value_to_base_value should've been called")
+    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::string(
+            "NuDataFrameValue: custom_value_to_base_value should've been called",
+            span,
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

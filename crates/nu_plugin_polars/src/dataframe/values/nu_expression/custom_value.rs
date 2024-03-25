@@ -32,8 +32,11 @@ impl CustomValue for NuExpressionCustomValue {
         TYPE_NAME.into()
     }
 
-    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
-        panic!("NuExpressionCustomValue: custom_value_to_base_value should've been called")
+    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::string(
+            "NuExpressionCustomValue: custom_value_to_base_value should've been called",
+            span,
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

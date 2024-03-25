@@ -72,7 +72,8 @@ Example {
                             Value::test_string("Football"),
                         ]),
                    ], None).expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
                     )
             },
         Example {
@@ -89,7 +90,8 @@ Example {
                             Value::test_string("Football"),
                         ]),
                    ], None).expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
                     ),
             },
         ]

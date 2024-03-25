@@ -489,7 +489,7 @@ impl CustomValueSupport for NuExpression {
         }
     }
 
-    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+    fn base_value(self, _span: Span) -> Result<Value, ShellError> {
         self.to_value(Span::unknown())
     }
 }
