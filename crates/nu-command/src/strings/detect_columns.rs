@@ -105,7 +105,7 @@ fn guess_width(
     let mut input = input.collect_string("", engine_state.get_config())?;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
     if let Some(rows) = num_rows_to_skip {
-        input = input.lines().skip(rows).map(|x| x.to_string()).collect();
+        input = input.lines().skip(rows).map(|x| x.to_string()).join("\n");
     }
 
     let mut guess_width = GuessWidth::new_reader(Box::new(Cursor::new(input)));
