@@ -11,14 +11,14 @@ fn detect_columns_with_old() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns --old) == {}",
+                "({} | detect columns --legacy) == {}",
                 case.0,
                 case.1
             );
 
             assert_eq!(
                 out.out, "true",
-                "({} | detect columns --old) == {}",
+                "({} | detect columns --legacy) == {}",
                 case.0, case.1
             );
         }
@@ -49,7 +49,7 @@ fn detect_columns_with_old_and_flag_c() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns --old --combine-columns {}) == {}",
+                "({} | detect columns --legacy --combine-columns {}) == {}",
                 case.0,
                 case.2,
                 case.1,
@@ -57,7 +57,7 @@ fn detect_columns_with_old_and_flag_c() {
 
             assert_eq!(
                 out.out, "true",
-                "({} | detect columns --old --combine-columns {}) == {}",
+                "({} | detect columns --legacy --combine-columns {}) == {}",
                 case.0, case.2, case.1
             );
         }

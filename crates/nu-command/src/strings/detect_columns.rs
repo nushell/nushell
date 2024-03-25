@@ -35,10 +35,10 @@ impl Command for DetectColumns {
             .named(
                 "combine-columns",
                 SyntaxShape::Range,
-                "columns to be combined; listed as a range, only useful if `--old` is active",
+                "columns to be combined; listed as a range, only useful if `--legacy` is active",
                 Some('c'),
             )
-            .switch("old", "use another algorithm to detect columns, it may be useful if default one doesn't work", None)
+            .switch("legacy", "use another algorithm to detect columns, it may be useful if default one doesn't work", None)
             .category(Category::Strings)
     }
 
@@ -57,7 +57,7 @@ impl Command for DetectColumns {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if !call.has_flag(engine_state, stack, "old")? {
+        if !call.has_flag(engine_state, stack, "legacy")? {
             guess_width(engine_state, stack, call, input)
         } else {
             detect_columns_old(engine_state, stack, call, input)
@@ -81,8 +81,8 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns",
                 })])),
             },
             Example {
-                description: "Use --old parameter if you find default one does not work",
-                example: "'a b c' | detect columns --old --no-headers",
+                description: "Use --legacy parameter if you find default one does not work",
+                example: "'a b c' | detect columns --legacy --no-headers",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "column0" => Value::test_string("a"),
                         "column1" => Value::test_string("b"),
