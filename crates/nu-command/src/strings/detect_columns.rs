@@ -89,6 +89,29 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns",
                         "column2" => Value::test_string("c"),
                 })])),
             },
+            Example {
+                description: "",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1 --legacy",
+                result: None,
+            },
+            Example {
+                description: "Splits a multi-line string into columns with headers detected",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1 --legacy",
+                result: None,
+            },
+            Example {
+                description: "Splits a multi-line string into columns with headers detected",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2.. --legacy",
+                result: None,
+            },
+            Example {
+                description: "Parse external ls command and combine columns for datetime",
+                example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7 --legacy",
+                result: None,
+            },
         ]
     }
 }
