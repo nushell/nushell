@@ -3078,7 +3078,7 @@ dependencies = [
 name = "nu-plugin-test-support"
 version = "0.91.1"
 dependencies = [
- "crossterm",
+ "nu-ansi-term",
  "nu-engine",
  "nu-parser",
  "nu-plugin",

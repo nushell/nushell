@@ -1,6 +1,6 @@
 use std::{convert::Infallible, sync::Arc};
 
-use crossterm::style::Stylize;
+use nu_ansi_term::Style;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
@@ -190,10 +190,11 @@ impl PluginTest {
         let mut failed = false;
 
         for example in examples {
+            let bold = Style::new().bold();
             let mut failed_header = || {
                 failed = true;
-                eprintln!("{} {}", "Example:".bold(), example.example);
-                eprintln!("{} {}", "Description:".bold(), example.description);
+                eprintln!("{} {}", bold.paint("Example:"), example.example);
+                eprintln!("{} {}", bold.paint("Description:"), example.description);
             };
             if let Some(expectation) = &example.result {
                 match self.eval(&example.example) {
@@ -214,7 +215,7 @@ impl PluginTest {
                             let value_formatted = format!("{:#?}", value);
                             let diff = diff_by_line(&expectation_formatted, &value_formatted);
                             failed_header();
-                            eprintln!("{} {}", "Result:".bold(), diff);
+                            eprintln!("{} {}", bold.paint("Result:"), diff);
                         }
                     }
                     Err(err) => {
