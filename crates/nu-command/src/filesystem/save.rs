@@ -92,14 +92,14 @@ impl Command for Save {
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
         let path = Spanned {
-            item: expand_path_with(path_arg.item, &cwd),
+            item: expand_path_with(path_arg.item, &cwd, true),
             span: path_arg.span,
         };
 
         let stderr_path = call
             .get_flag::<Spanned<PathBuf>>(engine_state, stack, "stderr")?
             .map(|arg| Spanned {
-                item: expand_path_with(arg.item, cwd),
+                item: expand_path_with(arg.item, cwd, true),
                 span: arg.span,
             });
 

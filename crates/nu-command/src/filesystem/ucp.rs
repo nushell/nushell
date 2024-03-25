@@ -183,7 +183,7 @@ impl Command for UCp {
             target.item.to_string(),
         ));
         let cwd = current_dir(engine_state, stack)?;
-        let target_path = nu_path::expand_path_with(target_path, &cwd);
+        let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError {
                 error: "is not a directory".into(),
@@ -196,7 +196,7 @@ impl Command for UCp {
 
         // paths now contains the sources
 
-        let mut sources: Vec<PathBuf> = Vec::new();
+        let mut sources: Vec<(Vec<PathBuf>, bool)> = Vec::new();
 
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
@@ -230,16 +230,19 @@ impl Command for UCp {
                     Err(e) => return Err(e),
                 }
             }
-            sources.append(&mut app_vals);
+            sources.push((app_vals, p.item.is_expand()));
         }
 
         // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
         // supported in Nushell
-        for src in sources.iter_mut() {
-            if !src.is_absolute() {
-                *src = nu_path::expand_path_with(&src, &cwd);
+        for (sources, need_expand_tilde) in sources.iter_mut() {
+            for src in sources.iter_mut() {
+                if !src.is_absolute() {
+                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                }
             }
         }
+        let sources: Vec<PathBuf> = sources.into_iter().flat_map(|x| x.0).collect();
 
         let attributes = make_attributes(preserve)?;
 

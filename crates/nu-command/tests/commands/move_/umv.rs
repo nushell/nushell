@@ -2,6 +2,7 @@ use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
+use std::path::Path;
 
 #[test]
 fn moves_a_file() {
@@ -655,4 +656,34 @@ fn test_cp_inside_glob_metachars_dir() {
         ));
         assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
     });
+}
+
+#[test]
+fn mv_with_tilde() {
+    Playground::setup("mv_tilde", |dirs, sandbox| {
+        sandbox.within("~tilde").with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+        sandbox.within("~tilde2");
+
+        // mv file
+        let actual = nu!(cwd: dirs.test(), "mv '~tilde/f1.txt' ./");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f1.txt")],
+            dirs.test().join("~tilde")
+        ));
+        assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; mv $f ./");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f2.txt")],
+            dirs.test().join("~tilde")
+        ));
+        assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
+    })
 }

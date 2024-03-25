@@ -118,12 +118,14 @@ impl Command for Ls {
         let (path, p_tag, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
-                let p = expand_to_real_path(pat.item.as_ref());
-
-                let expanded = nu_path::expand_path_with(&p, &cwd);
+                let expanded = nu_path::expand_path_with(
+                    pat.item.as_ref(),
+                    &cwd,
+                    matches!(pat.item, NuGlob::Expand(..)),
+                );
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
                 if !directory && expanded.is_dir() {
-                    if permission_denied(&p) {
+                    if permission_denied(&expanded) {
                         #[cfg(unix)]
                         let error_msg = format!(
                             "The permissions of {:o} do not allow access for this user",
@@ -151,9 +153,17 @@ impl Command for Ls {
                     }
                     extra_star_under_given_directory = true;
                 }
-                let absolute_path = p.is_absolute();
+
+                // it's absolute path if:
+                // 1. pattern is absolute.
+                // 2. pattern can be expanded, and after expands to real_path, it's absolute.
+                //    here `expand_to_real_path` call is required, because `~/aaa` should be absolute
+                //    path.
+                let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
+                    || (pat.item.is_expand()
+                        && expand_to_real_path(pat.item.as_ref()).is_absolute());
                 (
-                    p,
+                    expanded,
                     p_tag,
                     absolute_path,
                     matches!(pat.item, NuGlob::DoNotExpand(_)),

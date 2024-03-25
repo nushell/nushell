@@ -152,7 +152,10 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
         match canonicalize_with(path, &args.cwd) {
             Ok(p) => {
                 if args.not_follow_symlink {
-                    Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                    Value::string(
+                        expand_path_with(path, &args.cwd, true).to_string_lossy(),
+                        span,
+                    )
                 } else {
                     Value::string(p.to_string_lossy(), span)
                 }
@@ -171,12 +174,18 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
             ),
         }
     } else if args.not_follow_symlink {
-        Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+        Value::string(
+            expand_path_with(path, &args.cwd, true).to_string_lossy(),
+            span,
+        )
     } else {
         canonicalize_with(path, &args.cwd)
             .map(|p| Value::string(p.to_string_lossy(), span))
             .unwrap_or_else(|_| {
-                Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                Value::string(
+                    expand_path_with(path, &args.cwd, true).to_string_lossy(),
+                    span,
+                )
             })
     }
 }

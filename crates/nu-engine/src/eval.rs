@@ -328,7 +328,7 @@ fn eval_redirection<D: DebugContext>(
             let cwd = current_dir(engine_state, stack)?;
             let value = eval_expression::<D>(engine_state, stack, expr)?;
             let path = Spanned::<PathBuf>::from_value(value)?.item;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             let mut options = OpenOptions::new();
             if *append {
@@ -634,7 +634,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }
@@ -653,7 +653,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }
