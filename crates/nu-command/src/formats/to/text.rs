@@ -110,6 +110,7 @@ impl Iterator for ListStreamIterator {
 }
 
 fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
+    let span = value.span();
     match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
@@ -127,7 +128,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             )
         }
         Value::String { val, .. } => val,
-        Value::QuotedString { val, .. } => val,
+        Value::Glob { val, .. } => val,
         Value::List { vals: val, .. } => val
             .into_iter()
             .map(|x| local_into_string(x, ", ", config))
@@ -148,7 +149,12 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.to_string(),
-        Value::CustomValue { val, .. } => val.value_string(),
+        // If we fail to collapse the custom value, just print <{type_name}> - failure is not
+        // that critical here
+        Value::CustomValue { val, .. } => val
+            .to_base_value(span)
+            .map(|val| local_into_string(val, separator, config))
+            .unwrap_or_else(|_| format!("<{}>", val.type_name())),
     }
 }
 

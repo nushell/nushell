@@ -1,3 +1,4 @@
+use super::util::opt_for_glob_pattern;
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
@@ -7,7 +8,7 @@ use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::NuPath;
+use nu_protocol::NuGlob;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
@@ -41,7 +42,7 @@ impl Command for Ls {
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .optional("pattern", SyntaxShape::GlobPattern, "The glob pattern to use.")
+            .optional("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -86,17 +87,23 @@ impl Command for Ls {
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg: Option<Spanned<NuPath>> = call.opt(engine_state, stack, 0)?;
-
+        let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
             if let Some(path) = pattern_arg {
+                // it makes no sense to list an empty string.
+                if path.item.as_ref().is_empty() {
+                    return Err(ShellError::FileNotFoundCustom {
+                        msg: "empty string('') directory or file does not exist".to_string(),
+                        span: path.span,
+                    });
+                }
                 match path.item {
-                    NuPath::Quoted(p) => Some(Spanned {
-                        item: NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::DoNotExpand(p) => Some(Spanned {
+                        item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
-                    NuPath::UnQuoted(p) => Some(Spanned {
-                        item: NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(p)),
+                    NuGlob::Expand(p) => Some(Spanned {
+                        item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
                     }),
                 }
@@ -111,12 +118,14 @@ impl Command for Ls {
         let (path, p_tag, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
-                let p = expand_to_real_path(pat.item.as_ref());
-
-                let expanded = nu_path::expand_path_with(&p, &cwd);
+                let expanded = nu_path::expand_path_with(
+                    pat.item.as_ref(),
+                    &cwd,
+                    matches!(pat.item, NuGlob::Expand(..)),
+                );
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
                 if !directory && expanded.is_dir() {
-                    if permission_denied(&p) {
+                    if permission_denied(&expanded) {
                         #[cfg(unix)]
                         let error_msg = format!(
                             "The permissions of {:o} do not allow access for this user",
@@ -144,12 +153,20 @@ impl Command for Ls {
                     }
                     extra_star_under_given_directory = true;
                 }
-                let absolute_path = p.is_absolute();
+
+                // it's absolute path if:
+                // 1. pattern is absolute.
+                // 2. pattern can be expanded, and after expands to real_path, it's absolute.
+                //    here `expand_to_real_path` call is required, because `~/aaa` should be absolute
+                //    path.
+                let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
+                    || (pat.item.is_expand()
+                        && expand_to_real_path(pat.item.as_ref()).is_absolute());
                 (
-                    p,
+                    expanded,
                     p_tag,
                     absolute_path,
-                    matches!(pat.item, NuPath::Quoted(_)),
+                    matches!(pat.item, NuGlob::DoNotExpand(_)),
                 )
             }
             None => {
@@ -186,8 +203,8 @@ impl Command for Ls {
         };
 
         let glob_path = Spanned {
-            // It needs to be un-quoted, the relative logic is handled previously
-            item: NuPath::UnQuoted(path.clone()),
+            // use NeedExpand, the relative escaping logic is handled previously
+            item: NuGlob::Expand(path.clone()),
             span: p_tag,
         };
 

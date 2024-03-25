@@ -1,10 +1,10 @@
-use nu_engine::{current_dir, eval_block, CallExt};
-use nu_path::expand_to_real_path;
+use super::util::get_rest_for_glob_pattern;
+use nu_engine::{current_dir, get_eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
+    Category, DataSource, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData,
     PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::io::BufReader;
@@ -42,7 +42,11 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .rest("files", SyntaxShape::GlobPattern, "The file(s) to open.")
+            .rest(
+                "files",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "The file(s) to open.",
+            )
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
@@ -58,7 +62,8 @@ impl Command for Open {
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = call.rest::<Spanned<NuPath>>(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let eval_block = get_eval_block(engine_state);
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args
@@ -76,7 +81,7 @@ impl Command for Open {
             };
 
             paths.push(Spanned {
-                item: NuPath::UnQuoted(filename),
+                item: NuGlob::Expand(filename),
                 span,
             });
         }
@@ -92,7 +97,10 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound { span },
+                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
+                        file: path.item.to_string(),
+                        span,
+                    },
                     _ => err,
                 })?
                 .1
@@ -144,7 +152,6 @@ impl Command for Open {
                     };
 
                     let buf_reader = BufReader::new(file);
-                    let real_path = expand_to_real_path(path);
 
                     let file_contents = PipelineData::ExternalStream {
                         stdout: Some(RawStream::new(
@@ -157,7 +164,7 @@ impl Command for Open {
                         exit_code: None,
                         span: call_span,
                         metadata: Some(PipelineMetadata {
-                            data_source: DataSource::FilePath(real_path),
+                            data_source: DataSource::FilePath(path.to_path_buf()),
                         }),
                         trim_end_newline: false,
                     };
@@ -185,7 +192,7 @@ impl Command for Open {
                             let decl = engine_state.get_decl(converter_id);
                             let command_output = if let Some(block_id) = decl.get_block_id() {
                                 let block = engine_state.get_block(block_id);
-                                eval_block(engine_state, stack, block, file_contents, false, false)
+                                eval_block(engine_state, stack, block, file_contents)
                             } else {
                                 decl.run(engine_state, stack, &Call::new(call_span), file_contents)
                             };

@@ -1,4 +1,5 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
+
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -91,8 +92,7 @@ impl Command for SkipUntil {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
+        let eval_block = get_eval_block(&engine_state);
 
         Ok(input
             .into_iter_strict(span)?
@@ -101,17 +101,10 @@ impl Command for SkipUntil {
                     stack.add_var(var_id, value.clone());
                 }
 
-                !eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    PipelineData::empty(),
-                    redirect_stdout,
-                    redirect_stderr,
-                )
-                .map_or(false, |pipeline_data| {
-                    pipeline_data.into_value(span).is_true()
-                })
+                !eval_block(&engine_state, &mut stack, &block, PipelineData::empty())
+                    .map_or(false, |pipeline_data| {
+                        pipeline_data.into_value(span).is_true()
+                    })
             })
             .into_pipeline_data_with_metadata(metadata, ctrlc))
     }

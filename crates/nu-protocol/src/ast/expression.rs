@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
-use super::{Argument, Expr, ExternalArgument, RecordItem};
+use super::{Argument, Block, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -184,7 +186,7 @@ impl Expression {
             }
             Expr::CellPath(_) => false,
             Expr::DateTime(_) => false,
-            Expr::ExternalCall(head, args, _) => {
+            Expr::ExternalCall(head, args) => {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
@@ -325,7 +327,8 @@ impl Expression {
                 expr.replace_span(working_set, replaced, new_span);
             }
             Expr::Block(block_id) => {
-                let mut block = working_set.get_block(*block_id).clone();
+                // We are cloning the Block itself, rather than the Arc around it.
+                let mut block = Block::clone(working_set.get_block(*block_id));
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
@@ -333,10 +336,10 @@ impl Expression {
                     }
                 }
 
-                *block_id = working_set.add_block(block);
+                *block_id = working_set.add_block(Arc::new(block));
             }
             Expr::Closure(block_id) => {
-                let mut block = working_set.get_block(*block_id).clone();
+                let mut block = (**working_set.get_block(*block_id)).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
@@ -344,7 +347,7 @@ impl Expression {
                     }
                 }
 
-                *block_id = working_set.add_block(block);
+                *block_id = working_set.add_block(Arc::new(block));
             }
             Expr::Binary(_) => {}
             Expr::Bool(_) => {}
@@ -369,7 +372,7 @@ impl Expression {
             }
             Expr::CellPath(_) => {}
             Expr::DateTime(_) => {}
-            Expr::ExternalCall(head, args, _) => {
+            Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span);
                 for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
                     expr.replace_span(working_set, replaced, new_span);
@@ -429,7 +432,7 @@ impl Expression {
                 }
             }
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
-                let mut block = working_set.get_block(*block_id).clone();
+                let mut block = (**working_set.get_block(*block_id)).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
@@ -437,7 +440,7 @@ impl Expression {
                     }
                 }
 
-                *block_id = working_set.add_block(block);
+                *block_id = working_set.add_block(Arc::new(block));
             }
             Expr::Table(headers, cells) => {
                 for header in headers {

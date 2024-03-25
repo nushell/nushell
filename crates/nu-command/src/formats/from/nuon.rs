@@ -1,4 +1,6 @@
-use nu_protocol::ast::{Call, Expr, Expression, PipelineElement, RecordItem};
+use std::sync::Arc;
+
+use nu_protocol::ast::{Call, Expr, Expression, RecordItem};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
@@ -69,7 +71,7 @@ impl Command for FromNuon {
                         src: string_input,
                         error: "error when loading".into(),
                         msg: "excess values when loading".into(),
-                        span: element.span(),
+                        span: element.expr.span,
                     }],
                 });
             } else {
@@ -97,7 +99,7 @@ impl Command for FromNuon {
                 ty: Type::Nothing,
             }
         } else {
-            let mut pipeline = block.pipelines.remove(0);
+            let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
             if let Some(expr) = pipeline.elements.get(1) {
                 return Err(ShellError::GenericError {
@@ -109,7 +111,7 @@ impl Command for FromNuon {
                         src: string_input,
                         error: "error when loading".into(),
                         msg: "detected a pipeline in nuon file".into(),
-                        span: expr.span(),
+                        span: expr.expr.span,
                     }],
                 });
             }
@@ -122,22 +124,7 @@ impl Command for FromNuon {
                     ty: Type::Nothing,
                 }
             } else {
-                match pipeline.elements.remove(0) {
-                    PipelineElement::Expression(_, expression)
-                    | PipelineElement::ErrPipedExpression(_, expression)
-                    | PipelineElement::OutErrPipedExpression(_, expression)
-                    | PipelineElement::Redirection(_, _, expression, _)
-                    | PipelineElement::And(_, expression)
-                    | PipelineElement::Or(_, expression)
-                    | PipelineElement::SameTargetRedirection {
-                        cmd: (_, expression),
-                        ..
-                    }
-                    | PipelineElement::SeparateRedirection {
-                        out: (_, expression, _),
-                        ..
-                    } => expression,
-                }
+                pipeline.elements.remove(0).expr
             }
         };
 

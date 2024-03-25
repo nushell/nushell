@@ -62,7 +62,7 @@ fn ls_sort_by_name_sensitive() {
         "
     ));
 
-    let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
+    let json_output = r#"[{"name":"B.txt"},{"name":"C"},{"name":"a.txt"}]"#;
 
     assert_eq!(actual.out, json_output);
 }
@@ -79,7 +79,7 @@ fn ls_sort_by_name_insensitive() {
         "
     ));
 
-    let json_output = r#"[{"name": "a.txt"},{"name": "B.txt"},{"name": "C"}]"#;
+    let json_output = r#"[{"name":"a.txt"},{"name":"B.txt"},{"name":"C"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
@@ -95,7 +95,7 @@ fn ls_sort_by_type_name_sensitive() {
         "
     ));
 
-    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "B.txt","type": "File"},{"name": "a.txt","type": "File"}]"#;
+    let json_output = r#"[{"name":"C","type":"Dir"},{"name":"B.txt","type":"File"},{"name":"a.txt","type":"File"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
@@ -111,7 +111,7 @@ fn ls_sort_by_type_name_insensitive() {
         "
     ));
 
-    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;
+    let json_output = r#"[{"name":"C","type":"Dir"},{"name":"a.txt","type":"File"},{"name":"B.txt","type":"File"}]"#;
     assert_eq!(actual.out, json_output);
 }
 

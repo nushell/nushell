@@ -2,6 +2,7 @@ use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::Stack;
 use nu_protocol::report_error;
 use nu_protocol::{
@@ -55,7 +56,7 @@ pub fn evaluate_commands(
     }
 
     // Run the block
-    let exit_code = match eval_block(engine_state, stack, &block, input, false, false) {
+    let exit_code = match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
         Ok(pipeline_data) => {
             let mut config = engine_state.get_config().clone();
             if let Some(t_mode) = table_mode {

@@ -70,7 +70,7 @@ impl Command for LoadEnv {
                         if env_var == "PWD" {
                             let cwd = current_dir(engine_state, stack)?;
                             let rhs = rhs.coerce_into_string()?;
-                            let rhs = nu_path::expand_path_with(rhs, cwd);
+                            let rhs = nu_path::expand_path_with(rhs, cwd, true);
                             stack.add_env_var(
                                 env_var,
                                 Value::string(rhs.to_string_lossy(), call.head),

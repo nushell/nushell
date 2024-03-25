@@ -1,10 +1,38 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, Record, Span, Spanned, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, LabeledError, PluginSignature, Record, Span, Spanned, SyntaxShape, Value,
+};
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
 
+use crate::Query;
+
+pub struct QueryXml;
+
+impl SimplePluginCommand for QueryXml {
+    type Plugin = Query;
+
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("query xml")
+            .usage("execute xpath query on xml")
+            .required("query", SyntaxShape::String, "xpath query")
+            .category(Category::Filters)
+    }
+
+    fn run(
+        &self,
+        _plugin: &Query,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let query: Option<Spanned<String>> = call.opt(0)?;
+
+        execute_xpath_query(call, input, query)
+    }
+}
+
 pub fn execute_xpath_query(
-    _name: &str,
     call: &EvaluatedCall,
     input: &Value,
     query: Option<Spanned<String>>,
@@ -12,11 +40,9 @@ pub fn execute_xpath_query(
     let (query_string, span) = match &query {
         Some(v) => (&v.item, v.span),
         None => {
-            return Err(LabeledError {
-                msg: "problem with input data".to_string(),
-                label: "problem with input data".to_string(),
-                span: Some(call.head),
-            })
+            return Err(
+                LabeledError::new("problem with input data").with_label("query missing", call.head)
+            )
         }
     };
 
@@ -24,12 +50,10 @@ pub fn execute_xpath_query(
     let input_string = input.coerce_str()?;
     let package = parser::parse(&input_string);
 
-    if package.is_err() {
-        return Err(LabeledError {
-            label: "invalid xml document".to_string(),
-            msg: "invalid xml document".to_string(),
-            span: Some(call.head),
-        });
+    if let Err(err) = package {
+        return Err(
+            LabeledError::new("Invalid XML document").with_label(err.to_string(), input.span())
+        );
     }
 
     let package = package.expect("invalid xml document");
@@ -81,29 +105,20 @@ pub fn execute_xpath_query(
 
             Ok(Value::list(records, call.head))
         }
-        Err(_) => Err(LabeledError {
-            label: "xpath query error".to_string(),
-            msg: "xpath query error".to_string(),
-            span: Some(call.head),
-        }),
+        Err(err) => {
+            Err(LabeledError::new("xpath query error").with_label(err.to_string(), call.head))
+        }
     }
 }
 
 fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
-    if let Ok(xpath) = factory.build(xpath_str) {
-        xpath.ok_or_else(|| LabeledError {
-            label: "invalid xpath query".to_string(),
-            msg: "invalid xpath query".to_string(),
-            span: Some(span),
-        })
-    } else {
-        Err(LabeledError {
-            label: "expected valid xpath query".to_string(),
-            msg: "expected valid xpath query".to_string(),
-            span: Some(span),
-        })
+    match factory.build(xpath_str) {
+        Ok(xpath) => xpath.ok_or_else(|| {
+            LabeledError::new("invalid xpath query").with_label("the query must not be empty", span)
+        }),
+        Err(err) => Err(LabeledError::new("invalid xpath query").with_label(err.to_string(), span)),
     }
 }
 
@@ -131,7 +146,7 @@ mod tests {
             span: Span::test_data(),
         };
 
-        let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
+        let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
             vec![Value::test_record(record! {
                 "count(//a/*[posit..." => Value::test_float(1.0),
@@ -160,7 +175,7 @@ mod tests {
             span: Span::test_data(),
         };
 
-        let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
+        let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
             vec![Value::test_record(record! {
                 "count(//*[contain..." => Value::test_float(1.0),

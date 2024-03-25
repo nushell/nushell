@@ -11,7 +11,7 @@ license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.74.1"
-version = "0.90.2"
+version = "0.91.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,69 +24,169 @@ pkg-fmt = "zip"
 
 [workspace]
 members = [
-	"crates/nu-cli",
-	"crates/nu-engine",
-	"crates/nu-parser",
-	"crates/nu-system",
-	"crates/nu-cmd-base",
-	"crates/nu-cmd-extra",
-	"crates/nu-cmd-lang",
-	"crates/nu-cmd-dataframe",
-	"crates/nu-command",
-	"crates/nu-color-config",
-	"crates/nu-explore",
-	"crates/nu-json",
-	"crates/nu-lsp",
-	"crates/nu-pretty-hex",
-	"crates/nu-protocol",
-	"crates/nu-plugin",
-	"crates/nu_plugin_inc",
-	"crates/nu_plugin_gstat",
-	"crates/nu_plugin_example",
-	"crates/nu_plugin_query",
-	"crates/nu_plugin_custom_values",
-	"crates/nu_plugin_formats",
-	"crates/nu-std",
-	"crates/nu-table",
-	"crates/nu-term-grid",
-	"crates/nu-test-support",
-	"crates/nu-utils",
+  "crates/nu-cli",
+  "crates/nu-engine",
+  "crates/nu-parser",
+  "crates/nu-system",
+  "crates/nu-cmd-base",
+  "crates/nu-cmd-extra",
+  "crates/nu-cmd-lang",
+  "crates/nu-cmd-dataframe",
+  "crates/nu-command",
+  "crates/nu-color-config",
+  "crates/nu-explore",
+  "crates/nu-json",
+  "crates/nu-lsp",
+  "crates/nu-pretty-hex",
+  "crates/nu-protocol",
+  "crates/nu-plugin",
+  "crates/nu-plugin-test-support",
+  "crates/nu_plugin_inc",
+  "crates/nu_plugin_gstat",
+  "crates/nu_plugin_example",
+  "crates/nu_plugin_query",
+  "crates/nu_plugin_custom_values",
+  "crates/nu_plugin_formats",
+  "crates/nu-std",
+  "crates/nu-table",
+  "crates/nu-term-grid",
+  "crates/nu-test-support",
+  "crates/nu-utils",
 ]
 
-[dependencies]
-nu-cli = { path = "./crates/nu-cli", version = "0.90.2" }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.90.2" }
-nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.90.2" }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.90.2" }
-nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.90.2", features = [
-	"dataframe",
-], optional = true }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.90.2", optional = true }
-nu-command = { path = "./crates/nu-command", version = "0.90.2" }
-nu-engine = { path = "./crates/nu-engine", version = "0.90.2" }
-nu-explore = { path = "./crates/nu-explore", version = "0.90.2" }
-nu-json = { path = "./crates/nu-json", version = "0.90.2" }
-nu-lsp = { path = "./crates/nu-lsp/", version = "0.90.2" }
-nu-parser = { path = "./crates/nu-parser", version = "0.90.2" }
-nu-path = { path = "./crates/nu-path", version = "0.90.2" }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.90.2" }
-nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.90.2" }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.90.2" }
-nu-system = { path = "./crates/nu-system", version = "0.90.2" }
-nu-table = { path = "./crates/nu-table", version = "0.90.2" }
-nu-term-grid = { path = "./crates/nu-term-grid", version = "0.90.2" }
-nu-std = { path = "./crates/nu-std", version = "0.90.2" }
-nu-utils = { path = "./crates/nu-utils", version = "0.90.2" }
-
-nu-ansi-term = "0.50.0"
-reedline = { version = "0.29.0", features = ["bashisms", "sqlite"] }
-
+[workspace.dependencies]
+alphanumeric-sort = "1.5"
+ansi-str = "0.8"
+base64 = "0.22"
+bracoxide = "0.1.2"
+byteorder = "1.5"
+bytesize = "1.3"
+calamine = "0.24.0"
+chardetng = "0.1.17"
+chrono = { default-features = false, version = "0.4" }
+chrono-humanize = "0.2.3"
+chrono-tz = "0.8"
+crossbeam-channel = "0.5.8"
 crossterm = "0.27"
+csv = "1.3"
 ctrlc = "3.4"
+dialoguer = { default-features = false, version = "0.11" }
+digest = { default-features = false, version = "0.10" }
+dirs-next = "2.0"
+dtparse = "2.0"
+encoding_rs = "0.8"
+fancy-regex = "0.13"
+filesize = "0.2"
+filetime = "0.2"
+fs_extra = "1.3"
+fuzzy-matcher = "0.3"
+hamcrest2 = "0.3"
+heck = "0.5.0"
+human-date-parser = "0.1.1"
+indexmap = "2.2"
+indicatif = "0.17"
+is_executable = "1.0"
+itertools = "0.12"
+libc = "0.2"
+libproc = "0.14"
 log = "0.4"
-miette = { version = "7.1", features = ["fancy-no-backtrace"] }
-mimalloc = { version = "0.1.37", default-features = false, optional = true }
+lru = "0.12"
+lscolors = { version = "0.17", default-features = false }
+lsp-server = "0.7.5"
+lsp-types = "0.95.0"
+mach2 = "0.4"
+md5 = { version = "0.10", package = "md-5"}
+miette = "7.2"
+mime = "0.3"
+mime_guess = "2.0"
+mockito = { version = "1.4", default-features = false }
+native-tls = "0.2"
+nix = { version = "0.27", default-features = false }
+notify-debouncer-full = { version = "0.3", default-features = false }
+nu-ansi-term = "0.50.0"
+num-format = "0.4"
+num-traits = "0.2"
+omnipath = "0.1"
+once_cell = "1.18"
+open = "5.1"
+os_pipe = "1.1"
+pathdiff = "0.2"
+percent-encoding = "2"
+print-positions = "0.6"
+procfs = "0.16.0"
+pwd = "1.3"
+quick-xml = "0.31.0"
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+rand = "0.8"
+ratatui = "0.26"
+rayon = "1.9"
+reedline = "0.30.0"
+regex = "1.9.5"
+ropey = "1.6.1"
+roxmltree = "0.19"
+rstest = { version = "0.18", default-features = false }
+rusqlite = "0.31"
+rust-embed = "8.2.0"
+same-file = "1.0"
+serde = { version = "1.0", default-features = false }
 serde_json = "1.0"
+serde_urlencoded = "0.7.1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+strip-ansi-escapes = "0.2.0"
+sysinfo = "0.30"
+tabled = { version = "0.14.0", default-features = false }
+tempfile = "3.10"
+terminal_size = "0.3"
+titlecase = "2.0"
+toml = "0.8"
+trash = "3.3"
+umask = "2.1"
+unicode-segmentation = "1.11"
+unicode-width = "0.1"
+ureq = { version = "2.9", default-features = false }
+url = "2.2"
+uu_cp = "0.0.24"
+uu_mkdir = "0.0.24"
+uu_mktemp = "0.0.24"
+uu_mv = "0.0.24"
+uu_whoami = "0.0.24"
+uucore = "0.0.24"
+uuid = "1.8.0"
+v_htmlescape = "0.15.0"
+wax = "0.6"
+which = "6.0.0"
+windows = "0.54"
+winreg = "0.52"
+
+[dependencies]
+nu-cli = { path = "./crates/nu-cli", version = "0.91.1" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.91.1" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.91.1" }
+nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.91.1", features = [
+  "dataframe",
+], optional = true }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.91.1" }
+nu-command = { path = "./crates/nu-command", version = "0.91.1" }
+nu-engine = { path = "./crates/nu-engine", version = "0.91.1" }
+nu-explore = { path = "./crates/nu-explore", version = "0.91.1" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.91.1" }
+nu-parser = { path = "./crates/nu-parser", version = "0.91.1" }
+nu-path = { path = "./crates/nu-path", version = "0.91.1" }
+nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.91.1" }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.91.1" }
+nu-std = { path = "./crates/nu-std", version = "0.91.1" }
+nu-utils = { path = "./crates/nu-utils", version = "0.91.1" }
+
+reedline = { workspace = true, features = ["bashisms", "sqlite"] }
+
+crossterm = { workspace = true }
+ctrlc = { workspace = true }
+log = { workspace = true }
+miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
+mimalloc = { version = "0.1.37", default-features = false, optional = true }
+serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
 
@@ -98,40 +198,41 @@ openssl = { version = "0.10", features = ["vendored"], optional = true }
 winresource = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
-nix = { version = "0.27", default-features = false, features = [
-	"signal",
-	"process",
-	"fs",
-	"term",
+nix = { workspace = true, default-features = false, features = [
+  "signal",
+  "process",
+  "fs",
+  "term",
 ] }
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.90.2" }
+nu-test-support = { path = "./crates/nu-test-support", version = "0.91.1" }
 assert_cmd = "2.0"
-criterion = "0.5"
+dirs-next = { workspace = true }
+divan = "0.1.14"
 pretty_assertions = "1.4"
-rstest = { version = "0.18", default-features = false }
+rstest = { workspace = true, default-features = false }
 serial_test = "3.0"
-tempfile = "3.8"
+tempfile = { workspace = true }
 
 [features]
 plugin = [
-	"nu-plugin",
-	"nu-cli/plugin",
-	"nu-parser/plugin",
-	"nu-command/plugin",
-	"nu-protocol/plugin",
-	"nu-engine/plugin",
+  "nu-plugin",
+  "nu-cli/plugin",
+  "nu-parser/plugin",
+  "nu-command/plugin",
+  "nu-protocol/plugin",
+  "nu-engine/plugin",
 ]
 default = ["default-no-clipboard", "system-clipboard"]
 # Enables convenient omitting of the system-clipboard feature, as it leads to problems in ci on linux
 # See https://github.com/nushell/nushell/pull/11535
 default-no-clipboard = [
-	"plugin",
-	"which-support",
-	"trash-support",
-	"sqlite",
-	"mimalloc",
+  "plugin",
+  "which-support",
+  "trash-support",
+  "sqlite",
+  "mimalloc",
 ]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
@@ -142,14 +243,11 @@ wasi = ["nu-cmd-lang/wasi"]
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
-system-clipboard = ["reedline/system_clipboard"]
+system-clipboard = ["reedline/system_clipboard", "nu-cli/system-clipboard"]
 
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
-
-# Extra feature for nushell
-extra = ["dep:nu-cmd-extra", "nu-cmd-lang/extra"]
 
 # Dataframe feature for nushell
 dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
@@ -188,7 +286,6 @@ bench = false
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
-# Criterion benchmarking setup
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
 [[bench]]

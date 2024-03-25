@@ -331,3 +331,21 @@ fn parse_let_signature(#[case] phrase: &str) {
     let actual = nu!(phrase);
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn parse_let_signature_missing_colon() {
+    let actual = nu!("let a int = 1");
+    assert!(actual.err.contains("nu::parser::extra_tokens"));
+}
+
+#[test]
+fn parse_mut_signature_missing_colon() {
+    let actual = nu!("mut a record<a: int b: int> = {a: 1 b: 1}");
+    assert!(actual.err.contains("nu::parser::extra_tokens"));
+}
+
+#[test]
+fn parse_const_signature_missing_colon() {
+    let actual = nu!("const a string = 'Hello World\n'");
+    assert!(actual.err.contains("nu::parser::extra_tokens"));
+}

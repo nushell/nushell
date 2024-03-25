@@ -1,15 +1,16 @@
 use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_engine::eval_call;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
-use reedline::Suggestion;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use super::base::SemanticSuggestion;
 use super::completer::map_value_completions;
 
 pub struct CustomCompletion {
@@ -24,7 +25,7 @@ impl CustomCompletion {
     pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
             engine_state,
-            stack,
+            stack: stack.reset_stdio().capture(),
             decl_id,
             line,
             sort_by: SortBy::None,
@@ -41,12 +42,12 @@ impl Completer for CustomCompletion {
         offset: usize,
         pos: usize,
         completion_options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         // Line position
         let line_pos = pos - offset;
 
         // Call custom declaration
-        let result = eval_call(
+        let result = eval_call::<WithoutDebug>(
             &self.engine_state,
             &mut self.stack,
             &Call {
@@ -66,8 +67,6 @@ impl Completer for CustomCompletion {
                         custom_completion: None,
                     }),
                 ],
-                redirect_stdout: true,
-                redirect_stderr: true,
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),
@@ -146,15 +145,22 @@ impl Completer for CustomCompletion {
     }
 }
 
-fn filter(prefix: &[u8], items: Vec<Suggestion>, options: &CompletionOptions) -> Vec<Suggestion> {
+fn filter(
+    prefix: &[u8],
+    items: Vec<SemanticSuggestion>,
+    options: &CompletionOptions,
+) -> Vec<SemanticSuggestion> {
     items
         .into_iter()
         .filter(|it| match options.match_algorithm {
             MatchAlgorithm::Prefix => match (options.case_sensitive, options.positional) {
-                (true, true) => it.value.as_bytes().starts_with(prefix),
-                (true, false) => it.value.contains(std::str::from_utf8(prefix).unwrap_or("")),
+                (true, true) => it.suggestion.value.as_bytes().starts_with(prefix),
+                (true, false) => it
+                    .suggestion
+                    .value
+                    .contains(std::str::from_utf8(prefix).unwrap_or("")),
                 (false, positional) => {
-                    let value = it.value.to_folded_case();
+                    let value = it.suggestion.value.to_folded_case();
                     let prefix = std::str::from_utf8(prefix).unwrap_or("").to_folded_case();
                     if positional {
                         value.starts_with(&prefix)
@@ -165,7 +171,7 @@ fn filter(prefix: &[u8], items: Vec<Suggestion>, options: &CompletionOptions) ->
             },
             MatchAlgorithm::Fuzzy => options
                 .match_algorithm
-                .matches_u8(it.value.as_bytes(), prefix),
+                .matches_u8(it.suggestion.value.as_bytes(), prefix),
         })
         .collect()
 }

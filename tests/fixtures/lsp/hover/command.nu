@@ -2,3 +2,5 @@
 def hello [] {}
 
 hello
+
+[""] | str join

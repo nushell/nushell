@@ -1,28 +1,35 @@
 use crate::GStat;
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginSignature, Spanned, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, PluginSignature, Spanned, SyntaxShape, Value};
 
-impl Plugin for GStat {
-    fn signature(&self) -> Vec<PluginSignature> {
-        vec![PluginSignature::build("gstat")
+pub struct GStatPlugin;
+
+impl Plugin for GStatPlugin {
+    fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+        vec![Box::new(GStat)]
+    }
+}
+
+impl SimplePluginCommand for GStat {
+    type Plugin = GStatPlugin;
+
+    fn signature(&self) -> PluginSignature {
+        PluginSignature::build("gstat")
             .usage("Get the git status of a repo")
             .optional("path", SyntaxShape::Filepath, "path to repo")
-            .category(Category::Custom("prompt".to_string()))]
+            .category(Category::Custom("prompt".to_string()))
     }
 
     fn run(
-        &mut self,
-        name: &str,
-        _config: &Option<Value>,
+        &self,
+        _plugin: &GStatPlugin,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        if name != "gstat" {
-            return Ok(Value::nothing(call.head));
-        }
-
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
         // eprintln!("input value: {:#?}", &input);
-        self.gstat(input, repo_path, call.head)
+        let current_dir = engine.get_current_dir()?;
+        self.gstat(input, &current_dir, repo_path, call.head)
     }
 }

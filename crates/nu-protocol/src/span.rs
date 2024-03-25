@@ -3,12 +3,31 @@ use serde::{Deserialize, Serialize};
 
 /// A spanned area of interest, generic over what kind of thing is of interest
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Spanned<T>
-where
-    T: Clone + std::fmt::Debug,
-{
+pub struct Spanned<T> {
     pub item: T,
     pub span: Span,
+}
+
+/// Helper trait to create [`Spanned`] more ergonomically.
+pub trait IntoSpanned: Sized {
+    /// Wrap items together with a span into [`Spanned`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use nu_protocol::{Span, IntoSpanned};
+    /// # let span = Span::test_data();
+    /// let spanned = "Hello, world!".into_spanned(span);
+    /// assert_eq!("Hello, world!", spanned.item);
+    /// assert_eq!(span, spanned.span);
+    /// ```
+    fn into_spanned(self, span: Span) -> Spanned<Self>;
+}
+
+impl<T> IntoSpanned for T {
+    fn into_spanned(self, span: Span) -> Spanned<Self> {
+        Spanned { item: self, span }
+    }
 }
 
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and

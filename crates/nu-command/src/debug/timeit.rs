@@ -1,4 +1,5 @@
-use nu_engine::{eval_block, eval_expression_with_input};
+use nu_engine::{get_eval_block, get_eval_expression_with_input};
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -52,25 +53,13 @@ impl Command for TimeIt {
 
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
+                let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);
-                eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )?
+                eval_block(engine_state, stack, block, input)?
             } else {
-                eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    command_to_run,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )
-                .map(|res| res.0)?
+                let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+                eval_expression_with_input(engine_state, stack, command_to_run, input)
+                    .map(|res| res.0)?
             }
         } else {
             PipelineData::empty()

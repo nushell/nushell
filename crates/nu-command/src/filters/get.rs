@@ -85,7 +85,7 @@ If multiple cell paths are given, this will produce a list of values."#
         } else {
             let mut output = vec![];
 
-            let paths = vec![cell_path].into_iter().chain(rest);
+            let paths = std::iter::once(cell_path).chain(rest);
 
             let input = input.into_value(span);
 

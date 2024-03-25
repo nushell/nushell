@@ -1,15 +1,20 @@
+use super::cached_file::CachedFile;
+use super::CommandType;
 use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, VirtualPath, Visibility,
-    PWD_ENV,
+    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
+    Visibility, PWD_ENV,
 };
 use crate::ast::Block;
-use crate::{
-    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, Variable, VirtualPathId,
-};
+use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
 use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+
+use std::sync::Arc;
+
+#[cfg(feature = "plugin")]
+use crate::{PluginIdentity, RegisteredPlugin};
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -155,6 +160,28 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.plugins_changed = true;
     }
 
+    #[cfg(feature = "plugin")]
+    pub fn find_or_create_plugin(
+        &mut self,
+        identity: &PluginIdentity,
+        make: impl FnOnce() -> Arc<dyn RegisteredPlugin>,
+    ) -> Arc<dyn RegisteredPlugin> {
+        // Check in delta first, then permanent_state
+        if let Some(plugin) = self
+            .delta
+            .plugins
+            .iter()
+            .chain(self.permanent_state.plugins())
+            .find(|p| p.identity() == identity)
+        {
+            plugin.clone()
+        } else {
+            let plugin = make();
+            self.delta.plugins.push(plugin.clone());
+            plugin
+        }
+    }
+
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
         self.move_predecls_to_overlay();
 
@@ -228,7 +255,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn add_block(&mut self, block: Block) -> BlockId {
+    pub fn add_block(&mut self, block: Arc<Block>) -> BlockId {
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
@@ -237,7 +264,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn add_module(&mut self, name: &str, module: Module, comments: Vec<Span>) -> ModuleId {
         let name = name.as_bytes().to_vec();
 
-        self.delta.modules.push(module);
+        self.delta.modules.push(Arc::new(module));
         let module_id = self.num_modules() - 1;
 
         if !comments.is_empty() {
@@ -259,8 +286,8 @@ impl<'a> StateWorkingSet<'a> {
     pub fn next_span_start(&self) -> usize {
         let permanent_span_start = self.permanent_state.next_span_start();
 
-        if let Some((_, _, last)) = self.delta.file_contents.last() {
-            *last
+        if let Some(cached_file) = self.delta.files.last() {
+            cached_file.covered_span.end
         } else {
             permanent_span_start
         }
@@ -270,21 +297,22 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.next_span_start()
     }
 
-    pub fn files(&'a self) -> impl Iterator<Item = &(String, usize, usize)> {
+    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
 
-    pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
-        for (id, (contents, _, _)) in self.delta.file_contents.iter().enumerate() {
-            if self.permanent_state.num_files() + id == file_id {
-                return Some(contents);
-            }
+    pub fn get_contents_of_file(&self, file_id: FileId) -> Option<&[u8]> {
+        if let Some(cached_file) = self.permanent_state.get_file_contents().get(file_id) {
+            return Some(&cached_file.content);
         }
-
-        for (id, (contents, _, _)) in self.permanent_state.get_file_contents().iter().enumerate() {
-            if id == file_id {
-                return Some(contents);
-            }
+        // The index subtraction will not underflow, if we hit the permanent state first.
+        // Check if you try reordering for locality
+        if let Some(cached_file) = self
+            .delta
+            .get_file_contents()
+            .get(file_id - self.permanent_state.num_files())
+        {
+            return Some(&cached_file.content);
         }
 
         None
@@ -293,25 +321,22 @@ impl<'a> StateWorkingSet<'a> {
     #[must_use]
     pub fn add_file(&mut self, filename: String, contents: &[u8]) -> FileId {
         // First, look for the file to see if we already have it
-        for (idx, (fname, file_start, file_end)) in self.files().enumerate() {
-            if fname == &filename {
-                let prev_contents = self.get_span_contents(Span::new(*file_start, *file_end));
-                if prev_contents == contents {
-                    return idx;
-                }
+        for (idx, cached_file) in self.files().enumerate() {
+            if *cached_file.name == filename && &*cached_file.content == contents {
+                return idx;
             }
         }
 
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
 
-        self.delta
-            .file_contents
-            .push((contents.to_vec(), next_span_start, next_span_end));
+        let covered_span = Span::new(next_span_start, next_span_end);
 
-        self.delta
-            .files
-            .push((filename, next_span_start, next_span_end));
+        self.delta.files.push(CachedFile {
+            name: filename.into(),
+            content: contents.into(),
+            covered_span,
+        });
 
         self.num_files() - 1
     }
@@ -324,35 +349,31 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn get_span_for_filename(&self, filename: &str) -> Option<Span> {
-        let (file_id, ..) = self
-            .files()
-            .enumerate()
-            .find(|(_, (fname, _, _))| fname == filename)?;
+        let file_id = self.files().position(|file| &*file.name == filename)?;
 
         Some(self.get_span_for_file(file_id))
     }
 
-    pub fn get_span_for_file(&self, file_id: usize) -> Span {
+    /// Panics:
+    /// On invalid `FileId`
+    ///
+    /// Use with care
+    pub fn get_span_for_file(&self, file_id: FileId) -> Span {
         let result = self
             .files()
             .nth(file_id)
             .expect("internal error: could not find source for previously parsed file");
 
-        Span::new(result.1, result.2)
+        result.covered_span
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
-            for (contents, start, finish) in &self.delta.file_contents {
-                if (span.start >= *start) && (span.end <= *finish) {
-                    let begin = span.start - start;
-                    let mut end = span.end - start;
-                    if begin > end {
-                        end = *finish - permanent_end;
-                    }
-
-                    return &contents[begin..end];
+            for cached_file in &self.delta.files {
+                if cached_file.covered_span.contains_span(span) {
+                    return &cached_file.content[span.start - cached_file.covered_span.start
+                        ..span.end - cached_file.covered_span.start];
                 }
             }
         }
@@ -600,8 +621,8 @@ impl<'a> StateWorkingSet<'a> {
     pub fn list_env(&self) -> Vec<String> {
         let mut env_vars = vec![];
 
-        for env_var in self.permanent_state.env_vars.clone().into_iter() {
-            env_vars.push(env_var.0)
+        for env_var in self.permanent_state.env_vars.iter() {
+            env_vars.push(env_var.0.clone());
         }
 
         env_vars
@@ -659,8 +680,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
+    pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         let num_permanent_decls = self.permanent_state.num_decls();
         if decl_id < num_permanent_decls {
             self.permanent_state.get_decl(decl_id)
@@ -669,6 +689,7 @@ impl<'a> StateWorkingSet<'a> {
                 .decls
                 .get(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
+                .as_ref()
         }
     }
 
@@ -688,7 +709,7 @@ impl<'a> StateWorkingSet<'a> {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
@@ -701,7 +722,11 @@ impl<'a> StateWorkingSet<'a> {
                         if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;
                         }
-                        output.push((decl.0.clone(), Some(command.usage().to_string())));
+                        output.push((
+                            decl.0.clone(),
+                            Some(command.usage().to_string()),
+                            command.command_type(),
+                        ));
                     }
                 }
             }
@@ -716,7 +741,7 @@ impl<'a> StateWorkingSet<'a> {
         output
     }
 
-    pub fn get_block(&self, block_id: BlockId) -> &Block {
+    pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         let num_permanent_blocks = self.permanent_state.num_blocks();
         if block_id < num_permanent_blocks {
             self.permanent_state.get_block(block_id)
@@ -748,6 +773,7 @@ impl<'a> StateWorkingSet<'a> {
             self.delta
                 .blocks
                 .get_mut(block_id - num_permanent_blocks)
+                .map(Arc::make_mut)
                 .expect("internal error: missing block")
         }
     }
@@ -931,14 +957,14 @@ impl<'a> StateWorkingSet<'a> {
         build_usage(&comment_lines)
     }
 
-    pub fn find_block_by_span(&self, span: Span) -> Option<Block> {
+    pub fn find_block_by_span(&self, span: Span) -> Option<Arc<Block>> {
         for block in &self.delta.blocks {
             if Some(span) == block.span {
                 return Some(block.clone());
             }
         }
 
-        for block in &self.permanent_state.blocks {
+        for block in self.permanent_state.blocks.iter() {
             if Some(span) == block.span {
                 return Some(block.clone());
             }
@@ -1004,19 +1030,24 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
             let finding_span = "Finding span in StateWorkingSet";
             dbg!(finding_span, span);
         }
-        for (filename, start, end) in self.files() {
+        for cached_file in self.files() {
+            let (filename, start, end) = (
+                &cached_file.name,
+                cached_file.covered_span.start,
+                cached_file.covered_span.end,
+            );
             if debugging {
                 dbg!(&filename, start, end);
             }
-            if span.offset() >= *start && span.offset() + span.len() <= *end {
+            if span.offset() >= start && span.offset() + span.len() <= end {
                 if debugging {
                     let found_file = "Found matching file";
                     dbg!(found_file);
                 }
-                let our_span = Span::new(*start, *end);
+                let our_span = cached_file.covered_span;
                 // We need to move to a local span because we're only reading
                 // the specific file contents via self.get_span_contents.
-                let local_span = (span.offset() - *start, span.len()).into();
+                let local_span = (span.offset() - start, span.len()).into();
                 if debugging {
                     dbg!(&local_span);
                 }
@@ -1037,7 +1068,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                 }
 
                 let data = span_contents.data();
-                if filename == "<cli>" {
+                if &**filename == "<cli>" {
                     if debugging {
                         let success_cli = "Successfully read CLI span";
                         dbg!(success_cli, String::from_utf8_lossy(data));
@@ -1055,7 +1086,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                         dbg!(success_file);
                     }
                     return Ok(Box::new(miette::MietteSpanContents::new_named(
-                        filename.clone(),
+                        (**filename).to_owned(),
                         data,
                         retranslated,
                         span_contents.line(),

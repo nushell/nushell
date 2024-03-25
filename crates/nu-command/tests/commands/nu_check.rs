@@ -177,52 +177,6 @@ fn file_not_exist() {
 }
 
 #[test]
-fn parse_unsupported_file() {
-    Playground::setup("nu_check_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "foo.txt",
-            r#"
-                # foo.nu
-
-                export def hello [name: string {
-                    $"hello ($name)!"
-                }
-
-                export def hi [where: string] {
-                    $"hi ($where)!"
-                }
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --as-module foo.txt
-            "
-        ));
-
-        assert!(actual
-            .err
-            .contains("File extension must be the type of .nu"));
-    })
-}
-#[test]
-fn parse_dir_failure() {
-    Playground::setup("nu_check_test_9", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --as-module ~
-            "
-        ));
-
-        assert!(actual
-            .err
-            .contains("File extension must be the type of .nu"));
-    })
-}
-
-#[test]
 fn parse_module_success_2() {
     Playground::setup("nu_check_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
@@ -554,7 +508,7 @@ fn parse_module_success_with_complex_external_stream() {
 }
 
 #[test]
-fn parse_with_flag_all_success_for_complex_external_stream() {
+fn parse_with_flag_success_for_complex_external_stream() {
     Playground::setup("nu_check_test_20", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "grep.nu",
@@ -594,7 +548,7 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | nu-check --all --debug
+                open grep.nu | nu-check --debug
             "
         ));
 
@@ -603,7 +557,7 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
 }
 
 #[test]
-fn parse_with_flag_all_failure_for_complex_external_stream() {
+fn parse_with_flag_failure_for_complex_external_stream() {
     Playground::setup("nu_check_test_21", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "grep.nu",
@@ -643,16 +597,16 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | nu-check --all --debug
+                open grep.nu | nu-check --debug
             "
         ));
 
-        assert!(actual.err.contains("syntax error"));
+        assert!(actual.err.contains("Failed to parse content"));
     })
 }
 
 #[test]
-fn parse_with_flag_all_failure_for_complex_list_stream() {
+fn parse_with_flag_failure_for_complex_list_stream() {
     Playground::setup("nu_check_test_22", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "grep.nu",
@@ -692,38 +646,11 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                open grep.nu | lines | nu-check --all --debug
+                open grep.nu | lines | nu-check --debug
             "
         ));
 
-        assert!(actual.err.contains("syntax error"));
-    })
-}
-
-#[test]
-fn parse_failure_due_conflicted_flags() {
-    Playground::setup("nu_check_test_23", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "script.nu",
-            r#"
-                greet "world"
-
-                def greet [name] {
-                  echo "hello" $name
-                }
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check -a --as-module script.nu
-            "
-        ));
-
-        assert!(actual
-            .err
-            .contains("You cannot have both `--all` and `--as-module` on the same command line"));
+        assert!(actual.err.contains("Failed to parse content"));
     })
 }
 
@@ -789,6 +716,30 @@ fn nu_check_respects_file_pwd() {
                 $env.RETURN
             "
         ));
+
+        assert_eq!(actual.out, "true");
+    })
+}
+#[test]
+fn nu_check_module_dir() {
+    Playground::setup("nu_check_test_26", |dirs, sandbox| {
+        sandbox
+            .mkdir("lol")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/mod.nu",
+                r#"
+                    export module foo.nu
+                    export def main [] { 'lol' }
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "lol/foo.nu",
+                r#"
+                    export def main [] { 'lol foo' }
+                "#,
+            )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline( "nu-check lol"));
 
         assert_eq!(actual.out, "true");
     })

@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
@@ -91,7 +91,8 @@ impl Command for ToHtml {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::Any, Type::String)])
+            .allow_variants_without_examples(true)
             .switch("html-color", "change ansi colors to html colors", Some('c'))
             .switch("no-color", "remove all ansi colors in output", Some('n'))
             .switch(
@@ -254,126 +255,127 @@ fn to_html(
     let mut output_string = String::new();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::with_capacity(17);
 
-    // Being essentially a 'help' option, this can afford to be relatively unoptimised
     if list {
-        // If asset doesn't work, make sure to return the default theme
-        let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
-
-        let result: Vec<Value> = html_themes
-            .themes
-            .into_iter()
-            .map(|n| {
-                Value::record(
-                    record! {
-                        "name" => Value::string(n.name, head),
-                        "black" => Value::string(n.black, head),
-                        "red" => Value::string(n.red, head),
-                        "green" => Value::string(n.green, head),
-                        "yellow" => Value::string(n.yellow, head),
-                        "blue" => Value::string(n.blue, head),
-                        "purple" => Value::string(n.purple, head),
-                        "cyan" => Value::string(n.cyan, head),
-                        "white" => Value::string(n.white, head),
-                        "brightBlack" => Value::string(n.brightBlack, head),
-                        "brightRed" => Value::string(n.brightRed, head),
-                        "brightGreen" => Value::string(n.brightGreen, head),
-                        "brightYellow" => Value::string(n.brightYellow, head),
-                        "brightBlue" => Value::string(n.brightBlue, head),
-                        "brightPurple" => Value::string(n.brightPurple, head),
-                        "brightCyan" => Value::string(n.brightCyan, head),
-                        "brightWhite" => Value::string(n.brightWhite, head),
-                        "background" => Value::string(n.background, head),
-                        "foreground" => Value::string(n.foreground, head),
-                    },
-                    head,
-                )
-            })
-            .collect();
-        return Ok(
-            Value::list(result, head).into_pipeline_data_with_metadata(PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-            }),
-        );
-    } else {
-        let theme_span = match &theme {
-            Some(v) => v.span,
-            None => head,
-        };
-
-        let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
-        let color_hm = match color_hm {
-            Ok(c) => c,
-            _ => {
-                return Err(ShellError::GenericError {
-                    error: "Error finding theme name".into(),
-                    msg: "Error finding theme name".into(),
-                    span: Some(theme_span),
-                    help: None,
-                    inner: vec![],
-                })
-            }
-        };
-
-        // change the color of the page
-        if !partial {
-            write!(
-                &mut output_string,
-                r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
-                color_hm
-                    .get("background")
-                    .expect("Error getting background color"),
-                color_hm
-                    .get("foreground")
-                    .expect("Error getting foreground color")
-            )
-            .unwrap();
-        } else {
-            write!(
-                &mut output_string,
-                "<div style=\"background-color:{};color:{};\">",
-                color_hm
-                    .get("background")
-                    .expect("Error getting background color"),
-                color_hm
-                    .get("foreground")
-                    .expect("Error getting foreground color")
-            )
-            .unwrap();
-        }
-
-        let inner_value = match vec_of_values.len() {
-            0 => String::default(),
-            1 => match headers {
-                Some(headers) => html_table(vec_of_values, headers, config),
-                None => {
-                    let value = &vec_of_values[0];
-                    html_value(value.clone(), config)
-                }
-            },
-            _ => match headers {
-                Some(headers) => html_table(vec_of_values, headers, config),
-                None => html_list(vec_of_values, config),
-            },
-        };
-
-        output_string.push_str(&inner_value);
-
-        if !partial {
-            output_string.push_str("</body></html>");
-        } else {
-            output_string.push_str("</div>")
-        }
-
-        // Check to see if we want to remove all color or change ansi to html colors
-        if html_color {
-            setup_html_color_regexes(&mut regex_hm, &color_hm);
-            output_string = run_regexes(&regex_hm, &output_string);
-        } else if no_color {
-            setup_no_color_regexes(&mut regex_hm);
-            output_string = run_regexes(&regex_hm, &output_string);
-        }
+        // Being essentially a 'help' option, this can afford to be relatively unoptimised
+        return Ok(theme_demo(head));
     }
+    let theme_span = match &theme {
+        Some(v) => v.span,
+        None => head,
+    };
+
+    let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
+    let color_hm = match color_hm {
+        Ok(c) => c,
+        _ => {
+            return Err(ShellError::GenericError {
+                error: "Error finding theme name".into(),
+                msg: "Error finding theme name".into(),
+                span: Some(theme_span),
+                help: None,
+                inner: vec![],
+            })
+        }
+    };
+
+    // change the color of the page
+    if !partial {
+        write!(
+            &mut output_string,
+            r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
+            color_hm
+                .get("background")
+                .expect("Error getting background color"),
+            color_hm
+                .get("foreground")
+                .expect("Error getting foreground color")
+        )
+        .unwrap();
+    } else {
+        write!(
+            &mut output_string,
+            "<div style=\"background-color:{};color:{};\">",
+            color_hm
+                .get("background")
+                .expect("Error getting background color"),
+            color_hm
+                .get("foreground")
+                .expect("Error getting foreground color")
+        )
+        .unwrap();
+    }
+
+    let inner_value = match vec_of_values.len() {
+        0 => String::default(),
+        1 => match headers {
+            Some(headers) => html_table(vec_of_values, headers, config),
+            None => {
+                let value = &vec_of_values[0];
+                html_value(value.clone(), config)
+            }
+        },
+        _ => match headers {
+            Some(headers) => html_table(vec_of_values, headers, config),
+            None => html_list(vec_of_values, config),
+        },
+    };
+
+    output_string.push_str(&inner_value);
+
+    if !partial {
+        output_string.push_str("</body></html>");
+    } else {
+        output_string.push_str("</div>")
+    }
+
+    // Check to see if we want to remove all color or change ansi to html colors
+    if html_color {
+        setup_html_color_regexes(&mut regex_hm, &color_hm);
+        output_string = run_regexes(&regex_hm, &output_string);
+    } else if no_color {
+        setup_no_color_regexes(&mut regex_hm);
+        output_string = run_regexes(&regex_hm, &output_string);
+    }
+
     Ok(Value::string(output_string, head).into_pipeline_data())
+}
+
+fn theme_demo(span: Span) -> PipelineData {
+    // If asset doesn't work, make sure to return the default theme
+    let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
+    let result: Vec<Value> = html_themes
+        .themes
+        .into_iter()
+        .map(|n| {
+            Value::record(
+                record! {
+                    "name" => Value::string(n.name, span),
+                    "black" => Value::string(n.black, span),
+                    "red" => Value::string(n.red, span),
+                    "green" => Value::string(n.green, span),
+                    "yellow" => Value::string(n.yellow, span),
+                    "blue" => Value::string(n.blue, span),
+                    "purple" => Value::string(n.purple, span),
+                    "cyan" => Value::string(n.cyan, span),
+                    "white" => Value::string(n.white, span),
+                    "brightBlack" => Value::string(n.brightBlack, span),
+                    "brightRed" => Value::string(n.brightRed, span),
+                    "brightGreen" => Value::string(n.brightGreen, span),
+                    "brightYellow" => Value::string(n.brightYellow, span),
+                    "brightBlue" => Value::string(n.brightBlue, span),
+                    "brightPurple" => Value::string(n.brightPurple, span),
+                    "brightCyan" => Value::string(n.brightCyan, span),
+                    "brightWhite" => Value::string(n.brightWhite, span),
+                    "background" => Value::string(n.background, span),
+                    "foreground" => Value::string(n.foreground, span),
+                },
+                span,
+            )
+        })
+        .collect();
+    Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
+        data_source: DataSource::HtmlThemes,
+    })
 }
 
 fn html_list(list: Vec<Value>, config: &Config) -> String {

@@ -1,6 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -93,8 +94,8 @@ fn gather_env_vars(
     let span_offset = engine_state.next_span_start();
 
     engine_state.add_file(
-        "Host Environment Variables".to_string(),
-        fake_env_file.as_bytes().to_vec(),
+        "Host Environment Variables".into(),
+        fake_env_file.as_bytes().into(),
     );
 
     let (tokens, _) = lex(fake_env_file.as_bytes(), span_offset, &[], &[], true);
@@ -240,9 +241,9 @@ pub fn eval_source(
     }
 
     let b = if allow_return {
-        eval_block_with_early_return(engine_state, stack, &block, input, false, false)
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
     } else {
-        eval_block(engine_state, stack, &block, input, false, false)
+        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     };
 
     match b {

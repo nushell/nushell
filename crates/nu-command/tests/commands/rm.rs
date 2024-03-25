@@ -1,6 +1,7 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use rstest::rstest;
 use std::fs;
 use std::path::Path;
 
@@ -481,6 +482,48 @@ fn rm_files_inside_glob_metachars_dir() {
     });
 }
 
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn rm_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("rm_files_with_glob_metachars", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile(src_name)]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm '{}'",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+
+        // test with variables
+        sandbox.with_files(vec![EmptyFile(src_name)]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; rm $f",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case("a]?c")]
+#[case("a*.?c")]
+// windows doesn't allow filename with `*`.
+fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    rm_files_with_glob_metachars(src_name);
+}
+
 #[test]
 fn force_rm_suppress_error() {
     Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
@@ -494,4 +537,35 @@ fn force_rm_suppress_error() {
 
         assert!(actual.err.is_empty());
     });
+}
+
+#[test]
+fn rm_with_tilde() {
+    Playground::setup("rm_tilde", |dirs, sandbox| {
+        sandbox.within("~tilde").with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), "rm '~tilde/f1.txt'");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f1.txt")],
+            dirs.test().join("~tilde")
+        ));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; rm $f");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f2.txt")],
+            dirs.test().join("~tilde")
+        ));
+
+        // remove directory
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+    })
 }

@@ -1,3 +1,4 @@
+mod cached_file;
 mod call_info;
 mod capture_block;
 mod command;
@@ -7,7 +8,11 @@ mod pattern_match;
 mod stack;
 mod state_delta;
 mod state_working_set;
+mod stdio;
 mod usage;
+mod variable;
+
+pub use cached_file::CachedFile;
 
 pub use call_info::*;
 pub use capture_block::*;
@@ -18,3 +23,5 @@ pub use pattern_match::*;
 pub use stack::*;
 pub use state_delta::*;
 pub use state_working_set::*;
+pub use stdio::*;
+pub use variable::*;

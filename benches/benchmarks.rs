@@ -1,10 +1,18 @@
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use nu_cli::eval_source;
+use nu_cli::{eval_source, evaluate_commands};
 use nu_parser::parse;
-use nu_plugin::{EncodingType, PluginResponse};
-use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
+use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
+use nu_protocol::{
+    engine::EngineState, eval_const::create_nu_constant, PipelineData, Span, Spanned, Value,
+    NU_VARIABLE_ID,
+};
+use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
 use std::path::{Path, PathBuf};
+
+fn main() {
+    // Run registered benchmarks.
+    divan::main();
+}
 
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -29,105 +37,192 @@ fn get_home_path(engine_state: &EngineState) -> PathBuf {
         .unwrap_or_default()
 }
 
+fn setup_engine() -> EngineState {
+    let mut engine_state = load_bench_commands();
+    let home_path = get_home_path(&engine_state);
+
+    // parsing config.nu breaks without PWD set, so set a valid path
+    engine_state.add_env_var(
+        "PWD".into(),
+        Value::string(home_path.to_string_lossy(), Span::test_data()),
+    );
+
+    let nu_const = create_nu_constant(&engine_state, Span::unknown())
+        .expect("Failed to create nushell constant.");
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+
+    engine_state
+}
+
 // FIXME: All benchmarks live in this 1 file to speed up build times when benchmarking.
 // When the *_benchmarks functions were in different files, `cargo bench` would build
 // an executable for every single one - incredibly slowly. Would be nice to figure out
 // a way to split things up again.
 
-fn parser_benchmarks(c: &mut Criterion) {
-    let mut engine_state = load_bench_commands();
-    let home_path = get_home_path(&engine_state);
-
-    // parsing config.nu breaks without PWD set, so set a valid path
-    engine_state.add_env_var(
-        "PWD".into(),
-        Value::string(home_path.to_string_lossy(), Span::test_data()),
-    );
-
-    let default_env = get_default_env().as_bytes();
-    c.bench_function("parse_default_env_file", |b| {
-        b.iter_batched(
-            || nu_protocol::engine::StateWorkingSet::new(&engine_state),
-            |mut working_set| parse(&mut working_set, None, default_env, false),
-            BatchSize::SmallInput,
-        )
-    });
-
-    let default_config = get_default_config().as_bytes();
-    c.bench_function("parse_default_config_file", |b| {
-        b.iter_batched(
-            || nu_protocol::engine::StateWorkingSet::new(&engine_state),
-            |mut working_set| parse(&mut working_set, None, default_config, false),
-            BatchSize::SmallInput,
-        )
-    });
-
-    c.bench_function("eval default_env.nu", |b| {
-        b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new();
-            eval_source(
-                &mut engine_state,
-                &mut stack,
-                get_default_env().as_bytes(),
-                "default_env.nu",
-                PipelineData::empty(),
-                false,
-            )
+#[divan::bench]
+fn load_standard_lib(bencher: divan::Bencher) {
+    let engine = setup_engine();
+    bencher
+        .with_inputs(|| engine.clone())
+        .bench_values(|mut engine| {
+            load_standard_library(&mut engine).unwrap();
         })
-    });
-
-    c.bench_function("eval default_config.nu", |b| {
-        b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new();
-            eval_source(
-                &mut engine_state,
-                &mut stack,
-                get_default_config().as_bytes(),
-                "default_config.nu",
-                PipelineData::empty(),
-                false,
-            )
-        })
-    });
 }
 
-fn eval_benchmarks(c: &mut Criterion) {
-    let mut engine_state = load_bench_commands();
-    let home_path = get_home_path(&engine_state);
+#[divan::bench_group]
+mod eval_commands {
+    use super::*;
 
-    // parsing config.nu breaks without PWD set, so set a valid path
-    engine_state.add_env_var(
-        "PWD".into(),
-        Value::string(home_path.to_string_lossy(), Span::test_data()),
-    );
+    fn bench_command(bencher: divan::Bencher, scaled_command: String) {
+        let mut engine = setup_engine();
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: scaled_command,
+        };
 
-    c.bench_function("eval default_env.nu", |b| {
-        b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new();
-            eval_source(
-                &mut engine_state,
-                &mut stack,
-                get_default_env().as_bytes(),
-                "default_env.nu",
-                PipelineData::empty(),
-                false,
-            )
-        })
-    });
+        bencher
+            .with_inputs(|| engine.clone())
+            .bench_values(|mut engine| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut nu_protocol::engine::Stack::new(),
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
 
-    c.bench_function("eval default_config.nu", |b| {
-        b.iter(|| {
-            let mut stack = nu_protocol::engine::Stack::new();
-            eval_source(
-                &mut engine_state,
-                &mut stack,
-                get_default_config().as_bytes(),
-                "default_config.nu",
-                PipelineData::empty(),
-                false,
-            )
-        })
-    });
+    #[divan::bench(args = [100, 1_000, 10_000])]
+    fn interleave(bencher: divan::Bencher, n: i32) {
+        bench_command(
+            bencher,
+            format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
+        )
+    }
+
+    #[divan::bench(args = [100, 1_000, 10_000])]
+    fn interleave_with_ctrlc(bencher: divan::Bencher, n: i32) {
+        let mut engine = setup_engine();
+        engine.ctrlc = Some(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+            false,
+        )));
+        load_standard_library(&mut engine).unwrap();
+        let commands = Spanned {
+            span: Span::unknown(),
+            item: format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
+        };
+
+        bencher
+            .with_inputs(|| engine.clone())
+            .bench_values(|mut engine| {
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut nu_protocol::engine::Stack::new(),
+                    PipelineData::empty(),
+                    None,
+                )
+                .unwrap();
+            })
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn for_range(bencher: divan::Bencher, n: i32) {
+        bench_command(bencher, format!("(for $x in (1..{}) {{ sleep 50ns }})", n))
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn each(bencher: divan::Bencher, n: i32) {
+        bench_command(
+            bencher,
+            format!("(1..{}) | each {{|_| sleep 50ns }} | ignore", n),
+        )
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn par_each_1t(bencher: divan::Bencher, n: i32) {
+        bench_command(
+            bencher,
+            format!("(1..{}) | par-each -t 1 {{|_| sleep 50ns }} | ignore", n),
+        )
+    }
+
+    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    fn par_each_2t(bencher: divan::Bencher, n: i32) {
+        bench_command(
+            bencher,
+            format!("(1..{}) | par-each -t 2 {{|_| sleep 50ns }} | ignore", n),
+        )
+    }
+}
+
+#[divan::bench_group()]
+mod parser_benchmarks {
+    use super::*;
+
+    #[divan::bench()]
+    fn parse_default_config_file(bencher: divan::Bencher) {
+        let engine_state = setup_engine();
+        let default_env = get_default_config().as_bytes();
+
+        bencher
+            .with_inputs(|| nu_protocol::engine::StateWorkingSet::new(&engine_state))
+            .bench_refs(|working_set| parse(working_set, None, default_env, false))
+    }
+
+    #[divan::bench()]
+    fn parse_default_env_file(bencher: divan::Bencher) {
+        let engine_state = setup_engine();
+        let default_env = get_default_env().as_bytes();
+
+        bencher
+            .with_inputs(|| nu_protocol::engine::StateWorkingSet::new(&engine_state))
+            .bench_refs(|working_set| parse(working_set, None, default_env, false))
+    }
+}
+
+#[divan::bench_group()]
+mod eval_benchmarks {
+    use super::*;
+
+    #[divan::bench()]
+    fn eval_default_env(bencher: divan::Bencher) {
+        let default_env = get_default_env().as_bytes();
+        let fname = "default_env.nu";
+        bencher
+            .with_inputs(|| (setup_engine(), nu_protocol::engine::Stack::new()))
+            .bench_values(|(mut engine_state, mut stack)| {
+                eval_source(
+                    &mut engine_state,
+                    &mut stack,
+                    default_env,
+                    fname,
+                    PipelineData::empty(),
+                    false,
+                )
+            })
+    }
+
+    #[divan::bench()]
+    fn eval_default_config(bencher: divan::Bencher) {
+        let default_env = get_default_config().as_bytes();
+        let fname = "default_config.nu";
+        bencher
+            .with_inputs(|| (setup_engine(), nu_protocol::engine::Stack::new()))
+            .bench_values(|(mut engine_state, mut stack)| {
+                eval_source(
+                    &mut engine_state,
+                    &mut stack,
+                    default_env,
+                    fname,
+                    PipelineData::empty(),
+                    false,
+                )
+            })
+    }
 }
 
 // generate a new table data with `row_cnt` rows, `col_cnt` columns.
@@ -141,50 +236,76 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
     Value::list(vec![record; row_cnt], Span::test_data())
 }
 
-fn encoding_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Encoding");
-    let test_cnt_pairs = [(100, 5), (100, 15), (10000, 5), (10000, 15)];
-    for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
-        for fmt in ["json", "msgpack"] {
-            group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
-                let mut res = vec![];
-                let test_data =
-                    PluginResponse::Value(Box::new(encoding_test_data(row_cnt, col_cnt)));
-                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-                b.iter(|| encoder.encode_response(&test_data, &mut res))
-            });
-        }
+#[divan::bench_group()]
+mod encoding_benchmarks {
+    use super::*;
+
+    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    fn json_encode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
+        let test_data = PluginOutput::CallResponse(
+            0,
+            PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+        );
+        let encoder = EncodingType::try_from_bytes(b"json").unwrap();
+        bencher
+            .with_inputs(Vec::new)
+            .bench_values(|mut res| encoder.encode(&test_data, &mut res))
     }
-    group.finish();
+
+    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    fn msgpack_encode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
+        let test_data = PluginOutput::CallResponse(
+            0,
+            PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+        );
+        let encoder = EncodingType::try_from_bytes(b"msgpack").unwrap();
+        bencher
+            .with_inputs(Vec::new)
+            .bench_values(|mut res| encoder.encode(&test_data, &mut res))
+    }
 }
 
-fn decoding_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Decoding");
-    let test_cnt_pairs = [(100, 5), (100, 15), (10000, 5), (10000, 15)];
-    for (row_cnt, col_cnt) in test_cnt_pairs.into_iter() {
-        for fmt in ["json", "msgpack"] {
-            group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
-                let mut res = vec![];
-                let test_data =
-                    PluginResponse::Value(Box::new(encoding_test_data(row_cnt, col_cnt)));
-                let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
-                encoder.encode_response(&test_data, &mut res).unwrap();
-                let mut binary_data = std::io::Cursor::new(res);
-                b.iter(|| {
-                    binary_data.set_position(0);
-                    encoder.decode_response(&mut binary_data)
-                })
-            });
-        }
-    }
-    group.finish();
-}
+#[divan::bench_group()]
+mod decoding_benchmarks {
+    use super::*;
 
-criterion_group!(
-    benches,
-    parser_benchmarks,
-    eval_benchmarks,
-    encoding_benchmarks,
-    decoding_benchmarks
-);
-criterion_main!(benches);
+    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    fn json_decode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
+        let test_data = PluginOutput::CallResponse(
+            0,
+            PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+        );
+        let encoder = EncodingType::try_from_bytes(b"json").unwrap();
+        let mut res = vec![];
+        encoder.encode(&test_data, &mut res).unwrap();
+        bencher
+            .with_inputs(|| {
+                let mut binary_data = std::io::Cursor::new(res.clone());
+                binary_data.set_position(0);
+                binary_data
+            })
+            .bench_values(|mut binary_data| -> Result<Option<PluginOutput>, _> {
+                encoder.decode(&mut binary_data)
+            })
+    }
+
+    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    fn msgpack_decode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
+        let test_data = PluginOutput::CallResponse(
+            0,
+            PluginCallResponse::value(encoding_test_data(row_cnt, col_cnt)),
+        );
+        let encoder = EncodingType::try_from_bytes(b"msgpack").unwrap();
+        let mut res = vec![];
+        encoder.encode(&test_data, &mut res).unwrap();
+        bencher
+            .with_inputs(|| {
+                let mut binary_data = std::io::Cursor::new(res.clone());
+                binary_data.set_position(0);
+                binary_data
+            })
+            .bench_values(|mut binary_data| -> Result<Option<PluginOutput>, _> {
+                encoder.decode(&mut binary_data)
+            })
+    }
+}

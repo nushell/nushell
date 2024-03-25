@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type, Value};
-use reedline::Highlighter;
+use reedline::{Highlighter, StyledText};
 
 #[derive(Clone)]
 pub struct NuHighlight;
@@ -62,5 +62,18 @@ impl Command for NuHighlight {
             example: "'let x = 3' | nu-highlight",
             result: None,
         }]
+    }
+}
+
+/// A highlighter that does nothing
+///
+/// Used to remove highlighting from a reedline instance
+/// (letting NuHighlighter structs be dropped)
+#[derive(Default)]
+pub struct NoOpHighlighter {}
+
+impl Highlighter for NoOpHighlighter {
+    fn highlight(&self, _line: &str, _cursor: usize) -> reedline::StyledText {
+        StyledText::new()
     }
 }

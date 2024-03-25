@@ -1,18 +1,49 @@
 use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::map::IndexMap;
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, ShellError, Span, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::LabeledError;
+use nu_protocol::{
+    record, Category, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type, Value,
+};
+
+use crate::FromCmds;
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 pub const CMD_NAME: &str = "from eml";
 
-pub fn from_eml_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-    let preview_body: usize = call
-        .get_flag::<i64>("preview-body")?
-        .map(|l| if l < 0 { 0 } else { l as usize })
-        .unwrap_or(DEFAULT_BODY_PREVIEW);
-    from_eml(input, preview_body, call.head)
+pub struct FromEml;
+
+impl SimplePluginCommand for FromEml {
+    type Plugin = FromCmds;
+
+    fn signature(&self) -> nu_protocol::PluginSignature {
+        PluginSignature::build(CMD_NAME)
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .named(
+                "preview-body",
+                SyntaxShape::Int,
+                "How many bytes of the body to preview",
+                Some('b'),
+            )
+            .usage("Parse text as .eml and create record.")
+            .plugin_examples(examples())
+            .category(Category::Formats)
+    }
+
+    fn run(
+        &self,
+        _plugin: &FromCmds,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let preview_body: usize = call
+            .get_flag::<i64>("preview-body")?
+            .map(|l| if l < 0 { 0 } else { l as usize })
+            .unwrap_or(DEFAULT_BODY_PREVIEW);
+        from_eml(input, preview_body, call.head)
+    }
 }
 
 pub fn examples() -> Vec<PluginExample> {

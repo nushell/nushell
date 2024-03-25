@@ -1032,8 +1032,9 @@ pub fn to_string_raw<T>(value: &T) -> Result<String>
 where
     T: ser::Serialize,
 {
-    let vec = to_vec(value)?;
-    let string = String::from_utf8(vec)?;
-    let output = string.lines().map(str::trim).collect();
-    Ok(output)
+    let result = serde_json::to_string(value);
+    match result {
+        Ok(result_string) => Ok(result_string),
+        Err(error) => Err(Error::Io(std::io::Error::from(error))),
+    }
 }

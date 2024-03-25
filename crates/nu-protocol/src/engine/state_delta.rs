@@ -1,22 +1,29 @@
-use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, VirtualPath};
+use super::cached_file::CachedFile;
+use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath};
 use crate::ast::Block;
-use crate::{Module, Variable};
+use crate::Module;
+
+use std::sync::Arc;
+
+#[cfg(feature = "plugin")]
+use crate::RegisteredPlugin;
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
 /// can be applied to the global state to update it to contain both previous state and the state held
 /// within the delta.
 pub struct StateDelta {
-    pub(super) files: Vec<(String, usize, usize)>,
-    pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
+    pub(super) files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     pub(super) vars: Vec<Variable>,          // indexed by VarId
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
-    pub blocks: Vec<Block>,                  // indexed by BlockId
-    pub(super) modules: Vec<Module>,         // indexed by ModuleId
+    pub blocks: Vec<Arc<Block>>,             // indexed by BlockId
+    pub(super) modules: Vec<Arc<Module>>,    // indexed by ModuleId
     pub(super) usage: Usage,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     pub(super) plugins_changed: bool, // marks whether plugin file should be updated
+    #[cfg(feature = "plugin")]
+    pub(super) plugins: Vec<Arc<dyn RegisteredPlugin>>,
 }
 
 impl StateDelta {
@@ -30,7 +37,6 @@ impl StateDelta {
 
         StateDelta {
             files: vec![],
-            file_contents: vec![],
             virtual_paths: vec![],
             vars: vec![],
             decls: vec![],
@@ -40,6 +46,8 @@ impl StateDelta {
             usage: Usage::new(),
             #[cfg(feature = "plugin")]
             plugins_changed: false,
+            #[cfg(feature = "plugin")]
+            plugins: vec![],
         }
     }
 
@@ -121,7 +129,7 @@ impl StateDelta {
         self.scope.pop();
     }
 
-    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
-        &self.file_contents
+    pub fn get_file_contents(&self) -> &[CachedFile] {
+        &self.files
     }
 }

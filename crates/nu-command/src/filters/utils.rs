@@ -1,4 +1,5 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{get_eval_block, CallExt};
+
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},
@@ -40,6 +41,8 @@ pub fn boolean_fold(
 
     let ctrlc = engine_state.ctrlc.clone();
 
+    let eval_block = get_eval_block(engine_state);
+
     for value in input.into_interruptible_iter(ctrlc) {
         // with_env() is used here to ensure that each iteration uses
         // a different set of environment variables.
@@ -50,14 +53,7 @@ pub fn boolean_fold(
             stack.add_var(var_id, value.clone());
         }
 
-        let eval = eval_block(
-            engine_state,
-            &mut stack,
-            block,
-            value.into_pipeline_data(),
-            call.redirect_stdout,
-            call.redirect_stderr,
-        );
+        let eval = eval_block(engine_state, &mut stack, block, value.into_pipeline_data());
         match eval {
             Err(e) => {
                 return Err(e);

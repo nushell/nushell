@@ -2,12 +2,12 @@ use std assert
 
 def test_data_multiline [] {
   let lines = [
-    "{\"a\": 1}",
-    "{\"a\": 2}",
-    "{\"a\": 3}",
-    "{\"a\": 4}",
-    "{\"a\": 5}",
-    "{\"a\": 6}",
+    "{\"a\":1}",
+    "{\"a\":2}",
+    "{\"a\":3}",
+    "{\"a\":4}",
+    "{\"a\":5}",
+    "{\"a\":6}",
   ]
 
   if $nu.os-info.name == "windows" {
@@ -73,7 +73,7 @@ def to_ndjson_multiple_objects [] {
 def to_ndjson_single_object [] {
   use std formats *
   let result = [{a:1}] | to ndjson | str trim
-  let expect = "{\"a\": 1}"
+  let expect = "{\"a\":1}"
   assert equal $result $expect "could not convert to NDJSON"
 }
 
@@ -89,6 +89,6 @@ def to_jsonl_multiple_objects [] {
 def to_jsonl_single_object [] {
   use std formats *
   let result = [{a:1}] | to jsonl | str trim
-  let expect = "{\"a\": 1}"
+  let expect = "{\"a\":1}"
   assert equal $result $expect "could not convert to JSONL"
 }

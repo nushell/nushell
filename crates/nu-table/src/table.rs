@@ -54,7 +54,7 @@ struct Alignments {
 }
 
 impl NuTable {
-    /// Creates an empty [Table] instance.
+    /// Creates an empty [`NuTable`] instance.
     pub fn new(count_rows: usize, count_columns: usize) -> Self {
         Self {
             data: VecRecords::new(vec![vec![CellInfo::default(); count_columns]; count_rows]),

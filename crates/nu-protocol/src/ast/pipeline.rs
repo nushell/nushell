@@ -1,101 +1,56 @@
-use crate::{ast::Expression, engine::StateWorkingSet, Span};
+use crate::{
+    ast::Expression,
+    engine::{EngineState, StateWorkingSet},
+    IoStream, Span,
+};
 use serde::{Deserialize, Serialize};
-use std::ops::{Index, IndexMut};
+use std::fmt::Display;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum Redirection {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
+pub enum RedirectionSource {
     Stdout,
     Stderr,
     StdoutAndStderr,
 }
 
-// Note: Span in the below is for the span of the connector not the whole element
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PipelineElement {
-    Expression(Option<Span>, Expression),
-    ErrPipedExpression(Option<Span>, Expression),
-    OutErrPipedExpression(Option<Span>, Expression),
-    // final field indicates if it's in append mode
-    Redirection(Span, Redirection, Expression, bool),
-    // final bool field indicates if it's in append mode
-    SeparateRedirection {
-        out: (Span, Expression, bool),
-        err: (Span, Expression, bool),
-    },
-    // redirection's final bool field indicates if it's in append mode
-    SameTargetRedirection {
-        cmd: (Option<Span>, Expression),
-        redirection: (Span, Expression, bool),
-    },
-    And(Span, Expression),
-    Or(Span, Expression),
+impl Display for RedirectionSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RedirectionSource::Stdout => "stdout",
+            RedirectionSource::Stderr => "stderr",
+            RedirectionSource::StdoutAndStderr => "stdout and stderr",
+        })
+    }
 }
 
-impl PipelineElement {
-    pub fn expression(&self) -> &Expression {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RedirectionTarget {
+    File {
+        expr: Expression,
+        append: bool,
+        span: Span,
+    },
+    Pipe {
+        span: Span,
+    },
+}
+
+impl RedirectionTarget {
+    pub fn span(&self) -> Span {
         match self {
-            PipelineElement::Expression(_, expression)
-            | PipelineElement::ErrPipedExpression(_, expression)
-            | PipelineElement::OutErrPipedExpression(_, expression) => expression,
-            PipelineElement::Redirection(_, _, expression, _) => expression,
-            PipelineElement::SeparateRedirection {
-                out: (_, expression, _),
-                ..
-            } => expression,
-            PipelineElement::SameTargetRedirection {
-                cmd: (_, expression),
-                ..
-            } => expression,
-            PipelineElement::And(_, expression) => expression,
-            PipelineElement::Or(_, expression) => expression,
+            RedirectionTarget::File { span, .. } | RedirectionTarget::Pipe { span } => *span,
         }
     }
 
-    pub fn span(&self) -> Span {
+    pub fn expr(&self) -> Option<&Expression> {
         match self {
-            PipelineElement::Expression(None, expression)
-            | PipelineElement::ErrPipedExpression(None, expression)
-            | PipelineElement::OutErrPipedExpression(None, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (None, expression),
-                ..
-            } => expression.span,
-            PipelineElement::Expression(Some(span), expression)
-            | PipelineElement::ErrPipedExpression(Some(span), expression)
-            | PipelineElement::OutErrPipedExpression(Some(span), expression)
-            | PipelineElement::Redirection(span, _, expression, _)
-            | PipelineElement::SeparateRedirection {
-                out: (span, expression, _),
-                ..
-            }
-            | PipelineElement::And(span, expression)
-            | PipelineElement::Or(span, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (Some(span), expression),
-                ..
-            } => Span {
-                start: span.start,
-                end: expression.span.end,
-            },
+            RedirectionTarget::File { expr, .. } => Some(expr),
+            RedirectionTarget::Pipe { .. } => None,
         }
     }
+
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
-        match self {
-            PipelineElement::Expression(_, expression)
-            | PipelineElement::ErrPipedExpression(_, expression)
-            | PipelineElement::OutErrPipedExpression(_, expression)
-            | PipelineElement::Redirection(_, _, expression, _)
-            | PipelineElement::And(_, expression)
-            | PipelineElement::Or(_, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (_, expression),
-                ..
-            } => expression.has_in_variable(working_set),
-            PipelineElement::SeparateRedirection {
-                out: (_, out_expr, _),
-                err: (_, err_expr, _),
-            } => out_expr.has_in_variable(working_set) || err_expr.has_in_variable(working_set),
-        }
+        self.expr().is_some_and(|e| e.has_in_variable(working_set))
     }
 
     pub fn replace_span(
@@ -105,21 +60,69 @@ impl PipelineElement {
         new_span: Span,
     ) {
         match self {
-            PipelineElement::Expression(_, expression)
-            | PipelineElement::ErrPipedExpression(_, expression)
-            | PipelineElement::OutErrPipedExpression(_, expression)
-            | PipelineElement::Redirection(_, _, expression, _)
-            | PipelineElement::And(_, expression)
-            | PipelineElement::Or(_, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (_, expression),
-                ..
+            RedirectionTarget::File { expr, .. } => {
+                expr.replace_span(working_set, replaced, new_span)
             }
-            | PipelineElement::SeparateRedirection {
-                out: (_, expression, _),
-                ..
-            } => expression.replace_span(working_set, replaced, new_span),
+            RedirectionTarget::Pipe { .. } => {}
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PipelineRedirection {
+    Single {
+        source: RedirectionSource,
+        target: RedirectionTarget,
+    },
+    Separate {
+        out: RedirectionTarget,
+        err: RedirectionTarget,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PipelineElement {
+    pub pipe: Option<Span>,
+    pub expr: Expression,
+    pub redirection: Option<PipelineRedirection>,
+}
+
+impl PipelineElement {
+    pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
+        self.expr.has_in_variable(working_set)
+            || self.redirection.as_ref().is_some_and(|r| match r {
+                PipelineRedirection::Single { target, .. } => target.has_in_variable(working_set),
+                PipelineRedirection::Separate { out, err } => {
+                    out.has_in_variable(working_set) || err.has_in_variable(working_set)
+                }
+            })
+    }
+
+    pub fn replace_span(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        replaced: Span,
+        new_span: Span,
+    ) {
+        self.expr.replace_span(working_set, replaced, new_span);
+        if let Some(expr) = self.redirection.as_mut() {
+            match expr {
+                PipelineRedirection::Single { target, .. } => {
+                    target.replace_span(working_set, replaced, new_span)
+                }
+                PipelineRedirection::Separate { out, err } => {
+                    out.replace_span(working_set, replaced, new_span);
+                    err.replace_span(working_set, replaced, new_span);
+                }
+            }
+        }
+    }
+
+    pub fn stdio_redirect(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<IoStream>, Option<IoStream>) {
+        self.expr.expr.stdio_redirect(engine_state)
     }
 }
 
@@ -144,8 +147,10 @@ impl Pipeline {
             elements: expressions
                 .into_iter()
                 .enumerate()
-                .map(|(idx, x)| {
-                    PipelineElement::Expression(if idx == 0 { None } else { Some(x.span) }, x)
+                .map(|(idx, expr)| PipelineElement {
+                    pipe: if idx == 0 { None } else { Some(expr.span) },
+                    expr,
+                    redirection: None,
                 })
                 .collect(),
         }
@@ -158,18 +163,15 @@ impl Pipeline {
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
     }
-}
 
-impl Index<usize> for Pipeline {
-    type Output = PipelineElement;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.elements[index]
-    }
-}
-
-impl IndexMut<usize> for Pipeline {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.elements[index]
+    pub fn stdio_redirect(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<IoStream>, Option<IoStream>) {
+        if let Some(first) = self.elements.first() {
+            first.stdio_redirect(engine_state)
+        } else {
+            (None, None)
+        }
     }
 }

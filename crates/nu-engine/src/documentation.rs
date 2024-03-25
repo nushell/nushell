@@ -1,4 +1,5 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -22,6 +23,9 @@ pub fn get_full_help(
         no_color: !config.use_ansi_coloring,
         brief: false,
     };
+
+    let stack = &mut stack.start_capture();
+
     get_documentation(
         sig,
         examples,
@@ -234,16 +238,14 @@ fn get_documentation(
                 ));
             }
 
-            let mut caller_stack = Stack::new();
-            if let Ok(result) = eval_call(
+            let caller_stack = &mut Stack::new().capture();
+            if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
-                &mut caller_stack,
+                caller_stack,
                 &Call {
                     decl_id,
                     head: span,
                     arguments: vec![],
-                    redirect_stdout: true,
-                    redirect_stderr: true,
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -339,7 +341,7 @@ fn get_ansi_color_for_component_or_default(
     default: &str,
 ) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
-        let mut caller_stack = Stack::new();
+        let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
 
         let argument_opt = get_argument_for_color_value(engine_state, color, span);
@@ -347,15 +349,13 @@ fn get_ansi_color_for_component_or_default(
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call(
+                if let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
-                    &mut caller_stack,
+                    caller_stack,
                     &Call {
                         decl_id,
                         head: span,
                         arguments: vec![argument],
-                        redirect_stdout: true,
-                        redirect_stderr: true,
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,

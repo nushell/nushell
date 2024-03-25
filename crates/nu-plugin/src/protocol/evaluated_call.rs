@@ -1,4 +1,5 @@
-use nu_engine::eval_expression;
+use nu_protocol::ast::Expression;
+
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -8,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 /// A representation of the plugin's invocation command including command line args
 ///
-/// The `EvaluatedCall` contains information about the way a [Plugin](crate::Plugin) was invoked
+/// The `EvaluatedCall` contains information about the way a [`Plugin`](crate::Plugin) was invoked
 /// representing the [`Span`] corresponding to the invocation as well as the arguments
-/// it was invoked with. It is one of three items passed to [`run`](crate::Plugin::run()) along with
+/// it was invoked with. It is one of three items passed to [`run()`](crate::PluginCommand::run()) along with
 /// `name` which command that was invoked and a [`Value`] that represents the input.
 ///
 /// The evaluated call is used with the Plugins because the plugin doesn't have
@@ -32,15 +33,16 @@ impl EvaluatedCall {
         call: &Call,
         engine_state: &EngineState,
         stack: &mut Stack,
+        eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
     ) -> Result<Self, ShellError> {
         let positional =
-            call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))?;
+            call.rest_iter_flattened(0, |expr| eval_expression_fn(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
-                Some(expr) => Some(eval_expression(engine_state, stack, expr)?),
+                Some(expr) => Some(eval_expression_fn(engine_state, stack, expr)?),
             };
 
             named.push((string.clone(), value))

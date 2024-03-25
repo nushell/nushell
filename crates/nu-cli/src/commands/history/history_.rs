@@ -72,7 +72,7 @@ impl Command for History {
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
                     HistoryFileFormat::Sqlite => {
-                        SqliteBackedHistory::with_file(history_path, None, None)
+                        SqliteBackedHistory::with_file(history_path.clone(), None, None)
                             .map(|inner| {
                                 let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                                 boxed
@@ -80,14 +80,15 @@ impl Command for History {
                             .ok()
                     }
 
-                    HistoryFileFormat::PlainText => {
-                        FileBackedHistory::with_file(history.max_size as usize, history_path)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok()
-                    }
+                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
+                        history.max_size as usize,
+                        history_path.clone(),
+                    )
+                    .map(|inner| {
+                        let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                        boxed
+                    })
+                    .ok(),
                 };
 
                 match history.file_format {
@@ -107,7 +108,10 @@ impl Command for History {
                                 )
                             })
                         })
-                        .ok_or(ShellError::FileNotFound { span: head })?
+                        .ok_or(ShellError::FileNotFound {
+                            file: history_path.display().to_string(),
+                            span: head,
+                        })?
                         .into_pipeline_data(ctrlc)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
@@ -119,12 +123,15 @@ impl Command for History {
                                 create_history_record(idx, entry, long, head)
                             })
                         })
-                        .ok_or(ShellError::FileNotFound { span: head })?
+                        .ok_or(ShellError::FileNotFound {
+                            file: history_path.display().to_string(),
+                            span: head,
+                        })?
                         .into_pipeline_data(ctrlc)),
                 }
             }
         } else {
-            Err(ShellError::FileNotFound { span: head })
+            Err(ShellError::ConfigDirNotFound { span: Some(head) })
         }
     }
 

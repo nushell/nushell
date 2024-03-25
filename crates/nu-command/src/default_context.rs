@@ -41,7 +41,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             DropColumn,
             DropNth,
             Each,
-            Empty,
             Enumerate,
             Every,
             Filter,
@@ -53,6 +52,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             GroupBy,
             Headers,
             Insert,
+            IsEmpty,
+            IsNotEmpty,
+            Interleave,
             Items,
             Join,
             SplitBy,
@@ -79,6 +81,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Sort,
             SortBy,
             SplitList,
+            Tee,
             Transpose,
             Uniq,
             UniqBy,
@@ -93,6 +96,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Misc
         bind_command! {
+            Panic,
             Source,
             Tutor,
         };
@@ -138,6 +142,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Ast,
             Debug,
             DebugInfo,
+            DebugProfile,
             Explain,
             Inspect,
             Metadata,
@@ -176,7 +181,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SplitColumn,
             SplitRow,
             SplitWords,
-            StrEscapeGlob,
             Str,
             StrCapitalize,
             StrContains,
@@ -204,10 +208,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Cd,
             Ls,
-            Mkdir,
             UMkdir,
             Mktemp,
-            Mv,
             UMv,
             UCp,
             Open,
@@ -304,6 +306,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoInt,
             IntoRecord,
             IntoString,
+            IntoGlob,
             IntoValue,
         };
 

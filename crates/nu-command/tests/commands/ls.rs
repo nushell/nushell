@@ -493,7 +493,7 @@ fn lists_with_directory_flag() {
             r#"
                 cd dir_empty;
                 ['.' '././.' '..' '../dir_files' '../dir_files/*']
-                | each { |it| ls --directory $it }
+                | each { |it| ls --directory ($it | into glob) }
                 | flatten
                 | get name
                 | to text
@@ -699,5 +699,37 @@ fn list_flag_false() {
         ));
 
         assert_eq!(actual.out, "false");
+    })
+}
+
+#[test]
+fn list_empty_string() {
+    Playground::setup("ls_empty_string", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("yehuda.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "ls ''");
+        assert!(actual.err.contains("does not exist"));
+    })
+}
+
+#[test]
+fn list_with_tilde() {
+    Playground::setup("ls_tilde", |dirs, sandbox| {
+        sandbox
+            .within("~tilde")
+            .with_files(vec![EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "ls '~tilde'");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(actual.out.contains("~tilde"));
+        let actual = nu!(cwd: dirs.test(), "ls ~tilde");
+        assert!(actual.err.contains("does not exist"));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; ls $f");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(actual.out.contains("~tilde"));
     })
 }

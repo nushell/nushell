@@ -9,6 +9,8 @@ use std::{
     sync::Arc,
 };
 
+use super::SemanticSuggestion;
+
 #[derive(Clone)]
 pub struct DotNuCompletion {
     engine_state: Arc<EngineState>,
@@ -33,7 +35,7 @@ impl Completer for DotNuCompletion {
         offset: usize,
         _: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).replace('`', "");
         let mut search_dirs: Vec<String> = vec![];
 
@@ -93,7 +95,7 @@ impl Completer for DotNuCompletion {
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
-        let output: Vec<Suggestion> = search_dirs
+        let output: Vec<SemanticSuggestion> = search_dirs
             .into_iter()
             .flat_map(|search_dir| {
                 let completions = file_path_completion(
@@ -119,16 +121,20 @@ impl Completer for DotNuCompletion {
                             }
                         }
                     })
-                    .map(move |x| Suggestion {
-                        value: x.1,
-                        description: None,
-                        style: x.2,
-                        extra: None,
-                        span: reedline::Span {
-                            start: x.0.start - offset,
-                            end: x.0.end - offset,
+                    .map(move |x| SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: x.1,
+                            description: None,
+                            style: x.2,
+                            extra: None,
+                            span: reedline::Span {
+                                start: x.0.start - offset,
+                                end: x.0.end - offset,
+                            },
+                            append_whitespace: true,
                         },
-                        append_whitespace: true,
+                        // TODO????
+                        kind: None,
                     })
             })
             .collect();
