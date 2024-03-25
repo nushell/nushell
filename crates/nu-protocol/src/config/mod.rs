@@ -172,6 +172,13 @@ impl Default for Config {
 }
 
 impl Value {
+    /// Parse the given [`Value`] as a configuration record, and recover encountered mistakes
+    ///
+    /// If any given (sub)value is detected as impossible, this value will be restored to the value
+    /// in `existing_config`, thus mutates `self`.
+    ///
+    /// Returns a new [`Config`] (that is in a valid state) and if encountered the [`ShellError`]
+    /// containing all observed inner errors.
     pub fn parse_as_config(&mut self, existing_config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
         let mut config = existing_config.clone();
