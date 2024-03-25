@@ -2176,9 +2176,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.152"
+version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
+checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libflate"
@@ -2633,6 +2633,18 @@ checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
 dependencies = [
  "bitflags 2.4.2",
  "cfg-if",
+ "libc",
+]
+
+[[package]]
+name = "nix"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
+dependencies = [
+ "bitflags 2.4.2",
+ "cfg-if",
+ "cfg_aliases",
  "libc",
 ]
 
@@ -5521,9 +5533,9 @@ checksum = "cfb5fa503293557c5158bd215fdc225695e567a77e453f5d4452a50a193969bd"
 
 [[package]]
 name = "tempfile"
-version = "3.10.0"
+version = "3.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a365e8cd18e44762ef95d87f284f4b5cd04107fec2ff3052bd6a3e6069669e67"
+checksum = "85b77fafb263dd9d05cbeac119526425676db3784113aa9295c88498cbf8bff1"
 dependencies = [
  "cfg-if",
  "fastrand",
@@ -5994,9 +6006,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uu_cp"
-version = "0.0.24"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927869e2df48ac2f09ebc083459e96efc97028863a41dce96cfe8164c5c722ba"
+checksum = "fcbe045dc92209114afdfd366bd18f7b95dbf999f3eaa85ad6dca910b0be3d56"
 dependencies = [
  "clap",
  "filetime",
@@ -6010,9 +6022,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.0.24"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d303b73c3a1ede83101c4a01c7f2f72f000ec9241a5d788ceba6a91a9ce1cb3"
+checksum = "040aa4584036b2f65e05387b0ea9ac468afce1db325743ce5f350689fd9ce4ae"
 dependencies = [
  "clap",
  "uucore",
@@ -6020,9 +6032,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mktemp"
-version = "0.0.24"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e25b0928c96297836d3400c049d7c772073d0534720e4d13dd0e4a6ed52349"
+checksum = "f240a99c36d768153874d198c43605a45c86996b576262689a0f18248cc3bc57"
 dependencies = [
  "clap",
  "rand",
@@ -6032,9 +6044,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.0.24"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ec472139edb0e91d9706779bfdf45814b139d8b23bea2ad0feaaac1fb6c1523"
+checksum = "0c99fd7c75e6e85553c92537314be3d9a64b4927051aa1608513feea2f933022"
 dependencies = [
  "clap",
  "fs_extra",
@@ -6055,9 +6067,9 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.0.24"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521f16cb67ba9f55341e00cd6b806556cefef430e9d80ea425607628da3a40e5"
+checksum = "e3b44166eb6335aeac42744ea368cc4c32d3f2287a4ff765a5ce44d927ab8bb4"
 dependencies = [
  "clap",
  "libc",
@@ -6067,15 +6079,15 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.0.24"
+version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5de2eba1364f6274f35f121eb8671b98ac5fa8fe1271694721e17034e85e8bc"
+checksum = "23994a722acb43dbc56877e271c9723f167ae42c4c089f909b2d7dd106c3a9b4"
 dependencies = [
  "clap",
  "dunce",
  "glob",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "once_cell",
  "os_display",
  "uucore_procs",
@@ -6184,9 +6196,9 @@ dependencies = [
 
 [[package]]
 name = "walkdir"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d71d857dc86794ca4c280d616f7da00d2dbfd8cd788846559a6813e6aa4b54ee"
+checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
