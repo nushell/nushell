@@ -21,12 +21,12 @@ impl Command for UName {
     }
 
     fn usage(&self) -> &str {
-        "Print certain system information."
+        "Print certain system information using uutils/coreutils uname."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         // add other terms?
-        vec!["system"]
+        vec!["system", "coreutils"]
     }
 
     fn run(
