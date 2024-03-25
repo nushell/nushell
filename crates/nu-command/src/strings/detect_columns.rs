@@ -149,7 +149,7 @@ fn guess_width(
                     .into_iter()
                     .map(|v| Value::string(v, input_span))
                     .collect();
-                // somes rows may has less columns, fill it with ""
+                // some rows may has less columns, fill it with ""
                 for _ in values.len()..columns.len() {
                     values.push(Value::string("", input_span));
                 }
