@@ -2957,8 +2957,8 @@ dependencies = [
  "uu_mkdir",
  "uu_mktemp",
  "uu_mv",
- "uu_whoami",
  "uu_uname",
+ "uu_whoami",
  "uucore",
  "uuid",
  "v_htmlescape",
@@ -3779,6 +3779,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc1691dd09e82f428ce8d6310bd6d5da2557c82ff17694d2a32cad7242aea89f"
 dependencies = [
  "array-init-cursor",
+]
+
+[[package]]
+name = "platform-info"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6259c4860e53bf665016f1b2f46a8859cadfa717581dc9d597ae4069de6300f"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
@@ -6029,6 +6039,17 @@ dependencies = [
  "clap",
  "fs_extra",
  "indicatif",
+ "uucore",
+]
+
+[[package]]
+name = "uu_uname"
+version = "0.0.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5951832d73199636bde6c0d61cf960932b3c4450142c290375bc10c7abed6db5"
+dependencies = [
+ "clap",
+ "platform-info",
  "uucore",
 ]
 
