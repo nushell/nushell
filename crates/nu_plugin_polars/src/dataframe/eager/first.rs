@@ -45,7 +45,8 @@ impl PluginCommand for FirstDF {
                             None,
                         )
                         .expect("should not fail")
-                        .into_value(Span::test_data()),
+                        .base_value(Span::test_data())
+                        .expect("rendering base value should not fail"),
                     ),
                 },
                 PluginExample {
@@ -66,7 +67,8 @@ impl PluginCommand for FirstDF {
                             None,
                         )
                         .expect("should not fail")
-                        .into_value(Span::test_data()),
+                        .base_value(Span::test_data())
+                        .expect("rendering base value should not fail"),
                     ),
                 },
                 PluginExample {

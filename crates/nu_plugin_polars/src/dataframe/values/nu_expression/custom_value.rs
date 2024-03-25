@@ -171,7 +171,7 @@ impl PolarsPluginCustomValue for NuExpressionCustomValue {
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
         let expr = NuExpression::try_from_custom_value(plugin, self)?;
-        expr.to_value(Span::unknown())
+        expr.base_value(Span::unknown())
     }
 
     fn id(&self) -> &Uuid {

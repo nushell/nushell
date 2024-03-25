@@ -69,20 +69,6 @@ impl NuLazyFrame {
         NuLazyFrame::new(true, lazy)
     }
 
-    pub fn base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let optimized_plan = self
-            .as_ref()
-            .describe_optimized_plan()
-            .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
-        Ok(Value::record(
-            record! {
-                "plan" => Value::string(self.as_ref().describe_plan(), span),
-                "optimized_plan" => Value::string(optimized_plan, span),
-            },
-            span,
-        ))
-    }
-
     pub fn into_polars(self) -> LazyFrame {
         self.lazy.expect("lazyframe cannot be none to convert")
     }
@@ -147,5 +133,19 @@ impl CustomValueSupport for NuLazyFrame {
 
     fn type_name() -> &'static str {
         "NULazyFrame"
+    }
+
+    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+        let optimized_plan = self
+            .as_ref()
+            .describe_optimized_plan()
+            .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
+        Ok(Value::record(
+            record! {
+                "plan" => Value::string(self.as_ref().describe_plan(), span),
+                "optimized_plan" => Value::string(optimized_plan, span),
+            },
+            span,
+        ))
     }
 }

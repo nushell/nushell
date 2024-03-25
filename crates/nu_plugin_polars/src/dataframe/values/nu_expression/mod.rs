@@ -488,4 +488,8 @@ impl CustomValueSupport for NuExpression {
             _ => false,
         }
     }
+
+    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+        self.to_value(Span::unknown())
+    }
 }

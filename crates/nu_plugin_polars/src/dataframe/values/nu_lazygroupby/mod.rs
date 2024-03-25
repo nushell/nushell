@@ -1,7 +1,7 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::ShellError;
+use nu_protocol::{record, ShellError, Span, Value};
 use polars::prelude::{LazyGroupBy, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::sync::Arc;
@@ -120,5 +120,14 @@ impl CustomValueSupport for NuLazyGroupBy {
 
     fn type_name() -> &'static str {
         "NuLazyGroupBy"
+    }
+
+    fn base_value(self, span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+        Ok(Value::record(
+            record! {
+                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", Span::unknown())
+            },
+            Span::unknown(),
+        ))
     }
 }

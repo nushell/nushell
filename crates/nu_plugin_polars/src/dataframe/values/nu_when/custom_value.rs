@@ -1,6 +1,6 @@
 use crate::{CustomValueSupport, PolarsPluginCustomValue};
 
-use super::{NuWhen, NuWhenType};
+use super::NuWhen;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -45,13 +45,7 @@ impl PolarsPluginCustomValue for NuWhenCustomValue {
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
         let when = NuWhen::try_from_custom_value(plugin, self)?;
-        let val: String = match when.when_type {
-            NuWhenType::Then(_) => "whenthen".into(),
-            NuWhenType::ChainedThen(_) => "whenthenthen".into(),
-        };
-
-        let value = Value::string(val, Span::unknown());
-        Ok(value)
+        when.base_value(Span::unknown())
     }
 
     fn id(&self) -> &Uuid {

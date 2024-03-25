@@ -1,4 +1,4 @@
-use crate::PolarsPluginCustomValue;
+use crate::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuLazyGroupBy;
 use nu_protocol::{record, CustomValue, ShellError, Span, Value};
@@ -44,15 +44,10 @@ impl PolarsPluginCustomValue for NuLazyGroupByCustomValue {
 
     fn custom_value_to_base_value(
         &self,
-        _plugin: &crate::PolarsPlugin,
+        plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
-        Ok(Value::record(
-            record! {
-                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", Span::unknown())
-            },
-            Span::unknown(),
-        ))
+        NuLazyGroupBy::try_from_custom_value(plugin, self)?.base_value(Span::unknown())
     }
 
     fn id(&self) -> &Uuid {

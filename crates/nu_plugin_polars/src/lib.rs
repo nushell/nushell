@@ -103,6 +103,7 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
     ) -> Result<Value, LabeledError> {
+        eprintln!("Polars plugin customn_value_to_base_value called");
         match CustomValueType::try_from_custom_value(custom_value.item)? {
             CustomValueType::NuDataFrame(cv) => cv
                 .custom_value_to_base_value(self, engine)
@@ -184,6 +185,8 @@ pub trait CustomValueSupport: Cacheable {
     fn type_name() -> &'static str;
 
     fn custom_value(self) -> Self::CV;
+
+    fn base_value(self, span: Span) -> Result<Value, ShellError>;
 
     fn into_value(self, span: Span) -> Value {
         Value::custom_value(Box::new(self.custom_value()), span)

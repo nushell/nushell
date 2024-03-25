@@ -116,13 +116,6 @@ impl NuDataFrame {
         self.to_polars().lazy()
     }
 
-    // Returns a rendered Value of base nushell types that does not include a CustomValue
-    // Used for display
-    pub fn base_value(self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print(span)?;
-        Ok(Value::list(vals, span))
-    }
-
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
         match DataFrame::new(vec![series]) {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
@@ -531,5 +524,10 @@ impl CustomValueSupport for NuDataFrame {
 
     fn type_name() -> &'static str {
         "NuDataFrame"
+    }
+
+    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+        let vals = self.print(span)?;
+        Ok(Value::list(vals, span))
     }
 }

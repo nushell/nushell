@@ -1,7 +1,7 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::ShellError;
+use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{ChainedThen, Then};
 use serde::{Serialize, Serializer};
 use uuid::Uuid;
@@ -96,5 +96,15 @@ impl CustomValueSupport for NuWhen {
 
     fn type_name() -> &'static str {
         "NuWhen"
+    }
+
+    fn base_value(self, span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+        let val: String = match self.when_type {
+            NuWhenType::Then(_) => "whenthen".into(),
+            NuWhenType::ChainedThen(_) => "whenthenthen".into(),
+        };
+
+        let value = Value::string(val, Span::unknown());
+        Ok(value)
     }
 }
