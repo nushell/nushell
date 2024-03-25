@@ -3196,7 +3196,9 @@ dependencies = [
  "log",
  "lscolors",
  "num-format",
+ "serde",
  "strip-ansi-escapes",
+ "supports-color",
  "sys-locale",
  "unicase",
 ]

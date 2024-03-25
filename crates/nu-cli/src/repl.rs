@@ -21,7 +21,7 @@ use nu_protocol::{
     report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value, NU_VARIABLE_ID,
 };
-use nu_utils::utils::perf;
+use nu_utils::utils::{perf, supports_color};
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
     HistorySessionId, Reedline, SqliteBackedHistory, Vi,
@@ -64,7 +64,7 @@ pub fn evaluate_repl(
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack;
     let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring;
+    let use_color = supports_color(config.ansi_coloring, true);
 
     confirm_stdin_is_terminal()?;
 
@@ -326,7 +326,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
-        .with_ansi_colors(config.use_ansi_coloring)
+        .with_ansi_colors(use_color)
         .with_cursor_config(cursor_config);
     perf(
         "reedline builder",
@@ -340,7 +340,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = std::time::Instant::now();
-    line_editor = if config.use_ansi_coloring {
+    line_editor = if use_color {
         line_editor.with_hinter(Box::new({
             // As of Nov 2022, "hints" color_config closures only get `null` passed in.
             let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));

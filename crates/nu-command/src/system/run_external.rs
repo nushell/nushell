@@ -10,6 +10,7 @@ use nu_protocol::{
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundChild;
+use nu_utils::utils::AnsiColoring;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
@@ -459,7 +460,7 @@ impl ExternalCommand {
                     let mut stack = stack.clone();
 
                     // Turn off color as we pass data through
-                    Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
+                    Arc::make_mut(&mut engine_state.config).ansi_coloring = AnsiColoring::False;
 
                     // Pipe input into the external command's stdin
                     if let Some(mut stdin_write) = child.as_mut().stdin.take() {

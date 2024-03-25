@@ -10,7 +10,7 @@ use nu_protocol::{
 use nu_protocol::{report_error, report_error_new};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use nu_utils::utils::perf;
+use nu_utils::utils::{perf, supports_color};
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -313,7 +313,7 @@ pub fn eval_source(
         file!(),
         line!(),
         column!(),
-        engine_state.get_config().use_ansi_coloring,
+        supports_color(engine_state.get_config().ansi_coloring, true),
     );
 
     true

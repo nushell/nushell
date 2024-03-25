@@ -9,7 +9,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::eval_const::create_nu_constant;
 use nu_protocol::{PipelineData, Span, NU_VARIABLE_ID};
-use nu_utils::utils::perf;
+use nu_utils::utils::{perf, supports_color};
 
 pub(crate) fn run_commands(
     engine_state: &mut nu_protocol::engine::EngineState,
@@ -259,7 +259,7 @@ pub(crate) fn run_repl(
     }
 
     // Reload use_color from config in case it's different from the default value
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let use_color = supports_color(engine_state.get_config().ansi_coloring, true);
     perf(
         "setup_config",
         start_time,

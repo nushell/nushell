@@ -23,6 +23,8 @@ pub fn read_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
+    use nu_utils::utils::supports_color;
+
     let start_time = std::time::Instant::now();
     let mut plug_path = String::new();
     // Reading signatures from signature file
@@ -51,7 +53,7 @@ pub fn read_plugin_file(
         file!(),
         line!(),
         column!(),
-        engine_state.get_config().use_ansi_coloring,
+        supports_color(engine_state.get_config().ansi_coloring, true),
     );
 }
 

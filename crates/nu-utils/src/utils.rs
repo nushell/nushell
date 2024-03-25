@@ -1,6 +1,8 @@
 use log::info;
 use lscolors::LsColors;
+use serde::{Deserialize, Serialize};
 use std::io::{Result, Write};
+use supports_color::Stream;
 
 pub fn enable_vt_processing() -> Result<()> {
     #[cfg(windows)]
@@ -419,5 +421,53 @@ pub fn perf(
             msg,
             dur.elapsed(),
         );
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default)]
+pub enum AnsiColoring {
+    #[default]
+    True,
+    False,
+    Auto,
+}
+
+impl std::str::FromStr for AnsiColoring {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "true" => Ok(AnsiColoring::True),
+            "false" => Ok(AnsiColoring::False),
+            "auto" => Ok(AnsiColoring::Auto),
+            _ => Err("expected either 'true', 'false' or 'auto'"),
+        }
+    }
+}
+
+impl AnsiColoring {
+    pub fn as_str(&self) -> &str {
+        match self {
+            AnsiColoring::True => "true",
+            AnsiColoring::False => "false",
+            AnsiColoring::Auto => "auto",
+        }
+    }
+}
+
+/// Whether the output supports color
+pub fn supports_color(ansi_coloring: AnsiColoring, is_stdout: bool) -> bool {
+    match ansi_coloring {
+        AnsiColoring::True => true,
+        AnsiColoring::False => false,
+        AnsiColoring::Auto => {
+            let output = if is_stdout {
+                Stream::Stdout
+            } else {
+                Stream::Stderr
+            };
+
+            supports_color::on_cached(output).is_some()
+        }
     }
 }

@@ -7,6 +7,7 @@ use nu_protocol::{
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
+use nu_utils::utils::supports_color;
 
 #[derive(Clone)]
 pub struct HelpAliases;
@@ -155,7 +156,7 @@ pub fn help_aliases(
         long_desc.push_str(&format!("{G}Expansion{RESET}:\n  {alias_expansion}"));
 
         let config = engine_state.get_config();
-        if !config.use_ansi_coloring {
+        if !supports_color(config.ansi_coloring, true) {
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }
 

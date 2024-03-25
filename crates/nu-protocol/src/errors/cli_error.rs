@@ -6,6 +6,7 @@ use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
     SourceCode,
 };
+use nu_utils::utils::supports_color;
 use thiserror::Error;
 
 /// This error exists so that we can defer SourceCode handling. It simply
@@ -49,7 +50,7 @@ impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let config = self.1.get_config();
 
-        let ansi_support = config.use_ansi_coloring;
+        let ansi_support = supports_color(config.ansi_coloring, false);
 
         let error_style = &config.error_style;
 

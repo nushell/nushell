@@ -18,7 +18,7 @@ use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
     TableOutput,
 };
-use nu_utils::get_ls_colors;
+use nu_utils::{get_ls_colors, utils::supports_color};
 use std::collections::VecDeque;
 use std::io::IsTerminal;
 use std::str::FromStr;
@@ -994,7 +994,7 @@ enum TableView {
 
 fn maybe_strip_color(output: String, config: &Config) -> String {
     // the terminal is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
+    if !supports_color(config.ansi_coloring, true) || !std::io::stdout().is_terminal() {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
