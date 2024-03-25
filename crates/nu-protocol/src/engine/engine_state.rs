@@ -4,7 +4,8 @@ use lru::LruCache;
 use super::cached_file::CachedFile;
 use super::{usage::build_usage, usage::Usage, StateDelta};
 use super::{
-    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
+    Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility,
+    DEFAULT_OVERLAY_NAME,
 };
 use crate::ast::Block;
 use crate::debugger::{Debugger, NoopDebugger};
@@ -733,7 +734,7 @@ impl EngineState {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
@@ -743,7 +744,11 @@ impl EngineState {
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
-                    output.push((decl.0.clone(), Some(command.usage().to_string())));
+                    output.push((
+                        decl.0.clone(),
+                        Some(command.usage().to_string()),
+                        command.command_type(),
+                    ));
                 }
             }
         }

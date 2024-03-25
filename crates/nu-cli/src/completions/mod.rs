@@ -10,7 +10,7 @@ mod file_completions;
 mod flag_completions;
 mod variable_completions;
 
-pub use base::Completer;
+pub use base::{Completer, SemanticSuggestion, SuggestionKind};
 pub use command_completions::CommandCompletion;
 pub use completer::NuCompleter;
 pub use completion_options::{CompletionOptions, MatchAlgorithm, SortBy};

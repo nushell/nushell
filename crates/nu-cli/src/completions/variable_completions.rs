@@ -9,7 +9,7 @@ use reedline::Suggestion;
 use std::str;
 use std::sync::Arc;
 
-use super::MatchAlgorithm;
+use super::{MatchAlgorithm, SemanticSuggestion, SuggestionKind};
 
 #[derive(Clone)]
 pub struct VariableCompletion {
@@ -41,7 +41,7 @@ impl Completer for VariableCompletion {
         offset: usize,
         _: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let mut output = vec![];
         let builtins = ["$nu", "$in", "$env"];
         let var_str = std::str::from_utf8(&self.var_context.0).unwrap_or("");
@@ -75,7 +75,7 @@ impl Completer for VariableCompletion {
                         {
                             if options.match_algorithm.matches_u8_insensitive(
                                 options.case_sensitive,
-                                suggestion.value.as_bytes(),
+                                suggestion.suggestion.value.as_bytes(),
                                 &prefix,
                             ) {
                                 output.push(suggestion);
@@ -92,13 +92,16 @@ impl Completer for VariableCompletion {
                             env_var.0.as_bytes(),
                             &prefix,
                         ) {
-                            output.push(Suggestion {
-                                value: env_var.0,
-                                description: None,
-                                style: None,
-                                extra: None,
-                                span: current_span,
-                                append_whitespace: false,
+                            output.push(SemanticSuggestion {
+                                suggestion: Suggestion {
+                                    value: env_var.0,
+                                    description: None,
+                                    style: None,
+                                    extra: None,
+                                    span: current_span,
+                                    append_whitespace: false,
+                                },
+                                kind: Some(SuggestionKind::Type(env_var.1.get_type())),
                             });
                         }
                     }
@@ -121,7 +124,7 @@ impl Completer for VariableCompletion {
                     {
                         if options.match_algorithm.matches_u8_insensitive(
                             options.case_sensitive,
-                            suggestion.value.as_bytes(),
+                            suggestion.suggestion.value.as_bytes(),
                             &prefix,
                         ) {
                             output.push(suggestion);
@@ -144,7 +147,7 @@ impl Completer for VariableCompletion {
                     {
                         if options.match_algorithm.matches_u8_insensitive(
                             options.case_sensitive,
-                            suggestion.value.as_bytes(),
+                            suggestion.suggestion.value.as_bytes(),
                             &prefix,
                         ) {
                             output.push(suggestion);
@@ -163,13 +166,17 @@ impl Completer for VariableCompletion {
                 builtin.as_bytes(),
                 &prefix,
             ) {
-                output.push(Suggestion {
-                    value: builtin.to_string(),
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span: current_span,
-                    append_whitespace: false,
+                output.push(SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: builtin.to_string(),
+                        description: None,
+                        style: None,
+                        extra: None,
+                        span: current_span,
+                        append_whitespace: false,
+                    },
+                    // TODO is there a way to get the VarId to get the type???
+                    kind: None,
                 });
             }
         }
@@ -186,13 +193,18 @@ impl Completer for VariableCompletion {
                         v.0,
                         &prefix,
                     ) {
-                        output.push(Suggestion {
-                            value: String::from_utf8_lossy(v.0).to_string(),
-                            description: None,
-                            style: None,
-                            extra: None,
-                            span: current_span,
-                            append_whitespace: false,
+                        output.push(SemanticSuggestion {
+                            suggestion: Suggestion {
+                                value: String::from_utf8_lossy(v.0).to_string(),
+                                description: None,
+                                style: None,
+                                extra: None,
+                                span: current_span,
+                                append_whitespace: false,
+                            },
+                            kind: Some(SuggestionKind::Type(
+                                working_set.get_variable(*v.1).ty.clone(),
+                            )),
                         });
                     }
                 }
@@ -208,13 +220,18 @@ impl Completer for VariableCompletion {
                     v.0,
                     &prefix,
                 ) {
-                    output.push(Suggestion {
-                        value: String::from_utf8_lossy(v.0).to_string(),
-                        description: None,
-                        style: None,
-                        extra: None,
-                        span: current_span,
-                        append_whitespace: false,
+                    output.push(SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: String::from_utf8_lossy(v.0).to_string(),
+                            description: None,
+                            style: None,
+                            extra: None,
+                            span: current_span,
+                            append_whitespace: false,
+                        },
+                        kind: Some(SuggestionKind::Type(
+                            working_set.get_variable(*v.1).ty.clone(),
+                        )),
                     });
                 }
             }
@@ -232,21 +249,25 @@ fn nested_suggestions(
     val: Value,
     sublevels: Vec<Vec<u8>>,
     current_span: reedline::Span,
-) -> Vec<Suggestion> {
-    let mut output: Vec<Suggestion> = vec![];
+) -> Vec<SemanticSuggestion> {
+    let mut output: Vec<SemanticSuggestion> = vec![];
     let value = recursive_value(val, sublevels);
 
+    let kind = SuggestionKind::Type(value.get_type());
     match value {
         Value::Record { val, .. } => {
             // Add all the columns as completion
             for (col, _) in val.into_iter() {
-                output.push(Suggestion {
-                    value: col,
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span: current_span,
-                    append_whitespace: false,
+                output.push(SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: col,
+                        description: None,
+                        style: None,
+                        extra: None,
+                        span: current_span,
+                        append_whitespace: false,
+                    },
+                    kind: Some(kind.clone()),
                 });
             }
 
@@ -255,13 +276,16 @@ fn nested_suggestions(
         Value::LazyRecord { val, .. } => {
             // Add all the columns as completion
             for column_name in val.column_names() {
-                output.push(Suggestion {
-                    value: column_name.to_string(),
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span: current_span,
-                    append_whitespace: false,
+                output.push(SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: column_name.to_string(),
+                        description: None,
+                        style: None,
+                        extra: None,
+                        span: current_span,
+                        append_whitespace: false,
+                    },
+                    kind: Some(kind.clone()),
                 });
             }
 
@@ -269,13 +293,16 @@ fn nested_suggestions(
         }
         Value::List { vals, .. } => {
             for column_name in get_columns(vals.as_slice()) {
-                output.push(Suggestion {
-                    value: column_name,
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span: current_span,
-                    append_whitespace: false,
+                output.push(SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: column_name,
+                        description: None,
+                        style: None,
+                        extra: None,
+                        span: current_span,
+                        append_whitespace: false,
+                    },
+                    kind: Some(kind.clone()),
                 });
             }
 
