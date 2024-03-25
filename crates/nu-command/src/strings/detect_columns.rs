@@ -35,7 +35,7 @@ impl Command for DetectColumns {
             .named(
                 "combine-columns",
                 SyntaxShape::Range,
-                "columns to be combined; listed as a range",
+                "columns to be combined; listed as a range, only useful if `--old` is active",
                 Some('c'),
             )
             .switch("old", "use another algorithm to detect columns, it may be useful if default one doesn't work", None)
@@ -68,10 +68,17 @@ impl Command for DetectColumns {
         vec![
             Example {
                 description: "detect columns by df output",
-                example: "'Filesystem     1K-blocks      Used Available Use% Mounted on
-none             8150224         4   8150220   1% /mnt/wsl
-none           146801624 125954264  20847360  86% /usr/lib/wsl/drivers' | detect columns",
-                result: None,
+                example: r"
+'Filesystem     1K-blocks      Used Available Use% Mounted on
+none             8150224         4   8150220   1% /mnt/c' | detect columns",
+                result: Some(Value::test_list(vec![Value::test_record(record!{
+                    "Filesystem" => Value::test_string("none"),
+                    "1K-blocks" => Value::test_string("8150224"),
+                    "Used" => Value::test_string("4"),
+                    "Available" => Value::test_string("8150220"),
+                    "Use%" => Value::test_string("1%"),
+                    "Mounted on" => Value::test_string("/mnt/c")
+                })])),
             },
             Example {
                 description: "Use --old parameter if you find default one does not work",
