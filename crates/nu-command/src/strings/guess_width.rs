@@ -311,7 +311,7 @@ pub fn to_table_n(
 
 #[cfg(test)]
 mod tests {
-    use crate::guess_width::{to_table, to_table_n, GuessWidth};
+    use super::{to_table, to_table_n, GuessWidth};
 
     #[test]
     fn test_guess_width_ps_trim() {

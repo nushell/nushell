@@ -71,7 +71,7 @@ impl Command for DetectColumns {
                 example: r"
 'Filesystem     1K-blocks      Used Available Use% Mounted on
 none             8150224         4   8150220   1% /mnt/c' | detect columns",
-                result: Some(Value::test_list(vec![Value::test_record(record!{
+                result: Some(Value::test_list(vec![Value::test_record(record! {
                     "Filesystem" => Value::test_string("none"),
                     "1K-blocks" => Value::test_string("8150224"),
                     "Used" => Value::test_string("4"),
