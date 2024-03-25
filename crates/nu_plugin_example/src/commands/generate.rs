@@ -76,3 +76,12 @@ impl PluginCommand for Generate {
         .into_pipeline_data(None))
     }
 }
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_cmd_lang::If;
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", Example.into())?
+        .add_decl(Box::new(If))?
+        .test_command_examples(&Generate)
+}

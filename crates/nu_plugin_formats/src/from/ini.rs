@@ -89,3 +89,10 @@ b=2' | from ini"
         })),
     }]
 }
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIni)
+}

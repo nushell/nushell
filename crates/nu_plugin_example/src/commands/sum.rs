@@ -20,7 +20,7 @@ impl PluginCommand for Sum {
                 (Type::List(Type::Float.into()), Type::Float),
             ])
             .plugin_examples(vec![PluginExample {
-                example: "seq 1 5 | example sum".into(),
+                example: "example seq 1 5 | example sum".into(),
                 description: "sum values from 1 to 5".into(),
                 result: Some(Value::test_int(15)),
             }])
@@ -87,4 +87,10 @@ impl IntOrFloat {
             IntOrFloat::Float(v) => Value::float(v, span),
         }
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", Example.into())?.test_command_examples(&Sum)
 }

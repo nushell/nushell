@@ -3206,6 +3206,7 @@ name = "nu_plugin_custom_values"
 version = "0.1.0"
 dependencies = [
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
  "serde",
  "typetag",
@@ -3215,7 +3216,9 @@ dependencies = [
 name = "nu_plugin_example"
 version = "0.91.1"
 dependencies = [
+ "nu-cmd-lang",
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
 ]
 
@@ -3227,6 +3230,7 @@ dependencies = [
  "ical",
  "indexmap",
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
  "rust-ini",
 ]

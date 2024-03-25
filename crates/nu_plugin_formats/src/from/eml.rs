@@ -53,6 +53,7 @@ pub fn examples() -> Vec<PluginExample> {
             example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
+
 Test' | from eml"
                 .into(),
             result: Some(Value::test_record(record! {
@@ -73,6 +74,7 @@ Test' | from eml"
             example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
+
 Test' | from eml -b 1"
                 .into(),
             result: Some(Value::test_record(record! {
@@ -163,4 +165,11 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     }
 
     Ok(Value::record(collected.into_iter().collect(), head))
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromEml)
 }

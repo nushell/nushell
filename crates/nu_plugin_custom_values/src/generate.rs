@@ -29,3 +29,11 @@ impl SimplePluginCommand for Generate {
         Ok(CoolCustomValue::new("abc").into_value(call.head))
     }
 }
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("custom_values", crate::CustomValuePlugin.into())?
+        .test_command_examples(&Generate)
+}
