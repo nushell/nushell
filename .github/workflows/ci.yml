@@ -13,8 +13,8 @@ env:
   CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_name != 'main' }}
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   fmt-clippy:
