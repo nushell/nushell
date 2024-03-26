@@ -1,29 +1,22 @@
 //! Interface used by the plugin to communicate with the engine.
 
-use std::{
-    collections::{btree_map, BTreeMap, HashMap},
-    sync::{mpsc, Arc},
+use super::{
+    stream::{StreamManager, StreamManagerHandle},
+    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, Sequence,
 };
-
+use crate::protocol::{
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
+    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
+    ProtocolInfo,
+};
 use nu_protocol::{
     engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
     PluginSignature, ShellError, Spanned, Value,
 };
-
-use crate::{
-    protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
-        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
-        ProtocolInfo,
-    },
-    PluginOutput,
+use std::{
+    collections::{btree_map, BTreeMap, HashMap},
+    sync::{mpsc, Arc},
 };
-
-use super::{
-    stream::{StreamManager, StreamManagerHandle},
-    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
-};
-use crate::sequence::Sequence;
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
 ///

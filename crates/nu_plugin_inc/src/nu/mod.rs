@@ -1,5 +1,4 @@
-use crate::inc::SemVerAction;
-use crate::Inc;
+use crate::{inc::SemVerAction, Inc};
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
 use nu_protocol::{ast::CellPath, LabeledError, PluginSignature, SyntaxShape, Value};
 

@@ -1,6 +1,6 @@
 use nu_engine::eval_block;
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
+    debugger::WithoutDebug,
     engine::{EngineState, Stack},
     IntoPipelineData, Span, Value,
 };

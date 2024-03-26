@@ -1,11 +1,10 @@
-use std::ops::{Add, Div, Mul, Rem, Sub};
-
 use super::NuExpression;
 use nu_protocol::{
     ast::{Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
 };
 use polars::prelude::Expr;
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuExpression {

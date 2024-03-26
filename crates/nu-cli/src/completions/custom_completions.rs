@@ -1,17 +1,16 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
+use crate::completions::{
+    completer::map_value_completions, Completer, CompletionOptions, MatchAlgorithm,
+    SemanticSuggestion, SortBy,
+};
 use nu_engine::eval_call;
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use super::base::SemanticSuggestion;
-use super::completer::map_value_completions;
+use std::{collections::HashMap, sync::Arc};
 
 pub struct CustomCompletion {
     engine_state: Arc<EngineState>,

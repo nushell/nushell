@@ -1,9 +1,4 @@
-use std::sync::Arc;
-
-use nu_protocol::{
-    ast::RangeInclusion, engine::Closure, record, CustomValue, Range, ShellError, Span, Value,
-};
-
+use super::PluginCustomValue;
 use crate::{
     plugin::PluginSource,
     protocol::test_util::{
@@ -11,8 +6,10 @@ use crate::{
         TestCustomValue,
     },
 };
-
-use super::PluginCustomValue;
+use nu_protocol::{
+    ast::RangeInclusion, engine::Closure, record, CustomValue, Range, ShellError, Span, Value,
+};
+use std::sync::Arc;
 
 #[test]
 fn serialize_deserialize() -> Result<(), ShellError> {

@@ -1,15 +1,16 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-use nu_protocol::ast::{Call, Expr};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
-
-use nu_path::canonicalize_with;
-use nu_protocol::debugger::WithoutDebug;
-
 use crate::eval_block;
+use nu_path::canonicalize_with;
+use nu_protocol::{
+    ast::{Call, Expr},
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
+    Config, PipelineData, ShellError, Span, Value, VarId,
+};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[cfg(windows)]
 const ENV_PATH_NAME: &str = "Path";

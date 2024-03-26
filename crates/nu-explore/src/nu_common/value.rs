@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
+use super::NuSpan;
 use nu_engine::get_columns;
 use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
-
-use super::NuSpan;
+use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {

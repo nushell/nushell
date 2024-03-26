@@ -1,12 +1,8 @@
 use super::{GetPlugin, PluginExecutionCommandContext, PluginSource};
 use crate::protocol::{CallInfo, EvaluatedCall};
+use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_protocol::{PluginIdentity, PluginSignature};
 use std::sync::Arc;
-
-use nu_engine::get_eval_expression;
-
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{ast::Call, PluginSignature, Signature};
-use nu_protocol::{Example, PipelineData, PluginIdentity, ShellError};
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]

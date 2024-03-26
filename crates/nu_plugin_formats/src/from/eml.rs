@@ -1,13 +1,12 @@
+use crate::FromCmds;
 use eml_parser::eml::*;
 use eml_parser::EmlParser;
-use indexmap::map::IndexMap;
+use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::LabeledError;
 use nu_protocol::{
-    record, Category, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type, Value,
+    record, Category, LabeledError, PluginExample, PluginSignature, ShellError, Span, SyntaxShape,
+    Type, Value,
 };
-
-use crate::FromCmds;
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 pub const CMD_NAME: &str = "from eml";

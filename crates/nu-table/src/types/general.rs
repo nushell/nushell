@@ -1,7 +1,4 @@
-use nu_color_config::TextStyle;
-use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Value};
-
+use super::has_index;
 use crate::{
     clean_charset, colorize_space,
     common::{
@@ -10,8 +7,9 @@ use crate::{
     },
     NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
 };
-
-use super::has_index;
+use nu_color_config::TextStyle;
+use nu_engine::column::get_columns;
+use nu_protocol::{Config, Record, ShellError, Value};
 
 pub struct JustTable;
 

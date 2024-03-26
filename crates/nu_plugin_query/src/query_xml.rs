@@ -1,11 +1,10 @@
+use crate::Query;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
     record, Category, LabeledError, PluginSignature, Record, Span, Spanned, SyntaxShape, Value,
 };
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
-
-use crate::Query;
 
 pub struct QueryXml;
 

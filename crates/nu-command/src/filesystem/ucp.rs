@@ -1,10 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
-use nu_engine::{current_dir, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, current_dir};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 

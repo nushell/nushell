@@ -1,11 +1,10 @@
+use crate::CustomValuePlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
     record, Category, CustomValue, LabeledError, PluginSignature, ShellError, Span, SyntaxShape,
     Value,
 };
 use serde::{Deserialize, Serialize};
-
-use crate::CustomValuePlugin;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DropCheckValue {

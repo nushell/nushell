@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
+use nu_protocol::engine::{Block, Closure};
 
 #[derive(Clone)]
 pub struct Try;

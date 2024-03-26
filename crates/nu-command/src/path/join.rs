@@ -1,14 +1,7 @@
-use std::path::{Path, PathBuf};
-
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
-
 use super::PathSubcommandArguments;
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
+use std::path::{Path, PathBuf};
 
 struct Arguments {
     append: Vec<Spanned<String>>,

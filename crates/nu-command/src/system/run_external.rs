@@ -1,25 +1,18 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::get_eval_expression;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, Expr},
-    did_you_mean,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoSpanned, IoStream, ListStream, NuGlob, PipelineData, RawStream,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_protocol::{ast::Expr, did_you_mean, IoStream, ListStream, NuGlob, RawStream};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::{Command as CommandSys, Stdio},
+    sync::{mpsc, Arc},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct External;

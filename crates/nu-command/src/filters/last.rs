@@ -1,13 +1,6 @@
+use nu_engine::command_prelude::*;
+
 use std::collections::VecDeque;
-
-use nu_engine::CallExt;
-
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
 
 #[derive(Clone)]
 pub struct Last;

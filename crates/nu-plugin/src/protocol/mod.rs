@@ -8,18 +8,18 @@ mod tests;
 #[cfg(test)]
 pub(crate) mod test_util;
 
-use std::collections::HashMap;
-
-pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{
     ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
     ShellError, Span, Spanned, Value,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
 #[cfg(test)]
 pub use protocol_info::Protocol;
 pub use protocol_info::ProtocolInfo;
-use serde::{Deserialize, Serialize};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;

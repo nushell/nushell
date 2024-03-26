@@ -1,8 +1,7 @@
-use std::fmt::Display;
-
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_parser::trim_quotes_str;
 use nu_protocol::CompletionAlgorithm;
+use std::fmt::Display;
 
 #[derive(Copy, Clone)]
 pub enum SortBy {

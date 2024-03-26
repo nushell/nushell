@@ -1,5 +1,4 @@
 use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
-
 use nu_protocol::{engine::StateWorkingSet, ParseError, Span, SyntaxShape, Type};
 
 #[derive(Debug, Clone, Copy, PartialEq)]

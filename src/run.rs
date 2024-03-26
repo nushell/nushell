@@ -7,8 +7,7 @@ use crate::{
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
-use nu_protocol::eval_const::create_nu_constant;
-use nu_protocol::{PipelineData, Span, NU_VARIABLE_ID};
+use nu_protocol::{eval_const::create_nu_constant, PipelineData, Span, NU_VARIABLE_ID};
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(

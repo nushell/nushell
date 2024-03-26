@@ -8,8 +8,10 @@ use nu_protocol::{
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use std::path::{Path, MAIN_SEPARATOR as SEP};
-use std::sync::Arc;
+use std::{
+    path::{Path, MAIN_SEPARATOR as SEP},
+    sync::Arc,
+};
 
 use super::SemanticSuggestion;
 

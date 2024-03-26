@@ -1,12 +1,11 @@
+use crate::{
+    lex, lite_parse,
+    parser::{is_variable, parse_value},
+};
 use nu_protocol::{
     ast::{MatchPattern, Pattern},
     engine::StateWorkingSet,
     ParseError, Span, SyntaxShape, Type, VarId,
-};
-
-use crate::{
-    lex, lite_parse,
-    parser::{is_variable, parse_value},
 };
 
 pub fn garbage(span: Span) -> MatchPattern {

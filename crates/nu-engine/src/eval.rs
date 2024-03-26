@@ -1,18 +1,17 @@
-use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
-
 use crate::{current_dir, current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
-use nu_protocol::debugger::DebugContext;
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
+    debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
     Config, FromValue, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
 };
+use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 
 pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,

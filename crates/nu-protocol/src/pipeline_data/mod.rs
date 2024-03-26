@@ -12,9 +12,11 @@ use crate::{
     format_error, Config, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::io::{self, Cursor, Read, Write};
-use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
+use std::{
+    io::{self, Cursor, Read, Write},
+    sync::{atomic::AtomicBool, Arc},
+    thread,
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 

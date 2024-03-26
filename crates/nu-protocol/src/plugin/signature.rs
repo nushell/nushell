@@ -1,9 +1,8 @@
-use crate::{PluginExample, Signature};
-use serde::Deserialize;
-use serde::Serialize;
-
-use crate::engine::Command;
-use crate::{BlockId, Category, Flag, PositionalArg, SyntaxShape, Type};
+use crate::{
+    engine::Command, BlockId, Category, Flag, PluginExample, PositionalArg, Signature, SyntaxShape,
+    Type,
+};
+use serde::{Deserialize, Serialize};
 
 /// A simple wrapper for Signature that includes examples.
 #[derive(Debug, Clone, Serialize, Deserialize)]

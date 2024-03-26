@@ -2,12 +2,10 @@ use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::Stack;
-use nu_protocol::report_error;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    PipelineData, Spanned, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, PipelineData, Spanned, Value,
 };
 
 /// Run a command (or commands) given to us by the user

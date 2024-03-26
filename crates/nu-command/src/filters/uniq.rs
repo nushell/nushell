@@ -1,15 +1,9 @@
 use crate::formats::value_to_string;
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 use nu_utils::IgnoreCaseExt;
-use std::collections::hash_map::IntoIter;
-use std::collections::HashMap;
+use std::collections::{hash_map::IntoIter, HashMap};
 
 #[derive(Clone)]
 pub struct Uniq;

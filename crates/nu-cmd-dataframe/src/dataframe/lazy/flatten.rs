@@ -1,12 +1,6 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
-
-use crate::dataframe::values::{Column, NuDataFrame};
-
 use super::explode::explode;
+use crate::dataframe::values::{Column, NuDataFrame};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct LazyFlatten;
@@ -48,7 +42,7 @@ Example {
                 result: Some(
                    NuDataFrame::try_from_columns(vec![
                     Column::new(
-                        "id".to_string(), 
+                        "id".to_string(),
                         vec![
                             Value::test_int(1),
                             Value::test_int(1),
@@ -56,7 +50,7 @@ Example {
                             Value::test_int(2),
                         ]),
                     Column::new(
-                        "name".to_string(), 
+                        "name".to_string(),
                         vec![
                             Value::test_string("Mercy"),
                             Value::test_string("Mercy"),
@@ -64,7 +58,7 @@ Example {
                             Value::test_string("Bob"),
                         ]),
                     Column::new(
-                        "hobbies".to_string(), 
+                        "hobbies".to_string(),
                         vec![
                             Value::test_string("Cycling"),
                             Value::test_string("Knitting"),
@@ -81,7 +75,7 @@ Example {
                 result: Some(
                    NuDataFrame::try_from_columns(vec![
                     Column::new(
-                        "hobbies".to_string(), 
+                        "hobbies".to_string(),
                         vec![
                             Value::test_string("Cycling"),
                             Value::test_string("Knitting"),

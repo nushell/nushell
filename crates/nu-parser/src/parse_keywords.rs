@@ -18,9 +18,9 @@ use nu_protocol::{
     span, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
-use std::path::{Path, PathBuf};
 use std::{
     collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
     sync::Arc,
 };
 

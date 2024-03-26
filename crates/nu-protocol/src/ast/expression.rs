@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
+use crate::{
+    ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, RecordItem},
+    engine::StateWorkingSet,
+    BlockId, DeclId, Signature, Span, Type, VarId, IN_VARIABLE_ID,
+};
 use serde::{Deserialize, Serialize};
-
-use super::{Argument, Block, Expr, ExternalArgument, RecordItem};
-use crate::ast::ImportPattern;
-use crate::DeclId;
-use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {

@@ -1,12 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::engine::Closure;
 use std::collections::HashSet;
 
 #[derive(Clone)]
