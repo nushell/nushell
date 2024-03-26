@@ -191,8 +191,18 @@ fn examples() -> Vec<PluginExample> {
     ]
 }
 
-// todo - fix tests
-// #[test]
-// fn test_into_df() {
-//     test_dataframe(vec![Box::new(ToDataFrame {})])
-// }
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use super::*;
+    use nu_plugin_test_support::PluginTest;
+    use nu_protocol::ShellError;
+
+    #[test]
+    #[ignore = "fix tests"]
+    fn test_into_df() -> Result<(), ShellError> {
+        PluginTest::new("polars", Arc::new(PolarsPlugin::default()))?
+            .test_command_examples(&ToDataFrame)
+    }
+}

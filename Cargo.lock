@@ -3255,6 +3255,7 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
  "num",
  "polars",

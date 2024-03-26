@@ -74,3 +74,4 @@ version = "0.37"
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
 nu-engine = { path = "../nu-engine", version = "0.91.1" }
 nu-parser = { path = "../nu-parser", version = "0.91.1" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.91.1" }
