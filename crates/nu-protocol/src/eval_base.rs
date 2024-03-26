@@ -76,7 +76,7 @@ pub trait Eval {
                         RecordItem::Spread(_, inner) => {
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
-                                    for (col_name, val) in inner_val {
+                                    for (col_name, val) in *inner_val {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
@@ -136,7 +136,7 @@ pub trait Eval {
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(e, unit) => match Self::eval::<D>(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+                Value::Int { val, .. } => unit.item.build_value(val, unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),

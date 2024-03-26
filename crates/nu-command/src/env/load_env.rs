@@ -58,7 +58,7 @@ impl Command for LoadEnv {
             }
             None => match input {
                 PipelineData::Value(Value::Record { val, .. }, ..) => {
-                    for (env_var, rhs) in val {
+                    for (env_var, rhs) in *val {
                         let env_var_ = env_var.as_str();
                         if ["FILE_PWD", "CURRENT_FILE"].contains(&env_var_) {
                             return Err(ShellError::AutomaticEnvVarSetManually {

@@ -1,4 +1,4 @@
-use crate::plugin::{Encoder, PluginEncoder};
+use crate::plugin::Encoder;
 use nu_protocol::ShellError;
 
 pub mod json;
@@ -21,19 +21,6 @@ impl EncodingType {
             b"msgpack" => Some(Self::MsgPack(msgpack::MsgPackSerializer {})),
             _ => None,
         }
-    }
-
-    pub fn to_str(&self) -> &'static str {
-        match self {
-            Self::Json(_) => "json",
-            Self::MsgPack(_) => "msgpack",
-        }
-    }
-}
-
-impl PluginEncoder for EncodingType {
-    fn name(&self) -> &str {
-        self.to_str()
     }
 }
 

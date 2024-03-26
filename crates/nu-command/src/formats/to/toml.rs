@@ -60,7 +60,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::String { val, .. } | Value::Glob { val, .. } => toml::Value::String(val.clone()),
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)

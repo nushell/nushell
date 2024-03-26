@@ -75,8 +75,9 @@ impl SimplePluginCommand for FromIcs {
 
 pub fn examples() -> Vec<PluginExample> {
     vec![PluginExample {
-        example: "'BEGIN:VCALENDAR
-            END:VCALENDAR' | from ics"
+        example: "
+'BEGIN:VCALENDAR
+END:VCALENDAR' | from ics"
             .into(),
         description: "Converts ics formatted string to table".into(),
         result: Some(Value::test_list(vec![Value::test_record(record! {
@@ -262,4 +263,11 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     }
 
     Value::record(row.into_iter().collect(), span)
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIcs)
 }

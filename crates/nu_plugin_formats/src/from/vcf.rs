@@ -153,3 +153,10 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
 
     Value::record(row.into_iter().collect(), span)
 }
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromVcf)
+}

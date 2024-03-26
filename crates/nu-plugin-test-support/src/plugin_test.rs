@@ -1,6 +1,6 @@
 use std::{convert::Infallible, sync::Arc};
 
-use difference::Changeset;
+use nu_ansi_term::Style;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
@@ -10,7 +10,7 @@ use nu_protocol::{
     report_error_new, LabeledError, PipelineData, PluginExample, ShellError, Span, Value,
 };
 
-use crate::fake_register::fake_register;
+use crate::{diff::diff_by_line, fake_register::fake_register};
 
 /// An object through which plugins can be tested.
 pub struct PluginTest {
@@ -59,6 +59,19 @@ impl PluginTest {
     /// Get a mutable reference to the [`EngineState`].
     pub fn engine_state_mut(&mut self) -> &mut EngineState {
         &mut self.engine_state
+    }
+
+    /// Make additional command declarations available for use by tests.
+    ///
+    /// This can be used to pull in commands from `nu-cmd-lang` for example, as required.
+    pub fn add_decl(
+        &mut self,
+        decl: Box<dyn nu_protocol::engine::Command>,
+    ) -> Result<&mut Self, ShellError> {
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        working_set.add_decl(decl);
+        self.engine_state.merge_delta(working_set.render())?;
+        Ok(self)
     }
 
     /// Evaluate some Nushell source code with the plugin commands in scope with the given input to
@@ -190,10 +203,11 @@ impl PluginTest {
         let mut failed = false;
 
         for example in examples {
+            let bold = Style::new().bold();
             let mut failed_header = || {
                 failed = true;
-                eprintln!("\x1b[1mExample:\x1b[0m {}", example.example);
-                eprintln!("\x1b[1mDescription:\x1b[0m {}", example.description);
+                eprintln!("{} {}", bold.paint("Example:"), example.example);
+                eprintln!("{} {}", bold.paint("Description:"), example.description);
             };
             if let Some(expectation) = &example.result {
                 match self.eval(&example.example) {
@@ -212,12 +226,9 @@ impl PluginTest {
                             // If they're not equal, print a diff of the debug format
                             let expectation_formatted = format!("{:#?}", expectation);
                             let value_formatted = format!("{:#?}", value);
-                            let diff =
-                                Changeset::new(&expectation_formatted, &value_formatted, "\n");
+                            let diff = diff_by_line(&expectation_formatted, &value_formatted);
                             failed_header();
-                            eprintln!("\x1b[1mResult:\x1b[0m {diff}");
-                        } else {
-                            println!("{:?}, {:?}", expectation, value);
+                            eprintln!("{} {}", bold.paint("Result:"), diff);
                         }
                     }
                     Err(err) => {

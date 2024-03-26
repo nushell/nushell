@@ -172,9 +172,16 @@ impl Default for Config {
 }
 
 impl Value {
-    pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
+    /// Parse the given [`Value`] as a configuration record, and recover encountered mistakes
+    ///
+    /// If any given (sub)value is detected as impossible, this value will be restored to the value
+    /// in `existing_config`, thus mutates `self`.
+    ///
+    /// Returns a new [`Config`] (that is in a valid state) and if encountered the [`ShellError`]
+    /// containing all observed inner errors.
+    pub fn parse_as_config(&mut self, existing_config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
-        let mut config = config.clone();
+        let mut config = existing_config.clone();
 
         // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
         // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all

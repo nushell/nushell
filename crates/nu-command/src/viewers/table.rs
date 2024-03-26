@@ -413,7 +413,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
-            handle_record(input, cfg, val)
+            handle_record(input, cfg, *val)
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             input.data = val.collect()?.into_pipeline_data();

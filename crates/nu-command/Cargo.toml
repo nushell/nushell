@@ -97,6 +97,7 @@ uuid = { workspace = true, features = ["v4"] }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true, optional = true }
+unicode-width = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }

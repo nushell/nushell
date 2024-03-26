@@ -295,7 +295,7 @@ impl EngineState {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
+                            let (config, error) = new_record.parse_as_config(&self.config);
                             self.config = Arc::new(config);
                             config_updated = true;
                             env_vars.insert(k, new_record);
@@ -790,11 +790,7 @@ impl EngineState {
 
     /// Returns the configuration settings for command history or `None` if history is disabled
     pub fn history_config(&self) -> Option<HistoryConfig> {
-        if self.history_enabled {
-            Some(self.config.history)
-        } else {
-            None
-        }
+        self.history_enabled.then(|| self.config.history)
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {

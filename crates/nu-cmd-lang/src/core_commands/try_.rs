@@ -65,7 +65,7 @@ impl Command for Try {
             }
             // external command may fail to run
             Ok(pipeline) => {
-                let (pipeline, external_failed) = pipeline.is_external_failed();
+                let (pipeline, external_failed) = pipeline.check_external_failed();
                 if external_failed {
                     // Because external command errors aren't "real" errors,
                     // (unless do -c is in effect)

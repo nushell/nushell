@@ -1114,12 +1114,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
-name = "difference"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
-
-[[package]]
 name = "difflib"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2944,6 +2938,7 @@ dependencies = [
  "trash",
  "umask",
  "unicode-segmentation",
+ "unicode-width",
  "ureq",
  "url",
  "uu_cp",
@@ -3078,12 +3073,13 @@ dependencies = [
 name = "nu-plugin-test-support"
 version = "0.91.1"
 dependencies = [
- "difference",
+ "nu-ansi-term",
  "nu-engine",
  "nu-parser",
  "nu-plugin",
  "nu-protocol",
  "serde",
+ "similar",
  "typetag",
 ]
 
@@ -3200,6 +3196,7 @@ name = "nu_plugin_custom_values"
 version = "0.1.0"
 dependencies = [
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
  "serde",
  "typetag",
@@ -3209,7 +3206,9 @@ dependencies = [
 name = "nu_plugin_example"
 version = "0.91.1"
 dependencies = [
+ "nu-cmd-lang",
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
 ]
 
@@ -3221,6 +3220,7 @@ dependencies = [
  "ical",
  "indexmap",
  "nu-plugin",
+ "nu-plugin-test-support",
  "nu-protocol",
  "rust-ini",
 ]

@@ -228,7 +228,7 @@ fn rename(
                             }
                         }
 
-                        Value::record(record, span)
+                        Value::record(*record, span)
                     }
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { .. } => item.clone(),

@@ -168,13 +168,7 @@ impl ScopeFrame {
         self.overlays
             .iter()
             .position(|(n, _)| n == name)
-            .and_then(|id| {
-                if self.active_overlays.contains(&id) {
-                    Some(id)
-                } else {
-                    None
-                }
-            })
+            .filter(|id| self.active_overlays.contains(id))
     }
 }
 

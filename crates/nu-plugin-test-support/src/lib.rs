@@ -63,6 +63,7 @@
 //! # test_lowercase().unwrap();
 //! ```
 
+mod diff;
 mod fake_persistent_plugin;
 mod fake_register;
 mod plugin_test;

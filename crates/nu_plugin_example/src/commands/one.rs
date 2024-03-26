@@ -41,3 +41,9 @@ impl SimplePluginCommand for One {
         Ok(Value::nothing(call.head))
     }
 }
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", Example.into())?.test_command_examples(&One)
+}

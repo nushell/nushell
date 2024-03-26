@@ -378,8 +378,8 @@ fn get_argument_for_color_value(
 ) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
-            let record_exp: Vec<RecordItem> = val
-                .into_iter()
+            let record_exp: Vec<RecordItem> = (**val)
+                .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
                         Expression {
