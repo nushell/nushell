@@ -699,14 +699,16 @@ impl PipelineData {
         }
     }
 
-    /// Try to catch external stream exit status and detect if it runs to failed.
+    /// Try to catch the external stream exit status and detect if it failed.
     ///
-    /// This is useful to commands with semicolon, we can detect errors early to avoid
-    /// commands after semicolon running.
+    /// This is useful for external commands with semicolon, we can detect errors early to avoid
+    /// commands after the semicolon running.
     ///
-    /// Returns self and a flag indicates if the external stream runs to failed.
-    /// If `self` is not Pipeline::ExternalStream, the flag will be false.
-    pub fn is_external_failed(self) -> (Self, bool) {
+    /// Returns `self` and a flag that indicates if the external stream run failed. If `self` is
+    /// not [`PipelineData::ExternalStream`], the flag will be `false`.
+    ///
+    /// Currently this will consume an external stream to completion.
+    pub fn check_external_failed(self) -> (Self, bool) {
         let mut failed_to_run = false;
         // Only need ExternalStream without redirecting output.
         // It indicates we have no more commands to execute currently.

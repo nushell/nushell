@@ -295,7 +295,7 @@ impl EngineState {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
+                            let (config, error) = new_record.parse_as_config(&self.config);
                             self.config = Arc::new(config);
                             config_updated = true;
                             env_vars.insert(k, new_record);
