@@ -36,17 +36,6 @@ impl CustomValue for NuDataFrameCustomValue {
         self
     }
 
-    // fn follow_path_string(
-    //     &self,
-    //     _self_span: Span,
-    //     column_name: String,
-    //     path_span: Span,
-    // ) -> Result<Value, ShellError> {
-    //     let df = NuDataFrame::try_from(self)?;
-    //     let column = df.column(&column_name, path_span)?;
-    //     Ok(column.into_value(path_span))
-    // }
-    //
     // fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
     //     if let Ok(df) = NuDataFrame::try_from(self) {
     //         if let Value::CustomValue { val, .. } = other {
@@ -116,12 +105,12 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
     fn custom_value_follow_path_string(
         &self,
         plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         self_span: Span,
         column_name: Spanned<String>,
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
         let column = df.column(&column_name.item, self_span)?;
-        Ok(column.into_value(self_span))
+        Ok(column.cache(plugin, engine)?.into_value(self_span))
     }
 }
