@@ -57,7 +57,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         }
         Value::Record { val, .. } => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(v)?,

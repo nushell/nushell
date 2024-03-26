@@ -319,7 +319,7 @@ fn describe_value(
                 record!(
                     "type" => Value::string("record", head),
                     "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(val, head),
+                    "columns" => Value::record(*val, head),
                 ),
                 head,
             )
@@ -410,7 +410,7 @@ fn describe_value(
                         )?);
                     }
 
-                    record.push("columns", Value::record(val, head));
+                    record.push("columns", Value::record(*val, head));
                 } else {
                     let cols = val.column_names();
                     record.push("length", Value::int(cols.len() as i64, head));

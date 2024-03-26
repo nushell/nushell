@@ -29,7 +29,7 @@ fn helper_for_tables(
     for val in values {
         match val {
             Value::Record { val, .. } => {
-                for (key, value) in val {
+                for (key, value) in &**val {
                     column_values
                         .entry(key.clone())
                         .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
@@ -90,7 +90,7 @@ pub fn calculate(
                     *val = mf(slice::from_ref(val), span, name)?;
                     Ok(())
                 })?;
-            Ok(Value::record(record, span))
+            Ok(Value::record(*record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val

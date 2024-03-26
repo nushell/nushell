@@ -2,8 +2,9 @@ use nu_cli::{eval_source, evaluate_commands};
 use nu_parser::parse;
 use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    engine::EngineState, eval_const::create_nu_constant, PipelineData, Span, Spanned, Value,
-    NU_VARIABLE_ID,
+    engine::{EngineState, Stack},
+    eval_const::create_nu_constant,
+    PipelineData, Span, Spanned, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
@@ -54,6 +55,61 @@ fn setup_engine() -> EngineState {
     engine_state
 }
 
+fn bench_command(bencher: divan::Bencher, scaled_command: String) {
+    bench_command_with_custom_stack_and_engine(
+        bencher,
+        scaled_command,
+        Stack::new(),
+        setup_engine(),
+    )
+}
+
+fn bench_command_with_custom_stack_and_engine(
+    bencher: divan::Bencher,
+    scaled_command: String,
+    stack: nu_protocol::engine::Stack,
+    mut engine: EngineState,
+) {
+    load_standard_library(&mut engine).unwrap();
+    let commands = Spanned {
+        span: Span::unknown(),
+        item: scaled_command,
+    };
+
+    bencher
+        .with_inputs(|| engine.clone())
+        .bench_values(|mut engine| {
+            evaluate_commands(
+                &commands,
+                &mut engine,
+                &mut stack.clone(),
+                PipelineData::empty(),
+                None,
+            )
+            .unwrap();
+        })
+}
+
+fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
+    let mut engine = setup_engine();
+    let commands = Spanned {
+        span: Span::unknown(),
+        item: command.to_string(),
+    };
+
+    let mut stack = Stack::new();
+    evaluate_commands(
+        &commands,
+        &mut engine,
+        &mut stack,
+        PipelineData::empty(),
+        None,
+    )
+    .unwrap();
+
+    (stack, engine)
+}
+
 // FIXME: All benchmarks live in this 1 file to speed up build times when benchmarking.
 // When the *_benchmarks functions were in different files, `cargo bench` would build
 // an executable for every single one - incredibly slowly. Would be nice to figure out
@@ -70,30 +126,68 @@ fn load_standard_lib(bencher: divan::Bencher) {
 }
 
 #[divan::bench_group]
-mod eval_commands {
+mod record {
+
     use super::*;
 
-    fn bench_command(bencher: divan::Bencher, scaled_command: String) {
-        let mut engine = setup_engine();
-        load_standard_library(&mut engine).unwrap();
-        let commands = Spanned {
-            span: Span::unknown(),
-            item: scaled_command,
-        };
-
-        bencher
-            .with_inputs(|| engine.clone())
-            .bench_values(|mut engine| {
-                evaluate_commands(
-                    &commands,
-                    &mut engine,
-                    &mut nu_protocol::engine::Stack::new(),
-                    PipelineData::empty(),
-                    None,
-                )
-                .unwrap();
-            })
+    fn create_flat_record_string(n: i32) -> String {
+        let mut s = String::from("let record = {");
+        for i in 0..n {
+            s.push_str(&format!("col_{}: {}", i, i));
+            if i < n - 1 {
+                s.push_str(", ");
+            }
+        }
+        s.push('}');
+        s
     }
+
+    fn create_nested_record_string(depth: i32) -> String {
+        let mut s = String::from("let record = {");
+        for _ in 0..depth {
+            s.push_str("col: {{");
+        }
+        s.push_str("col_final: 0");
+        for _ in 0..depth {
+            s.push('}');
+        }
+        s.push('}');
+        s
+    }
+
+    #[divan::bench(args = [1, 10, 100, 1000])]
+    fn create(bencher: divan::Bencher, n: i32) {
+        bench_command(bencher, create_flat_record_string(n));
+    }
+
+    #[divan::bench(args = [1, 10, 100, 1000])]
+    fn flat_access(bencher: divan::Bencher, n: i32) {
+        let (stack, engine) = setup_stack_and_engine_from_command(&create_flat_record_string(n));
+        bench_command_with_custom_stack_and_engine(
+            bencher,
+            "$record.col_0 | ignore".to_string(),
+            stack,
+            engine,
+        );
+    }
+
+    #[divan::bench(args = [1, 2, 4, 8, 16, 32, 64, 128])]
+    fn nest_access(bencher: divan::Bencher, depth: i32) {
+        let (stack, engine) =
+            setup_stack_and_engine_from_command(&create_nested_record_string(depth));
+        let nested_access = ".col".repeat(depth as usize);
+        bench_command_with_custom_stack_and_engine(
+            bencher,
+            format!("$record{} | ignore", nested_access),
+            stack,
+            engine,
+        );
+    }
+}
+
+#[divan::bench_group]
+mod eval_commands {
+    use super::*;
 
     #[divan::bench(args = [100, 1_000, 10_000])]
     fn interleave(bencher: divan::Bencher, n: i32) {

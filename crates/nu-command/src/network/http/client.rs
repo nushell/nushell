@@ -221,7 +221,7 @@ pub fn send_request(
         Value::Record { val, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in val {
+            for (col, val) in *val {
                 data.push((col, val.coerce_into_string()?))
             }
 
@@ -335,7 +335,7 @@ pub fn request_add_custom_headers(
 
         match &headers {
             Value::Record { val, .. } => {
-                for (k, v) in val {
+                for (k, v) in &**val {
                     custom_headers.insert(k.to_string(), v.clone());
                 }
             }
@@ -345,7 +345,7 @@ pub fn request_add_custom_headers(
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
                         Value::Record { val, .. } => {
-                            for (k, v) in val {
+                            for (k, v) in &**val {
                                 custom_headers.insert(k.to_string(), v.clone());
                             }
                         }
