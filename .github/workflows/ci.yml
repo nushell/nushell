@@ -171,7 +171,7 @@ jobs:
           rustflags: ""
 
       - name: Clippy
-        run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- $CLIPPY_OPTIONS
+        run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
