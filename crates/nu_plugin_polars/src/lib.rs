@@ -205,13 +205,13 @@ pub trait PolarsPluginCustomValue: CustomValue {
 
     fn custom_value_follow_path_int(
         &self,
-        plugin: &PolarsPlugin,
+        _plugin: &PolarsPlugin,
         _engine: &EngineInterface,
         self_span: Span,
         _index: Spanned<usize>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::IncompatiblePathAccess {
-            type_name: self.type_name().into(),
+            type_name: self.type_name(),
             span: self_span,
         })
     }
