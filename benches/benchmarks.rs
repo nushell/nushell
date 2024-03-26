@@ -186,6 +186,51 @@ mod record {
 }
 
 #[divan::bench_group]
+mod table {
+
+    use super::*;
+
+    fn create_example_table_nrows(n: i32) -> String {
+        let mut s = String::from("let table = [[foo bar baz]; ");
+        for i in 0..n {
+            s.push_str(&format!("[0, 1, {i}]"));
+            if i < n - 1 {
+                s.push_str(", ");
+            }
+        }
+        s.push(']');
+        s
+    }
+
+    #[divan::bench(args = [1, 10, 100, 1000])]
+    fn create(bencher: divan::Bencher, n: i32) {
+        bench_command(bencher, create_example_table_nrows(n));
+    }
+
+    #[divan::bench(args = [1, 10, 100, 1000])]
+    fn get(bencher: divan::Bencher, n: i32) {
+        let (stack, engine) = setup_stack_and_engine_from_command(&create_example_table_nrows(n));
+        bench_command_with_custom_stack_and_engine(
+            bencher,
+            "$table | get bar | math sum | ignore".to_string(),
+            stack,
+            engine,
+        );
+    }
+
+    #[divan::bench(args = [1, 10, 100, 1000])]
+    fn select(bencher: divan::Bencher, n: i32) {
+        let (stack, engine) = setup_stack_and_engine_from_command(&create_example_table_nrows(n));
+        bench_command_with_custom_stack_and_engine(
+            bencher,
+            "$table | select foo baz | ignore".to_string(),
+            stack,
+            engine,
+        );
+    }
+}
+
+#[divan::bench_group]
 mod eval_commands {
     use super::*;
 
