@@ -12,6 +12,10 @@ env:
   # If changing these settings also change toolkit.nu
   CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fmt-clippy:
     strategy:
