@@ -61,6 +61,19 @@ impl PluginTest {
         &mut self.engine_state
     }
 
+    /// Make additional command declarations available for use by tests.
+    ///
+    /// This can be used to pull in commands from `nu-cmd-lang` for example, as required.
+    pub fn add_decl(
+        &mut self,
+        decl: Box<dyn nu_protocol::engine::Command>,
+    ) -> Result<&mut Self, ShellError> {
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        working_set.add_decl(decl);
+        self.engine_state.merge_delta(working_set.render())?;
+        Ok(self)
+    }
+
     /// Evaluate some Nushell source code with the plugin commands in scope with the given input to
     /// the pipeline.
     ///

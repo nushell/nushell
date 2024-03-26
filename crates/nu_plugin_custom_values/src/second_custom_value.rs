@@ -1,7 +1,9 @@
+use std::cmp::Ordering;
+
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecondCustomValue {
     pub(crate) something: String,
 }
@@ -57,6 +59,16 @@ impl CustomValue for SecondCustomValue {
             ),
             span,
         ))
+    }
+
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+        if let Value::CustomValue { val, .. } = other {
+            val.as_any()
+                .downcast_ref()
+                .and_then(|other: &SecondCustomValue| PartialOrd::partial_cmp(self, other))
+        } else {
+            None
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
