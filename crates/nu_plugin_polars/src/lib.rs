@@ -174,6 +174,31 @@ impl Plugin for PolarsPlugin {
                 .map_err(LabeledError::from),
         }
     }
+
+    fn custom_value_follow_path_string(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        column_name: Spanned<String>,
+    ) -> Result<Value, LabeledError> {
+        match CustomValueType::try_from_custom_value(custom_value.item)? {
+            CustomValueType::NuDataFrame(cv) => cv
+                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyFrame(cv) => cv
+                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                .map_err(LabeledError::from),
+            CustomValueType::NuExpression(cv) => cv
+                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyGroupBy(cv) => cv
+                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                .map_err(LabeledError::from),
+            CustomValueType::NuWhen(cv) => cv
+                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                .map_err(LabeledError::from),
+        }
+    }
 }
 
 pub trait PolarsPluginCustomValue: CustomValue {
@@ -209,6 +234,19 @@ pub trait PolarsPluginCustomValue: CustomValue {
         _engine: &EngineInterface,
         self_span: Span,
         _index: Spanned<usize>,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::IncompatiblePathAccess {
+            type_name: self.type_name(),
+            span: self_span,
+        })
+    }
+
+    fn custom_value_follow_path_string(
+        &self,
+        _plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        self_span: Span,
+        _column_name: Spanned<String>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.type_name(),

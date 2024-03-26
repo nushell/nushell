@@ -78,6 +78,15 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         &self.dataframe
     }
 
+    fn custom_value_to_base_value(
+        &self,
+        plugin: &crate::PolarsPlugin,
+        _engine: &nu_plugin::EngineInterface,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from_custom_value(plugin, self)?;
+        df.base_value(Span::unknown())
+    }
+
     fn custom_value_operation(
         &self,
         plugin: &crate::PolarsPlugin,
@@ -93,15 +102,6 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
             .into_value(lhs_span))
     }
 
-    fn custom_value_to_base_value(
-        &self,
-        plugin: &crate::PolarsPlugin,
-        _engine: &nu_plugin::EngineInterface,
-    ) -> Result<Value, ShellError> {
-        let df = NuDataFrame::try_from_custom_value(plugin, self)?;
-        df.base_value(Span::unknown())
-    }
-
     fn custom_value_follow_path_int(
         &self,
         plugin: &PolarsPlugin,
@@ -111,5 +111,17 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
         df.get_value(index.item, index.span)
+    }
+
+    fn custom_value_follow_path_string(
+        &self,
+        plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        self_span: Span,
+        column_name: Spanned<String>,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from_custom_value(plugin, self)?;
+        let column = df.column(&column_name.item, self_span)?;
+        Ok(column.into_value(self_span))
     }
 }
