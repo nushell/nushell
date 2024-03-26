@@ -9,9 +9,9 @@ use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    record, Category, Config, DataSource, Example, IntoPipelineData, IoStream, ListStream,
-    PipelineData, PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape,
-    TableMode, Type, Value,
+    record, Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
+    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, TableMode, Type,
+    Value,
 };
 use nu_table::common::create_nu_table_config;
 use nu_table::{
@@ -370,21 +370,10 @@ fn handle_table_command(
     match input.data {
         PipelineData::ExternalStream { .. } => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let stream_list = if matches!(
-                input.stack.stdout(),
-                IoStream::Pipe | IoStream::Capture | IoStream::Null
-            ) {
-                vec![Ok(val)]
-            } else {
-                let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                    .as_bytes()
-                    .to_vec();
-                vec![Ok(hex)]
-            };
-
+            let bytes = format!("{}\n", nu_pretty_hex::pretty_hex(&val)).into_bytes();
             let ctrlc = input.engine_state.ctrlc.clone();
             let stream = RawStream::new(
-                Box::new(stream_list.into_iter()),
+                Box::new([Ok(bytes)].into_iter()),
                 ctrlc,
                 input.call.head,
                 None,
