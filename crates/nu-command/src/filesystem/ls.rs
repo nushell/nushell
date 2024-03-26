@@ -65,6 +65,11 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
+            .switch(
+                "include-error-details",
+                "When returning pipeline data, include error details if there are any (when this is not set, these entries are just set to null)",
+                None
+            )
             .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .category(Category::FileSystem)
     }
@@ -83,6 +88,7 @@ impl Command for Ls {
         let du = call.has_flag(engine_state, stack, "du")?;
         let directory = call.has_flag(engine_state, stack, "directory")?;
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
+        let include_error_details = call.has_flag(engine_state, stack, "include-error-details")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
@@ -314,7 +320,13 @@ impl Command for Ls {
                         Err(err) => Some(Value::error(err, call_span)),
                     }
                 }
-                _ => Some(Value::nothing(call_span)),
+                Err(err) => {
+                    if !include_error_details {
+                        Some(Value::nothing(call_span))
+                    } else {
+                        Some(Value::error_as_record(err, call_span))
+                    }
+                }
             })
             .into_pipeline_data_with_metadata(
                 PipelineMetadata {

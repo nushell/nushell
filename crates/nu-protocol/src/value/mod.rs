@@ -19,7 +19,7 @@ pub use record::Record;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion};
 use crate::engine::{Closure, EngineState};
-use crate::{did_you_mean, BlockId, Config, ShellError, Span, Type};
+use crate::{did_you_mean, into_code, BlockId, Config, ShellError, Span, Type};
 
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -2034,6 +2034,18 @@ impl Value {
         }
     }
 
+    pub fn error_as_record(error: ShellError, span: Span) -> Value {
+        let mut raw_record = Record::new();
+        raw_record.push("type", Value::string("error", span));
+        raw_record.push(
+            "code",
+            Value::string(into_code(&error).unwrap_or("unknown".to_string()), span),
+        );
+        raw_record.push("details", Value::string(error.to_string(), span));
+        raw_record.push("raw", Value::string(format!("{:?}", error), span));
+        Value::record(raw_record, span)
+    }
+
     pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
         Value::Binary {
             val: val.into(),
@@ -3783,6 +3795,52 @@ fn type_compatible(a: Type, b: Type) -> bool {
 mod tests {
     use super::{Record, Value};
     use crate::record;
+
+    mod error {
+        use crate::ShellError;
+
+        use super::*;
+
+        #[test]
+        fn test_error_as_record() {
+            let err = ShellError::GenericError {
+                error: "Required a positional argument or a flag".to_string(),
+                msg: "".to_string(),
+                span: None,
+                help: None,
+                inner: vec![],
+            };
+
+            let err_as_record = Value::error_as_record(err, crate::Span { start: 0, end: 0 });
+
+            let record = err_as_record.as_record().expect("Should be record");
+            assert_eq!(
+                record
+                    .get("type")
+                    .expect("Missing key")
+                    .as_str()
+                    .expect("Should be string"),
+                "error"
+            );
+
+            assert_eq!(
+                record
+                    .get("code")
+                    .expect("Missing key")
+                    .as_str()
+                    .expect("Should be string"),
+                "unknown"
+            );
+            assert_eq!(
+                record
+                    .get("details")
+                    .expect("Missing key")
+                    .as_str()
+                    .expect("Should be string"),
+                "Required a positional argument or a flag"
+            );
+        }
+    }
 
     mod is_empty {
         use super::*;
