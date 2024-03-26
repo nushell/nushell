@@ -12,6 +12,10 @@ env:
   # If changing these settings also change toolkit.nu
   CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   fmt-clippy:
     strategy:
@@ -167,7 +171,7 @@ jobs:
           rustflags: ""
 
       - name: Clippy
-        run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- $CLIPPY_OPTIONS
+        run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
