@@ -1,12 +1,6 @@
 #[cfg(windows)]
 use itertools::Itertools;
 use nu_engine::CallExt;
-#[cfg(all(
-    unix,
-    not(target_os = "macos"),
-    not(target_os = "windows"),
-    not(target_os = "android"),
-))]
 use nu_protocol::command_prelude::*;
 #[cfg(all(
     unix,
