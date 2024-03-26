@@ -35,7 +35,7 @@ impl Command for DetectColumns {
             .named(
                 "combine-columns",
                 SyntaxShape::Range,
-                "columns to be combined; listed as a range, only useful if `--legacy` is active",
+                "columns to be combined; listed as a range",
                 Some('c'),
             )
             .switch("legacy", "use another algorithm to detect columns, it may be useful if default one doesn't work", None)
@@ -60,7 +60,7 @@ impl Command for DetectColumns {
         if !call.has_flag(engine_state, stack, "legacy")? {
             guess_width(engine_state, stack, call, input)
         } else {
-            detect_columns_old(engine_state, stack, call, input)
+            detect_columns_legacy(engine_state, stack, call, input)
         }
     }
 
@@ -109,7 +109,7 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns",
             },
             Example {
                 description: "Parse external ls command and combine columns for datetime",
-                example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7 --legacy",
+                example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7",
                 result: None,
             },
         ]
@@ -139,7 +139,7 @@ fn guess_width(
     if result.is_empty() {
         return Ok(Value::nothing(input_span).into_pipeline_data());
     }
-
+    let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
     if !noheader {
         let columns = result[0].clone();
         Ok(result
@@ -157,8 +157,11 @@ fn guess_width(
                 let record =
                     Record::from_raw_cols_vals(columns.clone(), values, input_span, input_span);
                 match record {
+                    Ok(r) => match &range {
+                        Some(range) => merge_record(r, range, input_span),
+                        None => Value::record(r, input_span),
+                    },
                     Err(e) => Value::error(e, input_span),
-                    Ok(r) => Value::record(r, input_span),
                 }
             })
             .into_pipeline_data(engine_state.ctrlc.clone()))
@@ -179,15 +182,18 @@ fn guess_width(
                 let record =
                     Record::from_raw_cols_vals(columns.clone(), values, input_span, input_span);
                 match record {
+                    Ok(r) => match &range {
+                        Some(range) => merge_record(r, range, input_span),
+                        None => Value::record(r, input_span),
+                    },
                     Err(e) => Value::error(e, input_span),
-                    Ok(r) => Value::record(r, input_span),
                 }
             })
             .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }
 
-fn detect_columns_old(
+fn detect_columns_legacy(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -272,64 +278,9 @@ fn detect_columns_old(
                     }
                 }
 
-                let (start_index, end_index) = if let Some(range) = &range {
-                    match nu_cmd_base::util::process_range(range) {
-                        Ok((l_idx, r_idx)) => {
-                            let l_idx = if l_idx < 0 {
-                                record.len() as isize + l_idx
-                            } else {
-                                l_idx
-                            };
-
-                            let r_idx = if r_idx < 0 {
-                                record.len() as isize + r_idx
-                            } else {
-                                r_idx
-                            };
-
-                            if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (record.len() as isize)))
-                            {
-                                return Value::record(record, name_span);
-                            }
-
-                            (
-                                l_idx.max(0) as usize,
-                                (r_idx as usize + 1).min(record.len()),
-                            )
-                        }
-                        Err(processing_error) => {
-                            let err = processing_error("could not find range index", name_span);
-                            return Value::error(err, name_span);
-                        }
-                    }
-                } else {
-                    return Value::record(record, name_span);
-                };
-
-                let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
-
-                // Merge Columns
-                ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
-                    cols.swap(idx, end_index - start_index - 1 + idx);
-                });
-                cols.truncate(cols.len() - end_index + start_index + 1);
-
-                // Merge Values
-                let combined = vals
-                    .iter()
-                    .take(end_index)
-                    .skip(start_index)
-                    .map(|v| v.coerce_str().unwrap_or_default())
-                    .join(" ");
-                let binding = Value::string(combined, Span::unknown());
-                let last_seg = vals.split_off(end_index);
-                vals.truncate(start_index);
-                vals.push(binding);
-                vals.extend(last_seg);
-
-                match Record::from_raw_cols_vals(cols, vals, Span::unknown(), name_span) {
-                    Ok(record) => Value::record(record, name_span),
-                    Err(err) => Value::error(err, name_span),
+                match &range {
+                    Some(range) => merge_record(record, range, name_span),
+                    None => Value::record(record, name_span),
                 }
             })
             .into_pipeline_data(ctrlc))
@@ -491,6 +442,82 @@ fn baseline(src: &mut Input) -> Spanned<String> {
         item: token_contents,
         span,
     }
+}
+
+fn merge_record(record: Record, range: &Range, input_span: Span) -> Value {
+    let (start_index, end_index) = match process_range(range, record.len(), input_span) {
+        Ok(Some((l_idx, r_idx))) => (l_idx, r_idx),
+        Ok(None) => return Value::record(record, input_span),
+        Err(e) => return Value::error(e, input_span),
+    };
+
+    match merge_record_impl(record, start_index, end_index, input_span) {
+        Ok(rec) => Value::record(rec, input_span),
+        Err(err) => Value::error(err, input_span),
+    }
+}
+
+fn process_range(
+    range: &Range,
+    length: usize,
+    input_span: Span,
+) -> Result<Option<(usize, usize)>, ShellError> {
+    match nu_cmd_base::util::process_range(range) {
+        Ok((l_idx, r_idx)) => {
+            let l_idx = if l_idx < 0 {
+                length as isize + l_idx
+            } else {
+                l_idx
+            };
+
+            let r_idx = if r_idx < 0 {
+                length as isize + r_idx
+            } else {
+                r_idx
+            };
+
+            if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (length as isize))) {
+                return Ok(None);
+            }
+
+            Ok(Some((
+                l_idx.max(0) as usize,
+                (r_idx as usize + 1).min(length),
+            )))
+        }
+        Err(processing_error) => {
+            return Err(processing_error("could not find range index", input_span))
+        }
+    }
+}
+
+fn merge_record_impl(
+    record: Record,
+    start_index: usize,
+    end_index: usize,
+    input_span: Span,
+) -> Result<Record, ShellError> {
+    let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+    // Merge Columns
+    ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
+        cols.swap(idx, end_index - start_index - 1 + idx);
+    });
+    cols.truncate(cols.len() - end_index + start_index + 1);
+
+    // Merge Values
+    let combined = vals
+        .iter()
+        .take(end_index)
+        .skip(start_index)
+        .map(|v| v.coerce_str().unwrap_or_default())
+        .join(" ");
+    let binding = Value::string(combined, Span::unknown());
+    let last_seg = vals.split_off(end_index);
+    vals.truncate(start_index);
+    vals.push(binding);
+    vals.extend(last_seg);
+
+    Record::from_raw_cols_vals(cols, vals, Span::unknown(), input_span)
 }
 
 #[cfg(test)]
