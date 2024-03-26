@@ -149,14 +149,45 @@ impl Plugin for PolarsPlugin {
                 .map_err(LabeledError::from),
         }
     }
+
+    fn custom_value_follow_path_int(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+        index: Spanned<usize>,
+    ) -> Result<Value, LabeledError> {
+        match CustomValueType::try_from_custom_value(custom_value.item)? {
+            CustomValueType::NuDataFrame(cv) => cv
+                .custom_value_follow_path_int(self, engine, custom_value.span, index)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyFrame(cv) => cv
+                .custom_value_follow_path_int(self, engine, custom_value.span, index)
+                .map_err(LabeledError::from),
+            CustomValueType::NuExpression(cv) => cv
+                .custom_value_follow_path_int(self, engine, custom_value.span, index)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyGroupBy(cv) => cv
+                .custom_value_follow_path_int(self, engine, custom_value.span, index)
+                .map_err(LabeledError::from),
+            CustomValueType::NuWhen(cv) => cv
+                .custom_value_follow_path_int(self, engine, custom_value.span, index)
+                .map_err(LabeledError::from),
+        }
+    }
 }
 
-pub trait PolarsPluginCustomValue {
+pub trait PolarsPluginCustomValue: CustomValue {
     type PhysicalType: Clone;
 
     fn id(&self) -> &Uuid;
 
     fn internal(&self) -> &Option<Self::PhysicalType>;
+
+    fn custom_value_to_base_value(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+    ) -> Result<Value, ShellError>;
 
     fn custom_value_operation(
         &self,
@@ -172,11 +203,18 @@ pub trait PolarsPluginCustomValue {
         })
     }
 
-    fn custom_value_to_base_value(
+    fn custom_value_follow_path_int(
         &self,
         plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-    ) -> Result<Value, ShellError>;
+        _engine: &EngineInterface,
+        self_span: Span,
+        _index: Spanned<usize>,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::IncompatiblePathAccess {
+            type_name: self.type_name().into(),
+            span: self_span,
+        })
+    }
 }
 
 pub trait CustomValueSupport: Cacheable {

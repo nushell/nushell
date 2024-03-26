@@ -1,8 +1,9 @@
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_plugin::EngineInterface;
+use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{Cacheable, CustomValueSupport, PolarsPluginCustomValue};
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin, PolarsPluginCustomValue};
 
 use super::NuDataFrame;
 
@@ -35,17 +36,6 @@ impl CustomValue for NuDataFrameCustomValue {
         self
     }
 
-    // todo - finish this
-    // fn follow_path_int(
-    //     &self,
-    //     _self_span: Span,
-    //     count: usize,
-    //     path_span: Span,
-    // ) -> Result<Value, ShellError> {
-    //     let df = NuDataFrame::try_from(self)?;
-    //     df.get_value(count, path_span)
-    // }
-    //
     // fn follow_path_string(
     //     &self,
     //     _self_span: Span,
@@ -71,7 +61,7 @@ impl CustomValue for NuDataFrameCustomValue {
     //         None
     //     }
     // }
-    //
+
     fn notify_plugin_on_drop(&self) -> bool {
         true
     }
@@ -79,6 +69,14 @@ impl CustomValue for NuDataFrameCustomValue {
 
 impl PolarsPluginCustomValue for NuDataFrameCustomValue {
     type PhysicalType = NuDataFrame;
+
+    fn id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn internal(&self) -> &Option<Self::PhysicalType> {
+        &self.dataframe
+    }
 
     fn custom_value_operation(
         &self,
@@ -104,11 +102,14 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         df.base_value(Span::unknown())
     }
 
-    fn id(&self) -> &Uuid {
-        &self.id
-    }
-
-    fn internal(&self) -> &Option<Self::PhysicalType> {
-        &self.dataframe
+    fn custom_value_follow_path_int(
+        &self,
+        plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        _self_span: Span,
+        index: Spanned<usize>,
+    ) -> Result<Value, ShellError> {
+        let df = NuDataFrame::try_from_custom_value(plugin, self)?;
+        df.get_value(index.item, index.span)
     }
 }
