@@ -1,7 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::command_prelude::*;
 
-
 #[derive(Clone)]
 pub struct LazyFillNA;
 

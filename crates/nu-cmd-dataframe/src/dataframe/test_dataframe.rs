@@ -4,9 +4,9 @@ use super::{
     lazy::{LazyCollect, LazyFillNull, ToLazyFrame},
 };
 use nu_cmd_lang::Let;
-use nu_engine::eval_block;
+use nu_engine::{command_prelude::*, eval_block};
 use nu_parser::parse;
-use nu_protocol::{command_prelude::*, debugger::WithoutDebug, engine::StateWorkingSet};
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet};
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
     if cmds.is_empty() {
