@@ -30,6 +30,7 @@ mod every;
 mod exec;
 mod export_def;
 mod fill;
+mod filter;
 mod find;
 mod first;
 mod flatten;

@@ -18,7 +18,7 @@ pub fn eval_env_change_hook(
     if let Some(hook) = env_change_hook {
         match hook {
             Value::Record { val, .. } => {
-                for (env_name, hook_value) in &val {
+                for (env_name, hook_value) in &*val {
                     let before = engine_state
                         .previous_env_vars
                         .get(env_name)

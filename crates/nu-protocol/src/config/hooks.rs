@@ -39,7 +39,7 @@ pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
         Value::Record { val, .. } => {
             let mut hooks = Hooks::new();
 
-            for (col, val) in val {
+            for (col, val) in &**val {
                 match col.as_str() {
                     "pre_prompt" => hooks.pre_prompt = Some(val.clone()),
                     "pre_execution" => hooks.pre_execution = Some(val.clone()),

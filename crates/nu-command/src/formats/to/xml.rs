@@ -327,7 +327,7 @@ impl Job {
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
                 Value::Record { val, .. } => val,
-                Value::Nothing { .. } => Record::new(),
+                Value::Nothing { .. } => Box::new(Record::new()),
                 _ => {
                     return Err(ShellError::CantConvert {
                         to_type: "XML".into(),
@@ -351,7 +351,7 @@ impl Job {
                 }
             };
 
-            self.write_tag(entry_span, tag, tag_span, attrs, content)
+            self.write_tag(entry_span, tag, tag_span, *attrs, content)
         }
     }
 

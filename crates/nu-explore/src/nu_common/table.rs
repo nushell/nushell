@@ -16,7 +16,7 @@ pub fn try_build_table(
     let span = value.span();
     match value {
         Value::List { vals, .. } => try_build_list(vals, ctrlc, config, span, style_computer),
-        Value::Record { val, .. } => try_build_map(val, span, style_computer, ctrlc, config),
+        Value::Record { val, .. } => try_build_map(*val, span, style_computer, ctrlc, config),
         val if matches!(val, Value::String { .. }) => {
             nu_value_to_string_clean(&val, config, style_computer).0
         }

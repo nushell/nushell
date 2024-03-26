@@ -459,20 +459,26 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                let stack = &mut stack.start_capture();
-                                // Attempt to render the input as a table before piping it to the external.
-                                // This is important for pagers like `less`;
-                                // they need to get Nu data rendered for display to users.
-                                //
-                                // TODO: should we do something different for list<string> inputs?
-                                // Users often expect those to be piped to *nix tools as raw strings separated by newlines
-                                let input = crate::Table::run(
-                                    &crate::Table,
-                                    &engine_state,
-                                    stack,
-                                    &Call::new(head),
-                                    input,
-                                );
+                                let input = match input {
+                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => {
+                                        Ok(input)
+                                    }
+                                    input => {
+                                        let stack = &mut stack.start_capture();
+                                        // Attempt to render the input as a table before piping it to the external.
+                                        // This is important for pagers like `less`;
+                                        // they need to get Nu data rendered for display to users.
+                                        //
+                                        // TODO: should we do something different for list<string> inputs?
+                                        // Users often expect those to be piped to *nix tools as raw strings separated by newlines
+                                        crate::Table.run(
+                                            &engine_state,
+                                            stack,
+                                            &Call::new(head),
+                                            input,
+                                        )
+                                    }
+                                };
 
                                 if let Ok(input) = input {
                                     for value in input.into_iter() {

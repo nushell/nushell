@@ -412,7 +412,7 @@ mod tests {
             content_tag(
                 "nu",
                 indexmap! {},
-                &vec![
+                &[
                     content_tag("dev", indexmap! {}, &[content_string("Andrés")]),
                     content_tag("dev", indexmap! {}, &[content_string("JT")]),
                     content_tag("dev", indexmap! {}, &[content_string("Yehuda")])

@@ -48,17 +48,19 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             // Take ownership of the record and reassign to &mut
             // We do this to have owned keys through `.into_iter`
             let record = std::mem::take(val);
-            *val = record
-                .into_iter()
-                .map(|(mut header, mut val)| {
-                    colorize_value(&mut val, config, style_computer);
+            *val = Box::new(
+                record
+                    .into_iter()
+                    .map(|(mut header, mut val)| {
+                        colorize_value(&mut val, config, style_computer);
 
-                    if let Some(color) = style.color_style {
-                        header = color.paint(header).to_string();
-                    }
-                    (header, val)
-                })
-                .collect::<Record>();
+                        if let Some(color) = style.color_style {
+                            header = color.paint(header).to_string();
+                        }
+                        (header, val)
+                    })
+                    .collect::<Record>(),
+            );
         }
         Value::List { vals, .. } => {
             for val in vals {

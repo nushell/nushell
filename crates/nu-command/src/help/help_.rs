@@ -180,7 +180,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::record(record, record_span));
+            matches.push(Value::record(*record, record_span));
         }
     }
 

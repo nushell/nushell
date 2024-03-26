@@ -106,7 +106,7 @@ fn default(
                                 record.push(column.item.clone(), value.clone());
                             }
 
-                            Value::record(record, span)
+                            Value::record(*record, span)
                         }
                         _ => item,
                     }
