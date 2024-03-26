@@ -485,9 +485,7 @@ fn process_range(
                 (r_idx as usize + 1).min(length),
             )))
         }
-        Err(processing_error) => {
-            return Err(processing_error("could not find range index", input_span))
-        }
+        Err(processing_error) => Err(processing_error("could not find range index", input_span)),
     }
 }
 
