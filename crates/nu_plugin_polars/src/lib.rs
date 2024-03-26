@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 pub use cache::{Cache, Cacheable};
 use dataframe::values::{
     CustomValueType, NuDataFrameCustomValue, NuLazyFrameCustomValue, NuLazyGroupBy,
@@ -199,6 +201,31 @@ impl Plugin for PolarsPlugin {
                 .map_err(LabeledError::from),
         }
     }
+
+    fn custom_value_partial_cmp(
+        &self,
+        engine: &EngineInterface,
+        custom_value: Box<dyn CustomValue>,
+        other_value: Value,
+    ) -> Result<Option<Ordering>, LabeledError> {
+        match CustomValueType::try_from_custom_value(custom_value)? {
+            CustomValueType::NuDataFrame(cv) => cv
+                .custom_value_partial_cmp(self, engine, other_value)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyFrame(cv) => cv
+                .custom_value_partial_cmp(self, engine, other_value)
+                .map_err(LabeledError::from),
+            CustomValueType::NuExpression(cv) => cv
+                .custom_value_partial_cmp(self, engine, other_value)
+                .map_err(LabeledError::from),
+            CustomValueType::NuLazyGroupBy(cv) => cv
+                .custom_value_partial_cmp(self, engine, other_value)
+                .map_err(LabeledError::from),
+            CustomValueType::NuWhen(cv) => cv
+                .custom_value_partial_cmp(self, engine, other_value)
+                .map_err(LabeledError::from),
+        }
+    }
 }
 
 pub trait PolarsPluginCustomValue: CustomValue {
@@ -252,6 +279,15 @@ pub trait PolarsPluginCustomValue: CustomValue {
             type_name: self.type_name(),
             span: self_span,
         })
+    }
+
+    fn custom_value_partial_cmp(
+        &self,
+        _plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        _other_value: Value,
+    ) -> Result<Option<Ordering>, ShellError> {
+        Ok(None)
     }
 }
 

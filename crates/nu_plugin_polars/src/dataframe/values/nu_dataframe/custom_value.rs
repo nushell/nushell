@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use nu_plugin::EngineInterface;
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
@@ -112,5 +114,26 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
         let column = df.column(&column_name.item, self_span)?;
         Ok(column.cache(plugin, engine)?.into_value(self_span))
+    }
+
+    fn custom_value_partial_cmp(
+        &self,
+        plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        other_value: Value,
+    ) -> Result<Option<Ordering>, ShellError> {
+        if let Ok(df) = NuDataFrame::try_from_custom_value(plugin, self) {
+            if let Value::CustomValue { val, .. } = other_value {
+                Ok(val
+                    .as_any()
+                    .downcast_ref::<NuDataFrameCustomValue>()
+                    .and_then(|other| NuDataFrame::try_from_custom_value(plugin, other).ok())
+                    .and_then(|ref other| df.is_equal(other)))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 }
