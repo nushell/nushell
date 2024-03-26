@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{ast::PathMember, command_prelude::*};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]

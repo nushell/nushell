@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, did_you_mean};
+use nu_engine::command_prelude::*;
+use nu_protocol::did_you_mean;
 
 #[derive(Clone)]
 pub struct HideEnv;

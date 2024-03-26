@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, HistoryFileFormat};
+use nu_engine::command_prelude::*;
+use nu_protocol::HistoryFileFormat;
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,

@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 #[cfg(all(
     unix,
     not(target_os = "freebsd"),

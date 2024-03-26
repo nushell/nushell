@@ -1,7 +1,7 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use roxmltree::NodeType;
 
 #[derive(Clone)]

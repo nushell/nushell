@@ -1,8 +1,7 @@
-use nu_engine::CallExt;
+use nu_engine::command_prelude::*;
 use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{CellPath, Expr},
-    command_prelude::*,
     Unit,
 };
 

@@ -1,6 +1,5 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{command_prelude::*, eval_block_with_early_return};
 use nu_protocol::{
-    command_prelude::*,
     debugger::{Profiler, WithDebug},
     engine::Closure,
 };

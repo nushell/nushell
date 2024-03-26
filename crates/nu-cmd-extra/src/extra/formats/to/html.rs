@@ -1,7 +1,7 @@
 use fancy_regex::Regex;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, Config, DataSource, PipelineMetadata};
+use nu_engine::command_prelude::*;
+use nu_protocol::{Config, DataSource, PipelineMetadata};
 use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};

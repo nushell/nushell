@@ -1,5 +1,5 @@
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::{command_prelude::*, debugger::WithoutDebug, engine::Closure, LazyRecord};
+use nu_engine::{command_prelude::*, eval_block};
+use nu_protocol::{debugger::WithoutDebug, engine::Closure, LazyRecord};
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::{Arc, Mutex},

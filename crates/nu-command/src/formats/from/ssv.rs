@@ -1,6 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct FromSsv;

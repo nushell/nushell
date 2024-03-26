@@ -1,6 +1,6 @@
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, Range};
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use std::{io::Cursor, iter::Peekable, str::CharIndices};
 
 type Input<'t> = Peekable<CharIndices<'t>>;

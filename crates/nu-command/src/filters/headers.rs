@@ -1,4 +1,5 @@
-use nu_protocol::{command_prelude::*, Config};
+use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 
 #[derive(Clone)]
 pub struct Headers;

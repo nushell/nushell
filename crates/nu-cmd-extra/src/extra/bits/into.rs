@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use num_traits::ToPrimitive;
 
 pub struct Arguments {

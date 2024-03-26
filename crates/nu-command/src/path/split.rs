@@ -1,5 +1,6 @@
 use super::PathSubcommandArguments;
-use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use std::path::{Component, Path};
 
 struct Arguments;

@@ -1,7 +1,7 @@
 use itertools::Itertools;
+use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Block, RangeInclusion},
-    command_prelude::*,
     debugger::WithoutDebug,
     engine::{StateDelta, StateWorkingSet},
 };

@@ -1,5 +1,6 @@
 use chrono::{DateTime, Local};
-use nu_protocol::{command_prelude::*, LazyRecord};
+use nu_engine::command_prelude::*;
+use nu_protocol::LazyRecord;
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,

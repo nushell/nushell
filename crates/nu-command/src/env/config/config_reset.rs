@@ -1,6 +1,6 @@
 use chrono::Local;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use nu_utils::{get_default_config, get_default_env};
 use std::io::Write;
 

@@ -1,5 +1,4 @@
-use nu_engine::column::get_columns;
-use nu_protocol::command_prelude::*;
+use nu_engine::{column::get_columns, command_prelude::*};
 
 #[derive(Clone)]
 pub struct Columns;

@@ -1,5 +1,4 @@
-use nu_engine::scope::ScopeData;
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, scope::ScopeData};
 
 #[derive(Clone)]
 pub struct ScopeVariables;

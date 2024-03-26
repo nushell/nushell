@@ -1,5 +1,5 @@
 use crate::dataframe::values::{Column, NuDataFrame};
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use polars::prelude::{ArgAgg, IntoSeries, NewChunkedArray, UInt32Chunked};
 
 #[derive(Clone)]

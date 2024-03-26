@@ -1,5 +1,5 @@
 use crate::dataframe::values::{Column, NuDataFrame};
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct ShapeDF;

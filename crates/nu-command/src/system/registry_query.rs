@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use windows::{core::PCWSTR, Win32::System::Environment::ExpandEnvironmentStringsW};
 use winreg::{enums::*, types::FromRegValue, RegKey};
 

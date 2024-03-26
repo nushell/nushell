@@ -1,5 +1,5 @@
-use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
-use nu_protocol::{ast::Block, command_prelude::*, engine::Closure, PipelineIterator};
+use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
+use nu_protocol::{ast::Block, engine::Closure, PipelineIterator};
 use std::{collections::HashSet, sync::Arc};
 
 #[derive(Clone)]

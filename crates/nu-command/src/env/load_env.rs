@@ -1,5 +1,4 @@
-use nu_engine::{current_dir, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, current_dir};
 
 #[derive(Clone)]
 pub struct LoadEnv;

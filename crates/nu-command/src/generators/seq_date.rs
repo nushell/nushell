@@ -1,6 +1,6 @@
 use chrono::{Duration, Local, NaiveDate};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::fmt::Write;
 
 #[derive(Clone)]

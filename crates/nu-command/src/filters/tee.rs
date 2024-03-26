@@ -1,5 +1,5 @@
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::{command_prelude::*, engine::Closure, IoStream, RawStream};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::{engine::Closure, IoStream, RawStream};
 use std::{sync::mpsc, thread};
 
 #[derive(Clone)]

@@ -1,6 +1,5 @@
 use crate::dataframe::values::{utils::DEFAULT_ROWS, Column, NuDataFrame, NuExpression};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct LastDF;

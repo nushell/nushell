@@ -1,4 +1,4 @@
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use reedline::get_reedline_default_keybindings;
 
 #[derive(Clone)]

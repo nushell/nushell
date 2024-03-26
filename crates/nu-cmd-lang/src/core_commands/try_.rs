@@ -1,8 +1,5 @@
-use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
-use nu_protocol::{
-    command_prelude::*,
-    engine::{Block, Closure},
-};
+use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
+use nu_protocol::engine::{Block, Closure};
 
 #[derive(Clone)]
 pub struct Try;

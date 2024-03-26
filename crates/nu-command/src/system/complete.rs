@@ -1,4 +1,5 @@
-use nu_protocol::{command_prelude::*, IoStream};
+use nu_engine::command_prelude::*;
+use nu_protocol::IoStream;
 use std::thread;
 
 #[derive(Clone)]

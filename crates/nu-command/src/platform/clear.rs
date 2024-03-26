@@ -3,8 +3,8 @@ use crossterm::{
     terminal::{Clear as ClearCommand, ClearType},
     QueueableCommand,
 };
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::io::Write;
 
 #[derive(Clone)]

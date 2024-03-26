@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::{command_prelude::*, engine::Closure};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::engine::Closure;
 use std::collections::HashSet;
 
 #[derive(Clone)]

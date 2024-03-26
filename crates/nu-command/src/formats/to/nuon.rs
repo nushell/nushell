@@ -1,8 +1,8 @@
 use core::fmt::Write;
 use fancy_regex::Regex;
-use nu_engine::{get_columns, CallExt};
+use nu_engine::{command_prelude::*, get_columns};
 use nu_parser::escape_quote_string;
-use nu_protocol::{ast::RangeInclusion, command_prelude::*};
+use nu_protocol::ast::RangeInclusion;
 use once_cell::sync::Lazy;
 
 #[derive(Clone)]

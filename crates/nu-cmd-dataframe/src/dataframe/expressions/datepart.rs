@@ -1,7 +1,7 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use chrono::{DateTime, FixedOffset};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use polars::{
     datatypes::{DataType, TimeUnit},
     prelude::NamedFrom,

@@ -1,4 +1,5 @@
-use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use shadow_rs::shadow;
 
 shadow!(build);

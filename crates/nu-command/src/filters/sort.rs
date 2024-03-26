@@ -1,6 +1,6 @@
 use alphanumeric_sort::compare_str;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 

@@ -2,8 +2,7 @@ use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
     request_handle_response, request_set_timeout, send_request, RedirectMode, RequestFlags,
 };
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

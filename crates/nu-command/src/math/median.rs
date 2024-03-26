@@ -1,5 +1,5 @@
 use crate::math::{avg::average, utils::run_with_function};
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use std::cmp::Ordering;
 
 #[derive(Clone)]

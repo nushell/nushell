@@ -1,5 +1,5 @@
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::{command_prelude::*, debugger::WithoutDebug, engine::Closure};
+use nu_engine::{command_prelude::*, eval_block};
+use nu_protocol::{debugger::WithoutDebug, engine::Closure};
 use std::collections::HashMap;
 
 #[derive(Clone)]

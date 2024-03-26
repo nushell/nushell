@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, ListStream};
+use nu_engine::command_prelude::*;
+use nu_protocol::ListStream;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,

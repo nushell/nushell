@@ -1,7 +1,7 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local};
 use chrono_humanize::HumanTime;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

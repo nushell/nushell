@@ -2,7 +2,7 @@ use crate::math::{
     reducers::{reducer_for, Reduce},
     utils::run_with_function,
 };
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

@@ -1,7 +1,6 @@
 use itertools::Itertools;
-use nu_engine::{env_to_strings, CallExt};
+use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::canonicalize_with;
-use nu_protocol::command_prelude::*;
 use std::{
     ffi::{OsStr, OsString},
     path::Path,

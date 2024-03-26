@@ -1,4 +1,4 @@
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use rand::{prelude::SliceRandom, thread_rng};
 
 #[derive(Clone)]

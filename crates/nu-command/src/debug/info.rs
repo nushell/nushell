@@ -1,4 +1,5 @@
-use nu_protocol::{command_prelude::*, LazyRecord};
+use nu_engine::command_prelude::*;
+use nu_protocol::LazyRecord;
 use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 
 const ENV_PATH_SEPARATOR_CHAR: char = {

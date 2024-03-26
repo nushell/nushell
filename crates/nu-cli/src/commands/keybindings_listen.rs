@@ -1,7 +1,7 @@
 use crossterm::{
     event::Event, event::KeyCode, event::KeyEvent, execute, terminal, QueueableCommand,
 };
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use std::io::{stdout, Write};
 
 #[derive(Clone)]

@@ -1,5 +1,5 @@
-use nu_engine::{get_eval_block_with_early_return, redirect_env, CallExt};
-use nu_protocol::{command_prelude::*, engine::Closure, IoStream, ListStream, RawStream};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
+use nu_protocol::{engine::Closure, IoStream, ListStream, RawStream};
 use std::thread;
 
 #[derive(Clone)]

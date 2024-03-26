@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{ast::RangeInclusion, command_prelude::*};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::RangeInclusion;
 
 #[derive(Clone)]
 pub struct Range;

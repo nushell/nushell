@@ -1,7 +1,6 @@
 #[cfg(unix)]
 use libc::gid_t;
-use nu_engine::{current_dir, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, current_dir};
 use std::path::Path;
 
 // For checking whether we have permission to cd to a directory

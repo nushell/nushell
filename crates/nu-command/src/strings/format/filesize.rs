@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, format_filesize};
+use nu_engine::command_prelude::*;
+use nu_protocol::format_filesize;
 
 struct Arguments {
     format_value: String,

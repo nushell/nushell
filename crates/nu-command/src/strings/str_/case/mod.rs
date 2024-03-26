@@ -9,8 +9,7 @@ pub use str_::Str;
 pub use upcase::SubCommand as StrUpcase;
 
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
     case_operation: &'static F,

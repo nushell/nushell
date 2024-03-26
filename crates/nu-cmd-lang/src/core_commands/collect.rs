@@ -1,5 +1,5 @@
-use nu_engine::{get_eval_block, redirect_env, CallExt};
-use nu_protocol::{command_prelude::*, engine::Closure};
+use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Collect;

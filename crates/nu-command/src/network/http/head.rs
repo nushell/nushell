@@ -3,8 +3,8 @@ use crate::network::http::client::{
     request_add_authorization_header, request_add_custom_headers, request_handle_response_headers,
     request_set_timeout, send_request,
 };
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::sync::{atomic::AtomicBool, Arc};
 
 #[derive(Clone)]

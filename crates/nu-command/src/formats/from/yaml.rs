@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use serde::de::Deserialize;
 
 #[derive(Clone)]

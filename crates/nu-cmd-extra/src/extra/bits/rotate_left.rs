@@ -1,8 +1,7 @@
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 use itertools::Itertools;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     signed: bool,

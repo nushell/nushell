@@ -3,8 +3,8 @@ use crossterm::event::{
     EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
 use crossterm::terminal;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use num_traits::AsPrimitive;
 use std::io::stdout;
 

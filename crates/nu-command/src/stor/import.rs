@@ -1,6 +1,5 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct StorImport;

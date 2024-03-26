@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, Config};
+use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 use std::{
     cmp::max,
     collections::{HashMap, HashSet},

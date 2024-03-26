@@ -1,7 +1,6 @@
 use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

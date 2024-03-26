@@ -1,6 +1,6 @@
 use dialoguer::Input;
-use nu_engine::get_eval_expression;
-use nu_protocol::{ast::Expr, command_prelude::*, FromValue, NuGlob};
+use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_protocol::{ast::Expr, FromValue, NuGlob};
 use std::{
     error::Error,
     path::{Path, PathBuf},

@@ -1,5 +1,4 @@
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 
 /// Source a file for environment variables.
 #[derive(Clone)]

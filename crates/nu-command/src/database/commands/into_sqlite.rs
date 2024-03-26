@@ -1,6 +1,6 @@
 use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::{
     path::Path,
     sync::{

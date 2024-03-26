@@ -1,6 +1,6 @@
 use crate::dataframe::values::{NuDataFrame, NuLazyFrame, NuSchema};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use polars::prelude::{
     CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
     LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,

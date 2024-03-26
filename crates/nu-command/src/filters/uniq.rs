@@ -1,7 +1,7 @@
 use crate::formats::value_to_string;
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, PipelineMetadata};
+use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 use nu_utils::IgnoreCaseExt;
 use std::collections::{hash_map::IntoIter, HashMap};
 

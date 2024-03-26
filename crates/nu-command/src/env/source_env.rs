@@ -1,8 +1,7 @@
 use nu_engine::{
-    find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return, redirect_env,
-    CallExt,
+    command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return,
+    redirect_env,
 };
-use nu_protocol::command_prelude::*;
 use std::path::PathBuf;
 
 /// Source a file for environment variables.

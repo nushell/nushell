@@ -1,6 +1,6 @@
 use nix::sys::resource::{rlim_t, Resource, RLIM_INFINITY};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use once_cell::sync::Lazy;
 
 /// An object contains resource related parameters

@@ -1,6 +1,5 @@
 mod alias;
 pub mod ast;
-pub mod command_prelude;
 pub mod config;
 pub mod debugger;
 mod did_you_mean;

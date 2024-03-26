@@ -5,9 +5,8 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
-use nu_engine::{current_dir, get_eval_block, CallExt};
+use nu_engine::{command_prelude::*, current_dir, get_eval_block};
 use nu_protocol::{
-    command_prelude::*,
     engine::{Closure, StateWorkingSet},
     format_error,
 };

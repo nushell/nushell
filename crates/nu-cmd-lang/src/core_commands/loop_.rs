@@ -1,5 +1,5 @@
-use nu_engine::{get_eval_block, CallExt};
-use nu_protocol::{command_prelude::*, engine::Block};
+use nu_engine::{command_prelude::*, get_eval_block};
+use nu_protocol::engine::Block;
 
 #[derive(Clone)]
 pub struct Loop;

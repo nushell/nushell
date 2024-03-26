@@ -1,6 +1,7 @@
 use super::PathSubcommandArguments;
+use nu_engine::command_prelude::*;
 use nu_path::expand_tilde;
-use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
+use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
 
 struct Arguments;

@@ -4,7 +4,8 @@ use base64::{
     engine::{general_purpose::PAD, GeneralPurpose},
     Engine,
 };
-use nu_protocol::{command_prelude::*, BufferedReader, RawStream};
+use nu_engine::command_prelude::*;
+use nu_protocol::{BufferedReader, RawStream};
 use std::{
     collections::HashMap,
     io::BufReader,

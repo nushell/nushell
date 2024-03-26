@@ -1,7 +1,6 @@
-use nu_engine::CallExt;
+use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Expr, Expression},
-    command_prelude::*,
     DataSource, PipelineMetadata,
 };
 

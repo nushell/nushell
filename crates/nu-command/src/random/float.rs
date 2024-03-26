@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, Range};
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
 

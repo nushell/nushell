@@ -1,5 +1,5 @@
 use super::inspect_table;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]

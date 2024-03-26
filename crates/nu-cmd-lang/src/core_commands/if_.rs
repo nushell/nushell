@@ -1,6 +1,7 @@
-use nu_engine::{get_eval_block, get_eval_expression, get_eval_expression_with_input, CallExt};
+use nu_engine::{
+    command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
+};
 use nu_protocol::{
-    command_prelude::*,
     engine::{Block, StateWorkingSet},
     eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input},
 };

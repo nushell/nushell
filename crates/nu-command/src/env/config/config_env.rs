@@ -1,7 +1,6 @@
 use super::utils::gen_command;
 use nu_cmd_base::util::get_editor;
-use nu_engine::{env_to_strings, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, env_to_strings};
 
 #[derive(Clone)]
 pub struct ConfigEnv;

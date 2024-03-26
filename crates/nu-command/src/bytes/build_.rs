@@ -1,5 +1,4 @@
-use nu_engine::get_eval_expression;
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, get_eval_expression};
 
 #[derive(Clone)]
 pub struct BytesBuild;

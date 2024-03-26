@@ -1,4 +1,5 @@
-pub use crate::{
+pub use crate::CallExt;
+pub use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, IntoSpanned,

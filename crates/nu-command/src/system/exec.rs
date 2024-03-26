@@ -1,6 +1,6 @@
 use super::run_external::create_external_command;
-use nu_engine::current_dir;
-use nu_protocol::{command_prelude::*, IoStream};
+use nu_engine::{command_prelude::*, current_dir};
+use nu_protocol::IoStream;
 
 #[derive(Clone)]
 pub struct Exec;

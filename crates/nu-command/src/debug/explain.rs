@@ -1,7 +1,6 @@
-use nu_engine::{get_eval_expression, CallExt};
+use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_protocol::{
     ast::{Argument, Block, Expr, Expression},
-    command_prelude::*,
     engine::Closure,
 };
 

@@ -1,6 +1,6 @@
 use crate::parse_date_from_string;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, PipelineIterator};
+use nu_engine::command_prelude::*;
+use nu_protocol::PipelineIterator;
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;

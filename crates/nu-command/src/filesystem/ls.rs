@@ -1,10 +1,10 @@
 use super::util::opt_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use nu_engine::{env::current_dir, CallExt};
+use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
-use nu_protocol::{command_prelude::*, DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 
 #[cfg(unix)]

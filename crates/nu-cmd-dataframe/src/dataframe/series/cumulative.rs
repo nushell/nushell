@@ -1,6 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use polars::prelude::{DataType, IntoSeries};
 use polars_ops::prelude::{cum_max, cum_min, cum_sum};
 

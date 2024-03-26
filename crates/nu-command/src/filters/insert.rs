@@ -1,7 +1,6 @@
-use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
+use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
 use nu_protocol::{
     ast::{Block, PathMember},
-    command_prelude::*,
     engine::Closure,
     FromValue,
 };

@@ -1,6 +1,6 @@
 use nu_ansi_term::*;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use once_cell::sync::Lazy;
 use std::{
     collections::HashMap,

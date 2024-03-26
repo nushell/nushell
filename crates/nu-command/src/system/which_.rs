@@ -1,6 +1,5 @@
 use log::trace;
-use nu_engine::{env, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, env};
 use std::{ffi::OsStr, path::Path};
 
 #[derive(Clone)]

@@ -1,4 +1,4 @@
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]

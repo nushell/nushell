@@ -1,7 +1,6 @@
 use super::{get_number_bytes, NumberBytes};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct BitsNot;

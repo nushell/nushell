@@ -1,8 +1,6 @@
 use super::util::get_rest_for_glob_pattern;
-use nu_engine::{current_dir, get_eval_block, CallExt};
-use nu_protocol::{
-    command_prelude::*, BufferedReader, DataSource, NuGlob, PipelineMetadata, RawStream,
-};
+use nu_engine::{command_prelude::*, current_dir, get_eval_block};
+use nu_protocol::{BufferedReader, DataSource, NuGlob, PipelineMetadata, RawStream};
 use std::{io::BufReader, path::Path};
 
 #[cfg(feature = "sqlite")]

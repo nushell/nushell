@@ -1,8 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{env_to_strings, get_eval_expression, CallExt};
-use nu_protocol::{
-    ast::Expr, command_prelude::*, did_you_mean, IoStream, ListStream, NuGlob, RawStream,
-};
+use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_protocol::{ast::Expr, did_you_mean, IoStream, ListStream, NuGlob, RawStream};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;

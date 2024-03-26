@@ -1,5 +1,5 @@
-use nu_engine::{get_eval_block, get_eval_expression, CallExt};
-use nu_protocol::{command_prelude::*, engine::Block, ListStream};
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
+use nu_protocol::{engine::Block, ListStream};
 
 #[derive(Clone)]
 pub struct For;

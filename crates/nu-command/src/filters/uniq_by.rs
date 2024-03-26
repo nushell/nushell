@@ -1,6 +1,5 @@
 pub use super::uniq;
-use nu_engine::{column::nonexistent_column, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{column::nonexistent_column, command_prelude::*};
 
 #[derive(Clone)]
 pub struct UniqBy;

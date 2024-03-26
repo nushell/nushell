@@ -1,6 +1,6 @@
 use filetime::FileTime;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::{fs::OpenOptions, path::Path, time::SystemTime};
 
 #[derive(Clone)]

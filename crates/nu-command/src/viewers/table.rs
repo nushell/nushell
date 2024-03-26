@@ -4,10 +4,9 @@
 
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
-use nu_engine::{env::get_config, env_to_string, CallExt};
+use nu_engine::{command_prelude::*, env::get_config, env_to_string};
 use nu_protocol::{
-    command_prelude::*, Config, DataSource, IoStream, ListStream, PipelineMetadata, RawStream,
-    TableMode,
+    Config, DataSource, IoStream, ListStream, PipelineMetadata, RawStream, TableMode,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,

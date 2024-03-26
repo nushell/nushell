@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, span};
+use nu_engine::command_prelude::*;
+use nu_protocol::span;
 use std::process::{Command as CommandSys, Stdio};
 
 #[derive(Clone)]

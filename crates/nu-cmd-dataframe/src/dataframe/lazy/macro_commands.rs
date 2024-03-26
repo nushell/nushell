@@ -2,7 +2,7 @@
 /// All of these commands have an identical body and only require
 /// to have a change in the name, description and function
 use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 macro_rules! lazy_command {
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident) => {

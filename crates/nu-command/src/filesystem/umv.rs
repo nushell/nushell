@@ -1,7 +1,6 @@
 use super::util::get_rest_for_glob_pattern;
-use nu_engine::{current_dir, CallExt};
+use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
-use nu_protocol::command_prelude::*;
 use nu_protocol::NuGlob;
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};

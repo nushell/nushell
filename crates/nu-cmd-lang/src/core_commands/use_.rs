@@ -1,8 +1,7 @@
-use nu_engine::{find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env};
-use nu_protocol::{
-    ast::{Expr, Expression},
-    command_prelude::*,
+use nu_engine::{
+    command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
+use nu_protocol::ast::{Expr, Expression};
 
 #[derive(Clone)]
 pub struct Use;

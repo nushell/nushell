@@ -1,6 +1,5 @@
 use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct FromTsv;

@@ -1,5 +1,4 @@
-use nu_engine::get_full_help;
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
 pub struct MathCommand;

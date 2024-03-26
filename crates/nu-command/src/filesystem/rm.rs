@@ -1,8 +1,8 @@
 use super::util::{get_rest_for_glob_pattern, try_interaction};
-use nu_engine::{env::current_dir, CallExt};
+use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::{command_prelude::*, NuGlob};
+use nu_protocol::NuGlob;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{

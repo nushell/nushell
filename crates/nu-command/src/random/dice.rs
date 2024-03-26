@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, ListStream};
+use nu_engine::command_prelude::*;
+use nu_protocol::ListStream;
 use rand::prelude::{thread_rng, Rng};
 
 #[derive(Clone)]

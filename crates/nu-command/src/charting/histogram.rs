@@ -1,7 +1,7 @@
 use super::hashable_value::HashableValue;
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::collections::HashMap;
 
 #[derive(Clone)]

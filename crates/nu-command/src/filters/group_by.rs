@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::{get_eval_block, CallExt};
-use nu_protocol::{command_prelude::*, engine::Closure};
+use nu_engine::{command_prelude::*, get_eval_block};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct GroupBy;

@@ -1,5 +1,4 @@
-use nu_engine::{env::current_dir, CallExt};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, env::current_dir};
 use std::sync::{atomic::AtomicBool, Arc};
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 

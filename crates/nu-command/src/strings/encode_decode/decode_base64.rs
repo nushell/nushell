@@ -1,5 +1,5 @@
 use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct DecodeBase64;

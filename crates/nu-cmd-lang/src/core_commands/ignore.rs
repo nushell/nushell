@@ -1,4 +1,5 @@
-use nu_protocol::{command_prelude::*, engine::StateWorkingSet, IoStream};
+use nu_engine::command_prelude::*;
+use nu_protocol::{engine::StateWorkingSet, IoStream};
 
 #[derive(Clone)]
 pub struct Ignore;

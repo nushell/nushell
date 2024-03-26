@@ -1,7 +1,6 @@
 use chrono_humanize::HumanTime;
-use nu_protocol::{
-    command_prelude::*, format_duration, format_filesize_from_conf, Config, ListStream, RawStream,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{format_duration, format_filesize_from_conf, Config, ListStream, RawStream};
 
 #[derive(Clone)]
 pub struct ToText;

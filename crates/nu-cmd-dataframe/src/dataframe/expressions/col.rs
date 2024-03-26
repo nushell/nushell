@@ -1,6 +1,6 @@
 use crate::dataframe::values::NuExpression;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use polars::prelude::col;
 
 #[derive(Clone)]

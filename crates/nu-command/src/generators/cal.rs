@@ -1,8 +1,8 @@
 use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
 use nu_color_config::StyleComputer;
-use nu_engine::CallExt;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
+
 use std::collections::VecDeque;
 
 #[derive(Clone)]

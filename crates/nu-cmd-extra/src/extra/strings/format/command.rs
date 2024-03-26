@@ -1,6 +1,6 @@
-use nu_engine::{get_eval_expression, CallExt};
+use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_parser::parse_expression;
-use nu_protocol::{ast::PathMember, command_prelude::*, engine::StateWorkingSet, ListStream};
+use nu_protocol::{ast::PathMember, engine::StateWorkingSet, ListStream};
 
 #[derive(Clone)]
 pub struct FormatPattern;

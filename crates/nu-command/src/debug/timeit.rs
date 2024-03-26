@@ -1,5 +1,4 @@
-use nu_engine::{get_eval_block, get_eval_expression_with_input};
-use nu_protocol::command_prelude::*;
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression_with_input};
 use std::time::Instant;
 
 #[derive(Clone)]

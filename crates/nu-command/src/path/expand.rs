@@ -1,8 +1,10 @@
 use super::PathSubcommandArguments;
-use nu_engine::env::{current_dir_str, current_dir_str_const};
-use nu_engine::CallExt;
+use nu_engine::{
+    command_prelude::*,
+    env::{current_dir_str, current_dir_str_const},
+};
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{command_prelude::*, engine::StateWorkingSet};
+use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
 
 struct Arguments {

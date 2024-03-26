@@ -1,6 +1,6 @@
 use super::super::SQLiteDatabase;
 use crate::database::values::definitions::{db_row::DbRow, db_table::DbTable};
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 use rusqlite::Connection;
 
 #[derive(Clone)]

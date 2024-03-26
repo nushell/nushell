@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, into_code, Config};
+use nu_engine::command_prelude::*;
+use nu_protocol::{into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 

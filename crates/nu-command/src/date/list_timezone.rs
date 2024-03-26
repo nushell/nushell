@@ -1,5 +1,5 @@
 use chrono_tz::TZ_VARIANTS;
-use nu_protocol::command_prelude::*;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

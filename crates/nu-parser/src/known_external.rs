@@ -1,7 +1,5 @@
-use nu_protocol::{
-    ast::{Argument, Expr, Expression},
-    command_prelude::*,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::{Argument, Expr, Expression};
 
 #[derive(Clone)]
 pub struct KnownExternal {

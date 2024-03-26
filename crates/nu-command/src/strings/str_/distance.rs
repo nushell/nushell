@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, levenshtein_distance};
+use nu_engine::command_prelude::*;
+use nu_protocol::levenshtein_distance;
 
 #[derive(Clone)]
 pub struct SubCommand;

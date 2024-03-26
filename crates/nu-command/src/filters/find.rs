@@ -2,8 +2,8 @@ use crate::help::highlight_search_string;
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
-use nu_engine::CallExt;
-use nu_protocol::{command_prelude::*, Config, ListStream};
+use nu_engine::command_prelude::*;
+use nu_protocol::{Config, ListStream};
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]

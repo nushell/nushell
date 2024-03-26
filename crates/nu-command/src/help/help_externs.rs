@@ -1,7 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{get_full_help, scope::ScopeData, CallExt};
-use nu_protocol::{command_prelude::*, span};
+use nu_engine::{command_prelude::*, get_full_help, scope::ScopeData};
+use nu_protocol::span;
 
 #[derive(Clone)]
 pub struct HelpExterns;

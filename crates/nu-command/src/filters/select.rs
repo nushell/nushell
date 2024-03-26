@@ -1,5 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{ast::PathMember, command_prelude::*, PipelineIterator};
+use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, PipelineIterator};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]

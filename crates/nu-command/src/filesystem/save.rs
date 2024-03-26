@@ -1,9 +1,8 @@
 use crate::progress_bar;
-use nu_engine::{current_dir, CallExt};
+use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Expr, Expression},
-    command_prelude::*,
     DataSource, IoStream, PipelineMetadata, RawStream,
 };
 use std::{
