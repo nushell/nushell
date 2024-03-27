@@ -114,7 +114,7 @@ mod foreground_pgroup {
 
     /// Alternative to having to call `std::io::stdin()` just to get the file descriptor of stdin
     ///
-    /// SAFETY:
+    /// # Safety
     /// I/O safety of reading from `STDIN_FILENO` unclear.
     ///
     /// Currently only intended to access `tcsetpgrp` and `tcgetpgrp` with the I/O safe `nix`
