@@ -13,6 +13,7 @@ bench = false
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.92.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.92.0" }
+nu-utils = { path = "../nu-utils", version = "0.92.0" }
 
 bincode = "1.3"
 rmp-serde = "1.1"

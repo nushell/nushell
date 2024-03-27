@@ -80,15 +80,23 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { val: record, .. }, ..) => {
-            let mut record = record;
+        PipelineData::Value(mut val @ Value::Record { .. }, ..) => {
+            let Value::Record {
+                val: ref mut record,
+                ..
+            } = val
+            else {
+                // We already verified that it's a record, but can't pattern match inside at the
+                // same time.
+                unreachable!()
+            };
             record
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
                     *val = mf(slice::from_ref(val), span, name)?;
                     Ok(())
                 })?;
-            Ok(Value::record(*record, span))
+            Ok(val)
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val

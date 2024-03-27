@@ -1,5 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
 use nu_protocol::{ast::Block, engine::Closure, PipelineIterator};
+use nu_utils::Shared;
 use std::{collections::HashSet, sync::Arc};
 
 #[derive(Clone)]
@@ -154,7 +155,8 @@ impl Iterator for UpdateCellIterator {
                 let span = val.span();
                 match val {
                     Value::Record { val, .. } => Some(Value::record(
-                        val.into_iter()
+                        Shared::unwrap(val)
+                            .into_iter()
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(&col) => (col, val),
                                 _ => (

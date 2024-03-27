@@ -237,7 +237,7 @@ fn rename(
                         }
                     }
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { .. } => item.clone(),
+                    Value::Error { .. } => item,
                     other => Value::error(
                         ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),

@@ -162,9 +162,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                 let span = value.span();
 
                 match value {
-                    Value::Record { val, .. } => {
+                    Value::Record { ref val, .. } => {
                         if need_flatten {
-                            for (col, val) in *val {
+                            for (col, val) in val.clone() {
                                 if out.contains_key(&col) {
                                     out.insert(format!("{column}_{col}"), val);
                                 } else {
@@ -172,9 +172,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 }
                             }
                         } else if out.contains_key(&column) {
-                            out.insert(format!("{column}_{column}"), Value::record(*val, span));
+                            out.insert(format!("{column}_{column}"), value);
                         } else {
-                            out.insert(column, Value::record(*val, span));
+                            out.insert(column, value);
                         }
                     }
                     Value::List { vals, .. } => {

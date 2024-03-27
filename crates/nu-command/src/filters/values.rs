@@ -1,5 +1,6 @@
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
+use nu_utils::Shared;
 
 #[derive(Clone)]
 pub struct Values;
@@ -157,7 +158,9 @@ fn values(
                     }
                 }
                 Value::Record { val, .. } => Ok(val
-                    .into_values()
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>()
                     .into_pipeline_data_with_metadata(metadata, ctrlc)),
                 Value::LazyRecord { val, .. } => {
                     let record = match val.collect()? {
@@ -168,7 +171,7 @@ fn values(
                             span,
                         })?,
                     };
-                    Ok(record
+                    Ok(Shared::unwrap(record)
                         .into_values()
                         .into_pipeline_data_with_metadata(metadata, ctrlc))
                 }
