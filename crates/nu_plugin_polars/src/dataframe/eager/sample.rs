@@ -1,20 +1,23 @@
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type,
 };
 use polars::prelude::NamedFrom;
 use polars::series::Series;
+
+use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct SampleDF;
 
-impl Command for SampleDF {
+impl PluginCommand for SampleDF {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr sample"
+        "polars sample"
     }
 
     fn usage(&self) -> &str {
@@ -54,13 +57,13 @@ impl Command for SampleDF {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr sample --n-rows 1",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars sample --n-rows 1",
                 result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using fraction and replace",
                 example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | dfr into-df | dfr sample --fraction 0.5 --replace",
+                    "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --fraction 0.5 --replace",
                 result: None, // No expected value because sampling is random
             },
         ]
@@ -68,32 +71,30 @@ impl Command for SampleDF {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "n-rows")?;
-    let fraction: Option<Spanned<f64>> = call.get_flag(engine_state, stack, "fraction")?;
-    let seed: Option<u64> = call
-        .get_flag::<i64>(engine_state, stack, "seed")?
-        .map(|val| val as u64);
-    let replace: bool = call.has_flag(engine_state, stack, "replace")?;
-    let shuffle: bool = call.has_flag(engine_state, stack, "shuffle")?;
+    let rows: Option<Spanned<i64>> = call.get_flag("n-rows")?;
+    let fraction: Option<Spanned<f64>> = call.get_flag("fraction")?;
+    let seed: Option<u64> = call.get_flag::<i64>("seed")?.map(|val| val as u64);
+    let replace: bool = call.has_flag("replace")?;
+    let shuffle: bool = call.has_flag("shuffle")?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
-    match (rows, fraction) {
+    let df = match (rows, fraction) {
         (Some(rows), None) => df
             .as_ref()
             .sample_n(&Series::new("s", &[rows.item]), replace, shuffle, seed)
@@ -128,6 +129,10 @@ fn command(
             help: Some("Perhaps you want to use the flag -n or -f".into()),
             inner: vec![],
         }),
-    }
-    .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
+    };
+    let df = NuDataFrame::new(false, df?);
+    Ok(PipelineData::Value(
+        df.cache(plugin, engine)?.into_value(call.head),
+        None,
+    ))
 }
