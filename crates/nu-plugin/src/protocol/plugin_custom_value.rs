@@ -1,5 +1,6 @@
 use crate::plugin::{PluginInterface, PluginSource};
 use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Value};
+use nu_utils::Shared;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
@@ -24,7 +25,7 @@ mod tests;
 #[doc(hidden)]
 pub struct PluginCustomValue {
     #[serde(flatten)]
-    shared: SerdeArc<SharedContent>,
+    shared: Shared<SharedContent>,
 
     /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
     /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
@@ -138,11 +139,11 @@ impl PluginCustomValue {
         source: Option<Arc<PluginSource>>,
     ) -> PluginCustomValue {
         PluginCustomValue {
-            shared: SerdeArc(Arc::new(SharedContent {
+            shared: Shared::new(SharedContent {
                 name,
                 data,
                 notify_on_drop,
-            })),
+            }),
             source,
         }
     }
@@ -390,7 +391,7 @@ impl Drop for PluginCustomValue {
     fn drop(&mut self) {
         // If the custom value specifies notify_on_drop and this is the last copy, we need to let
         // the plugin know about it if we can.
-        if self.source.is_some() && self.notify_on_drop() && Arc::strong_count(&self.shared) == 1 {
+        if self.source.is_some() && self.notify_on_drop() && Shared::ref_count(&self.shared) == 1 {
             self.get_plugin(None, "drop")
                 // While notifying drop, we don't need a copy of the source
                 .and_then(|plugin| {
@@ -405,42 +406,5 @@ impl Drop for PluginCustomValue {
                     log::warn!("Failed to notify drop of custom value ({name}): {err}")
                 });
         }
-    }
-}
-
-/// A serializable `Arc`, to avoid having to have the serde `rc` feature enabled.
-#[derive(Clone, Debug)]
-#[repr(transparent)]
-struct SerdeArc<T>(Arc<T>);
-
-impl<T> Serialize for SerdeArc<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de, T> Deserialize<'de> for SerdeArc<T>
-where
-    T: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        T::deserialize(deserializer).map(Arc::new).map(SerdeArc)
-    }
-}
-
-impl<T> std::ops::Deref for SerdeArc<T> {
-    type Target = Arc<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }

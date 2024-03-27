@@ -4,6 +4,7 @@ use crate::{
 };
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Record, TableMode, Value};
+use nu_utils::Shared;
 
 pub struct CollapsedTable;
 
@@ -48,8 +49,8 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             // Take ownership of the record and reassign to &mut
             // We do this to have owned keys through `.into_iter`
             let record = std::mem::take(val);
-            *val = Box::new(
-                record
+            *val = Shared::new(
+                Shared::unwrap(record)
                     .into_iter()
                     .map(|(mut header, mut val)| {
                         colorize_value(&mut val, config, style_computer);

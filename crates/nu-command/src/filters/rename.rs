@@ -154,11 +154,11 @@ fn rename(
     let head_span = call.head;
     input
         .map(
-            move |item| {
+            move |mut item| {
                 let span = item.span();
                 match item {
                     Value::Record {
-                        val: mut record, ..
+                        val: ref mut record, ..
                     } => {
                         if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
                             block_info.clone()
@@ -222,10 +222,10 @@ fn rename(
                             }
                         }
 
-                        Value::record(*record, span)
+                        item
                     }
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { .. } => item.clone(),
+                    Value::Error { .. } => item,
                     other => Value::error(
                         ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),
