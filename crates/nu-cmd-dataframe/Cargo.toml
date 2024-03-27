@@ -64,7 +64,7 @@ features = [
 ]
 default-features = false
 optional = true
-version = "0.37"
+version = "0.38"
 
 [features]
 dataframe = ["num", "polars", "polars-io", "polars-arrow", "polars-ops", "polars-plan", "polars-utils", "sqlparser"]
