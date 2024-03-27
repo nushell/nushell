@@ -12,6 +12,9 @@ use std::{
     },
 };
 
+#[cfg(unix)]
+pub use foreground_pgroup::stdin_fd;
+
 /// A simple wrapper for [`std::process::Child`]
 ///
 /// It can only be created by [`ForegroundChild::spawn`].
@@ -98,14 +101,27 @@ impl Drop for ForegroundChild {
 #[cfg(unix)]
 mod foreground_pgroup {
     use nix::{
-        libc,
         sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
         unistd::{self, Pid},
     };
     use std::{
-        os::unix::prelude::CommandExt,
+        os::{
+            fd::{AsFd, BorrowedFd},
+            unix::prelude::CommandExt,
+        },
         process::{Child, Command},
     };
+
+    /// Alternative to having to call `std::io::stdin()` just to get the file descriptor of stdin
+    ///
+    /// SAFETY:
+    /// I/O safety of reading from `STDIN_FILENO` unclear.
+    ///
+    /// Currently only intended to access `tcsetpgrp` and `tcgetpgrp` with the I/O safe `nix`
+    /// interface.
+    pub unsafe fn stdin_fd() -> impl AsFd {
+        unsafe { BorrowedFd::borrow_raw(libc::STDIN_FILENO) }
+    }
 
     pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {
         unsafe {
@@ -154,12 +170,12 @@ mod foreground_pgroup {
             Pid::from_raw(existing_pgrp as i32)
         };
         let _ = unistd::setpgid(pid, pgrp);
-        let _ = unistd::tcsetpgrp(libc::STDIN_FILENO, pgrp);
+        let _ = unistd::tcsetpgrp(unsafe { stdin_fd() }, pgrp);
     }
 
     /// Reset the foreground process group to the shell
     pub fn reset() {
-        if let Err(e) = unistd::tcsetpgrp(libc::STDIN_FILENO, unistd::getpgrp()) {
+        if let Err(e) = unistd::tcsetpgrp(unsafe { stdin_fd() }, unistd::getpgrp()) {
             eprintln!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
