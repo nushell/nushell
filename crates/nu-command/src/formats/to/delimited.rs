@@ -115,7 +115,7 @@ fn to_string_tagged_value(
         | Value::Int { .. }
         | Value::Duration { .. }
         | Value::Binary { .. }
-        | Value::CustomValue { .. }
+        | Value::Custom { .. }
         | Value::Filesize { .. }
         | Value::CellPath { .. }
         | Value::Float { .. } => Ok(v.clone().to_abbreviated_string(config)),

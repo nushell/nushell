@@ -53,7 +53,7 @@ fn is_false(b: &bool) -> bool {
 #[typetag::serde]
 impl CustomValue for PluginCustomValue {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {
@@ -241,12 +241,12 @@ impl PluginCustomValue {
             let span = value.span();
             match value {
                 // Set source on custom value
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     if let Some(custom_value) = val.as_any().downcast_ref::<PluginCustomValue>() {
                         // Since there's no `as_mut_any()`, we have to copy the whole thing
                         let mut custom_value = custom_value.clone();
                         custom_value.source = Some(source.clone());
-                        *value = Value::custom_value(Box::new(custom_value), span);
+                        *value = Value::custom(Box::new(custom_value), span);
                     }
                     Ok(())
                 }
@@ -272,7 +272,7 @@ impl PluginCustomValue {
             let span = value.span();
             match value {
                 // Set source on custom value
-                Value::CustomValue { val, .. } => {
+                Value::Custom { val, .. } => {
                     if let Some(custom_value) = val.as_any().downcast_ref::<PluginCustomValue>() {
                         if custom_value
                             .source
@@ -320,13 +320,13 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     if val.as_any().downcast_ref::<PluginCustomValue>().is_some() {
                         // Already a PluginCustomValue
                         Ok(())
                     } else {
                         let serialized = Self::serialize_from_custom_value(&**val, span)?;
-                        *value = Value::custom_value(Box::new(serialized), span);
+                        *value = Value::custom(Box::new(serialized), span);
                         Ok(())
                     }
                 }
@@ -346,10 +346,10 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     if let Some(val) = val.as_any().downcast_ref::<PluginCustomValue>() {
                         let deserialized = val.deserialize_to_custom_value(span)?;
-                        *value = Value::custom_value(deserialized, span);
+                        *value = Value::custom(deserialized, span);
                         Ok(())
                     } else {
                         // Already not a PluginCustomValue
@@ -371,7 +371,7 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     *value = val.to_base_value(span)?;
                     Ok(())
                 }

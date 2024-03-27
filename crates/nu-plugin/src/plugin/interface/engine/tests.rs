@@ -609,7 +609,7 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
 
     let span = Span::new(20, 30);
     let data = manager.prepare_pipeline_data(
-        [Value::custom_value(Box::new(invalid_custom_value), span)].into_pipeline_data(None),
+        [Value::custom(Box::new(invalid_custom_value), span)].into_pipeline_data(None),
     )?;
 
     let value = data
@@ -1147,7 +1147,7 @@ enum CantSerialize {
 #[typetag::serde]
 impl CustomValue for CantSerialize {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {
@@ -1170,11 +1170,7 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
 
     let span = Span::new(40, 60);
     let data = interface.prepare_pipeline_data(
-        [Value::custom_value(
-            Box::new(CantSerialize::BadVariant),
-            span,
-        )]
-        .into_pipeline_data(None),
+        [Value::custom(Box::new(CantSerialize::BadVariant), span)].into_pipeline_data(None),
     )?;
 
     let value = data

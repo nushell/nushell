@@ -13,7 +13,7 @@ struct CustomU32(u32);
 
 impl CustomU32 {
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 }
 

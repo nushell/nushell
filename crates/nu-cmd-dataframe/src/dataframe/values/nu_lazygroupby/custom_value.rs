@@ -18,7 +18,7 @@ impl CustomValue for NuLazyGroupBy {
             from_eager: self.from_eager,
         };
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {

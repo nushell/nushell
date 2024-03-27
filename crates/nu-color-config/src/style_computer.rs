@@ -130,7 +130,7 @@ impl<'a> StyleComputer<'a> {
                 TextStyle::with_style(Left, s)
             }
             Value::Closure { .. }
-            | Value::CustomValue { .. }
+            | Value::Custom { .. }
             | Value::Error { .. }
             | Value::LazyRecord { .. } => TextStyle::basic_left(),
         }

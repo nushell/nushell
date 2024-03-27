@@ -231,12 +231,12 @@ fn add_source_nested_closure() -> Result<(), ShellError> {
 #[test]
 fn verify_source_error_message() -> Result<(), ShellError> {
     let span = Span::new(5, 7);
-    let mut ok_val = Value::custom_value(Box::new(test_plugin_custom_value_with_source()), span);
-    let mut native_val = Value::custom_value(Box::new(TestCustomValue(32)), span);
+    let mut ok_val = Value::custom(Box::new(test_plugin_custom_value_with_source()), span);
+    let mut native_val = Value::custom(Box::new(TestCustomValue(32)), span);
     let mut foreign_val = {
         let mut val = test_plugin_custom_value();
         val.source = Some(Arc::new(PluginSource::new_fake("other")));
-        Value::custom_value(Box::new(val), span)
+        Value::custom(Box::new(val), span)
     };
     let source = PluginSource::new_fake("test");
 
@@ -407,7 +407,7 @@ fn verify_source_nested_closure() -> Result<(), ShellError> {
 #[test]
 fn serialize_in_root() -> Result<(), ShellError> {
     let span = Span::new(4, 10);
-    let mut val = Value::custom_value(Box::new(expected_test_custom_value()), span);
+    let mut val = Value::custom(Box::new(expected_test_custom_value()), span);
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
     assert_eq!(span, val.span());
@@ -520,7 +520,7 @@ fn serialize_in_closure() -> Result<(), ShellError> {
 #[test]
 fn deserialize_in_root() -> Result<(), ShellError> {
     let span = Span::new(4, 10);
-    let mut val = Value::custom_value(Box::new(test_plugin_custom_value()), span);
+    let mut val = Value::custom(Box::new(test_plugin_custom_value()), span);
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     assert_eq!(span, val.span());

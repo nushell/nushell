@@ -16,7 +16,7 @@ impl DropCheckValue {
     }
 
     pub(crate) fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub(crate) fn notify(&self) {

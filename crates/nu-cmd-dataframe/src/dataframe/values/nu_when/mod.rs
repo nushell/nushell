@@ -51,13 +51,13 @@ impl From<ChainedThen> for NuWhen {
 
 impl NuWhen {
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(expr.clone()),
                 None => Err(ShellError::CantConvert {
                     to_type: "when expression".into(),

@@ -9,7 +9,7 @@ pub(crate) struct TestCustomValue(pub i32);
 #[typetag::serde]
 impl CustomValue for TestCustomValue {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {

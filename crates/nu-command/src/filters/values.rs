@@ -147,7 +147,7 @@ fn values(
                         .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     Err(err) => Err(err),
                 },
-                Value::CustomValue { val, .. } => {
+                Value::Custom { val, .. } => {
                     let input_as_base_value = val.to_base_value(span)?;
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols

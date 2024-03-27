@@ -139,7 +139,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             let collected = val.collect()?;
             value_to_json_value(&collected)?
         }
-        Value::CustomValue { val, .. } => {
+        Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
             value_to_json_value(&collected)?
         }

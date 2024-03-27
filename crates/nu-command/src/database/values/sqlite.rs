@@ -69,7 +69,7 @@ impl SQLiteDatabase {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
                     ctrlc: db.ctrlc.clone(),
@@ -97,7 +97,7 @@ impl SQLiteDatabase {
 
     pub fn into_value(self, span: Span) -> Value {
         let db = Box::new(self);
-        Value::custom_value(db, span)
+        Value::custom(db, span)
     }
 
     pub fn query(
@@ -357,7 +357,7 @@ impl CustomValue for SQLiteDatabase {
             ctrlc: self.ctrlc.clone(),
         };
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {

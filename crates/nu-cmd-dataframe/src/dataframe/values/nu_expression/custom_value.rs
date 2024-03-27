@@ -19,7 +19,7 @@ impl CustomValue for NuExpression {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         let cloned = NuExpression(self.0.clone());
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {
@@ -54,7 +54,7 @@ fn compute_with_value(
 ) -> Result<Value, ShellError> {
     let rhs_span = right.span();
     match right {
-        Value::CustomValue { val: rhs, .. } => {
+        Value::Custom { val: rhs, .. } => {
             let rhs = rhs.as_any().downcast_ref::<NuExpression>().ok_or_else(|| {
                 ShellError::DowncastNotPossible {
                     msg: "Unable to create expression".into(),
