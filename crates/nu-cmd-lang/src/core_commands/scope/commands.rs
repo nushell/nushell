@@ -10,7 +10,7 @@ impl Command for ScopeCommands {
 
     fn signature(&self) -> Signature {
         Signature::build("scope commands")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
             .allow_variants_without_examples(true)
             .category(Category::Core)
     }
