@@ -80,6 +80,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(FilterWith),
         Box::new(GetDF),
         Box::new(OpenDataFrame),
+        Box::new(MeltDF),
         Box::new(ToDataFrame),
         Box::new(Summary),
         Box::new(FirstDF),
