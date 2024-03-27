@@ -6,7 +6,7 @@ use crate::{
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 use polars::prelude::*;
@@ -17,9 +17,16 @@ pub struct CastDF;
 impl PluginCommand for CastDF {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars cast")
-            .usage("Cast a column to a different dtype.")
+    fn name(&self) -> &str {
+        "polars cast"
+    }
+
+    fn usage(&self) -> &str {
+        "Cast a column to a different dtype."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![
                 (
                     Type::Custom("expression".into()),
@@ -41,7 +48,6 @@ impl PluginCommand for CastDF {
                 "The column to cast. Required when used with a dataframe.",
             )
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(examples())
     }
 
     fn run(
@@ -53,13 +59,12 @@ impl PluginCommand for CastDF {
     ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call, input).map_err(LabeledError::from)
     }
-}
 
-fn examples() -> Vec<PluginExample> {
-    vec![
-        PluginExample {
-            description: "Cast a column in a dataframe to a different dtype".into(),
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars cast u8 a | polars schema".into(),
+    fn examples(&self) -> Vec<Example> {
+        vec![
+        Example {
+            description: "Cast a column in a dataframe to a different dtype",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars cast u8 a | polars schema",
             result: Some(Value::record(
                 record! {
                     "a" => Value::string("u8", Span::test_data()),
@@ -68,10 +73,10 @@ fn examples() -> Vec<PluginExample> {
                 Span::test_data(),
             )),
         },
-        PluginExample {
-            description: "Cast a column in a lazy dataframe to a different dtype".into(),
+        Example {
+            description: "Cast a column in a lazy dataframe to a different dtype",
             example:
-                "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema".into(),
+                "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
             result: Some(Value::record(
                 record! {
                     "a" => Value::string("u8", Span::test_data()),
@@ -80,12 +85,13 @@ fn examples() -> Vec<PluginExample> {
                 Span::test_data(),
             )),
         },
-        PluginExample {
-            description: "Cast a column in a expression to a different dtype".into(),
-            example: r#"[[a b]; [1 2] [1 4]] | polars into-df | polars group-by a | polars agg [ (polars col b | polars cast u8 | polars min | polars as "b_min") ] | polars schema"#.into(),
+        Example {
+            description: "Cast a column in a expression to a different dtype",
+            example: r#"[[a b]; [1 2] [1 4]] | polars into-df | polars group-by a | polars agg [ (polars col b | polars cast u8 | polars min | polars as "b_min") ] | polars schema"#,
             result: None,
         },
     ]
+    }
 }
 
 fn command(

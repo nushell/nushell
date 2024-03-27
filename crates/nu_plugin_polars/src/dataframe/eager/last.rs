@@ -3,8 +3,8 @@ use crate::{values::Column, Cacheable, CustomValueSupport, PolarsPlugin};
 use super::super::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -13,9 +13,16 @@ pub struct LastDF;
 impl PluginCommand for LastDF {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars last")
-            .usage("Creates new dataframe with tail rows or creates a last expression.")
+    fn name(&self) -> &str {
+        "polars last"
+    }
+
+    fn usage(&self) -> &str {
+        "Creates new dataframe with tail rows or creates a last expression."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .optional("rows", SyntaxShape::Int, "Number of rows for tail")
             .input_output_types(vec![
                 (
@@ -28,7 +35,32 @@ impl PluginCommand for LastDF {
                 ),
             ])
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(examples())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Create new dataframe with last rows",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars last 1",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(3)]),
+                            Column::new("b".to_string(), vec![Value::test_int(4)]),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+            Example {
+                description: "Creates a last expression from a column",
+                example: "polars col a | polars last",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -56,31 +88,6 @@ impl PluginCommand for LastDF {
     }
 }
 
-fn examples() -> Vec<PluginExample> {
-    vec![
-        PluginExample {
-            description: "Create new dataframe with last rows".into(),
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars last 1".into(),
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new("a".to_string(), vec![Value::test_int(3)]),
-                        Column::new("b".to_string(), vec![Value::test_int(4)]),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
-            ),
-        },
-        PluginExample {
-            description: "Creates a last expression from a column".into(),
-            example: "polars col a | polars last".into(),
-            result: None,
-        },
-    ]
-}
 fn command(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,

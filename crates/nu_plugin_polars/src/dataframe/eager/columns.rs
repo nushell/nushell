@@ -3,8 +3,7 @@ use crate::{CustomValueSupport, PolarsPlugin};
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -12,12 +11,30 @@ pub struct ColumnsDF;
 
 impl PluginCommand for ColumnsDF {
     type Plugin = PolarsPlugin;
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars columns")
-            .usage("Show dataframe columns.")
+
+    fn name(&self) -> &str {
+        "polars columns"
+    }
+
+    fn usage(&self) -> &str {
+        "Show dataframe columns."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(examples())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Dataframe columns",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars columns",
+            result: Some(Value::list(
+                vec![Value::test_string("a"), Value::test_string("b")],
+                Span::test_data(),
+            )),
+        }]
     }
 
     fn run(
@@ -31,16 +48,6 @@ impl PluginCommand for ColumnsDF {
     }
 }
 
-fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
-        description: "Dataframe columns".into(),
-        example: "[[a b]; [1 2] [3 4]] | polars into-df | polars columns".into(),
-        result: Some(Value::list(
-            vec![Value::test_string("a"), Value::test_string("b")],
-            Span::test_data(),
-        )),
-    }]
-}
 fn command(
     plugin: &PolarsPlugin,
     call: &EvaluatedCall,

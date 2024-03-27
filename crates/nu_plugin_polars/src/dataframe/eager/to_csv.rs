@@ -2,8 +2,8 @@ use std::{fs::File, path::PathBuf};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 use polars::prelude::{CsvWriter, SerWriter};
 
@@ -17,9 +17,16 @@ pub struct ToCSV;
 impl PluginCommand for ToCSV {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars to-csv")
-            .usage("Saves dataframe to CSV file.")
+    fn name(&self) -> &str {
+        "polars to-csv"
+    }
+
+    fn usage(&self) -> &str {
+        "Saves dataframe to CSV file."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("file", SyntaxShape::Filepath, "file path to save dataframe")
             .named(
                 "delimiter",
@@ -30,20 +37,21 @@ impl PluginCommand for ToCSV {
             .switch("no-header", "Indicates if file doesn't have header", None)
             .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![
-                PluginExample {
-                    description: "Saves dataframe to CSV file".into(),
-                    example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv".into(),
-                    result: None,
-                },
-                PluginExample {
-                    description: "Saves dataframe to CSV file using other delimiter".into(),
-                    example:
-                        "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv --delimiter '|'"
-                            .into(),
-                    result: None,
-                },
-            ])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Saves dataframe to CSV file",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv",
+                result: None,
+            },
+            Example {
+                description: "Saves dataframe to CSV file using other delimiter",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv --delimiter '|'",
+                result: None,
+            },
+        ]
     }
 
     fn run(

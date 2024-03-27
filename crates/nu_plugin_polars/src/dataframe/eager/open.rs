@@ -5,8 +5,8 @@ use crate::{
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 use std::{fs::File, io::BufReader, path::PathBuf};
@@ -24,9 +24,16 @@ pub struct OpenDataFrame;
 impl PluginCommand for OpenDataFrame {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars open")
-            .usage("Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe.")
+    fn name(&self) -> &str {
+        "polars open"
+    }
+
+    fn usage(&self) -> &str {
+        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required(
                 "file",
                 SyntaxShape::Filepath,
@@ -75,8 +82,15 @@ impl PluginCommand for OpenDataFrame {
                 Some('s')
             )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
-            .plugin_examples(examples())
             .category(Category::Custom("dataframe".into()))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Takes a file name and creates a dataframe",
+            example: "polars open test.csv",
+            result: None,
+        }]
     }
 
     fn run(
@@ -88,14 +102,6 @@ impl PluginCommand for OpenDataFrame {
     ) -> Result<nu_protocol::PipelineData, LabeledError> {
         command(plugin, engine, call).map_err(|e| e.into())
     }
-}
-
-fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
-        description: "Takes a file name and creates a dataframe".into(),
-        example: "polars open test.csv".into(),
-        result: None,
-    }]
 }
 
 fn command(

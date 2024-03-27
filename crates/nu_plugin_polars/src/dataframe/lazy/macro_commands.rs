@@ -5,8 +5,7 @@ use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
 use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 macro_rules! lazy_command {
@@ -17,15 +16,26 @@ macro_rules! lazy_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
                     .usage($desc)
                     .input_output_type(
                         Type::Custom("dataframe".into()),
                         Type::Custom("dataframe".into()),
                     )
                     .category(Category::Custom("lazyframe".into()))
-                    .plugin_examples($examples)
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
             }
 
             fn run(
@@ -66,8 +76,8 @@ macro_rules! lazy_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
+            fn signature(&self) -> Signature {
+                Signature::build($name)
                     .usage($desc)
                     .input_output_type(
                         Type::Custom("dataframe".into()),
@@ -117,15 +127,24 @@ macro_rules! lazy_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
-                    .usage($desc)
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
                     .input_output_type(
                         Type::Custom("dataframe".into()),
                         Type::Custom("dataframe".into()),
                     )
                     .category(Category::Custom("lazyframe".into()))
-                    .plugin_examples($examples)
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
             }
 
             fn run(
@@ -179,7 +198,7 @@ lazy_command!(
     LazyReverse,
     "polars reverse",
     "Reverses the LazyFrame",
-    vec![PluginExample {
+    vec![Example {
         description: "Reverses the dataframe.".into(),
         example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse".into(),
         result: Some(
@@ -211,10 +230,9 @@ lazy_command!(
     LazyCache,
     "polars cache",
     "Caches operations in a new LazyFrame.",
-    vec![PluginExample {
-        description: "Caches the result into a new LazyFrame".into(),
-        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse | polars cache"
-            .into(),
+    vec![Example {
+        description: "Caches the result into a new LazyFrame",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse | polars cache",
         result: None,
     }],
     cache,
@@ -227,9 +245,9 @@ lazy_command!(
     LazyMedian,
     "polars median",
     "Aggregates columns to their median value",
-    vec![PluginExample {
-        description: "Median value from columns in a dataframe".into(),
-        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median".into(),
+    vec![Example {
+        description: "Median value from columns in a dataframe",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median",
         result: Some(
             NuDataFrame::try_from_columns(
                 vec![

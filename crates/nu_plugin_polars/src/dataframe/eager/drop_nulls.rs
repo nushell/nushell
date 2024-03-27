@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
@@ -15,9 +15,16 @@ pub struct DropNulls;
 impl PluginCommand for DropNulls {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars drop-nulls")
-            .usage("Drops null values in dataframe.")
+    fn name(&self) -> &str {
+        "polars drop-nulls"
+    }
+
+    fn usage(&self) -> &str {
+        "Drops null values in dataframe."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .optional(
                 "subset",
                 SyntaxShape::Table(vec![]),
@@ -28,61 +35,62 @@ impl PluginCommand for DropNulls {
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![
-                PluginExample {
-                    description: "drop null values in dataframe".into(),
-                    example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | polars into-df);
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "drop null values in dataframe",
+                example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | polars into-df);
     let res = ($df.b / $df.b);
     let a = ($df | polars with-column $res --name res);
-    $a | polars drop-nulls"#
-                        .into(),
-                    result: Some(
-                        NuDataFrame::try_from_columns(
+    $a | polars drop-nulls"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(1)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "res".to_string(),
+                                vec![Value::test_int(1), Value::test_int(1)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+            Example {
+                description: "drop null values in dataframe",
+                example: r#"let s = ([1 2 0 0 3 4] | polars into-df);
+    ($s / $s) | polars drop-nulls"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "div_0_0".to_string(),
                             vec![
-                                Column::new(
-                                    "a".to_string(),
-                                    vec![Value::test_int(1), Value::test_int(1)],
-                                ),
-                                Column::new(
-                                    "b".to_string(),
-                                    vec![Value::test_int(2), Value::test_int(2)],
-                                ),
-                                Column::new(
-                                    "res".to_string(),
-                                    vec![Value::test_int(1), Value::test_int(1)],
-                                ),
+                                Value::test_int(1),
+                                Value::test_int(1),
+                                Value::test_int(1),
+                                Value::test_int(1),
                             ],
-                            None,
-                        )
-                        .expect("simple df for test should not fail")
-                        .base_value(Span::test_data())
-                        .expect("rendering base value should not fail"),
-                    ),
-                },
-                PluginExample {
-                    description: "drop null values in dataframe".into(),
-                    example: r#"let s = ([1 2 0 0 3 4] | polars into-df);
-    ($s / $s) | polars drop-nulls"#
-                        .into(),
-                    result: Some(
-                        NuDataFrame::try_from_columns(
-                            vec![Column::new(
-                                "div_0_0".to_string(),
-                                vec![
-                                    Value::test_int(1),
-                                    Value::test_int(1),
-                                    Value::test_int(1),
-                                    Value::test_int(1),
-                                ],
-                            )],
-                            None,
-                        )
-                        .expect("simple df for test should not fail")
-                        .base_value(Span::test_data())
-                        .expect("rendering base value should not fail"),
-                    ),
-                },
-            ])
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+        ]
     }
 
     fn run(

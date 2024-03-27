@@ -1,7 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, IntoPipelineData, LabeledError, PipelineData, PluginExample, PluginSignature,
-    Value,
+    record, Category, Example, IntoPipelineData, LabeledError, PipelineData, Signature, Value,
 };
 
 use crate::{values::PhysicalType, PolarsPlugin};
@@ -12,17 +11,25 @@ pub struct ListDF;
 impl PluginCommand for ListDF {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars ls")
-            .usage("Lists stored dataframes.")
-            .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![PluginExample {
-                description: "Creates a new dataframe and shows it in the dataframe list".into(),
-                example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
-    ls"#
-                .into(),
-                result: None,
-            }])
+    fn name(&self) -> &str {
+        "polars ls"
+    }
+
+    fn usage(&self) -> &str {
+        "Lists stored dataframes."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Creates a new dataframe and shows it in the dataframe list",
+            example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
+    ls"#,
+            result: None,
+        }]
     }
 
     fn run(

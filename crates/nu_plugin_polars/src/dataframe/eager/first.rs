@@ -3,8 +3,8 @@ use crate::{values::Column, Cacheable, CustomValueSupport, PolarsPlugin};
 use super::super::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -13,9 +13,16 @@ pub struct FirstDF;
 impl PluginCommand for FirstDF {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars first")
-            .usage("Show only the first number of rows or create a first expression")
+    fn name(&self) -> &str {
+        "polars first"
+    }
+
+    fn usage(&self) -> &str {
+        "Show only the first number of rows or create a first expression"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .optional(
                 "rows",
                 SyntaxShape::Int,
@@ -32,51 +39,54 @@ impl PluginCommand for FirstDF {
                 ),
             ])
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![
-                PluginExample {
-                    description: "Return the first row of a dataframe".into(),
-                    example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first".into(),
-                    result: Some(
-                        NuDataFrame::try_from_columns(
-                            vec![
-                                Column::new("a".to_string(), vec![Value::test_int(1)]),
-                                Column::new("b".to_string(), vec![Value::test_int(2)]),
-                            ],
-                            None,
-                        )
-                        .expect("should not fail")
-                        .base_value(Span::test_data())
-                        .expect("rendering base value should not fail"),
-                    ),
-                },
-                PluginExample {
-                    description: "Return the first two rows of a dataframe".into(),
-                    example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first 2".into(),
-                    result: Some(
-                        NuDataFrame::try_from_columns(
-                            vec![
-                                Column::new(
-                                    "a".to_string(),
-                                    vec![Value::test_int(1), Value::test_int(3)],
-                                ),
-                                Column::new(
-                                    "b".to_string(),
-                                    vec![Value::test_int(2), Value::test_int(4)],
-                                ),
-                            ],
-                            None,
-                        )
-                        .expect("should not fail")
-                        .base_value(Span::test_data())
-                        .expect("rendering base value should not fail"),
-                    ),
-                },
-                PluginExample {
-                    description: "Creates a first expression from a column".into(),
-                    example: "polars col a | polars first".into(),
-                    result: None,
-                },
-            ])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Return the first row of a dataframe",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(1)]),
+                            Column::new("b".to_string(), vec![Value::test_int(2)]),
+                        ],
+                        None,
+                    )
+                    .expect("should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+            Example {
+                description: "Return the first two rows of a dataframe",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first 2",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+            Example {
+                description: "Creates a first expression from a column",
+                example: "polars col a | polars first",
+                result: None,
+            },
+        ]
     }
 
     fn run(

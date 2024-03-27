@@ -3,8 +3,7 @@ use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 use super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -13,36 +12,46 @@ pub struct DataTypes;
 impl PluginCommand for DataTypes {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars dtypes")
-            .usage("Show dataframe data types.")
+    fn name(&self) -> &str {
+        "polars dtypes"
+    }
+
+    fn usage(&self) -> &str {
+        "Show dataframe data types."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![PluginExample {
-                description: "Dataframe dtypes".into(),
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars dtypes".into(),
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "column".to_string(),
-                                vec![Value::test_string("a"), Value::test_string("b")],
-                            ),
-                            Column::new(
-                                "dtype".to_string(),
-                                vec![Value::test_string("i64"), Value::test_string("i64")],
-                            ),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
-                ),
-            }])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Dataframe dtypes",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars dtypes",
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "column".to_string(),
+                            vec![Value::test_string("a"), Value::test_string("b")],
+                        ),
+                        Column::new(
+                            "dtype".to_string(),
+                            vec![Value::test_string("i64"), Value::test_string("i64")],
+                        ),
+                    ],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .base_value(Span::test_data())
+                .expect("rendering base value should not fail"),
+            ),
+        }]
     }
 
     fn run(

@@ -2,8 +2,8 @@ use std::{fs::File, path::PathBuf};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 use polars::prelude::{IpcWriter, SerWriter};
 
@@ -17,18 +17,27 @@ pub struct ToArrow;
 impl PluginCommand for ToArrow {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars to-arrow")
-            .usage("Saves dataframe to arrow file.")
+    fn name(&self) -> &str {
+        "polars to-arrow"
+    }
+
+    fn usage(&self) -> &str {
+        "Saves dataframe to arrow file."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("file", SyntaxShape::Filepath, "file path to save dataframe")
             .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![PluginExample {
-                description: "Saves dataframe to arrow file".into(),
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-arrow test.arrow"
-                    .into(),
-                result: None,
-            }])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Saves dataframe to arrow file",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-arrow test.arrow",
+            result: None,
+        }]
     }
 
     fn run(

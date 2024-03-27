@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
+    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 
@@ -14,9 +14,16 @@ pub struct ToNu;
 impl PluginCommand for ToNu {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars into-nu")
-            .usage("Converts a dataframe or an expression into into nushell value for access and exploration.")
+    fn name(&self) -> &str {
+        "polars into-nu"
+    }
+
+    fn usage(&self) -> &str {
+        "Converts a dataframe or an expression into into nushell value for access and exploration."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .named(
                 "rows",
                 SyntaxShape::Number,
@@ -28,9 +35,47 @@ impl PluginCommand for ToNu {
                 (Type::Custom("expression".into()), Type::Any),
                 (Type::Custom("dataframe".into()), Type::Table(vec![])),
             ])
-            //.input_output_type(Type::Any, Type::Any)
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(examples())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        let rec_1 = Value::test_record(record! {
+            "index" => Value::test_int(0),
+            "a" =>     Value::test_int(1),
+            "b" =>     Value::test_int(2),
+        });
+        let rec_2 = Value::test_record(record! {
+            "index" => Value::test_int(1),
+            "a" =>     Value::test_int(3),
+            "b" =>     Value::test_int(4),
+        });
+        let rec_3 = Value::test_record(record! {
+            "index" => Value::test_int(2),
+            "a" =>     Value::test_int(3),
+            "b" =>     Value::test_int(4),
+        });
+
+        vec![
+            Example {
+                description: "Shows head rows from dataframe",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-nu",
+                result: Some(Value::list(vec![rec_1, rec_2], Span::test_data())),
+            },
+            Example {
+                description: "Shows tail rows from dataframe",
+                example:
+                    "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1",
+                result: Some(Value::list(vec![rec_3], Span::test_data())),
+            },
+            Example {
+                description: "Convert a col expression into a nushell value",
+                example: "polars col a | polars into-nu",
+                result: Some(Value::test_record(record! {
+                    "expr" =>  Value::test_string("column"),
+                    "value" => Value::test_string("a"),
+                })),
+            },
+        ]
     }
 
     fn run(
@@ -48,46 +93,6 @@ impl PluginCommand for ToNu {
         }
         .map_err(|e| e.into())
     }
-}
-
-fn examples() -> Vec<PluginExample> {
-    let rec_1 = Value::test_record(record! {
-        "index" => Value::test_int(0),
-        "a" =>     Value::test_int(1),
-        "b" =>     Value::test_int(2),
-    });
-    let rec_2 = Value::test_record(record! {
-        "index" => Value::test_int(1),
-        "a" =>     Value::test_int(3),
-        "b" =>     Value::test_int(4),
-    });
-    let rec_3 = Value::test_record(record! {
-        "index" => Value::test_int(2),
-        "a" =>     Value::test_int(3),
-        "b" =>     Value::test_int(4),
-    });
-
-    vec![
-        PluginExample {
-            description: "Shows head rows from dataframe".into(),
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-nu".into(),
-            result: Some(Value::list(vec![rec_1, rec_2], Span::test_data())),
-        },
-        PluginExample {
-            description: "Shows tail rows from dataframe".into(),
-            example: "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1"
-                .into(),
-            result: Some(Value::list(vec![rec_3], Span::test_data())),
-        },
-        PluginExample {
-            description: "Convert a col expression into a nushell value".into(),
-            example: "polars col a | polars into-nu".into(),
-            result: Some(Value::test_record(record! {
-                "expr" =>  Value::test_string("column"),
-                "value" => Value::test_string("a"),
-            })),
-        },
-    ]
 }
 
 fn dataframe_command(

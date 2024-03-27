@@ -5,9 +5,7 @@ use crate::{
 
 use super::super::values::NuLazyFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct LazyCollect;
@@ -15,36 +13,46 @@ pub struct LazyCollect;
 impl PluginCommand for LazyCollect {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars collect")
-            .usage("Collect lazy dataframe into eager dataframe.")
+    fn name(&self) -> &str {
+        "polars collect"
+    }
+
+    fn usage(&self) -> &str {
+        "Collect lazy dataframe into eager dataframe."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("lazyframe".into()))
-            .plugin_examples(vec![PluginExample {
-                description: "drop duplicates".into(),
-                example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect".into(),
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_int(1), Value::test_int(3)],
-                            ),
-                            Column::new(
-                                "b".to_string(),
-                                vec![Value::test_int(2), Value::test_int(4)],
-                            ),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
-                ),
-            }])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "drop duplicates",
+            example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect",
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                    ],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .base_value(Span::test_data())
+                .expect("rendering base value should not fail"),
+            ),
+        }]
     }
 
     fn run(

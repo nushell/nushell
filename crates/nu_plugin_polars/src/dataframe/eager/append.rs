@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 use crate::{
@@ -15,9 +15,8 @@ pub struct AppendDF;
 impl PluginCommand for AppendDF {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars append")
-            .usage("Appends a new dataframe.")
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("other", SyntaxShape::Any, "other dataframe to append")
             .switch("col", "append as new columns instead of rows", None)
             .input_output_type(
@@ -25,7 +24,6 @@ impl PluginCommand for AppendDF {
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(examples())
     }
 
     fn run(
@@ -37,76 +35,82 @@ impl PluginCommand for AppendDF {
     ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call, input).map_err(LabeledError::from)
     }
-}
-fn examples() -> Vec<PluginExample> {
-    vec![
-        PluginExample {
-            description: "Appends a dataframe as new columns".into(),
-            example: r#"let a = ([[a b]; [1 2] [3 4]] | polars into-df);
-    $a | polars append $a"#
-                .into(),
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "a_x".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b_x".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
-            ),
-        },
-        PluginExample {
-            description: "Appends a dataframe merging at the end of columns".into(),
-            example:
-                r#"let a = ([[a b]; [1 2] [3 4]] | polars into-df); $a | polars append $a --col"#
-                    .into(),
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(3),
-                                Value::test_int(1),
-                                Value::test_int(3),
-                            ],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_int(2),
-                                Value::test_int(4),
-                                Value::test_int(2),
-                                Value::test_int(4),
-                            ],
-                        ),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
-            ),
-        },
-    ]
+
+    fn name(&self) -> &str {
+        "polars append"
+    }
+
+    fn usage(&self) -> &str {
+        "Appends a new dataframe."
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Appends a dataframe as new columns",
+                example: r#"let a = ([[a b]; [1 2] [3 4]] | polars into-df);
+    $a | polars append $a"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "a_x".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b_x".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+            Example {
+                description: "Appends a dataframe merging at the end of columns",
+                example: r#"let a = ([[a b]; [1 2] [3 4]] | polars into-df); $a | polars append $a --col"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(3),
+                                    Value::test_int(1),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_int(2),
+                                    Value::test_int(4),
+                                    Value::test_int(2),
+                                    Value::test_int(4),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .base_value(Span::test_data())
+                    .expect("rendering base value should not fail"),
+                ),
+            },
+        ]
+    }
 }
 
 fn command(

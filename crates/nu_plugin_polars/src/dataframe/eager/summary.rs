@@ -4,8 +4,8 @@ use super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::{
     chunked_array::ChunkedArray,
@@ -21,9 +21,16 @@ pub struct Summary;
 impl PluginCommand for Summary {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars summary")
-            .usage("For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns.")
+    fn name(&self) -> &str {
+        "polars summary"
+    }
+
+    fn usage(&self) -> &str {
+        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .category(Category::Custom("dataframe".into()))
             .input_output_type(
                 Type::Custom("dataframe".into()),
@@ -35,7 +42,68 @@ impl PluginCommand for Summary {
                 "provide optional quantiles",
                 Some('q'),
             )
-            .plugin_examples(examples())
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "list dataframe descriptives",
+            example: "[[a b]; [1 1] [1 1]] | polars into-df | polars summary",
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "descriptor".to_string(),
+                            vec![
+                                Value::test_string("count"),
+                                Value::test_string("sum"),
+                                Value::test_string("mean"),
+                                Value::test_string("median"),
+                                Value::test_string("std"),
+                                Value::test_string("min"),
+                                Value::test_string("25%"),
+                                Value::test_string("50%"),
+                                Value::test_string("75%"),
+                                Value::test_string("max"),
+                            ],
+                        ),
+                        Column::new(
+                            "a (i64)".to_string(),
+                            vec![
+                                Value::test_float(2.0),
+                                Value::test_float(2.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(0.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                            ],
+                        ),
+                        Column::new(
+                            "b (i64)".to_string(),
+                            vec![
+                                Value::test_float(2.0),
+                                Value::test_float(2.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(0.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                            ],
+                        ),
+                    ],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .base_value(Span::test_data())
+                .expect("rendering base value should not fail"),
+            ),
+        }]
     }
 
     fn run(
@@ -47,68 +115,6 @@ impl PluginCommand for Summary {
     ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call, input).map_err(LabeledError::from)
     }
-}
-
-fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
-        description: "list dataframe descriptives".into(),
-        example: "[[a b]; [1 1] [1 1]] | polars into-df | polars summary".into(),
-        result: Some(
-            NuDataFrame::try_from_columns(
-                vec![
-                    Column::new(
-                        "descriptor".to_string(),
-                        vec![
-                            Value::test_string("count"),
-                            Value::test_string("sum"),
-                            Value::test_string("mean"),
-                            Value::test_string("median"),
-                            Value::test_string("std"),
-                            Value::test_string("min"),
-                            Value::test_string("25%"),
-                            Value::test_string("50%"),
-                            Value::test_string("75%"),
-                            Value::test_string("max"),
-                        ],
-                    ),
-                    Column::new(
-                        "a (i64)".to_string(),
-                        vec![
-                            Value::test_float(2.0),
-                            Value::test_float(2.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(0.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                        ],
-                    ),
-                    Column::new(
-                        "b (i64)".to_string(),
-                        vec![
-                            Value::test_float(2.0),
-                            Value::test_float(2.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(0.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                        ],
-                    ),
-                ],
-                None,
-            )
-            .expect("simple df for test should not fail")
-            .base_value(Span::test_data())
-            .expect("rendering base value should not fail"),
-        ),
-    }]
 }
 
 fn command(

@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
@@ -15,31 +15,41 @@ pub struct DropDF;
 impl PluginCommand for DropDF {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars drop")
-            .usage("Creates a new dataframe by dropping the selected columns.")
+    fn name(&self) -> &str {
+        "polars drop"
+    }
+
+    fn usage(&self) -> &str {
+        "Creates a new dataframe by dropping the selected columns."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .rest("rest", SyntaxShape::Any, "column names to be dropped")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![PluginExample {
-                description: "drop column a".into(),
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars drop a".into(),
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        )],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
-                ),
-            }])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "drop column a",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars drop a",
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(4)],
+                    )],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .base_value(Span::test_data())
+                .expect("rendering base value should not fail"),
+            ),
+        }]
     }
 
     fn run(

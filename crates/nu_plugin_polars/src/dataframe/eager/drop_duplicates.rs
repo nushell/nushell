@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::prelude::UniqueKeepStrategy;
 
@@ -16,9 +16,16 @@ pub struct DropDuplicates;
 impl PluginCommand for DropDuplicates {
     type Plugin = PolarsPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("polars drop-duplicates")
-            .usage("Drops duplicate values in dataframe.")
+    fn name(&self) -> &str {
+        "polars drop-duplicates"
+    }
+
+    fn usage(&self) -> &str {
+        "Drops duplicate values in dataframe."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .optional(
                 "subset",
                 SyntaxShape::Table(vec![]),
@@ -35,29 +42,31 @@ impl PluginCommand for DropDuplicates {
                 Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
-            .plugin_examples(vec![PluginExample {
-                description: "drop duplicates".into(),
-                example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df | polars drop-duplicates"
-                    .into(),
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_int(3), Value::test_int(1)],
-                            ),
-                            Column::new(
-                                "b".to_string(),
-                                vec![Value::test_int(4), Value::test_int(2)],
-                            ),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
-                ),
-            }])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "drop duplicates",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df | polars drop-duplicates",
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(3), Value::test_int(1)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(4), Value::test_int(2)],
+                        ),
+                    ],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .base_value(Span::test_data())
+                .expect("rendering base value should not fail"),
+            ),
+        }]
     }
 
     fn run(

@@ -5,8 +5,7 @@ use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 // The structs defined in this file are structs that form part of other commands
@@ -19,15 +18,26 @@ macro_rules! expr_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
                     .usage($desc)
                     .input_output_type(
                         Type::Custom("expression".into()),
                         Type::Custom("expression".into()),
                     )
                     .category(Category::Custom("expression".into()))
-                    .plugin_examples($examples)
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
             }
 
             fn run(
@@ -76,8 +86,8 @@ macro_rules! expr_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
                     .usage($desc)
                     .input_output_type(
                         Type::Custom("expression".into()),
@@ -137,8 +147,16 @@ macro_rules! lazy_expr_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
                     .usage($desc)
                     .input_output_types(vec![
                         (
@@ -151,7 +169,10 @@ macro_rules! lazy_expr_command {
                         ),
                     ])
                     .category(Category::Custom("expression".into()))
-                    .plugin_examples($examples)
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
             }
 
             fn run(
@@ -237,9 +258,15 @@ macro_rules! lazy_expr_command {
         impl PluginCommand for $command {
             type Plugin = PolarsPlugin;
 
-            fn signature(&self) -> PluginSignature {
-                PluginSignature::build($name)
-                    .usage($desc)
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
                     .input_output_types(vec![
                         (
                             Type::Custom("expression".into()),
@@ -251,7 +278,10 @@ macro_rules! lazy_expr_command {
                         ),
                     ])
                     .category(Category::Custom("expression".into()))
-                    .plugin_examples($examples)
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
             }
 
             fn run(
@@ -338,9 +368,9 @@ expr_command!(
     ExprList,
     "polars implode",
     "Aggregates a group to a Series.",
-    vec![PluginExample {
-        description: "".into(),
-        example: "".into(),
+    vec![Example {
+        description: "",
+        example: "",
         result: None,
     }],
     implode,
@@ -353,9 +383,9 @@ expr_command!(
     ExprAggGroups,
     "polars agg-groups",
     "Creates an agg_groups expression.",
-    vec![PluginExample {
-        description: "".into(),
-        example: "".into(),
+    vec![Example {
+        description: "",
+        example: "",
         result: None,
     }],
     agg_groups,
@@ -368,9 +398,9 @@ expr_command!(
     ExprCount,
     "polars count",
     "Creates a count expression.",
-    vec![PluginExample {
-        description: "".into(),
-        example: "".into(),
+    vec![Example {
+        description: "",
+        example: "",
         result: None,
     }],
     count,
@@ -383,9 +413,9 @@ expr_command!(
     ExprNot,
     "polars expr-not",
     "Creates a not expression.",
-    vec![PluginExample {
-        description: "Creates a not expression".into(),
-        example: "(polars col a) > 2) | polars expr-not".into(),
+    vec![Example {
+        description: "Creates a not expression",
+        example: "(polars col a) > 2) | polars expr-not",
         result: None,
     },],
     not,
@@ -399,7 +429,7 @@ lazy_expr_command!(
     "polars max",
     "Creates a max expression or aggregates columns to their max value.",
     vec![
-        PluginExample {
+        Example {
             description: "Max value from columns in a dataframe".into(),
             example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars max".into(),
             result: Some(
@@ -415,7 +445,7 @@ lazy_expr_command!(
                 .expect("rendering base value should not fail"),
             ),
         },
-        PluginExample {
+        Example {
             description: "Max aggregation for a group-by".into(),
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
@@ -453,9 +483,9 @@ lazy_expr_command!(
     "polars min",
     "Creates a min expression or aggregates columns to their min value.",
     vec![
-        PluginExample {
-            description: "Min value from columns in a dataframe".into(),
-            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min".into(),
+        Example {
+            description: "Min value from columns in a dataframe",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -469,13 +499,12 @@ lazy_expr_command!(
                 .expect("rendering base value should not fail"),
             ),
         },
-        PluginExample {
-            description: "Min aggregation for a group-by".into(),
+        Example {
+            description: "Min aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars min)"#
-                .into(),
+    | polars agg (polars col b | polars min)"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -507,7 +536,7 @@ lazy_expr_command!(
     "polars sum",
     "Creates a sum expression for an aggregation or aggregates columns to their sum value.",
     vec![
-        PluginExample {
+        Example {
             description: "Sums all columns in a dataframe".into(),
             example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum".into(),
             result: Some(
@@ -523,7 +552,7 @@ lazy_expr_command!(
                 .expect("rendering base value should not fail"),
             ),
         },
-        PluginExample {
+        Example {
             description: "Sum aggregation for a group-by".into(),
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
@@ -561,9 +590,9 @@ lazy_expr_command!(
     "polars mean",
     "Creates a mean expression for an aggregation or aggregates columns to their mean value.",
     vec![
-        PluginExample {
-            description: "Mean value from columns in a dataframe".into(),
-            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars mean".into(),
+        Example {
+            description: "Mean value from columns in a dataframe",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars mean",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -577,13 +606,12 @@ lazy_expr_command!(
                 .expect("rendering base value should not fail"),
             ),
         },
-        PluginExample {
-            description: "Mean aggregation for a group-by".into(),
+        Example {
+            description: "Mean aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars mean)"#
-                .into(),
+    | polars agg (polars col b | polars mean)"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -615,7 +643,7 @@ expr_command!(
     // todo - fix.. should only be a single polars median command.
     "polars expr-median",
     "Creates a median expression for an aggregation.",
-    vec![PluginExample {
+    vec![Example {
         description: "Median aggregation for a group-by".into(),
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
@@ -652,9 +680,9 @@ lazy_expr_command!(
     "polars std",
     "Creates a std expression for an aggregation of std value from columns in a dataframe.",
     vec![
-        PluginExample {
-            description: "Std value from columns in a dataframe".into(),
-            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std".into(),
+        Example {
+            description: "Std value from columns in a dataframe",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -668,13 +696,12 @@ lazy_expr_command!(
                 .expect("rendering base value should not fail"),
             ),
         },
-        PluginExample {
-            description: "Std aggregation for a group-by".into(),
+        Example {
+            description: "Std aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars std)"#
-                .into(),
+    | polars agg (polars col b | polars std)"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -707,11 +734,10 @@ lazy_expr_command!(
     "polars var",
     "Create a var expression for an aggregation.",
     vec![
-        PluginExample {
+        Example {
             description:
-                "Var value from columns in a dataframe or aggregates columns to their var value"
-                    .into(),
-            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var".into(),
+                "Var value from columns in a dataframe or aggregates columns to their var value",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -725,13 +751,12 @@ lazy_expr_command!(
                 .expect("rendering base value should not fail"),
             ),
         },
-        PluginExample {
-            description: "Var aggregation for a group-by".into(),
+        Example {
+            description: "Var aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars var)"#
-                .into(),
+    | polars agg (polars col b | polars var)"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
