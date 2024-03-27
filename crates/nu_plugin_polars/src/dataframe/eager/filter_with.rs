@@ -1,21 +1,26 @@
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::prelude::LazyFrame;
 
-use crate::dataframe::values::{NuExpression, NuLazyFrame};
+use crate::{
+    dataframe::values::{NuExpression, NuLazyFrame},
+    values::PhysicalType,
+    Cacheable, CustomValueSupport, PolarsPlugin,
+};
 
 use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct FilterWith;
 
-impl Command for FilterWith {
+impl PluginCommand for FilterWith {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr filter-with"
+        "polars filter-with"
     }
 
     fn usage(&self) -> &str {
@@ -40,8 +45,8 @@ impl Command for FilterWith {
         vec![
             Example {
                 description: "Filter dataframe using a bool mask",
-                example: r#"let mask = ([true false] | dfr into-df);
-    [[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with $mask"#,
+                example: r#"let mask = ([true false] | polars into-df);
+    [[a b]; [1 2] [3 4]] | polars into-df | polars filter-with $mask"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -57,7 +62,7 @@ impl Command for FilterWith {
             },
             Example {
                 description: "Filter dataframe using an expression",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with ((dfr col a) > 1)",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars filter-with ((polars col a) > 1)",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -76,43 +81,46 @@ impl Command for FilterWith {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
+    ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
 
-        if NuLazyFrame::can_downcast(&value) {
-            let df = NuLazyFrame::try_from_value(value)?;
-            command_lazy(engine_state, stack, call, df)
-        } else {
-            let df = NuDataFrame::try_from_value(value)?;
-            command_eager(engine_state, stack, call, df)
+        match PhysicalType::try_from_value(plugin, &value).map_err(LabeledError::from)? {
+            PhysicalType::NuDataFrame(df) => {
+                command_eager(plugin, engine, call, df).map_err(LabeledError::from)
+            }
+            PhysicalType::NuLazyFrame(lazy) => {
+                command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
+            }
+            _ => Err(LabeledError::new("Unsupported type: {value}")
+                .with_label("Unsupported Type", call.head)),
         }
     }
 }
 
 fn command_eager(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let mask_value: Value = call.req(engine_state, stack, 0)?;
+    let mask_value: Value = call.req(0)?;
     let mask_span = mask_value.span();
 
     if NuExpression::can_downcast(&mask_value) {
-        let expression = NuExpression::try_from_value(mask_value)?;
+        let expression = NuExpression::try_from_value(plugin, &mask_value)?;
         let lazy = NuLazyFrame::new(true, df.lazy());
         let lazy = lazy.apply_with_expr(expression, LazyFrame::filter);
 
         Ok(PipelineData::Value(
-            NuLazyFrame::into_value(lazy, call.head)?,
+            lazy.cache(plugin, engine)?.into_value(call.head),
             None,
         ))
     } else {
-        let mask = NuDataFrame::try_from_value(mask_value)?.as_series(mask_span)?;
+        let mask = NuDataFrame::try_from_value(plugin, &mask_value)?.as_series(mask_span)?;
         let mask = mask.bool().map_err(|e| ShellError::GenericError {
             error: "Error casting to bool".into(),
             msg: e.to_string(),
@@ -121,7 +129,8 @@ fn command_eager(
             inner: vec![],
         })?;
 
-        df.as_ref()
+        let df = df
+            .as_ref()
             .filter(mask)
             .map_err(|e| ShellError::GenericError {
                 error: "Error filtering dataframe".into(),
@@ -129,36 +138,40 @@ fn command_eager(
                 span: Some(call.head),
                 help: Some("The only allowed column types for dummies are String or Int".into()),
                 inner: vec![],
-            })
-            .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
+            })?;
+        let df = NuDataFrame::new(false, df);
+        Ok(PipelineData::Value(
+            df.cache(plugin, engine)?.into_value(call.head),
+            None,
+        ))
     }
 }
 
 fn command_lazy(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let expr: Value = call.req(engine_state, stack, 0)?;
-    let expr = NuExpression::try_from_value(expr)?;
+    let expr: Value = call.req(0)?;
+    let expr = NuExpression::try_from_value(plugin, &expr)?;
 
     let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
 
     Ok(PipelineData::Value(
-        NuLazyFrame::into_value(lazy, call.head)?,
+        lazy.cache(plugin, engine)?.into_value(call.head),
         None,
     ))
 }
 
-#[cfg(test)]
-mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-    use crate::dataframe::expressions::ExprCol;
-
-    #[test]
-    fn test_examples() {
-        test_dataframe(vec![Box::new(FilterWith {}), Box::new(ExprCol {})])
-    }
-}
+// #[cfg(test)]
+// mod test {
+//     use super::super::super::test_dataframe::test_dataframe;
+//     use super::*;
+//     use crate::dataframe::expressions::ExprCol;
+//
+//     #[test]
+//     fn test_examples() {
+//         test_dataframe(vec![Box::new(FilterWith {}), Box::new(ExprCol {})])
+//     }
+// }

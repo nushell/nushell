@@ -6,7 +6,7 @@ mod drop_duplicates;
 mod drop_nulls;
 mod dtypes;
 mod dummies;
-// mod filter_with;
+mod filter_with;
 mod first;
 // mod get;
 mod last;
@@ -43,7 +43,7 @@ pub use drop_duplicates::DropDuplicates;
 pub use drop_nulls::DropNulls;
 pub use dtypes::DataTypes;
 pub use dummies::Dummies;
-// pub use filter_with::FilterWith;
+pub use filter_with::FilterWith;
 pub use first::FirstDF;
 // pub use get::GetDF;
 pub use last::LastDF;
@@ -77,6 +77,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(DropDuplicates),
         Box::new(DropNulls),
         Box::new(Dummies),
+        Box::new(FilterWith),
         Box::new(OpenDataFrame),
         Box::new(ToDataFrame),
         Box::new(Summary),
