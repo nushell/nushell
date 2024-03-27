@@ -51,7 +51,7 @@ impl From<ChainedThen> for NuWhen {
 
 impl NuWhen {
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {

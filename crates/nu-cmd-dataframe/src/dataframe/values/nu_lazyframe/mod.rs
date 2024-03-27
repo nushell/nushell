@@ -90,9 +90,9 @@ impl NuLazyFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
-            Ok(Value::custom_value(Box::new(df), span))
+            Ok(Value::custom(Box::new(df), span))
         } else {
-            Ok(Value::custom_value(Box::new(self), span))
+            Ok(Value::custom(Box::new(self), span))
         }
     }
 

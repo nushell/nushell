@@ -17,7 +17,7 @@ impl CustomValue for NuDataFrame {
             from_lazy: false,
         };
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {

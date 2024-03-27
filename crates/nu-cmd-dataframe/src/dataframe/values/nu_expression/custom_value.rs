@@ -19,7 +19,7 @@ impl CustomValue for NuExpression {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         let cloned = NuExpression(self.0.clone());
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {

@@ -2051,7 +2051,7 @@ impl Value {
         }
     }
 
-    pub fn custom_value(val: Box<dyn CustomValue>, span: Span) -> Value {
+    pub fn custom(val: Box<dyn CustomValue>, span: Span) -> Value {
         Value::Custom {
             val,
             internal_span: span,
@@ -2164,7 +2164,7 @@ impl Value {
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_custom_value(val: Box<dyn CustomValue>) -> Value {
-        Value::custom_value(val, Span::test_data())
+        Value::custom(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source

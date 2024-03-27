@@ -116,15 +116,15 @@ impl NuDataFrame {
     }
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
-        Value::custom_value(Box::new(Self::new(false, dataframe)), span)
+        Value::custom(Box::new(Self::new(false, dataframe)), span)
     }
 
     pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Value::custom_value(Box::new(lazy), span)
+            Value::custom(Box::new(lazy), span)
         } else {
-            Value::custom_value(Box::new(self), span)
+            Value::custom(Box::new(self), span)
         }
     }
 

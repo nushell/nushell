@@ -74,7 +74,7 @@ impl From<LazyGroupBy> for NuLazyGroupBy {
 
 impl NuLazyGroupBy {
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn into_polars(self) -> LazyGroupBy {

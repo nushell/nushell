@@ -16,7 +16,7 @@ impl SecondCustomValue {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
@@ -44,7 +44,7 @@ impl SecondCustomValue {
 #[typetag::serde]
 impl CustomValue for SecondCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {

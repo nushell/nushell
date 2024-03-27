@@ -15,7 +15,7 @@ impl CoolCustomValue {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
@@ -46,7 +46,7 @@ impl CoolCustomValue {
 #[typetag::serde]
 impl CustomValue for CoolCustomValue {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {
@@ -118,7 +118,7 @@ impl CustomValue for CoolCustomValue {
                     .ok()
                     .and_then(|c| c.as_any().downcast_ref::<CoolCustomValue>())
                 {
-                    Ok(Value::custom_value(
+                    Ok(Value::custom(
                         Box::new(CoolCustomValue {
                             cool: format!("{}{}", self.cool, right.cool),
                         }),
