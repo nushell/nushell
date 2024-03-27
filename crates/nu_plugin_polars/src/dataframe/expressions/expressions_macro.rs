@@ -188,7 +188,7 @@ macro_rules! lazy_expr_command {
                         NuLazyFrame::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
                         lazy.from_eager,
-                        lazy.into_polars()
+                        lazy.to_polars()
                             .$func()
                             .map_err(|e| ShellError::GenericError {
                                 error: "Dataframe Error".into(),
@@ -297,7 +297,7 @@ macro_rules! lazy_expr_command {
                         NuLazyFrame::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
                         lazy.from_eager,
-                        lazy.into_polars()
+                        lazy.to_polars()
                             .$func($ddof)
                             .map_err(|e| ShellError::GenericError {
                                 error: "Dataframe Error".into(),

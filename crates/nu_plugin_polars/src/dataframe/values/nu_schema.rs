@@ -36,6 +36,12 @@ impl From<NuSchema> for SchemaRef {
     }
 }
 
+impl From<SchemaRef> for NuSchema {
+    fn from(val: SchemaRef) -> Self {
+        Self { schema: val }
+    }
+}
+
 fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
     let record = fields
         .map(|field| {

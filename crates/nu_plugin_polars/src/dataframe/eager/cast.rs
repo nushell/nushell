@@ -146,7 +146,7 @@ fn command_lazy(
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     let column = col(&column_nm).cast(dtype);
-    let lazy = lazy.into_polars().with_columns(&[column]);
+    let lazy = lazy.to_polars().with_columns(&[column]);
     let lazy = NuLazyFrame::new(false, lazy);
     let val = lazy.cache(plugin, engine)?.into_value(call.head);
 

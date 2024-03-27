@@ -10,7 +10,7 @@ pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Value};
 pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::{NuWhen, NuWhenCustomValue};
 use uuid::Uuid;
@@ -49,6 +49,15 @@ impl PhysicalType {
                 help: None,
             })
         }
+    }
+
+    pub fn try_from_pipeline(
+        plugin: &PolarsPlugin,
+        input: PipelineData,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value(plugin, &value)
     }
 }
 

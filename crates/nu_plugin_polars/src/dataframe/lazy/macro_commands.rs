@@ -47,7 +47,7 @@ macro_rules! lazy_command {
             ) -> Result<PipelineData, LabeledError> {
                 let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
-                let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func());
+                let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().$func());
 
                 Ok(PipelineData::Value(
                     lazy.cache(plugin, engine)?.into_value(call.head),
@@ -159,7 +159,7 @@ macro_rules! lazy_command {
 
                 let lazy = NuLazyFrame::new(
                     lazy.from_eager,
-                    lazy.into_polars()
+                    lazy.to_polars()
                         .$func()
                         .map_err(|e| ShellError::GenericError {
                             error: "Dataframe Error".into(),

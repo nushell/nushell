@@ -2,10 +2,11 @@ mod custom_value;
 
 use crate::{Cacheable, CustomValueSupport};
 
-use super::{NuDataFrame, NuExpression, PhysicalType};
+use super::{NuDataFrame, NuExpression, NuSchema, PhysicalType};
 use core::fmt;
 use nu_protocol::{record, ShellError, Span, Value};
-use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
+use polars::prelude::{Expr, IntoLazy, LazyFrame};
+use std::sync::Arc;
 use uuid::Uuid;
 
 pub use custom_value::NuLazyFrameCustomValue;
@@ -16,31 +17,13 @@ pub use custom_value::NuLazyFrameCustomValue;
 #[derive(Default, Clone)]
 pub struct NuLazyFrame {
     pub id: Uuid,
-    pub lazy: Option<LazyFrame>,
-    pub schema: Option<Schema>,
+    pub lazy: Arc<LazyFrame>,
     pub from_eager: bool,
 }
 
 impl fmt::Debug for NuLazyFrame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NuLazyframe")
-    }
-}
-
-// Referenced access to the real LazyFrame
-impl AsRef<LazyFrame> for NuLazyFrame {
-    fn as_ref(&self) -> &polars::prelude::LazyFrame {
-        // The only case when there cannot be a lazy frame is if it is created
-        // using the default function or if created by deserializing something
-        self.lazy.as_ref().expect("there should always be a frame")
-    }
-}
-
-impl AsMut<LazyFrame> for NuLazyFrame {
-    fn as_mut(&mut self) -> &mut polars::prelude::LazyFrame {
-        // The only case when there cannot be a lazy frame is if it is created
-        // using the default function or if created by deserializing something
-        self.lazy.as_mut().expect("there should always be a frame")
     }
 }
 
@@ -52,15 +35,10 @@ impl From<LazyFrame> for NuLazyFrame {
 
 impl NuLazyFrame {
     pub fn new(from_eager: bool, lazy: LazyFrame) -> Self {
-        Self::new_with_option_lazy(from_eager, Some(lazy))
-    }
-
-    fn new_with_option_lazy(from_eager: bool, lazy: Option<LazyFrame>) -> Self {
         Self {
             id: Uuid::new_v4(),
-            lazy,
+            lazy: Arc::new(lazy),
             from_eager,
-            schema: None,
         }
     }
 
@@ -69,13 +47,12 @@ impl NuLazyFrame {
         NuLazyFrame::new(true, lazy)
     }
 
-    pub fn into_polars(self) -> LazyFrame {
-        self.lazy.expect("lazyframe cannot be none to convert")
+    pub fn to_polars(&self) -> LazyFrame {
+        (*self.lazy).clone()
     }
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
-        self.lazy
-            .expect("No empty lazy for collect")
+        self.to_polars()
             .collect()
             .map_err(|e| ShellError::GenericError {
                 error: "Error collecting lazy frame".into(),
@@ -91,10 +68,21 @@ impl NuLazyFrame {
     where
         F: Fn(LazyFrame, Expr) -> LazyFrame,
     {
-        let df = self.lazy.expect("Lazy frame must not be empty to apply");
+        let df = self.to_polars();
         let expr = expr.into_polars();
         let new_frame = f(df, expr);
         Self::new(self.from_eager, new_frame)
+    }
+
+    pub fn schema(&self) -> Result<NuSchema, ShellError> {
+        let internal_schema = self.lazy.schema().map_err(|e| ShellError::GenericError {
+            error: "Error getting schema from lazy frame".into(),
+            msg: e.to_string(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
+        Ok(internal_schema.into())
     }
 }
 
@@ -137,12 +125,12 @@ impl CustomValueSupport for NuLazyFrame {
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
         let optimized_plan = self
-            .as_ref()
+            .lazy
             .describe_optimized_plan()
             .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
         Ok(Value::record(
             record! {
-                "plan" => Value::string(self.as_ref().describe_plan(), span),
+                "plan" => Value::string(self.lazy.describe_plan(), span),
                 "optimized_plan" => Value::string(optimized_plan, span),
             },
             span,

@@ -191,7 +191,7 @@ fn command_lazy(
         });
     }
 
-    let lazy = lazy.into_polars();
+    let lazy = lazy.to_polars();
     let lazy: NuLazyFrame = lazy.rename(&columns, &new_names).into();
 
     Ok(PipelineData::Value(
