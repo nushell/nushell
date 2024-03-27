@@ -14,7 +14,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.91.1", features = ["plugin
 
 indexmap = { workspace = true }
 eml-parser = "0.1"
-ical = "0.10"
+ical = "0.11"
 rust-ini = "0.20.0"
 
 [dev-dependencies]
