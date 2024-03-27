@@ -13,6 +13,7 @@ pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::{NuWhen, NuWhenCustomValue};
+use uuid::Uuid;
 
 use crate::{CustomValueSupport, PolarsPlugin};
 
@@ -61,6 +62,16 @@ pub enum CustomValueType {
 }
 
 impl CustomValueType {
+    pub fn id(&self) -> Uuid {
+        match self {
+            CustomValueType::NuDataFrame(df_cv) => df_cv.id,
+            CustomValueType::NuLazyFrame(lf_cv) => lf_cv.id,
+            CustomValueType::NuExpression(e_cv) => e_cv.id,
+            CustomValueType::NuLazyGroupBy(lg_cv) => lg_cv.id,
+            CustomValueType::NuWhen(w_cv) => w_cv.id,
+        }
+    }
+
     pub fn try_from_custom_value(val: Box<dyn CustomValue>) -> Result<CustomValueType, ShellError> {
         if let Some(df_cv) = val.as_any().downcast_ref::<NuDataFrameCustomValue>() {
             Ok(CustomValueType::NuDataFrame(df_cv.clone()))

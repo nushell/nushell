@@ -1,10 +1,7 @@
 use std::cmp::Ordering;
 
 pub use cache::{Cache, Cacheable};
-use dataframe::{
-    stub::PolarsCmd,
-    values::{CustomValueType, NuDataFrameCustomValue, NuLazyFrameCustomValue, NuLazyGroupBy},
-};
+use dataframe::{stub::PolarsCmd, values::CustomValueType};
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 mod cache;
@@ -36,28 +33,8 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
-        let any = custom_value.as_any();
-
-        let maybe_id = if let Some(df) = any.downcast_ref::<NuDataFrameCustomValue>() {
-            eprintln!("removing DataFrame id: {:?} from cache", df.id);
-            Some(df.id)
-        } else if let Some(lazy) = any.downcast_ref::<NuLazyFrameCustomValue>() {
-            eprintln!("removing LazyFrame id: {:?} from cache", lazy.id);
-            Some(lazy.id)
-        } else if let Some(gb) = any.downcast_ref::<NuLazyGroupBy>() {
-            eprintln!("removing GroupBy id: {:?} from cache", gb.id);
-            Some(gb.id)
-        } else {
-            None
-        };
-
-        if let Some(ref id) = maybe_id {
-            let _ = self
-                .cache
-                .remove(engine, id)
-                .map_err(|e: ShellError| LabeledError::from(e))?;
-        }
-
+        let id = CustomValueType::try_from_custom_value(custom_value)?.id();
+        let _ = self.cache.remove(engine, &id);
         Ok(())
     }
 
@@ -67,23 +44,14 @@ impl Plugin for PolarsPlugin {
         custom_value: Spanned<Box<dyn CustomValue>>,
     ) -> Result<Value, LabeledError> {
         eprintln!("Polars plugin customn_value_to_base_value called");
-        match CustomValueType::try_from_custom_value(custom_value.item)? {
-            CustomValueType::NuDataFrame(cv) => cv
-                .custom_value_to_base_value(self, engine)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyFrame(cv) => cv
-                .custom_value_to_base_value(self, engine)
-                .map_err(LabeledError::from),
-            CustomValueType::NuExpression(cv) => cv
-                .custom_value_to_base_value(self, engine)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyGroupBy(cv) => cv
-                .custom_value_to_base_value(self, engine)
-                .map_err(LabeledError::from),
-            CustomValueType::NuWhen(cv) => cv
-                .custom_value_to_base_value(self, engine)
-                .map_err(LabeledError::from),
-        }
+        let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
+            CustomValueType::NuDataFrame(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuLazyFrame(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuExpression(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuLazyGroupBy(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuWhen(cv) => cv.custom_value_to_base_value(self, engine),
+        };
+        Ok(result?)
     }
 
     fn custom_value_operation(
@@ -93,24 +61,24 @@ impl Plugin for PolarsPlugin {
         operator: Spanned<Operator>,
         right: Value,
     ) -> Result<Value, LabeledError> {
-        match CustomValueType::try_from_custom_value(left.item)? {
-            CustomValueType::NuDataFrame(cv) => cv
-                .custom_value_operation(self, engine, left.span, operator, right)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyFrame(cv) => cv
-                .custom_value_operation(self, engine, left.span, operator, right)
-                .map_err(LabeledError::from),
-
-            CustomValueType::NuExpression(cv) => cv
-                .custom_value_operation(self, engine, left.span, operator, right)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyGroupBy(cv) => cv
-                .custom_value_operation(self, engine, left.span, operator, right)
-                .map_err(LabeledError::from),
-            CustomValueType::NuWhen(cv) => cv
-                .custom_value_operation(self, engine, left.span, operator, right)
-                .map_err(LabeledError::from),
-        }
+        let result = match CustomValueType::try_from_custom_value(left.item)? {
+            CustomValueType::NuDataFrame(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuLazyFrame(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuExpression(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuLazyGroupBy(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuWhen(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+        };
+        Ok(result?)
     }
 
     fn custom_value_follow_path_int(
@@ -119,23 +87,24 @@ impl Plugin for PolarsPlugin {
         custom_value: Spanned<Box<dyn CustomValue>>,
         index: Spanned<usize>,
     ) -> Result<Value, LabeledError> {
-        match CustomValueType::try_from_custom_value(custom_value.item)? {
-            CustomValueType::NuDataFrame(cv) => cv
-                .custom_value_follow_path_int(self, engine, custom_value.span, index)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyFrame(cv) => cv
-                .custom_value_follow_path_int(self, engine, custom_value.span, index)
-                .map_err(LabeledError::from),
-            CustomValueType::NuExpression(cv) => cv
-                .custom_value_follow_path_int(self, engine, custom_value.span, index)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyGroupBy(cv) => cv
-                .custom_value_follow_path_int(self, engine, custom_value.span, index)
-                .map_err(LabeledError::from),
-            CustomValueType::NuWhen(cv) => cv
-                .custom_value_follow_path_int(self, engine, custom_value.span, index)
-                .map_err(LabeledError::from),
-        }
+        let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
+            CustomValueType::NuDataFrame(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+            CustomValueType::NuLazyFrame(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+            CustomValueType::NuExpression(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+            CustomValueType::NuLazyGroupBy(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+            CustomValueType::NuWhen(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+        };
+        Ok(result?)
     }
 
     fn custom_value_follow_path_string(
@@ -144,23 +113,24 @@ impl Plugin for PolarsPlugin {
         custom_value: Spanned<Box<dyn CustomValue>>,
         column_name: Spanned<String>,
     ) -> Result<Value, LabeledError> {
-        match CustomValueType::try_from_custom_value(custom_value.item)? {
-            CustomValueType::NuDataFrame(cv) => cv
-                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyFrame(cv) => cv
-                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
-                .map_err(LabeledError::from),
-            CustomValueType::NuExpression(cv) => cv
-                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyGroupBy(cv) => cv
-                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
-                .map_err(LabeledError::from),
-            CustomValueType::NuWhen(cv) => cv
-                .custom_value_follow_path_string(self, engine, custom_value.span, column_name)
-                .map_err(LabeledError::from),
-        }
+        let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
+            CustomValueType::NuDataFrame(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
+            CustomValueType::NuLazyFrame(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
+            CustomValueType::NuExpression(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
+            CustomValueType::NuLazyGroupBy(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
+            CustomValueType::NuWhen(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
+        };
+        Ok(result?)
     }
 
     fn custom_value_partial_cmp(
@@ -169,23 +139,22 @@ impl Plugin for PolarsPlugin {
         custom_value: Box<dyn CustomValue>,
         other_value: Value,
     ) -> Result<Option<Ordering>, LabeledError> {
-        match CustomValueType::try_from_custom_value(custom_value)? {
-            CustomValueType::NuDataFrame(cv) => cv
-                .custom_value_partial_cmp(self, engine, other_value)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyFrame(cv) => cv
-                .custom_value_partial_cmp(self, engine, other_value)
-                .map_err(LabeledError::from),
-            CustomValueType::NuExpression(cv) => cv
-                .custom_value_partial_cmp(self, engine, other_value)
-                .map_err(LabeledError::from),
-            CustomValueType::NuLazyGroupBy(cv) => cv
-                .custom_value_partial_cmp(self, engine, other_value)
-                .map_err(LabeledError::from),
-            CustomValueType::NuWhen(cv) => cv
-                .custom_value_partial_cmp(self, engine, other_value)
-                .map_err(LabeledError::from),
-        }
+        let result = match CustomValueType::try_from_custom_value(custom_value)? {
+            CustomValueType::NuDataFrame(cv) => {
+                cv.custom_value_partial_cmp(self, engine, other_value)
+            }
+            CustomValueType::NuLazyFrame(cv) => {
+                cv.custom_value_partial_cmp(self, engine, other_value)
+            }
+            CustomValueType::NuExpression(cv) => {
+                cv.custom_value_partial_cmp(self, engine, other_value)
+            }
+            CustomValueType::NuLazyGroupBy(cv) => {
+                cv.custom_value_partial_cmp(self, engine, other_value)
+            }
+            CustomValueType::NuWhen(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
+        };
+        Ok(result?)
     }
 }
 

@@ -33,6 +33,7 @@ impl Cache {
         if lock.is_empty() {
             engine.set_gc_disabled(false).map_err(LabeledError::from)?;
         }
+        eprintln!("Inserting {uuid} into cache: {removed:?}");
         Ok(removed)
     }
 
@@ -58,6 +59,7 @@ impl Cache {
         if lock.is_empty() {
             engine.set_gc_disabled(true).map_err(LabeledError::from)?;
         }
+        eprintln!("Inserting {uuid} into cache: {value:?}");
         Ok(lock.insert(uuid, value))
     }
 
