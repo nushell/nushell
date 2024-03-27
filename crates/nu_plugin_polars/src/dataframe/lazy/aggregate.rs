@@ -42,7 +42,7 @@ impl PluginCommand for LazyAggregate {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Group by and perform an aggregation".into(),
+                description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
     | polars into-df
     | polars group-by a
@@ -50,8 +50,7 @@ impl PluginCommand for LazyAggregate {
         (polars col b | polars min | polars as "b_min")
         (polars col b | polars max | polars as "b_max")
         (polars col b | polars sum | polars as "b_sum")
-     ]"#
-                .into(),
+     ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -80,7 +79,7 @@ impl PluginCommand for LazyAggregate {
                 ),
             },
             Example {
-                description: "Group by and perform an aggregation".into(),
+                description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
     | polars into-lazy
     | polars group-by a
@@ -89,8 +88,7 @@ impl PluginCommand for LazyAggregate {
         (polars col b | polars max | polars as "b_max")
         (polars col b | polars sum | polars as "b_sum")
      ]
-    | polars collect"#
-                    .into(),
+    | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

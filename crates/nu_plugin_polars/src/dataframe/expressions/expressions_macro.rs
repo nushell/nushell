@@ -430,8 +430,8 @@ lazy_expr_command!(
     "Creates a max expression or aggregates columns to their max value.",
     vec![
         Example {
-            description: "Max value from columns in a dataframe".into(),
-            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars max".into(),
+            description: "Max value from columns in a dataframe",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars max",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -446,12 +446,11 @@ lazy_expr_command!(
             ),
         },
         Example {
-            description: "Max aggregation for a group-by".into(),
+            description: "Max aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars max)"#
-                .into(),
+    | polars agg (polars col b | polars max)"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -537,8 +536,8 @@ lazy_expr_command!(
     "Creates a sum expression for an aggregation or aggregates columns to their sum value.",
     vec![
         Example {
-            description: "Sums all columns in a dataframe".into(),
-            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum".into(),
+            description: "Sums all columns in a dataframe",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -553,12 +552,11 @@ lazy_expr_command!(
             ),
         },
         Example {
-            description: "Sum aggregation for a group-by".into(),
+            description: "Sum aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars sum)"#
-                .into(),
+    | polars agg (polars col b | polars sum)"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -644,12 +642,11 @@ expr_command!(
     "polars expr-median",
     "Creates a median expression for an aggregation.",
     vec![Example {
-        description: "Median aggregation for a group-by".into(),
+        description: "Median aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars median)"#
-            .into(),
+    | polars agg (polars col b | polars median)"#,
         result: Some(
             NuDataFrame::try_from_columns(
                 vec![

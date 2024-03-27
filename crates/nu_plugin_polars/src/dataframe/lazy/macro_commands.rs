@@ -199,8 +199,8 @@ lazy_command!(
     "polars reverse",
     "Reverses the LazyFrame",
     vec![Example {
-        description: "Reverses the dataframe.".into(),
-        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse".into(),
+        description: "Reverses the dataframe.",
+        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars reverse",
         result: Some(
             NuDataFrame::try_from_columns(
                 vec![
