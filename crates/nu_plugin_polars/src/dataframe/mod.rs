@@ -2,6 +2,6 @@ pub mod eager;
 pub mod expressions;
 pub mod lazy;
 // mod series;
-// mod stub;
+pub mod stub;
 // mod utils;
 pub mod values;

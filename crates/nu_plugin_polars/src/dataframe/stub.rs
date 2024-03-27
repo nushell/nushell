@@ -1,14 +1,16 @@
-use nu_engine::get_full_help;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{Category, LabeledError, PipelineData, Signature, Type, Value};
+
+use crate::PolarsPlugin;
 
 #[derive(Clone)]
-pub struct Dfr;
+pub struct PolarsCmd;
 
-impl Command for Dfr {
+impl PluginCommand for PolarsCmd {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr"
+        "polars"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +18,7 @@ impl Command for Dfr {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("dfr")
+        Signature::build("polars")
             .category(Category::Custom("dataframe".into()))
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
@@ -27,21 +29,23 @@ impl Command for Dfr {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _plugin: &Self::Plugin,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
         _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(
-                &Dfr.signature(),
-                &Dfr.examples(),
-                engine_state,
-                stack,
-                self.is_parser_keyword(),
-            ),
-            call.head,
-        )
-        .into_pipeline_data())
+    ) -> Result<PipelineData, LabeledError> {
+        // todo - find a replacmeent for get_full_help
+        // Ok(Value::string(
+        //     get_full_help(
+        //         &PolarsCmd.signature(),
+        //         &PolarsCmd.examples(),
+        //         engine_state,
+        //         stack,
+        //         self.is_parser_keyword(),
+        //     ),
+        //     call.head,
+        // )
+        // .into_pipeline_data())
+        Ok(PipelineData::Value(Value::nothing(call.head), None))
     }
 }

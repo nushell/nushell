@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 
 pub use cache::{Cache, Cacheable};
-use dataframe::values::{
-    CustomValueType, NuDataFrameCustomValue, NuLazyFrameCustomValue, NuLazyGroupBy,
+use dataframe::{
+    stub::PolarsCmd,
+    values::{CustomValueType, NuDataFrameCustomValue, NuLazyFrameCustomValue, NuLazyGroupBy},
 };
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
@@ -14,18 +15,7 @@ use nu_protocol::{
 };
 use uuid::Uuid;
 
-use crate::{
-    eager::{
-        AppendDF, CastDF, ColumnsDF, DataTypes, DropDF, DropDuplicates, DropNulls, Dummies,
-        FirstDF, LastDF, ListDF, OpenDataFrame, Summary, ToArrow, ToCSV, ToDataFrame, ToNu,
-        ToParquet,
-    },
-    expressions::{
-        ExprAggGroups, ExprCount, ExprList, ExprMax, ExprMean, ExprMedian, ExprMin, ExprNot,
-        ExprStd, ExprSum, ExprVar,
-    },
-    lazy::{LazyAggregate, LazyCache, LazyCollect, LazyMedian, LazyReverse},
-};
+use crate::{eager::eager_commands, expressions::expr_commands, lazy::lazy_commands};
 
 #[derive(Default)]
 pub struct PolarsPlugin {
@@ -34,42 +24,11 @@ pub struct PolarsPlugin {
 
 impl Plugin for PolarsPlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
-        vec![
-            Box::new(AppendDF),
-            Box::new(CastDF),
-            Box::new(DataTypes),
-            Box::new(DropDF),
-            Box::new(DropDuplicates),
-            Box::new(DropNulls),
-            Box::new(Dummies),
-            Box::new(OpenDataFrame),
-            Box::new(ToDataFrame),
-            Box::new(Summary),
-            Box::new(FirstDF),
-            Box::new(LastDF),
-            Box::new(ListDF),
-            Box::new(ColumnsDF),
-            Box::new(ToNu),
-            Box::new(ToArrow),
-            Box::new(ToCSV),
-            Box::new(ToParquet),
-            Box::new(LazyAggregate),
-            Box::new(LazyCache),
-            Box::new(LazyCollect),
-            Box::new(LazyMedian),
-            Box::new(LazyReverse),
-            Box::new(ExprList),
-            Box::new(ExprAggGroups),
-            Box::new(ExprCount),
-            Box::new(ExprNot),
-            Box::new(ExprMax),
-            Box::new(ExprMin),
-            Box::new(ExprSum),
-            Box::new(ExprMean),
-            Box::new(ExprMedian),
-            Box::new(ExprStd),
-            Box::new(ExprVar),
-        ]
+        let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> = vec![Box::new(PolarsCmd)];
+        commands.append(&mut eager_commands());
+        commands.append(&mut lazy_commands());
+        commands.append(&mut expr_commands());
+        commands
     }
 
     fn custom_value_dropped(

@@ -32,7 +32,7 @@ mod to_nu;
 mod to_parquet;
 // mod with_column;
 
-// use nu_protocol::engine::StateWorkingSet;
+use crate::PolarsPlugin;
 
 pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
@@ -48,6 +48,7 @@ pub use first::FirstDF;
 // pub use get::GetDF;
 pub use last::LastDF;
 pub use list::ListDF;
+use nu_plugin::PluginCommand;
 // pub use melt::MeltDF;
 // pub use query_df::QueryDf;
 // pub use rename::RenameDF;
@@ -66,3 +67,26 @@ pub use to_df::ToDataFrame;
 pub use to_nu::ToNu;
 pub use to_parquet::ToParquet;
 // pub use with_column::WithColumn;
+
+pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
+    vec![
+        Box::new(AppendDF),
+        Box::new(CastDF),
+        Box::new(DataTypes),
+        Box::new(DropDF),
+        Box::new(DropDuplicates),
+        Box::new(DropNulls),
+        Box::new(Dummies),
+        Box::new(OpenDataFrame),
+        Box::new(ToDataFrame),
+        Box::new(Summary),
+        Box::new(FirstDF),
+        Box::new(LastDF),
+        Box::new(ListDF),
+        Box::new(ColumnsDF),
+        Box::new(ToNu),
+        Box::new(ToArrow),
+        Box::new(ToCSV),
+        Box::new(ToParquet),
+    ]
+}

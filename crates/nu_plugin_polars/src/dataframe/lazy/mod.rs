@@ -16,8 +16,11 @@ mod macro_commands;
 
 // use nu_protocol::engine::StateWorkingSet;
 
+use nu_plugin::PluginCommand;
+
 pub use crate::dataframe::lazy::aggregate::LazyAggregate;
 pub use crate::dataframe::lazy::collect::LazyCollect;
+use crate::PolarsPlugin;
 // use crate::dataframe::lazy::fetch::LazyFetch;
 // use crate::dataframe::lazy::fill_nan::LazyFillNA;
 // pub use crate::dataframe::lazy::fill_null::LazyFillNull;
@@ -32,34 +35,12 @@ pub(crate) use crate::dataframe::lazy::macro_commands::*;
 // pub use explode::LazyExplode;
 // pub use flatten::LazyFlatten;
 
-// pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
-//     macro_rules! bind_command {
-//             ( $command:expr ) => {
-//                 working_set.add_decl(Box::new($command));
-//             };
-//             ( $( $command:expr ),* ) => {
-//                 $( working_set.add_decl(Box::new($command)); )*
-//             };
-//         }
-//
-//     // Dataframe commands
-//     bind_command!(
-//         LazyAggregate,
-//         LazyCache,
-//         LazyCollect,
-//         LazyFetch,
-//         LazyFillNA,
-//         LazyFillNull,
-//         LazyFilter,
-//         LazyJoin,
-//         LazyQuantile,
-//         LazyMedian,
-//         LazyReverse,
-//         LazySelect,
-//         LazySortBy,
-//         ToLazyFrame,
-//         ToLazyGroupBy,
-//         LazyExplode,
-//         LazyFlatten
-//     );
-// }
+pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
+    vec![
+        Box::new(LazyAggregate),
+        Box::new(LazyCache),
+        Box::new(LazyCollect),
+        Box::new(LazyMedian),
+        Box::new(LazyReverse),
+    ]
+}
