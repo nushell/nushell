@@ -1,22 +1,31 @@
 use crate::FromCmds;
+
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, PluginExample, PluginSignature, Record, ShellError, Type, Value,
+    record, Category, Example, LabeledError, Record, ShellError, Signature, Type, Value,
 };
-
-pub const CMD_NAME: &str = "from ini";
 
 pub struct FromIni;
 
 impl SimplePluginCommand for FromIni {
     type Plugin = FromCmds;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build(CMD_NAME)
+    fn name(&self) -> &str {
+        "from ini"
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .ini and create table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
-            .usage("Parse text as .ini and create table.")
-            .plugin_examples(examples())
             .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
     }
 
     fn run(
@@ -73,13 +82,12 @@ impl SimplePluginCommand for FromIni {
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
         example: "'[foo]
 a=1
-b=2' | from ini"
-            .into(),
-        description: "Converts ini formatted string to record".into(),
+b=2' | from ini",
+        description: "Converts ini formatted string to record",
         result: Some(Value::test_record(record! {
             "foo" => Value::test_record(record! {
                 "a" =>  Value::test_string("1"),

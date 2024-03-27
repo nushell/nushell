@@ -3,15 +3,7 @@ use crate::{
     protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput},
     EncodingType,
 };
-use nu_engine::documentation::get_flags_section;
-use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginSignature,
-    ShellError, Spanned, Value,
-};
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -19,13 +11,27 @@ use std::{
     ffi::OsStr,
     fmt::Write,
     io::{BufReader, Read, Write as WriteTrait},
+    ops::Deref,
     path::Path,
     process::{Child, ChildStdout, Command as CommandSys, Stdio},
-    sync::mpsc::TrySendError,
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        mpsc::{self, TrySendError},
+        Arc, Mutex,
+    },
     thread,
 };
+
+use nu_engine::documentation::get_flags_section;
+use nu_protocol::{
+    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginSignature,
+    ShellError, Spanned, Value,
+};
 use thiserror::Error;
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 use self::gc::PluginGc;
 pub use self::interface::{PluginRead, PluginWrite};
@@ -38,7 +44,7 @@ mod interface;
 mod persistent;
 mod source;
 
-pub use command::{PluginCommand, SimplePluginCommand};
+pub use command::{create_plugin_signature, PluginCommand, SimplePluginCommand};
 pub use declaration::PluginDeclaration;
 pub use interface::{
     EngineInterface, EngineInterfaceManager, Interface, InterfaceManager, PluginInterface,
@@ -229,7 +235,7 @@ where
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, LabeledError, Type, Value};
+/// # use nu_protocol::{LabeledError, Signature, Type, Value};
 /// struct HelloPlugin;
 /// struct Hello;
 ///
@@ -242,8 +248,16 @@ where
 /// impl SimplePluginCommand for Hello {
 ///     type Plugin = HelloPlugin;
 ///
-///     fn signature(&self) -> PluginSignature {
-///         PluginSignature::build("hello")
+///     fn name(&self) -> &str {
+///         "hello"
+///     }
+///
+///     fn usage(&self) -> &str {
+///         "Every programmer's favorite greeting"
+///     }
+///
+///     fn signature(&self) -> Signature {
+///         Signature::build(PluginCommand::name(self))
 ///             .input_output_type(Type::Nothing, Type::String)
 ///     }
 ///
@@ -556,11 +570,11 @@ where
     let mut commands: HashMap<String, _> = HashMap::new();
 
     for command in plugin.commands() {
-        if let Some(previous) = commands.insert(command.signature().sig.name.clone(), command) {
+        if let Some(previous) = commands.insert(command.name().into(), command) {
             eprintln!(
                 "Plugin `{plugin_name}` warning: command `{}` shadowed by another command with the \
-                    same name. Check your command signatures",
-                previous.signature().sig.name
+                    same name. Check your commands' `name()` methods",
+                previous.name()
             );
         }
     }
@@ -636,7 +650,7 @@ where
                 ReceivedPluginCall::Signature { engine } => {
                     let sigs = commands
                         .values()
-                        .map(|command| command.signature())
+                        .map(|command| create_plugin_signature(command.deref()))
                         .collect();
                     engine.write_signature(sigs).try_to_report(&engine)?;
                 }
@@ -752,23 +766,22 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
 
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
-        let res = write!(help, "\nCommand: {}", signature.sig.name)
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.sig.usage))
+        let res = write!(help, "\nCommand: {}", command.name())
+            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.usage()))
             .and_then(|_| {
-                if !signature.sig.extra_usage.is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", signature.sig.extra_usage)
+                if !command.extra_usage().is_empty() {
+                    writeln!(help, "\nExtra usage:\n > {}", command.extra_usage())
                 } else {
                     Ok(())
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(None, &signature.sig, |v| format!("{:#?}", v));
+                let flags = get_flags_section(None, &signature, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
             .and_then(|_| {
                 signature
-                    .sig
                     .required_positional
                     .iter()
                     .try_for_each(|positional| {
@@ -781,7 +794,6 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
             })
             .and_then(|_| {
                 signature
-                    .sig
                     .optional_positional
                     .iter()
                     .try_for_each(|positional| {
@@ -793,7 +805,7 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
                     })
             })
             .and_then(|_| {
-                if let Some(rest_positional) = &signature.sig.rest_positional {
+                if let Some(rest_positional) = &signature.rest_positional {
                     writeln!(
                         help,
                         "  ...{} <{}>: {}",

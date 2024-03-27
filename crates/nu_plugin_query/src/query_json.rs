@@ -1,20 +1,23 @@
 use crate::Query;
 use gjson::Value as gjValue;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{
-    Category, LabeledError, PluginSignature, Record, Span, Spanned, SyntaxShape, Value,
-};
+use nu_protocol::{Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value};
 
 pub struct QueryJson;
 
 impl SimplePluginCommand for QueryJson {
     type Plugin = Query;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("query json")
-            .usage(
-                "execute json query on json file (open --raw <file> | query json 'query string')",
-            )
+    fn name(&self) -> &str {
+        "query json"
+    }
+
+    fn usage(&self) -> &str {
+        "execute json query on json file (open --raw <file> | query json 'query string')"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("query", SyntaxShape::String, "json query")
             .category(Category::Filters)
     }

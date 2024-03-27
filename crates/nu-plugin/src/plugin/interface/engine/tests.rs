@@ -11,7 +11,7 @@ use crate::{
 };
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginExample, PluginSignature, ShellError, Span, Spanned, Value,
+    PipelineData, PluginExample, PluginSignature, ShellError, Signature, Span, Spanned, Value,
 };
 use std::{
     collections::HashMap,
@@ -786,15 +786,16 @@ fn interface_write_signature() -> Result<(), ShellError> {
 fn interface_write_signature_custom_value() -> Result<(), ShellError> {
     let test = TestCase::new();
     let interface = test.engine().interface_for_context(38);
-    let signatures = vec![PluginSignature::build("test command").plugin_examples(vec![
-        PluginExample {
+    let signatures = vec![PluginSignature::new(
+        Signature::build("test command"),
+        vec![PluginExample {
             example: "test command".into(),
             description: "a test".into(),
             result: Some(Value::test_custom_value(Box::new(
                 expected_test_custom_value(),
             ))),
-        },
-    ])];
+        }],
+    )];
     interface.write_signature(signatures.clone())?;
 
     let written = test.next_written().expect("nothing written");
