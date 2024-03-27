@@ -1,5 +1,3 @@
-use nu_utils::Shared;
-
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
@@ -77,7 +75,7 @@ pub trait Eval {
                         RecordItem::Spread(_, inner) => {
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
-                                    for (col_name, val) in Shared::unwrap(inner_val) {
+                                    for (col_name, val) in inner_val.into_owned() {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,

@@ -2,7 +2,6 @@ use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLU
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
-use nu_utils::Shared;
 use quick_xml::{
     escape,
     events::{BytesEnd, BytesStart, BytesText, Event},
@@ -326,7 +325,7 @@ impl Job {
             // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
-                Value::Record { val, .. } => Shared::unwrap(val),
+                Value::Record { val, .. } => val.into_owned(),
                 Value::Nothing { .. } => Record::new(),
                 _ => {
                     return Err(ShellError::CantConvert {

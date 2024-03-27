@@ -29,7 +29,7 @@ use fancy_regex::Regex;
 use nu_utils::{
     contains_emoji,
     locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
-    IgnoreCaseExt, Shared,
+    IgnoreCaseExt, SharedCow,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -109,7 +109,7 @@ pub enum Value {
         internal_span: Span,
     },
     Record {
-        val: Shared<Record>,
+        val: SharedCow<Record>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -537,7 +537,7 @@ impl Value {
     /// Unwraps the inner [`Record`] value or returns an error if this `Value` is not a record
     pub fn into_record(self) -> Result<Record, ShellError> {
         if let Value::Record { val, .. } = self {
-            Ok(Shared::unwrap(val))
+            Ok(val.into_owned())
         } else {
             self.cant_convert_to("record")
         }
@@ -1997,7 +1997,7 @@ impl Value {
 
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
-            val: Shared::new(val),
+            val: SharedCow::new(val),
             internal_span: span,
         }
     }

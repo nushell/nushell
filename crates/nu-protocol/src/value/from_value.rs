@@ -4,7 +4,6 @@ use crate::{
     NuGlob, Range, Record, ShellError, Spanned, Value,
 };
 use chrono::{DateTime, FixedOffset};
-use nu_utils::Shared;
 use std::path::PathBuf;
 
 pub trait FromValue: Sized {
@@ -539,7 +538,7 @@ impl FromValue for Vec<Value> {
 impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { val, .. } => Ok(Shared::unwrap(val)),
+            Value::Record { val, .. } => Ok(val.into_owned()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),

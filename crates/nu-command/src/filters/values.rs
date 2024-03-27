@@ -1,6 +1,5 @@
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
-use nu_utils::Shared;
 
 #[derive(Clone)]
 pub struct Values;
@@ -171,7 +170,8 @@ fn values(
                             span,
                         })?,
                     };
-                    Ok(Shared::unwrap(record)
+                    Ok(record
+                        .into_owned()
                         .into_values()
                         .into_pipeline_data_with_metadata(metadata, ctrlc))
                 }

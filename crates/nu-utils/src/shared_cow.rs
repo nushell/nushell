@@ -7,53 +7,53 @@ use std::{fmt, ops, sync::Arc};
 /// required to clone unmodified values with easy to use copy-on-write.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct Shared<T: Clone>(Arc<T>);
+pub struct SharedCow<T: Clone>(Arc<T>);
 
-impl<T: Clone> Shared<T> {
+impl<T: Clone> SharedCow<T> {
     /// Create a new `Shared` value.
-    pub fn new(value: T) -> Shared<T> {
-        Shared(Arc::new(value))
+    pub fn new(value: T) -> SharedCow<T> {
+        SharedCow(Arc::new(value))
     }
 
     /// Take an exclusive clone of the shared value, or move and take ownership if it wasn't shared.
-    pub fn unwrap(value: Shared<T>) -> T {
+    pub fn into_owned(self: SharedCow<T>) -> T {
         // Optimized: if the Arc is not shared, just unwraps the Arc
-        match Arc::try_unwrap(value.0) {
+        match Arc::try_unwrap(self.0) {
             Ok(value) => value,
             Err(arc) => (*arc).clone(),
         }
     }
 
     /// Convert the `Shared` value into an `Arc`
-    pub fn into_arc(value: Shared<T>) -> Arc<T> {
+    pub fn into_arc(value: SharedCow<T>) -> Arc<T> {
         value.0
     }
 
     /// Return the number of references to the shared value.
-    pub fn ref_count(value: &Shared<T>) -> usize {
+    pub fn ref_count(value: &SharedCow<T>) -> usize {
         Arc::strong_count(&value.0)
     }
 }
 
-impl<T> From<T> for Shared<T>
+impl<T> From<T> for SharedCow<T>
 where
     T: Clone,
 {
     fn from(value: T) -> Self {
-        Shared::new(value)
+        SharedCow::new(value)
     }
 }
 
-impl<T> From<Arc<T>> for Shared<T>
+impl<T> From<Arc<T>> for SharedCow<T>
 where
     T: Clone,
 {
     fn from(value: Arc<T>) -> Self {
-        Shared(value)
+        SharedCow(value)
     }
 }
 
-impl<T> fmt::Debug for Shared<T>
+impl<T> fmt::Debug for SharedCow<T>
 where
     T: fmt::Debug + Clone,
 {
@@ -63,7 +63,7 @@ where
     }
 }
 
-impl<T> fmt::Display for Shared<T>
+impl<T> fmt::Display for SharedCow<T>
 where
     T: fmt::Display + Clone,
 {
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<T: Clone> Serialize for Shared<T>
+impl<T: Clone> Serialize for SharedCow<T>
 where
     T: Serialize,
 {
@@ -84,7 +84,7 @@ where
     }
 }
 
-impl<'de, T: Clone> Deserialize<'de> for Shared<T>
+impl<'de, T: Clone> Deserialize<'de> for SharedCow<T>
 where
     T: Deserialize<'de>,
 {
@@ -92,11 +92,11 @@ where
     where
         D: serde::Deserializer<'de>,
     {
-        T::deserialize(deserializer).map(Arc::new).map(Shared)
+        T::deserialize(deserializer).map(Arc::new).map(SharedCow)
     }
 }
 
-impl<T: Clone> ops::Deref for Shared<T> {
+impl<T: Clone> ops::Deref for SharedCow<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -104,13 +104,13 @@ impl<T: Clone> ops::Deref for Shared<T> {
     }
 }
 
-impl<T: Clone> ops::DerefMut for Shared<T> {
+impl<T: Clone> ops::DerefMut for SharedCow<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         Arc::make_mut(&mut self.0)
     }
 }
 
-impl<T> IntoIterator for Shared<T>
+impl<T> IntoIterator for SharedCow<T>
 where
     T: Clone + IntoIterator,
 {

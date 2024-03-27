@@ -1,7 +1,7 @@
 use alphanumeric_sort::compare_str;
 use nu_engine::command_prelude::*;
 
-use nu_utils::{IgnoreCaseExt, Shared};
+use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -145,7 +145,7 @@ impl Command for Sort {
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag(engine_state, stack, "values")?;
                 let record = sort_record(
-                    Shared::unwrap(val),
+                    val.into_owned(),
                     span,
                     sort_by_value,
                     reverse,
