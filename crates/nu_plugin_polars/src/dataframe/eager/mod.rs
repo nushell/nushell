@@ -8,10 +8,10 @@ mod dtypes;
 mod dummies;
 mod filter_with;
 mod first;
-// mod get;
+mod get;
 mod last;
 mod list;
-// mod melt;
+mod melt;
 mod open;
 // mod query_df;
 // mod rename;
@@ -45,11 +45,11 @@ pub use dtypes::DataTypes;
 pub use dummies::Dummies;
 pub use filter_with::FilterWith;
 pub use first::FirstDF;
-// pub use get::GetDF;
+pub use get::GetDF;
 pub use last::LastDF;
 pub use list::ListDF;
+pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
-// pub use melt::MeltDF;
 // pub use query_df::QueryDf;
 // pub use rename::RenameDF;
 // pub use sample::SampleDF;
@@ -78,6 +78,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(DropNulls),
         Box::new(Dummies),
         Box::new(FilterWith),
+        Box::new(GetDF),
         Box::new(OpenDataFrame),
         Box::new(ToDataFrame),
         Box::new(Summary),
