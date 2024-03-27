@@ -25,7 +25,7 @@ indexmap = { workspace = true }
 num = { version = "0.4", optional = true }
 serde = { workspace = true, features = ["derive"] }
 sqlparser = { version = "0.44", optional = true }
-polars-io = { version = "0.37", features = ["avro"], optional = true }
+polars-io = { version = "0.38", features = ["avro"], optional = true }
 polars-arrow = { version = "0.37", optional = true }
 polars-ops = { version = "0.37", optional = true }
 polars-plan = { version = "0.37", features = ["regex"], optional = true }
