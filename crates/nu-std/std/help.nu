@@ -715,7 +715,7 @@ def pretty-cmd [] {
 #   > help match
 #
 #   show help for single sub-command, alias, or module
-#   > help str lpad
+#   > help str join
 #
 #   search for string in command names, usage and search terms
 #   > help --find char

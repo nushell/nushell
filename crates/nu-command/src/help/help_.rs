@@ -116,7 +116,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
             },
             Example {
                 description: "show help for single sub-command, alias, or module",
-                example: "help str lpad",
+                example: "help str join",
                 result: None,
             },
             Example {
