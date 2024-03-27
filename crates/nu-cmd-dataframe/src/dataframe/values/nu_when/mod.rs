@@ -57,7 +57,7 @@ impl NuWhen {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(expr.clone()),
                 None => Err(ShellError::CantConvert {
                     to_type: "when expression".into(),

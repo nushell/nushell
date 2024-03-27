@@ -531,7 +531,7 @@ fn value_should_be_printed(
         | Value::Glob { .. }
         | Value::List { .. }
         | Value::CellPath { .. }
-        | Value::CustomValue { .. } => term_contains_value(term, &lower_value, span),
+        | Value::Custom { .. } => term_contains_value(term, &lower_value, span),
         Value::Record { val, .. } => {
             record_matches_term(val, columns_to_search, filter_config, term, span)
         }

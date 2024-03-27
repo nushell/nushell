@@ -21,7 +21,7 @@ impl CoolCustomValue {
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => {
+            Value::Custom { val, .. } => {
                 if let Some(cool) = val.as_any().downcast_ref::<Self>() {
                     Ok(cool.clone())
                 } else {
@@ -94,7 +94,7 @@ impl CustomValue for CoolCustomValue {
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
-        if let Value::CustomValue { val, .. } = other {
+        if let Value::Custom { val, .. } = other {
             val.as_any()
                 .downcast_ref()
                 .and_then(|other: &CoolCustomValue| PartialOrd::partial_cmp(self, other))

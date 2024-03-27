@@ -158,7 +158,7 @@ pub fn value_to_string(
             msg_span: span,
             input_span: v.span(),
         }),
-        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput {
+        Value::Custom { .. } => Err(ShellError::UnsupportedInput {
             msg: "custom values are currently not nuon-compatible".to_string(),
             input: "value originates from here".into(),
             msg_span: span,

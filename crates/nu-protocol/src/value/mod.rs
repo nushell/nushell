@@ -163,7 +163,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
-    CustomValue {
+    Custom {
         val: Box<dyn CustomValue>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
@@ -252,7 +252,7 @@ impl Clone for Value {
                 val: val.clone(),
                 internal_span: *internal_span,
             },
-            Value::CustomValue { val, internal_span } => val.clone_value(*internal_span),
+            Value::Custom { val, internal_span } => val.clone_value(*internal_span),
         }
     }
 }
@@ -698,7 +698,7 @@ impl Value {
 
     /// Returns a reference to the inner [`CustomValue`] trait object or an error if this `Value` is not a custom value
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
-        if let Value::CustomValue { val, .. } = self {
+        if let Value::Custom { val, .. } = self {
             Ok(val.as_ref())
         } else {
             self.cant_convert_to("custom value")
@@ -707,7 +707,7 @@ impl Value {
 
     /// Unwraps the inner [`CustomValue`] trait object or returns an error if this `Value` is not a custom value
     pub fn into_custom_value(self) -> Result<Box<dyn CustomValue>, ShellError> {
-        if let Value::CustomValue { val, .. } = self {
+        if let Value::Custom { val, .. } = self {
             Ok(val)
         } else {
             self.cant_convert_to("custom value")
@@ -751,7 +751,7 @@ impl Value {
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
             | Value::CellPath { internal_span, .. }
-            | Value::CustomValue { internal_span, .. }
+            | Value::Custom { internal_span, .. }
             | Value::LazyRecord { internal_span, .. }
             | Value::Error { internal_span, .. } => *internal_span,
         }
@@ -777,7 +777,7 @@ impl Value {
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
             | Value::CellPath { internal_span, .. }
-            | Value::CustomValue { internal_span, .. } => *internal_span = new_span,
+            | Value::Custom { internal_span, .. } => *internal_span = new_span,
             Value::Error { .. } => (),
         }
     }
@@ -838,7 +838,7 @@ impl Value {
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
-            Value::CustomValue { val, .. } => Type::Custom(val.type_name()),
+            Value::Custom { val, .. } => Type::Custom(val.type_name()),
         }
     }
 
@@ -956,7 +956,7 @@ impl Value {
             Value::CellPath { val, .. } => val.to_string(),
             // If we fail to collapse the custom value, just print <{type_name}> - failure is not
             // that critical here
-            Value::CustomValue { val, .. } => val
+            Value::Custom { val, .. } => val
                 .to_base_value(span)
                 .map(|val| val.to_expanded_string(separator, config))
                 .unwrap_or_else(|_| format!("<{}>", val.type_name())),
@@ -1118,7 +1118,7 @@ impl Value {
                                 });
                             }
                         }
-                        Value::CustomValue { ref val, .. } => {
+                        Value::Custom { ref val, .. } => {
                             current =
                                 match val.follow_path_int(current.span(), *count, *origin_span) {
                                     Ok(val) => val,
@@ -1262,7 +1262,7 @@ impl Value {
 
                             current = Value::list(list, span);
                         }
-                        Value::CustomValue { ref val, .. } => {
+                        Value::Custom { ref val, .. } => {
                             current = match val.follow_path_string(
                                 current.span(),
                                 column_name.clone(),
@@ -1890,7 +1890,7 @@ impl Value {
             | Value::Binary { .. }
             | Value::CellPath { .. } => Ok(()),
             // These could potentially contain values, but we expect the closure to handle them
-            Value::LazyRecord { .. } | Value::CustomValue { .. } => Ok(()),
+            Value::LazyRecord { .. } | Value::Custom { .. } => Ok(()),
         }
     }
 
@@ -2052,7 +2052,7 @@ impl Value {
     }
 
     pub fn custom_value(val: Box<dyn CustomValue>, span: Span) -> Value {
-        Value::CustomValue {
+        Value::Custom {
             val,
             internal_span: span,
         }
@@ -2257,7 +2257,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Int { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2278,7 +2278,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Float { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2299,7 +2299,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2320,7 +2320,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Duration { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2341,7 +2341,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Date { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2362,7 +2362,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Range { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2383,7 +2383,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::String { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2404,7 +2404,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Glob { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2425,7 +2425,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2465,7 +2465,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::List { vals: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2486,7 +2486,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Block { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2507,7 +2507,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Closure { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2528,7 +2528,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Nothing { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2549,7 +2549,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Error { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2570,7 +2570,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Equal),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Binary { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2591,7 +2591,7 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2612,9 +2612,9 @@ impl PartialOrd for Value {
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
             },
-            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
             (Value::LazyRecord { val, .. }, rhs) => {
                 if let Ok(val) = val.collect() {
                     val.partial_cmp(rhs)
@@ -2689,7 +2689,7 @@ impl Value {
                 }
             }
 
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Plus), op, rhs)
             }
 
@@ -2729,7 +2729,7 @@ impl Value {
                 val.extend(rhs);
                 Ok(Value::binary(val, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Append), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -2806,7 +2806,7 @@ impl Value {
                 }
             }
 
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Minus), op, rhs)
             }
 
@@ -2862,7 +2862,7 @@ impl Value {
             (Value::Float { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 Ok(Value::duration((*lhs * *rhs as f64) as i64, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -2965,7 +2965,7 @@ impl Value {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
 
@@ -3101,7 +3101,7 @@ impl Value {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
 
@@ -3116,7 +3116,7 @@ impl Value {
     }
 
     pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+        if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::LessThan),
@@ -3156,7 +3156,7 @@ impl Value {
     }
 
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+        if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::LessThanOrEqual),
@@ -3194,7 +3194,7 @@ impl Value {
     }
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+        if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::GreaterThan),
@@ -3232,7 +3232,7 @@ impl Value {
     }
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+        if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::GreaterThanOrEqual),
@@ -3274,7 +3274,7 @@ impl Value {
     }
 
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+        if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::Equal),
@@ -3302,7 +3302,7 @@ impl Value {
     }
 
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+        if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::NotEqual),
@@ -3364,7 +3364,7 @@ impl Value {
                     span,
                 ))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3412,7 +3412,7 @@ impl Value {
                     span,
                 ))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::NotIn),
                 op,
@@ -3476,7 +3476,7 @@ impl Value {
                     span,
                 ))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
                 span,
                 if invert {
                     Operator::Comparison(Comparison::NotRegexMatch)
@@ -3501,7 +3501,7 @@ impl Value {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::bool(lhs.starts_with(rhs), span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::StartsWith),
                 op,
@@ -3522,7 +3522,7 @@ impl Value {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::bool(lhs.ends_with(rhs), span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
                 self.span(),
                 Operator::Comparison(Comparison::EndsWith),
                 op,
@@ -3543,7 +3543,7 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs << rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3561,7 +3561,7 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs >> rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3579,7 +3579,7 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs | rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3597,7 +3597,7 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs ^ rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3615,7 +3615,7 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs & rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3665,7 +3665,7 @@ impl Value {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
             }
 
@@ -3684,7 +3684,7 @@ impl Value {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
                 Ok(Value::bool(*lhs && *rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3702,7 +3702,7 @@ impl Value {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
                 Ok(Value::bool(*lhs || *rhs, span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Or), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3720,7 +3720,7 @@ impl Value {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
                 Ok(Value::bool((*lhs && !*rhs) || (!*lhs && *rhs), span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Xor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
@@ -3751,7 +3751,7 @@ impl Value {
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 Ok(Value::float(lhs.powf(*rhs), span))
             }
-            (Value::CustomValue { val: lhs, .. }, rhs) => {
+            (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
             }
 

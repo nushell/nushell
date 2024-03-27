@@ -55,7 +55,7 @@ impl CustomValue for NuDataFrame {
 
     fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
         match other {
-            Value::CustomValue { val, .. } => val
+            Value::Custom { val, .. } => val
                 .as_any()
                 .downcast_ref::<Self>()
                 .and_then(|other| self.is_equal(other)),

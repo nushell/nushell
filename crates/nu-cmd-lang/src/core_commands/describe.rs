@@ -281,7 +281,7 @@ fn describe_value(
     options: Options,
 ) -> Result<Value, ShellError> {
     Ok(match value {
-        Value::CustomValue { val, .. } => Value::record(
+        Value::Custom { val, .. } => Value::record(
             record!(
                 "type" => Value::string("custom", head),
                 "subtype" => Value::string(val.type_name(), head),

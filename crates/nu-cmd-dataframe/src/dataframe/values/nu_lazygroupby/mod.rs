@@ -84,7 +84,7 @@ impl NuLazyGroupBy {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<NuLazyGroupBy>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<NuLazyGroupBy>() {
                 Some(group) => Ok(Self {
                     group_by: group.group_by.clone(),
                     schema: group.schema.clone(),

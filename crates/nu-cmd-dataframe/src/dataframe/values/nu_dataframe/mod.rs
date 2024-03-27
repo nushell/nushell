@@ -152,7 +152,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::CustomValue { .. } => return Self::try_from_value(value),
+                Value::Custom { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
                     let record = vals
                         .into_iter()
@@ -256,7 +256,7 @@ impl NuDataFrame {
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
@@ -283,7 +283,7 @@ impl NuDataFrame {
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::Custom { val, .. } = value {
             val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false
