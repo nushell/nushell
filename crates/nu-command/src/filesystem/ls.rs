@@ -18,6 +18,17 @@ use std::{
 #[derive(Clone)]
 pub struct Ls;
 
+struct Args {
+    all: bool,
+    long: bool,
+    short_names: bool,
+    full_paths: bool,
+    du: bool,
+    directory: bool,
+    use_mime_type: bool,
+    call_span: Span,
+}
+
 impl Command for Ls {
     fn name(&self) -> &str {
         "ls"
@@ -80,6 +91,17 @@ impl Command for Ls {
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
+
+        let args = Args {
+            all,
+            long,
+            short_names,
+            full_paths,
+            du,
+            directory,
+            use_mime_type,
+            call_span,
+        };
 
         let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
         let pattern_arg = {
@@ -363,6 +385,256 @@ impl Command for Ls {
             },
         ]
     }
+}
+
+fn ls_for_one_pattern(
+    pattern_arg: Option<Spanned<NuGlob>>,
+    args: Args,
+    ctrl_c: Option<Arc<AtomicBool>>,
+    cwd: PathBuf,
+) -> Result<PipelineData, ShellError> {
+    let Args {
+        all,
+        long,
+        short_names,
+        full_paths,
+        du,
+        directory,
+        use_mime_type,
+        call_span,
+    } = args;
+    let pattern_arg = {
+        if let Some(path) = pattern_arg {
+            // it makes no sense to list an empty string.
+            if path.item.as_ref().is_empty() {
+                return Err(ShellError::FileNotFoundCustom {
+                    msg: "empty string('') directory or file does not exist".to_string(),
+                    span: path.span,
+                });
+            }
+            match path.item {
+                NuGlob::DoNotExpand(p) => Some(Spanned {
+                    item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
+                    span: path.span,
+                }),
+                NuGlob::Expand(p) => Some(Spanned {
+                    item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
+                    span: path.span,
+                }),
+            }
+        } else {
+            pattern_arg
+        }
+    };
+
+    // it indicates we need to append an extra '*' after pattern for listing given directory
+    // Example: 'ls directory' -> 'ls directory/*'
+    let mut extra_star_under_given_directory = false;
+    let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+        Some(pat) => {
+            let p_tag = pat.span;
+            let expanded = nu_path::expand_path_with(
+                pat.item.as_ref(),
+                &cwd,
+                matches!(pat.item, NuGlob::Expand(..)),
+            );
+            // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
+            if !directory && expanded.is_dir() {
+                if permission_denied(&expanded) {
+                    #[cfg(unix)]
+                    let error_msg = format!(
+                        "The permissions of {:o} do not allow access for this user",
+                        expanded
+                            .metadata()
+                            .expect("this shouldn't be called since we already know there is a dir")
+                            .permissions()
+                            .mode()
+                            & 0o0777
+                    );
+                    #[cfg(not(unix))]
+                    let error_msg = String::from("Permission denied");
+                    return Err(ShellError::GenericError {
+                        error: "Permission denied".into(),
+                        msg: error_msg,
+                        span: Some(p_tag),
+                        help: None,
+                        inner: vec![],
+                    });
+                }
+                if is_empty_dir(&expanded) {
+                    return Ok(Value::list(vec![], call_span).into_pipeline_data());
+                }
+                extra_star_under_given_directory = true;
+            }
+
+            // it's absolute path if:
+            // 1. pattern is absolute.
+            // 2. pattern can be expanded, and after expands to real_path, it's absolute.
+            //    here `expand_to_real_path` call is required, because `~/aaa` should be absolute
+            //    path.
+            let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
+                || (pat.item.is_expand() && expand_to_real_path(pat.item.as_ref()).is_absolute());
+            (
+                expanded,
+                p_tag,
+                absolute_path,
+                matches!(pat.item, NuGlob::DoNotExpand(_)),
+            )
+        }
+        None => {
+            // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
+            if directory {
+                (PathBuf::from("."), call_span, false, false)
+            } else if is_empty_dir(&cwd) {
+                return Ok(Value::list(vec![], call_span).into_pipeline_data());
+            } else {
+                (PathBuf::from("*"), call_span, false, false)
+            }
+        }
+    };
+
+    let hidden_dir_specified = is_hidden_dir(&path);
+    // when it's quoted, we need to escape our glob pattern(but without the last extra
+    // start which may be added under given directory)
+    // so we can do ls for a file or directory like `a[123]b`
+    let path = if quoted {
+        let p = path.display().to_string();
+        let mut glob_escaped = Pattern::escape(&p);
+        if extra_star_under_given_directory {
+            glob_escaped.push(std::path::MAIN_SEPARATOR);
+            glob_escaped.push('*');
+        }
+        glob_escaped
+    } else {
+        let mut p = path.display().to_string();
+        if extra_star_under_given_directory {
+            p.push(std::path::MAIN_SEPARATOR);
+            p.push('*');
+        }
+        p
+    };
+
+    let glob_path = Spanned {
+        // use NeedExpand, the relative escaping logic is handled previously
+        item: NuGlob::Expand(path.clone()),
+        span: p_tag,
+    };
+
+    let glob_options = if all {
+        None
+    } else {
+        let glob_options = MatchOptions {
+            recursive_match_hidden_dir: false,
+            ..Default::default()
+        };
+        Some(glob_options)
+    };
+    let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)?;
+
+    let mut paths_peek = paths.peekable();
+    if paths_peek.peek().is_none() {
+        return Err(ShellError::GenericError {
+            error: format!("No matches found for {}", &path),
+            msg: "Pattern, file or folder not found".into(),
+            span: Some(p_tag),
+            help: Some("no matches found".into()),
+            inner: vec![],
+        });
+    }
+
+    let mut hidden_dirs = vec![];
+
+    let one_ctrl_c = ctrl_c.clone();
+    Ok(paths_peek
+        .filter_map(move |x| match x {
+            Ok(path) => {
+                let metadata = match std::fs::symlink_metadata(&path) {
+                    Ok(metadata) => Some(metadata),
+                    Err(_) => None,
+                };
+                if path_contains_hidden_folder(&path, &hidden_dirs) {
+                    return None;
+                }
+
+                if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                    if path.is_dir() {
+                        hidden_dirs.push(path);
+                    }
+                    return None;
+                }
+
+                let display_name = if short_names {
+                    path.file_name().map(|os| os.to_string_lossy().to_string())
+                } else if full_paths || absolute_path {
+                    Some(path.to_string_lossy().to_string())
+                } else if let Some(prefix) = &prefix {
+                    if let Ok(remainder) = path.strip_prefix(prefix) {
+                        if directory {
+                            // When the path is the same as the cwd, path_diff should be "."
+                            let path_diff = if let Some(path_diff_not_dot) = diff_paths(&path, &cwd)
+                            {
+                                let path_diff_not_dot = path_diff_not_dot.to_string_lossy();
+                                if path_diff_not_dot.is_empty() {
+                                    ".".to_string()
+                                } else {
+                                    path_diff_not_dot.to_string()
+                                }
+                            } else {
+                                path.to_string_lossy().to_string()
+                            };
+
+                            Some(path_diff)
+                        } else {
+                            let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
+                                pfx
+                            } else {
+                                prefix.to_path_buf()
+                            };
+
+                            Some(new_prefix.join(remainder).to_string_lossy().to_string())
+                        }
+                    } else {
+                        Some(path.to_string_lossy().to_string())
+                    }
+                } else {
+                    Some(path.to_string_lossy().to_string())
+                }
+                .ok_or_else(|| ShellError::GenericError {
+                    error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                    msg: "invalid file name".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                });
+
+                match display_name {
+                    Ok(name) => {
+                        let entry = dir_entry_dict(
+                            &path,
+                            &name,
+                            metadata.as_ref(),
+                            call_span,
+                            long,
+                            du,
+                            one_ctrl_c.clone(),
+                            use_mime_type,
+                        );
+                        match entry {
+                            Ok(value) => Some(value),
+                            Err(err) => Some(Value::error(err, call_span)),
+                        }
+                    }
+                    Err(err) => Some(Value::error(err, call_span)),
+                }
+            }
+            _ => Some(Value::nothing(call_span)),
+        })
+        .into_pipeline_data_with_metadata(
+            PipelineMetadata {
+                data_source: DataSource::Ls,
+            },
+            ctrl_c.clone(),
+        ))
 }
 
 fn permission_denied(dir: impl AsRef<Path>) -> bool {
