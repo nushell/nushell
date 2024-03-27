@@ -9,7 +9,6 @@ pub use operations::Axis;
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 use indexmap::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use nu_utils::Shared;
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
@@ -165,7 +164,7 @@ impl NuDataFrame {
                 }
                 Value::Record { val: record, .. } => conversion::insert_record(
                     &mut column_values,
-                    Shared::unwrap(record),
+                    record.into_owned(),
                     &maybe_schema,
                 )?,
                 _ => {

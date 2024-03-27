@@ -1,7 +1,6 @@
 use crate::parse_date_from_string;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineIterator;
-use nu_utils::Shared;
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
@@ -109,8 +108,7 @@ impl Iterator for UpdateCellIterator {
                 let span = val.span();
                 match val {
                     Value::Record { val, .. } => Some(Value::record(
-                        Shared::unwrap(val)
-                            .into_iter()
+                        val.into_iter()
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(&col) => (col, val),
                                 _ => (

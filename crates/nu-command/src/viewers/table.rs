@@ -10,7 +10,7 @@ use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
     StringResult, TableOpts, TableOutput,
 };
-use nu_utils::{get_ls_colors, Shared};
+use nu_utils::get_ls_colors;
 use std::{
     collections::VecDeque, io::IsTerminal, path::PathBuf, str::FromStr, sync::atomic::AtomicBool,
     sync::Arc, time::Instant,
@@ -392,7 +392,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
-            handle_record(input, cfg, Shared::unwrap(val))
+            handle_record(input, cfg, val.into_owned())
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             input.data = val.collect()?.into_pipeline_data();

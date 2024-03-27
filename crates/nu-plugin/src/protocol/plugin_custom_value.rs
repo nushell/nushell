@@ -1,6 +1,6 @@
 use crate::plugin::{PluginInterface, PluginSource};
 use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Value};
-use nu_utils::Shared;
+use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
@@ -25,7 +25,7 @@ mod tests;
 #[doc(hidden)]
 pub struct PluginCustomValue {
     #[serde(flatten)]
-    shared: Shared<SharedContent>,
+    shared: SharedCow<SharedContent>,
 
     /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
     /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
@@ -139,7 +139,7 @@ impl PluginCustomValue {
         source: Option<Arc<PluginSource>>,
     ) -> PluginCustomValue {
         PluginCustomValue {
-            shared: Shared::new(SharedContent {
+            shared: SharedCow::new(SharedContent {
                 name,
                 data,
                 notify_on_drop,
@@ -391,7 +391,8 @@ impl Drop for PluginCustomValue {
     fn drop(&mut self) {
         // If the custom value specifies notify_on_drop and this is the last copy, we need to let
         // the plugin know about it if we can.
-        if self.source.is_some() && self.notify_on_drop() && Shared::ref_count(&self.shared) == 1 {
+        if self.source.is_some() && self.notify_on_drop() && SharedCow::ref_count(&self.shared) == 1
+        {
             self.get_plugin(None, "drop")
                 // While notifying drop, we don't need a copy of the source
                 .and_then(|plugin| {
