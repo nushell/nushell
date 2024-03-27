@@ -13,14 +13,14 @@ mod last;
 mod list;
 mod melt;
 mod open;
-// mod query_df;
+mod query_df;
 // mod rename;
 // mod sample;
 // mod schema;
 // mod shape;
 // mod slice;
-// mod sql_context;
-// mod sql_expr;
+mod sql_context;
+mod sql_expr;
 mod summary;
 // mod take;
 mod to_arrow;
@@ -50,13 +50,13 @@ pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
-// pub use query_df::QueryDf;
+pub use query_df::QueryDf;
 // pub use rename::RenameDF;
 // pub use sample::SampleDF;
 // pub use schema::SchemaDF;
 // pub use shape::ShapeDF;
 // pub use slice::SliceDF;
-// pub use sql_context::SQLContext;
+pub use sql_context::SQLContext;
 pub use summary::Summary;
 // pub use take::TakeDF;
 pub use to_arrow::ToArrow;
@@ -91,5 +91,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(ToArrow),
         Box::new(ToCSV),
         Box::new(ToParquet),
+        Box::new(QueryDf),
     ]
 }
