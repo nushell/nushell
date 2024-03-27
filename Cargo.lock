@@ -1365,13 +1365,13 @@ checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 
 [[package]]
 name = "fd-lock"
-version = "3.0.13"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef033ed5e9bad94e55838ca0ca906db0e043f517adda0c8b79c7a8c66c93c1b5"
+checksum = "7e5768da2206272c81ef0b5e951a41862938a6070da63bcea197899942d3b947"
 dependencies = [
  "cfg-if",
  "rustix",
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4519,7 +4519,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.30.0"
-source = "git+https://github.com/nushell/reedline?branch=main#dc7063ea4260b7a74ad055f9c34ed14a70333afe"
+source = "git+https://github.com/nushell/reedline?branch=main#b7209b68721f9d33cc9c3f38ba7e7359e4b7c717"
 dependencies = [
  "arboard",
  "chrono",
