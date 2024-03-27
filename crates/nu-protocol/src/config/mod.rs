@@ -61,6 +61,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub max_external_completion_results: i64,
+    pub recursion_limit: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
@@ -133,6 +134,7 @@ impl Default for Config {
             completion_algorithm: CompletionAlgorithm::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
+            recursion_limit: 50,
             external_completer: None,
             use_ls_colors_completions: true,
 
@@ -752,6 +754,9 @@ impl Value {
                             &[key],
                             value,
                             &mut errors);
+                    }
+                    "recursion_limit" => {
+                        process_int_config(value, &mut errors, &mut config.recursion_limit);
                     }
                     // Catch all
                     _ => {
