@@ -3,8 +3,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
     record, ModuleId, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,

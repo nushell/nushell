@@ -1,13 +1,15 @@
-use crate::debugger::{DebugContext, WithoutDebug};
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
+    debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
     record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::borrow::Cow;
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {

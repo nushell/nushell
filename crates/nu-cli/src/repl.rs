@@ -9,8 +9,10 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::util::get_guaranteed_cwd;
-use nu_cmd_base::{hook::eval_hook, util::get_editor};
+use nu_cmd_base::{
+    hook::eval_hook,
+    util::{get_editor, get_guaranteed_cwd},
+};
 use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
@@ -31,8 +33,7 @@ use std::{
     env::temp_dir,
     io::{self, IsTerminal, Write},
     panic::{catch_unwind, AssertUnwindSafe},
-    path::Path,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };

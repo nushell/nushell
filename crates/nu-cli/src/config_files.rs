@@ -1,9 +1,10 @@
 use crate::util::eval_source;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::report_error;
-use nu_protocol::{HistoryFileFormat, PipelineData};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, HistoryFileFormat, PipelineData,
+};
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, Spanned};
 #[cfg(feature = "plugin")]

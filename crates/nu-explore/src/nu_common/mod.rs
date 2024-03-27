@@ -4,10 +4,9 @@ mod string;
 mod table;
 mod value;
 
-use std::sync::{atomic::AtomicBool, Arc};
-
 use nu_color_config::TextStyle;
 use nu_protocol::Value;
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 pub use nu_protocol::{Config as NuConfig, Span as NuSpan};

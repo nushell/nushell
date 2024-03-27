@@ -1,8 +1,6 @@
-use std::sync::{Arc, Weak};
-
-use nu_protocol::{PluginIdentity, ShellError, Span};
-
 use super::GetPlugin;
+use nu_protocol::{PluginIdentity, ShellError, Span};
+use std::sync::{Arc, Weak};
 
 /// The source of a custom value or plugin command. Includes a weak reference to the persistent
 /// plugin so it can be retrieved.

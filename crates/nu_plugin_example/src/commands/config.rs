@@ -1,25 +1,38 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, PluginSignature, Type, Value};
+use nu_protocol::{Category, LabeledError, Signature, Type, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 pub struct Config;
 
 impl SimplePluginCommand for Config {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example config")
-            .usage("Show plugin configuration")
-            .extra_usage("The configuration is set under $env.config.plugins.example")
+    fn name(&self) -> &str {
+        "example config"
+    }
+
+    fn usage(&self) -> &str {
+        "Show plugin configuration"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "The configuration is set under $env.config.plugins.example"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .category(Category::Experimental)
-            .search_terms(vec!["example".into(), "configuration".into()])
             .input_output_type(Type::Nothing, Type::Table(vec![]))
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["example", "configuration"]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: &Value,

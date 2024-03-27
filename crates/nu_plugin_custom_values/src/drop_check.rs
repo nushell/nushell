@@ -1,11 +1,9 @@
+use crate::CustomValuePlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, CustomValue, LabeledError, PluginSignature, ShellError, Span, SyntaxShape,
-    Value,
+    record, Category, CustomValue, LabeledError, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use serde::{Deserialize, Serialize};
-
-use crate::CustomValuePlugin;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DropCheckValue {
@@ -60,9 +58,16 @@ pub struct DropCheck;
 impl SimplePluginCommand for DropCheck {
     type Plugin = CustomValuePlugin;
 
-    fn signature(&self) -> nu_protocol::PluginSignature {
-        PluginSignature::build("custom-value drop-check")
-            .usage("Generates a custom value that prints a message when dropped")
+    fn name(&self) -> &str {
+        "custom-value drop-check"
+    }
+
+    fn usage(&self) -> &str {
+        "Generates a custom value that prints a message when dropped"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("msg", SyntaxShape::String, "the message to print on drop")
             .category(Category::Experimental)
     }

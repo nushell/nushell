@@ -1,12 +1,11 @@
 pub mod support;
 
-use std::path::PathBuf;
-
 use nu_cli::NuCompleter;
 use nu_parser::parse;
 use nu_protocol::engine::StateWorkingSet;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
+use std::path::PathBuf;
 use support::{
     completions_helpers::{new_partial_engine, new_quote_engine},
     file, folder, match_suggestions, new_engine,

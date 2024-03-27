@@ -1,12 +1,6 @@
-use dialoguer::{console::Term, Select};
-use dialoguer::{FuzzySelect, MultiSelect};
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use dialoguer::{console::Term, FuzzySelect, MultiSelect, Select};
+use nu_engine::command_prelude::*;
+
 use std::fmt::{Display, Formatter};
 
 enum InteractMode {

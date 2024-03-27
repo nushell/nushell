@@ -1,12 +1,6 @@
-use nu_engine::{get_eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
-
 use indexmap::IndexMap;
+use nu_engine::{command_prelude::*, get_eval_block};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct GroupBy;

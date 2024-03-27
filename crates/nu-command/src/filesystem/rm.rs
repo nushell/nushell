@@ -1,22 +1,14 @@
-use std::collections::HashMap;
-use std::io::Error;
-use std::io::ErrorKind;
-#[cfg(unix)]
-use std::os::unix::prelude::FileTypeExt;
-use std::path::PathBuf;
-
-use super::util::get_rest_for_glob_pattern;
-use super::util::try_interaction;
-
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
+use super::util::{get_rest_for_glob_pattern, try_interaction};
+use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+use nu_protocol::NuGlob;
+#[cfg(unix)]
+use std::os::unix::prelude::FileTypeExt;
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+    path::PathBuf,
 };
 
 const TRASH_SUPPORTED: bool = cfg!(all(

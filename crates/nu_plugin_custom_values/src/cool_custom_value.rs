@@ -1,7 +1,6 @@
-use std::cmp::Ordering;
-
 use nu_protocol::{ast, CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CoolCustomValue {

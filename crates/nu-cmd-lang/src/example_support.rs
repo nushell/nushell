@@ -1,12 +1,11 @@
 use itertools::Itertools;
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Block, RangeInclusion},
-    engine::{EngineState, Stack, StateDelta, StateWorkingSet},
-    Example, PipelineData, Signature, Span, Type, Value,
+    debugger::WithoutDebug,
+    engine::{StateDelta, StateWorkingSet},
 };
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,

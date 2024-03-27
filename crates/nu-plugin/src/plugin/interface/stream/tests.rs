@@ -6,11 +6,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nu_protocol::{ShellError, Value};
-
-use crate::protocol::{StreamData, StreamMessage};
-
 use super::{StreamManager, StreamReader, StreamWriter, StreamWriterSignal, WriteStreamMessage};
+use crate::protocol::{StreamData, StreamMessage};
+use nu_protocol::{ShellError, Value};
 
 // Should be long enough to definitely complete any quick operation, but not so long that tests are
 // slow to complete. 10 ms is a pretty long time

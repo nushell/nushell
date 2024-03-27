@@ -7,8 +7,10 @@
 //!
 //! use nu_plugin::*;
 //! use nu_plugin_test_support::PluginTest;
-//! use nu_protocol::{PluginSignature, PipelineData, Type, Span, Value, LabeledError};
-//! use nu_protocol::IntoInterruptiblePipelineData;
+//! use nu_protocol::{
+//!     Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signature,
+//!     Span, Type, Value,
+//! };
 //!
 //! struct LowercasePlugin;
 //! struct Lowercase;
@@ -16,26 +18,50 @@
 //! impl PluginCommand for Lowercase {
 //!     type Plugin = LowercasePlugin;
 //!
-//!     fn signature(&self) -> PluginSignature {
-//!         PluginSignature::build("lowercase")
-//!             .usage("Convert each string in a stream to lowercase")
-//!             .input_output_type(Type::List(Type::String.into()), Type::List(Type::String.into()))
+//!     fn name(&self) -> &str {
+//!         "lowercase"
+//!     }
+//!
+//!     fn usage(&self) -> &str {
+//!         "Convert each string in a stream to lowercase"
+//!     }
+//!
+//!     fn signature(&self) -> Signature {
+//!         Signature::build(self.name()).input_output_type(
+//!             Type::List(Type::String.into()),
+//!             Type::List(Type::String.into()),
+//!         )
+//!     }
+//!
+//!     fn examples(&self) -> Vec<Example> {
+//!         vec![Example {
+//!             example: r#"[Hello wORLD] | lowercase"#,
+//!             description: "Lowercase a list of strings",
+//!             result: Some(Value::test_list(vec![
+//!                 Value::test_string("hello"),
+//!                 Value::test_string("world"),
+//!             ])),
+//!         }]
 //!     }
 //!
 //!     fn run(
 //!         &self,
-//!         plugin: &LowercasePlugin,
-//!         engine: &EngineInterface,
+//!         _plugin: &LowercasePlugin,
+//!         _engine: &EngineInterface,
 //!         call: &EvaluatedCall,
 //!         input: PipelineData,
 //!     ) -> Result<PipelineData, LabeledError> {
 //!         let span = call.head;
-//!         Ok(input.map(move |value| {
-//!             value.as_str()
-//!                 .map(|string| Value::string(string.to_lowercase(), span))
-//!                 // Errors in a stream should be returned as values.
-//!                 .unwrap_or_else(|err| Value::error(err, span))
-//!         }, None)?)
+//!         Ok(input.map(
+//!             move |value| {
+//!                 value
+//!                     .as_str()
+//!                     .map(|string| Value::string(string.to_lowercase(), span))
+//!                     // Errors in a stream should be returned as values.
+//!                     .unwrap_or_else(|err| Value::error(err, span))
+//!             },
+//!             None,
+//!         )?)
 //!     }
 //! }
 //!
@@ -45,7 +71,14 @@
 //!     }
 //! }
 //!
-//! fn test_lowercase() -> Result<(), LabeledError> {
+//! // #[test]
+//! fn test_examples() -> Result<(), ShellError> {
+//!     PluginTest::new("lowercase", LowercasePlugin.into())?
+//!         .test_command_examples(&Lowercase)
+//! }
+//!
+//! // #[test]
+//! fn test_lowercase() -> Result<(), ShellError> {
 //!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(None);
 //!     let output = PluginTest::new("lowercase", LowercasePlugin.into())?
 //!         .eval_with("lowercase", input)?
@@ -60,6 +93,7 @@
 //!     Ok(())
 //! }
 //! #
+//! # test_examples().unwrap();
 //! # test_lowercase().unwrap();
 //! ```
 

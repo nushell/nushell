@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block, redirect_env, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Collect;

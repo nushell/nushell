@@ -1,12 +1,7 @@
-use crossterm::execute;
-use crossterm::QueueableCommand;
-use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
+use crossterm::{
+    event::Event, event::KeyCode, event::KeyEvent, execute, terminal, QueueableCommand,
 };
+use nu_engine::command_prelude::*;
 use std::io::{stdout, Write};
 
 #[derive(Clone)]

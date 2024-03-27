@@ -1,14 +1,8 @@
 use core::fmt::Write;
 use fancy_regex::Regex;
-use nu_engine::get_columns;
-use nu_engine::CallExt;
+use nu_engine::{command_prelude::*, get_columns};
 use nu_parser::escape_quote_string;
-use nu_protocol::ast::{Call, RangeInclusion};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_protocol::ast::RangeInclusion;
 use once_cell::sync::Lazy;
 
 #[derive(Clone)]

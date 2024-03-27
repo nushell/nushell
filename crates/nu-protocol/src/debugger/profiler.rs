@@ -3,11 +3,12 @@
 //! Profiler implements the Debugger trait and can be used via the `debug profile` command for
 //! profiling Nushell code.
 
-use crate::ast::{Block, Expr, PipelineElement};
-use crate::debugger::Debugger;
-use crate::engine::EngineState;
-use crate::record;
-use crate::{PipelineData, ShellError, Span, Value};
+use crate::{
+    ast::{Block, Expr, PipelineElement},
+    debugger::Debugger,
+    engine::EngineState,
+    record, PipelineData, ShellError, Span, Value,
+};
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy)]

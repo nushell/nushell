@@ -1,7 +1,6 @@
 use nu_protocol::{ShellError, Span};
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 // Attribution: Thanks exa. Most of this file is taken from around here
 // https://github.com/ogham/exa/blob/dbd11d38042284cc890fdd91760c2f93b65e8553/src/output/icons.rs

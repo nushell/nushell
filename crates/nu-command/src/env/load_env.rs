@@ -1,9 +1,4 @@
-use nu_engine::{current_dir, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, current_dir};
 
 #[derive(Clone)]
 pub struct LoadEnv;

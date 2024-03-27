@@ -1,13 +1,10 @@
-use std::io::Result;
-
+use super::{HelpManual, SimpleCommand};
+use crate::pager::{Pager, Transition};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-
-use crate::pager::{Pager, Transition};
-
-use super::{HelpManual, SimpleCommand};
+use std::io::Result;
 
 #[derive(Default, Clone)]
 pub struct QuitCmd;

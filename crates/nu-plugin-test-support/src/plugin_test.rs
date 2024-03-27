@@ -7,7 +7,7 @@ use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, LabeledError, PipelineData, PluginExample, ShellError, Span, Value,
+    report_error_new, Example, LabeledError, PipelineData, ShellError, Span, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -186,20 +186,20 @@ impl PluginTest {
     ///
     /// ```rust,no_run
     /// # use nu_plugin_test_support::PluginTest;
-    /// # use nu_protocol::{ShellError, PluginExample, Value};
+    /// # use nu_protocol::{ShellError, Example, Value};
     /// # use nu_plugin::*;
     /// # fn test(MyPlugin: impl Plugin + Send + 'static) -> Result<(), ShellError> {
     /// PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .test_examples(&[
-    ///         PluginExample {
-    ///             example: "my-command".into(),
-    ///             description: "Run my-command".into(),
+    ///         Example {
+    ///             example: "my-command",
+    ///             description: "Run my-command",
     ///             result: Some(Value::test_string("my-command output")),
     ///         },
     ///     ])
     /// # }
     /// ```
-    pub fn test_examples(&mut self, examples: &[PluginExample]) -> Result<(), ShellError> {
+    pub fn test_examples(&mut self, examples: &[Example]) -> Result<(), ShellError> {
         let mut failed = false;
 
         for example in examples {
@@ -210,7 +210,7 @@ impl PluginTest {
                 eprintln!("{} {}", bold.paint("Description:"), example.description);
             };
             if let Some(expectation) = &example.result {
-                match self.eval(&example.example) {
+                match self.eval(example.example) {
                     Ok(data) => {
                         let mut value = data.into_value(Span::test_data());
 
@@ -270,6 +270,6 @@ impl PluginTest {
         &mut self,
         command: &impl PluginCommand,
     ) -> Result<(), ShellError> {
-        self.test_examples(&command.signature().examples)
+        self.test_examples(&command.examples())
     }
 }

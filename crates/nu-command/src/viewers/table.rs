@@ -3,28 +3,18 @@
 //        the goal is to configure it once...
 
 use lscolors::{LsColors, Style};
-use nu_color_config::color_from_hex;
-use nu_color_config::{StyleComputer, TextStyle};
-use nu_engine::{env::get_config, env_to_string, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Config, DataSource, Example, IntoPipelineData, IoStream, ListStream,
-    PipelineData, PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape,
-    TableMode, Type, Value,
-};
-use nu_table::common::create_nu_table_config;
+use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
+use nu_engine::{command_prelude::*, env::get_config, env_to_string};
+use nu_protocol::{Config, DataSource, ListStream, PipelineMetadata, RawStream, TableMode};
 use nu_table::{
-    CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
-    TableOutput,
+    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
+    StringResult, TableOpts, TableOutput,
 };
 use nu_utils::get_ls_colors;
-use std::collections::VecDeque;
-use std::io::IsTerminal;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Instant;
-use std::{path::PathBuf, sync::atomic::AtomicBool};
+use std::{
+    collections::VecDeque, io::IsTerminal, path::PathBuf, str::FromStr, sync::atomic::AtomicBool,
+    sync::Arc, time::Instant,
+};
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -370,21 +360,10 @@ fn handle_table_command(
     match input.data {
         PipelineData::ExternalStream { .. } => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let stream_list = if matches!(
-                input.stack.stdout(),
-                IoStream::Pipe | IoStream::Capture | IoStream::Null
-            ) {
-                vec![Ok(val)]
-            } else {
-                let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                    .as_bytes()
-                    .to_vec();
-                vec![Ok(hex)]
-            };
-
+            let bytes = format!("{}\n", nu_pretty_hex::pretty_hex(&val)).into_bytes();
             let ctrlc = input.engine_state.ctrlc.clone();
             let stream = RawStream::new(
-                Box::new(stream_list.into_iter()),
+                Box::new([Ok(bytes)].into_iter()),
                 ctrlc,
                 input.call.head,
                 None,

@@ -5,7 +5,9 @@ macro_rules! generate_tests {
             PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
             StreamData, StreamMessage,
         };
-        use nu_protocol::{LabeledError, PluginSignature, Span, Spanned, SyntaxShape, Value};
+        use nu_protocol::{
+            LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
+        };
 
         #[test]
         fn decode_eof() {
@@ -211,17 +213,20 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_signature() {
-            let signature = PluginSignature::build("nu-plugin")
-                .required("first", SyntaxShape::String, "first required")
-                .required("second", SyntaxShape::Int, "second required")
-                .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
-                .required_named(
-                    "second-named",
-                    SyntaxShape::String,
-                    "second named",
-                    Some('s'),
-                )
-                .rest("remaining", SyntaxShape::Int, "remaining");
+            let signature = PluginSignature::new(
+                Signature::build("nu-plugin")
+                    .required("first", SyntaxShape::String, "first required")
+                    .required("second", SyntaxShape::Int, "second required")
+                    .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
+                    .required_named(
+                        "second-named",
+                        SyntaxShape::String,
+                        "second named",
+                        Some('s'),
+                    )
+                    .rest("remaining", SyntaxShape::Int, "remaining"),
+                vec![],
+            );
 
             let response = PluginCallResponse::Signature(vec![signature.clone()]);
             let output = PluginOutput::CallResponse(3, response);

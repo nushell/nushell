@@ -1,13 +1,11 @@
+use crate::protocol::{StreamData, StreamId, StreamMessage};
+use nu_protocol::{ShellError, Span, Value};
 use std::{
     collections::{btree_map, BTreeMap},
     iter::FusedIterator,
     marker::PhantomData,
     sync::{mpsc, Arc, Condvar, Mutex, MutexGuard, Weak},
 };
-
-use nu_protocol::{ShellError, Span, Value};
-
-use crate::protocol::{StreamData, StreamId, StreamMessage};
 
 #[cfg(test)]
 mod tests;

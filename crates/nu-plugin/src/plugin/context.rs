@@ -1,17 +1,15 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
-
+use crate::util::MutableCow;
 use nu_engine::{get_eval_block_with_early_return, get_full_help};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
     Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Spanned, Value,
 };
-
-use crate::util::MutableCow;
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 /// Object safe trait for abstracting operations required of the plugin context.
 ///

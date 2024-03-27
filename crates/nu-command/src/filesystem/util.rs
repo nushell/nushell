@@ -1,14 +1,10 @@
 use dialoguer::Input;
-use nu_engine::get_eval_expression;
-use nu_protocol::ast::Expr;
-use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack},
-    ShellError, Spanned, Value,
+use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_protocol::{ast::Expr, FromValue, NuGlob};
+use std::{
+    error::Error,
+    path::{Path, PathBuf},
 };
-use nu_protocol::{FromValue, NuGlob, Type};
-use std::error::Error;
-use std::path::{Path, PathBuf};
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Resource {

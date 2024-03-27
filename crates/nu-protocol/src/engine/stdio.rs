@@ -1,13 +1,10 @@
+use crate::{engine::Stack, IoStream};
 use std::{
     fs::File,
     mem,
     ops::{Deref, DerefMut},
     sync::Arc,
 };
-
-use crate::IoStream;
-
-use super::Stack;
 
 #[derive(Debug, Clone)]
 pub enum Redirection {

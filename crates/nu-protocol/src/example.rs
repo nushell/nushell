@@ -19,3 +19,13 @@ pub struct PluginExample {
     pub description: String,
     pub result: Option<Value>,
 }
+
+impl From<Example<'_>> for PluginExample {
+    fn from(value: Example) -> Self {
+        PluginExample {
+            example: value.example.into(),
+            description: value.description.into(),
+            result: value.result,
+        }
+    }
+}

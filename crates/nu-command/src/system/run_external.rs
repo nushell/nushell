@@ -1,25 +1,18 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::get_eval_expression;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, Expr},
-    did_you_mean,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoSpanned, IoStream, ListStream, NuGlob, PipelineData, RawStream,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_protocol::{ast::Expr, did_you_mean, IoStream, ListStream, NuGlob, RawStream};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::{Command as CommandSys, Stdio},
+    sync::{mpsc, Arc},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct External;
@@ -466,20 +459,26 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                let stack = &mut stack.start_capture();
-                                // Attempt to render the input as a table before piping it to the external.
-                                // This is important for pagers like `less`;
-                                // they need to get Nu data rendered for display to users.
-                                //
-                                // TODO: should we do something different for list<string> inputs?
-                                // Users often expect those to be piped to *nix tools as raw strings separated by newlines
-                                let input = crate::Table::run(
-                                    &crate::Table,
-                                    &engine_state,
-                                    stack,
-                                    &Call::new(head),
-                                    input,
-                                );
+                                let input = match input {
+                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => {
+                                        Ok(input)
+                                    }
+                                    input => {
+                                        let stack = &mut stack.start_capture();
+                                        // Attempt to render the input as a table before piping it to the external.
+                                        // This is important for pagers like `less`;
+                                        // they need to get Nu data rendered for display to users.
+                                        //
+                                        // TODO: should we do something different for list<string> inputs?
+                                        // Users often expect those to be piped to *nix tools as raw strings separated by newlines
+                                        crate::Table.run(
+                                            &engine_state,
+                                            stack,
+                                            &Call::new(head),
+                                            input,
+                                        )
+                                    }
+                                };
 
                                 if let Ok(input) = input {
                                     for value in input.into_iter() {

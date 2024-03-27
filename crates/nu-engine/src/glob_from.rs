@@ -1,11 +1,10 @@
+use nu_glob::MatchOptions;
+use nu_path::{canonicalize_with, expand_path_with};
+use nu_protocol::{NuGlob, ShellError, Span, Spanned};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
-
-use nu_glob::MatchOptions;
-use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{NuGlob, ShellError, Span, Spanned};
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 

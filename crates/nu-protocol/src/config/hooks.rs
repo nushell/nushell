@@ -1,5 +1,6 @@
 use crate::{Config, Record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
+
 /// Definition of a parsed hook from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Hooks {

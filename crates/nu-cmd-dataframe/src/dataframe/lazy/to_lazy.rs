@@ -1,13 +1,5 @@
-use crate::dataframe::values::NuSchema;
-
-use super::super::values::{NuDataFrame, NuLazyFrame};
-
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use crate::dataframe::values::{NuDataFrame, NuLazyFrame, NuSchema};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct ToLazyFrame;

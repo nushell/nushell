@@ -1,8 +1,7 @@
-use nu_protocol::report_error;
 use nu_protocol::{
     ast::RangeInclusion,
     engine::{EngineState, Stack, StateWorkingSet},
-    Range, ShellError, Span, Value,
+    report_error, Range, ShellError, Span, Value,
 };
 use std::path::PathBuf;
 

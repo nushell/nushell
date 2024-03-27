@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, Spanned, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
 

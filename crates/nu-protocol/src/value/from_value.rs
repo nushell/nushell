@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-
-use super::NuGlob;
-use crate::ast::{CellPath, PathMember};
-use crate::engine::{Block, Closure};
-use crate::{Range, Record, ShellError, Spanned, Value};
+use crate::{
+    ast::{CellPath, PathMember},
+    engine::{Block, Closure},
+    NuGlob, Range, Record, ShellError, Spanned, Value,
+};
 use chrono::{DateTime, FixedOffset};
+use std::path::PathBuf;
 
 pub trait FromValue: Sized {
     fn from_value(v: Value) -> Result<Self, ShellError>;

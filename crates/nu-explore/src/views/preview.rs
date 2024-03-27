@@ -1,5 +1,8 @@
-use std::cmp::max;
-
+use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
+use crate::{
+    nu_common::{NuSpan, NuText},
+    pager::{report::Report, Frame, Transition, ViewInfo},
+};
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::TextStyle;
 use nu_protocol::{
@@ -7,13 +10,7 @@ use nu_protocol::{
     Value,
 };
 use ratatui::layout::Rect;
-
-use crate::{
-    nu_common::{NuSpan, NuText},
-    pager::{report::Report, Frame, Transition, ViewInfo},
-};
-
-use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
+use std::cmp::max;
 
 // todo: Add wrap option
 #[derive(Debug)]

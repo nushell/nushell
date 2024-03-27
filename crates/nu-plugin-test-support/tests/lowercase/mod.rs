@@ -1,8 +1,8 @@
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    IntoInterruptiblePipelineData, LabeledError, PipelineData, PluginExample, PluginSignature,
-    ShellError, Span, Type, Value,
+    Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signature,
+    Span, Type, Value,
 };
 
 struct LowercasePlugin;
@@ -11,21 +11,30 @@ struct Lowercase;
 impl PluginCommand for Lowercase {
     type Plugin = LowercasePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("lowercase")
-            .usage("Convert each string in a stream to lowercase")
-            .input_output_type(
-                Type::List(Type::String.into()),
-                Type::List(Type::String.into()),
-            )
-            .plugin_examples(vec![PluginExample {
-                example: r#"[Hello wORLD] | lowercase"#.into(),
-                description: "Lowercase a list of strings".into(),
-                result: Some(Value::test_list(vec![
-                    Value::test_string("hello"),
-                    Value::test_string("world"),
-                ])),
-            }])
+    fn name(&self) -> &str {
+        "lowercase"
+    }
+
+    fn usage(&self) -> &str {
+        "Convert each string in a stream to lowercase"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name()).input_output_type(
+            Type::List(Type::String.into()),
+            Type::List(Type::String.into()),
+        )
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: r#"[Hello wORLD] | lowercase"#,
+            description: "Lowercase a list of strings",
+            result: Some(Value::test_list(vec![
+                Value::test_string("hello"),
+                Value::test_string("world"),
+            ])),
+        }]
     }
 
     fn run(

@@ -1,9 +1,9 @@
 use nu_plugin::EvaluatedCall;
 use nu_protocol::{LabeledError, Value};
 
-pub struct Example;
+pub struct ExamplePlugin;
 
-impl Example {
+impl ExamplePlugin {
     pub fn print_values(
         &self,
         index: u32,

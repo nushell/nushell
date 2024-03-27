@@ -1,9 +1,7 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::debugger::{Profiler, WithDebug};
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
+use nu_engine::{command_prelude::*, eval_block_with_early_return};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    debugger::{Profiler, WithDebug},
+    engine::Closure,
 };
 
 #[derive(Clone)]

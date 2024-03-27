@@ -1,18 +1,11 @@
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
-
 use crate::network::http::client::{
     check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response_headers,
     request_set_timeout, send_request,
 };
+use nu_engine::command_prelude::*;
+
+use std::sync::{atomic::AtomicBool, Arc};
 
 #[derive(Clone)]
 pub struct SubCommand;

@@ -1,14 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
-
-use crate::database::values::sqlite::nu_value_to_params;
-
-use super::super::SQLiteDatabase;
+use crate::database::{values::sqlite::nu_value_to_params, SQLiteDatabase};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct QueryDb;

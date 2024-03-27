@@ -1,17 +1,11 @@
 mod tablew;
 
-use std::borrow::Cow;
-
-use std::collections::HashMap;
-
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nu_color_config::{get_color_map, StyleComputer};
-use nu_protocol::{
-    engine::{EngineState, Stack},
-    Record, Value,
+use self::tablew::{TableStyle, TableW, TableWState};
+use super::{
+    cursor::XYCursor,
+    util::{make_styled_string, nu_style_to_tui},
+    Layout, View, ViewConfig,
 };
-use ratatui::{layout::Rect, widgets::Block};
-
 use crate::{
     nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},
     pager::{
@@ -21,14 +15,14 @@ use crate::{
     util::create_map,
     views::ElementInfo,
 };
-
-use self::tablew::{TableStyle, TableW, TableWState};
-
-use super::{
-    cursor::XYCursor,
-    util::{make_styled_string, nu_style_to_tui},
-    Layout, View, ViewConfig,
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use nu_color_config::{get_color_map, StyleComputer};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Record, Value,
 };
+use ratatui::{layout::Rect, widgets::Block};
+use std::{borrow::Cow, collections::HashMap};
 
 pub use self::tablew::Orientation;
 

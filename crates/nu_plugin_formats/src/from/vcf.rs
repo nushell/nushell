@@ -1,26 +1,33 @@
-use ical::parser::vcard::component::*;
-use ical::property::Property;
-use indexmap::map::IndexMap;
-use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{
-    record, Category, LabeledError, PluginExample, PluginSignature, ShellError, Span, Type, Value,
-};
-
 use crate::FromCmds;
 
-pub const CMD_NAME: &str = "from vcf";
+use ical::{parser::vcard::component::*, property::Property};
+use indexmap::IndexMap;
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+};
 
 pub struct FromVcf;
 
 impl SimplePluginCommand for FromVcf {
     type Plugin = FromCmds;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build(CMD_NAME)
+    fn name(&self) -> &str {
+        "from vcf"
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .vcf and create table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Table(vec![]))])
-            .usage("Parse text as .vcf and create table.")
-            .plugin_examples(examples())
             .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
     }
 
     fn run(
@@ -70,15 +77,14 @@ impl SimplePluginCommand for FromVcf {
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
         example: "'BEGIN:VCARD
 N:Foo
 FN:Bar
 EMAIL:foo@bar.com
-END:VCARD' | from vcf"
-            .into(),
-        description: "Converts ics formatted string to table".into(),
+END:VCARD' | from vcf",
+        description: "Converts ics formatted string to table",
         result: Some(Value::test_list(vec![Value::test_record(record! {
             "properties" => Value::test_list(
                 vec![

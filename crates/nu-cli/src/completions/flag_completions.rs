@@ -4,7 +4,6 @@ use nu_protocol::{
     engine::StateWorkingSet,
     Span,
 };
-
 use reedline::Suggestion;
 
 use super::SemanticSuggestion;

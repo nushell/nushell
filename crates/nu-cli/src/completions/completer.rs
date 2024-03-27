@@ -5,14 +5,13 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::str;
-use std::sync::Arc;
+use std::{str, sync::Arc};
 
 use super::base::{SemanticSuggestion, SuggestionKind};
 

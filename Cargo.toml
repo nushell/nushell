@@ -102,7 +102,7 @@ mime = "0.3"
 mime_guess = "2.0"
 mockito = { version = "1.4", default-features = false }
 native-tls = "0.2"
-nix = { version = "0.27", default-features = false }
+nix = { version = "0.28", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
 nu-ansi-term = "0.50.0"
 num-format = "0.4"
@@ -121,7 +121,7 @@ quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rand = "0.8"
 ratatui = "0.26"
-rayon = "1.9"
+rayon = "1.10"
 reedline = "0.30.0"
 regex = "1.9.5"
 ropey = "1.6.1"
@@ -179,6 +179,7 @@ nu-path = { path = "./crates/nu-path", version = "0.91.1" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.91.1" }
 nu-protocol = { path = "./crates/nu-protocol", version = "0.91.1" }
 nu-std = { path = "./crates/nu-std", version = "0.91.1" }
+nu-system = { path = "./crates/nu-system", version = "0.91.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.91.1" }
 
 reedline = { workspace = true, features = ["bashisms", "sqlite"] }

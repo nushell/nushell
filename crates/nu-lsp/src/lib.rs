@@ -1,13 +1,3 @@
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},
@@ -24,6 +14,15 @@ use nu_protocol::{
     DeclId, Span, Value, VarId,
 };
 use ropey::Rope;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 mod diagnostics;
 mod notification;

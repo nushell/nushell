@@ -1,3 +1,4 @@
+use crate::{string_width, string_wrap, TableTheme};
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Record, Span, Value};
 use tabled::{
@@ -9,8 +10,6 @@ use tabled::{
     settings::{style::RawStyle, Color, Padding, TableOption},
     tables::{PoolTable, TableValue},
 };
-
-use crate::{string_width, string_wrap, TableTheme};
 
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///

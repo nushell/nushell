@@ -1,27 +1,24 @@
+use crate::{
+    ast::Block,
+    debugger::{Debugger, NoopDebugger},
+    engine::{
+        usage::{build_usage, Usage},
+        CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
+        Variable, Visibility, DEFAULT_OVERLAY_NAME,
+    },
+    BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+};
 use fancy_regex::Regex;
 use lru::LruCache;
-
-use super::cached_file::CachedFile;
-use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{
-    Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility,
-    DEFAULT_OVERLAY_NAME,
-};
-use crate::ast::Block;
-use crate::debugger::{Debugger, NoopDebugger};
-use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, VirtualPathId,
-};
-use crate::{Category, Value};
-use std::collections::HashMap;
-use std::num::NonZeroUsize;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::atomic::Ordering;
-use std::sync::{
-    atomic::{AtomicBool, AtomicU32},
-    Arc, Mutex, MutexGuard, PoisonError,
+use std::{
+    collections::HashMap,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc, Mutex, MutexGuard, PoisonError,
+    },
 };
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
@@ -533,11 +530,7 @@ impl EngineState {
                     let examples = decl
                         .examples()
                         .into_iter()
-                        .map(|eg| PluginExample {
-                            example: eg.example.into(),
-                            description: eg.description.into(),
-                            result: eg.result,
-                        })
+                        .map(PluginExample::from)
                         .collect();
                     let sig_with_examples = PluginSignature::new(sig, examples);
                     serde_json::to_string_pretty(&sig_with_examples)

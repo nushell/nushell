@@ -1,11 +1,7 @@
 use crate::grapheme_flags;
 use fancy_regex::Regex;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]

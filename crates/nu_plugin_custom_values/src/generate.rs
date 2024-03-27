@@ -1,22 +1,30 @@
 use crate::{cool_custom_value::CoolCustomValue, CustomValuePlugin};
-
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, PluginExample, PluginSignature, Span, Value};
+use nu_protocol::{Category, Example, LabeledError, Signature, Span, Value};
 
 pub struct Generate;
 
 impl SimplePluginCommand for Generate {
     type Plugin = CustomValuePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("custom-value generate")
-            .usage("PluginSignature for a plugin that generates a custom value")
-            .category(Category::Experimental)
-            .plugin_examples(vec![PluginExample {
-                example: "custom-value generate".into(),
-                description: "Generate a new CoolCustomValue".into(),
-                result: Some(CoolCustomValue::new("abc").into_value(Span::test_data())),
-            }])
+    fn name(&self) -> &str {
+        "custom-value generate"
+    }
+
+    fn usage(&self) -> &str {
+        "PluginSignature for a plugin that generates a custom value"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name()).category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "custom-value generate",
+            description: "Generate a new CoolCustomValue",
+            result: Some(CoolCustomValue::new("abc").into_value(Span::test_data())),
+        }]
     }
 
     fn run(

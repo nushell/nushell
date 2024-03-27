@@ -1,14 +1,12 @@
-use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
-use nu_protocol::debugger::WithoutDebug;
+use crate::eval_call;
 use nu_protocol::{
-    ast::Call,
+    ast::{Argument, Call, Expr, Expression, RecordItem},
+    debugger::WithoutDebug,
     engine::{EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value,
 };
 use std::{collections::HashMap, fmt::Write};
-
-use crate::eval_call;
 
 pub fn get_full_help(
     sig: &Signature,

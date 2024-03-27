@@ -1,10 +1,6 @@
-use std::{sync::mpsc, time::Duration};
-
-use nu_protocol::{
-    engine::Closure, IntoInterruptiblePipelineData, PipelineData, PluginSignature, ShellError,
-    Span, Spanned, Value,
+use super::{
+    Context, PluginCallState, PluginInterface, PluginInterfaceManager, ReceivedPluginCallMessage,
 };
-
 use crate::{
     plugin::{
         context::PluginExecutionBogusContext,
@@ -19,10 +15,11 @@ use crate::{
     },
     EvaluatedCall, PluginCallResponse, PluginOutput,
 };
-
-use super::{
-    Context, PluginCallState, PluginInterface, PluginInterfaceManager, ReceivedPluginCallMessage,
+use nu_protocol::{
+    engine::Closure, IntoInterruptiblePipelineData, PipelineData, PluginSignature, ShellError,
+    Span, Spanned, Value,
 };
+use std::{sync::mpsc, time::Duration};
 
 #[test]
 fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {

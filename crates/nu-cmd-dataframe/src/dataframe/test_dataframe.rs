@@ -1,16 +1,12 @@
-use nu_engine::eval_block;
-use nu_parser::parse;
-use nu_protocol::{
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    Example, PipelineData, Span,
+use super::{
+    eager::{SchemaDF, ToDataFrame},
+    expressions::ExprCol,
+    lazy::{LazyCollect, LazyFillNull, ToLazyFrame},
 };
-
-use super::eager::{SchemaDF, ToDataFrame};
-use super::expressions::ExprCol;
-use super::lazy::LazyFillNull;
-use super::lazy::{LazyCollect, ToLazyFrame};
 use nu_cmd_lang::Let;
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::{command_prelude::*, eval_block};
+use nu_parser::parse;
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet};
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
     if cmds.is_empty() {

@@ -1,17 +1,18 @@
-use super::cached_file::CachedFile;
-use super::CommandType;
-use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
-    Visibility, PWD_ENV,
+use crate::{
+    ast::Block,
+    engine::{
+        usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
+    },
+    BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
+    Type, Value, VarId, VirtualPathId,
 };
-use crate::ast::Block;
-use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
-use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+};
 
 #[cfg(feature = "plugin")]
 use crate::{PluginIdentity, RegisteredPlugin};

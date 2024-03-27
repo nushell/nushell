@@ -1,16 +1,16 @@
-use crate::text_style::Alignment;
-use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
+use crate::{color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignment, TextStyle};
 use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     cli_error::CliError,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     IntoPipelineData, Value,
 };
-use std::collections::HashMap;
-
-use nu_protocol::debugger::WithoutDebug;
-use std::fmt::{Debug, Formatter, Result};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Formatter, Result},
+};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which

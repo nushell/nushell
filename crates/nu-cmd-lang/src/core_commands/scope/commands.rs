@@ -1,9 +1,4 @@
-use nu_engine::scope::ScopeData;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
-};
+use nu_engine::{command_prelude::*, scope::ScopeData};
 
 #[derive(Clone)]
 pub struct ScopeCommands;
@@ -15,7 +10,7 @@ impl Command for ScopeCommands {
 
     fn signature(&self) -> Signature {
         Signature::build("scope commands")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
             .allow_variants_without_examples(true)
             .category(Category::Core)
     }

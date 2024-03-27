@@ -1,12 +1,6 @@
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::{engine::Closure, IoStream, RawStream};
 use std::{sync::mpsc, thread};
-
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoSpanned, IoStream, PipelineData,
-    RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
 
 #[derive(Clone)]
 pub struct Tee;

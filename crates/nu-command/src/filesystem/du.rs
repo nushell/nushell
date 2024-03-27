@@ -1,13 +1,8 @@
 use super::util::opt_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
-use nu_engine::{current_dir, CallExt};
+use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::NuGlob;
 use serde::Deserialize;
 
 #[derive(Clone)]
