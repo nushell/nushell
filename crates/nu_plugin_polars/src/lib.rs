@@ -159,11 +159,11 @@ impl Plugin for PolarsPlugin {
 }
 
 pub trait PolarsPluginCustomValue: CustomValue {
-    type PhysicalType: Clone;
+    type PolarsPluginObjectType: Clone;
 
     fn id(&self) -> &Uuid;
 
-    fn internal(&self) -> &Option<Self::PhysicalType>;
+    fn internal(&self) -> &Option<Self::PolarsPluginObjectType>;
 
     fn custom_value_to_base_value(
         &self,
@@ -222,7 +222,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
 }
 
 pub trait CustomValueSupport: Cacheable {
-    type CV: PolarsPluginCustomValue<PhysicalType = Self> + CustomValue + 'static;
+    type CV: PolarsPluginCustomValue<PolarsPluginObjectType = Self> + CustomValue + 'static;
 
     fn type_name() -> &'static str;
 

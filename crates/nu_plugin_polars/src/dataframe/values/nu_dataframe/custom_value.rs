@@ -44,13 +44,13 @@ impl CustomValue for NuDataFrameCustomValue {
 }
 
 impl PolarsPluginCustomValue for NuDataFrameCustomValue {
-    type PhysicalType = NuDataFrame;
+    type PolarsPluginObjectType = NuDataFrame;
 
     fn id(&self) -> &Uuid {
         &self.id
     }
 
-    fn internal(&self) -> &Option<Self::PhysicalType> {
+    fn internal(&self) -> &Option<Self::PolarsPluginObjectType> {
         &self.dataframe
     }
 

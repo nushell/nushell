@@ -41,7 +41,7 @@ impl CustomValue for NuLazyFrameCustomValue {
 }
 
 impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
-    type PhysicalType = NuLazyFrame;
+    type PolarsPluginObjectType = NuLazyFrame;
 
     fn custom_value_to_base_value(
         &self,
@@ -56,7 +56,7 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         &self.id
     }
 
-    fn internal(&self) -> &Option<Self::PhysicalType> {
+    fn internal(&self) -> &Option<Self::PolarsPluginObjectType> {
         &self.lazyframe
     }
 }

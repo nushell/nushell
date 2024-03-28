@@ -40,7 +40,7 @@ impl CustomValue for NuWhenCustomValue {
 }
 
 impl PolarsPluginCustomValue for NuWhenCustomValue {
-    type PhysicalType = NuWhen;
+    type PolarsPluginObjectType = NuWhen;
 
     fn custom_value_to_base_value(
         &self,
@@ -55,7 +55,7 @@ impl PolarsPluginCustomValue for NuWhenCustomValue {
         &self.id
     }
 
-    fn internal(&self) -> &Option<Self::PhysicalType> {
+    fn internal(&self) -> &Option<Self::PolarsPluginObjectType> {
         &self.when
     }
 }

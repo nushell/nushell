@@ -147,7 +147,7 @@ where
 }
 
 impl PolarsPluginCustomValue for NuExpressionCustomValue {
-    type PhysicalType = NuExpression;
+    type PolarsPluginObjectType = NuExpression;
 
     fn custom_value_operation(
         &self,
@@ -181,7 +181,7 @@ impl PolarsPluginCustomValue for NuExpressionCustomValue {
         &self.id
     }
 
-    fn internal(&self) -> &Option<Self::PhysicalType> {
+    fn internal(&self) -> &Option<Self::PolarsPluginObjectType> {
         &self.expr
     }
 }

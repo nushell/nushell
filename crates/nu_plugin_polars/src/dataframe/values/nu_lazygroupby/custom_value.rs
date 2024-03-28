@@ -38,7 +38,7 @@ impl CustomValue for NuLazyGroupByCustomValue {
 }
 
 impl PolarsPluginCustomValue for NuLazyGroupByCustomValue {
-    type PhysicalType = NuLazyGroupBy;
+    type PolarsPluginObjectType = NuLazyGroupBy;
 
     fn custom_value_to_base_value(
         &self,
@@ -52,7 +52,7 @@ impl PolarsPluginCustomValue for NuLazyGroupByCustomValue {
         &self.id
     }
 
-    fn internal(&self) -> &Option<Self::PhysicalType> {
+    fn internal(&self) -> &Option<Self::PolarsPluginObjectType> {
         &self.groupby
     }
 }
