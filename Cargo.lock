@@ -3140,6 +3140,7 @@ dependencies = [
 name = "nu-std"
 version = "0.91.1"
 dependencies = [
+ "log",
  "miette",
  "nu-engine",
  "nu-parser",

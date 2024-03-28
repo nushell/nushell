@@ -1,3 +1,4 @@
+use log::trace;
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
@@ -13,6 +14,7 @@ const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
 pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
+    trace!("load_standard_library");
     let (block, delta) = {
         // Using full virtual path to avoid potential conflicts with user having 'std' directory
         // in their working directory.
