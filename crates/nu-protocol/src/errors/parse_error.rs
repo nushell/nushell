@@ -227,9 +227,9 @@ pub enum ParseError {
         #[label = "module directory is missing a mod.nu file"] Span,
     ),
 
-    #[error("Cyclical module import.")]
-    #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
-    CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
+    #[error("Circular import.")]
+    #[diagnostic(code(nu::parser::circular_import), help("{0}"))]
+    CircularImport(String, #[label = "detected circular import"] Span),
 
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
@@ -506,7 +506,7 @@ impl ParseError {
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
-            ParseError::CyclicalModuleImport(_, s) => *s,
+            ParseError::CircularImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,
             ParseError::OverlayPrefixMismatch(_, _, s) => *s,

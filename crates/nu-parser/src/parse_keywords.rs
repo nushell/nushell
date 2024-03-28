@@ -1831,32 +1831,39 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
+/// If importing the script `path` would cause a circular import, returns true and adds a ParseError to the WorkingSet.
+fn is_circular_import(ws: &mut StateWorkingSet, path: &ParserPath, path_span: &Span) -> bool {
+    if let Some(i) = ws.scripts.iter().rposition(|p| p == path.path()) {
+        let mut files: Vec<String> = ws
+            .scripts
+            .split_off(i)
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect();
+        files.push(path.path().to_string_lossy().to_string());
+
+        let msg = files.join("\nuses ");
+        ws.error(ParseError::CircularImport(msg, *path_span));
+        return true;
+    }
+    false
+}
+
+/// Parse a module from a file.
+///
+/// The module name is inferred from the stem of the file, unless specified in `name_override`.
 fn parse_module_file(
     working_set: &mut StateWorkingSet,
     path: ParserPath,
     path_span: Span,
     name_override: Option<String>,
 ) -> Option<ModuleId> {
-    if let Some(i) = working_set
-        .parsed_module_files
-        .iter()
-        .rposition(|p| p == path.path())
-    {
-        let mut files: Vec<String> = working_set
-            .parsed_module_files
-            .split_off(i)
-            .iter()
-            .map(|p| p.to_string_lossy().to_string())
-            .collect();
-
-        files.push(path.path().to_string_lossy().to_string());
-
-        let msg = files.join("\nuses ");
-
-        working_set.error(ParseError::CyclicalModuleImport(msg, path_span));
+    // Check for circular module imports.
+    if is_circular_import(working_set, &path, &path_span) {
         return None;
     }
 
+    // Infer the module name from the stem of the file, unless overridden.
     let module_name = if let Some(name) = name_override {
         name
     } else if let Some(stem) = path.file_stem() {
@@ -1869,6 +1876,7 @@ fn parse_module_file(
         return None;
     };
 
+    // Read the content of the module.
     let contents = if let Some(contents) = path.read(working_set) {
         contents
     } else {
@@ -1882,29 +1890,20 @@ fn parse_module_file(
     let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
+    // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
         return Some(module_id);
     }
 
-    // Change the currently parsed directory
-    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-        working_set.currently_parsed_cwd.replace(parent.into())
-    } else {
-        working_set.currently_parsed_cwd.clone()
-    };
-
-    // Add the file to the stack of parsed module files
-    working_set.parsed_module_files.push(path.path_buf());
+    // Add the file to the stack of scripts being processed.
+    working_set.scripts.push(path.path_buf());
 
     // Parse the module
     let (block, module, module_comments) =
         parse_module_block(working_set, new_span, module_name.as_bytes());
 
-    // Remove the file from the stack of parsed module files
-    working_set.parsed_module_files.pop();
-
-    // Restore the currently parsed directory back
-    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+    // Remove the file from the stack of scripts being processed.
+    working_set.scripts.pop();
 
     let _ = working_set.add_block(Arc::new(block));
     let module_id = working_set.add_module(&module_name, module, module_comments);
@@ -3384,13 +3383,14 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
+                    // Check for circular source.
+                    if is_circular_import(working_set, &path, &spans[1]) {
+                        return garbage_pipeline(spans);
+                    }
+
                     if let Some(contents) = path.read(working_set) {
-                        // Change currently parsed directory
-                        let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                            working_set.currently_parsed_cwd.replace(parent.into())
-                        } else {
-                            working_set.currently_parsed_cwd.clone()
-                        };
+                        // Add the file to the stack of scripts being processed.
+                        working_set.scripts.push(path.clone().path_buf());
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
@@ -3401,8 +3401,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             scoped,
                         );
 
-                        // Restore the currently parsed directory back
-                        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+                        // Remove the file from the stack of scripts being processed.
+                        working_set.scripts.pop();
 
                         // Save the block into the working set
                         let block_id = working_set.add_block(block);
@@ -3788,8 +3788,9 @@ pub fn find_in_dirs(
         dirs_var_name: &str,
     ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-            currently_parsed_cwd.as_path()
+        let actual_cwd = if let Some(path) = working_set.scripts.last() {
+            // `script_stack` contains absolute paths to scripts, so `path` always has a parent
+            path.parent().expect("script path has a parent")
         } else {
             Path::new(cwd)
         };
@@ -3852,8 +3853,9 @@ pub fn find_in_dirs(
         dirs_env: &str,
     ) -> Option<PathBuf> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-            currently_parsed_cwd.as_path()
+        let actual_cwd = if let Some(path) = working_set.scripts.last() {
+            // `script_stack` contains absolute paths to scripts, so `path` always has a parent
+            path.parent().expect("script path has a parent")
         } else {
             Path::new(cwd)
         };
