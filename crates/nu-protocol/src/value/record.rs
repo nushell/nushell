@@ -216,6 +216,12 @@ impl Record {
         }
     }
 
+    pub fn into_columns(self) -> IntoColumns {
+        IntoColumns {
+            iter: self.inner.into_iter(),
+        }
+    }
+
     pub fn values(&self) -> Values {
         Values {
             iter: self.inner.iter(),
@@ -506,6 +512,34 @@ impl<'a> DoubleEndedIterator for Columns<'a> {
 }
 
 impl<'a> ExactSizeIterator for Columns<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+pub struct IntoColumns {
+    iter: std::vec::IntoIter<(String, Value)>,
+}
+
+impl Iterator for IntoColumns {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(col, _)| col)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for IntoColumns {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|(col, _)| col)
+    }
+}
+
+impl ExactSizeIterator for IntoColumns {
     fn len(&self) -> usize {
         self.iter.len()
     }
