@@ -4,6 +4,7 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
+use nu_protocol::report_error_new;
 use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 
@@ -113,22 +114,27 @@ impl Command for Ls {
         let r = match input_pattern_arg {
             None => ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?,
             Some(pattern) => {
-                // let pattern_iter = pattern.into_iter();
-                // let result = ls_for_one_pattern(
-                //     Some(pattern_iter.next().unwrap()),
-                //     args,
-                //     ctrl_c.clone(),
-                //     cwd.clone(),
-                // )?;
-
-                // TODO: I'm not happy with too many Box::new, I need to change
-                // `ls_for_one_pattern` to make it returns `impl Iterator<Item = Value>`
-                let mut result: Box<dyn Iterator<Item = Value> + Send> =
-                    Box::new(vec![].into_iter());
-                for p in pattern {
-                    result = Box::new(result.chain(
-                        ls_for_one_pattern(Some(p), args, ctrl_c.clone(), cwd.clone())?.into_iter(),
-                    ))
+                let mut pattern_iter = pattern.into_iter();
+                // expect here is ok because we already checked if `pattern_arg` is not empty
+                let mut result = ls_for_one_pattern(
+                    Some(
+                        pattern_iter
+                            .next()
+                            .expect("Already check pattern-arg is not empty"),
+                    ),
+                    args,
+                    ctrl_c.clone(),
+                    cwd.clone(),
+                )?;
+                for pat in pattern_iter {
+                    match ls_for_one_pattern(Some(pat), args, ctrl_c.clone(), cwd.clone()) {
+                        Ok(it) => {
+                            // I don't really like Box::new here, but not really sure
+                            // if there is a better way.
+                            result = Box::new(result.chain(it));
+                        }
+                        Err(e) => report_error_new(engine_state, &e),
+                    }
                 }
                 result
             }
