@@ -269,8 +269,7 @@ impl Job {
     fn find_invalid_column(record: &Record) -> Option<&String> {
         const VALID_COLS: [&str; 3] = [COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME];
         record
-            .cols
-            .iter()
+            .columns()
             .find(|col| !VALID_COLS.contains(&col.as_str()))
     }
 
