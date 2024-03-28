@@ -30,7 +30,7 @@ mod to_df;
 mod to_json_lines;
 mod to_nu;
 mod to_parquet;
-// mod with_column;
+mod with_column;
 
 use crate::PolarsPlugin;
 
@@ -66,7 +66,7 @@ pub use to_df::ToDataFrame;
 pub use to_json_lines::ToJsonLines;
 pub use to_nu::ToNu;
 pub use to_parquet::ToParquet;
-// pub use with_column::WithColumn;
+pub use with_column::WithColumn;
 
 pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
@@ -100,5 +100,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(ToJsonLines),
         Box::new(ToParquet),
         Box::new(QueryDf),
+        Box::new(WithColumn),
     ]
 }
