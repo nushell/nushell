@@ -1160,16 +1160,16 @@ impl Value {
                     let span = current.span();
 
                     match current {
-                        Value::Record { val, .. } => {
+                        Value::Record { mut val, .. } => {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
-                            if let Some(found) = val.iter().rev().find(|x| {
+                            if let Some(found) = val.iter_mut().rev().find(|x| {
                                 if insensitive {
                                     x.0.eq_ignore_case(column_name)
                                 } else {
                                     x.0 == column_name
                                 }
                             }) {
-                                current = found.1.clone(); // TODO: avoid clone here
+                                current = std::mem::take(found.1);
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) =
@@ -1222,15 +1222,15 @@ impl Value {
                                 .map(|val| {
                                     let val_span = val.span();
                                     match val {
-                                        Value::Record { val, .. } => {
-                                            if let Some(found) = val.iter().rev().find(|x| {
+                                        Value::Record { mut val, .. } => {
+                                            if let Some(found) = val.iter_mut().rev().find(|x| {
                                                 if insensitive {
                                                     x.0.eq_ignore_case(column_name)
                                                 } else {
                                                     x.0 == column_name
                                                 }
                                             }) {
-                                                Ok(found.1.clone()) // TODO: avoid clone here
+                                                Ok(std::mem::take(found.1))
                                             } else if *optional {
                                                 Ok(Value::nothing(*origin_span))
                                             } else if let Some(suggestion) =
