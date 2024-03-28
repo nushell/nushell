@@ -1,4 +1,4 @@
-use crate::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuLazyGroupBy;
 use nu_protocol::{CustomValue, ShellError, Span, Value};

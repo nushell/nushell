@@ -1,8 +1,8 @@
 use super::super::values::{Column, NuDataFrame};
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::PolarsPluginObject,
-    Cacheable, CustomValueSupport, PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject},
+    Cacheable, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{

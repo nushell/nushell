@@ -2,7 +2,7 @@ use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuLazyFrame;
 

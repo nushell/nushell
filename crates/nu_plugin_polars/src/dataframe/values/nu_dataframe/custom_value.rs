@@ -5,7 +5,10 @@ use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin, PolarsPluginCustomValue};
+use crate::{
+    values::{CustomValueSupport, PolarsPluginCustomValue},
+    Cacheable, PolarsPlugin,
+};
 
 use super::NuDataFrame;
 

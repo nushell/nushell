@@ -6,7 +6,7 @@ use nu_protocol::{
 use polars::prelude::NamedFrom;
 use polars::series::Series;
 
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::{values::CustomValueSupport, Cacheable, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 

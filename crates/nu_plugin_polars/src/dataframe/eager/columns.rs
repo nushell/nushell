@@ -1,4 +1,4 @@
-use crate::{CustomValueSupport, PolarsPlugin};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};

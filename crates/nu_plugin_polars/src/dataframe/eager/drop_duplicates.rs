@@ -5,7 +5,8 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::values::CustomValueSupport;
+use crate::{Cacheable, PolarsPlugin};
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};

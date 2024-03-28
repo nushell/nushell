@@ -4,7 +4,7 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{dataframe::values::Column, Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::{dataframe::values::Column, values::CustomValueSupport, Cacheable, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 

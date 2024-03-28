@@ -8,7 +8,8 @@ use nu_protocol::{
 use polars_io::avro::{AvroCompression, AvroWriter};
 use polars_io::SerWriter;
 
-use crate::{CustomValueSupport, PolarsPlugin};
+use crate::values::CustomValueSupport;
+use crate::PolarsPlugin;
 
 use super::super::values::NuDataFrame;
 

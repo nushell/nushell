@@ -6,11 +6,11 @@ use polars::prelude::{ChainedThen, Then};
 use serde::{Serialize, Serializer};
 use uuid::Uuid;
 
-use crate::{Cacheable, CustomValueSupport};
+use crate::Cacheable;
 
 pub use self::custom_value::NuWhenCustomValue;
 
-use super::{PolarsPluginObject, PolarsPluginType};
+use super::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 #[derive(Debug, Clone)]
 pub struct NuWhen {

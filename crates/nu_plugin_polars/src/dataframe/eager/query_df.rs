@@ -1,7 +1,8 @@
 use super::super::values::NuDataFrame;
 use crate::dataframe::values::Column;
 use crate::dataframe::{eager::SQLContext, values::NuLazyFrame};
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::values::CustomValueSupport;
+use crate::{Cacheable, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,

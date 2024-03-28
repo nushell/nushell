@@ -1,8 +1,10 @@
 mod custom_value;
 
-use crate::{Cacheable, CustomValueSupport};
+use crate::Cacheable;
 
-use super::{NuDataFrame, NuExpression, NuSchema, PolarsPluginObject, PolarsPluginType};
+use super::{
+    CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject, PolarsPluginType,
+};
 use core::fmt;
 use nu_protocol::{record, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};

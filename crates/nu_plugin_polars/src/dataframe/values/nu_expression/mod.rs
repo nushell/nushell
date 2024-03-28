@@ -5,11 +5,11 @@ use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::{Cacheable, PolarsPlugin};
 
 pub use self::custom_value::NuExpressionCustomValue;
 
-use super::{PolarsPluginObject, PolarsPluginType};
+use super::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 // Polars Expression wrapper for Nushell operations
 // Object is behind and Option to allow easy implementation of

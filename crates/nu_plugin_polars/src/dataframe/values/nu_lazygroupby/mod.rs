@@ -6,11 +6,11 @@ use polars::prelude::LazyGroupBy;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{Cacheable, CustomValueSupport};
+use crate::Cacheable;
 
 pub use self::custom_value::NuLazyGroupByCustomValue;
 
-use super::{NuSchema, PolarsPluginObject, PolarsPluginType};
+use super::{CustomValueSupport, NuSchema, PolarsPluginObject, PolarsPluginType};
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of

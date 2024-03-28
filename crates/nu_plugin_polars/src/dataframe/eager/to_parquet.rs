@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 use polars::prelude::ParquetWriter;
 
-use crate::{CustomValueSupport, PolarsPlugin};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 

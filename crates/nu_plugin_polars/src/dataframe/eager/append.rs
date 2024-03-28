@@ -5,8 +5,8 @@ use nu_protocol::{
 };
 
 use crate::{
-    values::{Axis, Column, NuDataFrame},
-    Cacheable, CustomValueSupport, PolarsPlugin,
+    values::{Axis, Column, CustomValueSupport, NuDataFrame},
+    Cacheable, PolarsPlugin,
 };
 
 #[derive(Clone)]

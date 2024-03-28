@@ -4,7 +4,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::{dataframe::values::NuExpression, CustomValueSupport, PolarsPlugin};
+use crate::{dataframe::values::NuExpression, values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 

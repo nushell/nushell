@@ -1,6 +1,7 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    Cacheable, CustomValueSupport, PolarsPlugin,
+    values::CustomValueSupport,
+    Cacheable, PolarsPlugin,
 };
 
 use super::super::values::NuLazyFrame;

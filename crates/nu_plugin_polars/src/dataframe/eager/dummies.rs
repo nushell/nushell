@@ -1,5 +1,5 @@
 use super::super::values::NuDataFrame;
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::{values::CustomValueSupport, Cacheable, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,

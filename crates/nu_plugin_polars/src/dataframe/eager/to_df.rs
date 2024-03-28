@@ -1,5 +1,7 @@
 use crate::{
-    dataframe::values::NuSchema, values::Column, Cacheable, CustomValueSupport, PolarsPlugin,
+    dataframe::values::NuSchema,
+    values::{Column, CustomValueSupport},
+    Cacheable, PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;

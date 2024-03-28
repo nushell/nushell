@@ -5,7 +5,8 @@ use nu_protocol::{
 
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    CustomValueSupport, PolarsPlugin,
+    values::CustomValueSupport,
+    PolarsPlugin,
 };
 
 use super::explode::explode;

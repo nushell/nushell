@@ -6,8 +6,8 @@ use nu_protocol::{
 
 use crate::{
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::PolarsPluginObject,
-    Cacheable, CustomValueSupport, PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject},
+    Cacheable, PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};

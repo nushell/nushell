@@ -14,12 +14,13 @@ use polars_utils::total_ord::TotalEq;
 use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher, sync::Arc};
 use uuid::Uuid;
 
-use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::{Cacheable, PolarsPlugin};
 
 pub use self::custom_value::NuDataFrameCustomValue;
 
 use super::{
-    nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
+    nu_schema::NuSchema, utils::DEFAULT_ROWS, CustomValueSupport, NuLazyFrame, PolarsPluginObject,
+    PolarsPluginType,
 };
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used

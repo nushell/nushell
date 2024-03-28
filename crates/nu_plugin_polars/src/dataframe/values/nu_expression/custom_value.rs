@@ -1,6 +1,9 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
-use crate::{CustomValueSupport, PolarsPlugin, PolarsPluginCustomValue};
+use crate::{
+    values::{CustomValueSupport, PolarsPluginCustomValue},
+    PolarsPlugin,
+};
 
 use super::NuExpression;
 use nu_protocol::{

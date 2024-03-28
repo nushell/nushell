@@ -7,12 +7,12 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 mod cache;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{
-    ast::Operator, CustomValue, LabeledError, PipelineData, ShellError, Span, Spanned, Value,
-};
-use uuid::Uuid;
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, Spanned, Value};
 
-use crate::{eager::eager_commands, expressions::expr_commands, lazy::lazy_commands};
+use crate::{
+    eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
+    values::PolarsPluginCustomValue,
+};
 
 #[derive(Default)]
 pub struct PolarsPlugin {
@@ -155,135 +155,5 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuWhen(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
         };
         Ok(result?)
-    }
-}
-
-pub trait PolarsPluginCustomValue: CustomValue {
-    type PolarsPluginObjectType: Clone;
-
-    fn id(&self) -> &Uuid;
-
-    fn internal(&self) -> &Option<Self::PolarsPluginObjectType>;
-
-    fn custom_value_to_base_value(
-        &self,
-        plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-    ) -> Result<Value, ShellError>;
-
-    fn custom_value_operation(
-        &self,
-        _plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
-        _lhs_span: Span,
-        operator: Spanned<Operator>,
-        _right: Value,
-    ) -> Result<Value, ShellError> {
-        Err(ShellError::UnsupportedOperator {
-            operator: operator.item,
-            span: operator.span,
-        })
-    }
-
-    fn custom_value_follow_path_int(
-        &self,
-        _plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
-        self_span: Span,
-        _index: Spanned<usize>,
-    ) -> Result<Value, ShellError> {
-        Err(ShellError::IncompatiblePathAccess {
-            type_name: self.type_name(),
-            span: self_span,
-        })
-    }
-
-    fn custom_value_follow_path_string(
-        &self,
-        _plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
-        self_span: Span,
-        _column_name: Spanned<String>,
-    ) -> Result<Value, ShellError> {
-        Err(ShellError::IncompatiblePathAccess {
-            type_name: self.type_name(),
-            span: self_span,
-        })
-    }
-
-    fn custom_value_partial_cmp(
-        &self,
-        _plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
-        _other_value: Value,
-    ) -> Result<Option<Ordering>, ShellError> {
-        Ok(None)
-    }
-}
-
-pub trait CustomValueSupport: Cacheable {
-    type CV: PolarsPluginCustomValue<PolarsPluginObjectType = Self> + CustomValue + 'static;
-
-    fn type_name() -> &'static str;
-
-    fn custom_value(self) -> Self::CV;
-
-    fn base_value(self, span: Span) -> Result<Value, ShellError>;
-
-    fn into_value(self, span: Span) -> Value {
-        Value::custom(Box::new(self.custom_value()), span)
-    }
-
-    fn try_from_custom_value(plugin: &PolarsPlugin, cv: &Self::CV) -> Result<Self, ShellError> {
-        if let Some(internal) = cv.internal() {
-            Ok(internal.clone())
-        } else {
-            Self::get_cached(plugin, cv.id())?.ok_or_else(|| ShellError::GenericError {
-                error: format!("Dataframe {:?} not found in cache", cv.id()),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
-        }
-    }
-
-    fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
-        if let Value::Custom { val, .. } = value {
-            if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
-                Self::try_from_custom_value(plugin, cv)
-            } else {
-                Err(ShellError::CantConvert {
-                    to_type: Self::type_name().into(),
-                    from_type: value.get_type().to_string(),
-                    span: value.span(),
-                    help: None,
-                })
-            }
-        } else {
-            Err(ShellError::CantConvert {
-                to_type: Self::type_name().into(),
-                from_type: value.get_type().to_string(),
-                span: value.span(),
-                help: None,
-            })
-        }
-    }
-
-    fn try_from_pipeline(
-        plugin: &PolarsPlugin,
-        input: PipelineData,
-        span: Span,
-    ) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
-        Self::try_from_value(plugin, &value)
-    }
-
-    fn can_downcast(value: &Value) -> bool {
-        if let Value::Custom { val, .. } = value {
-            val.as_any().downcast_ref::<Self::CV>().is_some()
-        } else {
-            false
-        }
     }
 }

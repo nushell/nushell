@@ -1,4 +1,4 @@
-use crate::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuWhen;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
