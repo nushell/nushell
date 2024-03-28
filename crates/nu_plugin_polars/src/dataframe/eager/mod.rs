@@ -24,7 +24,7 @@ mod sql_expr;
 mod summary;
 mod take;
 mod to_arrow;
-// mod to_avro;
+mod to_avro;
 mod to_csv;
 mod to_df;
 // mod to_json_lines;
@@ -60,7 +60,7 @@ pub use sql_context::SQLContext;
 pub use summary::Summary;
 pub use take::TakeDF;
 pub use to_arrow::ToArrow;
-// pub use to_avro::ToAvro;
+pub use to_avro::ToAvro;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
 // pub use to_json_lines::ToJsonLines;
@@ -94,6 +94,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(TakeDF),
         Box::new(ToNu),
         Box::new(ToArrow),
+        Box::new(ToAvro),
         Box::new(ToDataFrame),
         Box::new(ToCSV),
         Box::new(ToParquet),

@@ -1,22 +1,25 @@
 use std::{fs::File, path::PathBuf};
 
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 use polars_io::avro::{AvroCompression, AvroWriter};
 use polars_io::SerWriter;
+
+use crate::{CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct ToAvro;
 
-impl Command for ToAvro {
+impl PluginCommand for ToAvro {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr to-avro"
+        "polars to-avro"
     }
 
     fn usage(&self) -> &str {
@@ -39,26 +42,27 @@ impl Command for ToAvro {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Saves dataframe to avro file",
-            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-avro test.avro",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-avro test.avro",
             result: None,
         }]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
-fn get_compression(call: &Call) -> Result<Option<AvroCompression>, ShellError> {
+fn get_compression(call: &EvaluatedCall) -> Result<Option<AvroCompression>, ShellError> {
     if let Some((compression, span)) = call
-        .get_flag_expr("compression")
-        .and_then(|e| e.as_string().map(|s| (s, e.span)))
+        .get_flag_value("compression")
+        .map(|e| e.as_str().map(|s| (s.to_owned(), e.span())))
+        .transpose()?
     {
         match compression.as_ref() {
             "snappy" => Ok(Some(AvroCompression::Snappy)),
@@ -75,15 +79,15 @@ fn get_compression(call: &Call) -> Result<Option<AvroCompression>, ShellError> {
 }
 
 fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    _engine: &EngineInterface,
+    call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+    let file_name: Spanned<PathBuf> = call.req(0)?;
     let compression = get_compression(call)?;
 
-    let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
@@ -95,7 +99,7 @@ fn command(
 
     AvroWriter::new(file)
         .with_compression(compression)
-        .finish(df.as_mut())
+        .finish(&mut df.to_polars())
         .map_err(|e| ShellError::GenericError {
             error: "Error saving file".into(),
             msg: e.to_string(),
