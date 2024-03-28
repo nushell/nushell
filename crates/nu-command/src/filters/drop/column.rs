@@ -123,7 +123,7 @@ fn drop_cols(
                 } => {
                     let len = record.len().saturating_sub(columns);
                     record.truncate(len);
-                    Ok(Value::record(*record, span).into_pipeline_data_with_metadata(metadata))
+                    Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),

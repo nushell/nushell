@@ -109,7 +109,7 @@ pub enum Value {
         internal_span: Span,
     },
     Record {
-        val: Box<Record>,
+        val: Record,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -537,7 +537,7 @@ impl Value {
     /// Unwraps the inner [`Record`] value or returns an error if this `Value` is not a record
     pub fn into_record(self) -> Result<Record, ShellError> {
         if let Value::Record { val, .. } = self {
-            Ok(*val)
+            Ok(val)
         } else {
             self.cant_convert_to("record")
         }
@@ -1997,7 +1997,7 @@ impl Value {
 
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
-            val: Box::new(val),
+            val,
             internal_span: span,
         }
     }

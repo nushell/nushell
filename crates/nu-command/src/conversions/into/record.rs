@@ -131,7 +131,7 @@ fn into_record(
                 .collect(),
             span,
         ),
-        Value::Record { val, .. } => Value::record(*val, span),
+        Value::Record { val, .. } => Value::record(val, span),
         Value::Error { .. } => input,
         other => Value::error(
             ShellError::TypeMismatch {
