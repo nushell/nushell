@@ -111,10 +111,6 @@ impl NuDataFrame {
         }
     }
 
-    pub fn get_type() -> PolarsPluginType {
-        PolarsPluginType::NuDataFrame
-    }
-
     pub fn to_polars(&self) -> DataFrame {
         (*self.df).clone()
     }
@@ -529,12 +525,12 @@ impl CustomValueSupport for NuDataFrame {
         }
     }
 
-    fn type_name() -> &'static str {
-        "NuDataFrame"
-    }
-
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
         let vals = self.print(span)?;
         Ok(Value::list(vals, span))
+    }
+
+    fn get_type_static() -> PolarsPluginType {
+        PolarsPluginType::NuDataFrame
     }
 }

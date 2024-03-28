@@ -39,10 +39,6 @@ impl NuLazyGroupBy {
         }
     }
 
-    pub fn get_type() -> PolarsPluginType {
-        PolarsPluginType::NuLazyGroupBy
-    }
-
     pub fn to_polars(&self) -> LazyGroupBy {
         (*self.group_by).clone()
     }
@@ -81,8 +77,8 @@ impl CustomValueSupport for NuLazyGroupBy {
         }
     }
 
-    fn type_name() -> &'static str {
-        "NuLazyGroupBy"
+    fn get_type_static() -> PolarsPluginType {
+        PolarsPluginType::NuLazyGroupBy
     }
 
     fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {

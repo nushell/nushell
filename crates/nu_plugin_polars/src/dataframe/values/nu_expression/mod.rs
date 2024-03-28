@@ -71,10 +71,6 @@ impl NuExpression {
         }
     }
 
-    pub fn get_type() -> PolarsPluginType {
-        PolarsPluginType::NuExpression
-    }
-
     pub fn to_polars(self) -> Expr {
         self.expr.expect("Expression cannot be none to convert")
     }
@@ -451,8 +447,8 @@ impl CustomValueSupport for NuExpression {
         }
     }
 
-    fn type_name() -> &'static str {
-        "NUExpression"
+    fn get_type_static() -> PolarsPluginType {
+        PolarsPluginType::NuExpression
     }
 
     fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
@@ -462,7 +458,7 @@ impl CustomValueSupport for NuExpression {
                     Self::try_from_custom_value(plugin, cv)
                 } else {
                     Err(ShellError::CantConvert {
-                        to_type: Self::type_name().into(),
+                        to_type: Self::get_type_static().to_string(),
                         from_type: value.get_type().to_string(),
                         span: value.span(),
                         help: None,

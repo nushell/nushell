@@ -44,10 +44,6 @@ impl NuLazyFrame {
         }
     }
 
-    pub fn get_type() -> PolarsPluginType {
-        PolarsPluginType::NuLazyFrame
-    }
-
     pub fn from_dataframe(df: NuDataFrame) -> Self {
         let lazy = df.as_ref().clone().lazy();
         NuLazyFrame::new(true, lazy)
@@ -125,8 +121,8 @@ impl CustomValueSupport for NuLazyFrame {
         }
     }
 
-    fn type_name() -> &'static str {
-        "NULazyFrame"
+    fn get_type_static() -> PolarsPluginType {
+        PolarsPluginType::NuLazyFrame
     }
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {

@@ -1,5 +1,5 @@
 use crate::{
-    dataframe::values::{str_to_dtype, NuExpression, NuLazyFrame},
+    dataframe::values::{str_to_dtype, to_pipeline_data, NuExpression, NuLazyFrame},
     values::CustomValueSupport,
     Cacheable, PolarsPlugin,
 };
@@ -192,10 +192,7 @@ fn command_eager(
         })?;
 
     let df = NuDataFrame::new(false, df);
-    Ok(PipelineData::Value(
-        df.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 // todo - fix test

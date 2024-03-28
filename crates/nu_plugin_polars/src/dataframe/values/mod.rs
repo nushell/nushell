@@ -222,7 +222,11 @@ pub trait PolarsPluginCustomValue: CustomValue {
 pub trait CustomValueSupport: Cacheable {
     type CV: PolarsPluginCustomValue<PolarsPluginObjectType = Self> + CustomValue + 'static;
 
-    fn type_name() -> &'static str;
+    fn get_type(&self) -> PolarsPluginType {
+        Self::get_type_static()
+    }
+
+    fn get_type_static() -> PolarsPluginType;
 
     fn custom_value(self) -> Self::CV;
 
@@ -252,7 +256,7 @@ pub trait CustomValueSupport: Cacheable {
                 Self::try_from_custom_value(plugin, cv)
             } else {
                 Err(ShellError::CantConvert {
-                    to_type: Self::type_name().into(),
+                    to_type: Self::get_type_static().to_string(),
                     from_type: value.get_type().to_string(),
                     span: value.span(),
                     help: None,
@@ -260,7 +264,7 @@ pub trait CustomValueSupport: Cacheable {
             }
         } else {
             Err(ShellError::CantConvert {
-                to_type: Self::type_name().into(),
+                to_type: Self::get_type_static().to_string(),
                 from_type: value.get_type().to_string(),
                 span: value.span(),
                 help: None,
@@ -284,4 +288,37 @@ pub trait CustomValueSupport: Cacheable {
             false
         }
     }
+}
+
+pub fn cache_and_to_value(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    span: Span,
+    cv: impl CustomValueSupport,
+) -> Result<Value, ShellError> {
+    match cv.to_cache_value()? {
+        // if it was from a lazy value, make it lazy again
+        PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
+            let df = df.lazy();
+            Ok(df.cache(plugin, engine)?.into_value(span))
+        }
+        // if it was from an eager value, make it eager again
+        PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
+            let lf = lf.collect(span)?;
+            Ok(lf.cache(plugin, engine)?.into_value(span))
+        }
+        _ => Ok(cv.cache(plugin, engine)?.into_value(span)),
+    }
+}
+
+pub fn to_pipeline_data(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    span: Span,
+    cv: impl CustomValueSupport,
+) -> Result<PipelineData, ShellError> {
+    Ok(PipelineData::Value(
+        cache_and_to_value(plugin, engine, span, cv)?,
+        None,
+    ))
 }

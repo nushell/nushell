@@ -1,3 +1,4 @@
+use crate::values::to_pipeline_data;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -5,7 +6,7 @@ use nu_protocol::{
 };
 
 use crate::values::CustomValueSupport;
-use crate::{Cacheable, PolarsPlugin};
+use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns;
 use super::super::values::{Column, NuDataFrame};
@@ -112,10 +113,7 @@ fn command(
 
     let final_df = NuDataFrame::new(df.from_lazy, polars_df);
 
-    Ok(PipelineData::Value(
-        final_df.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, final_df)
 }
 
 // todo: fix tests

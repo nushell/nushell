@@ -59,10 +59,6 @@ impl NuWhen {
             when_type,
         }
     }
-
-    pub fn get_type() -> PolarsPluginType {
-        PolarsPluginType::NuWhen
-    }
 }
 
 impl Cacheable for NuWhen {
@@ -98,8 +94,8 @@ impl CustomValueSupport for NuWhen {
         }
     }
 
-    fn type_name() -> &'static str {
-        "NuWhen"
+    fn get_type_static() -> PolarsPluginType {
+        PolarsPluginType::NuWhen
     }
 
     fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
