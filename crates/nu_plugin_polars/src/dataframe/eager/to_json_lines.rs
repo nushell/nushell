@@ -1,21 +1,24 @@
 use std::{fs::File, io::BufWriter, path::PathBuf};
 
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 use polars::prelude::{JsonWriter, SerWriter};
+
+use crate::{CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct ToJsonLines;
 
-impl Command for ToJsonLines {
+impl PluginCommand for ToJsonLines {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr to-jsonl"
+        "polars to-jsonl"
     }
 
     fn usage(&self) -> &str {
@@ -32,31 +35,31 @@ impl Command for ToJsonLines {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Saves dataframe to JSON lines file",
-            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-jsonl test.jsonl",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-jsonl test.jsonl",
             result: None,
         }]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    _engine: &EngineInterface,
+    call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+    let file_name: Spanned<PathBuf> = call.req(0)?;
 
-    let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
 
     let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
@@ -68,7 +71,7 @@ fn command(
     let buf_writer = BufWriter::new(file);
 
     JsonWriter::new(buf_writer)
-        .finish(df.as_mut())
+        .finish(&mut df.to_polars())
         .map_err(|e| ShellError::GenericError {
             error: "Error saving file".into(),
             msg: e.to_string(),
