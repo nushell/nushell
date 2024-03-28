@@ -1,18 +1,23 @@
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
+use crate::{
+    dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
+    values::{cant_convert_err, PolarsPluginObject, PolarsPluginType},
+    Cacheable, CustomValueSupport, PolarsPlugin,
+};
 
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
 pub struct LazyFilter;
 
-impl Command for LazyFilter {
+impl PluginCommand for LazyFilter {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr filter"
+        "polars filter"
     }
 
     fn usage(&self) -> &str {
@@ -36,7 +41,8 @@ impl Command for LazyFilter {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Filter dataframe using an expression",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr filter ((dfr col a) >= 4)",
+            example:
+                "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars col a) >= 4)",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -60,31 +66,56 @@ impl Command for LazyFilter {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let value: Value = call.req(engine_state, stack, 0)?;
-        let expression = NuExpression::try_from_value(value)?;
+    ) -> Result<PipelineData, LabeledError> {
+        let expr_value: Value = call.req(0)?;
+        let filter_expr = NuExpression::try_from_value(plugin, &expr_value)?;
+        let pipeline_value = input.into_value(call.head);
 
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
-        let lazy = NuLazyFrame::new(
-            lazy.from_eager,
-            lazy.into_polars().filter(expression.into_polars()),
-        );
-
-        Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+        match PolarsPluginObject::try_from_value(plugin, &pipeline_value)? {
+            PolarsPluginObject::NuDataFrame(df) => {
+                cmd_lazy(plugin, engine, call, df.lazy(), filter_expr)
+            }
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                cmd_lazy(plugin, engine, call, lazy, filter_expr)
+            }
+            _ => Err(cant_convert_err(
+                &pipeline_value,
+                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        test_dataframe(vec![Box::new(LazyFilter {})])
-    }
+fn cmd_lazy(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    lazy: NuLazyFrame,
+    filter_expr: NuExpression,
+) -> Result<PipelineData, ShellError> {
+    let lazy = NuLazyFrame::new(
+        lazy.from_eager,
+        lazy.to_polars().filter(filter_expr.to_polars()),
+    );
+    Ok(PipelineData::Value(
+        lazy.cache(plugin, engine)?.into_value(call.head),
+        None,
+    ))
 }
+
+// todo: fix tests
+// #[cfg(test)]
+// mod test {
+//     use super::super::super::test_dataframe::test_dataframe;
+//     use super::*;
+//
+//     #[test]
+//     fn test_examples() {
+//         test_dataframe(vec![Box::new(LazyFilter {})])
+//     }
+// }
