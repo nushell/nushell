@@ -438,12 +438,12 @@ fn eval_element_with_input_inner<D: DebugContext>(
         }
     }
 
-    let data = match (data, stack.pipe_stdout()) {
-        (
-            data @ (PipelineData::Value(..) | PipelineData::ListStream(..)),
-            Some(IoStream::File(_)),
-        ) => data.write_to_io_streams(engine_state, stack)?,
-        (data, _) => data,
+    let data = if matches!(stack.pipe_stdout(), Some(IoStream::File(_)))
+        && !matches!(stack.pipe_stderr(), Some(IoStream::Pipe))
+    {
+        data.write_to_io_streams(engine_state, stack)?
+    } else {
+        data
     };
 
     Ok((data, ok))
