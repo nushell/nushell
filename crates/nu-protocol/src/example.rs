@@ -20,6 +20,7 @@ pub struct PluginExample {
     pub result: Option<Value>,
 }
 
+#[cfg(feature = "plugin")]
 impl From<Example<'_>> for PluginExample {
     fn from(value: Example) -> Self {
         PluginExample {
