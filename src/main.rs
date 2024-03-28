@@ -20,7 +20,7 @@ use crate::{
     logger::{configure, logger},
 };
 use command::gather_commandline_args;
-use log::Level;
+use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
@@ -233,6 +233,7 @@ fn main() -> Result<()> {
         );
     }
 
+    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
@@ -243,6 +244,14 @@ fn main() -> Result<()> {
 
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
+    perf(
+        "NU_LIB_DIRS setup",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     // First, set up env vars as strings only
@@ -265,7 +274,16 @@ fn main() -> Result<()> {
         load_standard_library(&mut engine_state)?;
     }
 
+    start_time = std::time::Instant::now();
     if parsed_nu_cli_args.lsp {
+        perf(
+            "lsp starting",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
         return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
     }
 
@@ -330,6 +348,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+        trace!("redirecting stdin");
         let stdin = std::io::stdin();
         let buf_reader = BufReader::new(stdin);
 
@@ -347,6 +366,7 @@ fn main() -> Result<()> {
             trim_end_newline: false,
         }
     } else {
+        trace!("not redirecting stdin");
         PipelineData::empty()
     };
     perf(
@@ -358,9 +378,18 @@ fn main() -> Result<()> {
         use_color,
     );
 
+    start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
     let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    perf(
+        "create_nu_constant",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

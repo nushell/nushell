@@ -13,3 +13,4 @@ nu-protocol = { version = "0.91.1", path = "../nu-protocol" }
 nu-engine = { version = "0.91.1", path = "../nu-engine" }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 
+log = "0.4"
