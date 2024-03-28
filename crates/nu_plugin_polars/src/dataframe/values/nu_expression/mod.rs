@@ -124,7 +124,7 @@ impl ExtractedExpr {
     fn extract_exprs(plugin: &PolarsPlugin, value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
-            Value::CustomValue { .. } => NuExpression::try_from_value(plugin, &value)
+            Value::Custom { .. } => NuExpression::try_from_value(plugin, &value)
                 .map(NuExpression::to_polars)
                 .map(ExtractedExpr::Single),
             Value::List { vals, .. } => vals
@@ -457,7 +457,7 @@ impl CustomValueSupport for NuExpression {
 
     fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, .. } => {
+            Value::Custom { val, .. } => {
                 if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
                     Self::try_from_custom_value(plugin, cv)
                 } else {
@@ -484,7 +484,7 @@ impl CustomValueSupport for NuExpression {
 
     fn can_downcast(value: &Value) -> bool {
         match value {
-            Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::Custom { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
             Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
                 true

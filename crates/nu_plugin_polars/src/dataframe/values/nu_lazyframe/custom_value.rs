@@ -17,7 +17,7 @@ pub struct NuLazyFrameCustomValue {
 #[typetag::serde]
 impl CustomValue for NuLazyFrameCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {

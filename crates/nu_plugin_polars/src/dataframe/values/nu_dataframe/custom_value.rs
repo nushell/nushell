@@ -20,7 +20,7 @@ pub struct NuDataFrameCustomValue {
 #[typetag::serde]
 impl CustomValue for NuDataFrameCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {
@@ -37,21 +37,6 @@ impl CustomValue for NuDataFrameCustomValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-
-    // fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
-    //     if let Ok(df) = NuDataFrame::try_from(self) {
-    //         if let Value::CustomValue { val, .. } = other {
-    //             val.as_any()
-    //                 .downcast_ref::<NuDataFrameCustomValue>()
-    //                 .and_then(|other| NuDataFrame::try_from(other).ok())
-    //                 .and_then(|ref other| df.is_equal(other))
-    //         } else {
-    //             None
-    //         }
-    //     } else {
-    //         None
-    //     }
-    // }
 
     fn notify_plugin_on_drop(&self) -> bool {
         true
@@ -123,7 +108,7 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         other_value: Value,
     ) -> Result<Option<Ordering>, ShellError> {
         if let Ok(df) = NuDataFrame::try_from_custom_value(plugin, self) {
-            if let Value::CustomValue { val, .. } = other_value {
+            if let Value::Custom { val, .. } = other_value {
                 Ok(val
                     .as_any()
                     .downcast_ref::<NuDataFrameCustomValue>()

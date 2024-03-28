@@ -25,7 +25,7 @@ impl NuDataFrame {
     ) -> Result<NuDataFrame, ShellError> {
         let rhs_span = right.span();
         match right {
-            Value::CustomValue { .. } => {
+            Value::Custom { .. } => {
                 let rhs = NuDataFrame::try_from_value(plugin, right)?;
 
                 match (self.is_series(), rhs.is_series()) {

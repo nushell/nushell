@@ -231,7 +231,7 @@ pub trait CustomValueSupport: Cacheable {
     fn base_value(self, span: Span) -> Result<Value, ShellError>;
 
     fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.custom_value()), span)
+        Value::custom(Box::new(self.custom_value()), span)
     }
 
     fn try_from_custom_value(plugin: &PolarsPlugin, cv: &Self::CV) -> Result<Self, ShellError> {
@@ -249,7 +249,7 @@ pub trait CustomValueSupport: Cacheable {
     }
 
     fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::Custom { val, .. } = value {
             if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
                 Self::try_from_custom_value(plugin, cv)
             } else {
@@ -280,7 +280,7 @@ pub trait CustomValueSupport: Cacheable {
     }
 
     fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::Custom { val, .. } = value {
             val.as_any().downcast_ref::<Self::CV>().is_some()
         } else {
             false

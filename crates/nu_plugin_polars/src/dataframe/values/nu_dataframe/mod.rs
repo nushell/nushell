@@ -150,7 +150,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::CustomValue { .. } => return Self::try_from_value(plugin, &value),
+                Value::Custom { .. } => return Self::try_from_value(plugin, &value),
                 Value::List { vals, .. } => {
                     let record = vals
                         .into_iter()
