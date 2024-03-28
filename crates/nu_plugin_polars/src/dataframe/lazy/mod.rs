@@ -5,7 +5,7 @@ mod fetch;
 mod fill_nan;
 mod fill_null;
 mod filter;
-// mod flatten;
+mod flatten;
 // pub mod groupby;
 // mod join;
 mod macro_commands;
@@ -31,7 +31,7 @@ pub(crate) use crate::dataframe::lazy::macro_commands::*;
 // use crate::dataframe::lazy::sort_by_expr::LazySortBy;
 // pub use crate::dataframe::lazy::to_lazy::ToLazyFrame;
 pub use explode::LazyExplode;
-// pub use flatten::LazyFlatten;
+pub use flatten::LazyFlatten;
 
 pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
@@ -43,6 +43,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFillNA),
         Box::new(LazyFillNull),
         Box::new(LazyFilter),
+        Box::new(LazyFlatten),
         Box::new(LazyMedian),
         Box::new(LazyReverse),
     ]
