@@ -1,16 +1,14 @@
-#[cfg(unix)]
-use libc::gid_t;
 use nu_engine::{command_prelude::*, current_dir};
 use std::path::Path;
-
-// For checking whether we have permission to cd to a directory
 #[cfg(unix)]
-mod file_permissions {
-    pub type Mode = u32;
-    pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
-    pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
-    pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
-}
+use {
+    crate::filesystem::util::users,
+    nix::{
+        sys::stat::Mode,
+        unistd::{Gid, Uid},
+    },
+    std::os::unix::fs::MetadataExt,
+};
 
 // The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
@@ -170,26 +168,22 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    use crate::filesystem::util::users;
-
     match dir.as_ref().metadata() {
         Ok(metadata) => {
-            use std::os::unix::fs::MetadataExt;
-            let bits = metadata.mode();
-            let has_bit = |bit| bits & bit == bit;
+            let mode = Mode::from_bits_truncate(metadata.mode());
             let current_user_uid = users::get_current_uid();
-            if current_user_uid == 0 {
+            if current_user_uid.is_root() {
                 return PermissionResult::PermissionOk;
             }
             let current_user_gid = users::get_current_gid();
-            let owner_user = metadata.uid();
-            let owner_group = metadata.gid();
+            let owner_user = Uid::from_raw(metadata.uid());
+            let owner_group = Gid::from_raw(metadata.gid());
             match (
                 current_user_uid == owner_user,
                 current_user_gid == owner_group,
             ) {
                 (true, _) => {
-                    if has_bit(file_permissions::USER_EXECUTE) {
+                    if mode.contains(Mode::S_IXUSR) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
@@ -198,7 +192,7 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                     }
                 }
                 (false, true) => {
-                    if has_bit(file_permissions::GROUP_EXECUTE) {
+                    if mode.contains(Mode::S_IXGRP) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
@@ -207,8 +201,8 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                     }
                 }
                 (false, false) => {
-                    if has_bit(file_permissions::OTHER_EXECUTE)
-                        || (has_bit(file_permissions::GROUP_EXECUTE)
+                    if mode.contains(Mode::S_IXOTH)
+                        || (mode.contains(Mode::S_IXGRP)
                             && any_group(current_user_gid, owner_group))
                     {
                         PermissionResult::PermissionOk
@@ -225,24 +219,19 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
-fn any_group(_current_user_gid: gid_t, owner_group: u32) -> bool {
-    use crate::filesystem::util::users;
-    let Some(user_groups) = users::current_user_groups() else {
-        return false;
-    };
-    user_groups.iter().any(|gid| gid.as_raw() == owner_group)
+fn any_group(_current_user_gid: Gid, owner_group: Gid) -> bool {
+    users::current_user_groups()
+        .unwrap_or_default()
+        .contains(&owner_group)
 }
 
 #[cfg(all(
     unix,
     not(any(target_os = "linux", target_os = "freebsd", target_os = "android"))
 ))]
-fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
-    use crate::filesystem::util::users;
-
+fn any_group(current_user_gid: Gid, owner_group: Gid) -> bool {
     users::get_current_username()
         .and_then(|name| users::get_user_groups(&name, current_user_gid))
         .unwrap_or_default()
-        .into_iter()
-        .any(|gid| gid.as_raw() == owner_group)
+        .contains(&owner_group)
 }

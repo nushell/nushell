@@ -71,7 +71,7 @@ impl LazySystemInfoRecord {
     ) -> Result<Value, ShellError> {
         let pid = Pid::from(std::process::id() as usize);
         match column {
-            "thread_id" => Ok(Value::int(get_thread_id(), self.span)),
+            "thread_id" => Ok(Value::int(get_thread_id() as i64, self.span)),
             "pid" => Ok(Value::int(pid.as_u32() as i64, self.span)),
             "ppid" => {
                 // only get information requested
@@ -261,13 +261,13 @@ impl<'a, F: Fn() -> RefreshKind> From<(Option<&'a System>, F)> for SystemOpt<'a>
     }
 }
 
-fn get_thread_id() -> i64 {
-    #[cfg(target_family = "windows")]
+fn get_thread_id() -> u64 {
+    #[cfg(windows)]
     {
-        unsafe { windows::Win32::System::Threading::GetCurrentThreadId() as i64 }
+        unsafe { windows::Win32::System::Threading::GetCurrentThreadId().into() }
     }
-    #[cfg(not(target_family = "windows"))]
+    #[cfg(unix)]
     {
-        unsafe { libc::pthread_self() as i64 }
+        nix::sys::pthread::pthread_self()
     }
 }
