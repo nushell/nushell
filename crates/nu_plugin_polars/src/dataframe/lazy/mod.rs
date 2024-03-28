@@ -2,7 +2,7 @@ mod aggregate;
 mod collect;
 mod explode;
 mod fetch;
-// mod fill_nan;
+mod fill_nan;
 // mod fill_null;
 // mod filter;
 // mod flatten;
@@ -19,8 +19,8 @@ use nu_plugin::PluginCommand;
 pub use crate::dataframe::lazy::aggregate::LazyAggregate;
 pub use crate::dataframe::lazy::collect::LazyCollect;
 use crate::dataframe::lazy::fetch::LazyFetch;
+use crate::dataframe::lazy::fill_nan::LazyFillNA;
 use crate::PolarsPlugin;
-// use crate::dataframe::lazy::fill_nan::LazyFillNA;
 // pub use crate::dataframe::lazy::fill_null::LazyFillNull;
 // use crate::dataframe::lazy::filter::LazyFilter;
 // use crate::dataframe::lazy::groupby::ToLazyGroupBy;
@@ -40,6 +40,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyCollect),
         Box::new(LazyExplode),
         Box::new(LazyFetch),
+        Box::new(LazyFillNA),
         Box::new(LazyMedian),
         Box::new(LazyReverse),
     ]
