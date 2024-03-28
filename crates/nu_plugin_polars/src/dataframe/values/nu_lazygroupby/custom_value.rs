@@ -5,9 +5,10 @@ use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NuLazyGroupByCustomValue {
     pub id: Uuid,
+    #[serde(skip)]
     pub groupby: Option<NuLazyGroupBy>,
 }
 

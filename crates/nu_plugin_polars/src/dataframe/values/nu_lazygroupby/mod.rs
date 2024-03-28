@@ -2,8 +2,7 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::{record, ShellError, Span, Value};
-use polars::prelude::{LazyGroupBy, Schema};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use polars::prelude::LazyGroupBy;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -11,37 +10,17 @@ use crate::{Cacheable, CustomValueSupport};
 
 pub use self::custom_value::NuLazyGroupByCustomValue;
 
-use super::{PolarsPluginObject, PolarsPluginType};
+use super::{NuSchema, PolarsPluginObject, PolarsPluginType};
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of
 // the Deserialize trait
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct NuLazyGroupBy {
     pub id: Uuid,
-    pub group_by: Option<Arc<LazyGroupBy>>,
-    pub schema: Option<Arc<Schema>>,
+    pub group_by: Arc<LazyGroupBy>,
+    pub schema: NuSchema,
     pub from_eager: bool,
-}
-
-// Mocked serialization of the LazyFrame object
-impl Serialize for NuLazyGroupBy {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_none()
-    }
-}
-
-// Mocked deserialization of the LazyFrame object
-impl<'de> Deserialize<'de> for NuLazyGroupBy {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(NuLazyGroupBy::default())
-    }
 }
 
 impl fmt::Debug for NuLazyGroupBy {
@@ -50,30 +29,13 @@ impl fmt::Debug for NuLazyGroupBy {
     }
 }
 
-// Referenced access to the real LazyFrame
-impl AsRef<LazyGroupBy> for NuLazyGroupBy {
-    fn as_ref(&self) -> &polars::prelude::LazyGroupBy {
-        // The only case when there cannot be a lazy frame is if it is created
-        // using the default function or if created by deserializing something
-        self.group_by
-            .as_ref()
-            .expect("there should always be a frame")
-    }
-}
-
-impl From<LazyGroupBy> for NuLazyGroupBy {
-    fn from(group_by: LazyGroupBy) -> Self {
-        NuLazyGroupBy::new(Some(group_by), false, None)
-    }
-}
-
 impl NuLazyGroupBy {
-    pub fn new(group_by: Option<LazyGroupBy>, from_eager: bool, schema: Option<Schema>) -> Self {
+    pub fn new(group_by: LazyGroupBy, from_eager: bool, schema: NuSchema) -> Self {
         NuLazyGroupBy {
             id: Uuid::new_v4(),
-            group_by: group_by.map(Arc::new),
+            group_by: Arc::new(group_by),
             from_eager,
-            schema: schema.map(Arc::new),
+            schema,
         }
     }
 
@@ -81,11 +43,8 @@ impl NuLazyGroupBy {
         PolarsPluginType::NuLazyGroupBy
     }
 
-    pub fn into_polars(&self) -> LazyGroupBy {
-        self.group_by
-            .as_ref()
-            .map(|arc| (**arc).clone())
-            .expect("GroupBy cannot be none to convert")
+    pub fn to_polars(&self) -> LazyGroupBy {
+        (*self.group_by).clone()
     }
 }
 

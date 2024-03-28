@@ -132,25 +132,23 @@ impl PluginCommand for LazyAggregate {
 
         let group_by = NuLazyGroupBy::try_from_pipeline(plugin, input, call.head)?;
 
-        if let Some(schema) = &group_by.schema {
-            for expr in expressions.iter() {
-                if let Some(name) = get_col_name(expr) {
-                    let dtype = schema.get(name.as_str());
+        for expr in expressions.iter() {
+            if let Some(name) = get_col_name(expr) {
+                let dtype = group_by.schema.schema.get(name.as_str());
 
-                    if matches!(dtype, Some(DataType::Object(..))) {
-                        return Err(ShellError::GenericError {
+                if matches!(dtype, Some(DataType::Object(..))) {
+                    return Err(ShellError::GenericError {
                             error: "Object type column not supported for aggregation".into(),
                             msg: format!("Column '{name}' is type Object"),
                             span: Some(call.head),
                             help: Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
                             inner: vec![],
                         }).map_err(|e| e.into());
-                    }
                 }
             }
         }
 
-        let polars = group_by.into_polars();
+        let polars = group_by.to_polars();
 
         let lazy = NuLazyFrame::new(group_by.from_eager, polars.agg(&expressions));
 
