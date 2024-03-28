@@ -6,11 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Record {
-    /// Don't use this field publicly!
-    ///
-    /// Only public as command `rename` is not reimplemented in a sane way yet
-    /// Using it or making `vals` public will draw shaming by @sholderbach
-    pub cols: Vec<String>,
+    cols: Vec<String>,
     vals: Vec<Value>,
 }
 
