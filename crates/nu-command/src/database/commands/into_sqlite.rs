@@ -1,6 +1,7 @@
 use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
 use nu_engine::command_prelude::*;
 
+use itertools::Itertools;
 use std::{
     path::Path,
     sync::{
@@ -243,8 +244,8 @@ fn insert_in_transaction(
         let insert_statement = format!(
             "INSERT INTO [{}] ({}) VALUES ({})",
             table_name,
-            val.cols.join(", "),
-            ["?"].repeat(val.values().len()).join(", ")
+            Itertools::intersperse(val.columns().map(String::as_str), ", ").collect::<String>(),
+            Itertools::intersperse(itertools::repeat_n("?", val.len()), ", ").collect::<String>(),
         );
 
         let mut insert_statement =
