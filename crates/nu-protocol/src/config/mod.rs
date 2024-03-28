@@ -61,6 +61,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub max_external_completion_results: i64,
+    pub recursion_limit: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
@@ -133,6 +134,7 @@ impl Default for Config {
             completion_algorithm: CompletionAlgorithm::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
+            recursion_limit: 50,
             external_completer: None,
             use_ls_colors_completions: true,
 
@@ -752,6 +754,19 @@ impl Value {
                             &[key],
                             value,
                             &mut errors);
+                    }
+                    "recursion_limit" => {
+                        if let Value::Int { val, internal_span } = value {
+                            if val > &mut 1 {
+                                config.recursion_limit = *val;
+                            } else {
+                                report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                                *value = Value::Int { val: 50, internal_span: *internal_span };
+                            }
+                        } else {
+                            report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                            *value = Value::Int { val: 50, internal_span: value.span() };
+                        }
                     }
                     // Catch all
                     _ => {
