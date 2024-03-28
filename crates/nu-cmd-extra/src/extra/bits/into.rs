@@ -30,7 +30,6 @@ impl Command for BitsInto {
                 (Type::Duration, Type::String),
                 (Type::String, Type::String),
                 (Type::Bool, Type::String),
-                (Type::Date, Type::String),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
@@ -95,13 +94,6 @@ impl Command for BitsInto {
                 description: "convert a boolean value into a string, padded to 8 places with 0s",
                 example: "true | into bits",
                 result: Some(Value::string("00000001",
-                    Span::test_data(),
-                )),
-            },
-            Example {
-                description: "convert a datetime value into a string, padded to 8 places with 0s",
-                example: "2023-04-17T01:02:03 | into bits",
-                result: Some(Value::string("01001101 01101111 01101110 00100000 01000001 01110000 01110010 00100000 00110001 00110111 00100000 00110000 00110001 00111010 00110000 00110010 00111010 00110000 00110011 00100000 00110010 00110000 00110010 00110011",
                     Span::test_data(),
                 )),
             },
@@ -201,20 +193,11 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             let v = <i64 as From<bool>>::from(*val);
             convert_to_smallest_number_type(v, span)
         }
-        Value::Date { val, .. } => {
-            let value = val.format("%c").to_string();
-            let bytes = value.as_bytes();
-            let mut raw_string = "".to_string();
-            for ch in bytes {
-                raw_string.push_str(&format!("{:08b} ", ch));
-            }
-            Value::string(raw_string.trim(), span)
-        }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int, filesize, string, date, duration, binary, or bool".into(),
+                exp_input_type: "int, filesize, string, duration, binary, or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),
