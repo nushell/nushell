@@ -55,7 +55,7 @@ impl Command for LazyCollect {
     ) -> Result<PipelineData, ShellError> {
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let eager = lazy.collect(call.head)?;
-        let value = Value::custom_value(Box::new(eager), call.head);
+        let value = Value::custom(Box::new(eager), call.head);
 
         Ok(PipelineData::Value(value, None))
     }

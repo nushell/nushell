@@ -71,7 +71,7 @@ impl Command for StorImport {
                 })?;
         }
         // dbg!(db.clone());
-        Ok(Value::custom_value(db, span).into_pipeline_data())
+        Ok(Value::custom(db, span).into_pipeline_data())
     }
 }
 

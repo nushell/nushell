@@ -226,7 +226,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
-        Value::CustomValue { val, .. } => {
+        Value::Custom { val, .. } => {
             // Only custom values that have a base value that can be converted to string are
             // accepted.
             val.to_base_value(input.span())

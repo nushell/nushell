@@ -274,7 +274,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::CellPath { val, .. } => {
                 write!(f, "CellPath({:?})", val.to_string())
             }
-            Value::CustomValue { val, .. } => {
+            Value::Custom { val, .. } => {
                 write!(f, "CustomValue({:?})", val)
             }
             Value::LazyRecord { val, .. } => {

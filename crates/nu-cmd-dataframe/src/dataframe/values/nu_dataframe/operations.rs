@@ -20,7 +20,7 @@ impl NuDataFrame {
     ) -> Result<Value, ShellError> {
         let rhs_span = right.span();
         match right {
-            Value::CustomValue { val: rhs, .. } => {
+            Value::Custom { val: rhs, .. } => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
                     ShellError::DowncastNotPossible {
                         msg: "Unable to create dataframe".to_string(),

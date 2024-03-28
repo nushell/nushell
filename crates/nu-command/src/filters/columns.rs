@@ -94,7 +94,7 @@ fn getcol(
                         .into_pipeline_data(ctrlc)
                         .set_metadata(metadata))
                 }
-                Value::CustomValue { val, .. } => {
+                Value::Custom { val, .. } => {
                     // TODO: should we get CustomValue to expose columns in a more efficient way?
                     // Would be nice to be able to get columns without generating the whole value
                     let input_as_base_value = val.to_base_value(span)?;

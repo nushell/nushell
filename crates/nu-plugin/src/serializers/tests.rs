@@ -320,7 +320,7 @@ macro_rules! generate_tests {
             let data = vec![1, 2, 3, 4, 5];
             let span = Span::new(2, 30);
 
-            let value = Value::custom_value(
+            let value = Value::custom(
                 Box::new(PluginCustomValue::new(
                     name.into(),
                     data.clone(),

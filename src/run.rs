@@ -4,6 +4,7 @@ use crate::{
     command,
     config_files::{self, setup_config},
 };
+use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
@@ -18,6 +19,7 @@ pub(crate) fn run_commands(
     input: PipelineData,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
+    trace!("run_commands");
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
@@ -141,6 +143,7 @@ pub(crate) fn run_file(
     args_to_script: Vec<String>,
     input: PipelineData,
 ) -> Result<(), miette::ErrReport> {
+    trace!("run_file");
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
@@ -242,6 +245,7 @@ pub(crate) fn run_repl(
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
+    trace!("run_repl");
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 

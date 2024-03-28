@@ -58,7 +58,7 @@ impl Command for StorCreate {
 
         process(table_name, span, &db, columns)?;
         // dbg!(db.clone());
-        Ok(Value::custom_value(db, span).into_pipeline_data())
+        Ok(Value::custom(db, span).into_pipeline_data())
     }
 }
 

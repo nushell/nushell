@@ -15,13 +15,13 @@ impl CoolCustomValue {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => {
+            Value::Custom { val, .. } => {
                 if let Some(cool) = val.as_any().downcast_ref::<Self>() {
                     Ok(cool.clone())
                 } else {
@@ -46,7 +46,7 @@ impl CoolCustomValue {
 #[typetag::serde]
 impl CustomValue for CoolCustomValue {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {
@@ -94,7 +94,7 @@ impl CustomValue for CoolCustomValue {
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
-        if let Value::CustomValue { val, .. } = other {
+        if let Value::Custom { val, .. } = other {
             val.as_any()
                 .downcast_ref()
                 .and_then(|other: &CoolCustomValue| PartialOrd::partial_cmp(self, other))
@@ -118,7 +118,7 @@ impl CustomValue for CoolCustomValue {
                     .ok()
                     .and_then(|c| c.as_any().downcast_ref::<CoolCustomValue>())
                 {
-                    Ok(Value::custom_value(
+                    Ok(Value::custom(
                         Box::new(CoolCustomValue {
                             cool: format!("{}{}", self.cool, right.cool),
                         }),

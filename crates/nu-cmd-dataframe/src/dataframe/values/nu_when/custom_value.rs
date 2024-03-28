@@ -14,7 +14,7 @@ impl CustomValue for NuWhen {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
         let cloned = self.clone();
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {

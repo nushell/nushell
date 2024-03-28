@@ -147,7 +147,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::CellPath { val, .. } => val.to_string(),
         // If we fail to collapse the custom value, just print <{type_name}> - failure is not
         // that critical here
-        Value::CustomValue { val, .. } => val
+        Value::Custom { val, .. } => val
             .to_base_value(span)
             .map(|val| local_into_string(val, separator, config))
             .unwrap_or_else(|_| format!("<{}>", val.type_name())),
