@@ -236,7 +236,7 @@ impl From<StreamMessage> for PluginInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StreamData {
     List(Value),
-    Raw(Result<Vec<u8>, ShellError>),
+    Raw(Result<Vec<u8>, LabeledError>),
 }
 
 impl From<Value> for StreamData {
@@ -245,9 +245,15 @@ impl From<Value> for StreamData {
     }
 }
 
+impl From<Result<Vec<u8>, LabeledError>> for StreamData {
+    fn from(value: Result<Vec<u8>, LabeledError>) -> Self {
+        StreamData::Raw(value)
+    }
+}
+
 impl From<Result<Vec<u8>, ShellError>> for StreamData {
     fn from(value: Result<Vec<u8>, ShellError>) -> Self {
-        StreamData::Raw(value)
+        value.map_err(LabeledError::from).into()
     }
 }
 
@@ -264,16 +270,24 @@ impl TryFrom<StreamData> for Value {
     }
 }
 
-impl TryFrom<StreamData> for Result<Vec<u8>, ShellError> {
+impl TryFrom<StreamData> for Result<Vec<u8>, LabeledError> {
     type Error = ShellError;
 
-    fn try_from(data: StreamData) -> Result<Result<Vec<u8>, ShellError>, ShellError> {
+    fn try_from(data: StreamData) -> Result<Result<Vec<u8>, LabeledError>, ShellError> {
         match data {
             StreamData::Raw(value) => Ok(value),
             StreamData::List(_) => Err(ShellError::PluginFailedToDecode {
                 msg: "expected raw stream data, found list data".into(),
             }),
         }
+    }
+}
+
+impl TryFrom<StreamData> for Result<Vec<u8>, ShellError> {
+    type Error = ShellError;
+
+    fn try_from(value: StreamData) -> Result<Result<Vec<u8>, ShellError>, ShellError> {
+        Result::<Vec<u8>, LabeledError>::try_from(value).map(|res| res.map_err(ShellError::from))
     }
 }
 
