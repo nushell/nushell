@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Mutex, MutexGuard, TryLockError},
+};
 
 use nu_plugin::EngineInterface;
 use nu_protocol::{LabeledError, ShellError};
@@ -12,21 +15,31 @@ pub struct Cache {
 }
 
 impl Cache {
+    fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, PhysicalType>>, ShellError> {
+        match self.cache.try_lock() {
+            Ok(lock) => Ok(lock),
+            Err(TryLockError::WouldBlock) => {
+                // sleep then try again
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                self.cache.try_lock()
+            }
+            e @ Err(_) => e,
+        }
+        .map_err(|e| ShellError::GenericError {
+            error: format!("error acquiring cache lock: {e}"),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
+    }
+
     pub fn remove(
         &self,
         engine: &EngineInterface,
         uuid: &Uuid,
     ) -> Result<Option<PhysicalType>, ShellError> {
-        let mut lock = self
-            .cache
-            .try_lock()
-            .map_err(|e| ShellError::GenericError {
-                error: format!("error removing id {uuid} from cache: {e}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })?;
+        let mut lock = self.lock()?;
         let removed = lock.remove(uuid);
         // Once there are no more entries in the cache
         // we can turn plugin gc back on
@@ -34,6 +47,7 @@ impl Cache {
             engine.set_gc_disabled(false).map_err(LabeledError::from)?;
         }
         eprintln!("removing {uuid} from cache: {removed:?}");
+        drop(lock);
         Ok(removed)
     }
 
@@ -43,16 +57,7 @@ impl Cache {
         uuid: Uuid,
         value: PhysicalType,
     ) -> Result<Option<PhysicalType>, ShellError> {
-        let mut lock = self
-            .cache
-            .try_lock()
-            .map_err(|e| ShellError::GenericError {
-                error: format!("error inserting id {uuid} into cache: {e}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })?;
+        let mut lock = self.lock()?;
         // turn off plugin gc the first time an entry is added to the cache
         // as we don't want the plugin to be garbage collected if there
         // is any live data
@@ -60,21 +65,16 @@ impl Cache {
             engine.set_gc_disabled(true).map_err(LabeledError::from)?;
         }
         eprintln!("Inserting {uuid} into cache: {value:?}");
-        Ok(lock.insert(uuid, value))
+        let result = lock.insert(uuid, value);
+        drop(lock);
+        Ok(result)
     }
 
     pub fn get(&self, uuid: &Uuid) -> Result<Option<PhysicalType>, ShellError> {
-        let lock = self
-            .cache
-            .try_lock()
-            .map_err(|e| ShellError::GenericError {
-                error: format!("error getting id {uuid} from cache: {e}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })?;
-        Ok(lock.get(uuid).cloned())
+        let lock = self.lock()?;
+        let result = lock.get(uuid).cloned();
+        drop(lock);
+        Ok(result)
     }
 
     pub fn process_entries<F, T>(&self, mut func: F) -> Result<Vec<T>, ShellError>
@@ -97,6 +97,7 @@ impl Cache {
             let val = func(entry)?;
             vals.push(val);
         }
+        drop(lock);
         Ok(vals)
     }
 }
