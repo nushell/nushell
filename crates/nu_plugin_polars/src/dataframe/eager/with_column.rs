@@ -1,7 +1,7 @@
 use super::super::values::{Column, NuDataFrame};
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::PhysicalType,
+    values::PolarsPluginObject,
     Cacheable, CustomValueSupport, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -116,9 +116,9 @@ impl PluginCommand for WithColumn {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
-        match PhysicalType::try_from_value(plugin, &value)? {
-            PhysicalType::NuDataFrame(df) => command_eager(plugin, engine, call, df),
-            PhysicalType::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
+            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
             _ => Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),

@@ -7,15 +7,15 @@ use nu_plugin::EngineInterface;
 use nu_protocol::{LabeledError, ShellError};
 use uuid::Uuid;
 
-use crate::{values::PhysicalType, PolarsPlugin};
+use crate::{values::PolarsPluginObject, PolarsPlugin};
 
 #[derive(Default)]
 pub struct Cache {
-    cache: Mutex<HashMap<Uuid, PhysicalType>>,
+    cache: Mutex<HashMap<Uuid, PolarsPluginObject>>,
 }
 
 impl Cache {
-    fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, PhysicalType>>, ShellError> {
+    fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, PolarsPluginObject>>, ShellError> {
         match self.cache.try_lock() {
             Ok(lock) => Ok(lock),
             Err(TryLockError::WouldBlock) => {
@@ -38,7 +38,7 @@ impl Cache {
         &self,
         engine: &EngineInterface,
         uuid: &Uuid,
-    ) -> Result<Option<PhysicalType>, ShellError> {
+    ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
         let removed = lock.remove(uuid);
         // Once there are no more entries in the cache
@@ -55,8 +55,8 @@ impl Cache {
         &self,
         engine: &EngineInterface,
         uuid: Uuid,
-        value: PhysicalType,
-    ) -> Result<Option<PhysicalType>, ShellError> {
+        value: PolarsPluginObject,
+    ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
         // turn off plugin gc the first time an entry is added to the cache
         // as we don't want the plugin to be garbage collected if there
@@ -70,7 +70,7 @@ impl Cache {
         Ok(result)
     }
 
-    pub fn get(&self, uuid: &Uuid) -> Result<Option<PhysicalType>, ShellError> {
+    pub fn get(&self, uuid: &Uuid) -> Result<Option<PolarsPluginObject>, ShellError> {
         let lock = self.lock()?;
         let result = lock.get(uuid).cloned();
         drop(lock);
@@ -79,7 +79,7 @@ impl Cache {
 
     pub fn process_entries<F, T>(&self, mut func: F) -> Result<Vec<T>, ShellError>
     where
-        F: FnMut((&Uuid, &PhysicalType)) -> Result<T, ShellError>,
+        F: FnMut((&Uuid, &PolarsPluginObject)) -> Result<T, ShellError>,
     {
         let lock = self
             .cache
@@ -105,9 +105,9 @@ impl Cache {
 pub trait Cacheable: Sized + Clone {
     fn cache_id(&self) -> &Uuid;
 
-    fn to_cache_value(&self) -> Result<PhysicalType, ShellError>;
+    fn to_cache_value(&self) -> Result<PolarsPluginObject, ShellError>;
 
-    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError>;
+    fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError>;
 
     fn cache(self, plugin: &PolarsPlugin, engine: &EngineInterface) -> Result<Self, ShellError> {
         plugin

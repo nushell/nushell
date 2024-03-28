@@ -11,7 +11,7 @@ use crate::{Cacheable, CustomValueSupport};
 
 pub use self::custom_value::NuLazyGroupByCustomValue;
 
-use super::PhysicalType;
+use super::{PolarsPluginObject, PolarsPluginType};
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of
@@ -77,6 +77,10 @@ impl NuLazyGroupBy {
         }
     }
 
+    pub fn get_type() -> PolarsPluginType {
+        PolarsPluginType::NuLazyGroupBy
+    }
+
     pub fn into_polars(&self) -> LazyGroupBy {
         self.group_by
             .as_ref()
@@ -90,13 +94,13 @@ impl Cacheable for NuLazyGroupBy {
         &self.id
     }
 
-    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
-        Ok(PhysicalType::NuLazyGroupBy(self.clone()))
+    fn to_cache_value(&self) -> Result<PolarsPluginObject, ShellError> {
+        Ok(PolarsPluginObject::NuLazyGroupBy(self.clone()))
     }
 
-    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+    fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
-            PhysicalType::NuLazyGroupBy(df) => Ok(df),
+            PolarsPluginObject::NuLazyGroupBy(df) => Ok(df),
             _ => Err(ShellError::GenericError {
                 error: "Cache value is not a group by".into(),
                 msg: "".into(),

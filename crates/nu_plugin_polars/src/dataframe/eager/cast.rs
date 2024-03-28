@@ -114,7 +114,7 @@ fn command(
         let dtype = str_to_dtype(&dtype, call.head)?;
 
         let expr = NuExpression::try_from_value(plugin, &value)?;
-        let expr: NuExpression = expr.into_polars().cast(dtype).into();
+        let expr: NuExpression = expr.to_polars().cast(dtype).into();
 
         Ok(PipelineData::Value(
             expr.cache(plugin, engine)?.into_value(call.head),

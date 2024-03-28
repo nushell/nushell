@@ -6,6 +6,8 @@ mod nu_schema;
 mod nu_when;
 pub mod utils;
 
+use std::fmt;
+
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
@@ -18,7 +20,28 @@ use uuid::Uuid;
 use crate::{CustomValueSupport, PolarsPlugin};
 
 #[derive(Debug, Clone)]
-pub enum PhysicalType {
+pub enum PolarsPluginType {
+    NuDataFrame,
+    NuLazyFrame,
+    NuExpression,
+    NuLazyGroupBy,
+    NuWhen,
+}
+
+impl fmt::Display for PolarsPluginType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NuDataFrame => write!(f, "NuDataFrame"),
+            Self::NuLazyFrame => write!(f, "NuLazyFrame"),
+            Self::NuExpression => write!(f, "NuExpression"),
+            Self::NuLazyGroupBy => write!(f, "NuLazyGroupBy"),
+            Self::NuWhen => write!(f, "NuWhen"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PolarsPluginObject {
     NuDataFrame(NuDataFrame),
     NuLazyFrame(NuLazyFrame),
     NuExpression(NuExpression),
@@ -26,28 +49,32 @@ pub enum PhysicalType {
     NuWhen(NuWhen),
 }
 
-impl PhysicalType {
+impl PolarsPluginObject {
     pub fn try_from_value(
         plugin: &PolarsPlugin,
         value: &Value,
-    ) -> Result<PhysicalType, ShellError> {
+    ) -> Result<PolarsPluginObject, ShellError> {
         if NuDataFrame::can_downcast(value) {
-            NuDataFrame::try_from_value(plugin, value).map(PhysicalType::NuDataFrame)
+            NuDataFrame::try_from_value(plugin, value).map(PolarsPluginObject::NuDataFrame)
         } else if NuLazyFrame::can_downcast(value) {
-            NuLazyFrame::try_from_value(plugin, value).map(PhysicalType::NuLazyFrame)
+            NuLazyFrame::try_from_value(plugin, value).map(PolarsPluginObject::NuLazyFrame)
         } else if NuExpression::can_downcast(value) {
-            NuExpression::try_from_value(plugin, value).map(PhysicalType::NuExpression)
+            NuExpression::try_from_value(plugin, value).map(PolarsPluginObject::NuExpression)
         } else if NuLazyGroupBy::can_downcast(value) {
-            NuLazyGroupBy::try_from_value(plugin, value).map(PhysicalType::NuLazyGroupBy)
+            NuLazyGroupBy::try_from_value(plugin, value).map(PolarsPluginObject::NuLazyGroupBy)
         } else if NuWhen::can_downcast(value) {
-            NuWhen::try_from_value(plugin, value).map(PhysicalType::NuWhen)
+            NuWhen::try_from_value(plugin, value).map(PolarsPluginObject::NuWhen)
         } else {
-            Err(ShellError::CantConvert {
-                to_type: "value".into(),
-                from_type: "PhysicalType".into(),
-                span: value.span(),
-                help: None,
-            })
+            Err(cant_convert_err(
+                value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuLazyGroupBy,
+                    PolarsPluginType::NuWhen,
+                ],
+            ))
         }
     }
 
@@ -58,6 +85,16 @@ impl PhysicalType {
     ) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(plugin, &value)
+    }
+
+    pub fn get_type(&self) -> PolarsPluginType {
+        match self {
+            Self::NuDataFrame(_) => PolarsPluginType::NuDataFrame,
+            Self::NuLazyFrame(_) => PolarsPluginType::NuLazyFrame,
+            Self::NuExpression(_) => PolarsPluginType::NuExpression,
+            Self::NuLazyGroupBy(_) => PolarsPluginType::NuLazyGroupBy,
+            Self::NuWhen(_) => PolarsPluginType::NuWhen,
+        }
     }
 }
 
@@ -100,5 +137,20 @@ impl CustomValueType {
                 help: None,
             })
         }
+    }
+}
+
+pub fn cant_convert_err(value: &Value, types: &[PolarsPluginType]) -> ShellError {
+    let type_string = types
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>()
+        .join(", ");
+
+    ShellError::CantConvert {
+        to_type: type_string,
+        from_type: value.get_type().to_string(),
+        span: value.span(),
+        help: None,
     }
 }

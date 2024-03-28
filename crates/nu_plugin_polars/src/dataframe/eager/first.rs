@@ -102,7 +102,7 @@ impl PluginCommand for FirstDF {
             command(plugin, engine, call, df).map_err(|e| e.into())
         } else {
             let expr = NuExpression::try_from_value(plugin, &value)?;
-            let expr: NuExpression = expr.into_polars().first().into();
+            let expr: NuExpression = expr.to_polars().first().into();
 
             Ok(PipelineData::Value(
                 expr.cache(plugin, engine)?.into_value(call.head),

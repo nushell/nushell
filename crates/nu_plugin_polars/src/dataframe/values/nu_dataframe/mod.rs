@@ -18,7 +18,9 @@ use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 pub use self::custom_value::NuDataFrameCustomValue;
 
-use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame, PhysicalType};
+use super::{
+    nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
+};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -106,6 +108,10 @@ impl NuDataFrame {
             df: Arc::new(df),
             from_lazy,
         }
+    }
+
+    pub fn get_type() -> PolarsPluginType {
+        PolarsPluginType::NuDataFrame
     }
 
     pub fn to_polars(&self) -> DataFrame {
@@ -494,13 +500,13 @@ impl Cacheable for NuDataFrame {
         &self.id
     }
 
-    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
-        Ok(PhysicalType::NuDataFrame(self.clone()))
+    fn to_cache_value(&self) -> Result<PolarsPluginObject, ShellError> {
+        Ok(PolarsPluginObject::NuDataFrame(self.clone()))
     }
 
-    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+    fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
-            PhysicalType::NuDataFrame(df) => Ok(df),
+            PolarsPluginObject::NuDataFrame(df) => Ok(df),
             _ => Err(ShellError::GenericError {
                 error: "Cache value is not a dataframe".into(),
                 msg: "".into(),

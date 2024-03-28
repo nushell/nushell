@@ -1,5 +1,5 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::PhysicalType;
+use crate::values::PolarsPluginObject;
 use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -118,13 +118,13 @@ pub(crate) fn explode(
 ) -> Result<PipelineData, ShellError> {
     let value = input.into_value(call.head);
 
-    match PhysicalType::try_from_value(plugin, &value)? {
-        PhysicalType::NuDataFrame(df) => {
+    match PolarsPluginObject::try_from_value(plugin, &value)? {
+        PolarsPluginObject::NuDataFrame(df) => {
             let lazy = df.lazy().cache(plugin, engine)?;
             explode_lazy(plugin, engine, call, lazy)
         }
-        PhysicalType::NuLazyFrame(lazy) => explode_lazy(plugin, engine, call, lazy),
-        PhysicalType::NuExpression(expr) => explode_expr(plugin, engine, call, expr),
+        PolarsPluginObject::NuLazyFrame(lazy) => explode_lazy(plugin, engine, call, lazy),
+        PolarsPluginObject::NuExpression(expr) => explode_expr(plugin, engine, call, expr),
         _ => Err(ShellError::CantConvert {
             to_type: "dataframe or expression".into(),
             from_type: value.get_type().to_string(),
@@ -164,7 +164,7 @@ pub(crate) fn explode_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let expr: NuExpression = expr.into_polars().explode().into();
+    let expr: NuExpression = expr.to_polars().explode().into();
 
     Ok(PipelineData::Value(
         expr.cache(plugin, engine)?.into_value(call.head),

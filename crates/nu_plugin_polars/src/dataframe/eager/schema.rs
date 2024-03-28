@@ -1,4 +1,4 @@
-use crate::{values::PhysicalType, PolarsPlugin};
+use crate::{values::PolarsPluginObject, PolarsPlugin};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -64,13 +64,13 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    match PhysicalType::try_from_pipeline(plugin, input, call.head)? {
-        PhysicalType::NuDataFrame(df) => {
+    match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
+        PolarsPluginObject::NuDataFrame(df) => {
             let schema = df.schema();
             let value: Value = schema.into();
             Ok(PipelineData::Value(value, None))
         }
-        PhysicalType::NuLazyFrame(lazy) => {
+        PolarsPluginObject::NuLazyFrame(lazy) => {
             let schema = lazy.schema()?;
             let value: Value = schema.into();
             Ok(PipelineData::Value(value, None))

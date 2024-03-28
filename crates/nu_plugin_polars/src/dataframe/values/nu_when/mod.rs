@@ -10,7 +10,7 @@ use crate::{Cacheable, CustomValueSupport};
 
 pub use self::custom_value::NuWhenCustomValue;
 
-use super::PhysicalType;
+use super::{PolarsPluginObject, PolarsPluginType};
 
 #[derive(Debug, Clone)]
 pub struct NuWhen {
@@ -59,6 +59,10 @@ impl NuWhen {
             when_type,
         }
     }
+
+    pub fn get_type() -> PolarsPluginType {
+        PolarsPluginType::NuWhen
+    }
 }
 
 impl Cacheable for NuWhen {
@@ -66,13 +70,13 @@ impl Cacheable for NuWhen {
         &self.id
     }
 
-    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
-        Ok(PhysicalType::NuWhen(self.clone()))
+    fn to_cache_value(&self) -> Result<PolarsPluginObject, ShellError> {
+        Ok(PolarsPluginObject::NuWhen(self.clone()))
     }
 
-    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+    fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
-            PhysicalType::NuWhen(when) => Ok(when),
+            PolarsPluginObject::NuWhen(when) => Ok(when),
             _ => Err(ShellError::GenericError {
                 error: "Cache value is not a dataframe".into(),
                 msg: "".into(),

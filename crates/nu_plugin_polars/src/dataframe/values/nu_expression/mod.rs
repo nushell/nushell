@@ -9,7 +9,7 @@ use crate::{Cacheable, CustomValueSupport, PolarsPlugin};
 
 pub use self::custom_value::NuExpressionCustomValue;
 
-use super::PhysicalType;
+use super::{PolarsPluginObject, PolarsPluginType};
 
 // Polars Expression wrapper for Nushell operations
 // Object is behind and Option to allow easy implementation of
@@ -71,7 +71,11 @@ impl NuExpression {
         }
     }
 
-    pub fn into_polars(self) -> Expr {
+    pub fn get_type() -> PolarsPluginType {
+        PolarsPluginType::NuExpression
+    }
+
+    pub fn to_polars(self) -> Expr {
         self.expr.expect("Expression cannot be none to convert")
     }
 
@@ -121,7 +125,7 @@ impl ExtractedExpr {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
             Value::CustomValue { .. } => NuExpression::try_from_value(plugin, &value)
-                .map(NuExpression::into_polars)
+                .map(NuExpression::to_polars)
                 .map(ExtractedExpr::Single),
             Value::List { vals, .. } => vals
                 .into_iter()
@@ -419,13 +423,13 @@ impl Cacheable for NuExpression {
         &self.id
     }
 
-    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
-        Ok(PhysicalType::NuExpression(self.clone()))
+    fn to_cache_value(&self) -> Result<PolarsPluginObject, ShellError> {
+        Ok(PolarsPluginObject::NuExpression(self.clone()))
     }
 
-    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+    fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
-            PhysicalType::NuExpression(df) => Ok(df),
+            PolarsPluginObject::NuExpression(df) => Ok(df),
             _ => Err(ShellError::GenericError {
                 error: "Cache value is not an expression".into(),
                 msg: "".into(),

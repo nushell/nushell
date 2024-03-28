@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::PhysicalType,
+    values::{cant_convert_err, PolarsPluginObject, PolarsPluginType},
     Cacheable, CustomValueSupport, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -96,22 +96,31 @@ impl PluginCommand for LazyFillNA {
         let fill: Value = call.req(0)?;
         let value = input.into_value(call.head);
 
-        match PhysicalType::try_from_value(plugin, &value)? {
-            PhysicalType::NuDataFrame(df) => {
-                Ok(cmd_df(plugin, engine, call, df, fill, value.span())?)
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => {
+                cmd_df(plugin, engine, call, df, fill, value.span())
             }
-            PhysicalType::NuLazyFrame(lazy) => Ok(cmd_df(
+            PolarsPluginObject::NuLazyFrame(lazy) => cmd_df(
                 plugin,
                 engine,
                 call,
                 lazy.collect(value.span())?,
                 fill,
                 value.span(),
-            )?),
-            PhysicalType::NuExpression(expr) => Ok(cmd_expr(plugin, engine, call, expr, fill)?),
-            _ => Err(LabeledError::new("dataframe or expression is required")
-                .with_label("Invalid Type", call.head)),
+            ),
+            PolarsPluginObject::NuExpression(expr) => {
+                Ok(cmd_expr(plugin, engine, call, expr, fill)?)
+            }
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
+            )),
         }
+        .map_err(LabeledError::from)
     }
 }
 
@@ -165,8 +174,8 @@ fn cmd_expr(
     expr: NuExpression,
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
-    let fill = NuExpression::try_from_value(plugin, &fill)?.into_polars();
-    let expr: NuExpression = expr.into_polars().fill_nan(fill).into();
+    let fill = NuExpression::try_from_value(plugin, &fill)?.to_polars();
+    let expr: NuExpression = expr.to_polars().fill_nan(fill).into();
 
     Ok(PipelineData::Value(
         expr.cache(plugin, engine)?.into_value(call.head),

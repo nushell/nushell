@@ -2,7 +2,7 @@ mod custom_value;
 
 use crate::{Cacheable, CustomValueSupport};
 
-use super::{NuDataFrame, NuExpression, NuSchema, PhysicalType};
+use super::{NuDataFrame, NuExpression, NuSchema, PolarsPluginObject, PolarsPluginType};
 use core::fmt;
 use nu_protocol::{record, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
@@ -42,6 +42,10 @@ impl NuLazyFrame {
         }
     }
 
+    pub fn get_type() -> PolarsPluginType {
+        PolarsPluginType::NuLazyFrame
+    }
+
     pub fn from_dataframe(df: NuDataFrame) -> Self {
         let lazy = df.as_ref().clone().lazy();
         NuLazyFrame::new(true, lazy)
@@ -69,7 +73,7 @@ impl NuLazyFrame {
         F: Fn(LazyFrame, Expr) -> LazyFrame,
     {
         let df = self.to_polars();
-        let expr = expr.into_polars();
+        let expr = expr.to_polars();
         let new_frame = f(df, expr);
         Self::new(self.from_eager, new_frame)
     }
@@ -91,13 +95,13 @@ impl Cacheable for NuLazyFrame {
         &self.id
     }
 
-    fn to_cache_value(&self) -> Result<PhysicalType, ShellError> {
-        Ok(PhysicalType::NuLazyFrame(self.clone()))
+    fn to_cache_value(&self) -> Result<PolarsPluginObject, ShellError> {
+        Ok(PolarsPluginObject::NuLazyFrame(self.clone()))
     }
 
-    fn from_cache_value(cv: PhysicalType) -> Result<Self, ShellError> {
+    fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
-            PhysicalType::NuLazyFrame(df) => Ok(df),
+            PolarsPluginObject::NuLazyFrame(df) => Ok(df),
             _ => Err(ShellError::GenericError {
                 error: "Cache value is not a lazyframe".into(),
                 msg: "".into(),

@@ -3,7 +3,7 @@ use nu_protocol::{
     record, Category, Example, IntoPipelineData, LabeledError, PipelineData, Signature, Value,
 };
 
-use crate::{values::PhysicalType, PolarsPlugin};
+use crate::{values::PolarsPluginObject, PolarsPlugin};
 
 #[derive(Clone)]
 pub struct ListDF;
@@ -40,7 +40,7 @@ impl PluginCommand for ListDF {
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let vals = plugin.cache.process_entries(|(key, value)| match value {
-            PhysicalType::NuDataFrame(df) => Ok(Some(Value::record(
+            PolarsPluginObject::NuDataFrame(df) => Ok(Some(Value::record(
                 record! {
                     "key" => Value::string(key.to_string(), call.head),
                     "columns" => Value::int(df.as_ref().width() as i64, call.head),
@@ -48,7 +48,7 @@ impl PluginCommand for ListDF {
                 },
                 call.head,
             ))),
-            PhysicalType::NuLazyFrame(lf) => {
+            PolarsPluginObject::NuLazyFrame(lf) => {
                 let lf = lf.clone().collect(call.head)?;
                 Ok(Some(Value::record(
                     record! {

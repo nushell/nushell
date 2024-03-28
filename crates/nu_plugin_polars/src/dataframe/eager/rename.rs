@@ -6,7 +6,7 @@ use nu_protocol::{
 
 use crate::{
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::PhysicalType,
+    values::PolarsPluginObject,
     Cacheable, CustomValueSupport, PolarsPlugin,
 };
 
@@ -124,11 +124,11 @@ impl PluginCommand for RenameDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
-        match PhysicalType::try_from_value(plugin, &value).map_err(LabeledError::from)? {
-            PhysicalType::NuDataFrame(df) => {
+        match PolarsPluginObject::try_from_value(plugin, &value).map_err(LabeledError::from)? {
+            PolarsPluginObject::NuDataFrame(df) => {
                 command_eager(plugin, engine, call, df).map_err(LabeledError::from)
             }
-            PhysicalType::NuLazyFrame(lazy) => {
+            PolarsPluginObject::NuLazyFrame(lazy) => {
                 command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
             }
             _ => Err(LabeledError::new(format!("Unsupported type: {value:?}"))

@@ -1,6 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame};
 use crate::values::NuLazyFrame;
-use crate::{values::PhysicalType, Cacheable, CustomValueSupport, PolarsPlugin};
+use crate::{values::PolarsPluginObject, Cacheable, CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -69,11 +69,12 @@ impl PluginCommand for LazyFetch {
     ) -> Result<PipelineData, LabeledError> {
         let rows: i64 = call.req(0)?;
 
-        let lazy: NuLazyFrame = match PhysicalType::try_from_pipeline(plugin, input, call.head)? {
-            PhysicalType::NuDataFrame(df) => Ok::<NuLazyFrame, LabeledError>(df.lazy()),
-            PhysicalType::NuLazyFrame(lazy) => Ok(lazy),
-            _ => return Err(LabeledError::new("A Dataframe or LazyFrame is required")),
-        }?;
+        let lazy: NuLazyFrame =
+            match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
+                PolarsPluginObject::NuDataFrame(df) => Ok::<NuLazyFrame, LabeledError>(df.lazy()),
+                PolarsPluginObject::NuLazyFrame(lazy) => Ok(lazy),
+                _ => return Err(LabeledError::new("A Dataframe or LazyFrame is required")),
+            }?;
 
         let eager: NuDataFrame = lazy
             .to_polars()
