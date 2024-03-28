@@ -758,10 +758,10 @@ impl Value {
                     "recursion_limit" => {
                         if let Value::Int { val, internal_span } = value {
                             if val > &mut 1 {
-                                config.recursion_limit = val.clone();
+                                config.recursion_limit = *val;
                             } else {
                                 report_invalid_value("should be a integer greater than 1", span, &mut errors);
-                                *value = Value::Int { val: 50, internal_span: internal_span.clone() };
+                                *value = Value::Int { val: 50, internal_span: *internal_span };
                             }
                         } else {
                             report_invalid_value("should be a integer greater than 1", span, &mut errors);
