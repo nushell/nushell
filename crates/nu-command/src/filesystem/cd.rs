@@ -4,7 +4,7 @@ use std::path::Path;
 use {
     crate::filesystem::util::users,
     nix::{
-        sys::stat::Mode,
+        sys::stat::{mode_t, Mode},
         unistd::{Gid, Uid},
     },
     std::os::unix::fs::MetadataExt,
@@ -170,7 +170,7 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().metadata() {
         Ok(metadata) => {
-            let mode = Mode::from_bits_truncate(metadata.mode());
+            let mode = Mode::from_bits_truncate(metadata.mode() as mode_t);
             let current_user_uid = users::get_current_uid();
             if current_user_uid.is_root() {
                 return PermissionResult::PermissionOk;

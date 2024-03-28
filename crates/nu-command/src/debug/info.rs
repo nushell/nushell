@@ -268,6 +268,6 @@ fn get_thread_id() -> u64 {
     }
     #[cfg(unix)]
     {
-        nix::sys::pthread::pthread_self()
+        nix::sys::pthread::pthread_self() as u64
     }
 }
