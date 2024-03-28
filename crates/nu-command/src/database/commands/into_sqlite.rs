@@ -291,7 +291,7 @@ fn insert_value(
     match stream_value {
         // map each column value into its SQL representation
         Value::Record { val, .. } => {
-            let sql_vals = values_to_sql(val.into_values())?;
+            let sql_vals = values_to_sql(val.values().cloned())?;
 
             insert_statement
                 .execute(rusqlite::params_from_iter(sql_vals))

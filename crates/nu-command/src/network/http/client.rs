@@ -222,7 +222,7 @@ pub fn send_request(
         Value::Record { val, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in *val {
+            for (col, val) in val {
                 data.push((col, val.coerce_into_string()?))
             }
 

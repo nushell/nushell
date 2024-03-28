@@ -21,6 +21,7 @@ lscolors = { workspace = true, default-features = false, features = ["nu-ansi-te
 log = { workspace = true }
 num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
+serde = { workspace = true }
 sys-locale = "0.3"
 unicase = "2.7.0"
 

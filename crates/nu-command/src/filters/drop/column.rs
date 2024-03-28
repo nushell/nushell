@@ -106,7 +106,7 @@ fn drop_cols(
                 Ok(PipelineData::Empty)
             }
         }
-        PipelineData::Value(v, ..) => {
+        PipelineData::Value(mut v, ..) => {
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {
@@ -119,11 +119,12 @@ fn drop_cols(
                     Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                 }
                 Value::Record {
-                    val: mut record, ..
+                    val: ref mut record,
+                    ..
                 } => {
                     let len = record.len().saturating_sub(columns);
                     record.truncate(len);
-                    Ok(Value::record(*record, span).into_pipeline_data_with_metadata(metadata))
+                    Ok(v.into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
