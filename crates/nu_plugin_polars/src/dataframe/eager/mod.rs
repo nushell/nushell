@@ -22,7 +22,7 @@ mod slice;
 mod sql_context;
 mod sql_expr;
 mod summary;
-// mod take;
+mod take;
 mod to_arrow;
 // mod to_avro;
 mod to_csv;
@@ -58,7 +58,7 @@ pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use sql_context::SQLContext;
 pub use summary::Summary;
-// pub use take::TakeDF;
+pub use take::TakeDF;
 pub use to_arrow::ToArrow;
 // pub use to_avro::ToAvro;
 pub use to_csv::ToCSV;
@@ -91,6 +91,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(ShapeDF),
         Box::new(SliceDF),
         Box::new(SchemaCmd),
+        Box::new(TakeDF),
         Box::new(ToNu),
         Box::new(ToArrow),
         Box::new(ToDataFrame),
