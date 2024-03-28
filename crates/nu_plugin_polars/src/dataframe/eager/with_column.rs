@@ -143,11 +143,13 @@ fn command_eager(
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, value)?;
-        let lazy = NuLazyFrame::new(true, df.lazy().with_columns(&expressions));
-
+        let lazy = NuLazyFrame::new(true, df.lazy().to_polars().with_columns(&expressions));
         let df = lazy.collect(call.head)?;
 
-        Ok(PipelineData::Value(df.into_value(call.head), None))
+        Ok(PipelineData::Value(
+            df.cache(plugin, engine)?.into_value(call.head),
+            None,
+        ))
     } else {
         let mut other = NuDataFrame::try_from_value(plugin, &new_column)?.as_series(column_span)?;
 

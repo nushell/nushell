@@ -1,6 +1,6 @@
 mod aggregate;
 mod collect;
-// mod explode;
+mod explode;
 // mod fetch;
 // mod fill_nan;
 // mod fill_null;
@@ -13,9 +13,7 @@ mod macro_commands;
 // mod select;
 // mod sort_by_expr;
 // mod to_lazy;
-
-// use nu_protocol::engine::StateWorkingSet;
-
+//
 use nu_plugin::PluginCommand;
 
 pub use crate::dataframe::lazy::aggregate::LazyAggregate;
@@ -32,7 +30,7 @@ pub(crate) use crate::dataframe::lazy::macro_commands::*;
 // pub(crate) use crate::dataframe::lazy::select::LazySelect;
 // use crate::dataframe::lazy::sort_by_expr::LazySortBy;
 // pub use crate::dataframe::lazy::to_lazy::ToLazyFrame;
-// pub use explode::LazyExplode;
+pub use explode::LazyExplode;
 // pub use flatten::LazyFlatten;
 
 pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
@@ -40,6 +38,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyAggregate),
         Box::new(LazyCache),
         Box::new(LazyCollect),
+        Box::new(LazyExplode),
         Box::new(LazyMedian),
         Box::new(LazyReverse),
     ]

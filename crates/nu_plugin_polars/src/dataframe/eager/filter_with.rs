@@ -112,7 +112,7 @@ fn command_eager(
 
     if NuExpression::can_downcast(&mask_value) {
         let expression = NuExpression::try_from_value(plugin, &mask_value)?;
-        let lazy = NuLazyFrame::new(true, df.lazy());
+        let lazy = df.lazy();
         let lazy = lazy.apply_with_expr(expression, LazyFrame::filter);
 
         Ok(PipelineData::Value(

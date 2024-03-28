@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
+use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
 use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher, sync::Arc};
@@ -112,8 +112,8 @@ impl NuDataFrame {
         (*self.df).clone()
     }
 
-    pub fn lazy(&self) -> LazyFrame {
-        self.to_polars().lazy()
+    pub fn lazy(&self) -> NuLazyFrame {
+        NuLazyFrame::new(true, self.to_polars().lazy())
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
@@ -478,8 +478,8 @@ fn add_missing_columns(
             .collect();
 
         let df = if !missing.is_empty() {
-            let with_columns = df.lazy().with_columns(missing_exprs);
-            NuLazyFrame::new(true, with_columns).collect(span)?
+            let lazy: NuLazyFrame = df.lazy().to_polars().with_columns(missing_exprs).into();
+            lazy.collect(span)?
         } else {
             df
         };
