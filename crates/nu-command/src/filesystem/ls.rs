@@ -511,6 +511,7 @@ pub(crate) fn dir_entry_dict(
             {
                 use crate::filesystem::util::users;
                 use std::os::unix::fs::MetadataExt;
+
                 let mode = md.permissions().mode();
                 record.push(
                     "mode",
@@ -525,19 +526,19 @@ pub(crate) fn dir_entry_dict(
 
                 record.push(
                     "user",
-                    if let Some(user) = users::get_user_by_uid(md.uid()) {
+                    if let Some(user) = users::get_user_by_uid(md.uid().into()) {
                         Value::string(user.name, span)
                     } else {
-                        Value::int(md.uid() as i64, span)
+                        Value::int(md.uid().into(), span)
                     },
                 );
 
                 record.push(
                     "group",
-                    if let Some(group) = users::get_group_by_gid(md.gid()) {
+                    if let Some(group) = users::get_group_by_gid(md.gid().into()) {
                         Value::string(group.name, span)
                     } else {
-                        Value::int(md.gid() as i64, span)
+                        Value::int(md.gid().into(), span)
                     },
                 );
             }

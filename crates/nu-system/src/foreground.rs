@@ -120,7 +120,7 @@ mod foreground_pgroup {
     /// Currently only intended to access `tcsetpgrp` and `tcgetpgrp` with the I/O safe `nix`
     /// interface.
     pub unsafe fn stdin_fd() -> impl AsFd {
-        unsafe { BorrowedFd::borrow_raw(libc::STDIN_FILENO) }
+        unsafe { BorrowedFd::borrow_raw(nix::libc::STDIN_FILENO) }
     }
 
     pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {

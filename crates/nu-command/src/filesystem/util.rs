@@ -92,57 +92,40 @@ pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
 
 #[cfg(unix)]
 pub mod users {
-    use libc::{gid_t, uid_t};
     use nix::unistd::{Gid, Group, Uid, User};
 
-    pub fn get_user_by_uid(uid: uid_t) -> Option<User> {
-        User::from_uid(Uid::from_raw(uid)).ok().flatten()
+    pub fn get_user_by_uid(uid: Uid) -> Option<User> {
+        User::from_uid(uid).ok().flatten()
     }
 
-    pub fn get_group_by_gid(gid: gid_t) -> Option<Group> {
-        Group::from_gid(Gid::from_raw(gid)).ok().flatten()
+    pub fn get_group_by_gid(gid: Gid) -> Option<Group> {
+        Group::from_gid(gid).ok().flatten()
     }
 
-    pub fn get_current_uid() -> uid_t {
-        Uid::current().as_raw()
+    pub fn get_current_uid() -> Uid {
+        Uid::current()
     }
 
-    pub fn get_current_gid() -> gid_t {
-        Gid::current().as_raw()
+    pub fn get_current_gid() -> Gid {
+        Gid::current()
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_current_username() -> Option<String> {
-        User::from_uid(Uid::current())
-            .ok()
-            .flatten()
-            .map(|user| user.name)
+        get_user_by_uid(get_current_uid()).map(|user| user.name)
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
     pub fn current_user_groups() -> Option<Vec<Gid>> {
-        // SAFETY:
-        // if first arg is 0 then it ignores second argument and returns number of groups present for given user.
-        let ngroups = unsafe { libc::getgroups(0, core::ptr::null::<gid_t> as *mut _) };
-        let mut buff: Vec<gid_t> = vec![0; ngroups as usize];
-
-        // SAFETY:
-        // buff is the size of ngroups and  getgroups reads max ngroups elements into buff
-        let found = unsafe { libc::getgroups(ngroups, buff.as_mut_ptr()) };
-
-        if found < 0 {
-            None
+        if let Ok(mut groups) = nix::unistd::getgroups() {
+            groups.sort_unstable_by_key(|id| id.as_raw());
+            groups.dedup();
+            Some(groups)
         } else {
-            buff.truncate(found as usize);
-            buff.sort_unstable();
-            buff.dedup();
-            buff.into_iter()
-                .filter_map(|i| get_group_by_gid(i as gid_t))
-                .map(|group| group.gid)
-                .collect::<Vec<_>>()
-                .into()
+            None
         }
     }
+
     /// Returns groups for a provided user name and primary group id.
     ///
     /// # libc functions used
@@ -159,19 +142,19 @@ pub mod users {
     /// }
     /// ```
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
-    pub fn get_user_groups(username: &str, gid: gid_t) -> Option<Vec<Gid>> {
+    pub fn get_user_groups(username: &str, gid: Gid) -> Option<Vec<Gid>> {
+        use nix::libc::{c_int, gid_t};
         use std::ffi::CString;
+
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
         #[cfg(target_os = "macos")]
         let mut buff: Vec<i32> = vec![0; 1024];
         #[cfg(not(target_os = "macos"))]
         let mut buff: Vec<gid_t> = vec![0; 1024];
 
-        let Ok(name) = CString::new(username.as_bytes()) else {
-            return None;
-        };
+        let name = CString::new(username).ok()?;
 
-        let mut count = buff.len() as libc::c_int;
+        let mut count = buff.len() as c_int;
 
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
         // SAFETY:
@@ -182,11 +165,19 @@ pub mod users {
         // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max length/capacity (as we initialize with 0)
         // Following reads from `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
         #[cfg(target_os = "macos")]
-        let res =
-            unsafe { libc::getgrouplist(name.as_ptr(), gid as i32, buff.as_mut_ptr(), &mut count) };
+        let res = unsafe {
+            nix::libc::getgrouplist(
+                name.as_ptr(),
+                gid.as_raw() as i32,
+                buff.as_mut_ptr(),
+                &mut count,
+            )
+        };
 
         #[cfg(not(target_os = "macos"))]
-        let res = unsafe { libc::getgrouplist(name.as_ptr(), gid, buff.as_mut_ptr(), &mut count) };
+        let res = unsafe {
+            nix::libc::getgrouplist(name.as_ptr(), gid.as_raw(), buff.as_mut_ptr(), &mut count)
+        };
 
         if res < 0 {
             None
@@ -196,11 +187,13 @@ pub mod users {
             buff.dedup();
             // allow trivial cast: on macos i is i32, on linux it's already gid_t
             #[allow(trivial_numeric_casts)]
-            buff.into_iter()
-                .filter_map(|i| get_group_by_gid(i as gid_t))
-                .map(|group| group.gid)
-                .collect::<Vec<_>>()
-                .into()
+            Some(
+                buff.into_iter()
+                    .map(|id| Gid::from_raw(id as gid_t))
+                    .filter_map(get_group_by_gid)
+                    .map(|group| group.gid)
+                    .collect(),
+            )
         }
     }
 }
