@@ -109,7 +109,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             collect_expanded_source,
             collect_values,
             collect_exprs,
-            call.span(),
+            call.span(engine_state),
         );
 
         let lock_err = {
@@ -136,14 +136,14 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         // TODO: See eval_source()
         match result {
             Ok(pipeline_data) => {
-                let _ = pipeline_data.into_value(call.span());
+                let _ = pipeline_data.into_value(call.span(engine_state));
                 // pipeline_data.print(engine_state, caller_stack, true, false)
             }
             Err(_e) => (), // TODO: Report error
         }
 
         let debugger = engine_state.deactivate_debugger().map_err(lock_err)?;
-        let res = debugger.report(engine_state, call.span());
+        let res = debugger.report(engine_state, call.span(engine_state));
 
         res.map(|val| val.into_pipeline_data())
     }

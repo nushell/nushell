@@ -1,6 +1,7 @@
 use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::GetSpan;
 use once_cell::sync::Lazy;
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -236,17 +237,17 @@ impl Command for Char {
         // handle -i flag
         if integer {
             let int_args: Vec<i64> = call.rest_const(working_set, 0)?;
-            handle_integer_flag(int_args, call, call_span)
+            handle_integer_flag(working_set, int_args, call, call_span)
         }
         // handle -u flag
         else if unicode {
             let string_args: Vec<String> = call.rest_const(working_set, 0)?;
-            handle_unicode_flag(string_args, call, call_span)
+            handle_unicode_flag(working_set, string_args, call, call_span)
         }
         // handle the rest
         else {
             let string_args: Vec<String> = call.rest_const(working_set, 0)?;
-            handle_the_rest(string_args, call, call_span)
+            handle_the_rest(working_set, string_args, call, call_span)
         }
     }
 
@@ -271,17 +272,17 @@ impl Command for Char {
         // handle -i flag
         if integer {
             let int_args: Vec<i64> = call.rest(engine_state, stack, 0)?;
-            handle_integer_flag(int_args, call, call_span)
+            handle_integer_flag(engine_state, int_args, call, call_span)
         }
         // handle -u flag
         else if unicode {
             let string_args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            handle_unicode_flag(string_args, call, call_span)
+            handle_unicode_flag(engine_state, string_args, call, call_span)
         }
         // handle the rest
         else {
             let string_args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            handle_the_rest(string_args, call, call_span)
+            handle_the_rest(engine_state, string_args, call, call_span)
         }
     }
 }
@@ -312,6 +313,7 @@ fn generate_character_list(
 }
 
 fn handle_integer_flag(
+    state: &impl GetSpan,
     int_args: Vec<i64>,
     call: &Call,
     call_span: Span,
@@ -327,13 +329,14 @@ fn handle_integer_flag(
         let span = call
             .positional_nth(i)
             .expect("Unexpected missing argument")
-            .span;
+            .get_span(state);
         multi_byte.push(integer_to_unicode_char(arg, span)?)
     }
     Ok(Value::string(multi_byte, call_span).into_pipeline_data())
 }
 
 fn handle_unicode_flag(
+    state: &impl GetSpan,
     string_args: Vec<String>,
     call: &Call,
     call_span: Span,
@@ -349,13 +352,14 @@ fn handle_unicode_flag(
         let span = call
             .positional_nth(i)
             .expect("Unexpected missing argument")
-            .span;
+            .get_span(state);
         multi_byte.push(string_to_unicode_char(arg, span)?)
     }
     Ok(Value::string(multi_byte, call_span).into_pipeline_data())
 }
 
 fn handle_the_rest(
+    state: &impl GetSpan,
     string_args: Vec<String>,
     call: &Call,
     call_span: Span,
@@ -375,7 +379,7 @@ fn handle_the_rest(
             span: call
                 .positional_nth(0)
                 .expect("Unexpected missing argument")
-                .span,
+                .get_span(state),
         })
     }
 }

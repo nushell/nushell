@@ -62,7 +62,7 @@ impl Command for PluginList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.span();
+        let span = call.span(&engine_state);
         // Group plugin decls by plugin identity
         let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
             decl.plugin_identity()

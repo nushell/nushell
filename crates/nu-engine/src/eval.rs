@@ -8,8 +8,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
-    Config, FromValue, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type,
-    Value, VarId, ENV_VARIABLE_ID,
+    Config, FromValue, GetSpan, IntoPipelineData, IoStream, PipelineData, ShellError, Span,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 
@@ -108,6 +108,7 @@ pub fn eval_call<D: DebugContext>(
             let mut rest_items = vec![];
 
             for result in call.rest_iter_flattened(
+                engine_state,
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
                 |expr| eval_expression::<D>(engine_state, caller_stack, expr),
@@ -217,11 +218,13 @@ fn eval_external(
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported { span: head.span })?;
+        .ok_or(ShellError::ExternalNotSupported {
+            span: head.get_span(engine_state),
+        })?;
 
     let command = engine_state.get_decl(decl_id);
 
-    let mut call = Call::new(head.span);
+    let mut call = Call::new(head.get_span(engine_state));
 
     call.add_positional(head.clone());
 
@@ -273,7 +276,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
         Expr::FullCellPath(full_cell_path) => match &full_cell_path.head {
             Expression {
                 expr: Expr::Subexpression(block_id),
-                span,
+                span_id,
                 ..
             } => {
                 let block = engine_state.get_block(*block_id);
@@ -282,7 +285,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
                     let stack = &mut stack.start_capture();
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
-                        .into_value(*span)
+                        .into_value(engine_state.get_span(*span_id))
                         .follow_cell_path(&full_cell_path.tail, false)?
                         .into_pipeline_data()
                 } else {
@@ -549,7 +552,7 @@ pub fn eval_block<D: DebugContext>(
                     let exit_code = stream.drain_with_exit_code()?;
                     stack.add_env_var(
                         "LAST_EXIT_CODE".into(),
-                        Value::int(exit_code, last.expr.span),
+                        Value::int(exit_code, last.expr.get_span(engine_state)),
                     );
                     if exit_code != 0 {
                         break;
@@ -684,7 +687,7 @@ impl Eval for EvalRuntime {
         args: &[ExternalArgument],
         _: Span,
     ) -> Result<Value, ShellError> {
-        let span = head.span;
+        let span = head.get_span(engine_state);
         // FIXME: protect this collect with ctrl-c
         Ok(eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span))
     }
@@ -755,9 +758,11 @@ impl Eval for EvalRuntime {
                 let var_info = engine_state.get_var(*var_id);
                 if var_info.mutable {
                     stack.add_var(*var_id, rhs);
-                    Ok(Value::nothing(lhs.span))
+                    Ok(Value::nothing(lhs.get_span(engine_state)))
                 } else {
-                    Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                    Err(ShellError::AssignmentRequiresMutableVar {
+                        lhs_span: lhs.get_span(engine_state),
+                    })
                 }
             }
             Expr::FullCellPath(cell_path) => {
@@ -774,7 +779,7 @@ impl Eval for EvalRuntime {
                             if is_env {
                                 if cell_path.tail.is_empty() {
                                     return Err(ShellError::CannotReplaceEnv {
-                                        span: cell_path.head.span,
+                                        span: cell_path.head.get_span(engine_state),
                                     });
                                 }
 
@@ -805,15 +810,21 @@ impl Eval for EvalRuntime {
                             } else {
                                 stack.add_var(*var_id, lhs);
                             }
-                            Ok(Value::nothing(cell_path.head.span))
+                            Ok(Value::nothing(cell_path.head.get_span(engine_state)))
                         } else {
-                            Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                            Err(ShellError::AssignmentRequiresMutableVar {
+                                lhs_span: lhs.get_span(engine_state),
+                            })
                         }
                     }
-                    _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+                    _ => Err(ShellError::AssignmentRequiresVar {
+                        lhs_span: lhs.get_span(engine_state),
+                    }),
                 }
             }
-            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+            _ => Err(ShellError::AssignmentRequiresVar {
+                lhs_span: lhs.get_span(engine_state),
+            }),
         }
     }
 
@@ -850,7 +861,7 @@ impl Eval for EvalRuntime {
         Ok(Value::string(name, span))
     }
 
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
-        Ok(Value::nothing(expr.span))
+    fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
+        Ok(Value::nothing(expr.get_span(engine_state)))
     }
 }

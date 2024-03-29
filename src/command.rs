@@ -110,6 +110,7 @@ pub(crate) fn parse_commandline_args(
             let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
             fn extract_contents(
+                engine_state: &EngineState,
                 expression: Option<&Expression>,
             ) -> Result<Option<Spanned<String>>, ShellError> {
                 if let Some(expr) = expression {
@@ -117,12 +118,12 @@ pub(crate) fn parse_commandline_args(
                     if let Some(str) = str {
                         Ok(Some(Spanned {
                             item: str,
-                            span: expr.span,
+                            span: expr.get_span(engine_state),
                         }))
                     } else {
                         Err(ShellError::TypeMismatch {
                             err_message: "string".into(),
-                            span: expr.span,
+                            span: expr.get_span(engine_state),
                         })
                     }
                 } else {
@@ -130,16 +131,16 @@ pub(crate) fn parse_commandline_args(
                 }
             }
 
-            let commands = extract_contents(commands)?;
-            let testbin = extract_contents(testbin)?;
+            let commands = extract_contents(engine_state, commands)?;
+            let testbin = extract_contents(engine_state, testbin)?;
             #[cfg(feature = "plugin")]
-            let plugin_file = extract_contents(plugin_file)?;
-            let config_file = extract_contents(config_file)?;
-            let env_file = extract_contents(env_file)?;
-            let log_level = extract_contents(log_level)?;
-            let log_target = extract_contents(log_target)?;
-            let execute = extract_contents(execute)?;
-            let include_path = extract_contents(include_path)?;
+            let plugin_file = extract_contents(engine_state, plugin_file)?;
+            let config_file = extract_contents(engine_state, config_file)?;
+            let env_file = extract_contents(engine_state, env_file)?;
+            let log_level = extract_contents(engine_state, log_level)?;
+            let log_target = extract_contents(engine_state, log_target)?;
+            let execute = extract_contents(engine_state, execute)?;
+            let include_path = extract_contents(engine_state, include_path)?;
 
             let help = call.has_flag(engine_state, &mut stack, "help")?;
 

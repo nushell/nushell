@@ -185,7 +185,10 @@ impl Command for Watch {
 
                     if let Some(position) = block.signature.get_positional(0) {
                         if let Some(position_id) = &position.var_id {
-                            stack.add_var(*position_id, Value::string(operation, call.span()));
+                            stack.add_var(
+                                *position_id,
+                                Value::string(operation, call.span(engine_state)),
+                            );
                         }
                     }
 
@@ -193,7 +196,7 @@ impl Command for Watch {
                         if let Some(position_id) = &position.var_id {
                             stack.add_var(
                                 *position_id,
-                                Value::string(path.to_string_lossy(), call.span()),
+                                Value::string(path.to_string_lossy(), call.span(engine_state)),
                             );
                         }
                     }
@@ -204,7 +207,7 @@ impl Command for Watch {
                                 *position_id,
                                 Value::string(
                                     new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
-                                    call.span(),
+                                    call.span(engine_state),
                                 ),
                             );
                         }
@@ -214,7 +217,7 @@ impl Command for Watch {
                         engine_state,
                         stack,
                         &block,
-                        Value::nothing(call.span()).into_pipeline_data(),
+                        Value::nothing(call.span(engine_state)).into_pipeline_data(),
                     );
 
                     match eval_result {

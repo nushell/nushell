@@ -1,7 +1,7 @@
 use crate::{
     ast::Expression,
     engine::{EngineState, StateWorkingSet},
-    IoStream, Span, SpanId,
+    GetSpan, IoStream, Span, SpanId,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -143,13 +143,17 @@ impl Pipeline {
         Self { elements: vec![] }
     }
 
-    pub fn from_vec(expressions: Vec<Expression>) -> Pipeline {
+    pub fn from_vec(state: &impl GetSpan, expressions: Vec<Expression>) -> Pipeline {
         Self {
             elements: expressions
                 .into_iter()
                 .enumerate()
                 .map(|(idx, expr)| PipelineElement {
-                    pipe: if idx == 0 { None } else { Some(expr.span) },
+                    pipe: if idx == 0 {
+                        None
+                    } else {
+                        Some(expr.get_span(state))
+                    },
                     expr,
                     redirection: None,
                 })

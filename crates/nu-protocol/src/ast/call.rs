@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    ShellError, Span, Spanned, Value,
+    GetSpan, ShellError, Span, Spanned, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -17,13 +17,13 @@ pub enum Argument {
 
 impl Argument {
     /// The span for an argument
-    pub fn span(&self) -> Span {
+    pub fn get_span(&self, state: &impl GetSpan) -> Span {
         match self {
-            Argument::Positional(e) => e.span,
+            Argument::Positional(e) => e.get_span(state),
             Argument::Named((named, short, expr)) => {
                 let start = named.span.start;
                 let end = if let Some(expr) = expr {
-                    expr.span.end
+                    expr.get_span(state).end
                 } else if let Some(short) = short {
                     short.span.end
                 } else {
@@ -32,8 +32,8 @@ impl Argument {
 
                 Span::new(start, end)
             }
-            Argument::Unknown(e) => e.span,
-            Argument::Spread(e) => e.span,
+            Argument::Unknown(e) => e.get_span(state),
+            Argument::Spread(e) => e.get_span(state),
         }
     }
 }
@@ -70,16 +70,21 @@ impl Call {
     ///
     /// If there are one or more arguments the span encompasses the start of the first argument to
     /// end of the last argument
-    pub fn arguments_span(&self) -> Span {
+    pub fn arguments_span(&self, state: &impl GetSpan) -> Span {
         let past = self.head.past();
 
         let start = self
             .arguments
             .first()
-            .map(|a| a.span())
+            .map(|a| a.get_span(state))
             .unwrap_or(past)
             .start;
-        let end = self.arguments.last().map(|a| a.span()).unwrap_or(past).end;
+        let end = self
+            .arguments
+            .last()
+            .map(|a| a.get_span(state))
+            .unwrap_or(past)
+            .end;
 
         Span::new(start, end)
     }
@@ -269,9 +274,9 @@ impl Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for result in
-            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
-        {
+        for result in self.rest_iter_flattened(working_set, starting_pos, |expr| {
+            eval_constant(working_set, expr)
+        })? {
             output.push(FromValue::from_value(result)?);
         }
 
@@ -280,6 +285,7 @@ impl Call {
 
     pub fn rest_iter_flattened<F>(
         &self,
+        state: &impl GetSpan,
         start: usize,
         mut eval: F,
     ) -> Result<Vec<Value>, ShellError>
@@ -293,7 +299,11 @@ impl Call {
             if spread {
                 match result {
                     Value::List { mut vals, .. } => output.append(&mut vals),
-                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                    _ => {
+                        return Err(ShellError::CannotSpreadAsList {
+                            span: expr.get_span(state),
+                        })
+                    }
                 }
             } else {
                 output.push(result);
@@ -321,12 +331,12 @@ impl Call {
         }
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self, state: &impl GetSpan) -> Span {
         let mut span = self.head;
 
         for positional in self.positional_iter() {
-            if positional.span.end > span.end {
-                span.end = positional.span.end;
+            if positional.get_span(state).end > span.end {
+                span.end = positional.get_span(state).end;
             }
         }
 
@@ -336,8 +346,8 @@ impl Call {
             }
 
             if let Some(val) = &val {
-                if val.span.end > span.end {
-                    span.end = val.span.end;
+                if val.get_span(state).end > span.end {
+                    span.end = val.get_span(state).end;
                 }
             }
         }
@@ -368,19 +378,19 @@ mod test {
 
         let arg = Argument::Named((named.clone(), None, None));
 
-        assert_eq!(Span::new(2, 3), arg.span());
+        assert_eq!(Span::new(2, 3), arg.get_span(&working_set));
 
         let arg = Argument::Named((named.clone(), Some(short.clone()), None));
 
-        assert_eq!(Span::new(2, 7), arg.span());
+        assert_eq!(Span::new(2, 7), arg.get_span(&working_set));
 
         let arg = Argument::Named((named.clone(), None, Some(expr.clone())));
 
-        assert_eq!(Span::new(2, 13), arg.span());
+        assert_eq!(Span::new(2, 13), arg.get_span(&working_set));
 
         let arg = Argument::Named((named.clone(), Some(short.clone()), Some(expr.clone())));
 
-        assert_eq!(Span::new(2, 13), arg.span());
+        assert_eq!(Span::new(2, 13), arg.get_span(&working_set));
     }
 
     #[test]
@@ -392,7 +402,7 @@ mod test {
         let expr = Expression::garbage(&mut working_set, span);
         let arg = Argument::Positional(expr);
 
-        assert_eq!(span, arg.span());
+        assert_eq!(span, arg.get_span(&working_set));
     }
 
     #[test]
@@ -404,7 +414,7 @@ mod test {
         let expr = Expression::garbage(&mut working_set, span);
         let arg = Argument::Unknown(expr);
 
-        assert_eq!(span, arg.span());
+        assert_eq!(span, arg.get_span(&working_set));
     }
 
     #[test]
@@ -416,6 +426,6 @@ mod test {
         call.add_positional(Expression::garbage(&mut working_set, Span::new(2, 3)));
         call.add_positional(Expression::garbage(&mut working_set, Span::new(5, 7)));
 
-        assert_eq!(Span::new(2, 7), call.arguments_span());
+        assert_eq!(Span::new(2, 7), call.arguments_span(&working_set));
     }
 }

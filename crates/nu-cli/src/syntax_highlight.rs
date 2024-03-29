@@ -264,7 +264,7 @@ fn find_matching_block_end_in_block(
 ) -> Option<usize> {
     for p in &block.pipelines {
         for e in &p.elements {
-            if e.expr.span.contains(global_cursor_offset) {
+            if e.expr.get_span(&working_set).contains(global_cursor_offset) {
                 if let Some(pos) = find_matching_block_end_in_expr(
                     line,
                     working_set,
@@ -324,16 +324,19 @@ fn find_matching_block_end_in_expr(
         };
     }
 
-    if expression.span.contains(global_cursor_offset) && expression.span.start >= global_span_offset
+    if expression
+        .get_span(&working_set)
+        .contains(global_cursor_offset)
+        && expression.get_span(&working_set).start >= global_span_offset
     {
-        let expr_first = expression.span.start;
-        let span_str = &line
-            [expression.span.start - global_span_offset..expression.span.end - global_span_offset];
+        let expr_first = expression.get_span(&working_set).start;
+        let span_str = &line[expression.get_span(&working_set).start - global_span_offset
+            ..expression.get_span(&working_set).end - global_span_offset];
         let expr_last = span_str
             .chars()
             .last()
-            .map(|c| expression.span.end - get_char_length(c))
-            .unwrap_or(expression.span.start);
+            .map(|c| expression.get_span(&working_set).end - get_char_length(c))
+            .unwrap_or(expression.get_span(&working_set).start);
 
         return match &expression.expr {
             Expr::Bool(_) => None,

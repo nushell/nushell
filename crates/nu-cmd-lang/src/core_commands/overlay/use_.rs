@@ -72,7 +72,7 @@ impl Command for OverlayUse {
                     return Err(ShellError::NushellFailedSpanned {
                         msg: "Not an overlay".to_string(),
                         label: "requires an overlay (path or a string)".to_string(),
-                        span: overlay_expr.span,
+                        span: overlay_expr.get_span(&engine_state),
                     });
                 }
             } else {

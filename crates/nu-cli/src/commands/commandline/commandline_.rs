@@ -75,7 +75,7 @@ impl Command for Commandline {
                         error: "`--cursor (-c)` is deprecated".into(),
                         msg: "Setting the current cursor position by `--cursor (-c)` is deprecated"
                             .into(),
-                        span: Some(call.arguments_span()),
+                        span: Some(call.arguments_span(&engine_state)),
                         help: Some("Use `commandline set-cursor`".into()),
                         inner: vec![],
                     },
@@ -107,7 +107,7 @@ impl Command for Commandline {
                     &ShellError::GenericError {
                         error: "`--append (-a)` is deprecated".into(),
                         msg: "Appending the string to the end of the buffer by `--append (-a)` is deprecated".into(),
-                        span: Some(call.arguments_span()),
+                        span: Some(call.arguments_span(&engine_state)),
                         help: Some("Use `commandline edit --append (-a)`".into()),
                         inner: vec![],
                     },
@@ -119,7 +119,7 @@ impl Command for Commandline {
                     &ShellError::GenericError {
                         error: "`--insert (-i)` is deprecated".into(),
                         msg: "Inserts the string into the buffer at the cursor position by `--insert (-i)` is deprecated".into(),
-                        span: Some(call.arguments_span()),
+                        span: Some(call.arguments_span(&engine_state)),
                         help: Some("Use `commandline edit --insert (-i)`".into()),
                         inner: vec![],
                     },
@@ -133,7 +133,7 @@ impl Command for Commandline {
                     &ShellError::GenericError {
                         error: "`--replace (-r)` is deprecated".into(),
                         msg: "Replaceing the current contents of the buffer by `--replace (-p)` or positional argument is deprecated".into(),
-                        span: Some(call.arguments_span()),
+                        span: Some(call.arguments_span(&engine_state)),
                         help: Some("Use `commandline edit --replace (-r)`".into()),
                         inner: vec![],
                     },
@@ -150,7 +150,7 @@ impl Command for Commandline {
                     &ShellError::GenericError {
                         error: "`--cursor-end (-e)` is deprecated".into(),
                         msg: "Setting the current cursor position to the end of the buffer by `--cursor-end (-e)` is deprecated".into(),
-                        span: Some(call.arguments_span()),
+                        span: Some(call.arguments_span(&engine_state)),
                         help: Some("Use `commandline set-cursor --end (-e)`".into()),
                         inner: vec![],
                     },
@@ -164,7 +164,7 @@ impl Command for Commandline {
                         error: "`--cursor (-c)` is deprecated".into(),
                         msg: "Getting the current cursor position by `--cursor (-c)` is deprecated"
                             .into(),
-                        span: Some(call.arguments_span()),
+                        span: Some(call.arguments_span(&engine_state)),
                         help: Some("Use `commandline get-cursor`".into()),
                         inner: vec![],
                     },

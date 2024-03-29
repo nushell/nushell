@@ -69,7 +69,7 @@ impl Command for External {
                 &ShellError::GenericError {
                     error: "Deprecated flag".into(),
                     msg: "`--trim-end-newline` is deprecated".into(),
-                    span: Some(call.arguments_span()),
+                    span: Some(call.arguments_span(engine_state)),
                     help: Some(
                         "trailing new lines are now removed by default when collecting into a value"
                             .into(),
@@ -85,7 +85,7 @@ impl Command for External {
                 &ShellError::GenericError {
                     error: "Deprecated flag".into(),
                     msg: "`--redirect-combine` is deprecated".into(),
-                    span: Some(call.arguments_span()),
+                    span: Some(call.arguments_span(engine_state)),
                     help: Some("use the `o+e>|` pipe redirection instead".into()),
                     inner: vec![],
                 },
@@ -96,7 +96,7 @@ impl Command for External {
                 &ShellError::GenericError {
                     error: "Deprecated flag".into(),
                     msg: "`--redirect-stdout` is deprecated".into(),
-                    span: Some(call.arguments_span()),
+                    span: Some(call.arguments_span(engine_state)),
                     help: Some(
                         "`run-external` will now always redirect stdout if there is a pipe `|` afterwards"
                             .into(),
@@ -110,7 +110,7 @@ impl Command for External {
                 &ShellError::GenericError {
                     error: "Deprecated flag".into(),
                     msg: "`--redirect-stderr` is deprecated".into(),
-                    span: Some(call.arguments_span()),
+                    span: Some(call.arguments_span(engine_state)),
                     help: Some("use the `e>|` stderr pipe redirection instead".into()),
                     inner: vec![],
                 },
@@ -185,15 +185,19 @@ pub fn create_external_command(
                     }
                 } else {
                     return Err(ShellError::CannotPassListToExternal {
-                        arg: String::from_utf8_lossy(engine_state.get_span_contents(arg.span))
-                            .into(),
-                        span: arg.span,
+                        arg: String::from_utf8_lossy(
+                            engine_state.get_span_contents(arg.get_span(engine_state)),
+                        )
+                        .into(),
+                        span: arg.get_span(engine_state),
                     });
                 }
             }
             val => {
                 if spread {
-                    return Err(ShellError::CannotSpreadAsList { span: arg.span });
+                    return Err(ShellError::CannotSpreadAsList {
+                        span: arg.get_span(engine_state),
+                    });
                 } else {
                     spanned_args.push(value_as_spanned(val)?);
                     match arg.expr {

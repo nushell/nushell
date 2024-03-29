@@ -1,6 +1,6 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, RecordItem},
-    engine::{EngineState, StateWorkingSet},
+    engine::StateWorkingSet,
     BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,6 @@ use std::sync::Arc;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
     pub expr: Expr,
-    pub span: Span,
     pub span_id: SpanId,
     pub ty: Type,
     pub custom_completion: Option<DeclId>,
@@ -20,7 +19,6 @@ impl Expression {
         let span_id = working_set.add_span(span);
         Expression {
             expr: Expr::Garbage,
-            span: todo!(),
             span_id,
             ty: Type::Any,
             custom_completion: None,
@@ -467,7 +465,6 @@ impl Expression {
         let span_id = working_set.add_span(span);
         Expression {
             expr,
-            span: todo!(),
             span_id,
             ty,
             custom_completion: None,
@@ -477,9 +474,17 @@ impl Expression {
     pub fn new_existing(expr: Expr, span_id: SpanId, ty: Type) -> Expression {
         Expression {
             expr,
-            span: todo!(),
             span_id,
             ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn garbage_existing(span_id: SpanId) -> Expression {
+        Expression {
+            expr: Expr::Garbage,
+            span_id,
+            ty: Type::Any,
             custom_completion: None,
         }
     }
@@ -487,7 +492,6 @@ impl Expression {
     pub fn new_unknown(expr: Expr, ty: Type) -> Expression {
         Expression {
             expr,
-            span: todo!(),
             span_id: SpanId(0),
             ty,
             custom_completion: None,
@@ -497,7 +501,6 @@ impl Expression {
     pub fn with_span_id(self, span_id: SpanId) -> Expression {
         Expression {
             expr: self.expr,
-            span: todo!(),
             span_id,
             ty: self.ty,
             custom_completion: self.custom_completion,
@@ -507,14 +510,17 @@ impl Expression {
     pub fn with_completion(self, custom_completion: Option<DeclId>) -> Self {
         Expression {
             expr: self.expr,
-            span: self.span,
             span_id: self.span_id,
             ty: self.ty,
             custom_completion,
         }
     }
 
-    pub fn span(&self, engine_state: &EngineState) -> Span {
-        engine_state.get_span(self.span_id)
+    // pub fn span(&self, engine_state: &EngineState) -> Span {
+    //     engine_state.get_span(self.span_id)
+    // }
+
+    pub fn get_span(&self, state: &impl GetSpan) -> Span {
+        state.get_span(self.span_id)
     }
 }

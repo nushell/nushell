@@ -290,6 +290,7 @@ fn format_record(
                 let exp = parse_expression(working_set, &[*span]);
                 match working_set.parse_errors.first() {
                     None => {
+                        // TODO: The span of exp if in the working set which is not merged to engine state
                         let parsed_result = eval_expression(engine_state, stack, &exp);
                         if let Ok(val) = parsed_result {
                             output.push_str(&val.to_abbreviated_string(config))

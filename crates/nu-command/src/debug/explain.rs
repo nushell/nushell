@@ -71,7 +71,7 @@ pub fn get_pipeline_elements(
         while i < pipeline.elements.len() {
             let pipeline_element = &pipeline.elements[i];
             let pipeline_expression = &pipeline_element.expr;
-            let pipeline_span = pipeline_element.expr.span;
+            let pipeline_span = pipeline_element.expr.get_span(engine_state);
 
             let element_str =
                 String::from_utf8_lossy(engine_state.get_span_contents(pipeline_span));
@@ -166,12 +166,12 @@ fn get_arguments(
 
                     let record = record! {
                         "arg_type" => Value::string(arg_type, span),
-                        "name" => Value::string(arg_value_name, expression.span),
+                        "name" => Value::string(arg_value_name, expression.get_span(engine_state)),
                         "type" => Value::string(arg_value_type, span),
                         "span_start" => Value::int(arg_value_name_span_start, span),
                         "span_end" => Value::int(arg_value_name_span_end, span),
                     };
-                    arg_value.push(Value::record(record, expression.span));
+                    arg_value.push(Value::record(record, expression.get_span(engine_state)));
                 };
             }
             Argument::Positional(inner_expr) => {
@@ -186,12 +186,12 @@ fn get_arguments(
 
                 let record = record! {
                     "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "name" => Value::string(arg_value_name, inner_expr.get_span(engine_state)),
                     "type" => Value::string(arg_value_type, span),
                     "span_start" => Value::int(arg_value_name_span_start, span),
                     "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(Value::record(record, inner_expr.span));
+                arg_value.push(Value::record(record, inner_expr.get_span(engine_state)));
             }
             Argument::Unknown(inner_expr) => {
                 let arg_type = "unknown";
@@ -205,12 +205,12 @@ fn get_arguments(
 
                 let record = record! {
                     "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "name" => Value::string(arg_value_name, inner_expr.get_span(engine_state)),
                     "type" => Value::string(arg_value_type, span),
                     "span_start" => Value::int(arg_value_name_span_start, span),
                     "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(Value::record(record, inner_expr.span));
+                arg_value.push(Value::record(record, inner_expr.get_span(engine_state)));
             }
             Argument::Spread(inner_expr) => {
                 let arg_type = "spread";
@@ -224,12 +224,12 @@ fn get_arguments(
 
                 let record = record! {
                     "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "name" => Value::string(arg_value_name, inner_expr.get_span(engine_state)),
                     "type" => Value::string(arg_value_type, span),
                     "span_start" => Value::int(arg_value_name_span_start, span),
                     "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(Value::record(record, inner_expr.span));
+                arg_value.push(Value::record(record, inner_expr.get_span(engine_state)));
             }
         };
     }
@@ -245,7 +245,7 @@ fn get_expression_as_value(
 ) -> Value {
     match eval_expression_fn(engine_state, stack, inner_expr) {
         Ok(v) => v,
-        Err(error) => Value::error(error, inner_expr.span),
+        Err(error) => Value::error(error, inner_expr.get_span(engine_state)),
     }
 }
 

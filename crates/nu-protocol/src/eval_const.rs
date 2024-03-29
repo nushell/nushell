@@ -249,7 +249,7 @@ pub fn eval_constant_with_input(
         Expr::Call(call) => eval_const_call(working_set, call, input),
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            eval_const_subexpression(working_set, block, input, expr.span)
+            eval_const_subexpression(working_set, block, input, expr.get_span(working_set))
         }
         _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
     }
@@ -380,7 +380,9 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span: expr.span })
+    fn unreachable(working_set: &StateWorkingSet, expr: &Expression) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant {
+            span: expr.get_span(working_set),
+        })
     }
 }
