@@ -2,7 +2,7 @@ use super::super::values::{Column, NuDataFrame};
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
     values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject},
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{

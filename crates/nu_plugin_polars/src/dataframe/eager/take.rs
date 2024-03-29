@@ -8,7 +8,7 @@ use polars::prelude::DataType;
 use crate::{
     dataframe::values::Column,
     values::{to_pipeline_data, CustomValueSupport},
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;

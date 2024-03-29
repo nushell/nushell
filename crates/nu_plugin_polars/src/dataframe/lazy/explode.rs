@@ -1,6 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use crate::values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject};
-use crate::{Cacheable, PolarsPlugin};
+use crate::PolarsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{

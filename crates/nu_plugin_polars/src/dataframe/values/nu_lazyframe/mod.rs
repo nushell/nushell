@@ -1,6 +1,6 @@
 mod custom_value;
 
-use crate::Cacheable;
+use crate::{Cacheable, PolarsPlugin};
 
 use super::{
     CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject, PolarsPluginType,

@@ -4,7 +4,7 @@ use crate::{
         cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
         PolarsPluginType,
     },
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{

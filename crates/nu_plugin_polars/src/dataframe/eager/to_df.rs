@@ -1,7 +1,7 @@
 use crate::{
     dataframe::values::NuSchema,
     values::{to_pipeline_data, Column, CustomValueSupport},
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;

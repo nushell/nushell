@@ -7,7 +7,7 @@ use nu_protocol::{
 use crate::{
     dataframe::values::utils::convert_columns_string,
     values::{to_pipeline_data, CustomValueSupport},
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};

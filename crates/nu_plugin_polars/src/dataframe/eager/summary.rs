@@ -1,6 +1,6 @@
 use crate::{
     values::{to_pipeline_data, CustomValueSupport},
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};
