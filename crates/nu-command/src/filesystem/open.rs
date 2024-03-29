@@ -6,9 +6,6 @@ use std::{io::BufReader, path::Path};
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
 
-#[cfg(feature = "sqlite")]
-use nu_protocol::IntoPipelineData;
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 

@@ -1,7 +1,5 @@
 use nu_engine::command_prelude::*;
 
-use std::convert::TryInto;
-
 #[derive(Clone)]
 pub struct Skip;
 
