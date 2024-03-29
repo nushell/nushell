@@ -30,6 +30,8 @@ impl<T> IntoSpanned for T {
     }
 }
 
+impl<T> Copy for Spanned<T> where T: Copy {}
+
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
