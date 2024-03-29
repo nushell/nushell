@@ -67,6 +67,6 @@ impl SimplePluginCommand for Update {
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
 
-    PluginTest::new("custom_values", crate::CustomValuePlugin.into())?
+    PluginTest::new("custom_values", crate::CustomValuePlugin::new().into())?
         .test_command_examples(&Update)
 }

@@ -377,7 +377,7 @@ impl EngineInterface {
     ) -> Result<PipelineDataWriter<Self>, ShellError> {
         match result {
             Ok(data) => {
-                let (header, writer) = match self.init_write_pipeline_data(data) {
+                let (header, writer) = match self.init_write_pipeline_data(data, &()) {
                     Ok(tup) => tup,
                     // If we get an error while trying to construct the pipeline data, send that
                     // instead
@@ -438,7 +438,7 @@ impl EngineInterface {
         let mut writer = None;
 
         let call = call.map_data(|input| {
-            let (input_header, input_writer) = self.init_write_pipeline_data(input)?;
+            let (input_header, input_writer) = self.init_write_pipeline_data(input, &())?;
             writer = Some(input_writer);
             Ok(input_header)
         })?;
@@ -809,6 +809,7 @@ impl EngineInterface {
 
 impl Interface for EngineInterface {
     type Output = PluginOutput;
+    type DataContext = ();
 
     fn write(&self, output: PluginOutput) -> Result<(), ShellError> {
         log::trace!("to engine: {:?}", output);
@@ -827,7 +828,11 @@ impl Interface for EngineInterface {
         &self.stream_manager_handle
     }
 
-    fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
+    fn prepare_pipeline_data(
+        &self,
+        mut data: PipelineData,
+        _context: &(),
+    ) -> Result<PipelineData, ShellError> {
         // Serialize custom values in the pipeline data
         match data {
             PipelineData::Value(ref mut value, _) => {

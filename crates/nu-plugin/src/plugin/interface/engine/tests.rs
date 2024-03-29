@@ -1085,10 +1085,13 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
 fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), ShellError> {
     let interface = TestCase::new().engine().get_interface();
 
-    let data = interface.prepare_pipeline_data(PipelineData::Value(
-        Value::test_custom_value(Box::new(expected_test_custom_value())),
-        None,
-    ))?;
+    let data = interface.prepare_pipeline_data(
+        PipelineData::Value(
+            Value::test_custom_value(Box::new(expected_test_custom_value())),
+            None,
+        ),
+        &(),
+    )?;
 
     let value = data
         .into_iter()
@@ -1117,6 +1120,7 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
             expected_test_custom_value(),
         ))]
         .into_pipeline_data(None),
+        &(),
     )?;
 
     let value = data
@@ -1161,6 +1165,10 @@ impl CustomValue for CantSerialize {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[test]
@@ -1171,6 +1179,7 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
     let span = Span::new(40, 60);
     let data = interface.prepare_pipeline_data(
         [Value::custom(Box::new(CantSerialize::BadVariant), span)].into_pipeline_data(None),
+        &(),
     )?;
 
     let value = data
