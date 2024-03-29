@@ -121,12 +121,30 @@ impl Command for Ls {
                 )),
             Some(pattern) => {
                 let mut result_iters = vec![];
+                let mut errors = vec![];
                 for pat in pattern {
                     match ls_for_one_pattern(Some(pat), args, ctrl_c.clone(), cwd.clone()) {
                         Ok(it) => result_iters.push(it),
-                        Err(e) => report_error_new(engine_state, &e),
+                        Err(e) => errors.push(e),
                     }
                 }
+
+                // if no results available, need to report all errors and return Err
+                // or else return Error along with items.
+                if result_iters.is_empty() {
+                    if !errors.is_empty() {
+                        let last_error = errors.pop().expect("Already check errors is not empty");
+                        for i in 0..errors.len() {
+                            report_error_new(engine_state, &errors[i])
+                        }
+                        return Err(last_error);
+                    }
+                } else {
+                    for err in errors {
+                        report_error_new(engine_state, &err)
+                    }
+                }
+                // Here nushell needs to use
                 // use `flatten` to chain all iterators into one.
                 Ok(result_iters
                     .into_iter()

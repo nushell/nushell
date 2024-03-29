@@ -121,6 +121,7 @@ impl Command for Du {
             }
             Some(paths) => {
                 let mut result_iters = vec![];
+                let mut errors = vec![];
                 for p in paths {
                     let args = DuArgs {
                         path: Some(p),
@@ -132,9 +133,25 @@ impl Command for Du {
                     };
                     match du_on_one_path(args, &current_dir, tag, engine_state.ctrlc.clone()) {
                         Ok(iter) => result_iters.push(iter),
-                        Err(e) => report_error_new(engine_state, &e),
+                        Err(e) => errors.push(e),
                     }
                 }
+                // if no results available, need to report all errors and return Err
+                // or else return Error along with items.
+                if result_iters.is_empty() {
+                    if !errors.is_empty() {
+                        let last_error = errors.pop().expect("Already check errors is not empty");
+                        for i in 0..errors.len() {
+                            report_error_new(engine_state, &errors[i])
+                        }
+                        return Err(last_error);
+                    }
+                } else {
+                    for err in errors {
+                        report_error_new(engine_state, &err)
+                    }
+                }
+
                 // chain all iterators on result.
                 Ok(result_iters
                     .into_iter()
