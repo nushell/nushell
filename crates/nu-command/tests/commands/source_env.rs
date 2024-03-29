@@ -326,3 +326,27 @@ fn source_respects_early_return() {
 
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn source_catches_recursion() {
+    Playground::setup("source_catches_recursion", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            FileWithContentToBeTrimmed(
+                "foo.nu",
+                r#"
+                source bar.nu
+            "#,
+            ),
+            FileWithContentToBeTrimmed(
+                "bar.nu",
+                r#"
+                source foo.nu
+            "#,
+            ),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), "source foo.nu");
+
+        assert!(actual.err.contains("recursion_limit_reached"));
+    })
+}
