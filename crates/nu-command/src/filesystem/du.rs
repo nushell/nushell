@@ -115,7 +115,7 @@ impl Command for Du {
                     min_size,
                 };
                 Ok(
-                    du_on_one_path(args, &current_dir, tag, engine_state.ctrlc.clone())?
+                    du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone())?
                         .into_pipeline_data(engine_state.ctrlc.clone()),
                 )
             }
@@ -131,7 +131,7 @@ impl Command for Du {
                         max_depth,
                         min_size,
                     };
-                    match du_on_one_path(args, &current_dir, tag, engine_state.ctrlc.clone()) {
+                    match du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone()) {
                         Ok(iter) => result_iters.push(iter),
                         Err(e) => errors.push(e),
                     }
@@ -170,7 +170,7 @@ impl Command for Du {
     }
 }
 
-fn du_on_one_path(
+fn du_for_one_pattern(
     args: DuArgs,
     current_dir: &Path,
     call_span: Span,
