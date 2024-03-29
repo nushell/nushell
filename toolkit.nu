@@ -486,4 +486,72 @@ export def cov [] {
     print $"Coverage generation took ($end - $start)."
 }
 
+
+# Check if a benchmark end node.
+def is-end-node [record: record] {
+    return (($record | get -i "time") != null)
+}
+
+# Formats the benchmark data into a more readable format.
+def format-benchmark-data [bench_data: record, make_duration: bool] {
+    let bench_data = ($bench_data.benchmarks.benchmarks | transpose name values)
+    let bench_data = (($bench_data  | each { |it_mod|
+        if (is-end-node $it_mod.values) {
+            { "name": $it_mod.name, time: $it_mod.values.time }
+        } else {
+            ($it_mod.values | transpose name values) | each { |it_bench|
+                if (is-end-node $it_bench.values) {
+                    { "name": $"($it_mod.name) / ($it_bench.name)", time: $it_bench.values.time }
+                } else {
+                    ($it_bench.values | transpose name value) | each { |it_arg| 
+                        { "name": $"($it_mod.name) / ($it_bench.name) / ($it_arg.name)" , time: $it_arg.value.time}
+                    }
+                }
+            }
+        }
+    }) | flatten | flatten | flatten)
+    # default is ints in picoseconds.
+    if $make_duration {
+        return ($bench_data | each { |it|
+            { "name": $it.name,
+              "fastest": (($it.fastest / 1000) | math round | into duration),,
+              "slowest": (($it.slowest / 1000) | math round | into duration),,
+              "median": (($it.median / 1000) | math round | into duration),,
+              "mean": (($it.mean / 1000) | math round | into duration),
+            }
+        })
+    } else {
+        return $bench_data
+    }
+}
+
+# Compare two benchmark files and return a report of the differences.
+def compare-benchmarks [old: string, new: string] {
+    let old = format-benchmark-data (open $old ) false
+    let new = format-benchmark-data (open $new) false
+
+    return (($old | zip $new) | each { |it|
+        let old = $it.0
+        let new = $it.1
+        let relative = ($old.median / $new.median) | math round -p 2
+
+        # Notes are based on the relative performance of the two runs
+        # Indicates significant performance improvements or regressions
+        let note = (if ($relative > 3) { "🟢🟢🟢" }
+            else if ($relative > 2) { "🟢🟢" }
+            else if ($relative > 1.5) { "🟢" }
+            else if ($relative < 0.25) { "🔴🔴🔴" }
+            else if ($relative < 0.5) { "🔴🔴" }
+            else if ($relative < 0.75) { "🔴" }
+            else {" "})
+        {
+            "Name": $old.name,
+            "Old": (($old.median / 1000) | math round | into duration),
+            "New": (($new.median / 1000) | math round | into duration),
+            "Relative": $relative,
+            "Note": $note
+        }
+    })
+}
+
 export def main [] { help toolkit }
