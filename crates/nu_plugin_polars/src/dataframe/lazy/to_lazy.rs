@@ -1,20 +1,18 @@
-use crate::dataframe::values::NuSchema;
+use crate::{dataframe::values::NuSchema, values::to_pipeline_data, PolarsPlugin};
 
 use super::super::values::{NuDataFrame, NuLazyFrame};
 
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct ToLazyFrame;
 
-impl Command for ToLazyFrame {
+impl PluginCommand for ToLazyFrame {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr into-lazy"
+        "polars into-lazy"
     }
 
     fn usage(&self) -> &str {
@@ -36,27 +34,25 @@ impl Command for ToLazyFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a dictionary and creates a lazy dataframe",
-            example: "[[a b];[1 2] [3 4]] | dfr into-lazy",
+            example: "[[a b];[1 2] [3 4]] | polars into-lazy",
             result: None,
         }]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
+    ) -> Result<PipelineData, LabeledError> {
         let maybe_schema = call
-            .get_flag(engine_state, stack, "schema")?
+            .get_flag("schema")?
             .map(|schema| NuSchema::try_from(&schema))
             .transpose()?;
 
-        let df = NuDataFrame::try_from_iter(input.into_iter(), maybe_schema)?;
+        let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
         let lazy = NuLazyFrame::from_dataframe(df);
-        let value = Value::custom_value(Box::new(lazy), call.head);
-
-        Ok(PipelineData::Value(value, None))
+        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
     }
 }
