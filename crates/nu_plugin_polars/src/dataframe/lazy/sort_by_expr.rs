@@ -1,18 +1,23 @@
 use super::super::values::NuLazyFrame;
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
-use nu_engine::CallExt;
+use crate::{
+    dataframe::values::{Column, NuDataFrame, NuExpression},
+    values::{to_pipeline_data, CustomValueSupport},
+    PolarsPlugin,
+};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
 pub struct LazySortBy;
 
-impl Command for LazySortBy {
+impl PluginCommand for LazySortBy {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr sort-by"
+        "polars sort-by"
     }
 
     fn usage(&self) -> &str {
@@ -49,7 +54,7 @@ impl Command for LazySortBy {
         vec![
             Example {
                 description: "Sort dataframe by one column",
-                example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr sort-by a",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sort-by a",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -69,7 +74,7 @@ impl Command for LazySortBy {
             Example {
                 description: "Sort column using two columns",
                 example:
-                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | dfr into-df | dfr sort-by [a b] -r [false true]",
+                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | polars into-df | polars sort-by [a b] -r [false true]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -101,32 +106,32 @@ impl Command for LazySortBy {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::list(vals, call.head);
-        let expressions = NuExpression::extract_exprs(value)?;
-        let nulls_last = call.has_flag(engine_state, stack, "nulls-last")?;
-        let maintain_order = call.has_flag(engine_state, stack, "maintain-order")?;
+    ) -> Result<PipelineData, LabeledError> {
+        let vals: Vec<Value> = call.rest(0)?;
+        let expr_value = Value::list(vals, call.head);
+        let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
+        let nulls_last = call.has_flag("nulls-last")?;
+        let maintain_order = call.has_flag("maintain-order")?;
 
-        let reverse: Option<Vec<bool>> = call.get_flag(engine_state, stack, "reverse")?;
+        let reverse: Option<Vec<bool>> = call.get_flag("reverse")?;
         let reverse = match reverse {
             Some(list) => {
                 if expressions.len() != list.len() {
                     let span = call
-                        .get_flag::<Value>(engine_state, stack, "reverse")?
+                        .get_flag::<Value>("reverse")?
                         .expect("already checked and it exists")
                         .span();
-                    return Err(ShellError::GenericError {
+                    Err(ShellError::GenericError {
                         error: "Incorrect list size".into(),
                         msg: "Size doesn't match expression list".into(),
                         span: Some(span),
                         help: None,
                         inner: vec![],
-                    });
+                    })?
                 } else {
                     list
                 }
@@ -134,27 +139,25 @@ impl Command for LazySortBy {
             None => expressions.iter().map(|_| false).collect::<Vec<bool>>(),
         };
 
-        let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+        let pipeline_value = input.into_value(call.head);
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
-            lazy.into_polars()
+            lazy.to_polars()
                 .sort_by_exprs(&expressions, reverse, nulls_last, maintain_order),
         );
-
-        Ok(PipelineData::Value(
-            NuLazyFrame::into_value(lazy, call.head)?,
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        test_dataframe(vec![Box::new(LazySortBy {})])
-    }
-}
+// todo:
+// #[cfg(test)]
+// mod test {
+//     use super::super::super::test_dataframe::test_dataframe;
+//     use super::*;
+//
+//     #[test]
+//     fn test_examples() {
+//         test_dataframe(vec![Box::new(LazySortBy {})])
+//     }
+// }
