@@ -3317,6 +3317,16 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
 pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     let spans = &lite_command.parts;
+
+    if working_set.source_recursions > working_set.permanent_state.config.recursion_limit {
+        working_set.error(ParseError::RecursionLimitReached(
+            working_set.permanent_state.config.recursion_limit,
+            spans[0],
+        ));
+        return garbage_pipeline(spans);
+    }
+    working_set.source_recursions += 1;
+
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"source" || name == b"source-env" {

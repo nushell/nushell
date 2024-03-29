@@ -465,6 +465,10 @@ pub enum ParseError {
         #[label("...and here")] Option<Span>,
     ),
 
+    #[error("Recursion limit ({0}) reached")]
+    #[diagnostic(code(nu::shell::recursion_limit_reached))]
+    RecursionLimitReached(i64, #[label("This called itself too many times")] Span),
+
     #[error("This command does not have a ...rest parameter")]
     #[diagnostic(
         code(nu::parser::unexpected_spread_arg),
@@ -554,6 +558,7 @@ impl ParseError {
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
+            ParseError::RecursionLimitReached(_, s) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
     }
