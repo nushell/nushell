@@ -115,7 +115,7 @@ fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
 // an executable for every single one - incredibly slowly. Would be nice to figure out
 // a way to split things up again.
 
-#[divan::bench]
+#[divan::bench(min_time = 1)]
 fn load_standard_lib(bencher: divan::Bencher) {
     let engine = setup_engine();
     bencher
@@ -155,12 +155,12 @@ mod record {
         s
     }
 
-    #[divan::bench(args = [1, 10, 100, 1000])]
+    #[divan::bench(min_time = 1, args = [1, 10, 100, 1000])]
     fn create(bencher: divan::Bencher, n: i32) {
         bench_command(bencher, create_flat_record_string(n));
     }
 
-    #[divan::bench(args = [1, 10, 100, 1000])]
+    #[divan::bench(min_time = 1, args = [1, 10, 100, 1000])]
     fn flat_access(bencher: divan::Bencher, n: i32) {
         let (stack, engine) = setup_stack_and_engine_from_command(&create_flat_record_string(n));
         bench_command_with_custom_stack_and_engine(
@@ -171,7 +171,7 @@ mod record {
         );
     }
 
-    #[divan::bench(args = [1, 2, 4, 8, 16, 32, 64, 128])]
+    #[divan::bench(min_time = 1, args = [1, 2, 4, 8, 16, 32, 64, 128])]
     fn nest_access(bencher: divan::Bencher, depth: i32) {
         let (stack, engine) =
             setup_stack_and_engine_from_command(&create_nested_record_string(depth));
@@ -202,12 +202,12 @@ mod table {
         s
     }
 
-    #[divan::bench(args = [1, 10, 100, 1000])]
+    #[divan::bench(min_time = 1, args = [1, 10, 100, 1000])]
     fn create(bencher: divan::Bencher, n: i32) {
         bench_command(bencher, create_example_table_nrows(n));
     }
 
-    #[divan::bench(args = [1, 10, 100, 1000])]
+    #[divan::bench(min_time = 1, args = [1, 10, 100, 1000])]
     fn get(bencher: divan::Bencher, n: i32) {
         let (stack, engine) = setup_stack_and_engine_from_command(&create_example_table_nrows(n));
         bench_command_with_custom_stack_and_engine(
@@ -218,7 +218,7 @@ mod table {
         );
     }
 
-    #[divan::bench(args = [1, 10, 100, 1000])]
+    #[divan::bench(min_time = 1, args = [1, 10, 100, 1000])]
     fn select(bencher: divan::Bencher, n: i32) {
         let (stack, engine) = setup_stack_and_engine_from_command(&create_example_table_nrows(n));
         bench_command_with_custom_stack_and_engine(
@@ -234,7 +234,7 @@ mod table {
 mod eval_commands {
     use super::*;
 
-    #[divan::bench(args = [100, 1_000, 10_000])]
+    #[divan::bench(min_time = 1, args = [100, 1_000, 10_000])]
     fn interleave(bencher: divan::Bencher, n: i32) {
         bench_command(
             bencher,
@@ -242,7 +242,7 @@ mod eval_commands {
         )
     }
 
-    #[divan::bench(args = [100, 1_000, 10_000])]
+    #[divan::bench(min_time = 1, args = [100, 1_000, 10_000])]
     fn interleave_with_ctrlc(bencher: divan::Bencher, n: i32) {
         let mut engine = setup_engine();
         engine.ctrlc = Some(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
@@ -268,12 +268,12 @@ mod eval_commands {
             })
     }
 
-    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    #[divan::bench(min_time = 1, args = [1, 5, 10, 100, 1_000])]
     fn for_range(bencher: divan::Bencher, n: i32) {
         bench_command(bencher, format!("(for $x in (1..{}) {{ sleep 50ns }})", n))
     }
 
-    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    #[divan::bench(min_time = 1, args = [1, 5, 10, 100, 1_000])]
     fn each(bencher: divan::Bencher, n: i32) {
         bench_command(
             bencher,
@@ -281,7 +281,7 @@ mod eval_commands {
         )
     }
 
-    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    #[divan::bench(min_time = 1, args = [1, 5, 10, 100, 1_000])]
     fn par_each_1t(bencher: divan::Bencher, n: i32) {
         bench_command(
             bencher,
@@ -289,7 +289,7 @@ mod eval_commands {
         )
     }
 
-    #[divan::bench(args = [1, 5, 10, 100, 1_000])]
+    #[divan::bench(min_time = 1, args = [1, 5, 10, 100, 1_000])]
     fn par_each_2t(bencher: divan::Bencher, n: i32) {
         bench_command(
             bencher,
@@ -302,7 +302,7 @@ mod eval_commands {
 mod parser_benchmarks {
     use super::*;
 
-    #[divan::bench()]
+    #[divan::bench(min_time = 1)]
     fn parse_default_config_file(bencher: divan::Bencher) {
         let engine_state = setup_engine();
         let default_env = get_default_config().as_bytes();
@@ -312,7 +312,7 @@ mod parser_benchmarks {
             .bench_refs(|working_set| parse(working_set, None, default_env, false))
     }
 
-    #[divan::bench()]
+    #[divan::bench(min_time = 1)]
     fn parse_default_env_file(bencher: divan::Bencher) {
         let engine_state = setup_engine();
         let default_env = get_default_env().as_bytes();
@@ -327,7 +327,7 @@ mod parser_benchmarks {
 mod eval_benchmarks {
     use super::*;
 
-    #[divan::bench()]
+    #[divan::bench(min_time = 1)]
     fn eval_default_env(bencher: divan::Bencher) {
         let default_env = get_default_env().as_bytes();
         let fname = "default_env.nu";
@@ -345,7 +345,7 @@ mod eval_benchmarks {
             })
     }
 
-    #[divan::bench()]
+    #[divan::bench(min_time = 1)]
     fn eval_default_config(bencher: divan::Bencher) {
         let default_env = get_default_config().as_bytes();
         let fname = "default_config.nu";
@@ -379,7 +379,7 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
 mod encoding_benchmarks {
     use super::*;
 
-    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    #[divan::bench(min_time = 1, args = [(100, 5), (10000, 15)])]
     fn json_encode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
         let test_data = PluginOutput::CallResponse(
             0,
@@ -391,7 +391,7 @@ mod encoding_benchmarks {
             .bench_values(|mut res| encoder.encode(&test_data, &mut res))
     }
 
-    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    #[divan::bench(min_time = 1, args = [(100, 5), (10000, 15)])]
     fn msgpack_encode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
         let test_data = PluginOutput::CallResponse(
             0,
@@ -408,7 +408,7 @@ mod encoding_benchmarks {
 mod decoding_benchmarks {
     use super::*;
 
-    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    #[divan::bench(min_time = 1, args = [(100, 5), (10000, 15)])]
     fn json_decode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
         let test_data = PluginOutput::CallResponse(
             0,
@@ -428,7 +428,7 @@ mod decoding_benchmarks {
             })
     }
 
-    #[divan::bench(args = [(100, 5), (10000, 15)])]
+    #[divan::bench(min_time = 1, args = [(100, 5), (10000, 15)])]
     fn msgpack_decode(bencher: divan::Bencher, (row_cnt, col_cnt): (usize, usize)) {
         let test_data = PluginOutput::CallResponse(
             0,
