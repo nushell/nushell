@@ -111,40 +111,34 @@ impl Command for Ls {
         } else {
             Some(pattern_arg)
         };
-        let r = match input_pattern_arg {
-            None => ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?,
+        match input_pattern_arg {
+            None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata {
+                        data_source: DataSource::Ls,
+                    },
+                    ctrl_c,
+                )),
             Some(pattern) => {
-                let mut pattern_iter = pattern.into_iter();
-                // expect here is ok because we already checked if `pattern_arg` is not empty
-                let mut result = ls_for_one_pattern(
-                    Some(
-                        pattern_iter
-                            .next()
-                            .expect("Already check pattern-arg is not empty"),
-                    ),
-                    args,
-                    ctrl_c.clone(),
-                    cwd.clone(),
-                )?;
-                for pat in pattern_iter {
+                let mut result_iters = vec![];
+                for pat in pattern {
                     match ls_for_one_pattern(Some(pat), args, ctrl_c.clone(), cwd.clone()) {
-                        Ok(it) => {
-                            // I don't really like Box::new here, but not really sure
-                            // if there is a better way.
-                            result = Box::new(result.chain(it));
-                        }
+                        Ok(it) => result_iters.push(it),
                         Err(e) => report_error_new(engine_state, &e),
                     }
                 }
-                result
+                // use `flatten` to chain all iterators into one.
+                Ok(result_iters
+                    .into_iter()
+                    .flatten()
+                    .into_pipeline_data_with_metadata(
+                        PipelineMetadata {
+                            data_source: DataSource::Ls,
+                        },
+                        ctrl_c,
+                    ))
             }
-        };
-        Ok(r.into_pipeline_data_with_metadata(
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-            },
-            ctrl_c,
-        ))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
