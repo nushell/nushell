@@ -368,10 +368,9 @@ fn find_with_rest_and_highlight(
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));
 
-    let cols_to_search_in_map = match call.get_flag(&engine_state, stack, "columns")? {
-        Some(cols) => cols,
-        None => vec![],
-    };
+    let cols_to_search_in_map: Vec<_> = call
+        .get_flag(&engine_state, stack, "columns")?
+        .unwrap_or_default();
 
     let cols_to_search_in_filter = cols_to_search_in_map.clone();
 
