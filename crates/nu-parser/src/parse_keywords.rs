@@ -1853,7 +1853,9 @@ pub fn parse_module_block(
                         command.parts[0],
                     ));
 
-                    block.pipelines.push(garbage_pipeline(working_set, &command.parts))
+                    block
+                        .pipelines
+                        .push(garbage_pipeline(working_set, &command.parts))
                 }
             }
         } else {

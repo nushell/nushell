@@ -1,7 +1,7 @@
 use crate::{
     ast::Expression,
     engine::{EngineState, StateWorkingSet},
-    OutDest, Span,
+    OutDest, Span, SpanId
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -57,11 +57,11 @@ impl RedirectionTarget {
         &mut self,
         working_set: &mut StateWorkingSet,
         replaced: Span,
-        new_span: Span,
+        new_span_id: SpanId,
     ) {
         match self {
             RedirectionTarget::File { expr, .. } => {
-                expr.replace_span(working_set, replaced, new_span)
+                expr.replace_span(working_set, replaced, new_span_id)
             }
             RedirectionTarget::Pipe { .. } => {}
         }

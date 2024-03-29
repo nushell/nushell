@@ -3,8 +3,8 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
-    Value, SpanId
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
+    SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -382,11 +382,7 @@ fn get_argument_for_color_value(
                 .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
-                        Expression::new_existing(
-                            Expr::String(k.clone()),
-                            span_id,
-                            Type::String,
-                        ),
+                        Expression::new_existing(Expr::String(k.clone()), span_id, Type::String),
                         Expression::new_existing(
                             Expr::String(
                                 v.clone().to_expanded_string("", engine_state.get_config()),

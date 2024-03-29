@@ -1138,15 +1138,12 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                     final_args.push(arg);
                 }
 
-                let mut expression = Expression::new(
+                return Expression::new(
                     working_set,
                     Expr::ExternalCall(head, final_args.into()),
                     span(spans),
                     ty.clone(),
-                );
-
-                expression.custom_completion = *custom_completion;
-                return expression;
+                ).with_completion(*custom_completion);
             } else {
                 trace!("parsing: alias of internal call");
                 parse_internal_call(

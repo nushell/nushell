@@ -1,5 +1,4 @@
 use std::ops::Deref;
-
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use crate::SpanId;
