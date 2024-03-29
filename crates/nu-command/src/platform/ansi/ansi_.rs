@@ -1,6 +1,7 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::GetSpan;
 use once_cell::sync::Lazy;
 use std::{
     collections::HashMap,
@@ -676,7 +677,7 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let output = heavy_lifting(engine_state, code, escape, osc, call)?;
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
@@ -710,13 +711,19 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let output = heavy_lifting(working_set, code, escape, osc, call)?;
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
 }
 
-fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<String, ShellError> {
+fn heavy_lifting(
+    state: &impl GetSpan,
+    code: Value,
+    escape: bool,
+    osc: bool,
+    call: &Call,
+) -> Result<String, ShellError> {
     let param_is_string = matches!(code, Value::String { .. });
     if escape && osc {
         return Err(ShellError::IncompatibleParameters {
@@ -742,7 +749,7 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
         let code_vec: Vec<char> = code_string.chars().collect();
         if code_vec[0] == '\\' {
             let span = match call.get_flag_expr("escape") {
-                Some(expr) => expr.span,
+                Some(expr) => expr.get_span(state),
                 None => call.head,
             };
 
@@ -787,7 +794,7 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
                         span: call
                             .positional_nth(0)
                             .expect("Unexpected missing argument")
-                            .span,
+                            .get_span(state),
                     })
                 }
             }

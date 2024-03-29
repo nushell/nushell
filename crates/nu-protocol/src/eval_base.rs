@@ -27,7 +27,7 @@ pub trait Eval {
 
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr_span)),
-            Expr::Int(i) => Ok(Value::int(*i, expr.span)),
+            Expr::Int(i) => Ok(Value::int(*i, expr_span)),
             Expr::Float(f) => Ok(Value::float(*f, expr_span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr_span)),
             Expr::Filepath(path, quoted) => Self::eval_filepath(state, mut_state, path.clone(), *quoted, expr_span),
@@ -66,11 +66,11 @@ pub trait Eval {
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
-                                    second_use: col.span,
+                                    second_use: state.get_span(col.span_id),
                                     first_use: *orig_span,
                                 });
                             } else {
-                                col_names.insert(col_name.clone(), col.span);
+                                col_names.insert(col_name.clone(), state.get_span(col.span_id));
                                 record.push(col_name, Self::eval::<D>(state, mut_state, val)?);
                             }
                         }
@@ -81,18 +81,18 @@ pub trait Eval {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
-                                                second_use: inner.span,
+                                                second_use: state.get_span(inner.span_id),
                                                 first_use: *orig_span,
                                             });
                                         } else {
-                                            col_names.insert(col_name.clone(), inner.span);
+                                            col_names.insert(col_name.clone(), state.get_span(inner.span_id));
                                             record.push(col_name, val);
                                         }
                                     }
                                 }
                                 _ => {
                                     return Err(ShellError::CannotSpreadAsRecord {
-                                        span: inner.span,
+                                        span: state.get_span(inner.span_id),
                                     })
                                 }
                             }
@@ -113,7 +113,7 @@ pub trait Eval {
                         return Err(ShellError::ColumnDefinedTwice {
                             col_name: header,
                             second_use: expr_span,
-                            first_use: table.columns[idx].span,
+                            first_use: state.get_span(table.columns[idx].span_id),
                         });
                     } else {
                         output_headers.push(header);
@@ -141,7 +141,7 @@ pub trait Eval {
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
-                    span: value.expr.span,
+                    span: state.get_span(value.expr.span_id),
                     help: None,
                 }),
             },
@@ -187,8 +187,8 @@ pub trait Eval {
                 }
             }
             Expr::BinaryOp(lhs, op, rhs) => {
-                let op_span = op.span;
-                let op = eval_operator(op)?;
+                let op_span = state.get_span(op.span_id);
+                let op = eval_operator(&state, op)?;
 
                 match op {
                     Operator::Boolean(boolean) => {
@@ -298,7 +298,7 @@ pub trait Eval {
             | Expr::ImportPattern(_)
             | Expr::Signature(_)
             | Expr::Operator(_)
-            | Expr::Garbage => Self::unreachable(expr),
+            | Expr::Garbage => Self::unreachable(state, expr),
         }
     }
 
@@ -379,5 +379,5 @@ pub trait Eval {
     fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
 
     /// For expressions that should never actually be evaluated
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError>;
+    fn unreachable(state: Self::State<'_>, expr: &Expression) -> Result<Value, ShellError>;
 }

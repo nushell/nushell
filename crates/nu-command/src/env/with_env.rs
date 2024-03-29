@@ -93,7 +93,7 @@ fn with_env(
                             span: call
                                 .positional_nth(1)
                                 .expect("already checked through .req")
-                                .span,
+                                .get_span(engine_state),
                             help: None,
                         });
                     }
@@ -127,7 +127,7 @@ fn with_env(
                 span: call
                     .positional_nth(1)
                     .expect("already checked through .req")
-                    .span,
+                    .get_span(engine_state),
                 help: None,
             });
         }

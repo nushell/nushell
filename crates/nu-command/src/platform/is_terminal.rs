@@ -57,7 +57,11 @@ impl Command for IsTerminal {
                 });
             }
             _ => {
-                let spans: Vec<_> = call.arguments.iter().map(|arg| arg.span()).collect();
+                let spans: Vec<_> = call
+                    .arguments
+                    .iter()
+                    .map(|arg| arg.get_span(engine_state))
+                    .collect();
                 let span = span(&spans);
 
                 return Err(ShellError::IncompatibleParametersSingle {

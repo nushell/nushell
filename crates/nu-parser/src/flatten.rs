@@ -5,7 +5,7 @@ use nu_protocol::{
         RecordItem,
     },
     engine::StateWorkingSet,
-    DeclId, Span, VarId,
+    DeclId, GetSpan, Span, VarId,
 };
 use std::fmt::{Display, Formatter, Result};
 
@@ -104,7 +104,10 @@ pub fn flatten_expression(
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
     if let Some(custom_completion) = &expr.custom_completion {
-        return vec![(expr.span, FlatShape::Custom(*custom_completion))];
+        return vec![(
+            expr.get_span(&working_set),
+            FlatShape::Custom(*custom_completion),
+        )];
     }
 
     match &expr.expr {
@@ -117,14 +120,17 @@ pub fn flatten_expression(
         }
         Expr::UnaryNot(inner_expr) => {
             let mut output = vec![(
-                Span::new(expr.span.start, expr.span.start + 3),
+                Span::new(
+                    expr.get_span(&working_set).start,
+                    expr.get_span(&working_set).start + 3,
+                ),
                 FlatShape::Operator,
             )];
             output.extend(flatten_expression(working_set, inner_expr));
             output
         }
         Expr::Closure(block_id) => {
-            let outer_span = expr.span;
+            let outer_span = expr.get_span(&working_set);
 
             let mut output = vec![];
 
@@ -158,7 +164,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
-            let outer_span = expr.span;
+            let outer_span = expr.get_span(&working_set);
 
             let mut output = vec![];
 
@@ -213,7 +219,10 @@ pub fn flatten_expression(
                     }
                     Argument::Spread(expr) => {
                         args.push((
-                            Span::new(expr.span.start - 3, expr.span.start),
+                            Span::new(
+                                expr.get_span(&working_set).start - 3,
+                                expr.get_span(&working_set).start,
+                            ),
                             FlatShape::Operator,
                         ));
                         args.extend(flatten_expression(working_set, expr));
@@ -232,10 +241,10 @@ pub fn flatten_expression(
             match **head {
                 Expression {
                     expr: Expr::String(..),
-                    span,
+                    span_id,
                     ..
                 } => {
-                    output.push((span, FlatShape::External));
+                    output.push((working_set.get_span(span_id), FlatShape::External));
                 }
                 _ => {
                     output.extend(flatten_expression(working_set, head));
@@ -248,10 +257,10 @@ pub fn flatten_expression(
                     ExternalArgument::Regular(expr) => match expr {
                         Expression {
                             expr: Expr::String(..),
-                            span,
+                            span_id,
                             ..
                         } => {
-                            output.push((*span, FlatShape::ExternalArg));
+                            output.push((working_set.get_span(*span_id), FlatShape::ExternalArg));
                         }
                         _ => {
                             output.extend(flatten_expression(working_set, expr));
@@ -259,7 +268,10 @@ pub fn flatten_expression(
                     },
                     ExternalArgument::Spread(expr) => {
                         output.push((
-                            Span::new(expr.span.start - 3, expr.span.start),
+                            Span::new(
+                                expr.get_span(&working_set).start - 3,
+                                expr.get_span(&working_set).start,
+                            ),
                             FlatShape::Operator,
                         ));
                         output.extend(flatten_expression(working_set, expr));
@@ -270,22 +282,22 @@ pub fn flatten_expression(
             output
         }
         Expr::Garbage => {
-            vec![(expr.span, FlatShape::Garbage)]
+            vec![(expr.get_span(&working_set), FlatShape::Garbage)]
         }
         Expr::Nothing => {
-            vec![(expr.span, FlatShape::Nothing)]
+            vec![(expr.get_span(&working_set), FlatShape::Nothing)]
         }
         Expr::DateTime(_) => {
-            vec![(expr.span, FlatShape::DateTime)]
+            vec![(expr.get_span(&working_set), FlatShape::DateTime)]
         }
         Expr::Binary(_) => {
-            vec![(expr.span, FlatShape::Binary)]
+            vec![(expr.get_span(&working_set), FlatShape::Binary)]
         }
         Expr::Int(_) => {
-            vec![(expr.span, FlatShape::Int)]
+            vec![(expr.get_span(&working_set), FlatShape::Int)]
         }
         Expr::Float(_) => {
-            vec![(expr.span, FlatShape::Float)]
+            vec![(expr.get_span(&working_set), FlatShape::Float)]
         }
         Expr::MatchBlock(matches) => {
             let mut output = vec![];
@@ -344,7 +356,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Overlay(_) => {
-            vec![(expr.span, FlatShape::String)]
+            vec![(expr.get_span(&working_set), FlatShape::String)]
         }
         Expr::Range(range) => {
             let mut output = vec![];
@@ -362,19 +374,19 @@ pub fn flatten_expression(
             output
         }
         Expr::Bool(_) => {
-            vec![(expr.span, FlatShape::Bool)]
+            vec![(expr.get_span(&working_set), FlatShape::Bool)]
         }
         Expr::Filepath(_, _) => {
-            vec![(expr.span, FlatShape::Filepath)]
+            vec![(expr.get_span(&working_set), FlatShape::Filepath)]
         }
         Expr::Directory(_, _) => {
-            vec![(expr.span, FlatShape::Directory)]
+            vec![(expr.get_span(&working_set), FlatShape::Directory)]
         }
         Expr::GlobPattern(_, _) => {
-            vec![(expr.span, FlatShape::GlobPattern)]
+            vec![(expr.get_span(&working_set), FlatShape::GlobPattern)]
         }
         Expr::List(list) => {
-            let outer_span = expr.span;
+            let outer_span = expr.get_span(&working_set);
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
@@ -396,8 +408,9 @@ pub fn flatten_expression(
                         output.extend(flattened);
                     }
                     ListItem::Spread(_, expr) => {
+                        let expr_span = expr.get_span(&working_set);
                         let mut output = vec![(
-                            Span::new(expr.span.start, expr.span.start + 3),
+                            Span::new(expr_span.start, expr_span.start + 3),
                             FlatShape::Operator,
                         )];
                         output.extend(flatten_expression(working_set, expr));
@@ -417,17 +430,23 @@ pub fn flatten_expression(
             }
 
             if let Some(first) = output.first() {
-                if first.0.start != expr.span.start {
+                if first.0.start != expr.get_span(&working_set).start {
                     // If we aren't a bare word interpolation, also highlight the outer quotes
                     output.insert(
                         0,
                         (
-                            Span::new(expr.span.start, expr.span.start + 2),
+                            Span::new(
+                                expr.get_span(&working_set).start,
+                                expr.get_span(&working_set).start + 2,
+                            ),
                             FlatShape::StringInterpolation,
                         ),
                     );
                     output.push((
-                        Span::new(expr.span.end - 1, expr.span.end),
+                        Span::new(
+                            expr.get_span(&working_set).end - 1,
+                            expr.get_span(&working_set).end,
+                        ),
                         FlatShape::StringInterpolation,
                     ));
                 }
@@ -435,7 +454,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Record(list) => {
-            let outer_span = expr.span;
+            let outer_span = expr.get_span(&working_set);
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
@@ -501,16 +520,16 @@ pub fn flatten_expression(
             output
         }
         Expr::Operator(_) => {
-            vec![(expr.span, FlatShape::Operator)]
+            vec![(expr.get_span(&working_set), FlatShape::Operator)]
         }
         Expr::Signature(_) => {
-            vec![(expr.span, FlatShape::Signature)]
+            vec![(expr.get_span(&working_set), FlatShape::Signature)]
         }
         Expr::String(_) => {
-            vec![(expr.span, FlatShape::String)]
+            vec![(expr.get_span(&working_set), FlatShape::String)]
         }
         Expr::Table(table) => {
-            let outer_span = expr.span;
+            let outer_span = expr.get_span(&working_set);
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
@@ -552,10 +571,10 @@ pub fn flatten_expression(
             output
         }
         Expr::Var(var_id) => {
-            vec![(expr.span, FlatShape::Variable(*var_id))]
+            vec![(expr.get_span(&working_set), FlatShape::Variable(*var_id))]
         }
         Expr::VarDecl(var_id) => {
-            vec![(expr.span, FlatShape::VarDecl(*var_id))]
+            vec![(expr.get_span(&working_set), FlatShape::VarDecl(*var_id))]
         }
     }
 }

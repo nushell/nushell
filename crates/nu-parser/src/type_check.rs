@@ -104,27 +104,27 @@ pub fn math_result_type(
                     | Type::Filesize,
                     _,
                 ) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "addition".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "addition".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -152,27 +152,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float | Type::Date | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "subtraction".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "subtraction".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -209,27 +209,27 @@ pub fn math_result_type(
                 | (Type::Duration, _)
                 | (Type::Filesize, _)
                 | (Type::List(_), _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "multiplication".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "multiplication".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -252,27 +252,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "exponentiation".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "exponentiation".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -302,27 +302,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float | Type::Filesize | Type::Duration, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "division".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "division".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -348,27 +348,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int | Type::Float | Type::Filesize | Type::Duration, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "floor division".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "floor division".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -390,27 +390,27 @@ pub fn math_result_type(
                     // definitions. As soon as that syntax is added this should be removed
                     (a, b) if a == b => (Type::Bool, None),
                     (Type::Bool, _) => {
-                        *op = Expression::garbage(working_set, op.span);
+                        *op = Expression::garbage_existing(op.span_id);
                         (
                             Type::Any,
                             Some(ParseError::UnsupportedOperationRHS(
                                 "boolean operation".into(),
-                                op.span,
-                                lhs.span,
+                                op.get_span(&working_set),
+                                lhs.get_span(&working_set),
                                 lhs.ty.clone(),
-                                rhs.span,
+                                rhs.get_span(&working_set),
                                 rhs.ty.clone(),
                             )),
                         )
                     }
                     _ => {
-                        *op = Expression::garbage(working_set, op.span);
+                        *op = Expression::garbage_existing(op.span_id);
                         (
                             Type::Any,
                             Some(ParseError::UnsupportedOperationLHS(
                                 "boolean operation".into(),
-                                op.span,
-                                lhs.span,
+                                op.get_span(&working_set),
+                                lhs.get_span(&working_set),
                                 lhs.ty.clone(),
                             )),
                         )
@@ -441,27 +441,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "less-than comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "less-than comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -491,27 +491,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "less-than or equal comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "less-than or equal comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -541,27 +541,27 @@ pub fn math_result_type(
                 (Type::Nothing, _) => (Type::Nothing, None),
                 (_, Type::Nothing) => (Type::Nothing, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "greater-than comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "greater-than comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -591,27 +591,27 @@ pub fn math_result_type(
                 (Type::Nothing, _) => (Type::Nothing, None),
                 (_, Type::Nothing) => (Type::Nothing, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "greater-than or equal comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "greater-than or equal comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -638,27 +638,27 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "regex matching".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "regex matching".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -673,27 +673,27 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "regex matching".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "regex matching".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -708,27 +708,27 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "starts-with comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "starts-with comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -743,27 +743,27 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "ends-with comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "ends-with comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -781,27 +781,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::String, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "subset comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "subset comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -819,27 +819,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::String, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "subset comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "subset comparison".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -855,27 +855,27 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
                 (Type::Int, _) => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "bit operations".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.span,
+                            rhs.get_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
                 }
                 _ => {
-                    *op = Expression::garbage(working_set, op.span);
+                    *op = Expression::garbage_existing(op.span_id);
                     (
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "bit operations".into(),
-                            op.span,
-                            lhs.span,
+                            op.get_span(&working_set),
+                            lhs.get_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -891,16 +891,22 @@ pub fn math_result_type(
                 (Type::List(_), Type::List(_)) => (Type::Nothing, None),
                 (x, y) => (
                     Type::Nothing,
-                    Some(ParseError::Mismatch(x.to_string(), y.to_string(), rhs.span)),
+                    Some(ParseError::Mismatch(
+                        x.to_string(),
+                        y.to_string(),
+                        rhs.get_span(&working_set),
+                    )),
                 ),
             },
         },
         _ => {
-            *op = Expression::garbage(working_set, op.span);
+            *op = Expression::garbage_existing(op.span_id);
 
             (
                 Type::Any,
-                Some(ParseError::IncompleteMathExpression(op.span)),
+                Some(ParseError::IncompleteMathExpression(
+                    op.get_span(&working_set),
+                )),
             )
         }
     }
@@ -1004,7 +1010,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .last()
                     .expect("internal error: we should have elements")
                     .expr
-                    .span
+                    .get_span(&working_set)
             };
 
             output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))
@@ -1053,27 +1059,27 @@ fn check_append(
         (Type::Binary, Type::Binary) => (Type::Binary, None),
         (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
         (Type::Table(_) | Type::String | Type::Binary, _) => {
-            *op = Expression::garbage(working_set, op.span);
+            *op = Expression::garbage_existing(op.span_id);
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationRHS(
                     "append".into(),
-                    op.span,
-                    lhs.span,
+                    op.get_span(&working_set),
+                    lhs.get_span(&working_set),
                     lhs.ty.clone(),
-                    rhs.span,
+                    rhs.get_span(&working_set),
                     rhs.ty.clone(),
                 )),
             )
         }
         _ => {
-            *op = Expression::garbage(working_set, op.span);
+            *op = Expression::garbage_existing(op.span_id);
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationLHS(
                     "append".into(),
-                    op.span,
-                    lhs.span,
+                    op.get_span(&working_set),
+                    lhs.get_span(&working_set),
                     lhs.ty.clone(),
                 )),
             )

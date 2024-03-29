@@ -141,7 +141,7 @@ fn from_csv(
             } else {
                 return Err(ShellError::NonUtf8Custom {
                     msg: "separator should be a single char or a 4-byte unicode".into(),
-                    span: call.span(),
+                    span: call.span(engine_state),
                 });
             }
         }

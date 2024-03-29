@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Expr, Expression},
-    DataSource, PipelineMetadata,
+    DataSource, GetSpan, PipelineMetadata,
 };
 
 #[derive(Clone)]
@@ -41,7 +41,7 @@ impl Command for Metadata {
         match arg {
             Some(Expression {
                 expr: Expr::FullCellPath(full_cell_path),
-                span,
+                span_id,
                 ..
             }) => {
                 if full_cell_path.tail.is_empty() {
@@ -50,7 +50,8 @@ impl Command for Metadata {
                             expr: Expr::Var(var_id),
                             ..
                         } => {
-                            let origin = stack.get_var_with_origin(*var_id, *span)?;
+                            let span = engine_state.get_span(*span_id);
+                            let origin = stack.get_var_with_origin(*var_id, span)?;
 
                             Ok(
                                 build_metadata_record(&origin, input.metadata().as_ref(), head)

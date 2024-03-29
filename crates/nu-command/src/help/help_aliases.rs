@@ -125,8 +125,9 @@ pub fn help_aliases(
             });
         };
 
-        let alias_expansion =
-            String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
+        let alias_expansion = String::from_utf8_lossy(
+            engine_state.get_span_contents(alias.wrapped_call.get_span(engine_state)),
+        );
         let usage = alias.usage();
         let extra_usage = alias.extra_usage();
 

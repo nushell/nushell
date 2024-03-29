@@ -1009,6 +1009,16 @@ impl<'a> GetSpan for &'a EngineState {
     }
 }
 
+impl GetSpan for EngineState {
+    /// Get existing span
+    fn get_span(&self, span_id: SpanId) -> Span {
+        *self
+            .spans
+            .get(span_id.0)
+            .expect("internal error: missing span")
+    }
+}
+
 impl Default for EngineState {
     fn default() -> Self {
         Self::new()

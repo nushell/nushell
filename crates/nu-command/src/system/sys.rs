@@ -27,12 +27,12 @@ impl Command for Sys {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.span();
+        let span = call.span(engine_state);
         let ret = Value::lazy_record(Box::new(SysResult { span }), span);
 
         Ok(ret.into_pipeline_data())

@@ -136,7 +136,7 @@ impl Command for Touch {
                         span: call
                             .positional_nth(index)
                             .expect("already checked positional")
-                            .span,
+                            .get_span(engine_state),
                     });
                 };
             }
@@ -149,7 +149,7 @@ impl Command for Touch {
                         span: call
                             .positional_nth(index)
                             .expect("already checked positional")
-                            .span,
+                            .get_span(engine_state),
                     });
                 };
             }
@@ -162,7 +162,7 @@ impl Command for Touch {
                         span: call
                             .positional_nth(index)
                             .expect("already checked positional")
-                            .span,
+                            .get_span(engine_state),
                     });
                 };
             }

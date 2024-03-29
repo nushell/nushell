@@ -1040,6 +1040,12 @@ impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     }
 }
 
+impl<'a, 'b> GetSpan for &'b mut StateWorkingSet<'a> {
+    fn get_span(&self, span_id: SpanId) -> Span {
+        get_span(self, span_id)
+    }
+}
+
 fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> Span {
     let num_permanent_spans = working_set.permanent_state.num_spans();
     if span_id.0 < num_permanent_spans {

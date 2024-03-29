@@ -343,7 +343,7 @@ fn get_ansi_color_for_component_or_default(
         let span = Span::unknown();
         let span_id = UNKNOWN_SPAN_ID;
 
-        let argument_opt = get_argument_for_color_value(engine_state, color, span, span_id);
+        let argument_opt = get_argument_for_color_value(engine_state, color, span_id);
 
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
@@ -373,7 +373,6 @@ fn get_ansi_color_for_component_or_default(
 fn get_argument_for_color_value(
     engine_state: &EngineState,
     color: &&Value,
-    span: Span,
     span_id: SpanId,
 ) -> Option<Argument> {
     match color {

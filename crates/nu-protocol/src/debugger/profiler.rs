@@ -140,7 +140,7 @@ impl Debugger for Profiler {
 
         let new_id = ElementId(self.elements.len());
 
-        let mut new_element = ElementInfo::new(self.depth, element.expr.span);
+        let mut new_element = ElementInfo::new(self.depth, element.expr.get_span(engine_state));
         new_element.expr = expr_opt;
 
         self.elements.push(new_element);
@@ -156,7 +156,7 @@ impl Debugger for Profiler {
 
     fn leave_element(
         &mut self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         element: &PipelineElement,
         result: &Result<(PipelineData, bool), ShellError>,
     ) {
@@ -164,7 +164,7 @@ impl Debugger for Profiler {
             return;
         }
 
-        let element_span = element.expr.span;
+        let element_span = element.expr.get_span(engine_state);
 
         let out_opt = self.collect_values.then(|| match result {
             Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {

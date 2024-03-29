@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_protocol::{
     ast::{Argument, Block, Expr, Expression},
-    engine::Closure,
+    engine::Closure, GetSpan
 };
 
 #[derive(Clone)]
@@ -77,7 +77,7 @@ pub fn get_pipeline_elements(
         })
         .map(move |(cmd_index, element)| {
             let expression = &element.expr;
-            let expr_span = element.expr.span;
+            let expr_span = engine_state.get_span(expression.span_id);
 
             let (command_name, command_args_value, ty) = if let Expr::Call(call) = &expression.expr
             {
@@ -164,12 +164,12 @@ fn get_arguments(
 
                     let record = record! {
                         "arg_type" => Value::string(arg_type, span),
-                        "name" => Value::string(arg_value_name, expression.span),
+                        "name" => Value::string(arg_value_name, expression.get_span(engine_state)),
                         "type" => Value::string(arg_value_type, span),
                         "span_start" => Value::int(arg_value_name_span_start, span),
                         "span_end" => Value::int(arg_value_name_span_end, span),
                     };
-                    arg_value.push(Value::record(record, expression.span));
+                    arg_value.push(Value::record(record, expression.get_span(engine_state)));
                 };
             }
             Argument::Positional(inner_expr) => {
@@ -184,12 +184,12 @@ fn get_arguments(
 
                 let record = record! {
                     "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "name" => Value::string(arg_value_name, inner_expr.get_span(engine_state)),
                     "type" => Value::string(arg_value_type, span),
                     "span_start" => Value::int(arg_value_name_span_start, span),
                     "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(Value::record(record, inner_expr.span));
+                arg_value.push(Value::record(record, inner_expr.get_span(engine_state)));
             }
             Argument::Unknown(inner_expr) => {
                 let arg_type = "unknown";
@@ -203,12 +203,12 @@ fn get_arguments(
 
                 let record = record! {
                     "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "name" => Value::string(arg_value_name, inner_expr.get_span(engine_state)),
                     "type" => Value::string(arg_value_type, span),
                     "span_start" => Value::int(arg_value_name_span_start, span),
                     "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(Value::record(record, inner_expr.span));
+                arg_value.push(Value::record(record, inner_expr.get_span(engine_state)));
             }
             Argument::Spread(inner_expr) => {
                 let arg_type = "spread";
@@ -222,12 +222,12 @@ fn get_arguments(
 
                 let record = record! {
                     "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "name" => Value::string(arg_value_name, inner_expr.get_span(engine_state)),
                     "type" => Value::string(arg_value_type, span),
                     "span_start" => Value::int(arg_value_name_span_start, span),
                     "span_end" => Value::int(arg_value_name_span_end, span),
                 };
-                arg_value.push(Value::record(record, inner_expr.span));
+                arg_value.push(Value::record(record, inner_expr.get_span(engine_state)));
             }
         };
     }
@@ -243,7 +243,7 @@ fn get_expression_as_value(
 ) -> Value {
     match eval_expression_fn(engine_state, stack, inner_expr) {
         Ok(v) => v,
-        Err(error) => Value::error(error, inner_expr.span),
+        Err(error) => Value::error(error, inner_expr.get_span(engine_state)),
     }
 }
 

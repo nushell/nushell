@@ -108,15 +108,19 @@ pub fn create_external_command(
                     }
                 } else {
                     return Err(ShellError::CannotPassListToExternal {
-                        arg: String::from_utf8_lossy(engine_state.get_span_contents(arg.span))
-                            .into(),
-                        span: arg.span,
+                        arg: String::from_utf8_lossy(
+                            engine_state.get_span_contents(arg.get_span(engine_state)),
+                        )
+                        .into(),
+                        span: arg.get_span(engine_state),
                     });
                 }
             }
             val => {
                 if spread {
-                    return Err(ShellError::CannotSpreadAsList { span: arg.span });
+                    return Err(ShellError::CannotSpreadAsList {
+                        span: arg.get_span(engine_state),
+                    });
                 } else {
                     spanned_args.push(value_as_spanned(val)?);
                     match arg.expr {

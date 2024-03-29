@@ -295,7 +295,7 @@ fn get_index_flag(
                 Err(ShellError::UnsupportedInput {
                     msg: String::from("got a negative integer"),
                     input: val.to_string(),
-                    msg_span: call.span(),
+                    msg_span: call.span(state),
                     input_span: internal_span,
                 })
             } else {
@@ -306,7 +306,7 @@ fn get_index_flag(
         _ => Err(ShellError::CantConvert {
             to_type: String::from("index"),
             from_type: String::new(),
-            span: call.span(),
+            span: call.span(state),
             help: Some(String::from("supported values: [bool, int, nothing]")),
         }),
     }
@@ -322,7 +322,7 @@ fn get_theme_flag(
             TableMode::from_str(&theme).map_err(|err| ShellError::CantConvert {
                 to_type: String::from("theme"),
                 from_type: String::from("string"),
-                span: call.span(),
+                span: call.span(state),
                 help: Some(format!("{}, but found '{}'.", err, theme)),
             })
         })

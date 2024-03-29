@@ -1,4 +1,4 @@
-use crate::{ShellError, Span};
+use crate::{GetSpan, ShellError, Span};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -131,15 +131,15 @@ impl Display for RangeOperator {
     }
 }
 
-pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
+pub fn eval_operator(state: &impl GetSpan, op: &Expression) -> Result<Operator, ShellError> {
     match op {
         Expression {
             expr: Expr::Operator(operator),
             ..
         } => Ok(operator.clone()),
-        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
+        Expression { span_id, expr, .. } => Err(ShellError::UnknownOperator {
             op_token: format!("{expr:?}"),
-            span: *span,
+            span: state.get_span(*span_id),
         }),
     }
 }

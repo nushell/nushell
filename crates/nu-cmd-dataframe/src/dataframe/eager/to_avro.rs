@@ -51,10 +51,13 @@ impl Command for ToAvro {
     }
 }
 
-fn get_compression(call: &Call) -> Result<Option<AvroCompression>, ShellError> {
+fn get_compression(
+    engine_state: &EngineState,
+    call: &Call,
+) -> Result<Option<AvroCompression>, ShellError> {
     if let Some((compression, span)) = call
         .get_flag_expr("compression")
-        .and_then(|e| e.as_string().map(|s| (s, e.span)))
+        .and_then(|e| e.as_string().map(|s| (s, e.get_span(&engine_state))))
     {
         match compression.as_ref() {
             "snappy" => Ok(Some(AvroCompression::Snappy)),
@@ -77,7 +80,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let compression = get_compression(call)?;
+    let compression = get_compression(engine_state, call)?;
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 

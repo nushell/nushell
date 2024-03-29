@@ -47,7 +47,8 @@ impl Command for ViewSource {
                     if decl.is_alias() {
                         if let Some(alias) = &decl.as_alias() {
                             let contents = String::from_utf8_lossy(
-                                engine_state.get_span_contents(alias.wrapped_call.span),
+                                engine_state
+                                    .get_span_contents(alias.wrapped_call.get_span(engine_state)),
                             );
                             Ok(Value::string(contents, call.head).into_pipeline_data())
                         } else {
