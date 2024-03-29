@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuLazyFrame},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{to_pipeline_data, CustomValueSupport},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};

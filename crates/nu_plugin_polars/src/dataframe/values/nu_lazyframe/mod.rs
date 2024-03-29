@@ -98,7 +98,7 @@ impl NuLazyFrame {
             PolarsPluginObject::NuDataFrame(df) => Ok(df.lazy()),
             PolarsPluginObject::NuLazyFrame(lazy) => Ok(lazy),
             _ => Err(cant_convert_err(
-                &value,
+                value,
                 &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
             )),
         }
