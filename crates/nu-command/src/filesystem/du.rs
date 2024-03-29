@@ -2,6 +2,7 @@ use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
+use nu_protocol::report_error_new;
 use nu_protocol::NuGlob;
 use serde::Deserialize;
 use std::path::Path;
@@ -119,27 +120,8 @@ impl Command for Du {
                 )
             }
             Some(paths) => {
-                // NOTE: Not really sure if there is a better way to write this code.
-                let mut paths_iter = paths.into_iter();
-                let args = DuArgs {
-                    path: Some(
-                        paths_iter
-                            .next()
-                            .expect("Already checked paths is not empty"),
-                    ),
-                    all,
-                    deref,
-                    exclude: exclude.clone(),
-                    max_depth,
-                    min_size,
-                };
-                let mut result: Box<dyn Iterator<Item = Value> + Send> = Box::new(du_on_one_path(
-                    args,
-                    &current_dir,
-                    tag,
-                    engine_state.ctrlc.clone(),
-                )?);
-                for p in paths_iter {
+                let mut result_iters = vec![];
+                for p in paths {
                     let args = DuArgs {
                         path: Some(p),
                         all,
@@ -148,14 +130,16 @@ impl Command for Du {
                         max_depth,
                         min_size,
                     };
-                    result = Box::new(result.chain(du_on_one_path(
-                        args,
-                        &current_dir,
-                        tag,
-                        engine_state.ctrlc.clone(),
-                    )?))
+                    match du_on_one_path(args, &current_dir, tag, engine_state.ctrlc.clone()) {
+                        Ok(iter) => result_iters.push(iter),
+                        Err(e) => report_error_new(engine_state, &e),
+                    }
                 }
-                Ok(result.into_pipeline_data(engine_state.ctrlc.clone()))
+                // chain all iterators on result.
+                Ok(result_iters
+                    .into_iter()
+                    .flatten()
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
             }
         }
     }
