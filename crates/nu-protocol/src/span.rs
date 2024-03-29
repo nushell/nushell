@@ -1,6 +1,6 @@
+use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
-use crate::SpanId;
 
 pub trait GetSpan {
     fn get_span(&self, span_id: SpanId) -> Span;

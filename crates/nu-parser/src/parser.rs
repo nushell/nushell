@@ -326,12 +326,12 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         args.push(arg);
     }
 
-    Expression {
-        expr: Expr::ExternalCall(head, args),
-        span: span(spans),
-        ty: Type::Any,
-        custom_completion: None,
-    }
+    Expression::new(
+        working_set,
+        Expr::ExternalCall(head, args),
+        span(spans),
+        Type::Any,
+    )
 }
 
 fn ensure_flag_arg_type(
@@ -1154,7 +1154,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 span: _,
                 span_id: _,
                 ty,
-                custom_completion: _,
+                custom_completion,
             } = &alias.clone().wrapped_call
             {
                 trace!("parsing: alias of external call");
@@ -1169,12 +1169,13 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 let mut head = head.clone();
                 head.span = spans[0]; // replacing the spans preserves syntax highlighting
 
-                return Expression {
-                    expr: Expr::ExternalCall(head, final_args),
-                    span: span(spans),
-                    ty: ty.clone(),
-                    custom_completion: *custom_completion,
-                };
+                return Expression::new(
+                    working_set,
+                    Expr::ExternalCall(head, final_args),
+                    span(spans),
+                    ty.clone(),
+                )
+                .with_completion(*custom_completion);
             } else {
                 trace!("parsing: alias of internal call");
                 parse_internal_call(
@@ -2306,10 +2307,7 @@ pub fn parse_unit_value<'res>(
         trace!("-- found {} {:?}", num, unit);
         let expr = Expression::new_unknown(
             Expr::ValueWithUnit(
-                Box::new(Expression::new_unknown(
-                    Expr::Int(num),
-                    Type::Number,
-                )),
+                Box::new(Expression::new_unknown(Expr::Int(num), Type::Number)),
                 Spanned {
                     item: unit,
                     span: unit_span,
@@ -2913,12 +2911,7 @@ pub fn parse_var_with_opt_type(
         );
 
         (
-            Expression {
-                expr: Expr::VarDecl(id),
-                span: spans[*spans_idx],
-                ty: Type::Any,
-                custom_completion: None,
-            },
+            Expression::new(working_set, Expr::VarDecl(id), spans[*spans_idx], Type::Any),
             None,
         )
     }
@@ -3775,12 +3768,12 @@ pub fn parse_list_expression(
                         _ => Type::Any,
                     };
                     let span = Span::new(curr_span.start, spread_arg.span.end);
-                    let spread_expr = Expression {
-                        expr: Expr::Spread(Box::new(spread_arg)),
+                    let spread_expr = Expression::new(
+                        working_set,
+                        Expr::Spread(Box::new(spread_arg)),
                         span,
-                        ty: elem_ty.clone(),
-                        custom_completion: None,
-                    };
+                        elem_ty.clone(),
+                    );
                     (spread_expr, elem_ty)
                 } else {
                     let arg = parse_multispan_value(
@@ -5180,7 +5173,7 @@ pub fn parse_builtin_commands(
         b"overlay" => {
             if let Some(redirection) = lite_command.redirection.as_ref() {
                 working_set.error(redirecting_builtin_error("overlay", redirection));
-                return garbage_pipeline(&lite_command.parts);
+                return garbage_pipeline(working_set, &lite_command.parts);
             }
             parse_keyword(working_set, lite_command)
         }

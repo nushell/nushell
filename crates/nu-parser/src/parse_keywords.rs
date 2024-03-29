@@ -254,7 +254,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("for", redirection));
-        return garbage(spans[0]);
+        return garbage(working_set, spans[0]);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -385,7 +385,7 @@ pub fn parse_def(
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("def", redirection));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -663,7 +663,7 @@ pub fn parse_extern(
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("extern", redirection));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -818,7 +818,7 @@ pub fn parse_alias(
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("alias", redirection));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     if let Some(span) = check_name(working_set, spans) {
@@ -1074,7 +1074,7 @@ pub fn parse_export_in_block(
 
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error(full_name, redirection));
-        return garbage_pipeline(&lite_command.parts);
+        return garbage_pipeline(working_set, &lite_command.parts);
     }
 
     if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
@@ -1807,7 +1807,9 @@ pub fn parse_module_block(
                         command.parts[0],
                     ));
 
-                    block.pipelines.push(garbage_pipeline(working_set, &command.parts))
+                    block
+                        .pipelines
+                        .push(garbage_pipeline(working_set, &command.parts))
                 }
             }
         } else {
@@ -1999,7 +2001,7 @@ pub fn parse_module(
 
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("module", redirection));
-        return (garbage_pipeline(spans), None);
+        return (garbage_pipeline(working_set, spans), None);
     }
 
     let mut module_comments = lite_command.comments.clone();
@@ -2210,7 +2212,7 @@ pub fn parse_use(
 
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("use", redirection));
-        return (garbage_pipeline(spans), vec![]);
+        return (garbage_pipeline(working_set, spans), vec![]);
     }
 
     let (call, call_span, args_spans) = match working_set.find_decl(b"use") {
@@ -2408,7 +2410,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("hide", redirection));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     let (call, args_spans) = match working_set.find_decl(b"hide") {
@@ -3312,7 +3314,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 "source-env"
             };
             working_set.error(redirecting_builtin_error(name, redirection));
-            return garbage_pipeline(spans);
+            return garbage_pipeline(working_set, spans);
         }
 
         let scoped = name == b"source-env";
@@ -3525,7 +3527,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("register", redirection));
-        return garbage_pipeline(spans);
+        return garbage_pipeline(working_set, spans);
     }
 
     // Parsing the spans and checking that they match the register signature

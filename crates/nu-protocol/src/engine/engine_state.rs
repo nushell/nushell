@@ -6,8 +6,8 @@ use crate::{
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
-    BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId, GetSpan,
+    BlockId, Category, Config, DeclId, Example, FileId, GetSpan, HistoryConfig, Module, ModuleId,
+    OverlayId, ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -1044,7 +1044,10 @@ impl EngineState {
 impl<'a> GetSpan for &'a EngineState {
     /// Get existing span
     fn get_span(&self, span_id: SpanId) -> Span {
-        *self.spans.get(span_id.0).expect("internal error: missing span")
+        *self
+            .spans
+            .get(span_id.0)
+            .expect("internal error: missing span")
     }
 }
 

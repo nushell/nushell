@@ -504,6 +504,16 @@ impl Expression {
         }
     }
 
+    pub fn with_completion(self, custom_completion: Option<DeclId>) -> Self {
+        Expression {
+            expr: self.expr,
+            span: self.span,
+            span_id: self.span_id,
+            ty: self.ty,
+            custom_completion,
+        }
+    }
+
     pub fn span(&self, engine_state: &EngineState) -> Span {
         engine_state.get_span(self.span_id)
     }

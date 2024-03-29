@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
     },
-    BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
-    SpanId, Type, Value, VarId, VirtualPathId, GetSpan
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError, ParseWarning,
+    Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -1027,13 +1027,13 @@ impl<'a> StateWorkingSet<'a> {
 
 impl<'a> GetSpan for StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> Span {
-        get_span(&self, span_id)
+        get_span(self, span_id)
     }
 }
 
 impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> Span {
-        get_span(&self, span_id)
+        get_span(self, span_id)
     }
 }
 
@@ -1042,9 +1042,10 @@ fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> Span {
     if span_id.0 < num_permanent_spans {
         working_set.permanent_state.get_span(span_id)
     } else {
-        *working_set.delta
+        *working_set
+            .delta
             .spans
-            .get(&span_id.0 - &num_permanent_spans)
+            .get(span_id.0 - num_permanent_spans)
             .expect("internal error: missing span")
     }
 }

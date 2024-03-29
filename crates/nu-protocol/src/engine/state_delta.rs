@@ -4,7 +4,7 @@ use crate::{
         usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
         VirtualPath,
     },
-    Module, Span
+    Module, Span,
 };
 use std::sync::Arc;
 
