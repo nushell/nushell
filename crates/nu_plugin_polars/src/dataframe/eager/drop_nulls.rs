@@ -4,8 +4,8 @@ use nu_protocol::{
     Value,
 };
 
-use crate::values::CustomValueSupport;
-use crate::{Cacheable, PolarsPlugin};
+use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -136,10 +136,7 @@ fn command(
             inner: vec![],
         })?;
     let df = NuDataFrame::new(false, polars_df);
-    Ok(PipelineData::Value(
-        df.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 // todo - fix tests

@@ -1,7 +1,7 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{CustomValueSupport, NuLazyFrame},
-    Cacheable, PolarsPlugin,
+    values::{cache_and_to_value, NuLazyFrame},
+    PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;
@@ -176,7 +176,7 @@ fn from_parquet(
             })?
             .into();
 
-        Ok(df.cache(plugin, engine)?.into_value(call.head))
+        cache_and_to_value(plugin, engine, call.head, df)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -206,7 +206,7 @@ fn from_parquet(
             })?
             .into();
 
-        Ok(df.cache(plugin, engine)?.into_value(call.head))
+        cache_and_to_value(plugin, engine, call.head, df)
     }
 }
 
@@ -243,7 +243,7 @@ fn from_avro(
         })?
         .into();
 
-    Ok(df.cache(plugin, engine)?.into_value(call.head))
+    cache_and_to_value(plugin, engine, call.head, df)
 }
 
 fn from_ipc(
@@ -271,7 +271,7 @@ fn from_ipc(
             })?
             .into();
 
-        Ok(df.cache(plugin, engine)?.into_value(call.head))
+        cache_and_to_value(plugin, engine, call.head, df)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
@@ -301,7 +301,7 @@ fn from_ipc(
             })?
             .into();
 
-        Ok(df.cache(plugin, engine)?.into_value(call.head))
+        cache_and_to_value(plugin, engine, call.head, df)
     }
 }
 
@@ -342,7 +342,7 @@ fn from_json(
         })?
         .into();
 
-    Ok(df.cache(plugin, engine)?.into_value(call.head))
+    cache_and_to_value(plugin, engine, call.head, df)
 }
 
 fn from_jsonl(
@@ -385,7 +385,7 @@ fn from_jsonl(
         })?
         .into();
 
-    Ok(df.cache(plugin, engine)?.into_value(call.head))
+    cache_and_to_value(plugin, engine, call.head, df)
 }
 
 fn from_csv(
@@ -457,7 +457,7 @@ fn from_csv(
             })?
             .into();
 
-        Ok(df.cache(plugin, engine)?.into_value(call.head))
+        cache_and_to_value(plugin, engine, call.head, df)
     } else {
         let file: Spanned<PathBuf> = call.req(0)?;
         let csv_reader = CsvReader::from_path(&file.item)
@@ -524,6 +524,6 @@ fn from_csv(
             })?
             .into();
 
-        Ok(df.cache(plugin, engine)?.into_value(call.head))
+        cache_and_to_value(plugin, engine, call.head, df)
     }
 }

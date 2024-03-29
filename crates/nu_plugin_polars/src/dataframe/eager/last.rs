@@ -1,5 +1,5 @@
 use crate::{
-    values::{Column, CustomValueSupport},
+    values::{to_pipeline_data, Column, CustomValueSupport},
     Cacheable, PolarsPlugin,
 };
 
@@ -81,12 +81,7 @@ impl PluginCommand for LastDF {
             let expr = NuExpression::try_from_value(plugin, &value)?;
             let expr: NuExpression = expr.to_polars().last().into();
 
-            Ok(PipelineData::Value(
-                expr.cache(plugin, engine)
-                    .map_err(LabeledError::from)?
-                    .into_value(call.head),
-                None,
-            ))
+            to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
         }
     }
 }
@@ -102,10 +97,7 @@ fn command(
 
     let res = df.as_ref().tail(Some(rows));
     let res = NuDataFrame::new(false, res);
-    Ok(PipelineData::Value(
-        res.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, res)
 }
 
 // todo - fix tests

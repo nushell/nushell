@@ -7,8 +7,8 @@ use polars::prelude::LazyFrame;
 
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::{CustomValueSupport, PolarsPluginObject},
-    Cacheable, PolarsPlugin,
+    values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject},
+    PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};
@@ -115,10 +115,7 @@ fn command_eager(
         let lazy = df.lazy();
         let lazy = lazy.apply_with_expr(expression, LazyFrame::filter);
 
-        Ok(PipelineData::Value(
-            lazy.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, lazy)
     } else {
         let mask = NuDataFrame::try_from_value(plugin, &mask_value)?.as_series(mask_span)?;
         let mask = mask.bool().map_err(|e| ShellError::GenericError {
@@ -140,10 +137,7 @@ fn command_eager(
                 inner: vec![],
             })?;
         let df = NuDataFrame::new(false, df);
-        Ok(PipelineData::Value(
-            df.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, df)
     }
 }
 
@@ -158,10 +152,7 @@ fn command_lazy(
 
     let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
 
-    Ok(PipelineData::Value(
-        lazy.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
 // #[cfg(test)]

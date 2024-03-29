@@ -219,6 +219,10 @@ pub trait PolarsPluginCustomValue: CustomValue {
     }
 }
 
+/// Handles the ability for a PolarsObjectType implmentations to convert between
+/// their respective CustValue type.
+/// PolarsPluginObjectType's (NuDataFrame, NuLazyFrame) should
+/// implement this trait.  
 pub trait CustomValueSupport: Cacheable {
     type CV: PolarsPluginCustomValue<PolarsPluginObjectType = Self> + CustomValue + 'static;
 
@@ -290,6 +294,10 @@ pub trait CustomValueSupport: Cacheable {
     }
 }
 
+/// Wraps the cache and into_value calls.
+/// This function also does mapping back and forth
+/// between lazy and eager values and makes sure they
+/// are cached appropriately.
 pub fn cache_and_to_value(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
@@ -311,6 +319,8 @@ pub fn cache_and_to_value(
     }
 }
 
+/// Caches the object, converts it to a it's CustomValue counterpart
+/// And creates a pipeline data object out of it
 pub fn to_pipeline_data(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,

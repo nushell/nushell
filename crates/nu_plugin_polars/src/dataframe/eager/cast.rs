@@ -1,7 +1,7 @@
 use crate::{
     dataframe::values::{str_to_dtype, to_pipeline_data, NuExpression, NuLazyFrame},
     values::CustomValueSupport,
-    Cacheable, PolarsPlugin,
+    PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;
@@ -116,11 +116,7 @@ fn command(
 
         let expr = NuExpression::try_from_value(plugin, &value)?;
         let expr: NuExpression = expr.to_polars().cast(dtype).into();
-
-        Ok(PipelineData::Value(
-            expr.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, expr)
     }
 }
 
@@ -149,9 +145,7 @@ fn command_lazy(
     let column = col(&column_nm).cast(dtype);
     let lazy = lazy.to_polars().with_columns(&[column]);
     let lazy = NuLazyFrame::new(false, lazy);
-    let val = lazy.cache(plugin, engine)?.into_value(call.head);
-
-    Ok(PipelineData::Value(val, None))
+    to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
 fn command_eager(

@@ -1,7 +1,7 @@
 use super::super::values::{Column, NuDataFrame};
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::{CustomValueSupport, PolarsPluginObject},
+    values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject},
     Cacheable, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -145,11 +145,7 @@ fn command_eager(
         let expressions = NuExpression::extract_exprs(plugin, value)?;
         let lazy = NuLazyFrame::new(true, df.lazy().to_polars().with_columns(&expressions));
         let df = lazy.collect(call.head)?;
-
-        Ok(PipelineData::Value(
-            df.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, df)
     } else {
         let mut other = NuDataFrame::try_from_value(plugin, &new_column)?.as_series(column_span)?;
 
@@ -173,10 +169,7 @@ fn command_eager(
 
         let df = NuDataFrame::new(false, polars_df);
 
-        Ok(PipelineData::Value(
-            df.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, df)
     }
 }
 
@@ -192,10 +185,7 @@ fn command_lazy(
 
     let lazy: NuLazyFrame = lazy.to_polars().with_columns(&expressions).into();
 
-    Ok(PipelineData::Value(
-        lazy.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
 // todo: fix tests

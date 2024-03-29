@@ -1,5 +1,8 @@
 use super::super::values::NuDataFrame;
-use crate::{values::CustomValueSupport, Cacheable, PolarsPlugin};
+use crate::{
+    values::{to_pipeline_data, CustomValueSupport},
+    PolarsPlugin,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
@@ -102,10 +105,7 @@ fn command(
         })?;
 
     let df = NuDataFrame::new(false, df);
-    Ok(PipelineData::Value(
-        df.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 // todo - fix tests

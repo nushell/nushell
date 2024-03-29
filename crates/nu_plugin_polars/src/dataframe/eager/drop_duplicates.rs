@@ -5,8 +5,8 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::values::CustomValueSupport;
-use crate::{Cacheable, PolarsPlugin};
+use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
 use super::super::values::{Column, NuDataFrame};
@@ -118,8 +118,7 @@ fn command(
         })?;
 
     let df = NuDataFrame::new(false, polars_df);
-    let val = df.cache(plugin, engine)?.into_value(call.head);
-    Ok(PipelineData::Value(val, None))
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 // todo - fix tests

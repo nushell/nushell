@@ -1,5 +1,5 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::{CustomValueSupport, PolarsPluginObject};
+use crate::values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject};
 use crate::{Cacheable, PolarsPlugin};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -120,7 +120,7 @@ pub(crate) fn explode(
 
     match PolarsPluginObject::try_from_value(plugin, &value)? {
         PolarsPluginObject::NuDataFrame(df) => {
-            let lazy = df.lazy().cache(plugin, engine)?;
+            let lazy = df.lazy();
             explode_lazy(plugin, engine, call, lazy)
         }
         PolarsPluginObject::NuLazyFrame(lazy) => explode_lazy(plugin, engine, call, lazy),
@@ -149,13 +149,9 @@ pub(crate) fn explode_lazy(
     let exploded = lazy
         .to_polars()
         .explode(columns.iter().map(AsRef::as_ref).collect::<Vec<&str>>());
+    let lazy = NuLazyFrame::from(exploded);
 
-    Ok(PipelineData::Value(
-        NuLazyFrame::from(exploded)
-            .cache(plugin, engine)?
-            .into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
 pub(crate) fn explode_expr(
@@ -165,11 +161,7 @@ pub(crate) fn explode_expr(
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
     let expr: NuExpression = expr.to_polars().explode().into();
-
-    Ok(PipelineData::Value(
-        expr.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, expr)
 }
 // todo: fix tests
 // #[cfg(test)]

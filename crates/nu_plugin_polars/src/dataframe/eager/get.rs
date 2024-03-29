@@ -5,8 +5,9 @@ use nu_protocol::{
 };
 
 use crate::{
-    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, Cacheable,
-    PolarsPlugin,
+    dataframe::values::utils::convert_columns_string,
+    values::{to_pipeline_data, CustomValueSupport},
+    Cacheable, PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};
@@ -87,10 +88,7 @@ fn command(
             inner: vec![],
         })?;
     let df = NuDataFrame::new(false, df);
-    Ok(PipelineData::Value(
-        df.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 // todo: fix tests

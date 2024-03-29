@@ -1,8 +1,8 @@
 use super::super::values::NuDataFrame;
 use crate::dataframe::values::Column;
 use crate::dataframe::{eager::SQLContext, values::NuLazyFrame};
-use crate::values::CustomValueSupport;
-use crate::{Cacheable, PolarsPlugin};
+use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -95,9 +95,7 @@ fn command(
     let lazy = NuLazyFrame::new(false, df_sql);
 
     let eager = lazy.collect(call.head)?;
-    let value = eager.cache(plugin, engine)?.into_value(call.head);
-
-    Ok(PipelineData::Value(value, None))
+    to_pipeline_data(plugin, engine, call.head, eager)
 }
 
 // todo: fix tests

@@ -4,7 +4,11 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{dataframe::values::Column, values::CustomValueSupport, Cacheable, PolarsPlugin};
+use crate::{
+    dataframe::values::Column,
+    values::{to_pipeline_data, CustomValueSupport},
+    Cacheable, PolarsPlugin,
+};
 
 use super::super::values::NuDataFrame;
 
@@ -77,10 +81,7 @@ fn command(
     let res = df.as_ref().slice(offset, size);
     let res = NuDataFrame::new(false, res);
 
-    Ok(PipelineData::Value(
-        res.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, res)
 }
 
 // todo: fix tests

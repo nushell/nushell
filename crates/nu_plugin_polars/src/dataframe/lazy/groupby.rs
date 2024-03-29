@@ -1,6 +1,9 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
+    values::{
+        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
+        PolarsPluginType,
+    },
     Cacheable, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -167,10 +170,7 @@ fn cmd_lazy(
 ) -> Result<PipelineData, ShellError> {
     let group_by = lazy.to_polars().group_by(expressions);
     let group_by = NuLazyGroupBy::new(group_by, lazy.from_eager, lazy.schema()?);
-    Ok(PipelineData::Value(
-        group_by.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, group_by)
 }
 
 // todo: fix tests

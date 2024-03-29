@@ -3,7 +3,11 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
-use crate::{dataframe::values::Column, values::CustomValueSupport, Cacheable, PolarsPlugin};
+use crate::{
+    dataframe::values::Column,
+    values::{to_pipeline_data, CustomValueSupport},
+    Cacheable, PolarsPlugin,
+};
 
 use super::super::values::NuDataFrame;
 
@@ -76,10 +80,7 @@ fn command(
     let cols_col = Column::new("columns".to_string(), vec![cols]);
 
     let df = NuDataFrame::try_from_columns(vec![rows_col, cols_col], None)?;
-    Ok(PipelineData::Value(
-        df.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 // todo: fix tests

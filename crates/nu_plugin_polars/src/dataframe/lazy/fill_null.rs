@@ -1,6 +1,9 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
+    values::{
+        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
+        PolarsPluginType,
+    },
     Cacheable, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -98,27 +101,19 @@ fn cmd_lazy(
 ) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(plugin, &fill)?.to_polars();
     let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().fill_null(expr));
-
-    Ok(PipelineData::Value(
-        lazy.cache(plugin, engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
 fn cmd_expr(
     plugin: &PolarsPlugin,
-    _engine: &EngineInterface,
+    engine: &EngineInterface,
     call: &EvaluatedCall,
     expr: NuExpression,
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
     let fill = NuExpression::try_from_value(plugin, &fill)?.to_polars();
     let expr: NuExpression = expr.to_polars().fill_null(fill).into();
-
-    Ok(PipelineData::Value(
-        expr.cache(plugin, _engine)?.into_value(call.head),
-        None,
-    ))
+    to_pipeline_data(plugin, engine, call.head, expr)
 }
 
 // todo: fix tests

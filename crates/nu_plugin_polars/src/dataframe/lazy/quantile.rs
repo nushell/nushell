@@ -1,6 +1,9 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuLazyFrame},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
+    values::{
+        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
+        PolarsPluginType,
+    },
     Cacheable, PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -88,10 +91,7 @@ impl PluginCommand for LazyQuantile {
                 })?,
         );
 
-        Ok(PipelineData::Value(
-            lazy.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
     }
 }
 
