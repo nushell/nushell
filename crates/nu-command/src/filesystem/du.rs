@@ -141,14 +141,14 @@ impl Command for Du {
                 if result_iters.is_empty() {
                     if !errors.is_empty() {
                         let last_error = errors.pop().expect("Already check errors is not empty");
-                        for i in 0..errors.len() {
-                            report_error_new(engine_state, &errors[i])
+                        for e in &errors {
+                            report_error_new(engine_state, e)
                         }
                         return Err(last_error);
                     }
                 } else {
-                    for err in errors {
-                        report_error_new(engine_state, &err)
+                    for e in &errors {
+                        report_error_new(engine_state, e)
                     }
                 }
 
@@ -187,14 +187,14 @@ fn du_for_one_pattern(
 
     let include_files = args.all;
     let mut paths = match args.path {
-        Some(p) => nu_engine::glob_from(&p, &current_dir, call_span, None),
+        Some(p) => nu_engine::glob_from(&p, current_dir, call_span, None),
         // The * pattern should never fail.
         None => nu_engine::glob_from(
             &Spanned {
                 item: NuGlob::Expand("*".into()),
                 span: Span::unknown(),
             },
-            &current_dir,
+            current_dir,
             call_span,
             None,
         ),

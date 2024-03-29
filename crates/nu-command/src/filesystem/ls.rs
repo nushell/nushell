@@ -134,14 +134,14 @@ impl Command for Ls {
                 if result_iters.is_empty() {
                     if !errors.is_empty() {
                         let last_error = errors.pop().expect("Already check errors is not empty");
-                        for i in 0..errors.len() {
-                            report_error_new(engine_state, &errors[i])
+                        for e in &errors {
+                            report_error_new(engine_state, e)
                         }
                         return Err(last_error);
                     }
                 } else {
-                    for err in errors {
-                        report_error_new(engine_state, &err)
+                    for e in &errors {
+                        report_error_new(engine_state, e)
                     }
                 }
                 // Here nushell needs to use
