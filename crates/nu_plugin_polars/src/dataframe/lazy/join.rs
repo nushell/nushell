@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{to_pipeline_data, CustomValueSupport},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -202,14 +199,7 @@ impl PluginCommand for LazyJoin {
         };
 
         let other: Value = call.req(0)?;
-        let other = match PolarsPluginObject::try_from_value(plugin, &other)? {
-            PolarsPluginObject::NuDataFrame(df) => df.lazy(),
-            PolarsPluginObject::NuLazyFrame(lazy) => lazy,
-            _ => Err(cant_convert_err(
-                &other,
-                &[PolarsPluginType::NuLazyFrame, PolarsPluginType::NuDataFrame],
-            ))?,
-        };
+        let other = NuLazyFrame::try_from_value_coerce(plugin, &other)?;
         let other = other.to_polars();
 
         let left_on: Value = call.req(1)?;

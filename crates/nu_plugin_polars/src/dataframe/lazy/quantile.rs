@@ -70,14 +70,7 @@ impl PluginCommand for LazyQuantile {
         let value = input.into_value(call.head);
         let quantile: f64 = call.req(0)?;
 
-        let lazy = match PolarsPluginObject::try_from_value(plugin, &value)? {
-            PolarsPluginObject::NuDataFrame(df) => df.lazy(),
-            PolarsPluginObject::NuLazyFrame(lazy) => lazy,
-            _ => Err(cant_convert_err(
-                &value,
-                &[PolarsPluginType::NuLazyFrame, PolarsPluginType::NuDataFrame],
-            ))?,
-        };
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
             lazy.to_polars()

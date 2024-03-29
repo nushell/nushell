@@ -144,24 +144,12 @@ impl PluginCommand for ToLazyGroupBy {
         }
 
         let pipeline_value = input.into_value(call.head);
-
-        match PolarsPluginObject::try_from_value(plugin, &pipeline_value)? {
-            PolarsPluginObject::NuDataFrame(df) => {
-                cmd_lazy(plugin, engine, call, df.lazy(), expressions)
-            }
-            PolarsPluginObject::NuLazyFrame(lazy) => {
-                cmd_lazy(plugin, engine, call, lazy, expressions)
-            }
-            _ => Err(cant_convert_err(
-                &pipeline_value,
-                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
-            )),
-        }
-        .map_err(LabeledError::from)
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
+        command(plugin, engine, call, lazy, expressions).map_err(LabeledError::from)
     }
 }
 
-fn cmd_lazy(
+fn command(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,

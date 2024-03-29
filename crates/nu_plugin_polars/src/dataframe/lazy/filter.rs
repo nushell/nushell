@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{to_pipeline_data, CustomValueSupport},
     PolarsPlugin,
 };
 
@@ -77,24 +74,12 @@ impl PluginCommand for LazyFilter {
         let expr_value: Value = call.req(0)?;
         let filter_expr = NuExpression::try_from_value(plugin, &expr_value)?;
         let pipeline_value = input.into_value(call.head);
-
-        match PolarsPluginObject::try_from_value(plugin, &pipeline_value)? {
-            PolarsPluginObject::NuDataFrame(df) => {
-                cmd_lazy(plugin, engine, call, df.lazy(), filter_expr)
-            }
-            PolarsPluginObject::NuLazyFrame(lazy) => {
-                cmd_lazy(plugin, engine, call, lazy, filter_expr)
-            }
-            _ => Err(cant_convert_err(
-                &pipeline_value,
-                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
-            )),
-        }
-        .map_err(LabeledError::from)
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
+        command(plugin, engine, call, lazy, filter_expr).map_err(LabeledError::from)
     }
 }
 
-fn cmd_lazy(
+fn command(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,

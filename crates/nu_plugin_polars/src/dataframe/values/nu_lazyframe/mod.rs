@@ -3,7 +3,8 @@ mod custom_value;
 use crate::{Cacheable, PolarsPlugin};
 
 use super::{
-    CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err, CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject,
+    PolarsPluginType,
 };
 use core::fmt;
 use nu_protocol::{record, ShellError, Span, Value};
@@ -85,6 +86,22 @@ impl NuLazyFrame {
             inner: vec![],
         })?;
         Ok(internal_schema.into())
+    }
+
+    /// Get a NuLazyFrame from the value. This differs from try_from_value as it will coerce a
+    /// NuDataFrame into a NuLazyFrame
+    pub fn try_from_value_coerce(
+        plugin: &PolarsPlugin,
+        value: &Value,
+    ) -> Result<NuLazyFrame, ShellError> {
+        match PolarsPluginObject::try_from_value(plugin, value)? {
+            PolarsPluginObject::NuDataFrame(df) => Ok(df.lazy()),
+            PolarsPluginObject::NuLazyFrame(lazy) => Ok(lazy),
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
+            )),
+        }
     }
 }
 
