@@ -85,14 +85,14 @@ fn du_files_with_glob_metachars_nw(#[case] src_name: &str) {
 
 #[test]
 fn du_with_multiple_path() {
-    let actual = nu!(cwd: "tests/fixtures", "du cp formats");
+    let actual = nu!(cwd: "tests/fixtures", "du cp formats | get path | path basename");
     assert!(actual.out.contains("cp"));
     assert!(actual.out.contains("formats"));
     assert!(!actual.out.contains("lsp"));
     assert!(actual.status.success());
 
     // report errors if one path not exists
-    let actual = nu!(cwd: "tests/fixtures", "du cp asdf");
+    let actual = nu!(cwd: "tests/fixtures", "du cp asdf | get path | path basename");
     assert!(actual.out.contains("cp"));
     assert!(actual.err.contains("directory not found"));
     assert!(actual.status.success());
