@@ -29,7 +29,11 @@ impl Command for DetectColumns {
                 "columns to be combined; listed as a range",
                 Some('c'),
             )
-            .switch("legacy", "use another algorithm to detect columns, it may be useful if default one doesn't work", None)
+            .switch(
+                "guess",
+                "detect columns by guessing width, it may be useful if default one doesn't work",
+                None,
+            )
             .category(Category::Strings)
     }
 
@@ -48,20 +52,20 @@ impl Command for DetectColumns {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if !call.has_flag(engine_state, stack, "legacy")? {
+        if call.has_flag(engine_state, stack, "guess")? {
             guess_width(engine_state, stack, call, input)
         } else {
-            detect_columns_legacy(engine_state, stack, call, input)
+            detect_columns(engine_state, stack, call, input)
         }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "detect columns by df output",
+                description: "use --guess if you find default algorithm not working",
                 example: r"
 'Filesystem     1K-blocks      Used Available Use% Mounted on
-none             8150224         4   8150220   1% /mnt/c' | detect columns",
+none             8150224         4   8150220   1% /mnt/c' | detect columns --guess",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "Filesystem" => Value::test_string("none"),
                     "1K-blocks" => Value::test_string("8150224"),
@@ -72,8 +76,8 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns",
                 })])),
             },
             Example {
-                description: "Use --legacy parameter if you find default one does not work",
-                example: "'a b c' | detect columns --legacy --no-headers",
+                description: "detect columns with no headers",
+                example: "'a b c' | detect columns  --no-headers",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "column0" => Value::test_string("a"),
                         "column1" => Value::test_string("b"),
@@ -83,19 +87,19 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns",
             Example {
                 description: "",
                 example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1 --legacy",
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1 ",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
                 example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1 --legacy",
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1 ",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
                 example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2.. --legacy",
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2.. ",
                 result: None,
             },
             Example {
@@ -184,7 +188,7 @@ fn guess_width(
     }
 }
 
-fn detect_columns_legacy(
+fn detect_columns(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
