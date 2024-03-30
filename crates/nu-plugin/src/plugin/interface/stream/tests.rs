@@ -103,7 +103,8 @@ fn list_reader_recv_wrong_type() -> Result<(), ShellError> {
 #[test]
 fn reader_recv_raw_messages() -> Result<(), ShellError> {
     let (tx, rx) = mpsc::channel();
-    let mut reader = StreamReader::new(0, rx, TestSink::default());
+    let mut reader =
+        StreamReader::<Result<Vec<u8>, ShellError>, _>::new(0, rx, TestSink::default());
 
     tx.send(Ok(Some(StreamData::Raw(Ok(vec![10, 20])))))
         .unwrap();
@@ -458,7 +459,7 @@ fn stream_manager_write_scenario() -> Result<(), ShellError> {
     let expected_values = vec![b"hello".to_vec(), b"world".to_vec(), b"test".to_vec()];
 
     for value in &expected_values {
-        writable.write(Ok(value.clone()))?;
+        writable.write(Ok::<_, ShellError>(value.clone()))?;
     }
 
     // Now try signalling ack

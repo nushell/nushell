@@ -184,8 +184,14 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
 
     test.add(StreamMessage::Data(14, Value::test_int(1).into()));
     for _ in 0..iterations {
-        test.add(StreamMessage::Data(12, Ok(out_pattern.clone()).into()));
-        test.add(StreamMessage::Data(13, Ok(err_pattern.clone()).into()));
+        test.add(StreamMessage::Data(
+            12,
+            StreamData::Raw(Ok(out_pattern.clone())),
+        ));
+        test.add(StreamMessage::Data(
+            13,
+            StreamData::Raw(Ok(err_pattern.clone())),
+        ));
     }
     test.add(StreamMessage::End(12));
     test.add(StreamMessage::End(13));
