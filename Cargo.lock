@@ -2867,7 +2867,6 @@ dependencies = [
  "indexmap",
  "indicatif",
  "itertools 0.12.0",
- "libc",
  "log",
  "lscolors",
  "md-5",

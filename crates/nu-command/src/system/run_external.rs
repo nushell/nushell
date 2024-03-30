@@ -533,44 +533,38 @@ impl ExternalCommand {
                 // Create a thread to wait for an exit code.
                 thread::Builder::new()
                     .name("exit code waiter".into())
-                    .spawn(move || {
-                        match child.as_mut().wait() {
-                            Err(err) => Err(ShellError::ExternalCommand {
-                                label: "External command exited with error".into(),
-                                help: err.to_string(),
-                                span
-                            }),
-                            Ok(x) => {
-                                #[cfg(unix)]
-                                {
-                                    use nu_ansi_term::{Color, Style};
-                                    use std::ffi::CStr;
-                                    use std::os::unix::process::ExitStatusExt;
+                    .spawn(move || match child.as_mut().wait() {
+                        Err(err) => Err(ShellError::ExternalCommand {
+                            label: "External command exited with error".into(),
+                            help: err.to_string(),
+                            span,
+                        }),
+                        Ok(x) => {
+                            #[cfg(unix)]
+                            {
+                                use nix::sys::signal::Signal;
+                                use nu_ansi_term::{Color, Style};
+                                use std::os::unix::process::ExitStatusExt;
 
-                                    if x.core_dumped() {
-                                        let cause = x.signal().and_then(|sig| unsafe {
-                                            // SAFETY: We should be the first to call `char * strsignal(int sig)`
-                                            let sigstr_ptr = libc::strsignal(sig);
-                                            if sigstr_ptr.is_null() {
-                                                return None;
-                                            }
-
-                                            // SAFETY: The pointer points to a valid non-null string
-                                            let sigstr = CStr::from_ptr(sigstr_ptr);
-                                            sigstr.to_str().map(String::from).ok()
-                                        });
-
-                                        let cause = cause.as_deref().unwrap_or("Something went wrong");
+                                if x.core_dumped() {
+                                    let cause = x
+                                        .signal()
+                                        .and_then(|sig| {
+                                            Signal::try_from(sig).ok().map(Signal::as_str)
+                                        })
+                                        .unwrap_or("Something went wrong");
 
                                     let style = Style::new().bold().on(Color::Red);
-                                    eprintln!(
-                                        "{}",
-                                        style.paint(format!(
-                                            "{cause}: oops, process '{commandname}' core dumped"
-                                        ))
+                                    let message = format!(
+                                        "{cause}: child process '{commandname}' core dumped"
                                     );
-                                    let _ = exit_code_tx.send(Value::error (
-                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
+                                    eprintln!("{}", style.paint(&message));
+                                    let _ = exit_code_tx.send(Value::error(
+                                        ShellError::ExternalCommand {
+                                            label: "core dumped".into(),
+                                            help: message,
+                                            span: head,
+                                        },
                                         head,
                                     ));
                                     return Ok(());
@@ -585,8 +579,8 @@ impl ExternalCommand {
                             }
                             Ok(())
                         }
-                    }
-                }).map_err(|e| e.into_spanned(head))?;
+                    })
+                    .map_err(|e| e.into_spanned(head))?;
 
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
