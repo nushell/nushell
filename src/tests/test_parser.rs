@@ -657,12 +657,41 @@ fn let_variable_disallows_completer() -> TestResult {
 }
 
 #[test]
-fn def_with_input_output_1() -> TestResult {
+fn def_with_input_output() -> TestResult {
     run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
 }
 
 #[test]
-fn def_with_input_output_2() -> TestResult {
+fn def_with_input_output_with_line_breaks() -> TestResult {
+    run_test(
+        r#"def foo []: [
+          nothing -> int
+        ] { 3 }; foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_multi_input_output_with_line_breaks() -> TestResult {
+    run_test(
+        r#"def foo []: [
+          nothing -> int
+          string -> int
+        ] { 3 }; foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_multi_input_output_without_commas() -> TestResult {
+    run_test(
+        r#"def foo []: [nothing -> int string -> int] { 3 }; foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_multi_input_output_called_with_first_sig() -> TestResult {
     run_test(
         r#"def foo []: [int -> int, string -> int] { 3 }; 10 | foo"#,
         "3",
@@ -670,7 +699,7 @@ fn def_with_input_output_2() -> TestResult {
 }
 
 #[test]
-fn def_with_input_output_3() -> TestResult {
+fn def_with_multi_input_output_called_with_second_sig() -> TestResult {
     run_test(
         r#"def foo []: [int -> int, string -> int] { 3 }; "bob" | foo"#,
         "3",
