@@ -595,14 +595,14 @@ impl PipelineData {
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U: 'static, F>(
+    pub fn flat_map<U, F>(
         self,
         mut f: F,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
-        U: IntoIterator<Item = Value>,
+        U: IntoIterator<Item = Value> + 'static,
         <U as IntoIterator>::IntoIter: 'static + Send,
         F: FnMut(Value) -> U + 'static + Send,
     {

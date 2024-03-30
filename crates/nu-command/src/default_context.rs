@@ -1,7 +1,4 @@
-use crate::{
-    help::{HelpAliases, HelpCommands, HelpEscapes, HelpExterns, HelpModules, HelpOperators},
-    *,
-};
+use crate::*;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {

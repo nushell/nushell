@@ -1,5 +1,4 @@
-use core::primitive::str;
-use core::{default::Default, fmt};
+use core::fmt;
 use nu_ansi_term::{Color, Style};
 
 /// Returns a one-line hexdump of `source` grouped in default format without header

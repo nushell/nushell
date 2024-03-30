@@ -108,11 +108,6 @@ impl Completer for CustomCompletion {
                                     .get("positional")
                                     .and_then(|val| val.as_bool().ok())
                                     .unwrap_or(true),
-                                sort_by: if should_sort {
-                                    SortBy::Ascending
-                                } else {
-                                    SortBy::None
-                                },
                                 match_algorithm: match options.get("completion_algorithm") {
                                     Some(option) => option
                                         .coerce_string()

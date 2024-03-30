@@ -457,17 +457,6 @@ fn load_theme(
     }
 }
 
-struct FooterStyle;
-
-impl<R: ExactRecords, D> TableOption<R, D, ColoredConfig> for FooterStyle {
-    fn change(self, records: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
-        if let Some(line) = cfg.get_horizontal_line(1).cloned() {
-            let count_rows = records.count_rows();
-            cfg.insert_horizontal_line(count_rows - 1, line);
-        }
-    }
-}
-
 fn maybe_truncate_columns(
     data: &mut NuRecords,
     theme: &TableTheme,

@@ -2,7 +2,6 @@ use crate::{
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
-    parse_mut,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, math_result_type, type_compatible},
@@ -13,8 +12,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, span, BlockId, DidYouMean, Flag,
-    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
-    ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
+    IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -22,9 +21,6 @@ use std::{
     str,
     sync::Arc,
 };
-
-#[cfg(feature = "plugin")]
-use crate::parse_keywords::parse_register;
 
 pub fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
