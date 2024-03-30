@@ -64,7 +64,7 @@ impl ViewCommand for TryCmd {
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
-        self.command = args.trim().to_owned();
+        args.trim().clone_into(&mut self.command);
 
         Ok(())
     }

@@ -812,7 +812,7 @@ fn _transpose_table(
     let mut data = vec![vec![Value::default(); count_rows]; count_columns];
     for (row, values) in values.iter().enumerate() {
         for (column, value) in values.iter().enumerate() {
-            data[column][row] = value.to_owned();
+            data[column][row].clone_from(value);
         }
     }
 
