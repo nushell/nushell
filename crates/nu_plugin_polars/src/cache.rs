@@ -41,12 +41,13 @@ impl Cache {
     ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
         let removed = lock.remove(uuid);
+        eprintln!("PolarsPlugin: removing {uuid} from cache: {removed:?}");
         // Once there are no more entries in the cache
         // we can turn plugin gc back on
         if lock.is_empty() {
+            eprintln!("PolarsPlugin: Cache is empty enabling GC");
             engine.set_gc_disabled(false).map_err(LabeledError::from)?;
         }
-        eprintln!("removing {uuid} from cache: {removed:?}");
         drop(lock);
         Ok(removed)
     }
@@ -58,13 +59,14 @@ impl Cache {
         value: PolarsPluginObject,
     ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
+        eprintln!("PolarsPlugin: Inserting {uuid} into cache: {value:?}");
         // turn off plugin gc the first time an entry is added to the cache
         // as we don't want the plugin to be garbage collected if there
         // is any live data
         if lock.is_empty() {
+            eprintln!("PolarsPlugin: Cache has values disabling GC");
             engine.set_gc_disabled(true).map_err(LabeledError::from)?;
         }
-        eprintln!("Inserting {uuid} into cache: {value:?}");
         let result = lock.insert(uuid, value);
         drop(lock);
         Ok(result)
