@@ -91,6 +91,7 @@ pub fn eval_config_contents(
         let config_filename = config_path.to_string_lossy();
 
         if let Ok(contents) = std::fs::read(&config_path) {
+            engine_state.start_in_file(Some(&config_filename));
             eval_source(
                 engine_state,
                 stack,
