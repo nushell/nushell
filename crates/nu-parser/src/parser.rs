@@ -12,8 +12,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, span, BlockId, DidYouMean, Flag,
-    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
-    IN_VARIABLE_ID, GetSpan
+    GetSpan, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
