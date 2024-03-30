@@ -137,11 +137,11 @@ impl Stack {
     ) {
         // Do not clone the environment if it hasn't changed
         if self.env_vars.iter().any(|scope| !scope.is_empty()) {
-            self.env_vars = env_vars.to_owned();
+            env_vars.clone_into(&mut self.env_vars);
         }
 
         if !self.env_hidden.is_empty() {
-            self.env_hidden = env_hidden.to_owned();
+            self.env_hidden.clone_from(env_hidden);
         }
     }
 
