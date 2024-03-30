@@ -34,3 +34,9 @@ fn echo_range_handles_exclusive_down() {
 
     assert_eq!(actual.out, "[3,2]");
 }
+
+#[test]
+fn echo_prints_if_last_command_in_pipeline() {
+    let actual = nu!("(echo a; echo b)");
+    assert_eq!(actual.out, "ab"); // testing framework deletes newlines...
+}
