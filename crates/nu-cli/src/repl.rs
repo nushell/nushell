@@ -663,7 +663,7 @@ fn prepare_history_metadata(
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
-                c.hostname = hostname.clone();
+                c.hostname.clone_from(hostname);
 
                 c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                 c
