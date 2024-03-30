@@ -123,6 +123,7 @@ fn from_csv(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
+    let name_id = call.head_id;
     if let PipelineData::Value(Value::List { .. }, _) = input {
         return Err(ShellError::TypeMismatch {
             err_message: "received list stream, did you forget to open file with --raw flag?"
@@ -176,7 +177,7 @@ fn from_csv(
         trim,
     };
 
-    from_delimited_data(config, input, name)
+    from_delimited_data(config, input, name, name_id)
 }
 
 #[cfg(test)]

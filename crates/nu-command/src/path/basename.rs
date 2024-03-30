@@ -2,6 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 struct Arguments {
     replace: Option<Spanned<String>>,
@@ -135,7 +136,7 @@ impl Command for SubCommand {
     }
 }
 
-fn get_basename(path: &Path, span: Span, args: &Arguments) -> Value {
+fn get_basename(path: &Path, span: Span, span_id: SpanId, args: &Arguments) -> Value {
     match &args.replace {
         Some(r) => Value::string(path.with_file_name(r.item.clone()).to_string_lossy(), span),
         None => Value::string(

@@ -203,6 +203,7 @@ impl Value {
         if let Value::Record { val, .. } = self {
             val.retain_mut(|key, value| {
                 let span = value.span();
+                let span_id = value.span_id();
                 match key {
                     // Grouped options
                     "ls" => {
@@ -227,8 +228,8 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "use_ls_colors" => Value::bool(config.use_ls_colors, span),
-                                    "clickable_links" => Value::bool(config.show_clickable_links_in_ls, span),
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors, span_id),
+                                    "clickable_links" => Value::bool(config.show_clickable_links_in_ls, span_id),
                                 },
                                 span,
                             );
@@ -254,7 +255,7 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "always_trash" => Value::bool(config.rm_always_trash, span),
+                                    "always_trash" => Value::bool(config.rm_always_trash, span_id),
                                 },
                                 span,
                             );
@@ -294,10 +295,10 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "sync_on_enter" => Value::bool(history.sync_on_enter, span),
+                                    "sync_on_enter" => Value::bool(history.sync_on_enter, span_id),
                                     "max_size" => Value::int(history.max_size, span),
-                                    "file_format" => history.file_format.reconstruct_value(span),
-                                    "isolation" => Value::bool(history.isolation, span),
+                                    "file_format" => history.file_format.reconstruct_value(span, span_id),
+                                    "isolation" => Value::bool(history.isolation, span_id),
                                 },
                                 span,
                             );
@@ -307,6 +308,7 @@ impl Value {
                         if let Value::Record { val, .. } = value {
                             val.retain_mut(|key2, value| {
                                 let span = value.span();
+                                let span_id  = value.span_id();
                                 match key2 {
                                     "quick" => {
                                         process_bool_config(value, &mut errors, &mut config.quick_completions);
@@ -362,7 +364,7 @@ impl Value {
                                         } else {
                                             report_invalid_value("should be a record", span, &mut errors);
                                             // Reconstruct
-                                            *value = reconstruct_external(&config, span);
+                                            *value = reconstruct_external(&config, span, span_id);
                                         }
                                     }
                                     "use_ls_colors" => {
@@ -380,12 +382,12 @@ impl Value {
                             // Reconstruct record
                             *value = Value::record(
                                 record! {
-                                    "quick" => Value::bool(config.quick_completions, span),
-                                    "partial" => Value::bool(config.partial_completions, span),
-                                    "algorithm" => config.completion_algorithm.reconstruct_value(span),
-                                    "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
-                                    "external" => reconstruct_external(&config, span),
-                                    "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
+                                    "quick" => Value::bool(config.quick_completions, span_id),
+                                    "partial" => Value::bool(config.partial_completions, span_id),
+                                    "algorithm" => config.completion_algorithm.reconstruct_value(span, span_id),
+                                    "case_sensitive" => Value::bool(config.case_sensitive_completions, span_id),
+                                    "external" => reconstruct_external(&config, span, span_id),
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span_id),
                                 },
                                 span,
                             );
@@ -416,9 +418,9 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "vi_insert" => config.cursor_shape_vi_insert.reconstruct_value(span),
-                                    "vi_normal" => config.cursor_shape_vi_normal.reconstruct_value(span),
-                                    "emacs" => config.cursor_shape_emacs.reconstruct_value(span),
+                                    "vi_insert" => config.cursor_shape_vi_insert.reconstruct_value(span, span_id),
+                                    "vi_normal" => config.cursor_shape_vi_normal.reconstruct_value(span, span_id),
+                                    "emacs" => config.cursor_shape_emacs.reconstruct_value(span, span_id),
                                 },
                                 span,
                             );
@@ -505,7 +507,7 @@ impl Value {
                                                 // try_parse_trim_strategy() already adds its own errors
                                                 errors.push(e);
                                                 *value =
-                                                    reconstruct_trim_strategy(&config, span);
+                                                    reconstruct_trim_strategy(&config, span, span_id);
                                             }
                                         }
                                     }
@@ -535,10 +537,10 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "mode" => config.table_mode.reconstruct_value(span),
-                                    "index_mode" => config.table_index_mode.reconstruct_value(span),
-                                    "trim" => reconstruct_trim_strategy(&config, span),
-                                    "show_empty" => Value::bool(config.table_show_empty, span),
+                                    "mode" => config.table_mode.reconstruct_value(span, span_id),
+                                    "index_mode" => config.table_index_mode.reconstruct_value(span, span_id),
+                                    "trim" => reconstruct_trim_strategy(&config, span, span_id),
+                                    "show_empty" => Value::bool(config.table_show_empty, span_id),
                                 },
                                 span,
                             );
@@ -574,7 +576,7 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "metric" => Value::bool(config.filesize_metric, span),
+                                    "metric" => Value::bool(config.filesize_metric, span_id),
                                     "format" => Value::string(config.filesize_format.clone(), span),
                                 },
                                 span,

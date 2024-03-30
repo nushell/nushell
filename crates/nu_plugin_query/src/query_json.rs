@@ -1,7 +1,7 @@
 use crate::Query;
 use gjson::Value as gjValue;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, LabeledError, Record, Signature, Span, SpanId, Spanned, SyntaxShape, Value};
 
 pub struct QueryJson;
 
@@ -70,7 +70,7 @@ pub fn execute_json_query(
         let json_str = val.json();
         Ok(Value::string(json_str, call.head))
     } else {
-        Ok(convert_gjson_value_to_nu_value(&val, call.head))
+        Ok(convert_gjson_value_to_nu_value(&val, call.head, call.head_id))
     }
 }
 
@@ -93,19 +93,19 @@ fn query_contains_modifiers(query: &str) -> bool {
     // @join: Joins multiple objects into a single object.
 }
 
-fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
+fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span, span_id: SpanId) -> Value {
     match v.kind() {
         gjson::Kind::Array => {
             let mut vals = vec![];
             v.each(|_k, v| {
-                vals.push(convert_gjson_value_to_nu_value(&v, span));
+                vals.push(convert_gjson_value_to_nu_value(&v, span, span_id));
                 true
             });
 
             Value::list(vals, span)
         }
         gjson::Kind::Null => Value::nothing(span),
-        gjson::Kind::False => Value::bool(false, span),
+        gjson::Kind::False => Value::bool(false, span_id),
         gjson::Kind::Number => {
             let str_value = v.str();
             if str_value.contains('.') {
@@ -115,11 +115,11 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
             }
         }
         gjson::Kind::String => Value::string(v.str(), span),
-        gjson::Kind::True => Value::bool(true, span),
+        gjson::Kind::True => Value::bool(true, span_id),
         gjson::Kind::Object => {
             let mut record = Record::new();
             v.each(|k, v| {
-                record.push(k.to_string(), convert_gjson_value_to_nu_value(&v, span));
+                record.push(k.to_string(), convert_gjson_value_to_nu_value(&v, span, span_id));
                 true
             });
             Value::record(record, span)

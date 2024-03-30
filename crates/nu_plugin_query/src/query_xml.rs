@@ -93,7 +93,7 @@ pub fn execute_xpath_query(
                     }
                 }
                 sxd_xpath::Value::Boolean(b) => {
-                    record.push(key, Value::bool(b, call.head));
+                    record.push(key, Value::bool(b, call.head_id));
                 }
                 sxd_xpath::Value::Number(n) => {
                     record.push(key, Value::float(n, call.head));
@@ -133,11 +133,13 @@ mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
     use nu_protocol::{record, Span, Spanned, Value};
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     #[test]
     fn position_function_in_predicate() {
         let call = EvaluatedCall {
             head: Span::test_data(),
+            head_id: UNKNOWN_SPAN_ID,
             positional: vec![],
             named: vec![],
         };
@@ -150,6 +152,7 @@ mod tests {
         let spanned_str: Spanned<String> = Spanned {
             item: "count(//a/*[position() = 2])".to_string(),
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
@@ -167,6 +170,7 @@ mod tests {
     fn functions_implicitly_coerce_argument_types() {
         let call = EvaluatedCall {
             head: Span::test_data(),
+            head_id: UNKNOWN_SPAN_ID,
             positional: vec![],
             named: vec![],
         };
@@ -179,6 +183,7 @@ mod tests {
         let spanned_str: Spanned<String> = Spanned {
             item: "count(//*[contains(., true)])".to_string(),
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");

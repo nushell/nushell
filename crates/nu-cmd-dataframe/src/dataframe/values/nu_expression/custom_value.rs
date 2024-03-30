@@ -1,8 +1,5 @@
 use super::NuExpression;
-use nu_protocol::{
-    ast::{Comparison, Math, Operator},
-    CustomValue, ShellError, Span, Type, Value,
-};
+use nu_protocol::{ast::{Comparison, Math, Operator}, CustomValue, ShellError, Span, SpanId, Type, Value};
 use polars::prelude::Expr;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
@@ -26,8 +23,8 @@ impl CustomValue for NuExpression {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        self.to_value(span)
+    fn to_base_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
+        self.to_value(span, span_id)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -37,8 +34,10 @@ impl CustomValue for NuExpression {
     fn operation(
         &self,
         lhs_span: Span,
+        lhs_span_id: SpanId,
         operator: Operator,
         op: Span,
+        op_id: SpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         compute_with_value(self, lhs_span, operator, op, right)

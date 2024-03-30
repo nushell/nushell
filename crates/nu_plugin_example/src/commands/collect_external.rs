@@ -55,10 +55,11 @@ impl PluginCommand for CollectExternal {
                 .map(|bin| bin.to_vec())
         });
         Ok(PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(Box::new(stream), None, call.head, None)),
+            stdout: Some(RawStream::new(Box::new(stream), None, call.head, call.head_id, None)),
             stderr: None,
             exit_code: None,
             span: call.head,
+            span_id: call.head_id,
             metadata: None,
             trim_end_newline: false,
         })

@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 use indexmap::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, SpanId, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
@@ -226,12 +226,12 @@ impl NuDataFrame {
         Value::list(newlist, list_span)
     }
 
-    pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
+    pub fn columns(&self, span: Span, span_id: SpanId) -> Result<Vec<Column>, ShellError> {
         let height = self.df.height();
         self.df
             .get_columns()
             .iter()
-            .map(|col| conversion::create_column(col, 0, height, span))
+            .map(|col| conversion::create_column(col, 0, height, span, span_id))
             .collect::<Result<Vec<Column>, ShellError>>()
     }
 
@@ -344,9 +344,9 @@ impl NuDataFrame {
         Ok(series.clone())
     }
 
-    pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
+    pub fn get_value(&self, row: usize, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
         let series = self.as_series(span)?;
-        let column = conversion::create_column(&series, row, row + 1, span)?;
+        let column = conversion::create_column(&series, row, row + 1, span, span_id)?;
 
         if column.len() == 0 {
             Err(ShellError::AccessEmptyContent { span })
@@ -360,22 +360,22 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, span: Span, span_id: SpanId) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let size: usize = 20;
 
         if df.height() > size {
             let sample_size = size / 2;
-            let mut values = self.head(Some(sample_size), span)?;
+            let mut values = self.head(Some(sample_size), span, span_id)?;
             conversion::add_separator(&mut values, df, span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
-            let mut tail_values = self.tail(Some(tail_size), span)?;
+            let mut tail_values = self.tail(Some(tail_size), span, span_id)?;
             values.append(&mut tail_values);
 
             Ok(values)
         } else {
-            Ok(self.head(Some(size), span)?)
+            Ok(self.head(Some(size), span, span_id)?)
         }
     }
 
@@ -383,20 +383,20 @@ impl NuDataFrame {
         self.df.height()
     }
 
-    pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn head(&self, rows: Option<usize>, span: Span, span_id: SpanId) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
-        let values = self.to_rows(0, to_row, span)?;
+        let values = self.to_rows(0, to_row, span, span_id)?;
 
         Ok(values)
     }
 
-    pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn tail(&self, rows: Option<usize>, span: Span, span_id: SpanId) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
         let from_row = to_row.saturating_sub(size);
 
-        let values = self.to_rows(from_row, to_row, span)?;
+        let values = self.to_rows(from_row, to_row, span, span_id)?;
 
         Ok(values)
     }
@@ -406,6 +406,7 @@ impl NuDataFrame {
         from_row: usize,
         to_row: usize,
         span: Span,
+        span_id: SpanId,
     ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let upper_row = to_row.min(df.height());
@@ -416,7 +417,7 @@ impl NuDataFrame {
             .get_columns()
             .iter()
             .map(
-                |col| match conversion::create_column(col, from_row, upper_row, span) {
+                |col| match conversion::create_column(col, from_row, upper_row, span, span_id) {
                     Ok(col) => {
                         size = col.len();
                         Ok(col)

@@ -13,6 +13,7 @@ use std::{
     sync::{mpsc, Arc},
     thread,
 };
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
 #[derive(Clone)]
 pub struct External;
@@ -156,10 +157,11 @@ pub fn create_external_command(
 
     fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
         let span = value.span();
+        let span_id = value.span_id();
 
         value
             .coerce_string()
-            .map(|item| Spanned { item, span })
+            .map(|item| Spanned { item, span, span_id})
             .map_err(|_| ShellError::ExternalCommand {
                 label: format!("Cannot convert {} to a string", value.get_type()),
                 help: "All arguments to an external command need to be string-compatible".into(),
@@ -243,6 +245,7 @@ impl ExternalCommand {
         reconfirm_command_name: bool,
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
+        let head_id = self.name.span_id;
 
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -409,7 +412,7 @@ impl ExternalCommand {
                                 }
                                 stack.add_env_var(
                                     canary.to_string(),
-                                    Value::bool(true, Span::unknown()),
+                                    Value::bool(true, UNKNOWN_SPAN_ID),
                                 );
                                 match eval_hook(
                                     &mut engine_state,
@@ -478,7 +481,7 @@ impl ExternalCommand {
                                         crate::Table.run(
                                             &engine_state,
                                             stack,
-                                            &Call::new(head),
+                                            &Call::new(head, head_id),
                                             input,
                                         )
                                     }
@@ -499,7 +502,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .map_err(|e| e.into_spanned(head))?;
+                            .map_err(|e| e.into_spanned(head, head_id))?;
                     }
                 }
 
@@ -514,17 +517,18 @@ impl ExternalCommand {
                             Box::new(ByteLines::new(combined)),
                             ctrlc.clone(),
                             head,
+                            head_id,
                             None,
                         )),
                         None,
                     )
                 } else {
                     let stdout = child.as_mut().stdout.take().map(|out| {
-                        RawStream::new(Box::new(ByteLines::new(out)), ctrlc.clone(), head, None)
+                        RawStream::new(Box::new(ByteLines::new(out)), ctrlc.clone(), head, head_id, None)
                     });
 
                     let stderr = child.as_mut().stderr.take().map(|err| {
-                        RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, None)
+                        RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, head_id, None)
                     });
 
                     if matches!(self.err, IoStream::Pipe) {
@@ -590,7 +594,7 @@ impl ExternalCommand {
                             Ok(())
                         }
                     }
-                }).map_err(|e| e.into_spanned(head))?;
+                }).map_err(|e| e.into_spanned(head, head_id))?;
 
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
@@ -602,6 +606,7 @@ impl ExternalCommand {
                         ctrlc.clone(),
                     )),
                     span: head,
+                    span_id: head_id,
                     metadata: None,
                     trim_end_newline: true,
                 })
@@ -714,6 +719,7 @@ impl ExternalCommand {
             let arg = Spanned {
                 item: arg.item.replace('|', "^|"),
                 span: arg.span,
+                span_id: arg.span_id
             };
 
             trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
@@ -745,6 +751,7 @@ fn trim_expand_and_apply_arg(
             remove_quotes(trimmed_args)
         },
         span: arg.span,
+        span_id: arg.span_id,
     };
     if !keep_raw {
         arg.item = nu_path::expand_tilde(arg.item)
@@ -757,6 +764,7 @@ fn trim_expand_and_apply_arg(
         let path = Spanned {
             item: NuGlob::Expand(arg.item.clone()),
             span: arg.span,
+            span_id: arg.span_id,
         };
         if let Ok((prefix, matches)) = nu_engine::glob_from(&path, &cwd, arg.span, None) {
             let matches: Vec<_> = matches.collect();

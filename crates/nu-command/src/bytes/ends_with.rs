@@ -84,9 +84,9 @@ impl Command for BytesEndsWith {
 }
 
 fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
-    let val_span = val.span();
+    let val_span_id = val.span_id();
     match val {
-        Value::Binary { val, .. } => Value::bool(val.ends_with(&args.pattern), val_span),
+        Value::Binary { val, .. } => Value::bool(val.ends_with(&args.pattern), val_span_id),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::error(

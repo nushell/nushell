@@ -2,6 +2,7 @@ use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 use itertools::Itertools;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 struct Arguments {
     signed: bool,
@@ -69,6 +70,7 @@ impl Command for BitsRor {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let head_id = call.head_id;
         let bits: usize = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
@@ -86,7 +88,7 @@ impl Command for BitsRor {
             bits,
         };
 
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -117,7 +119,7 @@ impl Command for BitsRor {
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: Span, span_id: SpanId) -> Value {
     let Arguments {
         signed,
         number_size,

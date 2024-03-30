@@ -1,11 +1,7 @@
-use crate::{
-    ast::{
-        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
-        ExternalArgument, Math, Operator, RecordItem,
-    },
-    debugger::DebugContext,
-    Config, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
-};
+use crate::{ast::{
+    eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
+    ExternalArgument, Math, Operator, RecordItem,
+}, debugger::DebugContext, Config, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId, SpanId};
 use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
@@ -24,9 +20,10 @@ pub trait Eval {
         expr: &Expression,
     ) -> Result<Value, ShellError> {
         let expr_span = state.get_span(expr.span_id);
+        let expr_span_id = expr.span_id;
 
         match &expr.expr {
-            Expr::Bool(b) => Ok(Value::bool(*b, expr_span)),
+            Expr::Bool(b) => Ok(Value::bool(*b, expr.span_id)),
             Expr::Int(i) => Ok(Value::int(*i, expr_span)),
             Expr::Float(f) => Ok(Value::float(*f, expr_span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr_span)),
@@ -171,14 +168,14 @@ pub trait Eval {
                     Value::nothing(expr_span)
                 };
                 Ok(Value::range(
-                    Range::new(expr_span, from, next, to, operator)?,
+                    Range::new(expr_span, expr_span_id, from, next, to, operator)?,
                     expr_span,
                 ))
             }
             Expr::UnaryNot(expr) => {
                 let lhs = Self::eval::<D>(state, mut_state, expr)?;
                 match lhs {
-                    Value::Bool { val, .. } => Ok(Value::bool(!val, expr_span)),
+                    Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span_id)),
                     other => Err(ShellError::TypeMismatch {
                         err_message: format!("expected bool, found {}", other.get_type()),
                         span: expr_span,
@@ -186,7 +183,8 @@ pub trait Eval {
                 }
             }
             Expr::BinaryOp(lhs, op, rhs) => {
-                let op_span = state.get_span(op.span_id);
+                let op_span_id = op.span_id;
+                let op_span = state.get_span(op_span_id);
                 let op = eval_operator(&state, op)?;
 
                 match op {
@@ -195,23 +193,23 @@ pub trait Eval {
                         match boolean {
                             Boolean::And => {
                                 if lhs.is_false() {
-                                    Ok(Value::bool(false, expr_span))
+                                    Ok(Value::bool(false, expr.span_id))
                                 } else {
                                     let rhs = Self::eval::<D>(state, mut_state, rhs)?;
-                                    lhs.and(op_span, &rhs, expr_span)
+                                    lhs.and(op_span, op_span_id, &rhs, expr_span, expr.span_id)
                                 }
                             }
                             Boolean::Or => {
                                 if lhs.is_true() {
-                                    Ok(Value::bool(true, expr_span))
+                                    Ok(Value::bool(true, expr.span_id))
                                 } else {
                                     let rhs = Self::eval::<D>(state, mut_state, rhs)?;
-                                    lhs.or(op_span, &rhs, expr_span)
+                                    lhs.or(op_span, op_span_id, &rhs, expr_span, expr.span_id)
                                 }
                             }
                             Boolean::Xor => {
                                 let rhs = Self::eval::<D>(state, mut_state, rhs)?;
-                                lhs.xor(op_span, &rhs, expr_span)
+                                lhs.xor(op_span, op_span_id, &rhs, expr_span, expr.span_id)
                             }
                         }
                     }
@@ -220,35 +218,35 @@ pub trait Eval {
                         let rhs = Self::eval::<D>(state, mut_state, rhs)?;
 
                         match math {
-                            Math::Plus => lhs.add(op_span, &rhs, expr_span),
-                            Math::Minus => lhs.sub(op_span, &rhs, expr_span),
-                            Math::Multiply => lhs.mul(op_span, &rhs, expr_span),
-                            Math::Divide => lhs.div(op_span, &rhs, expr_span),
-                            Math::Append => lhs.append(op_span, &rhs, expr_span),
-                            Math::Modulo => lhs.modulo(op_span, &rhs, expr_span),
-                            Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr_span),
-                            Math::Pow => lhs.pow(op_span, &rhs, expr_span),
+                            Math::Plus => lhs.add(op_span, op_span_id, &rhs, expr_span),
+                            Math::Minus => lhs.sub(op_span, op_span_id, &rhs, expr_span),
+                            Math::Multiply => lhs.mul(op_span, op_span_id, &rhs, expr_span),
+                            Math::Divide => lhs.div(op_span, op_span_id, &rhs, expr_span),
+                            Math::Append => lhs.append(op_span, op_span_id, &rhs, expr_span),
+                            Math::Modulo => lhs.modulo(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Math::FloorDivision => lhs.floor_div(op_span, op_span_id, &rhs, expr_span),
+                            Math::Pow => lhs.pow(op_span, op_span_id, &rhs, expr_span, expr.span_id),
                         }
                     }
                     Operator::Comparison(comparison) => {
                         let lhs = Self::eval::<D>(state, mut_state, lhs)?;
                         let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                         match comparison {
-                            Comparison::LessThan => lhs.lt(op_span, &rhs, expr_span),
-                            Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr_span),
-                            Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr_span),
-                            Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr_span),
-                            Comparison::Equal => lhs.eq(op_span, &rhs, expr_span),
-                            Comparison::NotEqual => lhs.ne(op_span, &rhs, expr_span),
-                            Comparison::In => lhs.r#in(op_span, &rhs, expr_span),
-                            Comparison::NotIn => lhs.not_in(op_span, &rhs, expr_span),
-                            Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr_span),
-                            Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr_span),
+                            Comparison::LessThan => lhs.lt(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::LessThanOrEqual => lhs.lte(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::GreaterThan => lhs.gt(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::GreaterThanOrEqual => lhs.gte(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::Equal => lhs.eq(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::NotEqual => lhs.ne(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::In => lhs.r#in(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::NotIn => lhs.not_in(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::StartsWith => lhs.starts_with(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Comparison::EndsWith => lhs.ends_with(op_span, op_span_id, &rhs, expr_span, expr.span_id),
                             Comparison::RegexMatch => {
-                                Self::regex_match(state, op_span, &lhs, &rhs, false, expr_span)
+                                Self::regex_match(state, op_span, op_span_id, &lhs, &rhs, false, expr_span, expr_span_id)
                             }
                             Comparison::NotRegexMatch => {
-                                Self::regex_match(state, op_span, &lhs, &rhs, true, expr_span)
+                                Self::regex_match(state, op_span, op_span_id, &lhs, &rhs, true, expr_span, expr_span_id)
                             }
                         }
                     }
@@ -256,15 +254,15 @@ pub trait Eval {
                         let lhs = Self::eval::<D>(state, mut_state, lhs)?;
                         let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                         match bits {
-                            Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr_span),
-                            Bits::BitOr => lhs.bit_or(op_span, &rhs, expr_span),
-                            Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr_span),
-                            Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr_span),
-                            Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr_span),
+                            Bits::BitAnd => lhs.bit_and(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Bits::BitOr => lhs.bit_or(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Bits::BitXor => lhs.bit_xor(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Bits::ShiftLeft => lhs.bit_shl(op_span, op_span_id, &rhs, expr_span, expr.span_id),
+                            Bits::ShiftRight => lhs.bit_shr(op_span, op_span_id, &rhs, expr_span, expr.span_id),
                         }
                     }
                     Operator::Assignment(assignment) => Self::eval_assignment::<D>(
-                        state, mut_state, lhs, rhs, assignment, op_span, expr_span
+                        state, mut_state, lhs, rhs, assignment, op_span, op_span_id, expr_span
                     ),
                 }
             }
@@ -352,10 +350,12 @@ pub trait Eval {
     fn regex_match(
         state: Self::State<'_>,
         op_span: Span,
+        op_span_id: SpanId,
         lhs: &Value,
         rhs: &Value,
         invert: bool,
         expr_span: Span,
+        expr_span_id: SpanId,
     ) -> Result<Value, ShellError>;
 
     #[allow(clippy::too_many_arguments)]
@@ -366,6 +366,7 @@ pub trait Eval {
         rhs: &Expression,
         assignment: Assignment,
         op_span: Span,
+        op_span_id: SpanId,
         expr_span: Span,
     ) -> Result<Value, ShellError>;
 

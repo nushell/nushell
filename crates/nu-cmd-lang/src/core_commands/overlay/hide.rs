@@ -52,6 +52,7 @@ impl Command for OverlayHide {
             Spanned {
                 item: stack.last_overlay_name()?,
                 span: call.head,
+                span_id: call.head_id,
             }
         };
 

@@ -81,6 +81,7 @@ impl Command for Kill {
                 if let Some(Spanned {
                     item: _,
                     span: signal_span,
+                    span_id: signal_span_id,
                 }) = signal
                 {
                     return Err(ShellError::IncompatibleParameters {

@@ -2,6 +2,7 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 use num_traits::ToPrimitive;
+use nu_protocol::SpanId;
 
 pub struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -140,7 +141,7 @@ fn into_bits(
         }
         _ => {
             let args = Arguments { cell_paths };
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
+            operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
         }
     }
 }
@@ -177,7 +178,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
     }
 }
 
-pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+pub fn action(input: &Value, _args: &Arguments, span: Span, span_id: SpanId) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();

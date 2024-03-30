@@ -1,6 +1,7 @@
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -97,7 +98,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[Value], _span: Span, _span_id: SpanId, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     if let Some(Err(values)) = values
         .windows(2)
         .map(|elem| {

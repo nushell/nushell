@@ -3,6 +3,7 @@ use nu_engine::command_prelude::*;
 use nu_path::expand_tilde;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 struct Arguments;
 
@@ -97,7 +98,7 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
+fn r#type(path: &Path, span: Span, span_id: SpanId, _: &Arguments) -> Value {
     let meta = if path.starts_with("~") {
         let p = expand_tilde(path);
         std::fs::symlink_metadata(p)

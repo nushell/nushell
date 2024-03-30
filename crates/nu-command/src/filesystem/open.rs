@@ -50,6 +50,7 @@ impl Command for Open {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
+        let call_span_id = call.head_id;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
@@ -57,10 +58,11 @@ impl Command for Open {
 
         if paths.is_empty() && call.rest_iter(0).next().is_none() {
             // try to use path from pipeline input if there were no positional or spread args
-            let (filename, span) = match input {
+            let (filename, span, span_id) = match input {
                 PipelineData::Value(val, ..) => {
                     let span = val.span();
-                    (val.coerce_into_string()?, span)
+                    let span_id = val.span_id();
+                    (val.coerce_into_string()?, span, span_id)
                 }
                 _ => {
                     return Err(ShellError::MissingParameter {
@@ -73,6 +75,7 @@ impl Command for Open {
             paths.push(Spanned {
                 item: NuGlob::Expand(filename),
                 span,
+                span_id,
             });
         }
 
@@ -148,11 +151,13 @@ impl Command for Open {
                             Box::new(BufferedReader { input: buf_reader }),
                             ctrlc.clone(),
                             call_span,
+                            call_span_id,
                             None,
                         )),
                         stderr: None,
                         exit_code: None,
                         span: call_span,
+                        span_id: call_span_id,
                         metadata: Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
                         }),
@@ -184,7 +189,7 @@ impl Command for Open {
                                 let block = engine_state.get_block(block_id);
                                 eval_block(engine_state, stack, block, file_contents)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                                decl.run(engine_state, stack, &Call::new(call_span, call_span_id), file_contents)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{

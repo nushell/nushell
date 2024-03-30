@@ -1,6 +1,7 @@
 use crate::math::{avg::average, utils::run_with_function};
 use nu_engine::command_prelude::*;
 use std::cmp::Ordering;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -71,7 +72,7 @@ enum Pick {
     Median,
 }
 
-pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn median(values: &[Value], span: Span, span_id: SpanId, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     let take = if values.len() % 2 == 0 {
         Pick::MedianAverage
     } else {
@@ -142,7 +143,7 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
                 })?
                 .clone();
 
-            average(&[left, right], span, head)
+            average(&[left, right], span, span_id, head, head_id)
         }
     }
 }

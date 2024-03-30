@@ -62,7 +62,7 @@ fn bool(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let span = call.head;
+    let span_id = call.head_id;
     let bias: Option<Spanned<f64>> = call.get_flag(engine_state, stack, "bias")?;
 
     let mut probability = 0.5;
@@ -80,7 +80,7 @@ fn bool(
     let mut rng = thread_rng();
     let bool_result: bool = rng.gen_bool(probability);
 
-    Ok(PipelineData::Value(Value::bool(bool_result, span), None))
+    Ok(PipelineData::Value(Value::bool(bool_result, span_id), None))
 }
 
 #[cfg(test)]

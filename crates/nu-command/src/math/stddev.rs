@@ -1,6 +1,7 @@
 use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -76,10 +77,10 @@ impl Command for SubCommand {
     }
 }
 
-pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: Span, head: Span| {
+pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, SpanId, Span, SpanId) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, span_id: SpanId, head: Span, head_id: SpanId| {
         // variance() produces its own usable error, so we can use `?` to propagated the error.
-        let variance = variance(sample)(values, span, head)?;
+        let variance = variance(sample)(values, span, span_id, head, head_id)?;
         let val_span = variance.span();
         match variance {
             Value::Float { val, .. } => Ok(Value::float(val.sqrt(), val_span)),

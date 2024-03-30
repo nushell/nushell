@@ -165,6 +165,7 @@ fn rm(
                 NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
             },
             span: path.span,
+            span_id: path.span_id,
         };
         let _ = std::mem::replace(&mut paths[idx], corrected_path);
     }

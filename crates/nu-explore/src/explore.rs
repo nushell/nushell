@@ -8,6 +8,7 @@ use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::command_prelude::*;
 
 use std::collections::HashMap;
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
 /// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
@@ -307,7 +308,7 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
         return;
     }
 
-    map.insert(String::from(key), Value::bool(value, Span::unknown()));
+    map.insert(String::from(key), Value::bool(value, UNKNOWN_SPAN_ID));
 }
 
 fn insert_int(map: &mut HashMap<String, Value>, key: &str, value: i64) {

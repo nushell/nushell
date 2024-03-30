@@ -1,6 +1,6 @@
 mod custom_value;
 
-use nu_protocol::{record, PipelineData, ShellError, Span, Value};
+use nu_protocol::{record, PipelineData, ShellError, Span, Value, SpanId};
 use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -113,8 +113,8 @@ impl NuExpression {
         f(expr, other).into()
     }
 
-    pub fn to_value(&self, span: Span) -> Result<Value, ShellError> {
-        expr_to_value(self.as_ref(), span)
+    pub fn to_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
+        expr_to_value(self.as_ref(), span, span_id)
     }
 
     // Convenient function to extract multiple Expr that could be inside a nushell Value
@@ -162,11 +162,11 @@ impl ExtractedExpr {
     }
 }
 
-pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
+pub fn expr_to_value(expr: &Expr, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     match expr {
         Expr::Alias(expr, alias) => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span)?,
+                "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
                 "alias" => Value::string(alias.as_ref(), span),
             },
             span,
@@ -197,9 +197,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         )),
         Expr::BinaryExpr { left, op, right } => Ok(Value::record(
             record! {
-                "left" => expr_to_value(left, span)?,
+                "left" => expr_to_value(left, span, span_id)?,
                 "op" => Value::string(format!("{op:?}"), span),
-                "right" => expr_to_value(right, span)?,
+                "right" => expr_to_value(right, span, span_id)?,
             },
             span,
         )),
@@ -209,9 +209,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             falsy,
         } => Ok(Value::record(
             record! {
-                "predicate" => expr_to_value(predicate.as_ref(), span)?,
-                "truthy" => expr_to_value(truthy.as_ref(), span)?,
-                "falsy" => expr_to_value(falsy.as_ref(), span)?,
+                "predicate" => expr_to_value(predicate.as_ref(), span, span_id)?,
+                "truthy" => expr_to_value(truthy.as_ref(), span, span_id)?,
+                "falsy" => expr_to_value(falsy.as_ref(), span, span_id)?,
             },
             span,
         )),
@@ -229,15 +229,15 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
                 | AggExpr::Std(expr, _)
-                | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span),
+                | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span, span_id),
                 AggExpr::Quantile {
                     expr,
                     quantile,
                     interpol,
                 } => Ok(Value::record(
                     record! {
-                        "expr" => expr_to_value(expr.as_ref(), span)?,
-                        "quantile" => expr_to_value(quantile.as_ref(), span)?,
+                        "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
+                        "quantile" => expr_to_value(quantile.as_ref(), span, span_id)?,
                         "interpol" => Value::string(format!("{interpol:?}"), span),
                     },
                     span,
@@ -261,11 +261,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             span,
         )),
         Expr::Explode(expr) => Ok(Value::record(
-            record! { "expr" => expr_to_value(expr.as_ref(), span)? },
+            record! { "expr" => expr_to_value(expr.as_ref(), span, span_id)? },
             span,
         )),
         Expr::KeepName(expr) => Ok(Value::record(
-            record! { "expr" => expr_to_value(expr.as_ref(), span)? },
+            record! { "expr" => expr_to_value(expr.as_ref(), span, span_id)? },
             span,
         )),
         Expr::Nth(i) => Ok(Value::record(
@@ -282,7 +282,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         }
         Expr::Sort { expr, options } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span)?,
+                "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
                 "options" => Value::string(format!("{options:?}"), span),
             },
             span,
@@ -293,9 +293,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             strict,
         } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span)?,
+                "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
                 "dtype" => Value::string(format!("{data_type:?}"), span),
-                "strict" => Value::bool(*strict, span),
+                "strict" => Value::bool(*strict, span_id),
             },
             span,
         )),
@@ -305,8 +305,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             returns_scalar: _,
         } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span)?,
-                "idx" => expr_to_value(idx.as_ref(), span)?,
+                "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
+                "idx" => expr_to_value(idx.as_ref(), span, span_id)?,
             },
             span,
         )),
@@ -316,12 +316,12 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             descending,
         } => {
             let by: Result<Vec<Value>, ShellError> =
-                by.iter().map(|b| expr_to_value(b, span)).collect();
-            let descending: Vec<Value> = descending.iter().map(|r| Value::bool(*r, span)).collect();
+                by.iter().map(|b| expr_to_value(b, span, span_id)).collect();
+            let descending: Vec<Value> = descending.iter().map(|r| Value::bool(*r, span_id)).collect();
 
             Ok(Value::record(
                 record! {
-                    "expr" => expr_to_value(expr.as_ref(), span)?,
+                    "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
                     "by" => Value::list(by?, span),
                     "descending" => Value::list(descending, span),
                 },
@@ -330,8 +330,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         }
         Expr::Filter { input, by } => Ok(Value::record(
             record! {
-                "input" => expr_to_value(input.as_ref(), span)?,
-                "by" => expr_to_value(by.as_ref(), span)?,
+                "input" => expr_to_value(input.as_ref(), span, span_id)?,
+                "by" => expr_to_value(by.as_ref(), span, span_id)?,
             },
             span,
         )),
@@ -341,9 +341,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             length,
         } => Ok(Value::record(
             record! {
-                "input" => expr_to_value(input.as_ref(), span)?,
-                "offset" => expr_to_value(offset.as_ref(), span)?,
-                "length" => expr_to_value(length.as_ref(), span)?,
+                "input" => expr_to_value(input.as_ref(), span, span_id)?,
+                "offset" => expr_to_value(offset.as_ref(), span, span_id)?,
+                "length" => expr_to_value(length.as_ref(), span, span_id)?,
             },
             span,
         )),
@@ -355,7 +355,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
 
             Ok(Value::record(
                 record! {
-                    "expr" => expr_to_value(expr.as_ref(), span)?,
+                    "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
                     "excluded" => Value::list(excluded, span),
                 },
                 span,
@@ -363,7 +363,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         }
         Expr::RenameAlias { expr, function } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span)?,
+                "expr" => expr_to_value(expr.as_ref(), span, span_id)?,
                 "function" => Value::string(format!("{function:?}"), span),
             },
             span,
@@ -375,7 +375,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             options,
         } => {
             let input: Result<Vec<Value>, ShellError> =
-                input.iter().map(|e| expr_to_value(e, span)).collect();
+                input.iter().map(|e| expr_to_value(e, span, span_id)).collect();
             Ok(Value::record(
                 record! {
                     "input" => Value::list(input?, span),
@@ -392,7 +392,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             options,
         } => {
             let input: Result<Vec<Value>, ShellError> =
-                input.iter().map(|e| expr_to_value(e, span)).collect();
+                input.iter().map(|e| expr_to_value(e, span, span_id)).collect();
             Ok(Value::record(
                 record! {
                     "input" => Value::list(input?, span),
@@ -409,12 +409,12 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         } => {
             let partition_by: Result<Vec<Value>, ShellError> = partition_by
                 .iter()
-                .map(|e| expr_to_value(e, span))
+                .map(|e| expr_to_value(e, span, span_id))
                 .collect();
 
             Ok(Value::record(
                 record! {
-                    "function" => expr_to_value(function, span)?,
+                    "function" => expr_to_value(function, span, span_id)?,
                     "partition_by" => Value::list(partition_by?, span),
                     "options" => Value::string(format!("{options:?}"), span),
                 },

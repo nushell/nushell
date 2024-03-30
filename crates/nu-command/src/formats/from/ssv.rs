@@ -284,13 +284,14 @@ fn from_ssv(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
+    let name_id = call.head_id;
 
     let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
     let aligned_columns = call.has_flag(engine_state, stack, "aligned-columns")?;
     let minimum_spaces: Option<Spanned<usize>> =
         call.get_flag(engine_state, stack, "minimum-spaces")?;
 
-    let (concat_string, _span, metadata) = input.collect_string_strict(name)?;
+    let (concat_string, _span, _span_id, metadata) = input.collect_string_strict(name, name_id)?;
     let split_at = match minimum_spaces {
         Some(number) => number.item,
         None => DEFAULT_MINIMUM_SPACES,

@@ -3,12 +3,7 @@ use crate::completions::{
     SemanticSuggestion, SortBy,
 };
 use nu_engine::eval_call;
-use nu_protocol::{
-    ast::{Argument, Call, Expr, Expression},
-    debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
-};
+use nu_protocol::{ast::{Argument, Call, Expr, Expression}, debugger::WithoutDebug, engine::{EngineState, Stack, StateWorkingSet}, PipelineData, Span, SpanId, Type, Value};
 use nu_utils::IgnoreCaseExt;
 use std::{collections::HashMap, sync::Arc};
 
@@ -38,6 +33,7 @@ impl Completer for CustomCompletion {
         _: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
+        span_id: SpanId,
         offset: usize,
         pos: usize,
         completion_options: &CompletionOptions,
@@ -52,6 +48,7 @@ impl Completer for CustomCompletion {
             &Call {
                 decl_id: self.decl_id,
                 head: span,
+                head_id: span_id,
                 arguments: vec![
                     Argument::Positional(Expression::new_unknown(
                         Expr::String(self.line.clone()),

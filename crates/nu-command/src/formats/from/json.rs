@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -56,7 +57,8 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let (string_input, span, metadata) = input.collect_string_strict(span)?;
+        let span_id = call.head_id;
+        let (string_input, span, span_id, metadata) = input.collect_string_strict(span, span_id)?;
 
         if string_input.is_empty() {
             return Ok(PipelineData::new_with_metadata(metadata, span));
@@ -71,14 +73,14 @@ impl Command for FromJson {
             let converted_lines: Vec<_> = if strict {
                 lines
                     .map(|line| {
-                        convert_string_to_value_strict(line, span)
+                        convert_string_to_value_strict(line, span, span_id)
                             .unwrap_or_else(|err| Value::error(err, span))
                     })
                     .collect()
             } else {
                 lines
                     .map(|line| {
-                        convert_string_to_value(line, span)
+                        convert_string_to_value(line, span, span_id)
                             .unwrap_or_else(|err| Value::error(err, span))
                     })
                     .collect()
@@ -87,31 +89,31 @@ impl Command for FromJson {
             Ok(converted_lines
                 .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         } else if strict {
-            Ok(convert_string_to_value_strict(&string_input, span)?
+            Ok(convert_string_to_value_strict(&string_input, span, span_id)?
                 .into_pipeline_data_with_metadata(metadata))
         } else {
-            Ok(convert_string_to_value(&string_input, span)?
+            Ok(convert_string_to_value(&string_input, span, span_id)?
                 .into_pipeline_data_with_metadata(metadata))
         }
     }
 }
 
-fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
+fn convert_nujson_to_value(value: nu_json::Value, span: Span, span_id: SpanId) -> Value {
     match value {
         nu_json::Value::Array(array) => Value::list(
             array
                 .into_iter()
-                .map(|x| convert_nujson_to_value(x, span))
+                .map(|x| convert_nujson_to_value(x, span, span_id))
                 .collect(),
             span,
         ),
-        nu_json::Value::Bool(b) => Value::bool(b, span),
+        nu_json::Value::Bool(b) => Value::bool(b, span_id),
         nu_json::Value::F64(f) => Value::float(f, span),
         nu_json::Value::I64(i) => Value::int(i, span),
         nu_json::Value::Null => Value::nothing(span),
         nu_json::Value::Object(k) => Value::record(
             k.into_iter()
-                .map(|(k, v)| (k, convert_nujson_to_value(v, span)))
+                .map(|(k, v)| (k, convert_nujson_to_value(v, span, span_id)))
                 .collect(),
             span,
         ),
@@ -154,9 +156,9 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
     Span::new(contents.len(), contents.len())
 }
 
-fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+fn convert_string_to_value(string_input: &str, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(value, span)),
+        Ok(value) => Ok(convert_nujson_to_value(value, span, span_id)),
 
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
@@ -185,9 +187,9 @@ fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, Shel
     }
 }
 
-fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
+fn convert_string_to_value_strict(string_input: &str, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     match serde_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(value, span)),
+        Ok(value) => Ok(convert_nujson_to_value(value, span, span_id)),
         Err(err) => Err(if err.is_syntax() {
             let label = err.to_string();
             let label_span = convert_row_column_to_span(err.line(), err.column(), string_input);

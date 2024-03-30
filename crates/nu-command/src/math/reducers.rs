@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, SpanId, Value};
 use std::cmp::Ordering;
 
 pub enum Reduce {
@@ -9,14 +9,14 @@ pub enum Reduce {
 }
 
 pub type ReducerFunction =
-    Box<dyn Fn(Value, Vec<Value>, Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static>;
+    Box<dyn Fn(Value, Vec<Value>, Span, SpanId, Span, SpanId) -> Result<Value, ShellError> + Send + Sync + 'static>;
 
 pub fn reducer_for(command: Reduce) -> ReducerFunction {
     match command {
-        Reduce::Summation => Box::new(|_, values, span, head| sum(values, span, head)),
-        Reduce::Product => Box::new(|_, values, span, head| product(values, span, head)),
-        Reduce::Minimum => Box::new(|_, values, span, head| min(values, span, head)),
-        Reduce::Maximum => Box::new(|_, values, span, head| max(values, span, head)),
+        Reduce::Summation => Box::new(|_, values, span, span_id, head, head_id| sum(values, span, head, head_id)),
+        Reduce::Product => Box::new(|_, values, span, span_id, head, head_id| product(values, span, head, head_id)),
+        Reduce::Minimum => Box::new(|_, values, span, span_id, head, head_id| min(values, span, head)),
+        Reduce::Maximum => Box::new(|_, values, span, span_id, head, head_id| max(values, span, head)),
     }
 }
 
@@ -78,7 +78,7 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(smallest)
 }
 
-pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn sum(data: Vec<Value>, span: Span, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     let initial_value = data.first();
 
     let mut acc = match initial_value {
@@ -106,7 +106,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             | Value::Float { .. }
             | Value::Filesize { .. }
             | Value::Duration { .. } => {
-                acc = acc.add(head, value, head)?;
+                acc = acc.add(head, head_id, value, head)?;
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
@@ -123,7 +123,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(acc)
 }
 
-pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn product(data: Vec<Value>, span: Span, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     let initial_value = data.first();
 
     let mut acc = match initial_value {
@@ -145,7 +145,7 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
     for value in &data {
         match value {
             Value::Int { .. } | Value::Float { .. } => {
-                acc = acc.mul(head, value, head)?;
+                acc = acc.mul(head, head_id, value, head)?;
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {

@@ -10,6 +10,7 @@ pub use upcase::SubCommand as StrUpcase;
 
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
     case_operation: &'static F,
@@ -38,10 +39,10 @@ where
         case_operation,
         cell_paths,
     };
-    general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    general_operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
 }
 
-fn action<F>(input: &Value, args: &Arguments<F>, head: Span) -> Value
+fn action<F>(input: &Value, args: &Arguments<F>, head: Span, head_id: SpanId) -> Value
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {

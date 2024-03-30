@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, SpanId};
 
 pub struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -56,7 +56,7 @@ impl Command for SubCommand {
             cell_paths,
             config: config.clone(),
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,8 +68,10 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, _span: Span, _span_id: SpanId) -> Value {
     let span = input.span();
+    let span_id = input.span_id();
+
     match input {
         Value::String { val, .. } => {
             Value::string(nu_utils::strip_ansi_likely(val).to_string(), span)

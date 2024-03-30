@@ -8,6 +8,7 @@ pub fn empty(
     negate: bool,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+    let head_id = call.head_id;
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     if !columns.is_empty() {
@@ -18,9 +19,9 @@ pub fn empty(
                     Ok(Value::Nothing { .. }) => {}
                     Ok(_) => {
                         if negate {
-                            return Ok(Value::bool(true, head).into_pipeline_data());
+                            return Ok(Value::bool(true, head_id).into_pipeline_data());
                         } else {
-                            return Ok(Value::bool(false, head).into_pipeline_data());
+                            return Ok(Value::bool(false, head_id).into_pipeline_data());
                         }
                     }
                     Err(err) => return Err(err),
@@ -29,9 +30,9 @@ pub fn empty(
         }
 
         if negate {
-            Ok(Value::bool(false, head).into_pipeline_data())
+            Ok(Value::bool(false, head_id).into_pipeline_data())
         } else {
-            Ok(Value::bool(true, head).into_pipeline_data())
+            Ok(Value::bool(true, head_id).into_pipeline_data())
         }
     } else {
         match input {
@@ -43,9 +44,9 @@ pub fn empty(
                     match bytes {
                         Ok(s) => {
                             if negate {
-                                Ok(Value::bool(!s.item.is_empty(), head).into_pipeline_data())
+                                Ok(Value::bool(!s.item.is_empty(), head_id).into_pipeline_data())
                             } else {
-                                Ok(Value::bool(s.item.is_empty(), head).into_pipeline_data())
+                                Ok(Value::bool(s.item.is_empty(), head_id).into_pipeline_data())
                             }
                         }
                         Err(err) => Err(err),
@@ -53,24 +54,24 @@ pub fn empty(
                 }
                 None => {
                     if negate {
-                        Ok(Value::bool(false, head).into_pipeline_data())
+                        Ok(Value::bool(false, head_id).into_pipeline_data())
                     } else {
-                        Ok(Value::bool(true, head).into_pipeline_data())
+                        Ok(Value::bool(true, head_id).into_pipeline_data())
                     }
                 }
             },
             PipelineData::ListStream(s, ..) => {
                 if negate {
-                    Ok(Value::bool(s.count() != 0, head).into_pipeline_data())
+                    Ok(Value::bool(s.count() != 0, head_id).into_pipeline_data())
                 } else {
-                    Ok(Value::bool(s.count() == 0, head).into_pipeline_data())
+                    Ok(Value::bool(s.count() == 0, head_id).into_pipeline_data())
                 }
             }
             PipelineData::Value(value, ..) => {
                 if negate {
-                    Ok(Value::bool(!value.is_empty(), head).into_pipeline_data())
+                    Ok(Value::bool(!value.is_empty(), head_id).into_pipeline_data())
                 } else {
-                    Ok(Value::bool(value.is_empty(), head).into_pipeline_data())
+                    Ok(Value::bool(value.is_empty(), head_id).into_pipeline_data())
                 }
             }
         }

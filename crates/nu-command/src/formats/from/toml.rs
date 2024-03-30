@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use std::str::FromStr;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct FromToml;
@@ -27,9 +28,10 @@ impl Command for FromToml {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
+        let span_id = call.head_id;
+        let (mut string_input, span, span_id, metadata) = input.collect_string_strict(span, span_id)?;
         string_input.push('\n');
-        Ok(convert_string_to_value(string_input, span)?.into_pipeline_data_with_metadata(metadata))
+        Ok(convert_string_to_value(string_input, span, span_id)?.into_pipeline_data_with_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -56,22 +58,22 @@ b = [1, 2]' | from toml",
     }
 }
 
-fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
+fn convert_toml_to_value(value: &toml::Value, span: Span, span_id: SpanId) -> Value {
     match value {
         toml::Value::Array(array) => {
             let v: Vec<Value> = array
                 .iter()
-                .map(|x| convert_toml_to_value(x, span))
+                .map(|x| convert_toml_to_value(x, span, span_id))
                 .collect();
 
             Value::list(v, span)
         }
-        toml::Value::Boolean(b) => Value::bool(*b, span),
+        toml::Value::Boolean(b) => Value::bool(*b, span_id),
         toml::Value::Float(f) => Value::float(*f, span),
         toml::Value::Integer(i) => Value::int(*i, span),
         toml::Value::Table(k) => Value::record(
             k.iter()
-                .map(|(k, v)| (k.clone(), convert_toml_to_value(v, span)))
+                .map(|(k, v)| (k.clone(), convert_toml_to_value(v, span, span_id)))
                 .collect(),
             span,
         ),
@@ -86,10 +88,10 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
     }
 }
 
-pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
+pub fn convert_string_to_value(string_input: String, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     let result: Result<toml::Value, toml::de::Error> = toml::from_str(&string_input);
     match result {
-        Ok(value) => Ok(convert_toml_to_value(&value, span)),
+        Ok(value) => Ok(convert_toml_to_value(&value, span, span_id)),
 
         Err(err) => Err(ShellError::CantConvert {
             to_type: "structured toml data".into(),
@@ -105,6 +107,7 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
     use toml::value::Datetime;
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     #[test]
     fn test_examples() {
@@ -131,9 +134,10 @@ mod tests {
         });
 
         let span = Span::test_data();
+        let span_id = UNKNOWN_SPAN_ID;
         let reference_date = Value::date(Default::default(), Span::test_data());
 
-        let result = convert_toml_to_value(&toml_date, span);
+        let result = convert_toml_to_value(&toml_date, span, span_id);
 
         //positive test (from toml returns a nushell date)
         assert_eq!(result.get_type(), reference_date.get_type());
@@ -165,7 +169,7 @@ mod tests {
             Span::test_data(),
         );
 
-        let result = convert_toml_to_value(&toml_date, span);
+        let result = convert_toml_to_value(&toml_date, span, UNKNOWN_SPAN_ID);
 
         //positive test (from toml returns a nushell date)
         assert_eq!(result, reference_date);
@@ -184,7 +188,7 @@ mod tests {
 
         let span = Span::test_data();
 
-        let result = convert_string_to_value(input_string, span);
+        let result = convert_string_to_value(input_string, span, UNKNOWN_SPAN_ID);
 
         assert!(result.is_ok());
     }
@@ -202,7 +206,7 @@ mod tests {
 
         let span = Span::test_data();
 
-        let result = convert_string_to_value(input_string, span);
+        let result = convert_string_to_value(input_string, span, UNKNOWN_SPAN_ID);
 
         assert!(result.is_err());
     }

@@ -39,13 +39,14 @@ impl Command for KnownExternal {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head_span = call.head;
+        let head_span_id = call.head_id;
         let decl_id = engine_state
             .find_decl("run-external".as_bytes(), &[])
             .ok_or(ShellError::ExternalNotSupported { span: head_span })?;
 
         let command = engine_state.get_decl(decl_id);
 
-        let mut extern_call = Call::new(head_span);
+        let mut extern_call = Call::new(head_span, head_span_id);
 
         let extern_name = if let Some(name_bytes) = engine_state.find_decl_name(call.decl_id, &[]) {
             String::from_utf8_lossy(name_bytes)

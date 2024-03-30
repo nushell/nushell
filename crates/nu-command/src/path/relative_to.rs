@@ -3,6 +3,7 @@ use nu_engine::command_prelude::*;
 use nu_path::expand_to_real_path;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 struct Arguments {
     path: Spanned<String>,
@@ -141,7 +142,7 @@ path."#
     }
 }
 
-fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
+fn relative_to(path: &Path, span: Span, span_id: SpanId, args: &Arguments) -> Value {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
     match lhs.strip_prefix(&rhs) {

@@ -10,6 +10,7 @@ pub struct RawStream {
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub is_binary: bool,
     pub span: Span,
+    pub span_id: SpanId,
     pub known_size: Option<u64>, // (bytes)
 }
 
@@ -18,6 +19,7 @@ impl RawStream {
         stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
         ctrlc: Option<Arc<AtomicBool>>,
         span: Span,
+        span_id: SpanId,
         known_size: Option<u64>,
     ) -> Self {
         Self {
@@ -26,6 +28,7 @@ impl RawStream {
             ctrlc,
             is_binary: false,
             span,
+            span_id,
             known_size,
         }
     }
@@ -43,12 +46,14 @@ impl RawStream {
         Ok(Spanned {
             item: output,
             span: self.span,
+            span_id: self.span_id,
         })
     }
 
     pub fn into_string(self) -> Result<Spanned<String>, ShellError> {
         let mut output = String::new();
         let span = self.span;
+        let span_id = self.span_id;
         let ctrlc = &self.ctrlc.clone();
 
         for item in self {
@@ -58,7 +63,7 @@ impl RawStream {
             output.push_str(&item?.coerce_into_string()?);
         }
 
-        Ok(Spanned { item: output, span })
+        Ok(Spanned { item: output, span, span_id })
     }
 
     pub fn chain(self, stream: RawStream) -> RawStream {
@@ -68,6 +73,7 @@ impl RawStream {
             ctrlc: self.ctrlc,
             is_binary: self.is_binary,
             span: self.span,
+            span_id: self.span_id,
             known_size: self.known_size,
         }
     }

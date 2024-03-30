@@ -102,6 +102,7 @@ impl Command for ToJson {
 
 pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
     let span = v.span();
+    let span_id = v.span_id();
     Ok(match v {
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
         Value::Filesize { val, .. } => nu_json::Value::I64(*val),
@@ -140,7 +141,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             value_to_json_value(&collected)?
         }
         Value::Custom { val, .. } => {
-            let collected = val.to_base_value(span)?;
+            let collected = val.to_base_value(span, span_id)?;
             value_to_json_value(&collected)?
         }
     })

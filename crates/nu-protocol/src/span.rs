@@ -11,6 +11,7 @@ pub trait GetSpan {
 pub struct Spanned<T> {
     pub item: T,
     pub span: Span,
+    pub span_id: SpanId,
 }
 
 /// Helper trait to create [`Spanned`] more ergonomically.
@@ -21,17 +22,18 @@ pub trait IntoSpanned: Sized {
     ///
     /// ```
     /// # use nu_protocol::{Span, IntoSpanned};
+    /// # use nu_protocol::engine::UNKNOWN_SPAN_ID;
     /// # let span = Span::test_data();
-    /// let spanned = "Hello, world!".into_spanned(span);
+    /// let spanned = "Hello, world!".into_spanned(span, UNKNOWN_SPAN_ID);
     /// assert_eq!("Hello, world!", spanned.item);
     /// assert_eq!(span, spanned.span);
     /// ```
-    fn into_spanned(self, span: Span) -> Spanned<Self>;
+    fn into_spanned(self, span: Span, span: SpanId) -> Spanned<Self>;
 }
 
 impl<T> IntoSpanned for T {
-    fn into_spanned(self, span: Span) -> Spanned<Self> {
-        Spanned { item: self, span }
+    fn into_spanned(self, span: Span, span_id: SpanId) -> Spanned<Self> {
+        Spanned { item: self, span, span_id }
     }
 }
 

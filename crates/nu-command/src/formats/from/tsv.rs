@@ -112,6 +112,7 @@ fn from_tsv(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
+    let name_id = call.head_id;
 
     let comment = call
         .get_flag(engine_state, stack, "comment")?
@@ -142,7 +143,7 @@ fn from_tsv(
         trim,
     };
 
-    from_delimited_data(config, input, name)
+    from_delimited_data(config, input, name, name_id)
 }
 
 #[cfg(test)]

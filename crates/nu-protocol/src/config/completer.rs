@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{record, Config, Span, Value};
+use crate::{record, Config, Span, Value, SpanId};
 
 use super::helper::ReconstructVal;
 
@@ -26,7 +26,7 @@ impl FromStr for CompletionAlgorithm {
 }
 
 impl ReconstructVal for CompletionAlgorithm {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         let str = match self {
             CompletionAlgorithm::Prefix => "prefix",
             CompletionAlgorithm::Fuzzy => "fuzzy",
@@ -43,12 +43,12 @@ pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Val
     }
 }
 
-pub(super) fn reconstruct_external(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_external(config: &Config, span: Span, span_id: SpanId) -> Value {
     Value::record(
         record! {
             "max_results" => Value::int(config.max_external_completion_results, span),
             "completer" => reconstruct_external_completer(config, span),
-            "enable" => Value::bool(config.enable_external_completion, span),
+            "enable" => Value::bool(config.enable_external_completion, span_id),
         },
         span,
     )

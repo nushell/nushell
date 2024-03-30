@@ -1,7 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{command_prelude::*, get_full_help};
-use nu_protocol::span;
+use nu_protocol::{span, SpanId};
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -50,6 +50,7 @@ pub fn help_commands(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+    let head_id = call.head_id;
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
@@ -63,7 +64,7 @@ pub fn help_commands(
         style_computer.compute("search_result", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let all_cmds_vec = build_help_commands(engine_state, head);
+        let all_cmds_vec = build_help_commands(engine_state, head, head_id);
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
@@ -78,7 +79,7 @@ pub fn help_commands(
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_commands(engine_state, head);
+        let found_cmds_vec = build_help_commands(engine_state, head, head_id);
 
         Ok(found_cmds_vec
             .into_iter()
@@ -115,7 +116,7 @@ pub fn help_commands(
     }
 }
 
-fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
+fn build_help_commands(engine_state: &EngineState, span: Span, span_id: SpanId) -> Vec<Value> {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 
@@ -138,7 +139,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                     record! {
                         "name" => Value::string(&required_param.name, span),
                         "type" => Value::string(required_param.shape.to_string(), span),
-                        "required" => Value::bool(true, span),
+                        "required" => Value::bool(true, span_id),
                         "description" => Value::string(&required_param.desc, span),
                     },
                     span,
@@ -150,7 +151,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                     record! {
                         "name" => Value::string(&optional_param.name, span),
                         "type" => Value::string(optional_param.shape.to_string(), span),
-                        "required" => Value::bool(false, span),
+                        "required" => Value::bool(false, span_id),
                         "description" => Value::string(&optional_param.desc, span),
                     },
                     span,
@@ -162,7 +163,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                     record! {
                         "name" => Value::string(format!("...{}", rest_positional.name), span),
                         "type" => Value::string(rest_positional.shape.to_string(), span),
-                        "required" => Value::bool(false, span),
+                        "required" => Value::bool(false, span_id),
                         "description" => Value::string(&rest_positional.desc, span),
                     },
                     span,
@@ -190,7 +191,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                     record! {
                         "name" => Value::string(name, span),
                         "type" => Value::string(typ, span),
-                        "required" => Value::bool(named_param.required, span),
+                        "required" => Value::bool(named_param.required, span_id),
                         "description" => Value::string(&named_param.desc, span),
                     },
                     span,

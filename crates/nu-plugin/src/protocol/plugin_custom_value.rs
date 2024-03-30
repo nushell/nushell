@@ -1,5 +1,5 @@
 use crate::plugin::{PluginInterface, PluginSource};
-use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, SpanId, Value};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
@@ -60,34 +60,38 @@ impl CustomValue for PluginCustomValue {
         self.name().to_owned()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
         self.get_plugin(Some(span), "get base value")?
-            .custom_value_to_base_value(self.clone().into_spanned(span))
+            .custom_value_to_base_value(self.clone().into_spanned(span, span_id))
     }
 
     fn follow_path_int(
         &self,
         self_span: Span,
+        self_span_id: SpanId,
         index: usize,
         path_span: Span,
+        path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(self_span), "follow cell path")?
             .custom_value_follow_path_int(
-                self.clone().into_spanned(self_span),
-                index.into_spanned(path_span),
+                self.clone().into_spanned(self_span, self_span_id),
+                index.into_spanned(path_span, path_span_id),
             )
     }
 
     fn follow_path_string(
         &self,
         self_span: Span,
+        self_span_id: SpanId,
         column_name: String,
         path_span: Span,
+        path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(self_span), "follow cell path")?
             .custom_value_follow_path_string(
-                self.clone().into_spanned(self_span),
-                column_name.into_spanned(path_span),
+                self.clone().into_spanned(self_span, self_span_id),
+                column_name.into_spanned(path_span, path_span_id),
             )
     }
 
@@ -112,14 +116,16 @@ impl CustomValue for PluginCustomValue {
     fn operation(
         &self,
         lhs_span: Span,
+        lhs_span_id: SpanId,
         operator: Operator,
         op_span: Span,
+        op_span_id: SpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(lhs_span), "invoke operator")?
             .custom_value_operation(
-                self.clone().into_spanned(lhs_span),
-                operator.into_spanned(op_span),
+                self.clone().into_spanned(lhs_span, lhs_span_id),
+                operator.into_spanned(op_span, op_span_id),
                 right.clone(),
             )
     }
@@ -370,9 +376,11 @@ impl PluginCustomValue {
     pub(crate) fn render_to_base_value_in(value: &mut Value) -> Result<(), ShellError> {
         value.recurse_mut(&mut |value| {
             let span = value.span();
+            let span_id = value.span_id();
+
             match value {
                 Value::Custom { ref val, .. } => {
-                    *value = val.to_base_value(span)?;
+                    *value = val.to_base_value(span, span_id)?;
                     Ok(())
                 }
                 // Collect LazyRecord before proceeding

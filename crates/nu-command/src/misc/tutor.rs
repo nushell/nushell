@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct Tutor;
@@ -67,6 +68,7 @@ fn tutor(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
+    let span_id = call.head_id;
 
     let search: Option<String> = call.opt(engine_state, stack, 0).unwrap_or(None);
     let find: Option<String> = call.get_flag(engine_state, stack, "find")?;
@@ -114,7 +116,7 @@ fn tutor(
             results.into_iter().map(|x| format!("- {x}")).join("\n")
         );
 
-        return Ok(display(&message, engine_state, stack, span));
+        return Ok(display(&message, engine_state, stack, span, span_id));
     } else if let Some(search) = search {
         if search == "list" {
             let results = search_space.map(|s| s.0[0].to_string());
@@ -122,16 +124,16 @@ fn tutor(
                 "This tutorial contains the following topics:\n\n{}\n\n{notes}",
                 results.map(|x| format!("- {x}")).join("\n")
             );
-            return Ok(display(&message, engine_state, stack, span));
+            return Ok(display(&message, engine_state, stack, span, span_id));
         }
 
         for search_group in search_space {
             if search_group.0.contains(&search.as_str()) {
-                return Ok(display(search_group.1, engine_state, stack, span));
+                return Ok(display(search_group.1, engine_state, stack, span, span_id));
             }
         }
     }
-    Ok(display(default_tutor(), engine_state, stack, span))
+    Ok(display(default_tutor(), engine_state, stack, span, span_id))
 }
 
 fn default_tutor() -> &'static str {
@@ -396,7 +398,7 @@ produce the same value using:
 "#
 }
 
-fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span) -> PipelineData {
+fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span, span_id: SpanId) -> PipelineData {
     let help = help.split('`');
 
     let mut build = String::new();
@@ -413,7 +415,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                 if let Ok(output) = decl.run(
                     engine_state,
                     stack,
-                    &Call::new(span),
+                    &Call::new(span, span_id),
                     Value::string(item, Span::unknown()).into_pipeline_data(),
                 ) {
                     let result = output.into_value(Span::unknown());

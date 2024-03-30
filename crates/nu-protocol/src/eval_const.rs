@@ -1,17 +1,11 @@
-use crate::{
-    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
-    debugger::{DebugContext, WithoutDebug},
-    engine::{EngineState, StateWorkingSet},
-    eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
-};
+use crate::{ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument}, debugger::{DebugContext, WithoutDebug}, engine::{EngineState, StateWorkingSet}, eval_base::Eval, record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId, SpanId};
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
 };
 
-pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+pub fn create_nu_constant(engine_state: &EngineState, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         let cwd = engine_state.current_work_dir();
 
@@ -174,14 +168,14 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
 
     record.push(
         "is-interactive",
-        Value::bool(engine_state.is_interactive, span),
+        Value::bool(engine_state.is_interactive, span_id),
     );
 
-    record.push("is-login", Value::bool(engine_state.is_login, span));
+    record.push("is-login", Value::bool(engine_state.is_login, span_id));
 
     record.push(
         "history-enabled",
-        Value::bool(engine_state.history_enabled, span),
+        Value::bool(engine_state.history_enabled, span_id),
     );
 
     record.push(
@@ -346,10 +340,12 @@ impl Eval for EvalConst {
     fn regex_match(
         _: &StateWorkingSet,
         _op_span: Span,
+        _op_span_id: SpanId,
         _: &Value,
         _: &Value,
         _: bool,
         expr_span: Span,
+        _expr_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr_span })
     }
@@ -361,6 +357,7 @@ impl Eval for EvalConst {
         _: &Expression,
         _: Assignment,
         _op_span: Span,
+        _op_span_id: SpanId,
         expr_span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval

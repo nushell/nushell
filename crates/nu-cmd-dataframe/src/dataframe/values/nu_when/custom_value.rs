@@ -1,5 +1,5 @@
 use super::NuWhen;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, Span, SpanId, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuWhen {
@@ -21,7 +21,7 @@ impl CustomValue for NuWhen {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
         let val: String = match self {
             NuWhen::Then(_) => "whenthen".into(),
             NuWhen::ChainedThen(_) => "whenthenthen".into(),

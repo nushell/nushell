@@ -21,6 +21,7 @@ use std::{
     collections::{btree_map, BTreeMap},
     sync::{atomic::AtomicBool, mpsc, Arc, OnceLock},
 };
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
 #[cfg(test)]
 mod tests;
@@ -864,7 +865,7 @@ impl PluginInterface {
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
         let call = PluginCall::CustomValueOp(
-            value.into_spanned(Span::unknown()),
+            value.into_spanned(Span::unknown(), UNKNOWN_SPAN_ID),
             CustomValueOp::PartialCmp(other_value),
         );
         match self.plugin_call(call, None)? {
@@ -892,7 +893,7 @@ impl PluginInterface {
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
         self.custom_value_op_expecting_value(
-            value.into_spanned(Span::unknown()),
+            value.into_spanned(Span::unknown(), UNKNOWN_SPAN_ID),
             CustomValueOp::Dropped,
         )
         .map(|_| ())

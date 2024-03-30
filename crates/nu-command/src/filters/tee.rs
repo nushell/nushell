@@ -69,6 +69,7 @@ use it in your pipeline."#
         let Spanned {
             item: Closure { block_id, captures },
             span: closure_span,
+            span_id: closure_span_id,
         } = call.req(engine_state, stack, 0)?;
 
         let closure_engine_state = engine_state.clone();
@@ -88,6 +89,7 @@ use it in your pipeline."#
                 stderr,
                 exit_code,
                 span,
+                span_id,
                 metadata,
                 trim_end_newline,
             } => {
@@ -104,11 +106,13 @@ use it in your pipeline."#
                             Box::new(iter),
                             closure_engine_state.ctrlc.clone(),
                             span,
+                            span_id,
                             known_size,
                         )),
                         stderr: None,
                         exit_code: None,
                         span,
+                        span_id,
                         metadata: metadata_clone,
                         trim_end_newline,
                     };
@@ -126,11 +130,12 @@ use it in your pipeline."#
                     let stderr = stderr
                         .map(|stderr| {
                             let iter = tee(stderr.stream, with_stream)
-                                .map_err(|e| e.into_spanned(call.head))?;
+                                .map_err(|e| e.into_spanned(call.head, call.head_id))?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stderr.ctrlc,
                                 stderr.span,
+                                stderr.span_id,
                                 stderr.known_size,
                             ))
                         })
@@ -140,6 +145,7 @@ use it in your pipeline."#
                         stderr,
                         exit_code,
                         span,
+                        span_id,
                         metadata,
                         trim_end_newline,
                     })
@@ -147,11 +153,12 @@ use it in your pipeline."#
                     let stdout = stdout
                         .map(|stdout| {
                             let iter = tee(stdout.stream, with_stream)
-                                .map_err(|e| e.into_spanned(call.head))?;
+                                .map_err(|e| e.into_spanned(call.head, call.head_id))?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stdout.ctrlc,
                                 stdout.span,
+                                stdout.span_id,
                                 stdout.known_size,
                             ))
                         })
@@ -161,6 +168,7 @@ use it in your pipeline."#
                         stderr,
                         exit_code,
                         span,
+                        span_id,
                         metadata,
                         trim_end_newline,
                     })
@@ -189,7 +197,7 @@ use it in your pipeline."#
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
                 })
-                .map_err(|e| e.into_spanned(call.head))?
+                .map_err(|e| e.into_spanned(call.head, call.head_id))?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
                 .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone());
 

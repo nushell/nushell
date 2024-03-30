@@ -4,6 +4,7 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 use std::iter;
+use nu_protocol::SpanId;
 
 struct Arguments {
     signed: bool,
@@ -71,6 +72,7 @@ impl Command for BitsShr {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let head_id = call.head_id;
         let bits: usize = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
@@ -88,7 +90,7 @@ impl Command for BitsShr {
             bits,
         };
 
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -115,7 +117,7 @@ impl Command for BitsShr {
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: Span, span_id: SpanId) -> Value {
     let Arguments {
         signed,
         number_size,

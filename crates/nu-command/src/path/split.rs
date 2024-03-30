@@ -2,6 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::{Component, Path};
+use nu_protocol::SpanId;
 
 struct Arguments;
 
@@ -155,7 +156,7 @@ impl Command for SubCommand {
     }
 }
 
-fn split(path: &Path, span: Span, _: &Arguments) -> Value {
+fn split(path: &Path, span: Span, span_id: SpanId, _: &Arguments) -> Value {
     Value::list(
         path.components()
             .filter_map(|comp| {

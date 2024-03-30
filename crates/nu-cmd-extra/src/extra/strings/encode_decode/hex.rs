@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 enum HexDecodingError {
     InvalidLength(usize),
@@ -88,7 +89,7 @@ pub fn operate(
         cell_paths,
     };
 
-    general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    general_operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
 }
 
 fn action(
@@ -96,6 +97,7 @@ fn action(
     // only used for `decode` action
     args: &Arguments,
     command_span: Span,
+    command_span_id: SpanId,
 ) -> Value {
     let hex_config = &args.encoding_config;
 

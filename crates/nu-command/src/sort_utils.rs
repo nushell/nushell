@@ -19,6 +19,8 @@ pub fn sort_value(
     natural: bool,
 ) -> Result<Value, ShellError> {
     let span = val.span();
+    let span_id = val.span_id();
+
     match val {
         Value::List { vals, .. } => {
             let mut vals = vals.clone();
@@ -31,7 +33,7 @@ pub fn sort_value(
             Ok(Value::list(vals, span))
         }
         Value::Custom { val, .. } => {
-            let base_val = val.to_base_value(span)?;
+            let base_val = val.to_base_value(span, span_id)?;
             sort_value(&base_val, sort_columns, ascending, insensitive, natural)
         }
         _ => Ok(val.to_owned()),

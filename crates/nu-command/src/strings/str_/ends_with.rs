@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 use nu_utils::IgnoreCaseExt;
 
@@ -64,7 +65,7 @@ impl Command for SubCommand {
             cell_paths,
             case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -91,7 +92,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span, head_id: SpanId) -> Value {
     match input {
         Value::String { val: s, .. } => {
             let ends_with = if args.case_insensitive {
@@ -100,7 +101,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             } else {
                 s.ends_with(&args.substring)
             };
-            Value::bool(ends_with, head)
+            Value::bool(ends_with, head_id)
         }
         Value::Error { .. } => input.clone(),
         _ => Value::error(

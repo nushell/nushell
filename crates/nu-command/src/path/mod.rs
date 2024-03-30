@@ -20,7 +20,7 @@ pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
 pub use split::SubCommand as PathSplit;
 
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, SpanId, Value};
 use std::path::Path as StdPath;
 
 #[cfg(windows)]
@@ -32,12 +32,13 @@ trait PathSubcommandArguments {}
 
 fn operate<F, A>(cmd: &F, args: &A, v: Value, name: Span) -> Value
 where
-    F: Fn(&StdPath, Span, &A) -> Value + Send + Sync + 'static,
+    F: Fn(&StdPath, Span, SpanId, &A) -> Value + Send + Sync + 'static,
     A: PathSubcommandArguments + Send + Sync + 'static,
 {
     let span = v.span();
+    let span_id = v.span_id();
     match v {
-        Value::String { val, .. } => cmd(StdPath::new(&val), span, args),
+        Value::String { val, .. } => cmd(StdPath::new(&val), span, span_id, args),
         _ => handle_invalid_values(v, name),
     }
 }

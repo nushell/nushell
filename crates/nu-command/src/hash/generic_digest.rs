@@ -127,13 +127,14 @@ where
                 args,
                 input,
                 call.head,
+                call.head_id,
                 engine_state.ctrlc.clone(),
             ),
         }
     }
 }
 
-pub(super) fn action<D>(input: &Value, args: &Arguments, _span: Span) -> Value
+pub(super) fn action<D>(input: &Value, args: &Arguments, _span: Span, _span_id: SpanId) -> Value
 where
     D: HashDigest,
     digest::Output<D>: core::fmt::LowerHex,

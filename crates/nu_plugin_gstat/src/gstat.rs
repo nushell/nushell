@@ -1,5 +1,5 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
-use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value};
+use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value, SpanId};
 use std::{fmt::Write, ops::BitAnd, path::Path};
 
 // git status
@@ -26,6 +26,7 @@ impl GStat {
         current_dir: &str,
         path: Option<Spanned<String>>,
         span: Span,
+        span_id: SpanId,
     ) -> Result<Value, LabeledError> {
         // use std::any::Any;
         // eprintln!("input type: {:?} value: {:#?}", &value.type_id(), &value);
@@ -36,9 +37,9 @@ impl GStat {
             Some(path) => path,
             None => {
                 if !value.is_nothing() {
-                    value.coerce_string()?.into_spanned(value.span())
+                    value.coerce_string()?.into_spanned(value.span(), value.span_id())
                 } else {
-                    String::from(".").into_spanned(span)
+                    String::from(".").into_spanned(span, span_id)
                 }
             }
         };

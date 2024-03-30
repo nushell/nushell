@@ -3,7 +3,7 @@ use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, ListStream};
+use nu_protocol::{Config, ListStream, SpanId};
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
@@ -349,6 +349,7 @@ fn find_with_rest_and_highlight(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
+    let span_id = call.head_id;
     let ctrlc = engine_state.ctrlc.clone();
     let engine_state = engine_state.clone();
     let config = engine_state.get_config().clone();
@@ -410,6 +411,7 @@ fn find_with_rest_and_highlight(
                         &filter_config,
                         &lower_terms,
                         span,
+                        span_id,
                         &cols_to_search_in_filter,
                         invert,
                     )
@@ -439,6 +441,7 @@ fn find_with_rest_and_highlight(
                         &filter_config,
                         &lower_terms,
                         span,
+                        span_id,
                         &cols_to_search_in_filter,
                         invert,
                     )
@@ -506,6 +509,7 @@ fn value_should_be_printed(
     filter_config: &Config,
     lower_terms: &[Value],
     span: Span,
+    span_id: SpanId,
     columns_to_search: &[String],
     invert: bool,
 ) -> bool {
@@ -525,19 +529,19 @@ fn value_should_be_printed(
         | Value::Block { .. }
         | Value::Closure { .. }
         | Value::Nothing { .. }
-        | Value::Error { .. } => term_equals_value(term, &lower_value, span),
+        | Value::Error { .. } => term_equals_value(term, &lower_value, span, span_id),
         Value::String { .. }
         | Value::Glob { .. }
         | Value::List { .. }
         | Value::CellPath { .. }
-        | Value::Custom { .. } => term_contains_value(term, &lower_value, span),
+        | Value::Custom { .. } => term_contains_value(term, &lower_value, span, span_id),
         Value::Record { val, .. } => {
-            record_matches_term(val, columns_to_search, filter_config, term, span)
+            record_matches_term(val, columns_to_search, filter_config, term, span, span_id)
         }
         Value::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => match val {
                 Value::Record { val, .. } => {
-                    record_matches_term(&val, columns_to_search, filter_config, term, span)
+                    record_matches_term(&val, columns_to_search, filter_config, term, span, span_id)
                 }
                 _ => false,
             },
@@ -551,13 +555,13 @@ fn value_should_be_printed(
     match_found
 }
 
-fn term_contains_value(term: &Value, value: &Value, span: Span) -> bool {
-    term.r#in(span, value, span)
+fn term_contains_value(term: &Value, value: &Value, span: Span, span_id: SpanId) -> bool {
+    term.r#in(span, span_id, value, span, span_id)
         .map_or(false, |value| value.is_true())
 }
 
-fn term_equals_value(term: &Value, value: &Value, span: Span) -> bool {
-    term.eq(span, value, span)
+fn term_equals_value(term: &Value, value: &Value, span: Span, span_id: SpanId) -> bool {
+    term.eq(span, span_id, value, span, span_id)
         .map_or(false, |value| value.is_true())
 }
 
@@ -567,6 +571,7 @@ fn record_matches_term(
     filter_config: &Config,
     term: &Value,
     span: Span,
+    span_id: SpanId,
 ) -> bool {
     // Only perform column selection if given columns.
     let col_select = !columns_to_search.is_empty();
@@ -582,7 +587,7 @@ fn record_matches_term(
         } else {
             (*val).clone()
         };
-        term_contains_value(term, &lower_val, span)
+        term_contains_value(term, &lower_val, span, span_id)
     })
 }
 

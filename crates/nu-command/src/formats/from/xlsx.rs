@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
 use std::io::Cursor;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct FromXlsx;
@@ -38,6 +39,7 @@ impl Command for FromXlsx {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let head_id = call.head_id;
 
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
@@ -47,7 +49,7 @@ impl Command for FromXlsx {
             vec![]
         };
 
-        from_xlsx(input, head, sel_sheets)
+        from_xlsx(input, head, head_id, sel_sheets)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -108,6 +110,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
 fn from_xlsx(
     input: PipelineData,
     head: Span,
+    head_id: SpanId,
     sel_sheets: Vec<String>,
 ) -> Result<PipelineData, ShellError> {
     let span = input.span();
@@ -146,7 +149,7 @@ fn from_xlsx(
                             Data::String(s) => Value::string(s, head),
                             Data::Float(f) => Value::float(*f, head),
                             Data::Int(i) => Value::int(*i, head),
-                            Data::Bool(b) => Value::bool(*b, head),
+                            Data::Bool(b) => Value::bool(*b, head_id),
                             Data::DateTime(d) => d
                                 .as_datetime()
                                 .and_then(|d| match tz.from_local_datetime(&d) {

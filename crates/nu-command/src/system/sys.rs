@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
 use nu_engine::command_prelude::*;
-use nu_protocol::LazyRecord;
+use nu_protocol::{LazyRecord, SpanId};
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
@@ -32,8 +32,11 @@ impl Command for Sys {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.span(engine_state);
-        let ret = Value::lazy_record(Box::new(SysResult { span }), span);
+        // TODO SPAN: Changed the spans to the call.head
+        let span = call.head;
+        let span_id = call.head_id;
+
+        let ret = Value::lazy_record(Box::new(SysResult { span, span_id }), span);
 
         Ok(ret.into_pipeline_data())
     }
@@ -62,6 +65,7 @@ impl Command for Sys {
 #[derive(Debug, Clone)]
 pub struct SysResult {
     pub span: Span,
+    pub span_id: SpanId,
 }
 
 impl LazyRecord<'_> for SysResult {
@@ -71,11 +75,12 @@ impl LazyRecord<'_> for SysResult {
 
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
         let span = self.span;
+        let span_id = self.span_id;
 
         match column {
             "host" => Ok(host(span)),
             "cpu" => Ok(cpu(span)),
-            "disks" => Ok(disks(span)),
+            "disks" => Ok(disks(span, span_id)),
             "mem" => Ok(mem(span)),
             "temp" => Ok(temp(span)),
             "net" => Ok(net(span)),
@@ -100,7 +105,7 @@ pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()
 }
 
-pub fn disks(span: Span) -> Value {
+pub fn disks(span: Span, span_id: SpanId) -> Value {
     let disks = Disks::new_with_refreshed_list();
 
     let mut output = vec![];
@@ -114,7 +119,7 @@ pub fn disks(span: Span) -> Value {
             "mount" => Value::string(disk.mount_point().to_string_lossy(), span),
             "total" => Value::filesize(disk.total_space() as i64, span),
             "free" => Value::filesize(disk.available_space() as i64, span),
-            "removable" => Value::bool(disk.is_removable(), span),
+            "removable" => Value::bool(disk.is_removable(), span_id),
             "kind" => Value::string(format!("{:?}", disk.kind()), span),
         };
 

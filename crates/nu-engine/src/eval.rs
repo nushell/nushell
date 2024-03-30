@@ -1,16 +1,9 @@
 use crate::{current_dir, current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
-use nu_protocol::{
-    ast::{
-        Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
-        PipelineRedirection, RedirectionSource, RedirectionTarget,
-    },
-    debugger::DebugContext,
-    engine::{Closure, EngineState, Redirection, Stack},
-    eval_base::Eval,
-    Config, FromValue, GetSpan, IntoPipelineData, IoStream, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
-};
+use nu_protocol::{ast::{
+    Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
+    PipelineRedirection, RedirectionSource, RedirectionTarget,
+}, debugger::DebugContext, engine::{Closure, EngineState, Redirection, Stack}, eval_base::Eval, Config, FromValue, GetSpan, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID, SpanId};
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 
 pub fn eval_call<D: DebugContext>(
@@ -143,7 +136,7 @@ pub fn eval_call<D: DebugContext>(
                             } else if let Some(value) = &named.default_value {
                                 callee_stack.add_var(var_id, value.to_owned());
                             } else {
-                                callee_stack.add_var(var_id, Value::bool(true, call.head))
+                                callee_stack.add_var(var_id, Value::bool(true, call.head_id))
                             }
                             found = true;
                         }
@@ -155,7 +148,7 @@ pub fn eval_call<D: DebugContext>(
                         } else if let Some(value) = &named.default_value {
                             callee_stack.add_var(var_id, value.to_owned());
                         } else {
-                            callee_stack.add_var(var_id, Value::bool(true, call.head))
+                            callee_stack.add_var(var_id, Value::bool(true, call.head_id))
                         }
                         found = true;
                     }
@@ -163,7 +156,7 @@ pub fn eval_call<D: DebugContext>(
 
                 if !found {
                     if named.arg.is_none() {
-                        callee_stack.add_var(var_id, Value::bool(false, call.head))
+                        callee_stack.add_var(var_id, Value::bool(false, call.head_id))
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);
                     } else {
@@ -224,7 +217,7 @@ fn eval_external(
 
     let command = engine_state.get_decl(decl_id);
 
-    let mut call = Call::new(head.get_span(engine_state));
+    let mut call = Call::new(head.get_span(engine_state), head.span_id);
 
     call.add_positional(head.clone());
 
@@ -710,12 +703,14 @@ impl Eval for EvalRuntime {
     fn regex_match(
         engine_state: &EngineState,
         op_span: Span,
+        op_span_id: SpanId,
         lhs: &Value,
         rhs: &Value,
         invert: bool,
         expr_span: Span,
+        expr_span_id: SpanId,
     ) -> Result<Value, ShellError> {
-        lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
+        lhs.regex_match(engine_state, op_span, op_span_id, rhs, invert, expr_span, expr_span_id)
     }
 
     fn eval_assignment<D: DebugContext>(
@@ -725,6 +720,7 @@ impl Eval for EvalRuntime {
         rhs: &Expression,
         assignment: Assignment,
         op_span: Span,
+        op_span_id: SpanId,
         _expr_span: Span,
     ) -> Result<Value, ShellError> {
         let rhs = eval_expression::<D>(engine_state, stack, rhs)?;
@@ -733,23 +729,23 @@ impl Eval for EvalRuntime {
             Assignment::Assign => rhs,
             Assignment::PlusAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
-                lhs.add(op_span, &rhs, op_span)?
+                lhs.add(op_span, op_span_id, &rhs, op_span)?
             }
             Assignment::MinusAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
-                lhs.sub(op_span, &rhs, op_span)?
+                lhs.sub(op_span, op_span_id, &rhs, op_span)?
             }
             Assignment::MultiplyAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
-                lhs.mul(op_span, &rhs, op_span)?
+                lhs.mul(op_span, op_span_id, &rhs, op_span)?
             }
             Assignment::DivideAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
-                lhs.div(op_span, &rhs, op_span)?
+                lhs.div(op_span, op_span_id, &rhs, op_span)?
             }
             Assignment::AppendAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
-                lhs.append(op_span, &rhs, op_span)?
+                lhs.append(op_span, op_span_id, &rhs, op_span)?
             }
         };
 

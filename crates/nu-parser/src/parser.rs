@@ -10,17 +10,14 @@ use crate::{
 use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
-use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, span, BlockId, DidYouMean, Flag,
-    GetSpan, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId,
-    ENV_VARIABLE_ID, IN_VARIABLE_ID,
-};
+use nu_protocol::{ast::*, engine::StateWorkingSet, eval_const::eval_constant, span, BlockId, DidYouMean, Flag, GetSpan, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID, SpanId};
 use std::{
     collections::{HashMap, HashSet},
     num::ParseIntError,
     str,
     sync::Arc,
 };
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
 pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     Expression::garbage(working_set, span)
@@ -347,6 +344,7 @@ fn ensure_flag_arg_type(
     arg: Expression,
     arg_shape: &SyntaxShape,
     long_name_span: Span,
+    long_name_span_id: SpanId,
 ) -> (Spanned<String>, Expression) {
     let arg_span = arg.get_span(&working_set);
 
@@ -360,6 +358,7 @@ fn ensure_flag_arg_type(
             Spanned {
                 item: arg_name,
                 span: long_name_span,
+                span_id: long_name_span_id,
             },
             Expression::garbage(working_set, arg_span),
         )
@@ -368,6 +367,7 @@ fn ensure_flag_arg_type(
             Spanned {
                 item: arg_name,
                 span: long_name_span,
+                span_id: long_name_span_id,
             },
             arg,
         )
@@ -381,6 +381,7 @@ fn parse_long_flag(
     sig: &Signature,
 ) -> (Option<Spanned<String>>, Option<Expression>) {
     let arg_span = spans[*spans_idx];
+    let arg_span_id = working_set.add_span(arg_span);
     let arg_contents = working_set.get_span_contents(arg_span);
 
     if arg_contents.starts_with(b"--") {
@@ -398,12 +399,16 @@ fn parse_long_flag(
                         span.start += long_name_len + 3; //offset by long flag and '='
 
                         let arg = parse_value(working_set, span, arg_shape);
+                        let long_name_span = Span::new(arg_span.start, arg_span.start + long_name_len + 2);
+                        let long_name_span_id = working_set.add_span(long_name_span);
+
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
                             long_name,
                             arg,
                             arg_shape,
-                            Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                            long_name_span,
+                            long_name_span_id,
                         );
                         (Some(arg_name), Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
@@ -411,7 +416,7 @@ fn parse_long_flag(
 
                         *spans_idx += 1;
                         let (arg_name, val_expression) =
-                            ensure_flag_arg_type(working_set, long_name, arg, arg_shape, arg_span);
+                            ensure_flag_arg_type(working_set, long_name, arg, arg_shape, arg_span, arg_span_id);
                         (Some(arg_name), Some(val_expression))
                     } else {
                         working_set.error(ParseError::MissingFlagParam(
@@ -422,6 +427,7 @@ fn parse_long_flag(
                             Some(Spanned {
                                 item: long_name,
                                 span: arg_span,
+                                span_id: arg_span_id,
                             }),
                             None,
                         )
@@ -437,12 +443,16 @@ fn parse_long_flag(
 
                         let arg = parse_value(working_set, span, &SyntaxShape::Boolean);
 
+                        let long_name_span = Span::new(arg_span.start, arg_span.start + long_name_len + 2);
+                        let long_name_span_id = working_set.add_span(long_name_span);
+
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
                             long_name,
                             arg,
                             &SyntaxShape::Boolean,
-                            Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                            long_name_span,
+                            long_name_span_id
                         );
                         (Some(arg_name), Some(val_expression))
                     } else {
@@ -450,6 +460,7 @@ fn parse_long_flag(
                             Some(Spanned {
                                 item: long_name,
                                 span: arg_span,
+                                span_id: arg_span_id,
                             }),
                             None,
                         )
@@ -466,6 +477,7 @@ fn parse_long_flag(
                     Some(Spanned {
                         item: long_name.clone(),
                         span: arg_span,
+                        span_id: arg_span_id,
                     }),
                     None,
                 )
@@ -476,6 +488,7 @@ fn parse_long_flag(
                 Some(Spanned {
                     item: "--".into(),
                     span: arg_span,
+                    span_id: arg_span_id,
                 }),
                 None,
             )
@@ -780,10 +793,9 @@ pub fn parse_internal_call(
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id);
 
-    let mut call = Call::new(command_span);
+    let head_id = working_set.add_span(command_span);
+    let mut call = Call::new(command_span, head_id);
     call.decl_id = decl_id;
-    call.head = command_span;
-    let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
@@ -903,7 +915,8 @@ pub fn parse_internal_call(
                 call.add_unknown(arg);
             } else {
                 for flag in short_flags {
-                    let _ = working_set.add_span(spans[spans_idx]);
+                    let flag_span = spans[spans_idx];
+                    let flag_span_id = working_set.add_span(flag_span);
 
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
@@ -914,11 +927,13 @@ pub fn parse_internal_call(
                                     call.add_named((
                                         Spanned {
                                             item: String::new(),
-                                            span: spans[spans_idx],
+                                            span: flag_span,
+                                            span_id: flag_span_id,
                                         },
                                         Some(Spanned {
                                             item: short.to_string(),
-                                            span: spans[spans_idx],
+                                            span: flag_span,
+                                            span_id: flag_span_id,
                                         }),
                                         Some(arg),
                                     ));
@@ -927,7 +942,8 @@ pub fn parse_internal_call(
                                 call.add_named((
                                     Spanned {
                                         item: flag.long.clone(),
-                                        span: spans[spans_idx],
+                                        span: flag_span,
+                                        span_id: flag_span_id,
                                     },
                                     None,
                                     Some(arg),
@@ -945,11 +961,13 @@ pub fn parse_internal_call(
                             call.add_named((
                                 Spanned {
                                     item: String::new(),
-                                    span: spans[spans_idx],
+                                    span: flag_span,
+                                    span_id: flag_span_id,
                                 },
                                 Some(Spanned {
                                     item: short.to_string(),
-                                    span: spans[spans_idx],
+                                    span: flag_span,
+                                    span_id: flag_span_id,
                                 }),
                                 None,
                             ));
@@ -958,7 +976,8 @@ pub fn parse_internal_call(
                         call.add_named((
                             Spanned {
                                 item: flag.long.clone(),
-                                span: spans[spans_idx],
+                                span: flag_span,
+                                span_id: flag_span_id,
                             },
                             None,
                             None,
@@ -1555,10 +1574,15 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         (None, span)
     };
 
+    let range_op_span_id = working_set.add_span(range_op_span);
+    let next_op_span_id = working_set.add_span(next_op_span);
+
     let range_op = RangeOperator {
         inclusion,
         span: range_op_span,
+        span_id: range_op_span_id,
         next_op_span,
+        next_op_span_id,
     };
 
     Expression::new(
@@ -2223,10 +2247,9 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    match parse_unit_value(bytes, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
+    match parse_unit_value(working_set, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
         Some(Ok(expr)) => {
-            let span_id = working_set.add_span(span);
-            expr.with_span_id(span_id)
+            expr
         }
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("duration"));
@@ -2251,12 +2274,11 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(working_set, span);
     }
 
-    match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
+    match parse_unit_value(working_set, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
         x.to_ascii_uppercase()
     }) {
         Some(Ok(expr)) => {
-            let span_id = working_set.add_span(span);
-            expr.with_span_id(span_id)
+            expr
         }
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("filesize"));
@@ -2273,12 +2295,14 @@ type ParseUnitResult<'res> = Result<Expression, Box<dyn Fn(&'res str) -> ParseEr
 type UnitGroup<'unit> = (Unit, &'unit str, Option<(Unit, i64)>);
 
 pub fn parse_unit_value<'res>(
-    bytes: &[u8],
+    working_set: &mut StateWorkingSet,
     span: Span,
     unit_groups: &[UnitGroup],
     ty: Type,
     transform: fn(String) -> String,
 ) -> Option<ParseUnitResult<'res>> {
+    let bytes = working_set.get_span_contents(span);
+
     if bytes.len() < 2
         || !(bytes[0].is_ascii_digit() || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
     {
@@ -2292,6 +2316,7 @@ pub fn parse_unit_value<'res>(
         let lhs = strip_underscores(value[..lhs_len].as_bytes());
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
+        let unit_span_id = working_set.add_span(unit_span);
 
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,
@@ -2318,10 +2343,11 @@ pub fn parse_unit_value<'res>(
         trace!("-- found {} {:?}", num, unit);
         let expr = Expression::new_unknown(
             Expr::ValueWithUnit(
-                Box::new(Expression::new_unknown(Expr::Int(num), Type::Number)),
+                Box::new(Expression::new(working_set, Expr::Int(num), span, Type::Number)),
                 Spanned {
                     item: unit,
                     span: unit_span,
+                    span_id: unit_span_id,
                 },
             ),
             ty,
@@ -5111,6 +5137,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
             let expr = Expr::Call(Box::new(Call {
                 head: Span::unknown(),
+                head_id: UNKNOWN_SPAN_ID,
                 decl_id,
                 arguments,
                 parser_info: HashMap::new(),
@@ -6093,6 +6120,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             Spanned {
                 item: "keep-env".to_string(),
                 span: Span::new(0, 0),
+                span_id: UNKNOWN_SPAN_ID,
             },
             None,
             None,
@@ -6105,6 +6133,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             working_set,
             Expr::Call(Box::new(Call {
                 head: Span::new(0, 0),
+                head_id: UNKNOWN_SPAN_ID,
                 arguments: output,
                 decl_id,
                 parser_info: HashMap::new(),

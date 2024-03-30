@@ -1,14 +1,15 @@
 use core::slice;
 use indexmap::IndexMap;
-use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Span, SpanId, Value};
 
 pub fn run_with_function(
     call: &Call,
     input: PipelineData,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    mf: impl Fn(&[Value], Span, SpanId, Span, SpanId) -> Result<Value, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
-    let res = calculate(input, name, mf);
+    let name_id = call.head_id;
+    let res = calculate(input, name, name_id, mf);
     match res {
         Ok(v) => Ok(v.into_pipeline_data()),
         Err(e) => Err(e),
@@ -18,8 +19,10 @@ pub fn run_with_function(
 fn helper_for_tables(
     values: &[Value],
     val_span: Span,
+    val_span_id: SpanId,
     name: Span,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    name_id: SpanId,
+    mf: impl Fn(&[Value], Span, SpanId, Span, SpanId) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     // If we are not dealing with Primitives, then perhaps we are dealing with a table
     // Create a key for each column name
@@ -37,14 +40,14 @@ fn helper_for_tables(
             Value::Error { error, .. } => return Err(*error.clone()),
             _ => {
                 //Turns out we are not dealing with a table
-                return mf(values, val.span(), name);
+                return mf(values, val.span(), val.span_id(), name, name_id);
             }
         }
     }
     // The mathematical function operates over the columns of the table
     let mut column_totals = IndexMap::new();
     for (col_name, col_vals) in column_values {
-        if let Ok(out) = mf(&col_vals, val_span, name) {
+        if let Ok(out) = mf(&col_vals, val_span, val_span_id, name, name_id) {
             column_totals.insert(col_name, out);
         }
     }
@@ -63,29 +66,33 @@ fn helper_for_tables(
 pub fn calculate(
     values: PipelineData,
     name: Span,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    name_id: SpanId,
+    mf: impl Fn(&[Value], Span, SpanId, Span, SpanId) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     // TODO implement spans for ListStream, thus negating the need for unwrap_or().
     let span = values.span().unwrap_or(name);
+    let span_id = values.span_id().unwrap_or(name_id);
     match values {
         PipelineData::ListStream(s, ..) => {
-            helper_for_tables(&s.collect::<Vec<Value>>(), span, name, mf)
+            helper_for_tables(&s.collect::<Vec<Value>>(), span, span_id, name, name_id, mf)
         }
         PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(
                 vals,
-                values.span().expect("PipelineData::Value had no span"),
+                span,
+                span_id,
                 name,
+                name_id,
                 mf,
             ),
-            _ => mf(vals, span, name),
+            _ => mf(vals, span, span_id, name, name_id),
         },
         PipelineData::Value(Value::Record { val: record, .. }, ..) => {
             let mut record = record;
             record
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
-                    *val = mf(slice::from_ref(val), span, name)?;
+                    *val = mf(slice::from_ref(val), span, span_id, name, name_id)?;
                     Ok(())
                 })?;
             Ok(Value::record(*record, span))
@@ -93,12 +100,12 @@ pub fn calculate(
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
                 .into_range_iter(None)?
-                .map(|val| mf(&[val], span, name))
+                .map(|val| mf(&[val], span, span_id, name, name_id))
                 .collect();
 
-            mf(&new_vals?, span, name)
+            mf(&new_vals?, span, span_id, name, name_id)
         }
-        PipelineData::Value(val, ..) => mf(&[val], span, name),
+        PipelineData::Value(val, ..) => mf(&[val], span, span_id, name, name_id),
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: name }),
         val => Err(ShellError::UnsupportedInput {
             msg: "Only ints, floats, lists, records, or ranges are supported".into(),

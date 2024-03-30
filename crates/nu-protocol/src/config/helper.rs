@@ -1,8 +1,8 @@
-use crate::{Record, ShellError, Span, Value};
+use crate::{Record, ShellError, Span, SpanId, Value};
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 pub(super) trait ReconstructVal {
-    fn reconstruct_value(&self, span: Span) -> Value;
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value;
 }
 
 pub(super) fn process_string_enum<T, E>(
@@ -15,6 +15,7 @@ pub(super) fn process_string_enum<T, E>(
     E: Display,
 {
     let span = value.span();
+    let span_id = value.span_id();
     if let Ok(v) = value.coerce_str() {
         match v.parse() {
             Ok(format) => {
@@ -32,7 +33,7 @@ pub(super) fn process_string_enum<T, E>(
                     inner: vec![],
                 });
                 // Reconstruct
-                *value = config_point.reconstruct_value(span);
+                *value = config_point.reconstruct_value(span, span_id);
             }
         }
     } else {
@@ -44,7 +45,7 @@ pub(super) fn process_string_enum<T, E>(
             inner: vec![],
         });
         // Reconstruct
-        *value = config_point.reconstruct_value(span);
+        *value = config_point.reconstruct_value(span, span_id);
     }
 }
 
@@ -64,7 +65,7 @@ pub(super) fn process_bool_config(
             inner: vec![],
         });
         // Reconstruct
-        *value = Value::bool(*config_point, value.span());
+        *value = Value::bool(*config_point, value.span_id());
     }
 }
 

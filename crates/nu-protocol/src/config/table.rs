@@ -1,5 +1,5 @@
 use super::helper::ReconstructVal;
-use crate::{record, Config, ShellError, Span, Value};
+use crate::{record, Config, ShellError, Span, Value, SpanId};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -52,7 +52,7 @@ impl FromStr for TableMode {
 }
 
 impl ReconstructVal for TableMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 TableMode::Basic => "basic",
@@ -109,7 +109,7 @@ impl FromStr for FooterMode {
 }
 
 impl ReconstructVal for FooterMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 FooterMode::Always => "always".to_string(),
@@ -146,7 +146,7 @@ impl FromStr for TableIndexMode {
 }
 
 impl ReconstructVal for TableIndexMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 TableIndexMode::Always => "always",
@@ -289,12 +289,12 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
     None
 }
 
-pub(super) fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_trim_strategy(config: &Config, span: Span, span_id: SpanId) -> Value {
     match &config.trim_strategy {
         TrimStrategy::Wrap { try_to_keep_words } => Value::record(
             record! {
                 "methodology" => Value::string("wrapping", span),
-                "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span),
+                "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span_id),
             },
             span,
         ),

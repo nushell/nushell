@@ -8,11 +8,7 @@ use base64::{
 };
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{EngineState, Stack},
-    PipelineData, ShellError, Span, Spanned, Value,
-};
+use nu_protocol::{ast::{Call, CellPath}, engine::{EngineState, Stack}, PipelineData, ShellError, Span, SpanId, Spanned, Value};
 
 pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
                     \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
@@ -50,6 +46,7 @@ pub fn operate(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+    let head_id = call.head_id;
     let character_set: Option<Spanned<String>> =
         call.get_flag(engine_state, stack, "character-set")?;
     let binary = call.has_flag(engine_state, stack, "binary")?;
@@ -62,6 +59,7 @@ pub fn operate(
         None => Spanned {
             item: "standard".to_string(),
             span: head, // actually this span is always useless, because default character_set is always valid.
+            span_id: head_id, // actually this span is always useless, because default character_set is always valid.
         },
     };
 
@@ -74,7 +72,7 @@ pub fn operate(
         cell_paths,
     };
 
-    general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    general_operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
 }
 
 fn action(
@@ -82,6 +80,7 @@ fn action(
     // only used for `decode` action
     args: &Arguments,
     command_span: Span,
+    command_span_id: SpanId,
 ) -> Value {
     let base64_config = &args.encoding_config;
     let output_binary = args.binary;
@@ -209,6 +208,7 @@ fn action(
 mod tests {
     use super::{action, ActionType, Arguments, Base64Config};
     use nu_protocol::{Span, Spanned, Value};
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     #[test]
     fn base64_encode_standard() {
@@ -222,6 +222,7 @@ mod tests {
                     character_set: Spanned {
                         item: "standard".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Encode,
                 },
@@ -229,6 +230,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
         assert_eq!(actual, expected);
     }
@@ -245,6 +247,7 @@ mod tests {
                     character_set: Spanned {
                         item: "standard-no-padding".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Encode,
                 },
@@ -252,6 +255,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
         assert_eq!(actual, expected);
     }
@@ -268,6 +272,7 @@ mod tests {
                     character_set: Spanned {
                         item: "url-safe".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Encode,
                 },
@@ -275,6 +280,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
         assert_eq!(actual, expected);
     }
@@ -291,6 +297,7 @@ mod tests {
                     character_set: Spanned {
                         item: "binhex".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Decode,
                 },
@@ -298,6 +305,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
         assert_eq!(actual, expected);
     }
@@ -314,6 +322,7 @@ mod tests {
                     character_set: Spanned {
                         item: "binhex".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Decode,
                 },
@@ -321,6 +330,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
         assert_eq!(actual, expected);
     }
@@ -337,6 +347,7 @@ mod tests {
                     character_set: Spanned {
                         item: "standard".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Encode,
                 },
@@ -344,6 +355,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
         assert_eq!(actual, expected);
     }
@@ -359,6 +371,7 @@ mod tests {
                     character_set: Spanned {
                         item: "standard".to_string(),
                         span: Span::test_data(),
+                        span_id: UNKNOWN_SPAN_ID,
                     },
                     action_type: ActionType::Decode,
                 },
@@ -366,6 +379,7 @@ mod tests {
                 cell_paths: None,
             },
             Span::test_data(),
+            UNKNOWN_SPAN_ID,
         );
 
         match actual {

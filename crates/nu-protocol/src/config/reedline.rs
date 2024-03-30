@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{extract_value, helper::ReconstructVal};
-use crate::{record, Config, ShellError, Span, Value};
+use crate::{record, Config, ShellError, Span, Value, SpanId};
 use serde::{Deserialize, Serialize};
 
 /// Definition of a parsed keybinding from the config object
@@ -55,7 +55,7 @@ impl FromStr for NuCursorShape {
 }
 
 impl ReconstructVal for NuCursorShape {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 NuCursorShape::Line => "line",
@@ -92,7 +92,7 @@ impl FromStr for HistoryFileFormat {
 }
 
 impl ReconstructVal for HistoryFileFormat {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 HistoryFileFormat::Sqlite => "sqlite",
@@ -123,7 +123,7 @@ impl FromStr for EditBindings {
 }
 
 impl ReconstructVal for EditBindings {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 EditBindings::Vi => "vi",

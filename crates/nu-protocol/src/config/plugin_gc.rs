@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{record, ShellError, Span, Value};
+use crate::{record, ShellError, Span, SpanId, Value};
 
 use super::helper::{
     process_bool_config, report_invalid_key, report_invalid_value, ReconstructVal,
@@ -61,17 +61,17 @@ impl PluginGcConfigs {
             });
         } else {
             report_invalid_value("should be a record", value.span(), errors);
-            *value = self.reconstruct_value(value.span());
+            *value = self.reconstruct_value(value.span(), value.span_id());
         }
     }
 }
 
 impl ReconstructVal for PluginGcConfigs {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::record(
             record! {
-                "default" => self.default.reconstruct_value(span),
-                "plugins" => reconstruct_plugins(&self.plugins, span),
+                "default" => self.default.reconstruct_value(span, span_id),
+                "plugins" => reconstruct_plugins(&self.plugins, span, span_id),
             },
             span,
         )
@@ -100,7 +100,7 @@ fn process_plugins(
                 report_invalid_value("should be a record", value.span(), errors);
                 if let Some(conf) = plugins.get(key) {
                     // Reconstruct the value if it existed before
-                    *value = conf.reconstruct_value(value.span());
+                    *value = conf.reconstruct_value(value.span(), value.span_id());
                     true
                 } else {
                     // Remove it if it didn't
@@ -111,11 +111,11 @@ fn process_plugins(
     }
 }
 
-fn reconstruct_plugins(plugins: &HashMap<String, PluginGcConfig>, span: Span) -> Value {
+fn reconstruct_plugins(plugins: &HashMap<String, PluginGcConfig>, span: Span, span_id: SpanId) -> Value {
     Value::record(
         plugins
             .iter()
-            .map(|(key, val)| (key.to_owned(), val.reconstruct_value(span)))
+            .map(|(key, val)| (key.to_owned(), val.reconstruct_value(span, span_id)))
             .collect(),
         span,
     )
@@ -177,16 +177,16 @@ impl PluginGcConfig {
             })
         } else {
             report_invalid_value("should be a record", value.span(), errors);
-            *value = self.reconstruct_value(value.span());
+            *value = self.reconstruct_value(value.span(), value.span_id());
         }
     }
 }
 
 impl ReconstructVal for PluginGcConfig {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::record(
             record! {
-                "enabled" => Value::bool(self.enabled, span),
+                "enabled" => Value::bool(self.enabled, span_id),
                 "stop_after" => Value::duration(self.stop_after, span),
             },
             span,
@@ -200,6 +200,7 @@ fn join_path<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
 
 #[cfg(test)]
 mod tests {
+    use crate::engine::UNKNOWN_SPAN_ID;
     use super::*;
 
     fn test_pair() -> (PluginGcConfigs, Value) {
@@ -247,6 +248,6 @@ mod tests {
     #[test]
     fn reconstruct() {
         let (input, expected) = test_pair();
-        assert_eq!(expected, input.reconstruct_value(Span::test_data()));
+        assert_eq!(expected, input.reconstruct_value(Span::test_data(), UNKNOWN_SPAN_ID));
     }
 }

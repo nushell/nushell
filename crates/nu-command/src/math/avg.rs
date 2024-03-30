@@ -3,6 +3,7 @@ use crate::math::{
     utils::run_with_function,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
@@ -72,14 +73,14 @@ impl Command for SubCommand {
     }
 }
 
-pub fn average(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn average(values: &[Value], span: Span, span_id: SpanId, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
-    let total = &sum(Value::int(0, head), values.to_vec(), span, head)?;
+    let total = &sum(Value::int(0, head), values.to_vec(), span, span_id, head, head_id)?;
     let span = total.span();
     match total {
         Value::Filesize { val, .. } => Ok(Value::filesize(val / values.len() as i64, span)),
         Value::Duration { val, .. } => Ok(Value::duration(val / values.len() as i64, span)),
-        _ => total.div(head, &Value::int(values.len() as i64, head), head),
+        _ => total.div(head, head_id, &Value::int(values.len() as i64, head), head),
     }
 }
 

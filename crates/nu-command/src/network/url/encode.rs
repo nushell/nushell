@@ -2,6 +2,7 @@ use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::command_prelude::*;
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -55,10 +56,11 @@ impl Command for SubCommand {
                 args,
                 input,
                 call.head,
+                call.head_id,
                 engine_state.ctrlc.clone(),
             )
         } else {
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
+            operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
         }
     }
 
@@ -90,7 +92,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span, head_id: SpanId) -> Value {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = NON_ALPHANUMERIC;
@@ -109,7 +111,7 @@ fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span, head_id: SpanId) -> Value {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');

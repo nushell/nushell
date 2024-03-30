@@ -25,10 +25,11 @@ pub(crate) fn convert_columns(
         .into_iter()
         .map(|value| {
             let span = value.span();
+            let span_id = value.span_id();
             match value {
                 Value::String { val, .. } => {
                     col_span = span_join(&[col_span, span]);
-                    Ok(Spanned { item: val, span })
+                    Ok(Spanned { item: val, span, span_id})
                 }
                 _ => Err(ShellError::GenericError {
                     error: "Incorrect column format".into(),

@@ -1,5 +1,5 @@
 use super::NuLazyFrame;
-use nu_protocol::{record, CustomValue, ShellError, Span, Value};
+use nu_protocol::{record, CustomValue, ShellError, Span, Value, SpanId};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuLazyFrame {
@@ -25,7 +25,7 @@ impl CustomValue for NuLazyFrame {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
         let optimized_plan = self
             .as_ref()
             .describe_optimized_plan()

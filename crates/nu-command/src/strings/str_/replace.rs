@@ -1,6 +1,7 @@
 use fancy_regex::{NoExpand, Regex};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 struct Arguments {
     all: bool,
@@ -98,7 +99,7 @@ impl Command for SubCommand {
             no_regex,
             multiline,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -189,6 +190,7 @@ fn action(
         ..
     }: &Arguments,
     head: Span,
+    head_id: SpanId,
 ) -> Value {
     match input {
         Value::String { val, .. } => {

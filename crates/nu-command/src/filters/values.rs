@@ -140,6 +140,7 @@ fn values(
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(v, ..) => {
             let span = v.span();
+            let span_id = v.span_id();
             match v {
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
                     Ok(cols) => Ok(cols
@@ -148,7 +149,7 @@ fn values(
                     Err(err) => Err(err),
                 },
                 Value::Custom { val, .. } => {
-                    let input_as_base_value = val.to_base_value(span)?;
+                    let input_as_base_value = val.to_base_value(span, span_id)?;
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols
                             .into_iter()

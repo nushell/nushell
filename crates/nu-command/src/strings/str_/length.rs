@@ -130,10 +130,10 @@ fn run(
         cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
         graphemes,
     };
-    operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
 }
 
-fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
+fn action(input: &Value, arg: &Arguments, head: Span, head: SpanId) -> Value {
     match input {
         Value::String { val, .. } => Value::int(
             if arg.graphemes {

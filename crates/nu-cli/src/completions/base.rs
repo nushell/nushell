@@ -1,5 +1,5 @@
 use crate::completions::{CompletionOptions, SortBy};
-use nu_protocol::{engine::StateWorkingSet, levenshtein_distance, Span};
+use nu_protocol::{engine::StateWorkingSet, levenshtein_distance, Span, SpanId};
 use reedline::Suggestion;
 
 // Completer trait represents the three stages of the completion
@@ -10,6 +10,7 @@ pub trait Completer {
         working_set: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
+        span_id: SpanId,
         offset: usize,
         pos: usize,
         options: &CompletionOptions,

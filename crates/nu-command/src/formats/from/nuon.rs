@@ -1,9 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    ast::{Expr, Expression, RecordItem},
-    engine::{StateWorkingSet, UNKNOWN_SPAN_ID},
-    Range, Unit,
-};
+use nu_protocol::{ast::{Expr, Expression, RecordItem}, engine::{StateWorkingSet, UNKNOWN_SPAN_ID}, Range, SpanId, Unit};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -52,7 +48,8 @@ impl Command for FromNuon {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let (string_input, _span, metadata) = input.collect_string_strict(head)?;
+        let head_id = call.head_id;
+        let (string_input, _span, _span_id, metadata) = input.collect_string_strict(head, head_id)?;
 
         let engine_state = engine_state.clone();
 
@@ -135,7 +132,7 @@ impl Command for FromNuon {
             });
         }
 
-        let result = convert_to_value(&working_set, expr, head, &string_input);
+        let result = convert_to_value(&working_set, expr, head, head_id, &string_input);
 
         match result {
             Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
@@ -154,8 +151,10 @@ fn convert_to_value(
     working_set: &StateWorkingSet,
     expr: Expression,
     head_span: Span,
+    head_span_id: SpanId,
     original_text: &str,
 ) -> Result<Value, ShellError> {
+    let expr_span_id = expr.span_id;
     let expr_span = expr.get_span(working_set);
 
     match expr.expr {
@@ -184,7 +183,7 @@ fn convert_to_value(
             span: expr_span,
         }),
         Expr::Binary(val) => Ok(Value::binary(val, head_span)),
-        Expr::Bool(val) => Ok(Value::bool(val, head_span)),
+        Expr::Bool(val) => Ok(Value::bool(val, head_span_id)),
         Expr::Call(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
@@ -216,7 +215,7 @@ fn convert_to_value(
                     span: expr_span,
                 })
             } else {
-                convert_to_value(working_set, full_cell_path.head, head_span, original_text)
+                convert_to_value(working_set, full_cell_path.head, head_span, head_span_id, original_text)
             }
         }
 
@@ -253,6 +252,7 @@ fn convert_to_value(
                     working_set,
                     val,
                     head_span,
+                    head_span_id,
                     original_text,
                 )?);
             }
@@ -274,25 +274,25 @@ fn convert_to_value(
         }),
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
-                convert_to_value(working_set, *f, head_span, original_text)?
+                convert_to_value(working_set, *f, head_span, head_span_id, original_text)?
             } else {
                 Value::nothing(expr_span)
             };
 
             let next = if let Some(s) = next {
-                convert_to_value(working_set, *s, head_span, original_text)?
+                convert_to_value(working_set, *s, head_span, head_span_id, original_text)?
             } else {
                 Value::nothing(expr_span)
             };
 
             let to = if let Some(t) = to {
-                convert_to_value(working_set, *t, head_span, original_text)?
+                convert_to_value(working_set, *t, head_span, head_span_id, original_text)?
             } else {
                 Value::nothing(expr_span)
             };
 
             Ok(Value::range(
-                Range::new(expr_span, from, next, to, &operator)?,
+                Range::new(expr_span, expr_span_id, from, next, to, &operator)?,
                 expr_span,
             ))
         }
@@ -327,7 +327,7 @@ fn convert_to_value(
                             key_spans.push(key_span);
                             record.push(
                                 key_str,
-                                convert_to_value(working_set, val, head_span, original_text)?,
+                                convert_to_value(working_set, val, head_span, head_span_id, original_text)?,
                             );
                         }
                     }
@@ -418,7 +418,7 @@ fn convert_to_value(
                     .iter()
                     .zip(row)
                     .map(|(col, cell)| {
-                        convert_to_value(working_set, cell, head_span, original_text)
+                        convert_to_value(working_set, cell, head_span, head_span_id, original_text)
                             .map(|val| (col.clone(), val))
                     })
                     .collect::<Result<_, _>>()?;

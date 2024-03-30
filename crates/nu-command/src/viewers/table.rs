@@ -357,6 +357,8 @@ fn handle_table_command(
     cfg: TableConfig,
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
+    let span_id = input.data.span_id().unwrap_or(input.call.head_id);
+
     match input.data {
         PipelineData::ExternalStream { .. } => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
@@ -366,6 +368,7 @@ fn handle_table_command(
                 Box::new([Ok(bytes)].into_iter()),
                 ctrlc,
                 input.call.head,
+                input.call.head_id,
                 None,
             );
 
@@ -374,6 +377,7 @@ fn handle_table_command(
                 stderr: None,
                 exit_code: None,
                 span: input.call.head,
+                span_id: input.call.head_id,
                 metadata: None,
                 trim_end_newline: false,
             })
@@ -404,7 +408,7 @@ fn handle_table_command(
             Err(*error)
         }
         PipelineData::Value(Value::Custom { val, .. }, ..) => {
-            let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
+            let base_pipeline = val.to_base_value(span, span_id)?.into_pipeline_data();
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
@@ -628,13 +632,14 @@ fn handle_row_stream(
         ctrlc.clone(),
         cfg,
     );
-    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, None);
+    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, input.call.head_id, None);
 
     Ok(PipelineData::ExternalStream {
         stdout: Some(stream),
         stderr: None,
         exit_code: None,
         span: input.call.head,
+        span_id: input.call.head_id,
         metadata: None,
         trim_end_newline: false,
     })

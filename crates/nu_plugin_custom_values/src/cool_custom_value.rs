@@ -1,4 +1,4 @@
-use nu_protocol::{ast, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast, CustomValue, ShellError, Span, SpanId, Value};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -53,7 +53,7 @@ impl CustomValue for CoolCustomValue {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: Span, _span_id: SpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             format!("I used to be a custom value! My data was ({})", self.cool),
             span,
@@ -63,8 +63,10 @@ impl CustomValue for CoolCustomValue {
     fn follow_path_int(
         &self,
         _self_span: Span,
+        _self_span_id: SpanId,
         index: usize,
         path_span: Span,
+        _path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         if index == 0 {
             Ok(Value::string(&self.cool, path_span))
@@ -79,8 +81,10 @@ impl CustomValue for CoolCustomValue {
     fn follow_path_string(
         &self,
         self_span: Span,
+        _self_span_id: SpanId,
         column_name: String,
         path_span: Span,
+        _path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         if column_name == "cool" {
             Ok(Value::string(&self.cool, path_span))
@@ -106,8 +110,10 @@ impl CustomValue for CoolCustomValue {
     fn operation(
         &self,
         lhs_span: Span,
+        _lhs_span_id: SpanId,
         operator: ast::Operator,
         op_span: Span,
+        _op_span_id: SpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         match operator {

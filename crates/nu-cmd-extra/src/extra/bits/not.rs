@@ -1,6 +1,7 @@
 use super::{get_number_bytes, NumberBytes};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct BitsNot;
@@ -67,6 +68,7 @@ impl Command for BitsNot {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let head_id = call.head_id;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
@@ -82,7 +84,7 @@ impl Command for BitsNot {
             number_size,
         };
 
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -134,7 +136,7 @@ impl Command for BitsNot {
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: Span, span_id: SpanId) -> Value {
     let Arguments {
         signed,
         number_size,

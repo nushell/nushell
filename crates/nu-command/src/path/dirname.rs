@@ -2,6 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 struct Arguments {
     replace: Option<Spanned<String>>,
@@ -156,7 +157,7 @@ impl Command for SubCommand {
     }
 }
 
-fn get_dirname(path: &Path, span: Span, args: &Arguments) -> Value {
+fn get_dirname(path: &Path, span: Span, span_id: SpanId, args: &Arguments) -> Value {
     let num_levels = args.num_levels.as_ref().map_or(1, |val| *val);
 
     let mut dirname = path;

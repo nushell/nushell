@@ -192,10 +192,11 @@ pub trait InterfaceManager {
             PipelineDataHeader::ExternalStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let span = info.span;
+                let span_id = info.span_id;
                 let new_raw_stream = |raw_info: RawStreamInfo| {
                     let reader = handle.read_stream(raw_info.id, self.get_interface())?;
                     let mut stream =
-                        RawStream::new(Box::new(reader), ctrlc.cloned(), span, raw_info.known_size);
+                        RawStream::new(Box::new(reader), ctrlc.cloned(), span, span_id, raw_info.known_size);
                     stream.is_binary = raw_info.is_binary;
                     Ok::<_, ShellError>(stream)
                 };
@@ -211,6 +212,7 @@ pub trait InterfaceManager {
                         })
                         .transpose()?,
                     span: info.span,
+                    span_id: info.span_id,
                     metadata: None,
                     trim_end_newline: info.trim_end_newline,
                 }
@@ -286,6 +288,7 @@ pub trait Interface: Clone + Send {
                 stderr,
                 exit_code,
                 span,
+                span_id,
                 metadata: _,
                 trim_end_newline,
             } => {
@@ -305,6 +308,7 @@ pub trait Interface: Clone + Send {
                 // Generate the header, with the stream ids
                 let header = PipelineDataHeader::ExternalStream(ExternalStreamInfo {
                     span,
+                    span_id,
                     stdout: stdout
                         .as_ref()
                         .zip(stdout_stream.as_ref())

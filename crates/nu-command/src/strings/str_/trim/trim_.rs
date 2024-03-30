@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -116,7 +117,7 @@ impl Command for SubCommand {
             cell_paths,
             mode,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -156,7 +157,7 @@ pub enum ActionMode {
     Global,
 }
 
-fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
+fn action(input: &Value, arg: &Arguments, head: Span, head_id: SpanId) -> Value {
     let char_ = arg.to_trim;
     let trim_side = &arg.trim_side;
     let mode = &arg.mode;
@@ -172,13 +173,13 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                     Value::Record { val: record, .. } => {
                         let new_record = record
                             .iter()
-                            .map(|(k, v)| (k.clone(), action(v, arg, head)))
+                            .map(|(k, v)| (k.clone(), action(v, arg, head, head_id)))
                             .collect();
 
                         Value::record(new_record, span)
                     }
                     Value::List { vals, .. } => {
-                        let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
+                        let new_vals = vals.iter().map(|v| action(v, arg, head, head_id)).collect();
 
                         Value::list(new_vals, span)
                     }
@@ -224,6 +225,7 @@ fn trim(s: &str, char_: Option<char>, trim_side: &TrimSide) -> String {
 mod tests {
     use crate::strings::str_::trim::trim_::*;
     use nu_protocol::{Span, Value};
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     #[test]
     fn test_examples() {
@@ -261,7 +263,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -275,7 +277,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -290,7 +292,7 @@ mod tests {
             mode: ActionMode::Global,
         };
 
-        let actual = action(&number, &args, Span::test_data());
+        let actual = action(&number, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -306,7 +308,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -321,7 +323,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -336,7 +338,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -351,7 +353,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -366,7 +368,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&number, &args, Span::test_data());
+        let actual = action(&number, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -381,7 +383,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -396,7 +398,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -425,7 +427,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -440,7 +442,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
     #[test]
@@ -454,7 +456,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -468,7 +470,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -482,7 +484,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&number, &args, Span::test_data());
+        let actual = action(&number, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -496,7 +498,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -524,7 +526,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 
@@ -539,7 +541,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, expected);
     }
 }

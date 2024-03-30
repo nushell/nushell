@@ -84,6 +84,7 @@ pub fn split_by(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
+    let name_id = call.head_id;
 
     let splitter: Option<Value> = call.opt(engine_state, stack, 0)?;
 
@@ -92,6 +93,7 @@ pub fn split_by(
             let splitter = Some(Spanned {
                 item: v.coerce_into_string()?,
                 span: name,
+                span_id: name_id,
             });
             Ok(split(splitter.as_ref(), input, name)?)
         }

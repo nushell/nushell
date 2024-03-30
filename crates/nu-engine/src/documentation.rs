@@ -49,7 +49,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown()),
+            &Call::new(Span::unknown(), UNKNOWN_SPAN_ID),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
@@ -225,6 +225,7 @@ fn get_documentation(
         if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
             // FIXME: we may want to make this the span of the help command in the future
             let span = Span::unknown();
+            let span_id = UNKNOWN_SPAN_ID;
             let mut vals = vec![];
             for (input, output) in &sig.input_output_types {
                 vals.push(Value::record(
@@ -243,12 +244,13 @@ fn get_documentation(
                 &Call {
                     decl_id,
                     head: span,
+                    head_id: span_id,
                     arguments: vec![],
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
             ) {
-                if let Ok((str, ..)) = result.collect_string_strict(span) {
+                if let Ok((str, ..)) = result.collect_string_strict(span, span_id) {
                     let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
                     for line in str.lines() {
                         let _ = writeln!(long_desc, "  {line}");
@@ -275,7 +277,7 @@ fn get_documentation(
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::unknown()),
+                &Call::new(Span::unknown(), UNKNOWN_SPAN_ID),
                 Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
@@ -306,7 +308,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &Call::new(Span::new(0, 0)),
+                            &Call::new(Span::new(0, 0), UNKNOWN_SPAN_ID),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
@@ -354,12 +356,13 @@ fn get_ansi_color_for_component_or_default(
                     &Call {
                         decl_id,
                         head: span,
+                        head_id: span_id,
                         arguments: vec![argument],
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,
                 ) {
-                    if let Ok((str, ..)) = result.collect_string_strict(span) {
+                    if let Ok((str, ..)) = result.collect_string_strict(span, span_id) {
                         return str;
                     }
                 }

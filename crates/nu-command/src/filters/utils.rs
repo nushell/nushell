@@ -27,6 +27,7 @@ pub fn boolean_fold(
     accumulator: bool,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
+    let span_id = call.head_id;
 
     let capture_block: Closure = call.req(engine_state, stack, 0)?;
     let block_id = capture_block.block_id;
@@ -59,11 +60,11 @@ pub fn boolean_fold(
             }
             Ok(pipeline_data) => {
                 if pipeline_data.into_value(span).is_true() == accumulator {
-                    return Ok(Value::bool(accumulator, span).into_pipeline_data());
+                    return Ok(Value::bool(accumulator, span_id).into_pipeline_data());
                 }
             }
         }
     }
 
-    Ok(Value::bool(!accumulator, span).into_pipeline_data())
+    Ok(Value::bool(!accumulator, span_id).into_pipeline_data())
 }

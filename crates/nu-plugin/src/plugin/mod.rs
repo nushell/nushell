@@ -298,7 +298,7 @@ pub trait Plugin: Sync {
         let _ = engine;
         custom_value
             .item
-            .to_base_value(custom_value.span)
+            .to_base_value(custom_value.span, custom_value.span_id)
             .map_err(LabeledError::from)
     }
 
@@ -315,7 +315,7 @@ pub trait Plugin: Sync {
         let _ = engine;
         custom_value
             .item
-            .follow_path_int(custom_value.span, index.item, index.span)
+            .follow_path_int(custom_value.span, custom_value.span_id, index.item, index.span, index.span_id)
             .map_err(LabeledError::from)
     }
 
@@ -332,7 +332,7 @@ pub trait Plugin: Sync {
         let _ = engine;
         custom_value
             .item
-            .follow_path_string(custom_value.span, column_name.item, column_name.span)
+            .follow_path_string(custom_value.span, custom_value.span_id, column_name.item, column_name.span, custom_value.span_id)
             .map_err(LabeledError::from)
     }
 
@@ -367,7 +367,7 @@ pub trait Plugin: Sync {
     ) -> Result<Value, LabeledError> {
         let _ = engine;
         left.item
-            .operation(left.span, operator.item, operator.span, &right)
+            .operation(left.span, left.span_id, operator.item, operator.span, operator.span_id, &right)
             .map_err(LabeledError::from)
     }
 
@@ -703,7 +703,7 @@ fn custom_value_op(
     let local_value = custom_value
         .item
         .deserialize_to_custom_value(custom_value.span)?
-        .into_spanned(custom_value.span);
+        .into_spanned(custom_value.span, custom_value.span_id);
     match op {
         CustomValueOp::ToBaseValue => {
             let result = plugin

@@ -90,6 +90,7 @@ impl Command for Do {
                 stderr,
                 exit_code,
                 span,
+                span_id,
                 metadata,
                 trim_end_newline,
             }) if capture_errors => {
@@ -114,10 +115,11 @@ impl Command for Do {
                                     )),
                                     ctrlc,
                                     span,
+                                    span_id,
                                     None,
                                 )
                             })
-                            .map_err(|e| e.into_spanned(call.head))
+                            .map_err(|e| e.into_spanned(call.head, call.head_id))
                     })
                     .transpose()?;
 
@@ -172,6 +174,7 @@ impl Command for Do {
                         Box::new(std::iter::once(Ok(stderr_msg.into_bytes()))),
                         stderr_ctrlc,
                         span,
+                        span_id,
                         None,
                     )),
                     exit_code: Some(ListStream::from_stream(
@@ -179,6 +182,7 @@ impl Command for Do {
                         exit_code_ctrlc,
                     )),
                     span,
+                    span_id,
                     metadata,
                     trim_end_newline,
                 })
@@ -188,6 +192,7 @@ impl Command for Do {
                 stderr,
                 exit_code: _,
                 span,
+                span_id,
                 metadata,
                 trim_end_newline,
             }) if ignore_program_errors
@@ -198,6 +203,7 @@ impl Command for Do {
                     stderr,
                     exit_code: None,
                     span,
+                    span_id,
                     metadata,
                     trim_end_newline,
                 })

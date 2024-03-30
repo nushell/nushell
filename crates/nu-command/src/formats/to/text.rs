@@ -28,6 +28,7 @@ impl Command for ToText {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
+        let span_id = call.head_id;
         let config = engine_state.get_config();
 
         let line_ending = if cfg!(target_os = "windows") {
@@ -47,11 +48,13 @@ impl Command for ToText {
                     }),
                     engine_state.ctrlc.clone(),
                     span,
+                    span_id,
                     None,
                 )),
                 stderr: None,
                 exit_code: None,
                 span,
+                span_id,
                 metadata: None,
                 trim_end_newline: false,
             })
@@ -107,6 +110,7 @@ impl Iterator for ListStreamIterator {
 
 fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
     let span = value.span();
+    let span_id = value.span_id();
     match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
@@ -148,7 +152,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         // If we fail to collapse the custom value, just print <{type_name}> - failure is not
         // that critical here
         Value::Custom { val, .. } => val
-            .to_base_value(span)
+            .to_base_value(span, span_id)
             .map(|val| local_into_string(val, separator, config))
             .unwrap_or_else(|_| format!("<{}>", val.type_name())),
     }

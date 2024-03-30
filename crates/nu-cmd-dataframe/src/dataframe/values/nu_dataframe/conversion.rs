@@ -2,7 +2,7 @@ use super::{DataFrameValue, NuDataFrame, NuSchema};
 use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
-use nu_protocol::{Record, ShellError, Span, Value};
+use nu_protocol::{Record, ShellError, Span, SpanId, Value};
 use polars::{
     chunked_array::{
         builder::AnonymousOwnedListBuilder, object::builder::ObjectChunkedBuilder, ChunkedArray,
@@ -18,6 +18,7 @@ use polars::{
     },
 };
 use std::ops::{Deref, DerefMut};
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
 const NANOS_PER_DAY: i64 = 86_400_000_000_000;
 
@@ -143,9 +144,10 @@ pub fn create_column(
     from_row: usize,
     to_row: usize,
     span: Span,
+    span_id: SpanId,
 ) -> Result<Column, ShellError> {
     let size = to_row - from_row;
-    let values = series_to_values(series, Some(from_row), Some(size), span)?;
+    let values = series_to_values(series, Some(from_row), Some(size), span, span_id)?;
     Ok(Column::new(series.name().into(), values))
 }
 
@@ -611,6 +613,7 @@ fn series_to_values(
     maybe_from_row: Option<usize>,
     maybe_size: Option<usize>,
     span: Span,
+    span_id: SpanId,
 ) -> Result<Vec<Value>, ShellError> {
     match series.dtype() {
         DataType::Null => {
@@ -870,7 +873,7 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::bool(a, span),
+                Some(a) => Value::bool(a, span_id),
                 None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
@@ -950,7 +953,7 @@ fn series_to_values(
                     }
                     .map(|ca| {
                         let sublist: Vec<Value> = if let Some(ref s) = ca {
-                            series_to_values(s, None, None, Span::unknown())?
+                            series_to_values(s, None, None, Span::unknown(), UNKNOWN_SPAN_ID)?
                         } else {
                             // empty item
                             vec![]
@@ -1034,7 +1037,7 @@ fn series_to_values(
                         .iter()
                         .zip(any_values)
                         .map(|(field, val)| {
-                            any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                            any_value_to_value(val, span, span_id).map(|val| (field.name.to_string(), val))
                         })
                         .collect::<Result<_, _>>()?;
 
@@ -1079,10 +1082,10 @@ fn series_to_values(
     }
 }
 
-fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellError> {
+fn any_value_to_value(any_value: &AnyValue, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     match any_value {
         AnyValue::Null => Ok(Value::nothing(span)),
-        AnyValue::Boolean(b) => Ok(Value::bool(*b, span)),
+        AnyValue::Boolean(b) => Ok(Value::bool(*b, span_id)),
         AnyValue::String(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::UInt8(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt16(i) => Ok(Value::int(*i as i64, span)),
@@ -1116,7 +1119,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         // Given this, calculate the current date from UTC and add the time.
         AnyValue::Time(nanos) => time_from_midnight(*nanos, span),
         AnyValue::List(series) => {
-            series_to_values(series, None, None, span).map(|values| Value::list(values, span))
+            series_to_values(series, None, None, span, span_id).map(|values| Value::list(values, span))
         }
         AnyValue::Struct(_idx, _struct_array, _s_fields) => {
             // This should convert to a StructOwned object.
@@ -1131,7 +1134,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                         help: None,
                         inner: Vec::new(),
                     })?;
-            any_value_to_value(&static_value, span)
+            any_value_to_value(&static_value, span, span_id)
         }
         AnyValue::StructOwned(struct_tuple) => {
             let record = struct_tuple
@@ -1139,7 +1142,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                 .iter()
                 .zip(&struct_tuple.0)
                 .map(|(field, val)| {
-                    any_value_to_value(val, span).map(|val| (field.name.to_string(), val))
+                    any_value_to_value(val, span, span_id).map(|val| (field.name.to_string(), val))
                 })
                 .collect::<Result<_, _>>()?;
 
@@ -1259,60 +1262,62 @@ mod tests {
     #[test]
     fn test_any_value_to_value() -> Result<(), Box<dyn std::error::Error>> {
         let span = Span::test_data();
+        let span_id = UNKNOWN_SPAN_ID;
+
         assert_eq!(
-            any_value_to_value(&AnyValue::Null, span)?,
+            any_value_to_value(&AnyValue::Null, span, span_id)?,
             Value::nothing(span)
         );
 
         let test_bool = true;
         assert_eq!(
-            any_value_to_value(&AnyValue::Boolean(test_bool), span)?,
-            Value::bool(test_bool, span)
+            any_value_to_value(&AnyValue::Boolean(test_bool), span, span_id)?,
+            Value::bool(test_bool, span_id)
         );
 
         let test_str = "foo";
         assert_eq!(
-            any_value_to_value(&AnyValue::String(test_str), span)?,
+            any_value_to_value(&AnyValue::String(test_str), span, span_id)?,
             Value::string(test_str.to_string(), span)
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::StringOwned(test_str.into()), span)?,
+            any_value_to_value(&AnyValue::StringOwned(test_str.into()), span, span_id)?,
             Value::string(test_str.to_owned(), span)
         );
 
         let tests_uint8 = 4;
         assert_eq!(
-            any_value_to_value(&AnyValue::UInt8(tests_uint8), span)?,
+            any_value_to_value(&AnyValue::UInt8(tests_uint8), span, span_id)?,
             Value::int(tests_uint8 as i64, span)
         );
 
         let tests_uint16 = 233;
         assert_eq!(
-            any_value_to_value(&AnyValue::UInt16(tests_uint16), span)?,
+            any_value_to_value(&AnyValue::UInt16(tests_uint16), span, span_id)?,
             Value::int(tests_uint16 as i64, span)
         );
 
         let tests_uint32 = 897688233;
         assert_eq!(
-            any_value_to_value(&AnyValue::UInt32(tests_uint32), span)?,
+            any_value_to_value(&AnyValue::UInt32(tests_uint32), span, span_id)?,
             Value::int(tests_uint32 as i64, span)
         );
 
         let tests_uint64 = 903225135897388233;
         assert_eq!(
-            any_value_to_value(&AnyValue::UInt64(tests_uint64), span)?,
+            any_value_to_value(&AnyValue::UInt64(tests_uint64), span, span_id)?,
             Value::int(tests_uint64 as i64, span)
         );
 
         let tests_float32 = 903225135897388233.3223353;
         assert_eq!(
-            any_value_to_value(&AnyValue::Float32(tests_float32), span)?,
+            any_value_to_value(&AnyValue::Float32(tests_float32), span, span_id)?,
             Value::float(tests_float32 as f64, span)
         );
 
         let tests_float64 = 9064251358973882322333.64233533232;
         assert_eq!(
-            any_value_to_value(&AnyValue::Float64(tests_float64), span)?,
+            any_value_to_value(&AnyValue::Float64(tests_float64), span, span_id)?,
             Value::float(tests_float64, span)
         );
 
@@ -1322,7 +1327,7 @@ mod tests {
             .unwrap()
             .fixed_offset();
         assert_eq!(
-            any_value_to_value(&AnyValue::Date(test_days), span)?,
+            any_value_to_value(&AnyValue::Date(test_days), span, span_id)?,
             Value::date(comparison_date, span)
         );
 
@@ -1330,7 +1335,8 @@ mod tests {
         assert_eq!(
             any_value_to_value(
                 &AnyValue::Datetime(test_millis, TimeUnit::Milliseconds, &None),
-                span
+                span,
+                span_id,
             )?,
             Value::date(comparison_date, span)
         );
@@ -1341,32 +1347,35 @@ mod tests {
         assert_eq!(
             any_value_to_value(
                 &AnyValue::Duration(test_duration_nanos, TimeUnit::Nanoseconds),
-                span
+                span,
+                span_id,
             )?,
             Value::duration(test_duration_nanos, span)
         );
         assert_eq!(
             any_value_to_value(
                 &AnyValue::Duration(test_duration_micros, TimeUnit::Microseconds),
-                span
+                span,
+                span_id,
             )?,
             Value::duration(test_duration_nanos, span)
         );
         assert_eq!(
             any_value_to_value(
                 &AnyValue::Duration(test_duration_millis, TimeUnit::Milliseconds),
-                span
+                span,
+                span_id,
             )?,
             Value::duration(test_duration_nanos, span)
         );
 
         let test_binary = b"sdf2332f32q3f3afwaf3232f32";
         assert_eq!(
-            any_value_to_value(&AnyValue::Binary(test_binary), span)?,
+            any_value_to_value(&AnyValue::Binary(test_binary), span, span_id)?,
             Value::binary(test_binary.to_vec(), span)
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::BinaryOwned(test_binary.to_vec()), span)?,
+            any_value_to_value(&AnyValue::BinaryOwned(test_binary.to_vec()), span, span_id)?,
             Value::binary(test_binary.to_vec(), span)
         );
 
@@ -1378,7 +1387,7 @@ mod tests {
             FixedOffset::east_opt(0).unwrap(),
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::Time(test_time_nanos), span)?,
+            any_value_to_value(&AnyValue::Time(test_time_nanos), span, span_id)?,
             Value::date(test_time, span)
         );
 
@@ -1392,7 +1401,7 @@ mod tests {
             span,
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::List(test_list_series), span)?,
+            any_value_to_value(&AnyValue::List(test_list_series), span, span_id)?,
             comparison_list_series
         );
 
@@ -1408,10 +1417,10 @@ mod tests {
         let test_owned_struct = AnyValue::StructOwned(Box::new((values, fields.clone())));
         let comparison_owned_record = Value::test_record(record!(
             field_name_0 => Value::int(1, span),
-            field_name_1 => Value::bool(true, span),
+            field_name_1 => Value::bool(true, span_id),
         ));
         assert_eq!(
-            any_value_to_value(&test_owned_struct, span)?,
+            any_value_to_value(&test_owned_struct, span, span_id)?,
             comparison_owned_record.clone()
         );
 
@@ -1425,7 +1434,8 @@ mod tests {
         assert_eq!(
             any_value_to_value(
                 &AnyValue::Struct(0, &test_struct_arr, fields.as_slice()),
-                span
+                span,
+                span_id,
             )?,
             comparison_owned_record
         );

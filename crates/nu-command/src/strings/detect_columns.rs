@@ -2,8 +2,15 @@ use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::Range;
 use std::{io::Cursor, iter::Peekable, str::CharIndices};
+use serde::{Deserialize, Serialize};
 
 type Input<'t> = Peekable<CharIndices<'t>>;
+
+/// Used only internally by `detect columns`
+struct SpannedCustom<T> {
+    pub item: T,
+    pub span: Span,
+}
 
 #[derive(Clone)]
 pub struct DetectColumns;
@@ -284,7 +291,7 @@ fn detect_columns(
     }
 }
 
-pub fn find_columns(input: &str) -> Vec<Spanned<String>> {
+pub fn find_columns(input: &str) -> Vec<SpannedCustom<String>> {
     let mut chars = input.char_indices().peekable();
     let mut output = vec![];
 
@@ -312,7 +319,7 @@ enum BlockKind {
     Bracket,
 }
 
-fn baseline(src: &mut Input) -> Spanned<String> {
+fn baseline(src: &mut Input) -> SpannedCustom<String> {
     let mut token_contents = String::new();
 
     let start_offset = if let Some((pos, _)) = src.peek() {
@@ -411,7 +418,7 @@ fn baseline(src: &mut Input) -> Spanned<String> {
         //     token_contents.push(bk.closing());
         // }
 
-        return Spanned {
+        return SpannedCustom {
             item: token_contents,
             span,
         };
@@ -427,13 +434,13 @@ fn baseline(src: &mut Input) -> Spanned<String> {
         //     token_contents.spanned(span),
         //     Some(ParseError::unexpected_eof(delimiter.to_string(), span)),
         // );
-        return Spanned {
+        return SpannedCustom {
             item: token_contents,
             span,
         };
     }
 
-    Spanned {
+    SpannedCustom {
         item: token_contents,
         span,
     }

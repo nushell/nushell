@@ -2,6 +2,7 @@ use nu_engine::{command_prelude::*, env::get_config, find_in_dirs_env, get_dirs_
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct NuCheck;
@@ -48,14 +49,15 @@ impl Command for NuCheck {
         let mut working_set = StateWorkingSet::new(engine_state);
 
         let input_span = input.span().unwrap_or(call.head);
+        let input_span_id = input.span_id().unwrap_or(call.head_id);
 
         match input {
             PipelineData::Value(Value::String { val, .. }, ..) => {
                 let contents = Vec::from(val);
                 if as_module {
-                    parse_module(&mut working_set, None, &contents, is_debug, input_span)
+                    parse_module(&mut working_set, None, &contents, is_debug, input_span, input_span_id)
                 } else {
-                    parse_script(&mut working_set, None, &contents, is_debug, input_span)
+                    parse_script(&mut working_set, None, &contents, is_debug, input_span, input_span_id)
                 }
             }
             PipelineData::ListStream(stream, ..) => {
@@ -64,9 +66,9 @@ impl Command for NuCheck {
                 let contents = Vec::from(list_stream);
 
                 if as_module {
-                    parse_module(&mut working_set, None, &contents, is_debug, call.head)
+                    parse_module(&mut working_set, None, &contents, is_debug, call.head, call.head_id)
                 } else {
-                    parse_script(&mut working_set, None, &contents, is_debug, call.head)
+                    parse_script(&mut working_set, None, &contents, is_debug, call.head, call.head_id)
                 }
             }
             PipelineData::ExternalStream {
@@ -83,9 +85,9 @@ impl Command for NuCheck {
                 }
 
                 if as_module {
-                    parse_module(&mut working_set, None, &contents, is_debug, call.head)
+                    parse_module(&mut working_set, None, &contents, is_debug, call.head, call.head_id)
                 } else {
-                    parse_script(&mut working_set, None, &contents, is_debug, call.head)
+                    parse_script(&mut working_set, None, &contents, is_debug, call.head, call.head_id)
                 }
             }
             _ => {
@@ -128,9 +130,10 @@ impl Command for NuCheck {
                             is_debug,
                             path_span,
                             call.head,
+                            call.head_id,
                         )
                     } else {
-                        parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
+                        parse_file_script(&path, &mut working_set, is_debug, path_span, call.head, call.head_id)
                     };
 
                     // Restore the currently parsed directory back
@@ -202,6 +205,7 @@ fn parse_module(
     contents: &[u8],
     is_debug: bool,
     call_head: Span,
+    call_head_id: SpanId,
 ) -> Result<PipelineData, ShellError> {
     let filename = filename.unwrap_or_else(|| "empty".to_string());
 
@@ -220,6 +224,7 @@ fn parse_module(
                 .to_string(),
         ),
         call_head,
+        call_head_id,
     )
 }
 
@@ -229,10 +234,11 @@ fn parse_script(
     contents: &[u8],
     is_debug: bool,
     call_head: Span,
+    call_head_id: SpanId,
 ) -> Result<PipelineData, ShellError> {
     let starting_error_count = working_set.parse_errors.len();
     parse(working_set, filename, contents, false);
-    check_parse(starting_error_count, working_set, is_debug, None, call_head)
+    check_parse(starting_error_count, working_set, is_debug, None, call_head, call_head_id)
 }
 
 fn check_parse(
@@ -241,6 +247,7 @@ fn check_parse(
     is_debug: bool,
     help: Option<String>,
     call_head: Span,
+    call_head_id: SpanId,
 ) -> Result<PipelineData, ShellError> {
     if starting_error_count != working_set.parse_errors.len() {
         let msg = format!(
@@ -260,10 +267,10 @@ fn check_parse(
                 inner: vec![],
             })
         } else {
-            Ok(PipelineData::Value(Value::bool(false, call_head), None))
+            Ok(PipelineData::Value(Value::bool(false, call_head_id), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::bool(true, call_head), None))
+        Ok(PipelineData::Value(Value::bool(true, call_head_id), None))
     }
 }
 
@@ -273,11 +280,12 @@ fn parse_file_script(
     is_debug: bool,
     path_span: Span,
     call_head: Span,
+    call_head_id: SpanId,
 ) -> Result<PipelineData, ShellError> {
     let filename = check_path(working_set, path_span, call_head)?;
 
     if let Ok(contents) = std::fs::read(path) {
-        parse_script(working_set, Some(&filename), &contents, is_debug, call_head)
+        parse_script(working_set, Some(&filename), &contents, is_debug, call_head, call_head_id)
     } else {
         Err(ShellError::IOErrorSpanned {
             msg: "Could not read path".to_string(),
@@ -292,6 +300,7 @@ fn parse_file_or_dir_module(
     is_debug: bool,
     path_span: Span,
     call_head: Span,
+    call_head_id: SpanId,
 ) -> Result<PipelineData, ShellError> {
     let _ = check_path(working_set, path_span, call_head)?;
 
@@ -315,10 +324,10 @@ fn parse_file_or_dir_module(
                 inner: vec![],
             })
         } else {
-            Ok(PipelineData::Value(Value::bool(false, call_head), None))
+            Ok(PipelineData::Value(Value::bool(false, call_head_id), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::bool(true, call_head), None))
+        Ok(PipelineData::Value(Value::bool(true, call_head_id), None))
     }
 }
 

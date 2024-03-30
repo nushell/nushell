@@ -1,10 +1,7 @@
 use crate::progress_bar;
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
-use nu_protocol::{
-    ast::{Expr, Expression},
-    DataSource, IoStream, PipelineMetadata, RawStream,
-};
+use nu_protocol::{ast::{Expr, Expression}, DataSource, IoStream, PipelineMetadata, RawStream, SpanId};
 use std::{
     fs::File,
     io::Write,
@@ -85,12 +82,14 @@ impl Command for Save {
         };
 
         let span = call.head;
+        let span_id = call.head_id;
         let cwd = current_dir(engine_state, stack)?;
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
         let path = Spanned {
             item: expand_path_with(path_arg.item, &cwd, true),
             span: path_arg.span,
+            span_id: path_arg.span_id,
         };
 
         let stderr_path = call
@@ -98,6 +97,7 @@ impl Command for Save {
             .map(|arg| Spanned {
                 item: expand_path_with(arg.item, cwd, true),
                 span: arg.span,
+                span_id: arg.span_id,
             });
 
         match input {
@@ -126,7 +126,7 @@ impl Command for Save {
                                     .spawn(move || stderr.drain()),
                             })
                             .transpose()
-                            .map_err(|e| e.into_spanned(span))?;
+                            .map_err(|e| e.into_spanned(span, span_id))?;
 
                         let res = stream_to_file(stdout, file, span, progress);
                         if let Some(h) = handler {
@@ -208,7 +208,7 @@ impl Command for Save {
             }
             input => {
                 let bytes =
-                    input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
+                    input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span, span_id)?;
 
                 // Only open file after successful conversion
                 let (mut file, _) = get_files(
@@ -275,6 +275,7 @@ fn input_to_bytes(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
+    span_id: SpanId,
 ) -> Result<Vec<u8>, ShellError> {
     let ext = if raw {
         None
@@ -289,7 +290,7 @@ fn input_to_bytes(
     };
 
     if let Some(ext) = ext {
-        convert_to_extension(engine_state, &ext, stack, input, span)
+        convert_to_extension(engine_state, &ext, stack, input, span, span_id)
     } else {
         let value = input.into_value(span);
         value_to_bytes(value)
@@ -305,6 +306,7 @@ fn convert_to_extension(
     stack: &mut Stack,
     input: PipelineData,
     span: Span,
+    span_id: SpanId,
 ) -> Result<Vec<u8>, ShellError> {
     let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
 
@@ -313,7 +315,7 @@ fn convert_to_extension(
             let output = engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
-                &Call::new(span),
+                &Call::new(span, span_id),
                 input,
             )?;
 

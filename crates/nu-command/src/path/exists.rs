@@ -3,6 +3,7 @@ use nu_engine::{command_prelude::*, current_dir, current_dir_const};
 use nu_path::expand_path_with;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::{Path, PathBuf};
+use nu_protocol::SpanId;
 
 struct Arguments {
     pwd: PathBuf,
@@ -127,9 +128,9 @@ If you need to distinguish dirs and files, please use `path type`."#
     }
 }
 
-fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
+fn exists(path: &Path, span: Span, span_id: SpanId, args: &Arguments) -> Value {
     if path.as_os_str().is_empty() {
-        return Value::bool(false, span);
+        return Value::bool(false, span_id);
     }
     let path = expand_path_with(path, &args.pwd, true);
     let exists = if args.not_follow_symlink {
@@ -159,7 +160,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
                 )
             }
         },
-        span,
+        span_id,
     )
 }
 

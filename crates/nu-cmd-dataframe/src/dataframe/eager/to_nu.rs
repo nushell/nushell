@@ -97,13 +97,13 @@ fn dataframe_command(
     let df = NuDataFrame::try_from_value(input)?;
 
     let values = if tail {
-        df.tail(rows, call.head)?
+        df.tail(rows, call.head, call.head_id)?
     } else {
         // if rows is specified, return those rows, otherwise return everything
         if rows.is_some() {
-            df.head(rows, call.head)?
+            df.head(rows, call.head, call.head_id)?
         } else {
-            df.head(Some(df.height()), call.head)?
+            df.head(Some(df.height()), call.head, call.head_id)?
         }
     };
 
@@ -113,7 +113,7 @@ fn dataframe_command(
 }
 fn expression_command(call: &Call, input: Value) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(input)?;
-    let value = expr.to_value(call.head)?;
+    let value = expr.to_value(call.head, call.head_id)?;
 
     Ok(PipelineData::Value(value, None))
 }

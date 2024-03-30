@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, Span, SpanId, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -51,7 +51,7 @@ impl CustomValue for SecondCustomValue {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: nu_protocol::Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: nu_protocol::Span, span_id: SpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             format!(
                 "I used to be a DIFFERENT custom value! ({})",

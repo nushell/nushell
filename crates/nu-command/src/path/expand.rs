@@ -6,6 +6,7 @@ use nu_engine::{
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 struct Arguments {
     strict: bool,
@@ -143,7 +144,7 @@ impl Command for SubCommand {
     }
 }
 
-fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
+fn expand(path: &Path, span: Span, span_id: SpanId, args: &Arguments) -> Value {
     if args.strict {
         match canonicalize_with(path, &args.cwd) {
             Ok(p) => {

@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::{ast::Operator, ShellError, Span, Value};
+use crate::{ast::Operator, ShellError, Span, SpanId, Value};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -22,7 +22,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     ///
     /// This imposes the requirement that you can represent the custom value in some form using the
     /// Value representations that already exist in nushell
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError>;
+    fn to_base_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError>;
 
     /// Any representation used to downcast object to its original type
     fn as_any(&self) -> &dyn std::any::Any;
@@ -31,8 +31,10 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn follow_path_int(
         &self,
         self_span: Span,
+        _self_span_id: SpanId,
         index: usize,
         path_span: Span,
+        _path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         let _ = (self_span, index);
         Err(ShellError::IncompatiblePathAccess {
@@ -45,8 +47,10 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn follow_path_string(
         &self,
         self_span: Span,
+        self_span_id: SpanId,
         column_name: String,
         path_span: Span,
+        path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         let _ = (self_span, column_name);
         Err(ShellError::IncompatiblePathAccess {
@@ -69,8 +73,10 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn operation(
         &self,
         lhs_span: Span,
+        _lhs_span_id: SpanId,
         operator: Operator,
         op: Span,
+        _op_id: SpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         let _ = (lhs_span, right);

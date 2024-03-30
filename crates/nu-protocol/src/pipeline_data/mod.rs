@@ -6,17 +6,14 @@ pub use io_stream::*;
 pub use metadata::*;
 pub use stream::*;
 
-use crate::{
-    ast::{Call, PathMember},
-    engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, ShellError, Span, Value,
-};
+use crate::{ast::{Call, PathMember}, engine::{EngineState, Stack, StateWorkingSet}, format_error, Config, ShellError, Span, Value, SpanId};
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
     io::{self, Cursor, Read, Write},
     sync::{atomic::AtomicBool, Arc},
     thread,
 };
+use crate::engine::UNKNOWN_SPAN_ID;
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -58,6 +55,7 @@ pub enum PipelineData {
         stderr: Option<RawStream>,
         exit_code: Option<ListStream>,
         span: Span,
+        span_id: SpanId,
         metadata: Option<PipelineMetadata>,
         trim_end_newline: bool,
     },
@@ -81,6 +79,7 @@ impl PipelineData {
                 None,
             )),
             span: Span::unknown(),
+            span_id: UNKNOWN_SPAN_ID,
             metadata: None,
             trim_end_newline: false,
         }
@@ -121,6 +120,16 @@ impl PipelineData {
             PipelineData::ListStream(..) => None,
             PipelineData::ExternalStream { span, .. } => Some(*span),
             PipelineData::Value(v, _) => Some(v.span()),
+            PipelineData::Empty => None,
+        }
+    }
+
+    /// PipelineData doesn't always have a SpanId, but we can try!
+    pub fn span_id(&self) -> Option<SpanId> {
+        match self {
+            PipelineData::ListStream(..) => None,
+            PipelineData::ExternalStream { span_id, .. } => Some(*span_id),
+            PipelineData::Value(v, _) => Some(v.span_id()),
             PipelineData::Empty => None,
         }
     }
@@ -227,6 +236,7 @@ impl PipelineData {
                     stderr,
                     exit_code,
                     span,
+                    span_id,
                     metadata,
                     trim_end_newline,
                 },
@@ -292,6 +302,7 @@ impl PipelineData {
                     stderr,
                     exit_code,
                     span,
+                    span_id,
                     metadata,
                     trim_end_newline,
                 })
@@ -333,7 +344,7 @@ impl PipelineData {
                     if command.get_block_id().is_some() {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
-                        let call = Call::new(Span::unknown());
+                        let call = Call::new(Span::unknown(), UNKNOWN_SPAN_ID);
                         let stack = &mut stack.start_capture();
                         let table = command.run(engine_state, stack, &call, data)?;
                         table.write_all_and_flush(engine_state, config, false, false)?;
@@ -483,10 +494,11 @@ impl PipelineData {
     pub fn collect_string_strict(
         self,
         span: Span,
-    ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
+        span_id: SpanId,
+    ) -> Result<(String, Span, SpanId, Option<PipelineMetadata>), ShellError> {
         match self {
-            PipelineData::Empty => Ok((String::new(), span, None)),
-            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
+            PipelineData::Empty => Ok((String::new(), span, span_id, None)),
+            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, span_id, metadata)),
             PipelineData::Value(val, _) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
                 span: val.span(),
@@ -499,14 +511,16 @@ impl PipelineData {
                 stdout: None,
                 metadata,
                 span,
+                span_id,
                 ..
-            } => Ok((String::new(), span, metadata)),
+            } => Ok((String::new(), span, span_id, metadata)),
             PipelineData::ExternalStream {
                 stdout: Some(stdout),
                 metadata,
                 span,
+                span_id,
                 ..
-            } => Ok((stdout.into_string()?.item, span, metadata)),
+            } => Ok((stdout.into_string()?.item, span, span_id, metadata)),
         }
     }
 
@@ -719,6 +733,7 @@ impl PipelineData {
             stderr,
             mut exit_code,
             span,
+            span_id,
             metadata,
             trim_end_newline,
         } = self
@@ -738,6 +753,7 @@ impl PipelineData {
             let stderr = stderr.map(|stderr_stream| {
                 let stderr_ctrlc = stderr_stream.ctrlc.clone();
                 let stderr_span = stderr_stream.span;
+                let stderr_span_id = stderr_stream.span_id;
                 let stderr_bytes = stderr_stream
                     .into_bytes()
                     .map(|bytes| bytes.item)
@@ -746,6 +762,7 @@ impl PipelineData {
                     Box::new(std::iter::once(Ok(stderr_bytes))),
                     stderr_ctrlc,
                     stderr_span,
+                    stderr_span_id,
                     None,
                 )
             });
@@ -766,6 +783,7 @@ impl PipelineData {
                             stderr,
                             exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
                             span,
+                            span_id,
                             metadata,
                             trim_end_newline,
                         },
@@ -778,6 +796,7 @@ impl PipelineData {
                         stderr,
                         exit_code: None,
                         span,
+                        span_id,
                         metadata,
                         trim_end_newline,
                     },
@@ -868,7 +887,7 @@ impl PipelineData {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
 
-            let call = Call::new(Span::new(0, 0));
+            let call = Call::new(Span::new(0, 0), UNKNOWN_SPAN_ID);
             let table = command.run(engine_state, stack, &call, self)?;
             table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         } else {

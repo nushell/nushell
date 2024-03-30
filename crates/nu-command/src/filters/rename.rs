@@ -155,6 +155,7 @@ fn rename(
         .map(
             move |item| {
                 let span = item.span();
+                let span_id = item.span_id();
                 match item {
                     Value::Record { val: record, .. } => {
                         let record =
@@ -181,8 +182,8 @@ fn rename(
                                             &block,
                                             Value::string(col, span).into_pipeline_data(),
                                         )
-                                        .and_then(|data| data.collect_string_strict(span))
-                                        .map(|(col, _, _)| (col, val))
+                                        .and_then(|data| data.collect_string_strict(span, span_id))
+                                        .map(|(col, _, _, _)| (col, val))
                                     })
                                     .collect::<Result<Record, _>>()
                             } else {

@@ -2,6 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
+use nu_protocol::SpanId;
 
 struct Arguments {
     extension: Option<Spanned<String>>,
@@ -183,7 +184,7 @@ On Windows, an extra 'prefix' column is added."#
     }
 }
 
-fn parse(path: &Path, span: Span, args: &Arguments) -> Value {
+fn parse(path: &Path, span: Span, span_id: SpanId, args: &Arguments) -> Value {
     let mut record = Record::new();
 
     #[cfg(windows)]
@@ -215,6 +216,7 @@ fn parse(path: &Path, span: Span, args: &Arguments) -> Value {
         Some(Spanned {
             item: extension,
             span: extension_span,
+            span_id: extension_span_id,
         }) => {
             let ext_with_dot = [".", extension].concat();
             if basename.ends_with(&ext_with_dot) && !extension.is_empty() {

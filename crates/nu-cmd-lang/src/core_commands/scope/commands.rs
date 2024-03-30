@@ -27,12 +27,13 @@ impl Command for ScopeCommands {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
+        let span_id = call.head_id;
         let ctrlc = engine_state.ctrlc.clone();
 
         let mut scope_data = ScopeData::new(engine_state, stack);
         scope_data.populate_decls();
 
-        Ok(scope_data.collect_commands(span).into_pipeline_data(ctrlc))
+        Ok(scope_data.collect_commands(span, span_id).into_pipeline_data(ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {

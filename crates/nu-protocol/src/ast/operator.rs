@@ -1,4 +1,4 @@
-use crate::{GetSpan, ShellError, Span};
+use crate::{GetSpan, ShellError, Span, SpanId};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -119,7 +119,9 @@ pub enum RangeInclusion {
 pub struct RangeOperator {
     pub inclusion: RangeInclusion,
     pub span: Span,
+    pub span_id: SpanId,
     pub next_op_span: Span,
+    pub next_op_span_id: SpanId,
 }
 
 impl Display for RangeOperator {

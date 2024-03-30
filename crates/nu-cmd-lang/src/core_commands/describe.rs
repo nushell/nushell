@@ -1,8 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
-    PipelineMetadata,
-};
+use nu_protocol::{engine::{Closure, StateWorkingSet}, PipelineMetadata, SpanId};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -169,6 +166,7 @@ fn run(
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata().clone().map(Box::new);
     let head = call.head;
+    let head_id = call.head_id;
 
     let description: Value = match input {
         PipelineData::ExternalStream {
@@ -233,7 +231,7 @@ fn run(
                            if options.no_collect {
                             Value::string("any", head)
                            } else {
-                            describe_value(input.into_value(head), head, engine_state, options)?
+                            describe_value(input.into_value(head), head, head_id, engine_state, options)?
                            }
                         },
                         "metadata" => metadata_to_value(metadata, head),
@@ -254,7 +252,7 @@ fn run(
             if !options.detailed {
                 Value::string(value.get_type().to_string(), head)
             } else {
-                describe_value(value, head, engine_state, options)?
+                describe_value(value, head, head_id, engine_state, options)?
             }
         }
     };
@@ -277,6 +275,7 @@ fn compact_primitive_description(mut value: Value) -> Value {
 fn describe_value(
     value: Value,
     head: nu_protocol::Span,
+    head_id: SpanId,
     engine_state: Option<&EngineState>,
     options: Options,
 ) -> Result<Value, ShellError> {
@@ -308,6 +307,7 @@ fn describe_value(
                 *v = compact_primitive_description(describe_value(
                     std::mem::take(v),
                     head,
+                    head_id,
                     engine_state,
                     options,
                 )?);
@@ -316,7 +316,7 @@ fn describe_value(
             Value::record(
                 record!(
                     "type" => Value::string("record", head),
-                    "lazy" => Value::bool(false, head),
+                    "lazy" => Value::bool(false, head_id),
                     "columns" => Value::record(*val, head),
                 ),
                 head,
@@ -328,7 +328,7 @@ fn describe_value(
                 "length" => Value::int(vals.len() as i64, head),
                 "values" => Value::list(vals.into_iter().map(|v|
                     Ok(compact_primitive_description(
-                        describe_value(v, head, engine_state, options)?
+                        describe_value(v, head, head_id, engine_state, options)?
                     ))
                 )
                 .collect::<Result<Vec<Value>, ShellError>>()?, head),
@@ -391,18 +391,19 @@ fn describe_value(
             let mut record = Record::new();
 
             record.push("type", Value::string("record", head));
-            record.push("lazy", Value::bool(true, head));
+            record.push("lazy", Value::bool(true, head_id));
 
             if options.collect_lazyrecords {
                 let collected = val.collect()?;
                 if let Value::Record { mut val, .. } =
-                    describe_value(collected, head, engine_state, options)?
+                    describe_value(collected, head, head_id, engine_state, options)?
                 {
                     record.push("length", Value::int(val.len() as i64, head));
                     for (_k, v) in val.iter_mut() {
                         *v = compact_primitive_description(describe_value(
                             std::mem::take(v),
                             head,
+                            head_id,
                             engine_state,
                             options,
                         )?);

@@ -1,5 +1,6 @@
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -68,7 +69,7 @@ impl Command for SubCommand {
     }
 }
 
-fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
+fn sum_of_squares(values: &[Value], span: Span, span_id: SpanId) -> Result<Value, ShellError> {
     let n = Value::int(values.len() as i64, span);
     let mut sum_x = Value::int(0, span);
     let mut sum_x2 = Value::int(0, span);
@@ -84,32 +85,32 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
                 input_span: value.span(),
             }),
         }?;
-        let v_squared = &v.mul(span, v, span)?;
-        sum_x2 = sum_x2.add(span, v_squared, span)?;
-        sum_x = sum_x.add(span, v, span)?;
+        let v_squared = &v.mul(span, span_id, v, span)?;
+        sum_x2 = sum_x2.add(span, span_id, v_squared, span)?;
+        sum_x = sum_x.add(span, span_id, v, span)?;
     }
 
-    let sum_x_squared = sum_x.mul(span, &sum_x, span)?;
-    let sum_x_squared_div_n = sum_x_squared.div(span, &n, span)?;
+    let sum_x_squared = sum_x.mul(span, span_id, &sum_x, span)?;
+    let sum_x_squared_div_n = sum_x_squared.div(span, span_id, &n, span)?;
 
-    let ss = sum_x2.sub(span, &sum_x_squared_div_n, span)?;
+    let ss = sum_x2.sub(span, span_id, &sum_x_squared_div_n, span)?;
 
     Ok(ss)
 }
 
 pub fn compute_variance(
     sample: bool,
-) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: Span, head: Span| {
+) -> impl Fn(&[Value], Span, SpanId, Span, SpanId) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, span_id: SpanId, head: Span, head_id: SpanId| {
         let n = if sample {
             values.len() - 1
         } else {
             values.len()
         };
         // sum_of_squares() needs the span of the original value, not the call head.
-        let ss = sum_of_squares(values, span)?;
+        let ss = sum_of_squares(values, span, span_id)?;
         let n = Value::int(n as i64, head);
-        ss.div(head, &n, head)
+        ss.div(head, head_id, &n, head)
     }
 }
 

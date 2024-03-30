@@ -1,5 +1,5 @@
 use super::NuDataFrame;
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, SpanId, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuDataFrame {
@@ -24,8 +24,8 @@ impl CustomValue for NuDataFrame {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print(span)?;
+    fn to_base_value(&self, span: Span, span_id: SpanId) -> Result<Value, ShellError> {
+        let vals = self.print(span, span_id)?;
 
         Ok(Value::list(vals, span))
     }
@@ -37,17 +37,21 @@ impl CustomValue for NuDataFrame {
     fn follow_path_int(
         &self,
         _self_span: Span,
+        _self_span_id: SpanId,
         count: usize,
         path_span: Span,
+        path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
-        self.get_value(count, path_span)
+        self.get_value(count, path_span, path_span_id)
     }
 
     fn follow_path_string(
         &self,
         _self_span: Span,
+        _self_span_id: SpanId,
         column_name: String,
         path_span: Span,
+        path_span_id: SpanId,
     ) -> Result<Value, ShellError> {
         let column = self.column(&column_name, path_span)?;
         Ok(column.into_value(path_span))
@@ -66,10 +70,12 @@ impl CustomValue for NuDataFrame {
     fn operation(
         &self,
         lhs_span: Span,
+        lhs_span_id: SpanId,
         operator: Operator,
         op: Span,
+        op_id: SpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
-        self.compute_with_value(lhs_span, operator, op, right)
+        self.compute_with_value(lhs_span, operator, op, op_id, right)
     }
 }

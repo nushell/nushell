@@ -8,10 +8,7 @@ mod tests;
 #[cfg(test)]
 pub(crate) mod test_util;
 
-use nu_protocol::{
-    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
-    ShellError, Span, Spanned, Value,
-};
+use nu_protocol::{ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream, ShellError, Span, Spanned, Value, SpanId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -110,6 +107,7 @@ pub struct ListStreamInfo {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ExternalStreamInfo {
     pub span: Span,
+    pub span_id: SpanId,
     pub stdout: Option<RawStreamInfo>,
     pub stderr: Option<RawStreamInfo>,
     pub exit_code: Option<ListStreamInfo>,

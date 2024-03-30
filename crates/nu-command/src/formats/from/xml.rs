@@ -3,6 +3,7 @@ use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
 use roxmltree::NodeType;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct FromXml;
@@ -48,10 +49,12 @@ string. This way content of every tag is always a table and is easier to parse"#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let head_id = call.head_id;
         let keep_comments = call.has_flag(engine_state, stack, "keep-comments")?;
         let keep_processing_instructions = call.has_flag(engine_state, stack, "keep-pi")?;
         let info = ParsingInfo {
             span: head,
+            span_id: head_id,
             keep_comments,
             keep_processing_instructions,
         };
@@ -88,6 +91,7 @@ string. This way content of every tag is always a table and is easier to parse"#
 
 struct ParsingInfo {
     span: Span,
+    span_id: SpanId,
     keep_comments: bool,
     keep_processing_instructions: bool,
 }
@@ -203,7 +207,7 @@ fn from_xml_string_to_value(s: String, info: &ParsingInfo) -> Result<Value, roxm
 }
 
 fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, ShellError> {
-    let (concat_string, span, metadata) = input.collect_string_strict(info.span)?;
+    let (concat_string, span, span_id, metadata) = input.collect_string_strict(info.span, info.span_id)?;
 
     match from_xml_string_to_value(concat_string, info) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
@@ -326,6 +330,7 @@ mod tests {
 
     use indexmap::indexmap;
     use indexmap::IndexMap;
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     fn string(input: impl Into<String>) -> Value {
         Value::test_string(input)
@@ -367,6 +372,7 @@ mod tests {
     fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
         let info = ParsingInfo {
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
             keep_comments: false,
             keep_processing_instructions: false,
         };

@@ -1165,9 +1165,13 @@ pub fn parse_export_in_module(
         return (garbage_pipeline(working_set, spans), vec![]);
     };
 
+    let head = spans[0];
+    let head_id = working_set.add_span(head);
+
     let mut call = Box::new(Call {
-        head: spans[0],
         decl_id: export_decl_id,
+        head,
+        head_id,
         arguments: vec![],
         parser_info: HashMap::new(),
     });
@@ -2118,9 +2122,13 @@ pub fn parse_module(
         .find_decl(b"module")
         .expect("internal error: missing module command");
 
+    let head = span(&spans[..split_id]);
+    let head_id = working_set.add_span(head);
+
     let call = Box::new(Call {
-        head: span(&spans[..split_id]),
         decl_id: module_decl_id,
+        head,
+        head_id,
         arguments: vec![
             Argument::Positional(module_name_or_path_expr),
             Argument::Positional(block_expr),
@@ -2600,6 +2608,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     Ok(s) => Some(Spanned {
                         item: s,
                         span: new_name_expression.get_span(&working_set),
+                        span_id: new_name_expression.span_id
                     }),
                     Err(err) => {
                         working_set.error(err.wrap(working_set, call_span));
@@ -2925,9 +2934,13 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         }
                     }
 
+                    let head = spans[0];
+                    let head_id = working_set.add_span(head);
+
                     let call = Box::new(Call {
                         decl_id,
-                        head: spans[0],
+                        head,
+                        head_id,
                         arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
                         parser_info: HashMap::new(),
                     });
@@ -3080,9 +3093,13 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                         }
                     }
 
+                    let head = spans[0];
+                    let head_id = working_set.add_span(head);
+
                     let call = Box::new(Call {
                         decl_id,
-                        head: spans[0],
+                        head,
+                        head_id,
                         arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
                         parser_info: HashMap::new(),
                     });
@@ -3207,9 +3224,13 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         }
                     }
 
+                    let head = spans[0];
+                    let head_id = working_set.add_span(head);
+
                     let call = Box::new(Call {
                         decl_id,
-                        head: spans[0],
+                        head,
+                        head_id,
                         arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
                         parser_info: HashMap::new(),
                     });
@@ -3535,7 +3556,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
             };
 
             if path.exists() && path.is_file() {
-                Ok((path, expr.get_span(&working_set)))
+                Ok((path, expr.get_span(&working_set), expr.span_id))
             } else {
                 Err(ParseError::RegisteredFileNotFound(
                     filename,
@@ -3603,12 +3624,12 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack)
     };
 
-    let error = arguments.and_then(|(path, path_span)| {
+    let error = arguments.and_then(|(path, path_span, path_span_id)| {
         let path = path.path_buf();
 
         // Create the plugin identity. This validates that the plugin name starts with `nu_plugin_`
         let identity =
-            PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
+            PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span, path_span_id))?;
 
         // Find garbage collection config
         let gc_config = working_set

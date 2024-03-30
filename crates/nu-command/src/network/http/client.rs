@@ -5,7 +5,7 @@ use base64::{
     Engine,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::{BufferedReader, RawStream};
+use nu_protocol::{BufferedReader, RawStream, SpanId};
 use std::{
     collections::HashMap,
     io::BufReader,
@@ -102,6 +102,7 @@ pub fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,
     span: Span,
+    span_id: SpanId,
 ) -> PipelineData {
     // Try to get the size of the file to be downloaded.
     // This is helpful to show the progress of the stream.
@@ -128,11 +129,13 @@ pub fn response_to_buffer(
             }),
             engine_state.ctrlc.clone(),
             span,
+            span_id,
             buffer_size,
         )),
         stderr: None,
         exit_code: None,
         span,
+        span_id,
         metadata: None,
         trim_end_newline: false,
     }
@@ -426,6 +429,7 @@ fn transform_response_using_content_type(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
+    span_id: SpanId,
     requested_url: &str,
     flags: &RequestFlags,
     resp: Response,
@@ -462,7 +466,7 @@ fn transform_response_using_content_type(
         _ => Some(content_type.subtype().to_string()),
     };
 
-    let output = response_to_buffer(resp, engine_state, span);
+    let output = response_to_buffer(resp, engine_state, span, span_id);
     if flags.raw {
         Ok(output)
     } else if let Some(ext) = ext {
@@ -470,7 +474,7 @@ fn transform_response_using_content_type(
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
-                &Call::new(span),
+                &Call::new(span, span_id),
                 output,
             ),
             None => Ok(output),
@@ -504,6 +508,7 @@ fn request_handle_response_content(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
+    span_id: SpanId,
     requested_url: &str,
     flags: RequestFlags,
     resp: Response,
@@ -519,12 +524,13 @@ fn request_handle_response_content(
                 engine_state,
                 stack,
                 span,
+                span_id,
                 requested_url,
                 &flags,
                 response,
                 &content_type,
             ),
-            None => Ok(response_to_buffer(response, engine_state, span)),
+            None => Ok(response_to_buffer(response, engine_state, span, span_id)),
         }
     };
 
@@ -565,6 +571,7 @@ pub fn request_handle_response(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
+    span_id: SpanId,
     requested_url: &str,
     flags: RequestFlags,
     response: Result<Response, ShellErrorOrRequestError>,
@@ -575,6 +582,7 @@ pub fn request_handle_response(
             engine_state,
             stack,
             span,
+            span_id,
             requested_url,
             flags,
             resp,
@@ -589,6 +597,7 @@ pub fn request_handle_response(
                             engine_state,
                             stack,
                             span,
+                            span_id,
                             requested_url,
                             flags,
                             resp,

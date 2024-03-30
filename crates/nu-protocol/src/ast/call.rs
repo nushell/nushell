@@ -2,10 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    GetSpan, ShellError, Span, Spanned, Value,
-};
+use crate::{ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue, GetSpan, ShellError, Span, Spanned, Value, SpanId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
@@ -49,16 +46,18 @@ pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,
     pub head: Span,
+    pub head_id: SpanId,
     pub arguments: Vec<Argument>,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
 
 impl Call {
-    pub fn new(head: Span) -> Call {
+    pub fn new(head: Span, head_id: SpanId) -> Call {
         Self {
             decl_id: 0,
             head,
+            head_id,
             arguments: vec![],
             parser_info: HashMap::new(),
         }
@@ -331,6 +330,7 @@ impl Call {
         }
     }
 
+    // TODO SPAN: Remove:
     pub fn span(&self, state: &impl GetSpan) -> Span {
         let mut span = self.head;
 
@@ -359,7 +359,7 @@ impl Call {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::engine::EngineState;
+    use crate::engine::{EngineState, UNKNOWN_SPAN_ID};
 
     #[test]
     fn argument_span_named() {
@@ -369,10 +369,12 @@ mod test {
         let named = Spanned {
             item: "named".to_string(),
             span: Span::new(2, 3),
+            span_id: UNKNOWN_SPAN_ID,
         };
         let short = Spanned {
             item: "short".to_string(),
             span: Span::new(5, 7),
+            span_id: UNKNOWN_SPAN_ID,
         };
         let expr = Expression::garbage(&mut working_set, Span::new(11, 13));
 
@@ -422,7 +424,7 @@ mod test {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let mut call = Call::new(Span::new(0, 1));
+        let mut call = Call::new(Span::new(0, 1), UNKNOWN_SPAN_ID);
         call.add_positional(Expression::garbage(&mut working_set, Span::new(2, 3)));
         call.add_positional(Expression::garbage(&mut working_set, Span::new(5, 7)));
 

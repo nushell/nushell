@@ -176,6 +176,7 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
+    let span_id = args.url.span_id();
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
@@ -200,6 +201,7 @@ fn helper(
         engine_state,
         stack,
         span,
+        span_id,
         &requested_url,
         request_flags,
         response,

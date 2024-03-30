@@ -2,6 +2,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use serde::de::Deserialize;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct FromYaml;
@@ -33,7 +34,8 @@ impl Command for FromYaml {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        from_yaml(input, head)
+        let head_id = call.head_id;
+        from_yaml(input, head, head_id)
     }
 }
 
@@ -63,7 +65,8 @@ impl Command for FromYml {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        from_yaml(input, head)
+        let head_id = call.head_id;
+        from_yaml(input, head, head_id)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,6 +77,7 @@ impl Command for FromYml {
 fn convert_yaml_value_to_nu_value(
     v: &serde_yaml::Value,
     span: Span,
+    span_id: SpanId,
     val_span: Span,
 ) -> Result<Value, ShellError> {
     let err_not_compatible_number = ShellError::UnsupportedInput {
@@ -83,7 +87,7 @@ fn convert_yaml_value_to_nu_value(
         input_span: val_span,
     };
     Ok(match v {
-        serde_yaml::Value::Bool(b) => Value::bool(*b, span),
+        serde_yaml::Value::Bool(b) => Value::bool(*b, span_id),
         serde_yaml::Value::Number(n) if n.is_i64() => {
             Value::int(n.as_i64().ok_or(err_not_compatible_number)?, span)
         }
@@ -94,7 +98,7 @@ fn convert_yaml_value_to_nu_value(
         serde_yaml::Value::Sequence(a) => {
             let result: Result<Vec<Value>, ShellError> = a
                 .iter()
-                .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
+                .map(|x| convert_yaml_value_to_nu_value(x, span, span_id, val_span))
                 .collect();
             Value::list(result?, span)
         }
@@ -114,19 +118,19 @@ fn convert_yaml_value_to_nu_value(
                     (serde_yaml::Value::Number(k), _) => {
                         collected.insert(
                             k.to_string(),
-                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                            convert_yaml_value_to_nu_value(v, span, span_id, val_span)?,
                         );
                     }
                     (serde_yaml::Value::Bool(k), _) => {
                         collected.insert(
                             k.to_string(),
-                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                            convert_yaml_value_to_nu_value(v, span, span_id, val_span)?,
                         );
                     }
                     (serde_yaml::Value::String(k), _) => {
                         collected.insert(
                             k.clone(),
-                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                            convert_yaml_value_to_nu_value(v, span, span_id, val_span)?,
                         );
                     }
                     // Hard-code fix for cases where "v" is a string without quotations with double curly braces
@@ -175,7 +179,7 @@ fn convert_yaml_value_to_nu_value(
                     let val = format!("{}", tag).trim().to_string();
                     Value::string(val, span)
                 }
-                v => convert_yaml_value_to_nu_value(v, span, val_span)?,
+                v => convert_yaml_value_to_nu_value(v, span, span_id, val_span)?,
             };
 
             value
@@ -188,6 +192,7 @@ fn convert_yaml_value_to_nu_value(
 pub fn from_yaml_string_to_value(
     s: String,
     span: Span,
+    span_id: SpanId,
     val_span: Span,
 ) -> Result<Value, ShellError> {
     let mut documents = vec![];
@@ -200,7 +205,7 @@ pub fn from_yaml_string_to_value(
                 msg_span: span,
                 input_span: val_span,
             })?;
-        documents.push(convert_yaml_value_to_nu_value(&v, span, val_span)?);
+        documents.push(convert_yaml_value_to_nu_value(&v, span, span_id, val_span)?);
     }
 
     match documents.len() {
@@ -235,10 +240,10 @@ pub fn get_examples() -> Vec<Example<'static>> {
     ]
 }
 
-fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
+fn from_yaml(input: PipelineData, head: Span, head_id: SpanId) -> Result<PipelineData, ShellError> {
+    let (concat_string, span, span_id, metadata) = input.collect_string_strict(head, head_id)?;
 
-    match from_yaml_string_to_value(concat_string, head, span) {
+    match from_yaml_string_to_value(concat_string, head, head_id, span) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(other) => Err(other),
     }
@@ -248,6 +253,7 @@ fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError
 mod test {
     use super::*;
     use nu_protocol::Config;
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     #[test]
     fn test_problematic_yaml() {
@@ -277,6 +283,7 @@ mod test {
             let actual = from_yaml_string_to_value(
                 tc.input.to_owned(),
                 Span::test_data(),
+                UNKNOWN_SPAN_ID,
                 Span::test_data(),
             );
             if actual.is_err() {
@@ -316,6 +323,7 @@ mod test {
             let actual = from_yaml_string_to_value(
                 String::from(test_yaml),
                 Span::test_data(),
+                UNKNOWN_SPAN_ID,
                 Span::test_data(),
             );
 
@@ -402,7 +410,7 @@ mod test {
         for test_case in test_cases {
             let doc = serde_yaml::Deserializer::from_str(test_case.input);
             let v: serde_yaml::Value = serde_yaml::Value::deserialize(doc.last().unwrap()).unwrap();
-            let result = convert_yaml_value_to_nu_value(&v, Span::test_data(), Span::test_data());
+            let result = convert_yaml_value_to_nu_value(&v, Span::test_data(), UNKNOWN_SPAN_ID, Span::test_data());
             assert!(result.is_ok());
             assert!(result.ok().unwrap() == test_case.expected.ok().unwrap());
         }

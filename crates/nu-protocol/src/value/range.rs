@@ -21,6 +21,7 @@ pub struct Range {
 impl Range {
     pub fn new(
         expr_span: Span,
+        expr_span_id: SpanId,
         from: Value,
         next: Value,
         to: Value,
@@ -35,7 +36,7 @@ impl Range {
         };
 
         let to = if let Value::Nothing { .. } = to {
-            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
+            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, expr_span_id, &from, expr_span, expr_span_id) {
                 Value::int(i64::MIN, expr_span)
             } else {
                 Value::int(i64::MAX, expr_span)
@@ -46,7 +47,7 @@ impl Range {
 
         // Check if the range counts up or down
         let moves_up = matches!(
-            from.lte(expr_span, &to, expr_span),
+            from.lte(expr_span,expr_span_id,  &to, expr_span, expr_span_id),
             Ok(Value::Bool { val: true, .. })
         );
 
@@ -58,14 +59,14 @@ impl Range {
                 Value::int(-1i64, expr_span)
             }
         } else {
-            next.sub(operator.next_op_span, &from, expr_span)?
+            next.sub(operator.next_op_span, operator.next_op_span_id, &from, expr_span)?
         };
 
         let zero = Value::int(0i64, expr_span);
 
         // Increment must be non-zero, otherwise we iterate forever
         if matches!(
-            incr.eq(expr_span, &zero, expr_span),
+            incr.eq(expr_span, expr_span_id, &zero, expr_span, expr_span_id),
             Ok(Value::Bool { val: true, .. })
         ) {
             return Err(ShellError::CannotCreateRange { span: expr_span });
@@ -73,16 +74,16 @@ impl Range {
 
         // If to > from, then incr > 0, otherwise we iterate forever
         if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
-            to.gt(operator.span, &from, expr_span)?,
-            incr.gt(operator.next_op_span, &zero, expr_span)?,
+            to.gt(operator.span, operator.span_id, &from, expr_span, expr_span_id)?,
+            incr.gt(operator.next_op_span, operator.next_op_span_id, &zero, expr_span, expr_span_id)?,
         ) {
             return Err(ShellError::CannotCreateRange { span: expr_span });
         }
 
         // If to < from, then incr < 0, otherwise we iterate forever
         if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
-            to.lt(operator.span, &from, expr_span)?,
-            incr.lt(operator.next_op_span, &zero, expr_span)?,
+            to.lt(operator.span, operator.span_id, &from, expr_span, expr_span_id)?,
+            incr.lt(operator.next_op_span, operator.next_op_span_id, &zero, expr_span, expr_span_id)?,
         ) {
             return Err(ShellError::CannotCreateRange { span: expr_span });
         }
@@ -131,8 +132,9 @@ impl Range {
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<RangeIterator, ShellError> {
         let span = self.from.span();
+        let span_id = self.from.span_id();
 
-        Ok(RangeIterator::new(self, ctrlc, span))
+        Ok(RangeIterator::new(self, ctrlc, span, span_id))
     }
 }
 
@@ -158,6 +160,7 @@ pub struct RangeIterator {
     curr: Value,
     end: Value,
     span: Span,
+    span_id: SpanId,
     is_end_inclusive: bool,
     moves_up: bool,
     incr: Value,
@@ -166,7 +169,7 @@ pub struct RangeIterator {
 }
 
 impl RangeIterator {
-    pub fn new(range: Range, ctrlc: Option<Arc<AtomicBool>>, span: Span) -> RangeIterator {
+    pub fn new(range: Range, ctrlc: Option<Arc<AtomicBool>>, span: Span, span_id: SpanId) -> RangeIterator {
         let moves_up = range.moves_up();
         let is_end_inclusive = range.is_end_inclusive();
 
@@ -185,6 +188,7 @@ impl RangeIterator {
             curr: start,
             end,
             span,
+            span_id,
             is_end_inclusive,
             done: false,
             incr: range.incr,
@@ -226,7 +230,7 @@ impl Iterator for RangeIterator {
 
         if (ordering == desired_ordering) || (self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let next_value = self.curr.add(self.span, &self.incr, self.span);
+            let next_value = self.curr.add(self.span, self.span_id, &self.incr, self.span);
 
             let mut next = match next_value {
                 Ok(result) => result,

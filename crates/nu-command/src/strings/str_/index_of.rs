@@ -4,7 +4,7 @@ use nu_cmd_base::{
     util,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::{Range, SpanId};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -89,7 +89,7 @@ impl Command for SubCommand {
             cell_paths,
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, call.head_id, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -138,6 +138,7 @@ fn action(
         ..
     }: &Arguments,
     head: Span,
+    head_id: SpanId,
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {
@@ -218,6 +219,7 @@ fn action(
 #[cfg(test)]
 mod tests {
     use nu_protocol::ast::RangeInclusion;
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
 
     use super::*;
     use super::{action, Arguments, SubCommand};
@@ -241,7 +243,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
 
         assert_eq!(actual, Value::test_int(5));
     }
@@ -258,7 +260,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
 
         assert_eq!(actual, Value::test_int(-1));
     }
@@ -276,6 +278,7 @@ mod tests {
         let spanned_range = Spanned {
             item: range,
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let options = Arguments {
@@ -287,7 +290,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, Value::test_int(6));
     }
 
@@ -304,6 +307,7 @@ mod tests {
         let spanned_range = Spanned {
             item: range,
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let options = Arguments {
@@ -315,7 +319,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, Value::test_int(-1));
     }
 
@@ -332,6 +336,7 @@ mod tests {
         let spanned_range = Spanned {
             item: range,
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let options = Arguments {
@@ -343,7 +348,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, Value::test_int(3));
     }
 
@@ -360,6 +365,7 @@ mod tests {
         let spanned_range = Spanned {
             item: range,
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let options = Arguments {
@@ -371,7 +377,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, Value::test_int(-1));
     }
 
@@ -388,7 +394,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert_eq!(actual, Value::test_int(15));
     }
 
@@ -406,6 +412,7 @@ mod tests {
         let spanned_range = Spanned {
             item: range,
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let options = Arguments {
@@ -417,7 +424,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert!(actual.is_error());
     }
 
@@ -435,6 +442,7 @@ mod tests {
         let spanned_range = Spanned {
             item: range,
             span: Span::test_data(),
+            span_id: UNKNOWN_SPAN_ID,
         };
 
         let options = Arguments {
@@ -446,7 +454,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, Span::test_data(), UNKNOWN_SPAN_ID);
         assert!(actual.is_error());
     }
 }

@@ -61,6 +61,7 @@ impl Command for Input {
         let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
             item: i64::MAX,
             span: call.head,
+            span_id: call.head_id,
         });
 
         if numchar.item < 1 {

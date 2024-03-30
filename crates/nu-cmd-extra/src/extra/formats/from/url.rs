@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -26,7 +27,7 @@ impl Command for FromUrl {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        from_url(input, head)
+        from_url(input, head, call.head_id)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,8 +44,8 @@ impl Command for FromUrl {
     }
 }
 
-fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
+fn from_url(input: PipelineData, head: Span, head_id: SpanId) -> Result<PipelineData, ShellError> {
+    let (concat_string, span, span_id, metadata) = input.collect_string_strict(head, head_id)?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);
 

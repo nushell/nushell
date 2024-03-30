@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
-use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{DataSource, NuGlob, PipelineMetadata, SpanId};
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
@@ -79,6 +79,7 @@ impl Command for Ls {
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
+        let call_span_id = call.head_id;
         let cwd = current_dir(engine_state, stack)?;
 
         let pattern_arg = opt_for_glob_pattern(engine_state, stack, call, 0)?;
@@ -95,10 +96,12 @@ impl Command for Ls {
                     NuGlob::DoNotExpand(p) => Some(Spanned {
                         item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
+                        span_id: path.span_id,
                     }),
                     NuGlob::Expand(p) => Some(Spanned {
                         item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
                         span: path.span,
+                        span_id: path.span_id,
                     }),
                 }
             } else {
@@ -109,9 +112,10 @@ impl Command for Ls {
         // it indicates we need to append an extra '*' after pattern for listing given directory
         // Example: 'ls directory' -> 'ls directory/*'
         let mut extra_star_under_given_directory = false;
-        let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+        let (path, p_tag, p_tag_id, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
+                let p_tag_id = pat.span_id;
                 let expanded = nu_path::expand_path_with(
                     pat.item.as_ref(),
                     &cwd,
@@ -159,6 +163,7 @@ impl Command for Ls {
                 (
                     expanded,
                     p_tag,
+                    p_tag_id,
                     absolute_path,
                     matches!(pat.item, NuGlob::DoNotExpand(_)),
                 )
@@ -166,11 +171,11 @@ impl Command for Ls {
             None => {
                 // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
                 if directory {
-                    (PathBuf::from("."), call_span, false, false)
+                    (PathBuf::from("."), call_span, call_span_id, false, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("*"), call_span, false, false)
+                    (PathBuf::from("*"), call_span, call_span_id, false, false)
                 }
             }
         };
@@ -200,6 +205,7 @@ impl Command for Ls {
             // use NeedExpand, the relative escaping logic is handled previously
             item: NuGlob::Expand(path.clone()),
             span: p_tag,
+            span_id: p_tag_id,
         };
 
         let glob_options = if all {
@@ -295,6 +301,7 @@ impl Command for Ls {
                                 &name,
                                 metadata.as_ref(),
                                 call_span,
+                                call_span_id,
                                 long,
                                 du,
                                 ctrl_c.clone(),
@@ -459,6 +466,7 @@ pub(crate) fn dir_entry_dict(
     display_name: &str,         // file name to be displayed
     metadata: Option<&std::fs::Metadata>,
     span: Span,
+    span_id: SpanId,
     long: bool,
     du: bool,
     ctrl_c: Option<Arc<AtomicBool>>,
@@ -505,7 +513,7 @@ pub(crate) fn dir_entry_dict(
 
     if long {
         if let Some(md) = metadata {
-            record.push("readonly", Value::bool(md.permissions().readonly(), span));
+            record.push("readonly", Value::bool(md.permissions().readonly(), span_id));
 
             #[cfg(unix)]
             {

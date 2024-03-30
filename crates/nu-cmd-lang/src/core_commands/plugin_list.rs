@@ -62,7 +62,10 @@ impl Command for PluginList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.span(&engine_state);
+        // TODO SPAN: Changed to head
+        let span = call.head;
+        let span_id = call.head_id;
+
         // Group plugin decls by plugin identity
         let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
             decl.plugin_identity()
@@ -80,7 +83,7 @@ impl Command for PluginList {
 
             Value::record(record! {
                 "name" => Value::string(plugin.identity().name(), span),
-                "is_running" => Value::bool(plugin.is_running(), span),
+                "is_running" => Value::bool(plugin.is_running(), span_id),
                 "pid" => plugin.pid()
                     .map(|p| Value::int(p as i64, span))
                     .unwrap_or(Value::nothing(span)),

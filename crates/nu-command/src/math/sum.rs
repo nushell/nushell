@@ -3,6 +3,7 @@ use crate::math::{
     utils::run_with_function,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -68,9 +69,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn summation(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn summation(values: &[Value], span: Span, span_id: SpanId, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     let sum_func = reducer_for(Reduce::Summation);
-    sum_func(Value::nothing(head), values.to_vec(), span, head)
+    sum_func(Value::nothing(head), values.to_vec(), span, span_id, head, head_id)
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use super::helper::ReconstructVal;
-use crate::{Config, Record, Span, Value};
+use crate::{Config, Record, Span, SpanId, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -22,7 +22,7 @@ impl FromStr for ErrorStyle {
 }
 
 impl ReconstructVal for ErrorStyle {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: Span, span_id: SpanId) -> Value {
         Value::string(
             match self {
                 ErrorStyle::Fancy => "fancy",

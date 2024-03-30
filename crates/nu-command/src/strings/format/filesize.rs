@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_filesize;
+use nu_protocol::{format_filesize, SpanId};
 
 struct Arguments {
     format_value: String,
@@ -72,6 +72,7 @@ impl Command for FormatFilesize {
             arg,
             input,
             call.head,
+            call.head_id,
             engine_state.ctrlc.clone(),
         )
     }
@@ -97,7 +98,7 @@ impl Command for FormatFilesize {
     }
 }
 
-fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
+fn format_value_impl(val: &Value, arg: &Arguments, span: Span, span_id: SpanId) -> Value {
     let value_span = val.span();
     match val {
         Value::Filesize { val, .. } => Value::string(

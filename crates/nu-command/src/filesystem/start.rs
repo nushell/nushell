@@ -41,6 +41,7 @@ impl Command for Start {
         let path = Spanned {
             item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
+            span_id: path.span_id,
         };
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         // only check if file exists in current current directory

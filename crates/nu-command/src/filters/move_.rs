@@ -116,10 +116,12 @@ impl Command for Move {
         let before_or_after = match (after, before) {
             (Some(v), None) => Spanned {
                 span: v.span(),
+                span_id: v.span_id(),
                 item: BeforeOrAfter::After(v.coerce_into_string()?),
             },
             (None, Some(v)) => Spanned {
                 span: v.span(),
+                span_id: v.span_id(),
                 item: BeforeOrAfter::Before(v.coerce_into_string()?),
             },
             (Some(_), Some(_)) => {
@@ -263,6 +265,8 @@ fn move_record_columns(
 
 #[cfg(test)]
 mod test {
+    use nu_parser::UNALIASABLE_PARSER_KEYWORDS;
+    use nu_protocol::engine::UNKNOWN_SPAN_ID;
     use super::*;
 
     // helper
@@ -291,6 +295,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("c".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("a")];
 
@@ -315,6 +320,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("c".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("b"), Value::test_string("e")];
 
@@ -340,6 +346,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("b".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("d")];
 
@@ -364,6 +371,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("b".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("c"), Value::test_string("e")];
 
@@ -389,6 +397,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("e".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [
             Value::test_string("d"),
@@ -418,6 +427,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("non-existent".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("a")];
 
@@ -433,6 +443,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("b".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("a"), Value::test_string("non-existent")];
 
@@ -448,6 +459,7 @@ mod test {
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("b".to_string()),
             span: test_span,
+            span_id: UNKNOWN_SPAN_ID,
         };
         let columns = [Value::test_string("b"), Value::test_string("d")];
 

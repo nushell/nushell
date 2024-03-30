@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 struct Arguments {
     format_value: String,
@@ -77,6 +78,7 @@ impl Command for FormatDuration {
             arg,
             input,
             call.head,
+            call.head_id,
             engine_state.ctrlc.clone(),
         )
     }
@@ -105,7 +107,7 @@ impl Command for FormatDuration {
     }
 }
 
-fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
+fn format_value_impl(val: &Value, arg: &Arguments, span: Span, span_id: SpanId) -> Value {
     let inner_span = val.span();
     match val {
         Value::Duration { val: inner, .. } => {

@@ -1,8 +1,4 @@
-use nu_protocol::{
-    ast::Expr,
-    engine::{Command, EngineState, Stack, Visibility},
-    record, ModuleId, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{ast::Expr, engine::{Command, EngineState, Stack, Visibility}, record, ModuleId, Signature, Span, SyntaxShape, Type, Value, SpanId};
 use std::{cmp::Ordering, collections::HashMap};
 
 pub struct ScopeData<'e, 's> {
@@ -46,7 +42,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn collect_vars(&self, span: Span) -> Vec<Value> {
+    pub fn collect_vars(&self, span: Span, span_id: SpanId) -> Vec<Value> {
         let mut vars = vec![];
 
         for (var_name, var_id) in &self.vars_map {
@@ -54,7 +50,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
             let var = self.engine_state.get_var(**var_id);
             let var_type = Value::string(var.ty.to_string(), span);
-            let is_const = Value::bool(var.const_val.is_some(), span);
+            let is_const = Value::bool(var.const_val.is_some(), span_id);
 
             let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
                 val
@@ -80,7 +76,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         vars
     }
 
-    pub fn collect_commands(&self, span: Span) -> Vec<Value> {
+    pub fn collect_commands(&self, span: Span, span_id: SpanId) -> Vec<Value> {
         let mut commands = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
@@ -108,17 +104,17 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let record = record! {
                     "name" => Value::string(String::from_utf8_lossy(command_name), span),
                     "category" => Value::string(signature.category.to_string(), span),
-                    "signatures" => self.collect_signatures(&signature, span),
+                    "signatures" => self.collect_signatures(&signature, span, span_id),
                     "usage" => Value::string(decl.usage(), span),
                     "examples" => Value::list(examples, span),
                     // we can only be a is_builtin or is_custom, not both
-                    "is_builtin" => Value::bool(!decl.is_custom_command(), span),
-                    "is_sub" => Value::bool(decl.is_sub(), span),
-                    "is_plugin" => Value::bool(decl.is_plugin(), span),
-                    "is_custom" => Value::bool(decl.is_custom_command(), span),
-                    "is_keyword" => Value::bool(decl.is_parser_keyword(), span),
-                    "is_extern" => Value::bool(decl.is_known_external(), span),
-                    "creates_scope" => Value::bool(signature.creates_scope, span),
+                    "is_builtin" => Value::bool(!decl.is_custom_command(), span_id),
+                    "is_sub" => Value::bool(decl.is_sub(), span_id),
+                    "is_plugin" => Value::bool(decl.is_plugin(), span_id),
+                    "is_custom" => Value::bool(decl.is_custom_command(), span_id),
+                    "is_keyword" => Value::bool(decl.is_parser_keyword(), span_id),
+                    "is_extern" => Value::bool(decl.is_known_external(), span_id),
+                    "creates_scope" => Value::bool(signature.creates_scope, span_id),
                     "extra_usage" => Value::string(decl.extra_usage(), span),
                     "search_terms" => Value::string(decl.search_terms().join(", "), span),
                     "decl_id" => Value::int(**decl_id as i64, span),
@@ -133,7 +129,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         commands
     }
 
-    fn collect_signatures(&self, signature: &Signature, span: Span) -> Value {
+    fn collect_signatures(&self, signature: &Signature, span: Span, span_id: SpanId) -> Value {
         let mut sigs = signature
             .input_output_types
             .iter()
@@ -141,7 +137,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 (
                     input_type.to_shape().to_string(),
                     Value::list(
-                        self.collect_signature_entries(input_type, output_type, signature, span),
+                        self.collect_signature_entries(input_type, output_type, signature, span, span_id),
                         span,
                     ),
                 )
@@ -157,7 +153,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             sigs.push((
                 any_type.to_shape().to_string(),
                 Value::list(
-                    self.collect_signature_entries(any_type, any_type, signature, span),
+                    self.collect_signature_entries(any_type, any_type, signature, span, span_id),
                     span,
                 ),
             ));
@@ -181,6 +177,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         output_type: &Type,
         signature: &Signature,
         span: Span,
+        span_id: SpanId,
     ) -> Vec<Value> {
         let mut sig_records = vec![];
 
@@ -190,7 +187,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "parameter_name" => Value::nothing(span),
                 "parameter_type" => Value::string("input", span),
                 "syntax_shape" => Value::string(input_type.to_shape().to_string(), span),
-                "is_optional" => Value::bool(false, span),
+                "is_optional" => Value::bool(false, span_id),
                 "short_flag" => Value::nothing(span),
                 "description" => Value::nothing(span),
                 "custom_completion" => Value::nothing(span),
@@ -208,7 +205,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "parameter_name" => Value::string(&req.name, span),
                     "parameter_type" => Value::string("positional", span),
                     "syntax_shape" => Value::string(req.shape.to_string(), span),
-                    "is_optional" => Value::bool(false, span),
+                    "is_optional" => Value::bool(false, span_id),
                     "short_flag" => Value::nothing(span),
                     "description" => Value::string(&req.desc, span),
                     "custom_completion" => Value::string(custom, span),
@@ -232,7 +229,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "parameter_name" => Value::string(&opt.name, span),
                     "parameter_type" => Value::string("positional", span),
                     "syntax_shape" => Value::string(opt.shape.to_string(), span),
-                    "is_optional" => Value::bool(true, span),
+                    "is_optional" => Value::bool(true, span_id),
                     "short_flag" => Value::nothing(span),
                     "description" => Value::string(&opt.desc, span),
                     "custom_completion" => Value::string(custom, span),
@@ -252,7 +249,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "parameter_name" => Value::string(name, span),
                     "parameter_type" => Value::string("rest", span),
                     "syntax_shape" => Value::string(rest.shape.to_string(), span),
-                    "is_optional" => Value::bool(true, span),
+                    "is_optional" => Value::bool(true, span_id),
                     "short_flag" => Value::nothing(span),
                     "description" => Value::string(&rest.desc, span),
                     "custom_completion" => Value::string(custom, span),
@@ -300,7 +297,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "parameter_name" => Value::string(&named.long, span),
                     "parameter_type" => flag_type,
                     "syntax_shape" => shape,
-                    "is_optional" => Value::bool(!named.required, span),
+                    "is_optional" => Value::bool(!named.required, span_id),
                     "short_flag" => short_flag,
                     "description" => Value::string(&named.desc, span),
                     "custom_completion" => Value::string(custom_completion_command_name, span),
@@ -316,7 +313,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "parameter_name" => Value::nothing(span),
                 "parameter_type" => Value::string("output", span),
                 "syntax_shape" => Value::string(output_type.to_shape().to_string(), span),
-                "is_optional" => Value::bool(false, span),
+                "is_optional" => Value::bool(false, span_id),
                 "short_flag" => Value::nothing(span),
                 "description" => Value::nothing(span),
                 "custom_completion" => Value::nothing(span),

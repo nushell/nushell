@@ -3,6 +3,7 @@ use crate::math::{
     utils::run_with_function,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::SpanId;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -71,9 +72,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn maximum(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn maximum(values: &[Value], span: Span, span_id: SpanId, head: Span, head_id: SpanId) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
-    max_func(Value::nothing(head), values.to_vec(), span, head)
+    max_func(Value::nothing(head), values.to_vec(), span, span_id, head, head_id)
 }
 
 #[cfg(test)]
