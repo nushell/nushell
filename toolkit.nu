@@ -533,7 +533,7 @@ def compare-benchmarks [old: string, new: string] {
     return (($old | zip $new) | each { |it|
         let old = $it.0
         let new = $it.1
-        let relative = ($old.median / $new.median) | math round -p 2
+        let relative = ($old.fastest / $new.fastest) | math round -p 2
 
         # Notes are based on the relative performance of the two runs
         # Indicates significant performance improvements or regressions
@@ -546,8 +546,8 @@ def compare-benchmarks [old: string, new: string] {
             else {" "})
         {
             "Name": $old.name,
-            "Old": (($old.median / 1000) | math round | into duration),
-            "New": (($new.median / 1000) | math round | into duration),
+            "Old": (($old.fastest / 1000) | math round | into duration),
+            "New": (($new.fastest / 1000) | math round | into duration),
             "Relative": $relative,
             "Note": $note
         }
