@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::IoStream;
 
 #[derive(Clone)]
 pub struct Echo;
@@ -9,7 +10,7 @@ impl Command for Echo {
     }
 
     fn usage(&self) -> &str {
-        "Returns its arguments, ignoring the piped-in value."
+        "Returns or prints its arguments, ignoring the piped-in value."
     }
 
     fn signature(&self) -> Signature {
@@ -22,7 +23,10 @@ impl Command for Echo {
     fn extra_usage(&self) -> &str {
         r#"When given no arguments, it returns an empty string. When given one argument,
 it returns it. Otherwise, it returns a list of the arguments. There is usually
-little reason to use this over just writing the values as-is."#
+little reason to use this over just writing the values as-is.
+
+Note that if there is no next command in the pipeline, then the values will be printed instead of passed to the next command.
+"#
     }
 
     fn run(
@@ -38,7 +42,16 @@ little reason to use this over just writing the values as-is."#
             1 => args.pop().expect("one element"),
             _ => Value::list(args, call.head),
         };
-        Ok(value.into_pipeline_data())
+        let value = value.into_pipeline_data();
+        match stack.stdout() {
+            IoStream::Pipe | IoStream::Capture => Ok(value),
+            IoStream::Null => Ok(PipelineData::Empty),
+            IoStream::Inherit => {
+                value.print(engine_state, stack, false, false)?;
+                Ok(PipelineData::Empty)
+            }
+            IoStream::File(_) => todo!(),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
