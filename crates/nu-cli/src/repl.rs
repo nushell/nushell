@@ -810,6 +810,7 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 }
 
 ///
