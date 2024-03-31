@@ -11,7 +11,7 @@
 // pub use indexes::*;
 //
 mod all_false;
-// mod all_true;
+mod all_true;
 // mod arg_max;
 // mod arg_min;
 // mod cumulative;
@@ -28,7 +28,7 @@ pub use all_false::AllFalse;
 use nu_plugin::PluginCommand;
 
 use crate::PolarsPlugin;
-// pub use all_true::AllTrue;
+pub use all_true::AllTrue;
 // pub use arg_max::ArgMax;
 // pub use arg_min::ArgMin;
 // pub use cumulative::Cumulative;
@@ -42,7 +42,7 @@ use crate::PolarsPlugin;
 pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
         Box::new(AllFalse),
-        //     Box::new(AllTrue),
+        Box::new(AllTrue),
         //     Box::new(ArgMax),
         //     Box::new(ArgMin),
         //     Box::new(ArgSort),
