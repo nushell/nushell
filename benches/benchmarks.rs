@@ -81,6 +81,7 @@ fn bench_command_with_custom_stack_and_engine(
         .bench_values(|mut engine| {
             evaluate_commands(
                 &commands,
+                Vec::new(),
                 &mut engine,
                 &mut stack.clone(),
                 PipelineData::empty(),
@@ -101,6 +102,7 @@ fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
     let mut stack = Stack::new();
     evaluate_commands(
         &commands,
+        Vec::new(),
         &mut engine,
         &mut stack,
         PipelineData::empty(),
@@ -261,6 +263,7 @@ mod eval_commands {
             .bench_values(|mut engine| {
                 evaluate_commands(
                     &commands,
+                    Vec::new(),
                     &mut engine,
                     &mut nu_protocol::engine::Stack::new(),
                     PipelineData::empty(),
