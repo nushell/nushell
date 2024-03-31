@@ -162,7 +162,7 @@ impl Module {
                 let errors = if !rest.is_empty() && self.submodules.get(name).is_none() {
                     vec![ParseError::WrongImportPattern(
                         format!("Trying to import something but the parent `{}` is not a module, maybe you want to try `use <module> [<name1>, <name2>]`", String::from_utf8_lossy(name)),
-                        rest[0].span(),
+                        rest[0].span().span(),
                     )]
                 } else {
                     vec![]
@@ -181,7 +181,7 @@ impl Module {
                     } else {
                         (
                             ResolvedImportPattern::new(vec![], vec![], vec![]),
-                            vec![ParseError::ExportNotFound(*span)],
+                            vec![ParseError::ExportNotFound(span.span())],
                         )
                     }
                 } else if let Some(decl_id) = self.decls.get(name) {
@@ -216,7 +216,7 @@ impl Module {
                 } else {
                     (
                         ResolvedImportPattern::new(vec![], vec![], vec![]),
-                        vec![ParseError::ExportNotFound(*span)],
+                        vec![ParseError::ExportNotFound(span.span())],
                     )
                 }
             }
@@ -270,7 +270,7 @@ impl Module {
                         if let Some(main_decl_id) = self.main {
                             decls.push((final_name.clone(), main_decl_id));
                         } else {
-                            errors.push(ParseError::ExportNotFound(*span));
+                            errors.push(ParseError::ExportNotFound(span.span()));
                         }
                     } else if let Some(decl_id) = self.decls.get(name) {
                         decls.push((name.clone(), *decl_id));
@@ -294,7 +294,7 @@ impl Module {
                         constants.extend(sub_results.constants);
                         errors.extend(sub_errors);
                     } else {
-                        errors.push(ParseError::ExportNotFound(*span));
+                        errors.push(ParseError::ExportNotFound(span.span()));
                     }
                 }
 

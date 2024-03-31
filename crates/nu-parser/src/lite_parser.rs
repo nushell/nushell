@@ -2,23 +2,23 @@
 //! can be parsed.
 
 use crate::{Token, TokenContents};
-use nu_protocol::{ast::RedirectionSource, ParseError, Span};
+use nu_protocol::{ast::RedirectionSource, ActualSpan, ParseError};
 use std::mem;
 
 #[derive(Debug, Clone, Copy)]
 pub enum LiteRedirectionTarget {
     File {
-        connector: Span,
-        file: Span,
+        connector: ActualSpan,
+        file: ActualSpan,
         append: bool,
     },
     Pipe {
-        connector: Span,
+        connector: ActualSpan,
     },
 }
 
 impl LiteRedirectionTarget {
-    pub fn connector(&self) -> Span {
+    pub fn connector(&self) -> ActualSpan {
         match self {
             LiteRedirectionTarget::File { connector, .. }
             | LiteRedirectionTarget::Pipe { connector } => *connector,
@@ -40,14 +40,14 @@ pub enum LiteRedirection {
 
 #[derive(Debug, Clone, Default)]
 pub struct LiteCommand {
-    pub pipe: Option<Span>,
-    pub comments: Vec<Span>,
-    pub parts: Vec<Span>,
+    pub pipe: Option<ActualSpan>,
+    pub comments: Vec<ActualSpan>,
+    pub parts: Vec<ActualSpan>,
     pub redirection: Option<LiteRedirection>,
 }
 
 impl LiteCommand {
-    fn push(&mut self, span: Span) {
+    fn push(&mut self, span: ActualSpan) {
         self.parts.push(span);
     }
 
@@ -157,7 +157,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     let mut last_token = TokenContents::Eol;
     let mut file_redirection = None;
-    let mut curr_comment: Option<Vec<Span>> = None;
+    let mut curr_comment: Option<Vec<ActualSpan>> = None;
     let mut error = None;
 
     for (idx, token) in tokens.iter().enumerate() {

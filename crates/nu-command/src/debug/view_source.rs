@@ -46,10 +46,10 @@ impl Command for ViewSource {
 
                     if decl.is_alias() {
                         if let Some(alias) = &decl.as_alias() {
-                            let contents = String::from_utf8_lossy(
-                                engine_state
-                                    .get_span_contents(alias.wrapped_call.get_span(engine_state)),
-                            );
+                            let contents =
+                                String::from_utf8_lossy(engine_state.get_span_id_contents(
+                                    alias.wrapped_call.get_span(engine_state),
+                                ));
                             Ok(Value::string(contents, call.head).into_pipeline_data())
                         } else {
                             Ok(Value::string("no alias found", call.head).into_pipeline_data())
@@ -59,7 +59,7 @@ impl Command for ViewSource {
                     else if let Some(block_id) = decl.get_block_id() {
                         let block = engine_state.get_block(block_id);
                         if let Some(block_span) = block.span {
-                            let contents = engine_state.get_span_contents(block_span);
+                            let contents = engine_state.get_span_id_contents(block_span);
                             // name of function
                             let mut final_contents = String::new();
                             if val.contains(' ') {
@@ -151,7 +151,7 @@ impl Command for ViewSource {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
-                        let contents = engine_state.get_span_contents(module_span);
+                        let contents = engine_state.get_span_id_contents(module_span);
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {
@@ -178,7 +178,7 @@ impl Command for ViewSource {
                     let block = engine_state.get_block(closure.block_id);
 
                     if let Some(span) = block.span {
-                        let contents = engine_state.get_span_contents(span);
+                        let contents = engine_state.get_span_id_contents(span);
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {

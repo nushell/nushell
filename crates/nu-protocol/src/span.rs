@@ -135,7 +135,7 @@ impl Span {
     }
 
     // TODO SPAN: This will later require engine_state/working_set reference once Span becomes SpanId
-    fn span(&self) -> ActualSpan {
+    pub fn span(&self) -> ActualSpan {
         ActualSpan::new(self.start, self.end)
     }
 }
@@ -215,6 +215,11 @@ impl ActualSpan {
             start: self.end,
             end: self.end,
         }
+    }
+
+    // TODO SPAN: This should be removed
+    pub fn id(&self) -> Span {
+        Span::new(self.start, self.end)
     }
 }
 

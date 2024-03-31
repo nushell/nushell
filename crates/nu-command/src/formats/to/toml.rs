@@ -68,7 +68,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
         Value::Closure { .. } => {
-            let code = engine_state.get_span_contents(span);
+            let code = engine_state.get_span_id_contents(span);
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }

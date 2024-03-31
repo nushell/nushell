@@ -89,7 +89,7 @@ This command is a parser keyword. For details, check:
 
                 // See if the module is a file
                 let module_arg_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(import_pattern.head.span),
+                    engine_state.get_span_id_contents(import_pattern.head.span),
                 );
 
                 let maybe_file_path = find_in_dirs_env(

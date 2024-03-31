@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{
     ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
-    Value, SpanId
+    Value, ActualSpan
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -19,7 +19,6 @@ pub enum ShellError {
     //     #[label("points here")]
     //     span: SpanId,
     // },
-
     /// An operator received two arguments of incompatible types.
     ///
     /// ## Resolution
@@ -1382,7 +1381,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 
 // TODO: Implement as From trait
 impl ShellError {
-    pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
+    pub fn wrap(self, working_set: &StateWorkingSet, span: ActualSpan) -> ParseError {
         let msg = format_error(working_set, &self);
         ParseError::LabeledError(
             msg,

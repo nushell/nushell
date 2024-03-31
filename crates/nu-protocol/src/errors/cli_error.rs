@@ -1,6 +1,6 @@
 use crate::{
     engine::{EngineState, StateWorkingSet},
-    ErrorStyle, GetSpan, SpanId,
+    ErrorStyle,
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,

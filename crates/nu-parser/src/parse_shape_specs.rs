@@ -1,5 +1,5 @@
 use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
-use nu_protocol::{engine::StateWorkingSet, ParseError, Span, SyntaxShape, Type};
+use nu_protocol::{engine::StateWorkingSet, ActualSpan, ParseError, SyntaxShape, Type};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ShapeDescriptorUse {
@@ -11,7 +11,7 @@ pub enum ShapeDescriptorUse {
 
 /// equivalent to [`parse_shape_name`] with [`ShapeDescriptorUse::Type`] converting the
 /// [`SyntaxShape`] to its [`Type`]
-pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
+pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: ActualSpan) -> Type {
     parse_shape_name(working_set, bytes, span, ShapeDescriptorUse::Type).to_type()
 }
 
@@ -30,7 +30,7 @@ pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -
 pub fn parse_shape_name(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
-    span: Span,
+    span: ActualSpan,
     use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     let result = match bytes {
@@ -75,10 +75,10 @@ pub fn parse_shape_name(
                 let shape_name = split
                     .next()
                     .expect("If `bytes` contains `@` splitn returns 2 slices");
-                let shape_span = Span::new(span.start, span.start + shape_name.len());
+                let shape_span = ActualSpan::new(span.start, span.start + shape_name.len());
                 let shape = parse_shape_name(working_set, shape_name, shape_span, use_loc);
                 if use_loc != ShapeDescriptorUse::Argument {
-                    let illegal_span = Span::new(span.start + shape_name.len(), span.end);
+                    let illegal_span = ActualSpan::new(span.start + shape_name.len(), span.end);
                     working_set.error(ParseError::LabeledError(
                         "Unexpected custom completer in type spec".into(),
                         "Type specifications do not support custom completers".into(),
@@ -87,7 +87,7 @@ pub fn parse_shape_name(
                     return shape;
                 }
 
-                let cmd_span = Span::new(span.start + shape_name.len() + 1, span.end);
+                let cmd_span = ActualSpan::new(span.start + shape_name.len() + 1, span.end);
                 let cmd_name = split
                     .next()
                     .expect("If `bytes` contains `@` splitn returns 2 slices");
@@ -121,7 +121,7 @@ pub fn parse_shape_name(
 fn parse_collection_shape(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
-    span: Span,
+    span: ActualSpan,
     use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     assert!(bytes.starts_with(b"record") || bytes.starts_with(b"table"));
@@ -244,7 +244,7 @@ fn parse_collection_shape(
 fn parse_list_shape(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
-    span: Span,
+    span: ActualSpan,
     use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     assert!(bytes.starts_with(b"list"));
@@ -278,17 +278,17 @@ fn parse_list_shape(
 fn prepare_inner_span(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
-    span: Span,
+    span: ActualSpan,
     prefix_len: usize,
-) -> Option<Span> {
+) -> Option<ActualSpan> {
     let start = span.start + prefix_len;
 
     if bytes.ends_with(b">") {
         let end = span.end - 1;
-        Some(Span::new(start, end))
+        Some(ActualSpan::new(start, end))
     } else if bytes.contains(&b'>') {
         let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
-        let span = Span::new(span.start + angle_start, span.end);
+        let span = ActualSpan::new(span.start + angle_start, span.end);
 
         working_set.error(ParseError::LabeledError(
             "Extra characters in the parameter name".into(),

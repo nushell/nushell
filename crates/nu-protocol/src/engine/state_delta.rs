@@ -4,7 +4,7 @@ use crate::{
         usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
         VirtualPath,
     },
-    Module, Span,
+    ActualSpan, Module,
 };
 use std::sync::Arc;
 
@@ -21,7 +21,7 @@ pub struct StateDelta {
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Arc<Block>>,             // indexed by BlockId
     pub(super) modules: Vec<Arc<Module>>,    // indexed by ModuleId
-    pub spans: Vec<Span>,                    // indexed by SpanId
+    pub spans: Vec<ActualSpan>,              // indexed by SpanId
     pub(super) usage: Usage,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]

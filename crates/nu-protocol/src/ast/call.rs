@@ -360,6 +360,7 @@ impl Call {
 mod test {
     use super::*;
     use crate::engine::EngineState;
+    use crate::ActualSpan;
 
     #[test]
     fn argument_span_named() {
@@ -374,7 +375,7 @@ mod test {
             item: "short".to_string(),
             span: Span::new(5, 7),
         };
-        let expr = Expression::garbage(&mut working_set, Span::new(11, 13));
+        let expr = Expression::garbage(&mut working_set, ActualSpan::new(11, 13));
 
         let arg = Argument::Named((named.clone(), None, None));
 
@@ -399,7 +400,7 @@ mod test {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let span = Span::new(2, 3);
-        let expr = Expression::garbage(&mut working_set, span);
+        let expr = Expression::garbage(&mut working_set, span.span());
         let arg = Argument::Positional(expr);
 
         assert_eq!(span, arg.get_span(&working_set));
@@ -411,7 +412,7 @@ mod test {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let span = Span::new(2, 3);
-        let expr = Expression::garbage(&mut working_set, span);
+        let expr = Expression::garbage(&mut working_set, span.span());
         let arg = Argument::Unknown(expr);
 
         assert_eq!(span, arg.get_span(&working_set));
@@ -423,8 +424,8 @@ mod test {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let mut call = Call::new(Span::new(0, 1));
-        call.add_positional(Expression::garbage(&mut working_set, Span::new(2, 3)));
-        call.add_positional(Expression::garbage(&mut working_set, Span::new(5, 7)));
+        call.add_positional(Expression::garbage(&mut working_set, ActualSpan::new(2, 3)));
+        call.add_positional(Expression::garbage(&mut working_set, ActualSpan::new(5, 7)));
 
         assert_eq!(Span::new(2, 7), call.arguments_span(&working_set));
     }

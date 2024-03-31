@@ -853,7 +853,7 @@ fn parse_operation(
         Ok(ReplOperation::AutoCd {
             cwd,
             target: path,
-            span: tokens.0[0].span,
+            span: tokens.0[0].span.id(),
         })
     } else if !s.trim().is_empty() {
         Ok(ReplOperation::RunCommand(s))

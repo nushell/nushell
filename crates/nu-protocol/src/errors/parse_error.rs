@@ -3,10 +3,12 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use crate::{ast::RedirectionSource, did_you_mean, ActualSpan, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+// TODO SPAN: ParseError needs to have ActualSpan because of lexing
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseError {
@@ -15,90 +17,101 @@ pub enum ParseError {
     /// to add.
     #[error("Extra tokens in code.")]
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
-    ExtraTokens(#[label = "extra tokens"] Span),
+    ExtraTokens(#[label = "extra tokens"] ActualSpan),
 
     #[error("Extra positional argument.")]
     #[diagnostic(code(nu::parser::extra_positional), help("Usage: {0}"))]
-    ExtraPositional(String, #[label = "extra positional argument"] Span),
+    ExtraPositional(String, #[label = "extra positional argument"] ActualSpan),
 
     #[error("Required positional parameter after optional parameter")]
     #[diagnostic(code(nu::parser::required_after_optional))]
     RequiredAfterOptional(
         String,
-        #[label = "required parameter {0} after optional parameter"] Span,
+        #[label = "required parameter {0} after optional parameter"] ActualSpan,
     ),
 
     #[error("Unexpected end of code.")]
     #[diagnostic(code(nu::parser::unexpected_eof))]
-    UnexpectedEof(String, #[label("expected closing {0}")] Span),
+    UnexpectedEof(String, #[label("expected closing {0}")] ActualSpan),
 
     #[error("Unclosed delimiter.")]
     #[diagnostic(code(nu::parser::unclosed_delimiter))]
-    Unclosed(String, #[label("unclosed {0}")] Span),
+    Unclosed(String, #[label("unclosed {0}")] ActualSpan),
 
     #[error("Unbalanced delimiter.")]
     #[diagnostic(code(nu::parser::unbalanced_delimiter))]
-    Unbalanced(String, String, #[label("unbalanced {0} and {1}")] Span),
+    Unbalanced(
+        String,
+        String,
+        #[label("unbalanced {0} and {1}")] ActualSpan,
+    ),
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
-    Expected(&'static str, #[label("expected {0}")] Span),
+    Expected(&'static str, #[label("expected {0}")] ActualSpan),
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
-    ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
+    ExpectedWithStringMsg(String, #[label("expected {0}")] ActualSpan),
 
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
-    InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
+    InputMismatch(
+        Type,
+        #[label("command doesn't support {0} input")] ActualSpan,
+    ),
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
-    OutputMismatch(Type, #[label("command doesn't output {0}")] Span),
+    OutputMismatch(Type, #[label("command doesn't output {0}")] ActualSpan),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
-    Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
+    Mismatch(
+        String,
+        String,
+        #[label("expected {0}, found {1}")] ActualSpan,
+    ), // expected, found, span
 
     #[error("The '&&' operator is not supported in Nushell")]
     #[diagnostic(
         code(nu::parser::shell_andand),
         help("use ';' instead of the shell '&&', or 'and' instead of the boolean '&&'")
     )]
-    ShellAndAnd(#[label("instead of '&&', use ';' or 'and'")] Span),
+    ShellAndAnd(#[label("instead of '&&', use ';' or 'and'")] ActualSpan),
 
     #[error("The '||' operator is not supported in Nushell")]
     #[diagnostic(
         code(nu::parser::shell_oror),
         help("use 'try' instead of the shell '||', or 'or' instead of the boolean '||'")
     )]
-    ShellOrOr(#[label("instead of '||', use 'try' or 'or'")] Span),
+    ShellOrOr(#[label("instead of '||', use 'try' or 'or'")] ActualSpan),
 
     #[error("The '2>' shell operation is 'err>' in Nushell.")]
     #[diagnostic(code(nu::parser::shell_err))]
-    ShellErrRedirect(#[label("use 'err>' instead of '2>' in Nushell")] Span),
+    ShellErrRedirect(#[label("use 'err>' instead of '2>' in Nushell")] ActualSpan),
 
     #[error("The '2>&1' shell operation is 'out+err>' in Nushell.")]
     #[diagnostic(
         code(nu::parser::shell_outerr),
         help("Nushell redirection will write all of stdout before stderr.")
     )]
-    ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] Span),
+    ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] ActualSpan),
 
     #[error("Multiple redirections provided for {0}.")]
     #[diagnostic(code(nu::parser::multiple_redirections))]
     MultipleRedirections(
         RedirectionSource,
-        #[label = "first redirection"] Span,
-        #[label = "second redirection"] Span,
+        #[label = "first redirection"] ActualSpan,
+        #[label = "second redirection"] ActualSpan,
     ),
 
     #[error("{0} is not supported on values of type {3}")]
     #[diagnostic(code(nu::parser::unsupported_operation))]
     UnsupportedOperationLHS(
         String,
-        #[label = "doesn't support this value"] Span,
-        #[label("{3}")] Span,
+        #[label = "doesn't support this value"] ActualSpan,
+        #[label("{3}")] ActualSpan,
         Type,
     ),
 
@@ -106,48 +119,48 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::unsupported_operation))]
     UnsupportedOperationRHS(
         String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
+        #[label = "doesn't support these values"] ActualSpan,
+        #[label("{3}")] ActualSpan,
         Type,
-        #[label("{5}")] Span,
+        #[label("{5}")] ActualSpan,
         Type,
     ),
 
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
-    CaptureOfMutableVar(#[label("capture of mutable variable")] Span),
+    CaptureOfMutableVar(#[label("capture of mutable variable")] ActualSpan),
 
     #[error("Expected keyword.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
-    ExpectedKeyword(String, #[label("expected {0}")] Span),
+    ExpectedKeyword(String, #[label("expected {0}")] ActualSpan),
 
     #[error("Unexpected keyword.")]
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
         help("'{0}' keyword is allowed only in a module.")
     )]
-    UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
+    UnexpectedKeyword(String, #[label("unexpected {0}")] ActualSpan),
 
     #[error("Can't create alias to parser keyword.")]
     #[diagnostic(
         code(nu::parser::cant_alias_keyword),
         help("Only the following keywords can be aliased: {0}.")
     )]
-    CantAliasKeyword(String, #[label("not supported in alias")] Span),
+    CantAliasKeyword(String, #[label("not supported in alias")] ActualSpan),
 
     #[error("Can't create alias to expression.")]
     #[diagnostic(
         code(nu::parser::cant_alias_expression),
         help("Only command calls can be aliased.")
     )]
-    CantAliasExpression(String, #[label("aliasing {0} is not supported")] Span),
+    CantAliasExpression(String, #[label("aliasing {0} is not supported")] ActualSpan),
 
     #[error("Unknown operator")]
     #[diagnostic(code(nu::parser::unknown_operator), help("{1}"))]
     UnknownOperator(
         &'static str,
         &'static str,
-        #[label("Operator '{0}' not supported")] Span,
+        #[label("Operator '{0}' not supported")] ActualSpan,
     ),
 
     #[error("Statement used in pipeline.")]
@@ -157,7 +170,7 @@ pub enum ParseError {
             "'{0}' keyword is not allowed in pipeline. Use '{0}' by itself, outside of a pipeline."
         )
     )]
-    BuiltinCommandInPipeline(String, #[label("not allowed in pipeline")] Span),
+    BuiltinCommandInPipeline(String, #[label("not allowed in pipeline")] ActualSpan),
 
     #[error("{0} statement used in pipeline.")]
     #[diagnostic(
@@ -166,7 +179,12 @@ pub enum ParseError {
             "Assigning '{1}' to '{2}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{2}', use '{0} {2} = ({1} | ...)'."
         )
     )]
-    AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
+    AssignInPipeline(
+        String,
+        String,
+        String,
+        #[label("'{0}' in pipeline")] ActualSpan,
+    ),
 
     #[error("`{0}` used as variable name.")]
     #[diagnostic(
@@ -175,39 +193,40 @@ pub enum ParseError {
             "'{0}' is the name of a builtin Nushell variable and cannot be used as a variable name"
         )
     )]
-    NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
+    NameIsBuiltinVar(String, #[label("already a builtin variable")] ActualSpan),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
-    IncorrectValue(String, #[label("unexpected {0}")] Span, String),
+    IncorrectValue(String, #[label("unexpected {0}")] ActualSpan, String),
 
     #[error("Multiple rest params.")]
     #[diagnostic(code(nu::parser::multiple_rest_params))]
-    MultipleRestParams(#[label = "multiple rest params"] Span),
+    MultipleRestParams(#[label = "multiple rest params"] ActualSpan),
 
     #[error("Variable not found.")]
     #[diagnostic(code(nu::parser::variable_not_found))]
-    VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
+    VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] ActualSpan),
 
     #[error("Use $env.{0} instead of ${0}.")]
     #[diagnostic(code(nu::parser::env_var_not_var))]
-    EnvVarNotVar(String, #[label = "use $env.{0} instead of ${0}"] Span),
+    EnvVarNotVar(String, #[label = "use $env.{0} instead of ${0}"] ActualSpan),
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
-    VariableNotValid(#[label = "variable name can't contain spaces or quotes"] Span),
+    VariableNotValid(#[label = "variable name can't contain spaces or quotes"] ActualSpan),
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     AliasNotValid(
-        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"] Span,
+        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"]
+        ActualSpan,
     ),
 
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     CommandDefNotValid(
         #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
-        Span,
+        ActualSpan,
     ),
 
     #[error("Module not found.")]
@@ -215,7 +234,7 @@ pub enum ParseError {
         code(nu::parser::module_not_found),
         help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
     )]
-    ModuleNotFound(#[label = "module {1} not found"] Span, String),
+    ModuleNotFound(#[label = "module {1} not found"] ActualSpan, String),
 
     #[error("Missing mod.nu file.")]
     #[diagnostic(
@@ -224,12 +243,12 @@ pub enum ParseError {
     )]
     ModuleMissingModNuFile(
         String,
-        #[label = "module directory is missing a mod.nu file"] Span,
+        #[label = "module directory is missing a mod.nu file"] ActualSpan,
     ),
 
     #[error("Circular import.")]
     #[diagnostic(code(nu::parser::circular_import), help("{0}"))]
-    CircularImport(String, #[label = "detected circular import"] Span),
+    CircularImport(String, #[label = "detected circular import"] ActualSpan),
 
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
@@ -240,7 +259,7 @@ pub enum ParseError {
         String,
         String,
         String,
-        #[label = "can't export from module {1}"] Span,
+        #[label = "can't export from module {1}"] ActualSpan,
     ),
 
     #[error("Module already contains 'main' command.")]
@@ -250,7 +269,7 @@ pub enum ParseError {
     )]
     ModuleDoubleMain(
         String,
-        #[label = "module '{0}' already contains 'main'"] Span,
+        #[label = "module '{0}' already contains 'main'"] ActualSpan,
     ),
 
     #[error("Can't export alias defined as 'main'.")]
@@ -258,11 +277,11 @@ pub enum ParseError {
         code(nu::parser::export_main_alias_not_allowed),
         help("Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command.")
     )]
-    ExportMainAliasNotAllowed(#[label = "can't export from module"] Span),
+    ExportMainAliasNotAllowed(#[label = "can't export from module"] ActualSpan),
 
     #[error("Active overlay not found.")]
     #[diagnostic(code(nu::parser::active_overlay_not_found))]
-    ActiveOverlayNotFound(#[label = "not an active overlay"] Span),
+    ActiveOverlayNotFound(#[label = "not an active overlay"] ActualSpan),
 
     #[error("Overlay prefix mismatch.")]
     #[diagnostic(
@@ -272,7 +291,7 @@ pub enum ParseError {
     OverlayPrefixMismatch(
         String,
         String,
-        #[label = "already exists {1} a prefix"] Span,
+        #[label = "already exists {1} a prefix"] ActualSpan,
     ),
 
     #[error("Module or overlay not found.")]
@@ -280,107 +299,112 @@ pub enum ParseError {
         code(nu::parser::module_or_overlay_not_found),
         help("Requires either an existing overlay, a module, or an import pattern defining a module.")
     )]
-    ModuleOrOverlayNotFound(#[label = "not a module or an overlay"] Span),
+    ModuleOrOverlayNotFound(#[label = "not a module or an overlay"] ActualSpan),
 
     #[error("Cannot remove the last overlay.")]
     #[diagnostic(
         code(nu::parser::cant_remove_last_overlay),
         help("At least one overlay must always be active.")
     )]
-    CantRemoveLastOverlay(#[label = "this is the last overlay, can't remove it"] Span),
+    CantRemoveLastOverlay(#[label = "this is the last overlay, can't remove it"] ActualSpan),
 
     #[error("Cannot hide default overlay.")]
     #[diagnostic(
         code(nu::parser::cant_hide_default_overlay),
         help("'{0}' is a default overlay. Default overlays cannot be hidden.")
     )]
-    CantHideDefaultOverlay(String, #[label = "can't hide overlay"] Span),
+    CantHideDefaultOverlay(String, #[label = "can't hide overlay"] ActualSpan),
 
     #[error("Cannot add overlay.")]
     #[diagnostic(code(nu::parser::cant_add_overlay_help), help("{0}"))]
-    CantAddOverlayHelp(String, #[label = "cannot add this overlay"] Span),
+    CantAddOverlayHelp(String, #[label = "cannot add this overlay"] ActualSpan),
 
     #[error("Duplicate command definition within a block.")]
     #[diagnostic(code(nu::parser::duplicate_command_def))]
-    DuplicateCommandDef(#[label = "defined more than once"] Span),
+    DuplicateCommandDef(#[label = "defined more than once"] ActualSpan),
 
     #[error("Unknown command.")]
     #[diagnostic(
         code(nu::parser::unknown_command),
         // TODO: actual suggestions like "Did you mean `foo`?"
     )]
-    UnknownCommand(#[label = "unknown command"] Span),
+    UnknownCommand(#[label = "unknown command"] ActualSpan),
 
     #[error("Non-UTF8 string.")]
     #[diagnostic(code(nu::parser::non_utf8))]
-    NonUtf8(#[label = "non-UTF8 string"] Span),
+    NonUtf8(#[label = "non-UTF8 string"] ActualSpan),
 
     #[error("The `{0}` command doesn't have flag `{1}`.")]
     #[diagnostic(code(nu::parser::unknown_flag), help("{3}"))]
-    UnknownFlag(String, String, #[label = "unknown flag"] Span, String),
+    UnknownFlag(String, String, #[label = "unknown flag"] ActualSpan, String),
 
     #[error("Unknown type.")]
     #[diagnostic(code(nu::parser::unknown_type))]
-    UnknownType(#[label = "unknown type"] Span),
+    UnknownType(#[label = "unknown type"] ActualSpan),
 
     #[error("Missing flag argument.")]
     #[diagnostic(code(nu::parser::missing_flag_param))]
-    MissingFlagParam(String, #[label = "flag missing {0} argument"] Span),
+    MissingFlagParam(String, #[label = "flag missing {0} argument"] ActualSpan),
 
     #[error("Only the last flag in a short flag batch can take an argument.")]
     #[diagnostic(code(nu::parser::only_last_flag_in_batch_can_take_arg))]
-    OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
+    OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] ActualSpan),
 
     #[error("Missing required positional argument.")]
     #[diagnostic(
         code(nu::parser::missing_positional),
         help("Usage: {2}. Use `--help` for more information.")
     )]
-    MissingPositional(String, #[label("missing {0}")] Span, String),
+    MissingPositional(String, #[label("missing {0}")] ActualSpan, String),
 
     #[error("Missing argument to `{1}`.")]
     #[diagnostic(code(nu::parser::keyword_missing_arg))]
     KeywordMissingArgument(
         String,
         String,
-        #[label("missing {0} value that follows {1}")] Span,
+        #[label("missing {0} value that follows {1}")] ActualSpan,
     ),
 
     #[error("Missing type.")]
     #[diagnostic(code(nu::parser::missing_type))]
-    MissingType(#[label = "expected type"] Span),
+    MissingType(#[label = "expected type"] ActualSpan),
 
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
-    TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
+    TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] ActualSpan), // expected, found, span
 
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch_help), help("{3}"))]
-    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), // expected, found, span, help
+    TypeMismatchHelp(
+        Type,
+        Type,
+        #[label("expected {0}, found {1}")] ActualSpan,
+        String,
+    ), // expected, found, span, help
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
-    MissingRequiredFlag(String, #[label("missing required flag {0}")] Span),
+    MissingRequiredFlag(String, #[label("missing required flag {0}")] ActualSpan),
 
     #[error("Incomplete math expression.")]
     #[diagnostic(code(nu::parser::incomplete_math_expression))]
-    IncompleteMathExpression(#[label = "incomplete math expression"] Span),
+    IncompleteMathExpression(#[label = "incomplete math expression"] ActualSpan),
 
     #[error("Unknown state.")]
     #[diagnostic(code(nu::parser::unknown_state))]
-    UnknownState(String, #[label("{0}")] Span),
+    UnknownState(String, #[label("{0}")] ActualSpan),
 
     #[error("Internal error.")]
     #[diagnostic(code(nu::parser::unknown_state))]
-    InternalError(String, #[label("{0}")] Span),
+    InternalError(String, #[label("{0}")] ActualSpan),
 
     #[error("Parser incomplete.")]
     #[diagnostic(code(nu::parser::parser_incomplete))]
-    IncompleteParser(#[label = "parser support missing for this expression"] Span),
+    IncompleteParser(#[label = "parser support missing for this expression"] ActualSpan),
 
     #[error("Rest parameter needs a name.")]
     #[diagnostic(code(nu::parser::rest_needs_name))]
-    RestNeedsName(#[label = "needs a parameter name"] Span),
+    RestNeedsName(#[label = "needs a parameter name"] ActualSpan),
 
     #[error("Parameter not correct type.")]
     #[diagnostic(code(nu::parser::parameter_mismatch_type))]
@@ -388,56 +412,56 @@ pub enum ParseError {
         String,
         String,
         String,
-        #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
+        #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] ActualSpan,
     ),
 
     #[error("Default values should be constant expressions.")]
     #[diagnostic(code(nu::parser::non_constant_default_value))]
-    NonConstantDefaultValue(#[label = "expected a constant value"] Span),
+    NonConstantDefaultValue(#[label = "expected a constant value"] ActualSpan),
 
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns))]
     ExtraColumns(
         usize,
-        #[label("expected {0} column{}", if *.0 == 1 { "" } else { "s" })] Span,
+        #[label("expected {0} column{}", if *.0 == 1 { "" } else { "s" })] ActualSpan,
     ),
 
     #[error("Missing columns.")]
     #[diagnostic(code(nu::parser::missing_columns))]
     MissingColumns(
         usize,
-        #[label("expected {0} column{}", if *.0 == 1 { "" } else { "s" })] Span,
+        #[label("expected {0} column{}", if *.0 == 1 { "" } else { "s" })] ActualSpan,
     ),
 
     #[error("{0}")]
     #[diagnostic(code(nu::parser::assignment_mismatch))]
-    AssignmentMismatch(String, String, #[label("{1}")] Span),
+    AssignmentMismatch(String, String, #[label("{1}")] ActualSpan),
 
     #[error("Wrong import pattern structure.")]
     #[diagnostic(code(nu::parser::wrong_import_pattern))]
-    WrongImportPattern(String, #[label = "{0}"] Span),
+    WrongImportPattern(String, #[label = "{0}"] ActualSpan),
 
     #[error("Export not found.")]
     #[diagnostic(code(nu::parser::export_not_found))]
-    ExportNotFound(#[label = "could not find imports"] Span),
+    ExportNotFound(#[label = "could not find imports"] ActualSpan),
 
     #[error("File not found")]
     #[diagnostic(
         code(nu::parser::sourced_file_not_found),
         help("sourced files need to be available before your script is run")
     )]
-    SourcedFileNotFound(String, #[label("File not found: {0}")] Span),
+    SourcedFileNotFound(String, #[label("File not found: {0}")] ActualSpan),
 
     #[error("File not found")]
     #[diagnostic(
         code(nu::parser::registered_file_not_found),
         help("registered files need to be available before your script is run")
     )]
-    RegisteredFileNotFound(String, #[label("File not found: {0}")] Span),
+    RegisteredFileNotFound(String, #[label("File not found: {0}")] ActualSpan),
 
     #[error("File not found")]
     #[diagnostic(code(nu::parser::file_not_found))]
-    FileNotFound(String, #[label("File not found: {0}")] Span),
+    FileNotFound(String, #[label("File not found: {0}")] ActualSpan),
 
     #[error("Plugin not found")]
     #[diagnostic(
@@ -447,18 +471,18 @@ pub enum ParseError {
     PluginNotFound {
         name: String,
         #[label("Plugin not found: {name}")]
-        name_span: Span,
+        name_span: ActualSpan,
         #[label("in this registry file")]
-        plugin_config_span: Option<Span>,
+        plugin_config_span: Option<ActualSpan>,
     },
 
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
-    InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
+    InvalidLiteral(String, String, #[label("{0} in {1}")] ActualSpan),
 
     #[error("{0}")]
     #[diagnostic()]
-    LabeledError(String, String, #[label("{1}")] Span),
+    LabeledError(String, String, #[label("{1}")] ActualSpan),
 
     #[error("{error}")]
     #[diagnostic(help("{help}"))]
@@ -467,15 +491,15 @@ pub enum ParseError {
         label: String,
         help: String,
         #[label("{label}")]
-        span: Span,
+        span: ActualSpan,
     },
 
     #[error("Redirection can not be used with {0}.")]
     #[diagnostic()]
     RedirectingBuiltinCommand(
         &'static str,
-        #[label("not allowed here")] Span,
-        #[label("...and here")] Option<Span>,
+        #[label("not allowed here")] ActualSpan,
+        #[label("...and here")] Option<ActualSpan>,
     ),
 
     #[error("This command does not have a ...rest parameter")]
@@ -483,10 +507,11 @@ pub enum ParseError {
         code(nu::parser::unexpected_spread_arg),
         help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
     )]
-    UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
+    UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] ActualSpan),
 }
 
 impl ParseError {
+    // TODO SPAN: Change return type to ActualSpan
     pub fn span(&self) -> Span {
         match self {
             ParseError::ExtraTokens(s) => *s,
@@ -570,6 +595,7 @@ impl ParseError {
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
+        .id()
     }
 }
 

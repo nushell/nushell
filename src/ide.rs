@@ -638,7 +638,8 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
         let flat = flatten_block(&working_set, &parsed_block);
         let mut json_val: JsonValue = json!([]);
         for (span, shape) in flat {
-            let content = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+            let content =
+                String::from_utf8_lossy(working_set.get_span_id_contents(span)).to_string();
 
             let json = json!(
                 {

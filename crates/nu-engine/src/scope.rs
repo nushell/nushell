@@ -365,7 +365,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                     let expansion = String::from_utf8_lossy(
                         self.engine_state
-                            .get_span_contents(alias.wrapped_call.get_span(self.engine_state)),
+                            .get_span_id_contents(alias.wrapped_call.get_span(self.engine_state)),
                     );
 
                     aliases.push(Value::record(

@@ -109,7 +109,7 @@ pub fn create_external_command(
                 } else {
                     return Err(ShellError::CannotPassListToExternal {
                         arg: String::from_utf8_lossy(
-                            engine_state.get_span_contents(arg.get_span(engine_state)),
+                            engine_state.get_span_id_contents(arg.get_span(engine_state)),
                         )
                         .into(),
                         span: arg.get_span(engine_state),

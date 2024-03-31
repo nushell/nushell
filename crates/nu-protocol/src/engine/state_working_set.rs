@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
     },
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError, ParseWarning,
-    Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ActualSpan, BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
+    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -371,7 +371,22 @@ impl<'a> StateWorkingSet<'a> {
         result.covered_span
     }
 
-    pub fn get_span_contents(&self, span: Span) -> &[u8] {
+    pub fn get_span_contents(&self, span: ActualSpan) -> &[u8] {
+        let permanent_end = self.permanent_state.next_span_start();
+        if permanent_end <= span.start {
+            for cached_file in &self.delta.files {
+                if cached_file.covered_span.contains_span(span.id()) {
+                    return &cached_file.content[span.start - cached_file.covered_span.start
+                        ..span.end - cached_file.covered_span.start];
+                }
+            }
+        }
+
+        // if no files with span were found, fall back on permanent ones
+        return self.permanent_state.get_span_contents(span);
+    }
+
+    pub fn get_span_id_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
             for cached_file in &self.delta.files {
@@ -383,7 +398,7 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         // if no files with span were found, fall back on permanent ones
-        return self.permanent_state.get_span_contents(span);
+        return self.permanent_state.get_span_id_contents(span);
     }
 
     pub fn enter_scope(&mut self) {
@@ -679,7 +694,7 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             Err(ParseError::InternalError(
                 "constant does not have a constant value".into(),
-                var.declaration_span,
+                var.declaration_span.span(),
             ))
         }
     }
@@ -953,7 +968,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_usage(&self, spans: &[ActualSpan]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
@@ -1021,7 +1036,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn add_span(&mut self, span: Span) -> SpanId {
+    pub fn add_span(&mut self, span: ActualSpan) -> SpanId {
         let num_permanent_spans = self.permanent_state.spans.len();
         self.delta.spans.push(span);
         SpanId(num_permanent_spans + self.delta.spans.len() - 1)
@@ -1051,11 +1066,13 @@ fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> Span {
     if span_id.0 < num_permanent_spans {
         working_set.permanent_state.get_span(span_id)
     } else {
-        *working_set
+        let sp = *working_set
             .delta
             .spans
             .get(span_id.0 - num_permanent_spans)
-            .expect("internal error: missing span")
+            .expect("internal error: missing span");
+
+        Span::new(sp.start, sp.end)
     }
 }
 
@@ -1085,7 +1102,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                     let found_file = "Found matching file";
                     dbg!(found_file);
                 }
-                let our_span = cached_file.covered_span;
+                let our_span = cached_file.covered_span.span();
                 // We need to move to a local span because we're only reading
                 // the specific file contents via self.get_span_contents.
                 let local_span = (span.offset() - start, span.len()).into();

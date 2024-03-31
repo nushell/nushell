@@ -201,7 +201,7 @@ fn parse_module(
     let new_span = working_set.get_span_for_file(file_id);
 
     let starting_error_count = working_set.parse_errors.len();
-    parse_module_block(working_set, new_span, filename.as_bytes());
+    parse_module_block(working_set, new_span.span(), filename.as_bytes());
 
     check_parse(
         starting_error_count,
@@ -288,7 +288,7 @@ fn parse_file_or_dir_module(
     let _ = check_path(working_set, path_span, call_head)?;
 
     let starting_error_count = working_set.parse_errors.len();
-    let _ = parse_module_file_or_dir(working_set, path_bytes, path_span, None);
+    let _ = parse_module_file_or_dir(working_set, path_bytes, path_span.span(), None);
 
     if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
@@ -319,8 +319,8 @@ fn check_path(
     path_span: Span,
     call_head: Span,
 ) -> Result<String, ShellError> {
-    let bytes = working_set.get_span_contents(path_span);
-    let (filename, err) = unescape_unquote_string(bytes, path_span);
+    let bytes = working_set.get_span_id_contents(path_span);
+    let (filename, err) = unescape_unquote_string(bytes, path_span.span());
     if let Some(e) = err {
         Err(ShellError::GenericError {
             error: "Could not escape filename".to_string(),

@@ -109,10 +109,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "addition".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -123,8 +123,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "addition".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -157,10 +157,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "subtraction".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -171,8 +171,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "subtraction".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -214,10 +214,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "multiplication".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -228,8 +228,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "multiplication".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -257,10 +257,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "exponentiation".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -271,8 +271,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "exponentiation".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -307,10 +307,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "division".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -321,8 +321,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "division".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -353,10 +353,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "floor division".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -367,8 +367,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "floor division".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -395,10 +395,10 @@ pub fn math_result_type(
                             Type::Any,
                             Some(ParseError::UnsupportedOperationRHS(
                                 "boolean operation".into(),
-                                op.get_span(&working_set),
-                                lhs.get_span(&working_set),
+                                op.get_actual_span(&working_set),
+                                lhs.get_actual_span(&working_set),
                                 lhs.ty.clone(),
-                                rhs.get_span(&working_set),
+                                rhs.get_actual_span(&working_set),
                                 rhs.ty.clone(),
                             )),
                         )
@@ -409,8 +409,8 @@ pub fn math_result_type(
                             Type::Any,
                             Some(ParseError::UnsupportedOperationLHS(
                                 "boolean operation".into(),
-                                op.get_span(&working_set),
-                                lhs.get_span(&working_set),
+                                op.get_actual_span(&working_set),
+                                lhs.get_actual_span(&working_set),
                                 lhs.ty.clone(),
                             )),
                         )
@@ -446,10 +446,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "less-than comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -460,8 +460,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "less-than comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -496,10 +496,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "less-than or equal comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -510,8 +510,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "less-than or equal comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -546,10 +546,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "greater-than comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -560,8 +560,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "greater-than comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -596,10 +596,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "greater-than or equal comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -610,8 +610,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "greater-than or equal comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -643,10 +643,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "regex matching".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -657,8 +657,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "regex matching".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -678,10 +678,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "regex matching".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -692,8 +692,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "regex matching".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -713,10 +713,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "starts-with comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -727,8 +727,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "starts-with comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -748,10 +748,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "ends-with comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -762,8 +762,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "ends-with comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -786,10 +786,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "subset comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -800,8 +800,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "subset comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -824,10 +824,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "subset comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -838,8 +838,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "subset comparison".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -860,10 +860,10 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationRHS(
                             "bit operations".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
-                            rhs.get_span(&working_set),
+                            rhs.get_actual_span(&working_set),
                             rhs.ty.clone(),
                         )),
                     )
@@ -874,8 +874,8 @@ pub fn math_result_type(
                         Type::Any,
                         Some(ParseError::UnsupportedOperationLHS(
                             "bit operations".into(),
-                            op.get_span(&working_set),
-                            lhs.get_span(&working_set),
+                            op.get_actual_span(&working_set),
+                            lhs.get_actual_span(&working_set),
                             lhs.ty.clone(),
                         )),
                     )
@@ -894,7 +894,7 @@ pub fn math_result_type(
                     Some(ParseError::Mismatch(
                         x.to_string(),
                         y.to_string(),
-                        rhs.get_span(&working_set),
+                        rhs.get_actual_span(&working_set),
                     )),
                 ),
             },
@@ -905,7 +905,7 @@ pub fn math_result_type(
             (
                 Type::Any,
                 Some(ParseError::IncompleteMathExpression(
-                    op.get_span(&working_set),
+                    op.get_actual_span(&working_set),
                 )),
             )
         }
@@ -959,9 +959,12 @@ pub fn check_pipeline_type(
 
             if !decl.signature().input_output_types.is_empty() {
                 if let Some(output_errors) = &mut output_errors {
-                    output_errors.push(ParseError::InputMismatch(current_type, call.head))
+                    output_errors.push(ParseError::InputMismatch(current_type, call.head.span()))
                 } else {
-                    output_errors = Some(vec![ParseError::InputMismatch(current_type, call.head)]);
+                    output_errors = Some(vec![ParseError::InputMismatch(
+                        current_type,
+                        call.head.span(),
+                    )]);
                 }
             }
             current_type = Type::Any;
@@ -1013,7 +1016,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .get_span(&working_set)
             };
 
-            output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))
+            output_errors.push(ParseError::OutputMismatch(output_type.clone(), span.span()))
         }
     }
 
@@ -1064,10 +1067,10 @@ fn check_append(
                 Type::Any,
                 Some(ParseError::UnsupportedOperationRHS(
                     "append".into(),
-                    op.get_span(&working_set),
-                    lhs.get_span(&working_set),
+                    op.get_actual_span(&working_set),
+                    lhs.get_actual_span(&working_set),
                     lhs.ty.clone(),
-                    rhs.get_span(&working_set),
+                    rhs.get_actual_span(&working_set),
                     rhs.ty.clone(),
                 )),
             )
@@ -1078,8 +1081,8 @@ fn check_append(
                 Type::Any,
                 Some(ParseError::UnsupportedOperationLHS(
                     "append".into(),
-                    op.get_span(&working_set),
-                    lhs.get_span(&working_set),
+                    op.get_actual_span(&working_set),
+                    lhs.get_actual_span(&working_set),
                     lhs.ty.clone(),
                 )),
             )

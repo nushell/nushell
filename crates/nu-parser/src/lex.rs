@@ -1,4 +1,4 @@
-use nu_protocol::{ParseError, Span};
+use nu_protocol::{ActualSpan, ParseError};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {
@@ -21,11 +21,11 @@ pub enum TokenContents {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Token {
     pub contents: TokenContents,
-    pub span: Span,
+    pub span: ActualSpan,
 }
 
 impl Token {
-    pub fn new(contents: TokenContents, span: Span) -> Token {
+    pub fn new(contents: TokenContents, span: ActualSpan) -> Token {
         Token { contents, span }
     }
 }
@@ -120,7 +120,8 @@ pub fn lex_item(
                     *curr_offset += 2;
                     continue;
                 } else {
-                    let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+                    let span =
+                        ActualSpan::new(span_offset + token_start, span_offset + *curr_offset);
 
                     return (
                         Token {
@@ -129,7 +130,7 @@ pub fn lex_item(
                         },
                         Some(ParseError::UnexpectedEof(
                             (start as char).to_string(),
-                            Span::new(span.end, span.end),
+                            ActualSpan::new(span.end, span.end),
                         )),
                     );
                 }
@@ -185,7 +186,7 @@ pub fn lex_item(
             } else {
                 // We encountered a closing `}` delimiter, but the last opening
                 // delimiter was not a `{`. This is an error.
-                let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+                let span = ActualSpan::new(span_offset + token_start, span_offset + *curr_offset);
 
                 *curr_offset += 1;
                 return (
@@ -196,7 +197,7 @@ pub fn lex_item(
                     Some(ParseError::Unbalanced(
                         "{".to_string(),
                         "}".to_string(),
-                        Span::new(span.end, span.end + 1),
+                        ActualSpan::new(span.end, span.end + 1),
                     )),
                 );
             }
@@ -210,7 +211,7 @@ pub fn lex_item(
             } else {
                 // We encountered a closing `)` delimiter, but the last opening
                 // delimiter was not a `(`. This is an error.
-                let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+                let span = ActualSpan::new(span_offset + token_start, span_offset + *curr_offset);
 
                 *curr_offset += 1;
                 return (
@@ -221,7 +222,7 @@ pub fn lex_item(
                     Some(ParseError::Unbalanced(
                         "(".to_string(),
                         ")".to_string(),
-                        Span::new(span.end, span.end + 1),
+                        ActualSpan::new(span.end, span.end + 1),
                     )),
                 );
             }
@@ -232,13 +233,15 @@ pub fn lex_item(
         *curr_offset += 1;
     }
 
-    let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+    let span = ActualSpan::new(span_offset + token_start, span_offset + *curr_offset);
 
     // If there is still unclosed opening delimiters, remember they were missing
     if let Some(block) = block_level.last() {
         let delim = block.closing();
-        let cause =
-            ParseError::UnexpectedEof((delim as char).to_string(), Span::new(span.end, span.end));
+        let cause = ParseError::UnexpectedEof(
+            (delim as char).to_string(),
+            ActualSpan::new(span.end, span.end),
+        );
 
         return (
             Token {
@@ -260,7 +263,7 @@ pub fn lex_item(
             },
             Some(ParseError::UnexpectedEof(
                 (delim as char).to_string(),
-                Span::new(span.end, span.end),
+                ActualSpan::new(span.end, span.end),
             )),
         );
     }
@@ -396,7 +399,7 @@ fn lex_internal(
                     curr_offset += 1;
                     output.push(Token::new(
                         TokenContents::PipePipe,
-                        Span::new(span_offset + prev_idx, span_offset + idx + 1),
+                        ActualSpan::new(span_offset + prev_idx, span_offset + idx + 1),
                     ));
                     continue;
                 }
@@ -411,7 +414,7 @@ fn lex_internal(
                     TokenContents::Eol => {
                         *prev = Token::new(
                             TokenContents::Pipe,
-                            Span::new(span_offset + idx, span_offset + idx + 1),
+                            ActualSpan::new(span_offset + idx, span_offset + idx + 1),
                         );
                         // And this is a continuation of the previous line if previous line is a
                         // comment line (combined with EOL + Comment)
@@ -434,14 +437,14 @@ fn lex_internal(
                     _ => {
                         output.push(Token::new(
                             TokenContents::Pipe,
-                            Span::new(span_offset + idx, span_offset + idx + 1),
+                            ActualSpan::new(span_offset + idx, span_offset + idx + 1),
                         ));
                     }
                 }
             } else {
                 output.push(Token::new(
                     TokenContents::Pipe,
-                    Span::new(span_offset + idx, span_offset + idx + 1),
+                    ActualSpan::new(span_offset + idx, span_offset + idx + 1),
                 ));
             }
 
@@ -450,7 +453,7 @@ fn lex_internal(
             // If the next character is a `;`, we're looking at a semicolon token.
 
             if !is_complete && error.is_none() {
-                error = Some(ParseError::ExtraTokens(Span::new(
+                error = Some(ParseError::ExtraTokens(ActualSpan::new(
                     curr_offset,
                     curr_offset + 1,
                 )));
@@ -459,7 +462,7 @@ fn lex_internal(
             curr_offset += 1;
             output.push(Token::new(
                 TokenContents::Semicolon,
-                Span::new(span_offset + idx, span_offset + idx + 1),
+                ActualSpan::new(span_offset + idx, span_offset + idx + 1),
             ));
         } else if c == b'\r' {
             // Ignore a stand-alone carriage return
@@ -471,7 +474,7 @@ fn lex_internal(
             if !additional_whitespace.contains(&c) {
                 output.push(Token::new(
                     TokenContents::Eol,
-                    Span::new(span_offset + idx, span_offset + idx + 1),
+                    ActualSpan::new(span_offset + idx, span_offset + idx + 1),
                 ));
             }
         } else if c == b'#' {
@@ -484,7 +487,7 @@ fn lex_internal(
                     if !skip_comment {
                         output.push(Token::new(
                             TokenContents::Comment,
-                            Span::new(span_offset + start, span_offset + curr_offset),
+                            ActualSpan::new(span_offset + start, span_offset + curr_offset),
                         ));
                     }
                     start = curr_offset;
@@ -497,7 +500,7 @@ fn lex_internal(
             if start != curr_offset && !skip_comment {
                 output.push(Token::new(
                     TokenContents::Comment,
-                    Span::new(span_offset + start, span_offset + curr_offset),
+                    ActualSpan::new(span_offset + start, span_offset + curr_offset),
                 ));
             }
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
@@ -549,7 +552,7 @@ fn try_lex_special_piped_item(
             *curr_offset += e_pipe_len;
             return Some(Token::new(
                 TokenContents::ErrGreaterPipe,
-                Span::new(span_offset + offset, span_offset + offset + e_pipe_len),
+                ActualSpan::new(span_offset + offset, span_offset + offset + e_pipe_len),
             ));
         }
         if (offset + eo_pipe_len <= input.len())
@@ -558,7 +561,7 @@ fn try_lex_special_piped_item(
             *curr_offset += eo_pipe_len;
             return Some(Token::new(
                 TokenContents::OutErrGreaterPipe,
-                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+                ActualSpan::new(span_offset + offset, span_offset + offset + eo_pipe_len),
             ));
         }
     } else if c == b'o' {
@@ -569,7 +572,7 @@ fn try_lex_special_piped_item(
             *curr_offset += eo_pipe_len;
             return Some(Token::new(
                 TokenContents::OutErrGreaterPipe,
-                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+                ActualSpan::new(span_offset + offset, span_offset + offset + eo_pipe_len),
             ));
         }
     }

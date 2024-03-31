@@ -6,8 +6,8 @@ use crate::{
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
-    BlockId, Category, Config, DeclId, Example, FileId, GetSpan, HistoryConfig, Module, ModuleId,
-    OverlayId, ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ActualSpan, BlockId, Category, Config, DeclId, Example, FileId, GetSpan, HistoryConfig, Module,
+    ModuleId, OverlayId, ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -82,7 +82,7 @@ pub struct EngineState {
     // especially long, so it helps
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     pub(super) modules: Arc<Vec<Arc<Module>>>,
-    pub spans: Vec<Span>,
+    pub spans: Vec<ActualSpan>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -137,7 +137,7 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
-            spans: vec![Span::unknown()],
+            spans: vec![ActualSpan::unknown()],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -716,7 +716,17 @@ impl EngineState {
         output
     }
 
-    pub fn get_span_contents(&self, span: Span) -> &[u8] {
+    pub fn get_span_contents(&self, span: ActualSpan) -> &[u8] {
+        for file in &self.files {
+            if file.covered_span.contains_span(span.id()) {
+                return &file.content
+                    [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
+            }
+        }
+        &[0u8; 0]
+    }
+
+    pub fn get_span_id_contents(&self, span: Span) -> &[u8] {
         for file in &self.files {
             if file.covered_span.contains_span(span) {
                 return &file.content
@@ -921,7 +931,7 @@ impl EngineState {
     pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
-            .map(|span| self.get_span_contents(*span))
+            .map(|span| self.get_span_contents(span.span()))
             .collect();
         build_usage(&comment_lines)
     }
@@ -988,13 +998,13 @@ impl EngineState {
     }
 
     /// Add new span and return its ID
-    pub fn add_span(&mut self, span: Span) -> SpanId {
+    pub fn add_span(&mut self, span: ActualSpan) -> SpanId {
         self.spans.push(span);
         SpanId(self.num_spans() - 1)
     }
 
     /// Find ID of a span (should be avoided if possible)
-    pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
+    pub fn find_span_id(&self, span: ActualSpan) -> Option<SpanId> {
         self.spans.iter().position(|sp| sp == &span).map(SpanId)
     }
 }
@@ -1002,20 +1012,24 @@ impl EngineState {
 impl<'a> GetSpan for &'a EngineState {
     /// Get existing span
     fn get_span(&self, span_id: SpanId) -> Span {
-        *self
+        let sp = *self
             .spans
             .get(span_id.0)
-            .expect("internal error: missing span")
+            .expect("internal error: missing span");
+
+        Span::new(sp.start, sp.end)
     }
 }
 
 impl GetSpan for EngineState {
     /// Get existing span
     fn get_span(&self, span_id: SpanId) -> Span {
-        *self
+        let sp = *self
             .spans
             .get(span_id.0)
-            .expect("internal error: missing span")
+            .expect("internal error: missing span");
+
+        Span::new(sp.start, sp.end)
     }
 }
 

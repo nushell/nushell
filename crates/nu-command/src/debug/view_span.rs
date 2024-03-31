@@ -36,7 +36,7 @@ impl Command for ViewSpan {
 
         if start_span.item < end_span.item {
             let bin_contents =
-                engine_state.get_span_contents(Span::new(start_span.item, end_span.item));
+                engine_state.get_span_id_contents(Span::new(start_span.item, end_span.item));
             Ok(
                 Value::string(String::from_utf8_lossy(bin_contents), call.head)
                     .into_pipeline_data(),

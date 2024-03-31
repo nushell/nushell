@@ -856,7 +856,7 @@ impl Eval for EvalRuntime {
     }
 
     fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
-        let name = String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string();
+        let name = String::from_utf8_lossy(engine_state.get_span_id_contents(span)).to_string();
 
         Ok(Value::string(name, span))
     }

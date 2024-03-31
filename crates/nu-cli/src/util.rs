@@ -184,7 +184,7 @@ fn gather_env_vars(
                     continue;
                 }
 
-                Value::string(bytes, *span)
+                Value::string(bytes, span.id())
             } else {
                 report_capture_error(
                     engine_state,

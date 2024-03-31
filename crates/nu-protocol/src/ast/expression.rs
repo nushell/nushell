@@ -1,7 +1,7 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
+    ActualSpan, BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -15,7 +15,7 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    pub fn garbage(working_set: &mut StateWorkingSet, span: ActualSpan) -> Expression {
         let span_id = working_set.add_span(span);
         Expression {
             expr: Expr::Garbage,
@@ -471,7 +471,12 @@ impl Expression {
         }
     }
 
-    pub fn new(working_set: &mut StateWorkingSet, expr: Expr, span: Span, ty: Type) -> Expression {
+    pub fn new(
+        working_set: &mut StateWorkingSet,
+        expr: Expr,
+        span: ActualSpan,
+        ty: Type,
+    ) -> Expression {
         let span_id = working_set.add_span(span);
         Expression {
             expr,
@@ -532,5 +537,9 @@ impl Expression {
 
     pub fn get_span(&self, state: &impl GetSpan) -> Span {
         state.get_span(self.span_id)
+    }
+
+    pub fn get_actual_span(&self, state: &impl GetSpan) -> ActualSpan {
+        state.get_span(self.span_id).span()
     }
 }

@@ -36,7 +36,7 @@ pub(crate) fn read_config_file(
         if let Ok(path) = canonicalize_with(&file.item, cwd) {
             eval_config_contents(path, engine_state, stack);
         } else {
-            let e = ParseError::FileNotFound(file.item, file.span);
+            let e = ParseError::FileNotFound(file.item, file.span.span());
             report_error(&working_set, &e);
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {

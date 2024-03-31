@@ -298,7 +298,8 @@ fn collect_data(
     }
 
     if profiler.collect_source {
-        let val = String::from_utf8_lossy(engine_state.get_span_contents(element.element_span));
+        let val =
+            String::from_utf8_lossy(engine_state.get_span_contents(element.element_span.span()));
         let val = val.trim();
         let nlines = val.lines().count();
 

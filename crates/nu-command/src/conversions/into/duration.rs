@@ -198,7 +198,7 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
-        span,
+        span.span(),
         DURATION_UNIT_GROUPS,
         Type::Duration,
         |x| x,

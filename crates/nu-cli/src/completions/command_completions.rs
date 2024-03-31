@@ -89,7 +89,7 @@ impl CommandCompletion {
         find_externals: bool,
         match_algorithm: MatchAlgorithm,
     ) -> Vec<SemanticSuggestion> {
-        let partial = working_set.get_span_contents(span);
+        let partial = working_set.get_span_contents(span.span());
 
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 
@@ -109,7 +109,7 @@ impl CommandCompletion {
             })
             .collect::<Vec<_>>();
 
-        let partial = working_set.get_span_contents(span);
+        let partial = working_set.get_span_contents(span.span());
         let partial = String::from_utf8_lossy(partial).to_string();
 
         if find_externals {
@@ -208,7 +208,8 @@ impl Completer for CommandCompletion {
             || is_passthrough_command(working_set.delta.get_file_contents())
         {
             // we're in a gap or at a command
-            if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space
+            if working_set.get_span_contents(span.span()).is_empty()
+                && !self.force_completion_after_space
             {
                 return vec![];
             }

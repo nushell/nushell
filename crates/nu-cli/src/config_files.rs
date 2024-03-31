@@ -195,7 +195,7 @@ pub fn add_plugin_file(
                 &working_set,
                 &ParseError::FileNotFound(
                     path_dir.to_string_lossy().into_owned(),
-                    plugin_file.span,
+                    plugin_file.span.span(),
                 ),
             );
         }

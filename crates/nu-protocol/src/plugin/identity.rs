@@ -17,7 +17,7 @@ impl From<Spanned<InvalidPluginFilename>> for ParseError {
         ParseError::LabeledError(
             "Invalid plugin filename".into(),
             "must start with `nu_plugin_`".into(),
-            error.span,
+            error.span.span(),
         )
     }
 }

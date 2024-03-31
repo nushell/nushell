@@ -1,4 +1,3 @@
-use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
 pub type VarId = usize;

@@ -6,7 +6,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, Span,
+    ActualSpan, Config, Span,
 };
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
@@ -33,7 +33,7 @@ impl Highlighter for NuHighlighter {
                 for (span, shape) in shapes.iter_mut() {
                     if *shape == FlatShape::External {
                         let str_contents =
-                            working_set.get_span_contents(Span::new(span.start, span.end));
+                            working_set.get_span_contents(ActualSpan::new(span.start, span.end));
 
                         let str_word = String::from_utf8_lossy(str_contents).to_string();
                         let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();

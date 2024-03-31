@@ -140,7 +140,7 @@ impl NuCompleter {
                         .filter(|content| content.as_str() == "sudo" || content.as_str() == "doas")
                         .is_some();
                     // Read the current spam to string
-                    let current_span = working_set.get_span_contents(flat.0).to_vec();
+                    let current_span = working_set.get_span_contents(flat.0.span()).to_vec();
                     let current_span_str = String::from_utf8_lossy(&current_span);
 
                     let is_last_span = pos >= flat.0.start && pos < flat.0.end;
@@ -169,7 +169,7 @@ impl NuCompleter {
                         let new_span = Span::new(flat.0.start, flat.0.end - 1);
 
                         // Parses the prefix. Completion should look up to the cursor position, not after.
-                        let mut prefix = working_set.get_span_contents(flat.0).to_vec();
+                        let mut prefix = working_set.get_span_contents(flat.0.span()).to_vec();
                         let index = pos - flat.0.start;
                         prefix.drain(index..);
 
@@ -221,7 +221,8 @@ impl NuCompleter {
 
                         // specially check if it is currently empty - always complete commands
                         if (is_passthrough_command && flat_idx == 1)
-                            || (flat_idx == 0 && working_set.get_span_contents(new_span).is_empty())
+                            || (flat_idx == 0
+                                && working_set.get_span_contents(new_span.span()).is_empty())
                         {
                             let mut completer = CommandCompletion::new(
                                 self.engine_state.clone(),
@@ -245,8 +246,9 @@ impl NuCompleter {
                         if (is_passthrough_command && flat_idx > 1) || flat_idx > 0 {
                             if let Some(previous_expr) = flattened.get(flat_idx - 1) {
                                 // Read the content for the previous expression
-                                let prev_expr_str =
-                                    working_set.get_span_contents(previous_expr.0).to_vec();
+                                let prev_expr_str = working_set
+                                    .get_span_contents(previous_expr.0.span())
+                                    .to_vec();
 
                                 // Completion for .nu files
                                 if prev_expr_str == b"use"
@@ -422,7 +424,7 @@ fn most_left_variable(
     let mut variables_found: Vec<Vec<u8>> = vec![];
     let mut found_var = false;
     for item in rev.clone() {
-        let result = working_set.get_span_contents(item.0).to_vec();
+        let result = working_set.get_span_contents(item.0.span()).to_vec();
 
         match item.1 {
             FlatShape::Variable(_) => {
