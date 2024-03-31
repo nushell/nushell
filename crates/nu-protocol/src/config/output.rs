@@ -1,5 +1,5 @@
 use super::helper::ReconstructVal;
-use crate::{Config, Record, Span, Value};
+use crate::{Config, FutureSpanId, Record, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -22,7 +22,7 @@ impl FromStr for ErrorStyle {
 }
 
 impl ReconstructVal for ErrorStyle {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         Value::string(
             match self {
                 ErrorStyle::Fancy => "fancy",
@@ -33,7 +33,7 @@ impl ReconstructVal for ErrorStyle {
     }
 }
 
-pub(super) fn reconstruct_datetime_format(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_datetime_format(config: &Config, span: FutureSpanId) -> Value {
     let mut record = Record::new();
     if let Some(normal) = &config.datetime_normal_format {
         record.push("normal", Value::string(normal, span));

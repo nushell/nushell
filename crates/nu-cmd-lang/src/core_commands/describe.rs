@@ -286,7 +286,7 @@ fn compact_primitive_description(mut value: Value) -> Value {
 
 fn describe_value(
     value: Value,
-    head: nu_protocol::Span,
+    head: nu_protocol::FutureSpanId,
     engine_state: Option<&EngineState>,
     options: Options,
 ) -> Result<Value, ShellError> {
@@ -432,7 +432,10 @@ fn describe_value(
     })
 }
 
-fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol::Span) -> Value {
+fn metadata_to_value(
+    metadata: Option<Box<PipelineMetadata>>,
+    head: nu_protocol::FutureSpanId,
+) -> Value {
     match metadata {
         Some(metadata) => Value::record(
             record!(

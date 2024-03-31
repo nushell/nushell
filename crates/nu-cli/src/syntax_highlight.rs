@@ -6,7 +6,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
-    ActualSpan, Config, Span,
+    ActualSpan, Config, FutureSpanId,
 };
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
@@ -175,16 +175,16 @@ impl Highlighter for NuHighlighter {
 
 fn split_span_by_highlight_positions(
     line: &str,
-    span: Span,
+    span: FutureSpanId,
     highlight_positions: &[usize],
     global_span_offset: usize,
-) -> Vec<(Span, bool)> {
+) -> Vec<(FutureSpanId, bool)> {
     let mut start = span.start;
-    let mut result: Vec<(Span, bool)> = Vec::new();
+    let mut result: Vec<(FutureSpanId, bool)> = Vec::new();
     for pos in highlight_positions {
         if start <= *pos && pos < &span.end {
             if start < *pos {
-                result.push((Span::new(start, *pos), false));
+                result.push((FutureSpanId::new(start, *pos), false));
             }
             let span_str = &line[pos - global_span_offset..span.end - global_span_offset];
             let end = span_str
@@ -192,12 +192,12 @@ fn split_span_by_highlight_positions(
                 .next()
                 .map(|c| pos + get_char_length(c))
                 .unwrap_or(pos + 1);
-            result.push((Span::new(*pos, end), true));
+            result.push((FutureSpanId::new(*pos, end), true));
             start = end;
         }
     }
     if start < span.end {
-        result.push((Span::new(start, span.end), false));
+        result.push((FutureSpanId::new(start, span.end), false));
     }
     result
 }

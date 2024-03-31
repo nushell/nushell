@@ -8,7 +8,7 @@ use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value,
+    PipelineData, FutureSpanId, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};
@@ -39,7 +39,7 @@ impl NuCompleter {
         completer: &mut T,
         working_set: &StateWorkingSet,
         prefix: Vec<u8>,
-        new_span: Span,
+        new_span: FutureSpanId,
         offset: usize,
         pos: usize,
     ) -> Vec<SemanticSuggestion> {
@@ -66,7 +66,7 @@ impl NuCompleter {
         closure: &Closure,
         spans: &[String],
         offset: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Option<Vec<SemanticSuggestion>> {
         let block = self.engine_state.get_block(closure.block_id);
         let mut callee_stack = self
@@ -81,9 +81,9 @@ impl NuCompleter {
                     Value::list(
                         spans
                             .iter()
-                            .map(|it| Value::string(it, Span::unknown()))
+                            .map(|it| Value::string(it, FutureSpanId::unknown()))
                             .collect(),
-                        Span::unknown(),
+                        FutureSpanId::unknown(),
                     ),
                 );
             }
@@ -100,8 +100,11 @@ impl NuCompleter {
             Ok(pd) => {
                 let value = pd.into_value(span);
                 if let Value::List { vals, .. } = value {
-                    let result =
-                        map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
+                    let result = map_value_completions(
+                        vals.iter(),
+                        FutureSpanId::new(span.start, span.end),
+                        offset,
+                    );
 
                     return Some(result);
                 }
@@ -166,7 +169,7 @@ impl NuCompleter {
                             most_left_variable(flat_idx, &working_set, flattened.clone());
 
                         // Create a new span
-                        let new_span = Span::new(flat.0.start, flat.0.end - 1);
+                        let new_span = FutureSpanId::new(flat.0.start, flat.0.end - 1);
 
                         // Parses the prefix. Completion should look up to the cursor position, not after.
                         let mut prefix = working_set.get_span_contents(flat.0.span()).to_vec();
@@ -412,7 +415,7 @@ impl ReedlineCompleter for NuCompleter {
 fn most_left_variable(
     idx: usize,
     working_set: &StateWorkingSet<'_>,
-    flattened: Vec<(Span, FlatShape)>,
+    flattened: Vec<(FutureSpanId, FlatShape)>,
 ) -> Option<(Vec<u8>, Vec<Vec<u8>>)> {
     // Reverse items to read the list backwards and truncate
     // because the only items that matters are the ones before the current index
@@ -459,7 +462,7 @@ fn most_left_variable(
 
 pub fn map_value_completions<'a>(
     list: impl Iterator<Item = &'a Value>,
-    span: Span,
+    span: FutureSpanId,
     offset: usize,
 ) -> Vec<SemanticSuggestion> {
     list.filter_map(move |x| {

@@ -78,7 +78,7 @@ impl Command for Find {
                 example: r#"[1 5 3kb 4 3Mb] | find 5 3kb"#,
                 result: Some(Value::list(
                     vec![Value::test_int(5), Value::test_filesize(3000)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -86,7 +86,7 @@ impl Command for Find {
                 example: r#"[moe larry curly] | find l"#,
                 result: Some(Value::list(
                     vec![Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"), Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -97,7 +97,7 @@ impl Command for Find {
                         Value::test_string("abc".to_string()),
                         Value::test_string("abf".to_string()),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -108,7 +108,7 @@ impl Command for Find {
                         Value::test_string("aBc".to_string()),
                         Value::test_string("abf".to_string()),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -143,9 +143,9 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![Value::list(
                         vec![Value::test_string("Larry"), Value::test_string("Moe")],
-                        Span::test_data(),
+                        FutureSpanId::test_data(),
                     )],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -154,9 +154,9 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![Value::list(
                         vec![Value::test_string("Victor"), Value::test_string("Marina")],
-                        Span::test_data(),
+                        FutureSpanId::test_data(),
                     )],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -177,7 +177,7 @@ impl Command for Find {
                             "col2" => Value::test_string("larry".to_string()),
                             "col3" => Value::test_string("curly".to_string()),
                     })],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -272,7 +272,7 @@ where
 
 fn highlight_terms_in_string(
     val: &Value,
-    span: Span,
+    span: FutureSpanId,
     config: &Config,
     terms: &[Value],
     string_style: Style,
@@ -299,7 +299,7 @@ fn highlight_terms_in_string(
 fn highlight_terms_in_record_with_search_columns(
     search_cols: &[String],
     record: &Record,
-    span: Span,
+    span: FutureSpanId,
     config: &Config,
     terms: &[Value],
     string_style: Style,
@@ -505,7 +505,7 @@ fn value_should_be_printed(
     value: &Value,
     filter_config: &Config,
     lower_terms: &[Value],
-    span: Span,
+    span: FutureSpanId,
     columns_to_search: &[String],
     invert: bool,
 ) -> bool {
@@ -550,12 +550,12 @@ fn value_should_be_printed(
     match_found
 }
 
-fn term_contains_value(term: &Value, value: &Value, span: Span) -> bool {
+fn term_contains_value(term: &Value, value: &Value, span: FutureSpanId) -> bool {
     term.r#in(span, value, span)
         .map_or(false, |value| value.is_true())
 }
 
-fn term_equals_value(term: &Value, value: &Value, span: Span) -> bool {
+fn term_equals_value(term: &Value, value: &Value, span: FutureSpanId) -> bool {
     term.eq(span, value, span)
         .map_or(false, |value| value.is_true())
 }
@@ -565,7 +565,7 @@ fn record_matches_term(
     columns_to_search: &[String],
     filter_config: &Config,
     term: &Value,
-    span: Span,
+    span: FutureSpanId,
 ) -> bool {
     // Only perform column selection if given columns.
     let col_select = !columns_to_search.is_empty();
@@ -576,7 +576,7 @@ fn record_matches_term(
         let lower_val = if !val.is_error() {
             Value::string(
                 val.to_expanded_string("", filter_config).to_lowercase(),
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )
         } else {
             (*val).clone()
@@ -585,7 +585,7 @@ fn record_matches_term(
     })
 }
 
-fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
+fn split_string_if_multiline(input: PipelineData, head_span: FutureSpanId) -> PipelineData {
     let span = input.span().unwrap_or(head_span);
     match input {
         PipelineData::Value(Value::String { ref val, .. }, _) => {

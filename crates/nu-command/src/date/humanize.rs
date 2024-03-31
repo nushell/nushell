@@ -62,7 +62,7 @@ impl Command for SubCommand {
     }
 }
 
-fn helper(value: Value, head: Span) -> Value {
+fn helper(value: Value, head: FutureSpanId) -> Value {
     let span = value.span();
     match value {
         Value::Nothing { .. } => {

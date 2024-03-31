@@ -61,7 +61,7 @@ impl Command for Sys {
 
 #[derive(Debug, Clone)]
 pub struct SysResult {
-    pub span: Span,
+    pub span: FutureSpanId,
 }
 
 impl LazyRecord<'_> for SysResult {
@@ -87,11 +87,11 @@ impl LazyRecord<'_> for SysResult {
         }
     }
 
-    fn span(&self) -> Span {
+    fn span(&self) -> FutureSpanId {
         self.span
     }
 
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         Value::lazy_record(Box::new((*self).clone()), span)
     }
 }
@@ -100,7 +100,7 @@ pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()
 }
 
-pub fn disks(span: Span) -> Value {
+pub fn disks(span: FutureSpanId) -> Value {
     let disks = Disks::new_with_refreshed_list();
 
     let mut output = vec![];
@@ -123,7 +123,7 @@ pub fn disks(span: Span) -> Value {
     Value::list(output, span)
 }
 
-pub fn net(span: Span) -> Value {
+pub fn net(span: FutureSpanId) -> Value {
     let networks = Networks::new_with_refreshed_list();
 
     let mut output = vec![];
@@ -139,7 +139,7 @@ pub fn net(span: Span) -> Value {
     Value::list(output, span)
 }
 
-pub fn cpu(span: Span) -> Value {
+pub fn cpu(span: FutureSpanId) -> Value {
     let mut sys = System::new();
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
     // We must refresh the CPU twice a while apart to get valid usage data.
@@ -175,7 +175,7 @@ pub fn cpu(span: Span) -> Value {
     Value::list(output, span)
 }
 
-pub fn mem(span: Span) -> Value {
+pub fn mem(span: FutureSpanId) -> Value {
     let mut sys = System::new();
     sys.refresh_memory();
 
@@ -201,7 +201,7 @@ pub fn mem(span: Span) -> Value {
     Value::record(record, span)
 }
 
-pub fn host(span: Span) -> Value {
+pub fn host(span: FutureSpanId) -> Value {
     let mut record = Record::new();
 
     if let Some(name) = System::name() {
@@ -269,7 +269,7 @@ pub fn host(span: Span) -> Value {
     Value::record(record, span)
 }
 
-pub fn temp(span: Span) -> Value {
+pub fn temp(span: FutureSpanId) -> Value {
     let components = Components::new_with_refreshed_list();
 
     let mut output = vec![];

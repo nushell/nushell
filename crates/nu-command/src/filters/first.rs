@@ -55,13 +55,13 @@ impl Command for First {
                 example: "[1 2 3] | first 2",
                 result: Some(Value::list(
                     vec![Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | first 2",
-                result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
+                result: Some(Value::binary(vec![0x01, 0x23], FutureSpanId::test_data())),
             },
             Example {
                 description: "Return the first item of a range",

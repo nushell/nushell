@@ -1,7 +1,7 @@
 use crate::Query;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+    record, Category, FutureSpanId, LabeledError, Record, Signature, Spanned, SyntaxShape, Value,
 };
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
@@ -117,7 +117,7 @@ pub fn execute_xpath_query(
     }
 }
 
-fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledError> {
+fn build_xpath(xpath_str: &str, span: FutureSpanId) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
     match factory.build(xpath_str) {
@@ -132,24 +132,24 @@ fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledE
 mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
-    use nu_protocol::{record, Span, Spanned, Value};
+    use nu_protocol::{record, FutureSpanId, Spanned, Value};
 
     #[test]
     fn position_function_in_predicate() {
         let call = EvaluatedCall {
-            head: Span::test_data(),
+            head: FutureSpanId::test_data(),
             positional: vec![],
             named: vec![],
         };
 
         let text = Value::string(
             r#"<?xml version="1.0" encoding="UTF-8"?><a><b/><b/></a>"#,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let spanned_str: Spanned<String> = Spanned {
             item: "count(//a/*[position() = 2])".to_string(),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
@@ -157,7 +157,7 @@ mod tests {
             vec![Value::test_record(record! {
                 "count(//a/*[posit..." => Value::test_float(1.0),
             })],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected);
@@ -166,19 +166,19 @@ mod tests {
     #[test]
     fn functions_implicitly_coerce_argument_types() {
         let call = EvaluatedCall {
-            head: Span::test_data(),
+            head: FutureSpanId::test_data(),
             positional: vec![],
             named: vec![],
         };
 
         let text = Value::string(
             r#"<?xml version="1.0" encoding="UTF-8"?><a>true</a>"#,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let spanned_str: Spanned<String> = Spanned {
             item: "count(//*[contains(., true)])".to_string(),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
@@ -186,7 +186,7 @@ mod tests {
             vec![Value::test_record(record! {
                 "count(//*[contain..." => Value::test_float(1.0),
             })],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected);

@@ -53,7 +53,7 @@ impl Command for ExprDatePart {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -80,10 +80,10 @@ impl Command for ExprDatePart {
                             Series::new("datetime_second", &[3_i8]),
                             Series::new("datetime_ns", &[123456789_i64]), // i32 was coerced to i64
                         ],
-                        Span::test_data(),
+                        FutureSpanId::test_data(),
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
         ]

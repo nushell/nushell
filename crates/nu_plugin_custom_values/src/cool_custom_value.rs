@@ -1,4 +1,4 @@
-use nu_protocol::{ast, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast, CustomValue, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -14,7 +14,7 @@ impl CoolCustomValue {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self), span)
     }
 
@@ -45,7 +45,7 @@ impl CoolCustomValue {
 
 #[typetag::serde]
 impl CustomValue for CoolCustomValue {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -53,7 +53,7 @@ impl CustomValue for CoolCustomValue {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             format!("I used to be a custom value! My data was ({})", self.cool),
             span,
@@ -62,9 +62,9 @@ impl CustomValue for CoolCustomValue {
 
     fn follow_path_int(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         index: usize,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         if index == 0 {
             Ok(Value::string(&self.cool, path_span))
@@ -78,9 +78,9 @@ impl CustomValue for CoolCustomValue {
 
     fn follow_path_string(
         &self,
-        self_span: Span,
+        self_span: FutureSpanId,
         column_name: String,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         if column_name == "cool" {
             Ok(Value::string(&self.cool, path_span))
@@ -105,9 +105,9 @@ impl CustomValue for CoolCustomValue {
 
     fn operation(
         &self,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: ast::Operator,
-        op_span: Span,
+        op_span: FutureSpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         match operator {

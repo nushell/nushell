@@ -6,7 +6,7 @@ use self::reedline::*;
 use self::table::*;
 
 use crate::engine::Closure;
-use crate::{record, ShellError, Span, Value};
+use crate::{record, ShellError, FutureSpanId, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -150,7 +150,7 @@ impl Default for Config {
             use_grid_icons: true,
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
-            buffer_editor: Value::nothing(Span::unknown()),
+            buffer_editor: Value::nothing(FutureSpanId::unknown()),
             use_ansi_coloring: true,
             bracketed_paste: true,
             edit_mode: EditBindings::default(),

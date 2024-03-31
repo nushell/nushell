@@ -228,7 +228,7 @@ fn operate(
     }
 }
 
-fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
+fn build_regex(input: &str, span: FutureSpanId) -> Result<String, ShellError> {
     let mut output = "(?s)\\A".to_string();
 
     //let mut loop_input = input;
@@ -295,7 +295,7 @@ fn column_names(regex: &Regex) -> Vec<String> {
 }
 
 pub struct ParseStreamer {
-    span: Span,
+    span: FutureSpanId,
     excess: Vec<Value>,
     regex: Regex,
     columns: Vec<String>,
@@ -349,7 +349,7 @@ impl Iterator for ParseStreamer {
 }
 
 pub struct ParseStreamerExternal {
-    span: Span,
+    span: FutureSpanId,
     excess: Vec<Value>,
     regex: Regex,
     columns: Vec<String>,
@@ -407,7 +407,7 @@ impl Iterator for ParseStreamerExternal {
 
 fn stream_helper(
     regex: Regex,
-    span: Span,
+    span: FutureSpanId,
     s: String,
     columns: Vec<String>,
     excess: &mut Vec<Value>,

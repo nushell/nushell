@@ -32,7 +32,7 @@ impl Command for Columns {
                 description: "Get the columns from the record",
                 result: Some(Value::list(
                     vec![Value::test_string("acronym"), Value::test_string("meaning")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -44,7 +44,7 @@ impl Command for Columns {
                         Value::test_string("age"),
                         Value::test_string("grade"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -74,7 +74,7 @@ impl Command for Columns {
 
 fn getcol(
     engine_state: &EngineState,
-    head: Span,
+    head: FutureSpanId,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();

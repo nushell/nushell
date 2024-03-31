@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
+    record, Category, Example, FutureSpanId, IntoPipelineData, PipelineData, Signature, SpanId,
     SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
@@ -49,10 +49,10 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown()),
-            Value::string(code_string, Span::unknown()).into_pipeline_data(),
+            &Call::new(FutureSpanId::unknown()),
+            Value::string(code_string, FutureSpanId::unknown()).into_pipeline_data(),
         ) {
-            let result = output.into_value(Span::unknown());
+            let result = output.into_value(FutureSpanId::unknown());
             if let Ok(s) = result.coerce_into_string() {
                 return s; // successfully highlighted string
             }
@@ -224,7 +224,7 @@ fn get_documentation(
     if !is_parser_keyword && !sig.input_output_types.is_empty() {
         if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
             // FIXME: we may want to make this the span of the help command in the future
-            let span = Span::unknown();
+            let span = FutureSpanId::unknown();
             let mut vals = vec![];
             for (input, output) in &sig.input_output_types {
                 vals.push(Value::record(
@@ -275,11 +275,11 @@ fn get_documentation(
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::unknown()),
-                Value::string(example.example, Span::unknown()).into_pipeline_data(),
+                &Call::new(FutureSpanId::unknown()),
+                Value::string(example.example, FutureSpanId::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
-                    let result = output.into_value(Span::unknown());
+                    let result = output.into_value(FutureSpanId::unknown());
                     match result.coerce_into_string() {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {s}\n");
@@ -306,7 +306,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &Call::new(Span::new(0, 0)),
+                            &Call::new(FutureSpanId::new(0, 0)),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
@@ -340,7 +340,7 @@ fn get_ansi_color_for_component_or_default(
 ) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
         let caller_stack = &mut Stack::new().capture();
-        let span = Span::unknown();
+        let span = FutureSpanId::unknown();
         let span_id = UNKNOWN_SPAN_ID;
 
         let argument_opt = get_argument_for_color_value(engine_state, color, span_id);

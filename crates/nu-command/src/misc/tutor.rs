@@ -396,7 +396,12 @@ produce the same value using:
 "#
 }
 
-fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span) -> PipelineData {
+fn display(
+    help: &str,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: FutureSpanId,
+) -> PipelineData {
     let help = help.split('`');
 
     let mut build = String::new();
@@ -414,9 +419,9 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                     engine_state,
                     stack,
                     &Call::new(span),
-                    Value::string(item, Span::unknown()).into_pipeline_data(),
+                    Value::string(item, FutureSpanId::unknown()).into_pipeline_data(),
                 ) {
-                    let result = output.into_value(Span::unknown());
+                    let result = output.into_value(FutureSpanId::unknown());
                     match result.coerce_into_string() {
                         Ok(s) => {
                             build.push_str(&s);

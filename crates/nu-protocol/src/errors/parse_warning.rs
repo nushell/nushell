@@ -1,4 +1,4 @@
-use crate::Span;
+use crate::FutureSpanId;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -11,13 +11,13 @@ pub enum ParseWarning {
         old_command: String,
         new_suggestion: String,
         #[label("`{old_command}` is deprecated and will be removed in 0.94. Please {new_suggestion} instead")]
-        span: Span,
+        span: FutureSpanId,
         url: String,
     },
 }
 
 impl ParseWarning {
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> FutureSpanId {
         match self {
             ParseWarning::DeprecatedWarning { span, .. } => *span,
         }

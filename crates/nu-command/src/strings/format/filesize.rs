@@ -97,7 +97,7 @@ impl Command for FormatFilesize {
     }
 }
 
-fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
+fn format_value_impl(val: &Value, arg: &Arguments, span: FutureSpanId) -> Value {
     let value_span = val.span();
     match val {
         Value::Filesize { val, .. } => Value::string(

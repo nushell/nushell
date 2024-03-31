@@ -98,7 +98,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+fn to_yaml(input: PipelineData, head: FutureSpanId) -> Result<PipelineData, ShellError> {
     let value = input.into_value(head);
 
     let yaml_value = value_to_yaml_value(&value)?;

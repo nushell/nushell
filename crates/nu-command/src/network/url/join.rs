@@ -125,8 +125,8 @@ struct UrlComponents {
     path: Option<String>,
     query: Option<String>,
     fragment: Option<String>,
-    query_span: Option<Span>,
-    params_span: Option<Span>,
+    query_span: Option<FutureSpanId>,
+    params_span: Option<FutureSpanId>,
 }
 
 impl UrlComponents {
@@ -138,7 +138,7 @@ impl UrlComponents {
         self,
         key: String,
         value: Value,
-        span: Span,
+        span: FutureSpanId,
         engine_state: &EngineState,
     ) -> Result<Self, ShellError> {
         let value_span = value.span();
@@ -202,7 +202,7 @@ impl UrlComponents {
                                 left_message: format!("Mismatch, qs from params is: {qs}"),
                                 left_span: value_span,
                                 right_message: format!("instead query is: {q}"),
-                                right_span: self.query_span.unwrap_or(Span::unknown()),
+                                right_span: self.query_span.unwrap_or(FutureSpanId::unknown()),
                             });
                         }
                     }
@@ -259,7 +259,7 @@ impl UrlComponents {
                             left_message: format!("Mismatch, query param is: {s}"),
                             left_span: value_span,
                             right_message: format!("instead qs from params is: {q}"),
-                            right_span: self.params_span.unwrap_or(Span::unknown()),
+                            right_span: self.params_span.unwrap_or(FutureSpanId::unknown()),
                         });
                     }
                 }
@@ -295,7 +295,11 @@ impl UrlComponents {
     }
 
     // Check if value is empty. If so, check if that is fine, i.e., not a required input
-    fn check_empty_string_ok(key: &str, s: &str, value_span: Span) -> Result<bool, ShellError> {
+    fn check_empty_string_ok(
+        key: &str,
+        s: &str,
+        value_span: FutureSpanId,
+    ) -> Result<bool, ShellError> {
         if !s.trim().is_empty() {
             return Ok(true);
         }
@@ -314,7 +318,7 @@ impl UrlComponents {
         }
     }
 
-    pub fn to_url(&self, span: Span) -> Result<String, ShellError> {
+    pub fn to_url(&self, span: FutureSpanId) -> Result<String, ShellError> {
         let user_and_pwd = match (&self.username, &self.password) {
             (Some(usr), Some(pwd)) => format!("{usr}:{pwd}@"),
             (Some(usr), None) => format!("{usr}@"),
@@ -352,7 +356,7 @@ impl UrlComponents {
         ))
     }
 
-    fn generate_shell_error_for_missing_parameter(pname: String, span: Span) -> ShellError {
+    fn generate_shell_error_for_missing_parameter(pname: String, span: FutureSpanId) -> ShellError {
         ShellError::MissingParameter {
             param_name: pname,
             span,

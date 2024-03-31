@@ -47,7 +47,7 @@ where
     general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action<F>(input: &Value, args: &Arguments<F>, head: Span) -> Value
+fn action<F>(input: &Value, args: &Arguments<F>, head: FutureSpanId) -> Value
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {

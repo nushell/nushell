@@ -87,7 +87,7 @@ impl Command for SubCommand {
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -108,7 +108,7 @@ impl Command for SubCommand {
                             Value::test_string("eggs.txt"),
                         ]),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -127,7 +127,7 @@ impl Command for SubCommand {
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -148,14 +148,14 @@ impl Command for SubCommand {
                             Value::test_string("eggs.txt"),
                         ]),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
     }
 }
 
-fn split(path: &Path, span: Span, _: &Arguments) -> Value {
+fn split(path: &Path, span: FutureSpanId, _: &Arguments) -> Value {
     Value::list(
         path.components()
             .filter_map(|comp| {

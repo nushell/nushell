@@ -47,7 +47,7 @@ impl Command for Seq {
                         Value::test_int(9),
                         Value::test_int(10),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -67,7 +67,7 @@ impl Command for Seq {
                         Value::test_float(1.9000),
                         Value::test_float(2.0000),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -111,7 +111,7 @@ fn seq(
 
 pub fn run_seq(
     free: Vec<f64>,
-    span: Span,
+    span: FutureSpanId,
     contains_decimals: bool,
     engine_state: &EngineState,
 ) -> Result<PipelineData, ShellError> {
@@ -156,7 +156,7 @@ struct FloatSeq {
     step: f64,
     last: f64,
     index: isize,
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl Iterator for FloatSeq {
@@ -177,7 +177,7 @@ struct IntSeq {
     count: i64,
     step: i64,
     last: i64,
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl Iterator for IntSeq {

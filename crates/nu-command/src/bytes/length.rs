@@ -61,14 +61,14 @@ impl Command for BytesLen {
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
                 result: Some(Value::list(
                     vec![Value::test_int(4), Value::test_int(1)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
     }
 }
 
-fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn length(val: &Value, _args: &CellPathOnlyArgs, span: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::Binary { val, .. } => Value::int(val.len() as i64, val_span),

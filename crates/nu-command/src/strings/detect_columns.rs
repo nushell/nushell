@@ -399,7 +399,7 @@ fn baseline(src: &mut Input) -> Spanned<String> {
         let _ = src.next();
     }
 
-    let span = Span::new(start_offset, start_offset + token_contents.len());
+    let span = FutureSpanId::new(start_offset, start_offset + token_contents.len());
 
     // If there is still unclosed opening delimiters, close them and add
     // synthetic closing characters to the accumulated token.
@@ -439,7 +439,7 @@ fn baseline(src: &mut Input) -> Spanned<String> {
     }
 }
 
-fn merge_record(record: Record, range: &Range, input_span: Span) -> Value {
+fn merge_record(record: Record, range: &Range, input_span: FutureSpanId) -> Value {
     let (start_index, end_index) = match process_range(range, record.len(), input_span) {
         Ok(Some((l_idx, r_idx))) => (l_idx, r_idx),
         Ok(None) => return Value::record(record, input_span),
@@ -455,7 +455,7 @@ fn merge_record(record: Record, range: &Range, input_span: Span) -> Value {
 fn process_range(
     range: &Range,
     length: usize,
-    input_span: Span,
+    input_span: FutureSpanId,
 ) -> Result<Option<(usize, usize)>, ShellError> {
     match nu_cmd_base::util::process_range(range) {
         Ok((l_idx, r_idx)) => {
@@ -488,7 +488,7 @@ fn merge_record_impl(
     record: Record,
     start_index: usize,
     end_index: usize,
-    input_span: Span,
+    input_span: FutureSpanId,
 ) -> Result<Record, ShellError> {
     let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
     // Merge Columns
@@ -504,13 +504,13 @@ fn merge_record_impl(
         .skip(start_index)
         .map(|v| v.coerce_str().unwrap_or_default())
         .join(" ");
-    let binding = Value::string(combined, Span::unknown());
+    let binding = Value::string(combined, FutureSpanId::unknown());
     let last_seg = vals.split_off(end_index);
     vals.truncate(start_index);
     vals.push(binding);
     vals.extend(last_seg);
 
-    Record::from_raw_cols_vals(cols, vals, Span::unknown(), input_span)
+    Record::from_raw_cols_vals(cols, vals, FutureSpanId::unknown(), input_span)
 }
 
 #[cfg(test)]

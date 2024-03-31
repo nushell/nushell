@@ -1,4 +1,4 @@
-use nu_protocol::{ast::CellPath, PipelineData, ShellError, Span, Value};
+use nu_protocol::{ast::CellPath, FutureSpanId, PipelineData, ShellError, Value};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub trait CmdArgument {
@@ -39,12 +39,12 @@ pub fn operate<C, A>(
     cmd: C,
     mut arg: A,
     input: PipelineData,
-    span: Span,
+    span: FutureSpanId,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<PipelineData, ShellError>
 where
     A: CmdArgument + Send + Sync + 'static,
-    C: Fn(&Value, &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
+    C: Fn(&Value, &A, FutureSpanId) -> Value + Send + Sync + 'static + Clone + Copy,
 {
     match arg.take_cell_paths() {
         None => input.map(

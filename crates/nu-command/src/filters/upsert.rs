@@ -294,7 +294,7 @@ fn upsert(
 fn upsert_value_by_closure(
     value: &mut Value,
     closure: &mut ClosureEval,
-    span: Span,
+    span: FutureSpanId,
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
@@ -317,7 +317,7 @@ fn upsert_value_by_closure(
 fn upsert_single_value_by_closure(
     value: &mut Value,
     closure: ClosureEvalOnce,
-    span: Span,
+    span: FutureSpanId,
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {

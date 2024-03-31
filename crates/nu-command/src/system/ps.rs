@@ -124,7 +124,7 @@ fn run_ps(
                     .map_err(|e| ShellError::GenericError {
                         error: "Error getting process stat".into(),
                         msg: e.to_string(),
-                        span: Some(Span::unknown()),
+                        span: Some(FutureSpanId::unknown()),
                         help: None,
                         inner: vec![],
                     })?;

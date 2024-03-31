@@ -56,7 +56,7 @@ b = [1, 2]' | from toml",
     }
 }
 
-fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
+fn convert_toml_to_value(value: &toml::Value, span: FutureSpanId) -> Value {
     match value {
         toml::Value::Array(array) => {
             let v: Vec<Value> = array
@@ -86,7 +86,10 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
     }
 }
 
-pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
+pub fn convert_string_to_value(
+    string_input: String,
+    span: FutureSpanId,
+) -> Result<Value, ShellError> {
     let result: Result<toml::Value, toml::de::Error> = toml::from_str(&string_input);
     match result {
         Ok(value) => Ok(convert_toml_to_value(&value, span)),
@@ -130,8 +133,8 @@ mod tests {
             offset: Option::from(toml::value::Offset::Custom { minutes: 120 }),
         });
 
-        let span = Span::test_data();
-        let reference_date = Value::date(Default::default(), Span::test_data());
+        let span = FutureSpanId::test_data();
+        let reference_date = Value::date(Default::default(), FutureSpanId::test_data());
 
         let result = convert_toml_to_value(&toml_date, span);
 
@@ -156,13 +159,13 @@ mod tests {
             offset: Option::from(toml::value::Offset::Custom { minutes: 120 }),
         });
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let reference_date = Value::date(
             chrono::FixedOffset::east_opt(60 * 120)
                 .unwrap()
                 .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
                 .unwrap(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let result = convert_toml_to_value(&toml_date, span);
@@ -182,7 +185,7 @@ mod tests {
             "#,
         );
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
 
         let result = convert_string_to_value(input_string, span);
 
@@ -200,7 +203,7 @@ mod tests {
             "#,
         );
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
 
         let result = convert_string_to_value(input_string, span);
 

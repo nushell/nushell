@@ -67,14 +67,14 @@ impl Command for SubCommand {
                         Value::test_string("https://example.com/a>b"),
                         Value::test_string("中文字/eng/12 34"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, _arg: &CellPathOnlyArgs, head: FutureSpanId) -> Value {
     let input_span = input.span();
     match input {
         Value::String { val, .. } => {

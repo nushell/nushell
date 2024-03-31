@@ -59,7 +59,7 @@ used as the next argument to the closure, otherwise generation stops.
                         Value::test_int(8),
                         Value::test_int(10),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -78,7 +78,7 @@ used as the next argument to the closure, otherwise generation stops.
                         Value::test_int(21),
                         Value::test_int(34),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

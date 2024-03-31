@@ -1,6 +1,6 @@
 use super::generic_digest::{GenericDigest, HashDigest};
 use ::sha2::Sha256;
-use nu_protocol::{Example, Span, Value};
+use nu_protocol::{Example, FutureSpanId, Value};
 
 pub type HashSha256 = GenericDigest<Sha256>;
 
@@ -16,7 +16,7 @@ impl HashDigest for Sha256 {
                 example: "'abcdefghijklmnopqrstuvwxyz' | hash sha256",
                 result: Some(Value::string(
                     "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73".to_owned(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -28,7 +28,7 @@ impl HashDigest for Sha256 {
                         0x7c, 0x66, 0xc9, 0x52, 0x5e, 0x31, 0x62, 0x18, 0xcf, 0x51, 0xfc, 0x8d,
                         0x9e, 0xd8, 0x32, 0xf2, 0xda, 0xf1, 0x8b, 0x73,
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -52,10 +52,13 @@ mod tests {
 
     #[test]
     fn hash_string() {
-        let binary = Value::string("abcdefghijklmnopqrstuvwxyz".to_owned(), Span::test_data());
+        let binary = Value::string(
+            "abcdefghijklmnopqrstuvwxyz".to_owned(),
+            FutureSpanId::test_data(),
+        );
         let expected = Value::string(
             "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73".to_owned(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let actual = generic_digest::action::<Sha256>(
             &binary,
@@ -63,17 +66,17 @@ mod tests {
                 cell_paths: None,
                 binary: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn hash_bytes() {
-        let binary = Value::binary(vec![0xC0, 0xFF, 0xEE], Span::test_data());
+        let binary = Value::binary(vec![0xC0, 0xFF, 0xEE], FutureSpanId::test_data());
         let expected = Value::string(
             "c47a10dc272b1221f0380a2ae0f7d7fa830b3e378f2f5309bbf13f61ad211913".to_owned(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let actual = generic_digest::action::<Sha256>(
             &binary,
@@ -81,7 +84,7 @@ mod tests {
                 cell_paths: None,
                 binary: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }

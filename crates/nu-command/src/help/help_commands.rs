@@ -115,7 +115,7 @@ pub fn help_commands(
     }
 }
 
-fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
+fn build_help_commands(engine_state: &EngineState, span: FutureSpanId) -> Vec<Value> {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 

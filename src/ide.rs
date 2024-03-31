@@ -4,7 +4,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    report_error, DeclId, ShellError, Span, Value, VarId, NU_VARIABLE_ID,
+    report_error, DeclId, FutureSpanId, ShellError, Value, VarId, NU_VARIABLE_ID,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -22,7 +22,7 @@ fn find_id(
     file_path: &str,
     file: &[u8],
     location: &Value,
-) -> Option<(Id, usize, Span)> {
+) -> Option<(Id, usize, FutureSpanId)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
     let offset = working_set.get_span_for_file(file_id).start;
     let block = parse(working_set, Some(file_path), file, false);
@@ -61,7 +61,7 @@ fn read_in_file<'a>(
                 &working_set,
                 &ShellError::FileNotFoundCustom {
                     msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    span: Span::unknown(),
+                    span: FutureSpanId::unknown(),
                 },
             );
             std::process::exit(1);
@@ -79,7 +79,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
     let working_set = StateWorkingSet::new(engine_state);
 
-    let nu_const = match create_nu_constant(engine_state, Span::unknown()) {
+    let nu_const = match create_nu_constant(engine_state, FutureSpanId::unknown()) {
         Ok(nu_const) => nu_const,
         Err(err) => {
             report_error(&working_set, &err);

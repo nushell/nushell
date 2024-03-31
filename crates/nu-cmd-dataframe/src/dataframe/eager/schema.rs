@@ -29,10 +29,10 @@ impl Command for SchemaDF {
             example: r#"[[a b]; [1 "foo"] [3 "bar"]] | dfr into-df | dfr schema"#,
             result: Some(Value::record(
                 record! {
-                    "a" => Value::string("i64", Span::test_data()),
-                    "b" => Value::string("str", Span::test_data()),
+                    "a" => Value::string("i64", FutureSpanId::test_data()),
+                    "b" => Value::string("str", FutureSpanId::test_data()),
                 },
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }
@@ -45,7 +45,10 @@ impl Command for SchemaDF {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag(engine_state, stack, "datatype-list")? {
-            Ok(PipelineData::Value(datatype_list(Span::unknown()), None))
+            Ok(PipelineData::Value(
+                datatype_list(FutureSpanId::unknown()),
+                None,
+            ))
         } else {
             command(engine_state, stack, call, input)
         }
@@ -64,7 +67,7 @@ fn command(
     Ok(PipelineData::Value(value, None))
 }
 
-fn datatype_list(span: Span) -> Value {
+fn datatype_list(span: FutureSpanId) -> Value {
     let types: Vec<Value> = [
         ("null", ""),
         ("bool", ""),

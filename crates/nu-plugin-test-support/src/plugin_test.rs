@@ -11,7 +11,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
-    ShellError, Span, Value,
+    ShellError, FutureSpanId, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -85,7 +85,7 @@ impl PluginTest {
     ///
     /// ```rust,no_run
     /// # use nu_plugin_test_support::PluginTest;
-    /// # use nu_protocol::{ShellError, Span, Value, IntoInterruptiblePipelineData};
+    /// # use nu_protocol::{ShellError, FutureSpanId, Value, IntoInterruptiblePipelineData};
     /// # use nu_plugin::*;
     /// # fn test(MyPlugin: impl Plugin + Send + 'static) -> Result<(), ShellError> {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
@@ -93,7 +93,7 @@ impl PluginTest {
     ///         "my-command",
     ///         vec![Value::test_int(42)].into_pipeline_data(None)
     ///     )?
-    ///     .into_value(Span::test_data());
+    ///     .into_value(FutureSpanId::test_data());
     /// assert_eq!(Value::test_string("42"), result);
     /// # Ok(())
     /// # }
@@ -171,12 +171,12 @@ impl PluginTest {
     ///
     /// ```rust,no_run
     /// # use nu_plugin_test_support::PluginTest;
-    /// # use nu_protocol::{ShellError, Span, Value, IntoInterruptiblePipelineData};
+    /// # use nu_protocol::{ShellError, FutureSpanId, Value, IntoInterruptiblePipelineData};
     /// # use nu_plugin::*;
     /// # fn test(MyPlugin: impl Plugin + Send + 'static) -> Result<(), ShellError> {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .eval("42 | my-command")?
-    ///     .into_value(Span::test_data());
+    ///     .into_value(FutureSpanId::test_data());
     /// assert_eq!(Value::test_string("42"), result);
     /// # Ok(())
     /// # }
@@ -219,12 +219,12 @@ impl PluginTest {
             if let Some(expectation) = &example.result {
                 match self.eval(example.example) {
                     Ok(data) => {
-                        let mut value = data.into_value(Span::test_data());
+                        let mut value = data.into_value(FutureSpanId::test_data());
 
                         // Set all of the spans in the value to test_data() to avoid unnecessary
                         // differences when printing
                         let _: Result<(), Infallible> = value.recurse_mut(&mut |here| {
-                            here.set_span(Span::test_data());
+                            here.set_span(FutureSpanId::test_data());
                             Ok(())
                         });
 
@@ -357,7 +357,7 @@ impl PluginTest {
     pub fn custom_value_to_base_value(
         &self,
         val: &dyn CustomValue,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let serialized = PluginCustomValue::serialize_from_custom_value(val, span)?
             .with_source(self.source.clone());

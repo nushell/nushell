@@ -289,7 +289,7 @@ impl Command for Char {
 
 fn generate_character_list(
     ctrlc: Option<Arc<AtomicBool>>,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     Ok(CHAR_MAP
         .iter()
@@ -316,7 +316,7 @@ fn handle_integer_flag(
     state: &impl GetSpan,
     int_args: Vec<i64>,
     call: &Call,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     if int_args.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -339,7 +339,7 @@ fn handle_unicode_flag(
     state: &impl GetSpan,
     string_args: Vec<String>,
     call: &Call,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     if string_args.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -362,7 +362,7 @@ fn handle_the_rest(
     state: &impl GetSpan,
     string_args: Vec<String>,
     call: &Call,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     if string_args.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -384,7 +384,7 @@ fn handle_the_rest(
     }
 }
 
-fn integer_to_unicode_char(value: i64, t: Span) -> Result<char, ShellError> {
+fn integer_to_unicode_char(value: i64, t: FutureSpanId) -> Result<char, ShellError> {
     let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
@@ -397,7 +397,7 @@ fn integer_to_unicode_char(value: i64, t: Span) -> Result<char, ShellError> {
     }
 }
 
-fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
+fn string_to_unicode_char(s: &str, t: FutureSpanId) -> Result<char, ShellError> {
     let decoded_char = u32::from_str_radix(s, 16)
         .ok()
         .and_then(std::char::from_u32);

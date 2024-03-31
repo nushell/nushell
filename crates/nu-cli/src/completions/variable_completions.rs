@@ -4,7 +4,7 @@ use crate::completions::{
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span, Value,
+    FutureSpanId, Value,
 };
 use reedline::Suggestion;
 use std::{str, sync::Arc};
@@ -35,7 +35,7 @@ impl Completer for VariableCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         prefix: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
@@ -113,7 +113,7 @@ impl Completer for VariableCompletion {
                     &self.engine_state,
                     &self.stack,
                     nu_protocol::NU_VARIABLE_ID,
-                    nu_protocol::Span::new(current_span.start, current_span.end),
+                    nu_protocol::FutureSpanId::new(current_span.start, current_span.end),
                 ) {
                     for suggestion in nested_suggestions(&nuval, &self.var_context.1, current_span)
                     {
@@ -133,7 +133,9 @@ impl Completer for VariableCompletion {
             // Completion other variable types
             if let Some(var_id) = var_id {
                 // Extract the variable value from the stack
-                let var = self.stack.get_var(var_id, Span::new(span.start, span.end));
+                let var = self
+                    .stack
+                    .get_var(var_id, FutureSpanId::new(span.start, span.end));
 
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {

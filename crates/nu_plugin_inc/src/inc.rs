@@ -1,4 +1,4 @@
-use nu_protocol::{ast::CellPath, LabeledError, Span, Value};
+use nu_protocol::{ast::CellPath, FutureSpanId, LabeledError, Value};
 use semver::{BuildMetadata, Prerelease, Version};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -26,7 +26,7 @@ impl Inc {
         Default::default()
     }
 
-    fn apply(&self, input: &str, head: Span) -> Value {
+    fn apply(&self, input: &str, head: FutureSpanId) -> Value {
         match &self.action {
             Some(Action::SemVerAction(act_on)) => {
                 let mut ver = match semver::Version::parse(input) {
@@ -93,7 +93,7 @@ impl Inc {
         "Usage: inc field [--major|--minor|--patch]"
     }
 
-    pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
+    pub fn inc(&self, head: FutureSpanId, value: &Value) -> Result<Value, LabeledError> {
         if let Some(cell_path) = &self.cell_path {
             let working_value = value.clone();
             let cell_value = working_value.follow_cell_path(&cell_path.members, false)?;
@@ -108,7 +108,7 @@ impl Inc {
         }
     }
 
-    pub fn inc_value(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
+    pub fn inc_value(&self, head: FutureSpanId, value: &Value) -> Result<Value, LabeledError> {
         match value {
             Value::Int { val, .. } => Ok(Value::int(val + 1, head)),
             Value::String { val, .. } => Ok(self.apply(val, head)),
@@ -129,7 +129,7 @@ impl Inc {
 #[cfg(test)]
 mod tests {
     mod semver {
-        use nu_protocol::{Span, Value};
+        use nu_protocol::{FutureSpanId, Value};
 
         use crate::inc::SemVerAction;
         use crate::Inc;
@@ -139,7 +139,7 @@ mod tests {
             let expected = Value::test_string("1.0.0");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Major);
-            assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
+            assert_eq!(inc.apply("0.1.3", FutureSpanId::test_data()), expected)
         }
 
         #[test]
@@ -147,7 +147,7 @@ mod tests {
             let expected = Value::test_string("0.2.0");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Minor);
-            assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
+            assert_eq!(inc.apply("0.1.3", FutureSpanId::test_data()), expected)
         }
 
         #[test]
@@ -155,7 +155,7 @@ mod tests {
             let expected = Value::test_string("0.1.4");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Patch);
-            assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
+            assert_eq!(inc.apply("0.1.3", FutureSpanId::test_data()), expected)
         }
     }
 }

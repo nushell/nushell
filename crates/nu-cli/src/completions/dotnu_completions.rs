@@ -1,7 +1,7 @@
 use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    FutureSpanId,
 };
 use reedline::Suggestion;
 use std::{
@@ -31,7 +31,7 @@ impl Completer for DotNuCompletion {
         &mut self,
         _: &StateWorkingSet,
         prefix: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         _: usize,
         options: &CompletionOptions,

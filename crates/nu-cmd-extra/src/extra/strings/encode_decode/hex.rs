@@ -95,7 +95,7 @@ fn action(
     input: &Value,
     // only used for `decode` action
     args: &Arguments,
-    command_span: Span,
+    command_span: FutureSpanId,
 ) -> Value {
     let hex_config = &args.encoding_config;
 
@@ -152,11 +152,11 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::{action, ActionType, Arguments, HexConfig};
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{FutureSpanId, Value};
 
     #[test]
     fn hex_encode() {
-        let word = Value::binary([77, 97, 110], Span::test_data());
+        let word = Value::binary([77, 97, 110], FutureSpanId::test_data());
         let expected = Value::test_string("4D616E");
 
         let actual = action(
@@ -167,7 +167,7 @@ mod tests {
                 },
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn hex_decode() {
         let word = Value::test_string("4D 61\r\n\n6E");
-        let expected = Value::binary([77, 97, 110], Span::test_data());
+        let expected = Value::binary([77, 97, 110], FutureSpanId::test_data());
 
         let actual = action(
             &word,
@@ -185,7 +185,7 @@ mod tests {
                 },
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }

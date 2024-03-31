@@ -332,7 +332,7 @@ impl ExternalCommand {
                                 }
                                 stack.add_env_var(
                                     canary.to_string(),
-                                    Value::bool(true, Span::unknown()),
+                                    Value::bool(true, FutureSpanId::unknown()),
                                 );
                                 match eval_hook(
                                     &mut engine_state,
@@ -530,7 +530,7 @@ impl ExternalCommand {
         &self,
         input: &PipelineData,
         use_cmd: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {

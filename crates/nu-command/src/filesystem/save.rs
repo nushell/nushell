@@ -295,7 +295,7 @@ fn input_to_bytes(
     raw: bool,
     engine_state: &EngineState,
     stack: &mut Stack,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<u8>, ShellError> {
     let ext = if raw {
         None
@@ -325,7 +325,7 @@ fn convert_to_extension(
     extension: &str,
     stack: &mut Stack,
     input: PipelineData,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<u8>, ShellError> {
     let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
 
@@ -369,13 +369,13 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     }
 }
 
-/// Convert string path to [`Path`] and [`Span`] and check if this path
+/// Convert string path to [`Path`] and [`FutureSpanId`] and check if this path
 /// can be used with given flags
 fn prepare_path(
     path: &Spanned<PathBuf>,
     append: bool,
     force: bool,
-) -> Result<(&Path, Span), ShellError> {
+) -> Result<(&Path, FutureSpanId), ShellError> {
     let span = path.span;
     let path = &path.item;
 
@@ -395,7 +395,7 @@ fn prepare_path(
     }
 }
 
-fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
+fn open_file(path: &Path, span: FutureSpanId, append: bool) -> Result<File, ShellError> {
     let file = match (append, path.exists()) {
         (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => std::fs::File::create(path),
@@ -451,7 +451,7 @@ fn get_files(
 fn stream_to_file(
     mut stream: RawStream,
     mut file: File,
-    span: Span,
+    span: FutureSpanId,
     progress: bool,
 ) -> Result<(), ShellError> {
     // https://github.com/nushell/nushell/pull/9377 contains the reason

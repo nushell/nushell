@@ -120,7 +120,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: FutureSpanId) -> Value {
     let options = &args.indexes;
     match input {
         Value::String { val: s, .. } => {
@@ -200,7 +200,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, Arguments, Span, SubCommand, Substring, Value};
+    use super::{action, Arguments, FutureSpanId, SubCommand, Substring, Value};
 
     #[test]
     fn test_examples() {
@@ -265,7 +265,7 @@ mod tests {
                     cell_paths: None,
                     graphemes: false,
                 },
-                Span::test_data(),
+                FutureSpanId::test_data(),
             );
 
             assert_eq!(actual, Value::test_string(expected));
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), FutureSpanId::test_data());
 
         let options = Arguments {
             cell_paths: None,
@@ -282,7 +282,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_string("�"));
     }
 }

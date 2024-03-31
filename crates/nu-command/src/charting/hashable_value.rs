@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, ShellError, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [`Value`](crate::Value), which is hashable.
@@ -19,35 +19,35 @@ use std::hash::{Hash, Hasher};
 pub enum HashableValue {
     Bool {
         val: bool,
-        span: Span,
+        span: FutureSpanId,
     },
     Int {
         val: i64,
-        span: Span,
+        span: FutureSpanId,
     },
     Float {
         val: [u8; 8], // because f64 is not hashable, we save it as [u8;8] array to make it hashable.
-        span: Span,
+        span: FutureSpanId,
     },
     Filesize {
         val: i64,
-        span: Span,
+        span: FutureSpanId,
     },
     Duration {
         val: i64,
-        span: Span,
+        span: FutureSpanId,
     },
     Date {
         val: DateTime<FixedOffset>,
-        span: Span,
+        span: FutureSpanId,
     },
     String {
         val: String,
-        span: Span,
+        span: FutureSpanId,
     },
     Binary {
         val: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
     },
 }
 
@@ -55,7 +55,7 @@ impl Default for HashableValue {
     fn default() -> Self {
         HashableValue::Bool {
             val: false,
-            span: Span::unknown(),
+            span: FutureSpanId::unknown(),
         }
     }
 }
@@ -66,7 +66,7 @@ impl HashableValue {
     /// A `span` is required because when there is an error in value, it may not contain `span` field.
     ///
     /// If the given value is not hashable(mainly because of it is structured data), an error will returned.
-    pub fn from_value(value: Value, span: Span) -> Result<Self, ShellError> {
+    pub fn from_value(value: Value, span: FutureSpanId) -> Result<Self, ShellError> {
         let val_span = value.span();
         match value {
             Value::Bool { val, .. } => Ok(HashableValue::Bool {
@@ -188,7 +188,7 @@ mod test {
 
     #[test]
     fn from_value() {
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let values = vec![
             (
                 Value::bool(true, span),
@@ -231,7 +231,7 @@ mod test {
         ];
         for (val, expect_hashable_val) in values.into_iter() {
             assert_eq!(
-                HashableValue::from_value(val, Span::unknown()).unwrap(),
+                HashableValue::from_value(val, FutureSpanId::unknown()).unwrap(),
                 expect_hashable_val
             );
         }
@@ -239,7 +239,7 @@ mod test {
 
     #[test]
     fn from_unhashable_value() {
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let values = [
             Value::list(vec![Value::bool(true, span)], span),
             Value::closure(
@@ -269,13 +269,13 @@ mod test {
             ),
         ];
         for v in values {
-            assert!(HashableValue::from_value(v, Span::unknown()).is_err())
+            assert!(HashableValue::from_value(v, FutureSpanId::unknown()).is_err())
         }
     }
 
     #[test]
     fn from_to_tobe_same() {
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let values = vec![
             Value::bool(true, span),
             Value::int(1, span),
@@ -287,7 +287,7 @@ mod test {
         for val in values.into_iter() {
             let expected_val = val.clone();
             assert_eq!(
-                HashableValue::from_value(val, Span::unknown())
+                HashableValue::from_value(val, FutureSpanId::unknown())
                     .unwrap()
                     .into_value(),
                 expected_val
@@ -300,24 +300,24 @@ mod test {
         assert_eq!(
             HashableValue::Bool {
                 val: true,
-                span: Span::new(0, 1)
+                span: FutureSpanId::new(0, 1)
             },
             HashableValue::Bool {
                 val: true,
-                span: Span::new(90, 1000)
+                span: FutureSpanId::new(90, 1000)
             }
         )
     }
 
     #[test]
     fn put_to_hashset() {
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let mut set = HashSet::new();
         set.insert(HashableValue::Bool { val: true, span });
         assert!(set.contains(&HashableValue::Bool { val: true, span }));
 
         // hashable value doesn't care about span.
-        let diff_span = Span::new(1, 2);
+        let diff_span = FutureSpanId::new(1, 2);
         set.insert(HashableValue::Bool {
             val: true,
             span: diff_span,

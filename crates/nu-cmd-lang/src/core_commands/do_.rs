@@ -280,7 +280,7 @@ fn bind_args_to(
     stack: &mut Stack,
     signature: &Signature,
     args: Vec<Value>,
-    head_span: Span,
+    head_span: FutureSpanId,
 ) -> Result<(), ShellError> {
     let mut val_iter = args.into_iter();
     for (param, required) in signature

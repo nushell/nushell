@@ -15,8 +15,8 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
-    span_concat, ActualSpan, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    span_concat, ActualSpan, Alias, BlockId, DeclId, FutureSpanId, Module, ModuleId, ParseError,
+    PositionalArg, ResolvedImportPattern, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1666,7 +1666,7 @@ pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: ActualSpan,
     module_name: &[u8],
-) -> (Block, Module, Vec<Span>) {
+) -> (Block, Module, Vec<FutureSpanId>) {
     working_set.enter_scope();
 
     let source = working_set.get_span_contents(span);
@@ -2012,7 +2012,7 @@ pub fn parse_module(
         return (garbage_pipeline(working_set, spans), None);
     }
 
-    let mut module_comments: Vec<Span> = lite_command
+    let mut module_comments: Vec<FutureSpanId> = lite_command
         .comments
         .clone()
         .into_iter()

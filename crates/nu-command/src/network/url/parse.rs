@@ -72,7 +72,11 @@ fn get_url_string(value: &Value, engine_state: &EngineState) -> String {
     value.to_expanded_string("", engine_state.get_config())
 }
 
-fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<PipelineData, ShellError> {
+fn parse(
+    value: Value,
+    head: FutureSpanId,
+    engine_state: &EngineState,
+) -> Result<PipelineData, ShellError> {
     let url_string = get_url_string(&value, engine_state);
 
     let result_url = Url::parse(url_string.as_str());

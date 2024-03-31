@@ -8,8 +8,8 @@ use nu_protocol::{
     create_menus,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
-    ShellError, Span, Value,
+    extract_value, Config, EditBindings, FutureSpanId, ParsedKeybinding, ParsedMenu, PipelineData,
+    Record, ShellError, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -957,7 +957,7 @@ enum EventType<'config> {
 }
 
 impl<'config> EventType<'config> {
-    fn try_from_record(record: &'config Record, span: Span) -> Result<Self, ShellError> {
+    fn try_from_record(record: &'config Record, span: FutureSpanId) -> Result<Self, ShellError> {
         extract_value("send", record, span)
             .map(Self::Send)
             .or_else(|_| extract_value("edit", record, span).map(Self::Edit))
@@ -1052,7 +1052,7 @@ fn event_from_record(
     name: &str,
     record: &Record,
     config: &Config,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<ReedlineEvent, ShellError> {
     let event = match name {
         "none" => ReedlineEvent::None,
@@ -1107,7 +1107,7 @@ fn edit_from_record(
     name: &str,
     record: &Record,
     config: &Config,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<EditCommand, ShellError> {
     let edit = match name {
         "movetostart" => EditCommand::MoveToStart {
@@ -1322,7 +1322,7 @@ mod test {
             "send" => Value::test_string("Enter"),
         };
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
@@ -1339,7 +1339,7 @@ mod test {
             "edit" => Value::test_string("Clear"),
         };
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Edit(_)));
 
@@ -1360,7 +1360,7 @@ mod test {
             "name" =>  Value::test_string("history_menu"),
         };
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
@@ -1386,11 +1386,11 @@ mod test {
         let event = record! {
             "until" => Value::list(
                 vec![menu_event, enter_event],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ),
         };
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Until(_)));
 
@@ -1416,7 +1416,7 @@ mod test {
         let enter_event = Value::test_record(record! {
             "send" => Value::test_string("Enter"),
         });
-        let event = Value::list(vec![menu_event, enter_event], Span::test_data());
+        let event = Value::list(vec![menu_event, enter_event], FutureSpanId::test_data());
 
         let config = Config::default();
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1435,7 +1435,7 @@ mod test {
             "not_exist" => Value::test_string("Enter"),
         };
 
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let b = EventType::try_from_record(&event, span);
         assert!(matches!(b, Err(ShellError::MissingConfigValue { .. })));
     }

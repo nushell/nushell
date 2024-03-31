@@ -8,7 +8,7 @@ pub use general::JustTable;
 
 use crate::{common::INDEX_COLUMN_NAME, NuTable};
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, TableIndexMode, TableMode};
+use nu_protocol::{Config, FutureSpanId, TableIndexMode, TableMode};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub struct TableOutput {
@@ -32,7 +32,7 @@ pub struct TableOpts<'a> {
     ctrlc: Option<Arc<AtomicBool>>,
     config: &'a Config,
     style_computer: &'a StyleComputer<'a>,
-    span: Span,
+    span: FutureSpanId,
     width: usize,
     indent: (usize, usize),
     mode: TableMode,
@@ -46,7 +46,7 @@ impl<'a> TableOpts<'a> {
         config: &'a Config,
         style_computer: &'a StyleComputer<'a>,
         ctrlc: Option<Arc<AtomicBool>>,
-        span: Span,
+        span: FutureSpanId,
         width: usize,
         indent: (usize, usize),
         mode: TableMode,

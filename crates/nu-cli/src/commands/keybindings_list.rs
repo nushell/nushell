@@ -70,7 +70,7 @@ impl Command for KeybindingsList {
     }
 }
 
-fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
+fn get_records(entry_type: &str, span: FutureSpanId) -> Vec<Value> {
     let values = match entry_type {
         "modifiers" => get_reedline_keybinding_modifiers().sorted(),
         "keycodes" => get_reedline_keycodes().sorted(),
@@ -87,7 +87,7 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
         .collect()
 }
 
-fn convert_to_record(edit: &str, entry_type: &str, span: Span) -> Value {
+fn convert_to_record(edit: &str, entry_type: &str, span: FutureSpanId) -> Value {
     Value::record(
         record! {
             "type" => Value::string(entry_type, span),

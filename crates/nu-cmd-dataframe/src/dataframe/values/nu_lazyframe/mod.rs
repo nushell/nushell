@@ -2,7 +2,7 @@ mod custom_value;
 
 use super::{NuDataFrame, NuExpression};
 use core::fmt;
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, PipelineData, ShellError, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -87,7 +87,7 @@ impl NuLazyFrame {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
+    pub fn into_value(self, span: FutureSpanId) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
             Ok(Value::custom(Box::new(df), span))
@@ -100,7 +100,7 @@ impl NuLazyFrame {
         self.lazy.expect("lazyframe cannot be none to convert")
     }
 
-    pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
+    pub fn collect(self, span: FutureSpanId) -> Result<NuDataFrame, ShellError> {
         self.lazy
             .expect("No empty lazy for collect")
             .collect()
@@ -133,7 +133,7 @@ impl NuLazyFrame {
         }
     }
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_pipeline(input: PipelineData, span: FutureSpanId) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
     }

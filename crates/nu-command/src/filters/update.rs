@@ -234,7 +234,7 @@ fn update(
 fn update_value_by_closure(
     value: &mut Value,
     closure: &mut ClosureEval,
-    span: Span,
+    span: FutureSpanId,
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
@@ -257,7 +257,7 @@ fn update_value_by_closure(
 fn update_single_value_by_closure(
     value: &mut Value,
     closure: ClosureEvalOnce,
-    span: Span,
+    span: FutureSpanId,
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {

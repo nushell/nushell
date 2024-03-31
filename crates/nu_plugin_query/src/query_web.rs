@@ -1,7 +1,7 @@
 use crate::{web_tables::WebTable, Query};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, FutureSpanId, LabeledError, Record, Signature, Spanned, SyntaxShape, Value,
 };
 use scraper::{Html, Selector as ScraperSelector};
 
@@ -97,7 +97,7 @@ impl Selector {
             query: String::new(),
             as_html: false,
             attribute: String::new(),
-            as_table: Value::string("".to_string(), Span::unknown()),
+            as_table: Value::string("".to_string(), FutureSpanId::unknown()),
             inspect: false,
         }
     }
@@ -144,7 +144,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     }
 }
 
-fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> Value {
+fn begin_selector_query(input_html: String, selector: Selector, span: FutureSpanId) -> Value {
     if let Value::List { .. } = selector.as_table {
         return retrieve_tables(
             input_html.as_str(),
@@ -175,7 +175,7 @@ pub fn retrieve_tables(
     input_string: &str,
     columns: &Value,
     inspect_mode: bool,
-    span: Span,
+    span: FutureSpanId,
 ) -> Value {
     let html = input_string;
     let mut cols: Vec<String> = Vec::new();
@@ -218,7 +218,7 @@ pub fn retrieve_tables(
     Value::list(vals, span)
 }
 
-fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
+fn retrieve_table(mut table: WebTable, columns: &Value, span: FutureSpanId) -> Value {
     let mut cols: Vec<String> = Vec::new();
     if let Value::List { vals, .. } = &columns {
         for x in vals {
@@ -301,7 +301,7 @@ fn execute_selector_query_with_attribute(
     query_string: &str,
     attribute: &str,
     inspect: bool,
-    span: Span,
+    span: FutureSpanId,
 ) -> Value {
     let doc = Html::parse_fragment(input_string);
 
@@ -322,7 +322,7 @@ fn execute_selector_query(
     query_string: &str,
     as_html: bool,
     inspect: bool,
-    span: Span,
+    span: FutureSpanId,
 ) -> Value {
     let doc = Html::parse_fragment(input_string);
 
@@ -377,7 +377,7 @@ mod tests {
             "li:first-child",
             false,
             false,
-            Span::test_data()
+            FutureSpanId::test_data()
         )
         .is_empty())
     }
@@ -389,7 +389,7 @@ mod tests {
             "li:first-child",
             false,
             false,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let config = nu_protocol::Config::default();
         let out = item.to_expanded_string("\n", &config);
@@ -403,7 +403,7 @@ mod tests {
             "p:first-child",
             false,
             false,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let out = item
             .into_list()

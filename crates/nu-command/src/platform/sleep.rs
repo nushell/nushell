@@ -72,7 +72,7 @@ impl Command for Sleep {
             Example {
                 description: "Sleep for 1sec",
                 example: "sleep 1sec",
-                result: Some(Value::nothing(Span::test_data())),
+                result: Some(Value::nothing(FutureSpanId::test_data())),
             },
             Example {
                 description: "Sleep for 3sec",

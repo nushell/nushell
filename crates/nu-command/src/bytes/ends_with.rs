@@ -83,7 +83,7 @@ impl Command for BytesEndsWith {
     }
 }
 
-fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
+fn ends_with(val: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::Binary { val, .. } => Value::bool(val.ends_with(&args.pattern), val_span),

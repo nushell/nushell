@@ -1,8 +1,8 @@
-use crate::{Record, ShellError, Span, Value};
+use crate::{FutureSpanId, Record, ShellError, Value};
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 pub(super) trait ReconstructVal {
-    fn reconstruct_value(&self, span: Span) -> Value;
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value;
 }
 
 pub(super) fn process_string_enum<T, E>(
@@ -88,7 +88,7 @@ pub(super) fn process_int_config(
     }
 }
 
-pub(super) fn report_invalid_key(keys: &[&str], span: Span, errors: &mut Vec<ShellError>) {
+pub(super) fn report_invalid_key(keys: &[&str], span: FutureSpanId, errors: &mut Vec<ShellError>) {
     // Because Value::Record discards all of the spans of its
     // column names (by storing them as Strings), the key name cannot be provided
     // as a value, even in key errors.
@@ -104,7 +104,7 @@ pub(super) fn report_invalid_key(keys: &[&str], span: Span, errors: &mut Vec<She
     });
 }
 
-pub(super) fn report_invalid_value(msg: &str, span: Span, errors: &mut Vec<ShellError>) {
+pub(super) fn report_invalid_value(msg: &str, span: FutureSpanId, errors: &mut Vec<ShellError>) {
     errors.push(ShellError::GenericError {
         error: "Error while applying config changes".into(),
         msg: msg.into(),
@@ -125,7 +125,7 @@ pub(super) fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellE
 pub fn extract_value<'record>(
     name: &str,
     record: &'record Record,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<&'record Value, ShellError> {
     record
         .get(name)

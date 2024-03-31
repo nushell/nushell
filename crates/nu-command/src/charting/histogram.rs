@@ -141,8 +141,8 @@ fn run_histogram(
     column_name: Option<Spanned<String>>,
     freq_column: String,
     calc_method: PercentageCalcMethod,
-    head_span: Span,
-    list_span: Span,
+    head_span: FutureSpanId,
+    list_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let mut inputs = vec![];
     // convert from inputs to hashable values.
@@ -218,7 +218,7 @@ fn histogram_impl(
     value_column_name: &str,
     calc_method: PercentageCalcMethod,
     freq_column: &str,
-    span: Span,
+    span: FutureSpanId,
 ) -> PipelineData {
     // here we can make sure that inputs is not empty, and every elements
     // is a simple val and ok to make count.

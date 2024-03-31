@@ -92,7 +92,7 @@ fn color_string_to_nustyle(color_string: String) -> Style {
 mod tests {
     use super::*;
     use nu_ansi_term::{Color, Style};
-    use nu_protocol::{record, Span, Value};
+    use nu_protocol::{record, FutureSpanId, Value};
 
     #[test]
     fn test_color_string_to_nustyle_empty_string() {
@@ -134,14 +134,14 @@ mod tests {
 
         // Test case 2: no values are valid
         let record = record! {
-            "invalid" => Value::nothing(Span::test_data()),
+            "invalid" => Value::nothing(FutureSpanId::test_data()),
         };
         assert_eq!(get_style_from_value(&record), None);
 
         // Test case 3: some values are valid
         let record = record! {
             "bg" =>      Value::test_string("green"),
-            "invalid" => Value::nothing(Span::unknown()),
+            "invalid" => Value::nothing(FutureSpanId::unknown()),
         };
         let expected_style = NuStyle {
             bg: Some("green".to_string()),
@@ -155,7 +155,7 @@ mod tests {
     fn test_parse_map_entry() {
         let mut hm = HashMap::new();
         let key = "test_key".to_owned();
-        let value = Value::string("red", Span::unknown());
+        let value = Value::string("red", FutureSpanId::unknown());
         parse_map_entry(&mut hm, &key, &value);
         assert_eq!(hm.get(&key), Some(&lookup_ansi_color_style("red")));
     }

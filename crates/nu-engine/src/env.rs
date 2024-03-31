@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr},
     engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
-    Config, ShellError, Span, Value, VarId,
+    Config, ShellError, FutureSpanId, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -244,7 +244,7 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
 pub fn path_str(
     engine_state: &EngineState,
     stack: &Stack,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<String, ShellError> {
     let (pathname, pathval) = match stack.get_env_var(engine_state, ENV_PATH_NAME) {
         Some(v) => Ok((ENV_PATH_NAME, v)),

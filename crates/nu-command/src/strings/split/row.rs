@@ -66,7 +66,7 @@ impl Command for SubCommand {
                         Value::test_string("c"),
                         Value::test_string(""),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -78,7 +78,7 @@ impl Command for SubCommand {
                         Value::test_string("b"),
                         Value::test_string("c"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -92,7 +92,7 @@ impl Command for SubCommand {
                         Value::test_string("c"),
                         Value::test_string(""),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -104,7 +104,7 @@ impl Command for SubCommand {
                         Value::test_string("b"),
                         Value::test_string("c"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -139,7 +139,12 @@ fn split_row(
     )
 }
 
-fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
+fn split_row_helper(
+    v: &Value,
+    regex: &Regex,
+    max_split: Option<usize>,
+    name: FutureSpanId,
+) -> Vec<Value> {
     let span = v.span();
     match v {
         Value::Error { error, .. } => {

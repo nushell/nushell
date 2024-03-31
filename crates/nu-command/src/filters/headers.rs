@@ -83,7 +83,7 @@ impl Command for Headers {
 
 fn extract_headers(
     table: &[Value],
-    span: Span,
+    span: FutureSpanId,
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
     table
@@ -138,7 +138,7 @@ fn is_valid_header(value: &Value) -> bool {
 
 fn replace_headers(
     rows: Vec<Value>,
-    span: Span,
+    span: FutureSpanId,
     old_headers: &[String],
     new_headers: &[String],
 ) -> Result<Value, ShellError> {

@@ -81,7 +81,7 @@ fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     Ok(res)
 }
 
-fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError> {
+fn collect_binary(input: PipelineData, span: FutureSpanId) -> Result<Vec<u8>, ShellError> {
     let mut bytes = vec![];
     let mut values = input.into_iter();
 
@@ -107,7 +107,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
 
 fn from_xlsx(
     input: PipelineData,
-    head: Span,
+    head: FutureSpanId,
     sel_sheets: Vec<String>,
 ) -> Result<PipelineData, ShellError> {
     let span = input.span();

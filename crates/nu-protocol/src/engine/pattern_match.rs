@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, MatchPattern, Pattern, RangeInclusion},
-    Span, Value, VarId,
+    FutureSpanId, Value, VarId,
 };
 
 pub trait Matcher {
@@ -227,7 +227,7 @@ impl Matcher for Pattern {
 
                                 if !found {
                                     // FIXME: don't use Span::unknown()
-                                    matches.push((*var, Value::nothing(Span::unknown())))
+                                    matches.push((*var, Value::nothing(FutureSpanId::unknown())))
                                 }
                             }
                         }
@@ -245,7 +245,7 @@ impl Matcher for Pattern {
 
                             if !found {
                                 // FIXME: don't use Span::unknown()
-                                matches.push((*var, Value::nothing(Span::unknown())))
+                                matches.push((*var, Value::nothing(FutureSpanId::unknown())))
                             }
                         }
                     }

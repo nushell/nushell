@@ -2,7 +2,7 @@ use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    Span,
+    FutureSpanId,
 };
 use reedline::Suggestion;
 
@@ -24,7 +24,7 @@ impl Completer for FlagCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         prefix: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         _: usize,
         options: &CompletionOptions,

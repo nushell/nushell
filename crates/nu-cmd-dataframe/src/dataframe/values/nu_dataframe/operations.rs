@@ -2,7 +2,7 @@ use super::{
     between_values::{between_dataframes, compute_between_series, compute_series_single_value},
     NuDataFrame,
 };
-use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
+use nu_protocol::{ast::Operator, FutureSpanId, ShellError, Spanned, Value};
 use polars::prelude::{DataFrame, Series};
 
 pub enum Axis {
@@ -13,9 +13,9 @@ pub enum Axis {
 impl NuDataFrame {
     pub fn compute_with_value(
         &self,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: Operator,
-        op_span: Span,
+        op_span: FutureSpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         let rhs_span = right.span();
@@ -108,7 +108,7 @@ impl NuDataFrame {
         &self,
         other: &NuDataFrame,
         axis: Axis,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         match axis {
             Axis::Row => {

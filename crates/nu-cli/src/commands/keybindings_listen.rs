@@ -127,7 +127,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 
     terminal::disable_raw_mode()?;
 
-    Ok(Value::nothing(Span::unknown()))
+    Ok(Value::nothing(FutureSpanId::unknown()))
 }
 
 // this fn is totally ripped off from crossterm's examples
@@ -146,28 +146,29 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
         match code {
             KeyCode::Char(c) => {
                 let record = record! {
-                    "char" => Value::string(format!("{c}"), Span::unknown()),
-                    "code" => Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                    "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
-                    "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                    "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
-                    "state" => Value::string(format!("{state:?}"), Span::unknown()),
+                    "char" => Value::string(format!("{c}"), FutureSpanId::unknown()),
+                    "code" => Value::string(format!("{:#08x}", u32::from(c)), FutureSpanId::unknown()),
+                    "modifier" => Value::string(format!("{modifiers:?}"), FutureSpanId::unknown()),
+                    "flags" => Value::string(format!("{modifiers:#08b}"), FutureSpanId::unknown()),
+                    "kind" => Value::string(format!("{kind:?}"), FutureSpanId::unknown()),
+                    "state" => Value::string(format!("{state:?}"), FutureSpanId::unknown()),
                 };
-                Ok(Value::record(record, Span::unknown()))
+                Ok(Value::record(record, FutureSpanId::unknown()))
             }
             _ => {
                 let record = record! {
-                    "code" => Value::string(format!("{code:?}"), Span::unknown()),
-                    "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
-                    "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                    "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
-                    "state" => Value::string(format!("{state:?}"), Span::unknown()),
+                    "code" => Value::string(format!("{code:?}"), FutureSpanId::unknown()),
+                    "modifier" => Value::string(format!("{modifiers:?}"), FutureSpanId::unknown()),
+                    "flags" => Value::string(format!("{modifiers:#08b}"), FutureSpanId::unknown()),
+                    "kind" => Value::string(format!("{kind:?}"), FutureSpanId::unknown()),
+                    "state" => Value::string(format!("{state:?}"), FutureSpanId::unknown()),
                 };
-                Ok(Value::record(record, Span::unknown()))
+                Ok(Value::record(record, FutureSpanId::unknown()))
             }
         }
     } else {
-        let record = record! { "event" => Value::string(format!("{event:?}"), Span::unknown()) };
-        Ok(Value::record(record, Span::unknown()))
+        let record =
+            record! { "event" => Value::string(format!("{event:?}"), FutureSpanId::unknown()) };
+        Ok(Value::record(record, FutureSpanId::unknown()))
     }
 }

@@ -1,9 +1,9 @@
 use crate::ExternalCommand;
-use nu_protocol::{OutDest, Span, Spanned};
+use nu_protocol::{OutDest, FutureSpanId, Spanned};
 use std::{collections::HashMap, path::PathBuf};
 
 pub(crate) fn gen_command(
-    span: Span,
+    span: FutureSpanId,
     config_path: PathBuf,
     item: String,
     config_args: Vec<String>,
@@ -13,7 +13,7 @@ pub(crate) fn gen_command(
 
     let mut args = vec![Spanned {
         item: config_path.to_string_lossy().to_string(),
-        span: Span::unknown(),
+        span: FutureSpanId::unknown(),
     }];
 
     let number_of_args = config_args.len() + 1;
@@ -21,7 +21,7 @@ pub(crate) fn gen_command(
     for arg in config_args {
         args.push(Spanned {
             item: arg,
-            span: Span::unknown(),
+            span: FutureSpanId::unknown(),
         })
     }
 

@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, ShellError, Value};
 use std::cmp::Ordering;
 
 pub enum Reduce {
@@ -8,8 +8,12 @@ pub enum Reduce {
     Maximum,
 }
 
-pub type ReducerFunction =
-    Box<dyn Fn(Value, Vec<Value>, Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static>;
+pub type ReducerFunction = Box<
+    dyn Fn(Value, Vec<Value>, FutureSpanId, FutureSpanId) -> Result<Value, ShellError>
+        + Send
+        + Sync
+        + 'static,
+>;
 
 pub fn reducer_for(command: Reduce) -> ReducerFunction {
     match command {
@@ -20,7 +24,7 @@ pub fn reducer_for(command: Reduce) -> ReducerFunction {
     }
 }
 
-pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn max(data: Vec<Value>, span: FutureSpanId, head: FutureSpanId) -> Result<Value, ShellError> {
     let mut biggest = data
         .first()
         .ok_or_else(|| ShellError::UnsupportedInput {
@@ -49,7 +53,7 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(biggest)
 }
 
-pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn min(data: Vec<Value>, span: FutureSpanId, head: FutureSpanId) -> Result<Value, ShellError> {
     let mut smallest = data
         .first()
         .ok_or_else(|| ShellError::UnsupportedInput {
@@ -78,7 +82,7 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(smallest)
 }
 
-pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn sum(data: Vec<Value>, span: FutureSpanId, head: FutureSpanId) -> Result<Value, ShellError> {
     let initial_value = data.first();
 
     let mut acc = match initial_value {
@@ -123,7 +127,11 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(acc)
 }
 
-pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn product(
+    data: Vec<Value>,
+    span: FutureSpanId,
+    head: FutureSpanId,
+) -> Result<Value, ShellError> {
     let initial_value = data.first();
 
     let mut acc = match initial_value {

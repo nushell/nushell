@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    PipelineData, PluginSignature, ShellError, FutureSpanId, Spanned, Value,
 };
 use std::{
     collections::HashMap,
@@ -153,7 +153,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
 
     let stream = manager.read_pipeline_data(
         PipelineDataHeader::ExternalStream(ExternalStreamInfo {
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
             stdout: Some(RawStreamInfo {
                 id: 0,
                 is_binary: false,
@@ -357,7 +357,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), Sh
         PluginCall::Run(CallInfo {
             name: "bar".into(),
             call: EvaluatedCall {
-                head: Span::test_data(),
+                head: FutureSpanId::test_data(),
                 positional: vec![],
                 named: vec![],
             },
@@ -391,7 +391,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
         PluginCall::Run(CallInfo {
             name: "bar".into(),
             call: EvaluatedCall {
-                head: Span::test_data(),
+                head: FutureSpanId::test_data(),
                 positional: vec![],
                 named: vec![],
             },
@@ -435,12 +435,12 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
         PluginCall::Run(CallInfo {
             name: "bar".into(),
             call: EvaluatedCall {
-                head: Span::test_data(),
+                head: FutureSpanId::test_data(),
                 positional: vec![value.clone()],
                 named: vec![(
                     Spanned {
                         item: "flag".into(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     Some(value),
                 )],
@@ -499,7 +499,7 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
         PluginCall::CustomValueOp(
             Spanned {
                 item: test_plugin_custom_value(),
-                span: Span::test_data(),
+                span: FutureSpanId::test_data(),
             },
             CustomValueOp::ToBaseValue,
         ),
@@ -619,7 +619,7 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
         false,
     );
 
-    let span = Span::new(20, 30);
+    let span = FutureSpanId::new(20, 30);
     let data = manager.prepare_pipeline_data(
         [Value::custom(Box::new(invalid_custom_value), span)].into_pipeline_data(None),
     )?;
@@ -1000,7 +1000,7 @@ fn interface_get_span_contents() -> Result<(), ShellError> {
         EngineCallResponse::value(Value::test_binary(b"test string"))
     });
 
-    let contents = interface.get_span_contents(Span::test_data())?;
+    let contents = interface.get_span_contents(FutureSpanId::test_data())?;
 
     assert_eq!(b"test string", &contents[..]);
 
@@ -1025,14 +1025,14 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                     block_id: 42,
                     captures: vec![(0, Value::test_int(5))],
                 },
-                span: Span::test_data(),
+                span: FutureSpanId::test_data(),
             },
             vec![Value::test_string("test")],
             PipelineData::Empty,
             true,
             false,
         )?
-        .into_value(Span::test_data());
+        .into_value(FutureSpanId::test_data());
 
     assert_eq!(Value::test_int(2), result);
 
@@ -1053,7 +1053,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                     closure.item.captures[0],
                     "closure.item.captures[0]"
                 );
-                assert_eq!(Span::test_data(), closure.span, "closure.span");
+                assert_eq!(FutureSpanId::test_data(), closure.span, "closure.span");
                 assert_eq!(1, positional.len(), "positional.len");
                 assert_eq!(Value::test_string("test"), positional[0], "positional[0]");
                 assert!(matches!(input, PipelineDataHeader::Empty));
@@ -1135,7 +1135,7 @@ enum CantSerialize {
 
 #[typetag::serde]
 impl CustomValue for CantSerialize {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -1143,7 +1143,7 @@ impl CustomValue for CantSerialize {
         "CantSerialize".into()
     }
 
-    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, _span: FutureSpanId) -> Result<Value, ShellError> {
         unimplemented!()
     }
 
@@ -1161,7 +1161,7 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
 {
     let interface = TestCase::new().engine().get_interface();
 
-    let span = Span::new(40, 60);
+    let span = FutureSpanId::new(40, 60);
     let data = interface.prepare_pipeline_data(
         [Value::custom(Box::new(CantSerialize::BadVariant), span)].into_pipeline_data(None),
         &(),

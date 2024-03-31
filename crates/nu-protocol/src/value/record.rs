@@ -1,6 +1,6 @@
 use std::{iter::FusedIterator, ops::RangeBounds};
 
-use crate::{ShellError, Span, Value};
+use crate::{FutureSpanId, ShellError, Value};
 
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
@@ -29,8 +29,8 @@ impl Record {
     pub fn from_raw_cols_vals(
         cols: Vec<String>,
         vals: Vec<Value>,
-        input_span: Span,
-        creation_site_span: Span,
+        input_span: FutureSpanId,
+        creation_site_span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         if cols.len() == vals.len() {
             let inner = cols.into_iter().zip(vals).collect();
@@ -665,8 +665,8 @@ macro_rules! record {
         $crate::Record::from_raw_cols_vals(
             ::std::vec![$($col.into(),)+],
             ::std::vec![$($val,)+],
-            $crate::Span::unknown(),
-            $crate::Span::unknown(),
+            $crate::FutureSpanId::unknown(),
+            $crate::FutureSpanId::unknown(),
         ).unwrap()
     };
     {} => {

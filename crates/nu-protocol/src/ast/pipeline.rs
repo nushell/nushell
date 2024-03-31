@@ -1,7 +1,7 @@
 use crate::{
     ast::Expression,
     engine::{EngineState, StateWorkingSet},
-    GetSpan, OutDest, Span, SpanId
+    GetSpan, OutDest, FutureSpanId, SpanId
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -28,15 +28,15 @@ pub enum RedirectionTarget {
     File {
         expr: Expression,
         append: bool,
-        span: Span,
+        span: FutureSpanId,
     },
     Pipe {
-        span: Span,
+        span: FutureSpanId,
     },
 }
 
 impl RedirectionTarget {
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> FutureSpanId {
         match self {
             RedirectionTarget::File { span, .. } | RedirectionTarget::Pipe { span } => *span,
         }
@@ -56,7 +56,7 @@ impl RedirectionTarget {
     pub fn replace_span(
         &mut self,
         working_set: &mut StateWorkingSet,
-        replaced: Span,
+        replaced: FutureSpanId,
         new_span_id: SpanId,
     ) {
         match self {
@@ -82,7 +82,7 @@ pub enum PipelineRedirection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineElement {
-    pub pipe: Option<Span>,
+    pub pipe: Option<FutureSpanId>,
     pub expr: Expression,
     pub redirection: Option<PipelineRedirection>,
 }
@@ -101,7 +101,7 @@ impl PipelineElement {
     pub fn replace_span(
         &mut self,
         working_set: &mut StateWorkingSet,
-        replaced: Span,
+        replaced: FutureSpanId,
         // new_span: Span,
         new_span_id: SpanId,
     ) {

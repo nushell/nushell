@@ -55,7 +55,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                         0x97, 0x79, 0x82, 0xa9, 0x82, 0xc9, 0x94, 0xfc, 0x82, 0xb5, 0x82, 0xa2,
                         0x82, 0xcc, 0x82, 0xbe,
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -63,7 +63,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                 example: r#""🎈" | encode --ignore-errors shift-jis"#,
                 result: Some(Value::binary(
                     vec![0x26, 0x23, 0x31, 0x32, 0x37, 0x38, 0x38, 0x30, 0x3b],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

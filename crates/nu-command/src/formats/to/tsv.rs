@@ -60,7 +60,7 @@ impl Command for ToTsv {
 fn to_tsv(
     input: PipelineData,
     noheaders: bool,
-    head: Span,
+    head: FutureSpanId,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
     to_delimited_data(noheaders, '\t', "TSV", input, head, config)

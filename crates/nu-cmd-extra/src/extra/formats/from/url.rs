@@ -43,7 +43,7 @@ impl Command for FromUrl {
     }
 }
 
-fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+fn from_url(input: PipelineData, head: FutureSpanId) -> Result<PipelineData, ShellError> {
     let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);

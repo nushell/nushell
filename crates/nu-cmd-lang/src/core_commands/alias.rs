@@ -51,7 +51,7 @@ impl Command for Alias {
         vec![Example {
             description: "Alias ll to ls -l",
             example: "alias ll = ls -l",
-            result: Some(Value::nothing(Span::test_data())),
+            result: Some(Value::nothing(FutureSpanId::test_data())),
         }]
     }
 }

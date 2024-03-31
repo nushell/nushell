@@ -71,7 +71,7 @@ pub fn http_client(
 
 pub fn http_parse_url(
     call: &Call,
-    span: Span,
+    span: FutureSpanId,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
     let requested_url = raw_url.coerce_into_string()?;
@@ -101,7 +101,7 @@ pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<Redirec
 pub fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,
-    span: Span,
+    span: FutureSpanId,
 ) -> PipelineData {
     // Try to get the size of the file to be downloaded.
     // This is helpful to show the progress of the stream.
@@ -388,7 +388,11 @@ pub fn request_add_custom_headers(
     Ok(request)
 }
 
-fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
+fn handle_response_error(
+    span: FutureSpanId,
+    requested_url: &str,
+    response_err: Error,
+) -> ShellError {
     match response_err {
         Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
         Error::Status(400, _) => {
@@ -423,7 +427,7 @@ pub struct RequestFlags {
 fn transform_response_using_content_type(
     engine_state: &EngineState,
     stack: &mut Stack,
-    span: Span,
+    span: FutureSpanId,
     requested_url: &str,
     flags: &RequestFlags,
     resp: Response,
@@ -480,7 +484,7 @@ fn transform_response_using_content_type(
 
 pub fn check_response_redirection(
     redirect_mode: RedirectMode,
-    span: Span,
+    span: FutureSpanId,
     response: &Result<Response, ShellErrorOrRequestError>,
 ) -> Result<(), ShellError> {
     if let Ok(resp) = response {
@@ -501,7 +505,7 @@ pub fn check_response_redirection(
 fn request_handle_response_content(
     engine_state: &EngineState,
     stack: &mut Stack,
-    span: Span,
+    span: FutureSpanId,
     requested_url: &str,
     flags: RequestFlags,
     resp: Response,
@@ -562,7 +566,7 @@ fn request_handle_response_content(
 pub fn request_handle_response(
     engine_state: &EngineState,
     stack: &mut Stack,
-    span: Span,
+    span: FutureSpanId,
     requested_url: &str,
     flags: RequestFlags,
     response: Result<Response, ShellErrorOrRequestError>,
@@ -631,7 +635,7 @@ fn extract_response_headers(response: &Response) -> Headers {
         .collect()
 }
 
-fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
+fn headers_to_nu(headers: &Headers, span: FutureSpanId) -> Result<PipelineData, ShellError> {
     let mut vals = Vec::with_capacity(headers.len());
 
     for (name, values) in headers {
@@ -666,7 +670,7 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
 }
 
 pub fn request_handle_response_headers(
-    span: Span,
+    span: FutureSpanId,
     response: Result<Response, ShellErrorOrRequestError>,
 ) -> Result<PipelineData, ShellError> {
     match response {

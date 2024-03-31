@@ -189,7 +189,7 @@ fn get_reg_hive(
 
 fn reg_value_to_nu_value(
     mut reg_value: winreg::RegValue,
-    call_span: Span,
+    call_span: FutureSpanId,
     skip_expand: bool,
 ) -> nu_protocol::Value {
     match reg_value.vtype {
@@ -220,7 +220,7 @@ fn reg_value_to_nu_value(
 
 fn reg_value_to_nu_string(
     reg_value: winreg::RegValue,
-    call_span: Span,
+    call_span: FutureSpanId,
     skip_expand: bool,
 ) -> nu_protocol::Value {
     let value = String::from_reg_value(&reg_value)
@@ -290,17 +290,20 @@ fn no_expand_does_not_expand() {
     };
 
     // normally we do expand
-    let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
+    let nu_val_expanded = reg_value_to_nu_string(reg_val(), FutureSpanId::unknown(), false);
     assert!(nu_val_expanded.coerce_string().is_ok());
     assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
 
     // unless we skip expansion
-    let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
+    let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), FutureSpanId::unknown(), true);
     assert!(nu_val_skip_expand.coerce_string().is_ok());
     assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
 }
 
-fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
+fn reg_value_to_nu_list_string(
+    reg_value: winreg::RegValue,
+    call_span: FutureSpanId,
+) -> nu_protocol::Value {
     let values = <Vec<String>>::from_reg_value(&reg_value)
         .expect("registry value type should be REG_MULTI_SZ")
         .into_iter()
@@ -310,7 +313,7 @@ fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> 
     Value::list(values.collect(), call_span)
 }
 
-fn reg_value_to_nu_int(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
+fn reg_value_to_nu_int(reg_value: winreg::RegValue, call_span: FutureSpanId) -> nu_protocol::Value {
     let value =
         match reg_value.vtype {
             // See discussion here https://github.com/nushell/nushell/pull/10806#issuecomment-1791832088

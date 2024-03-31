@@ -173,7 +173,7 @@ produce a table, a list will produce a list, and a record will produce a record.
 
 fn select(
     engine_state: &EngineState,
-    call_span: Span,
+    call_span: FutureSpanId,
     columns: Vec<CellPath>,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {

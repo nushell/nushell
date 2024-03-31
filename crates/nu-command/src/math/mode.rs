@@ -86,10 +86,10 @@ impl Command for SubCommand {
                 description: "Compute the mode(s) of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
                 result: Some(Value::test_record(record! {
-                        "a" => Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        "a" => Value::list(vec![Value::test_int(1)], FutureSpanId::test_data()),
                         "b" => Value::list(
                             vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                 })),
             },
@@ -97,7 +97,11 @@ impl Command for SubCommand {
     }
 }
 
-pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn mode(
+    values: &[Value],
+    _span: FutureSpanId,
+    head: FutureSpanId,
+) -> Result<Value, ShellError> {
     if let Some(Err(values)) = values
         .windows(2)
         .map(|elem| {
@@ -168,7 +172,7 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
     Ok(Value::list(modes, head))
 }
 
-fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
+fn recreate_value(hashable_value: &HashableType, head: FutureSpanId) -> Value {
     let bytes = hashable_value.bytes;
     match &hashable_value.original_type {
         NumberTypes::Int => Value::int(i64::from_ne_bytes(bytes), head),

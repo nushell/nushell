@@ -96,7 +96,7 @@ impl Command for FromJson {
     }
 }
 
-fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
+fn convert_nujson_to_value(value: nu_json::Value, span: FutureSpanId) -> Value {
     match value {
         nu_json::Value::Array(array) => Value::list(
             array
@@ -135,7 +135,7 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
 }
 
 // Converts row+column to a Span, assuming bytes (1-based rows)
-fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
+fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> FutureSpanId {
     let mut cur_row = 1;
     let mut cur_col = 1;
 
@@ -145,16 +145,16 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
             cur_col = 1;
         }
         if cur_row >= row && cur_col >= col {
-            return Span::new(offset, offset);
+            return FutureSpanId::new(offset, offset);
         } else {
             cur_col += 1;
         }
     }
 
-    Span::new(contents.len(), contents.len())
+    FutureSpanId::new(contents.len(), contents.len())
 }
 
-fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+fn convert_string_to_value(string_input: &str, span: FutureSpanId) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
 
@@ -185,7 +185,10 @@ fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, Shel
     }
 }
 
-fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
+fn convert_string_to_value_strict(
+    string_input: &str,
+    span: FutureSpanId,
+) -> Result<Value, ShellError> {
     match serde_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
         Err(err) => Err(if err.is_syntax() {

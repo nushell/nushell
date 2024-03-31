@@ -1,6 +1,6 @@
 use crate::{second_custom_value::SecondCustomValue, CustomValuePlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Category, Example, FutureSpanId, LabeledError, Signature, SyntaxShape, Value};
 
 pub struct Generate2;
 
@@ -30,7 +30,7 @@ impl SimplePluginCommand for Generate2 {
             Example {
                 example: "custom-value generate2",
                 description: "Generate a new SecondCustomValue",
-                result: Some(SecondCustomValue::new("xyz").into_value(Span::test_data())),
+                result: Some(SecondCustomValue::new("xyz").into_value(FutureSpanId::test_data())),
             },
             Example {
                 example: "custom-value generate2 { print }",

@@ -137,7 +137,7 @@ fn action(
         graphemes,
         ..
     }: &Arguments,
-    head: Span,
+    head: FutureSpanId,
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {
@@ -241,7 +241,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
 
         assert_eq!(actual, Value::test_int(5));
     }
@@ -257,7 +257,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
 
         assert_eq!(actual, Value::test_int(-1));
     }
@@ -266,17 +266,17 @@ mod tests {
     fn returns_index_of_next_substring() {
         let word = Value::test_string("Cargo.Cargo");
         let range = Range::new(
-            Value::int(1, Span::test_data()),
-            Value::nothing(Span::test_data()),
-            Value::nothing(Span::test_data()),
+            Value::int(1, FutureSpanId::test_data()),
+            Value::nothing(FutureSpanId::test_data()),
+            Value::nothing(FutureSpanId::test_data()),
             RangeInclusion::Inclusive,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let options = Arguments {
@@ -288,7 +288,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_int(6));
     }
 
@@ -296,17 +296,17 @@ mod tests {
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
         let range = Range::new(
-            Value::nothing(Span::test_data()),
-            Value::nothing(Span::test_data()),
-            Value::int(5, Span::test_data()),
+            Value::nothing(FutureSpanId::test_data()),
+            Value::nothing(FutureSpanId::test_data()),
+            Value::int(5, FutureSpanId::test_data()),
             RangeInclusion::Inclusive,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let options = Arguments {
@@ -318,7 +318,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_int(-1));
     }
 
@@ -326,17 +326,17 @@ mod tests {
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::test_string("123123123");
         let range = Range::new(
-            Value::int(2, Span::test_data()),
-            Value::nothing(Span::test_data()),
-            Value::int(6, Span::test_data()),
+            Value::int(2, FutureSpanId::test_data()),
+            Value::nothing(FutureSpanId::test_data()),
+            Value::int(6, FutureSpanId::test_data()),
             RangeInclusion::Inclusive,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let options = Arguments {
@@ -348,7 +348,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_int(3));
     }
 
@@ -356,17 +356,17 @@ mod tests {
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::test_string("123456");
         let range = Range::new(
-            Value::int(2, Span::test_data()),
-            Value::nothing(Span::test_data()),
-            Value::int(5, Span::test_data()),
+            Value::int(2, FutureSpanId::test_data()),
+            Value::nothing(FutureSpanId::test_data()),
+            Value::int(5, FutureSpanId::test_data()),
             RangeInclusion::RightExclusive,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let options = Arguments {
@@ -378,13 +378,13 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_int(-1));
     }
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), FutureSpanId::test_data());
 
         let options = Arguments {
             substring: String::from("ふが"),
@@ -394,26 +394,26 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_int(15));
     }
 
     #[test]
     fn index_is_not_a_char_boundary() {
-        let word = Value::string(String::from("💛"), Span::test_data());
+        let word = Value::string(String::from("💛"), FutureSpanId::test_data());
 
         let range = Range::new(
-            Value::int(0, Span::test_data()),
-            Value::int(1, Span::test_data()),
-            Value::int(3, Span::test_data()),
+            Value::int(0, FutureSpanId::test_data()),
+            Value::int(1, FutureSpanId::test_data()),
+            Value::int(3, FutureSpanId::test_data()),
             RangeInclusion::Inclusive,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let options = Arguments {
@@ -425,26 +425,26 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert!(actual.is_error());
     }
 
     #[test]
     fn index_is_out_of_bounds() {
-        let word = Value::string(String::from("hello"), Span::test_data());
+        let word = Value::string(String::from("hello"), FutureSpanId::test_data());
 
         let range = Range::new(
-            Value::int(-1, Span::test_data()),
-            Value::int(1, Span::test_data()),
-            Value::int(3, Span::test_data()),
+            Value::int(-1, FutureSpanId::test_data()),
+            Value::int(1, FutureSpanId::test_data()),
+            Value::int(3, FutureSpanId::test_data()),
             RangeInclusion::Inclusive,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
 
         let options = Arguments {
@@ -456,7 +456,7 @@ mod tests {
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert!(actual.is_error());
     }
 }

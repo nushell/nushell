@@ -117,7 +117,7 @@ struct UpdateCellIterator {
     iter: PipelineIterator,
     closure: ClosureEval,
     columns: Option<HashSet<String>>,
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl Iterator for UpdateCellIterator {
@@ -149,7 +149,7 @@ impl Iterator for UpdateCellIterator {
     }
 }
 
-fn eval_value(closure: &mut ClosureEval, span: Span, value: Value) -> Value {
+fn eval_value(closure: &mut ClosureEval, span: FutureSpanId, value: Value) -> Value {
     closure
         .run_with_value(value)
         .map(|data| data.into_value(span))

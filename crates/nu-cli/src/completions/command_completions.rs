@@ -5,7 +5,7 @@ use crate::{
 use nu_parser::FlatShape;
 use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
-    Span,
+    FutureSpanId,
 };
 use reedline::Suggestion;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use super::SemanticSuggestion;
 
 pub struct CommandCompletion {
     engine_state: Arc<EngineState>,
-    flattened: Vec<(Span, FlatShape)>,
+    flattened: Vec<(FutureSpanId, FlatShape)>,
     flat_shape: FlatShape,
     force_completion_after_space: bool,
 }
@@ -23,7 +23,7 @@ impl CommandCompletion {
     pub fn new(
         engine_state: Arc<EngineState>,
         _: &StateWorkingSet,
-        flattened: Vec<(Span, FlatShape)>,
+        flattened: Vec<(FutureSpanId, FlatShape)>,
         flat_shape: FlatShape,
         force_completion_after_space: bool,
     ) -> Self {
@@ -84,7 +84,7 @@ impl CommandCompletion {
     fn complete_commands(
         &self,
         working_set: &StateWorkingSet,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         find_externals: bool,
         match_algorithm: MatchAlgorithm,
@@ -162,7 +162,7 @@ impl Completer for CommandCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _prefix: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         pos: usize,
         options: &CompletionOptions,
@@ -188,7 +188,7 @@ impl Completer for CommandCompletion {
         let subcommands = if let Some(last) = last {
             self.complete_commands(
                 working_set,
-                Span::new(last.0.start, pos),
+                FutureSpanId::new(last.0.start, pos),
                 offset,
                 false,
                 options.match_algorithm,

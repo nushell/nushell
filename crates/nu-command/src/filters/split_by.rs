@@ -109,7 +109,7 @@ pub fn split_by(
 pub fn split(
     column_name: Option<&Spanned<String>>,
     values: PipelineData,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let grouper = if let Some(column_name) = column_name {
         Grouper::ByColumn(Some(column_name.clone()))
@@ -150,7 +150,7 @@ pub fn split(
 fn data_group(
     values: &Value,
     grouper: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
@@ -178,7 +178,7 @@ fn data_group(
 pub fn data_split(
     value: PipelineData,
     splitter: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
-    dst_span: Span,
+    dst_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let mut splits = indexmap::IndexMap::new();
 
@@ -218,7 +218,7 @@ pub fn data_split(
             return Err(ShellError::PipelineMismatch {
                 exp_input_type: "record".into(),
                 dst_span,
-                src_span: value.span().unwrap_or(Span::unknown()),
+                src_span: value.span().unwrap_or(FutureSpanId::unknown()),
             })
         }
     }

@@ -143,7 +143,7 @@ impl Command for SubCommand {
     }
 }
 
-fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
+fn expand(path: &Path, span: FutureSpanId, args: &Arguments) -> Value {
     if args.strict {
         match canonicalize_with(path, &args.cwd) {
             Ok(p) => {

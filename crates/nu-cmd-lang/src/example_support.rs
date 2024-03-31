@@ -88,7 +88,7 @@ fn eval_pipeline_without_terminal_expression(
             let empty_input = PipelineData::empty();
             Some(eval_block(block, empty_input, cwd, engine_state, delta))
         } else {
-            Some(Value::nothing(Span::test_data()))
+            Some(Value::nothing(FutureSpanId::test_data()))
         }
     } else {
         // E.g. multiple semicolon-separated statements
@@ -124,7 +124,7 @@ pub fn eval_block(
 
     match nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input) {
         Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
-        Ok(result) => result.into_value(Span::test_data()),
+        Ok(result) => result.into_value(FutureSpanId::test_data()),
     }
 }
 

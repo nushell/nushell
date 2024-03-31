@@ -99,7 +99,7 @@ fn glob_helper(
     }
 }
 
-fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, _args: &Arguments, span: FutureSpanId) -> Value {
     match input {
         Value::String { val, .. } => Value::glob(val.to_string(), false, span),
         x => Value::error(

@@ -4,7 +4,7 @@ use nu_engine::env_to_string;
 use nu_path::home_dir;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    FutureSpanId,
 };
 use nu_utils::get_ls_colors;
 use std::{
@@ -97,13 +97,13 @@ fn surround_remove(partial: &str) -> String {
 
 pub fn complete_item(
     want_directory: bool,
-    span: nu_protocol::Span,
+    span: nu_protocol::FutureSpanId,
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
+) -> Vec<(nu_protocol::FutureSpanId, String, Option<Style>)> {
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
@@ -218,14 +218,14 @@ pub fn escape_path(path: String, dir: bool) -> String {
 
 pub struct AdjustView {
     pub prefix: String,
-    pub span: Span,
+    pub span: FutureSpanId,
     pub readjusted: bool,
 }
 
 pub fn adjust_if_intermediate(
     prefix: &[u8],
     working_set: &StateWorkingSet,
-    mut span: nu_protocol::Span,
+    mut span: nu_protocol::FutureSpanId,
 ) -> AdjustView {
     let span_contents =
         String::from_utf8_lossy(working_set.get_span_contents(span.span())).to_string();
@@ -241,7 +241,7 @@ pub fn adjust_if_intermediate(
             .take_while(|&c| !is_separator(c))
             .collect();
         prefix.push_str(&remnant);
-        span = Span::new(span.start, span.start + prefix.chars().count() + 1);
+        span = FutureSpanId::new(span.start, span.start + prefix.chars().count() + 1);
     }
     AdjustView {
         prefix,

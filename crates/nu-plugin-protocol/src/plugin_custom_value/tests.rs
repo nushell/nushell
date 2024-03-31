@@ -1,7 +1,7 @@
 use crate::test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue};
 
 use super::PluginCustomValue;
-use nu_protocol::{engine::Closure, record, CustomValue, ShellError, Span, Value};
+use nu_protocol::{engine::Closure, record, CustomValue, ShellError, FutureSpanId, Value};
 
 fn check_record_custom_values(
     val: &Value,
@@ -62,7 +62,7 @@ fn check_closure_custom_values(
 #[test]
 fn serialize_deserialize() -> Result<(), ShellError> {
     let original_value = TestCustomValue(32);
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     let serialized = PluginCustomValue::serialize_from_custom_value(&original_value, span)?;
     assert_eq!(original_value.type_name(), serialized.name());
     let deserialized = serialized.deserialize_to_custom_value(span)?;
@@ -77,7 +77,7 @@ fn serialize_deserialize() -> Result<(), ShellError> {
 #[test]
 fn expected_serialize_output() -> Result<(), ShellError> {
     let original_value = expected_test_custom_value();
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     let serialized = PluginCustomValue::serialize_from_custom_value(&original_value, span)?;
     assert_eq!(
         test_plugin_custom_value().data(),
@@ -90,7 +90,7 @@ fn expected_serialize_output() -> Result<(), ShellError> {
 
 #[test]
 fn serialize_in_root() -> Result<(), ShellError> {
-    let span = Span::new(4, 10);
+    let span = FutureSpanId::new(4, 10);
     let mut val = Value::custom(Box::new(expected_test_custom_value()), span);
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
@@ -177,7 +177,7 @@ fn serialize_in_closure() -> Result<(), ShellError> {
 
 #[test]
 fn deserialize_in_root() -> Result<(), ShellError> {
-    let span = Span::new(4, 10);
+    let span = FutureSpanId::new(4, 10);
     let mut val = Value::custom(Box::new(test_plugin_custom_value()), span);
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 

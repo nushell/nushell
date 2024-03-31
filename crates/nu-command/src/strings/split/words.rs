@@ -71,7 +71,7 @@ impl Command for SubCommand {
                 example: "'hello world' | split words",
                 result: Some(Value::list(
                     vec![Value::test_string("hello"), Value::test_string("world")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -84,7 +84,7 @@ impl Command for SubCommand {
                         Value::test_string("the"),
                         Value::test_string("world"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -141,7 +141,12 @@ fn split_words(
     )
 }
 
-fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphemes: bool) -> Value {
+fn split_words_helper(
+    v: &Value,
+    word_length: Option<usize>,
+    span: FutureSpanId,
+    graphemes: bool,
+) -> Value {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes

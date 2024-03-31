@@ -1,7 +1,7 @@
 use std::{io::Write, path::PathBuf};
 
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ast::PathMember, record, Span, Value};
+use nu_protocol::{ast::PathMember, record, FutureSpanId, Value};
 use nu_test_support::{
     fs::{line_ending, Stub},
     nu, pipeline,
@@ -321,7 +321,7 @@ fn into_sqlite_big_insert() {
                 .upsert_cell_path(
                     &[PathMember::String {
                         val: "somedate".into(),
-                        span: Span::unknown(),
+                        span: FutureSpanId::unknown(),
                         optional: false,
                     }],
                     Box::new(|dateval| {
@@ -330,7 +330,7 @@ fn into_sqlite_big_insert() {
                 )
                 .unwrap();
 
-            let nuon = nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown())).unwrap()
+            let nuon = nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(FutureSpanId::unknown())).unwrap()
                 + &line_ending();
 
             nuon_file.write_all(nuon.as_bytes()).unwrap();
@@ -380,17 +380,17 @@ impl From<TestRow> for Value {
     fn from(row: TestRow) -> Self {
         Value::record(
             record! {
-                "somebool" => Value::bool(row.0, Span::unknown()),
-                "someint" => Value::int(row.1, Span::unknown()),
-                "somefloat" => Value::float(row.2, Span::unknown()),
-                "somefilesize" => Value::filesize(row.3, Span::unknown()),
-                "someduration" => Value::duration(row.4, Span::unknown()),
-                "somedate" => Value::date(row.5, Span::unknown()),
-                "somestring" => Value::string(row.6, Span::unknown()),
-                "somebinary" => Value::binary(row.7, Span::unknown()),
-                "somenull" => Value::nothing(Span::unknown()),
+                "somebool" => Value::bool(row.0, FutureSpanId::unknown()),
+                "someint" => Value::int(row.1, FutureSpanId::unknown()),
+                "somefloat" => Value::float(row.2, FutureSpanId::unknown()),
+                "somefilesize" => Value::filesize(row.3, FutureSpanId::unknown()),
+                "someduration" => Value::duration(row.4, FutureSpanId::unknown()),
+                "somedate" => Value::date(row.5, FutureSpanId::unknown()),
+                "somestring" => Value::string(row.6, FutureSpanId::unknown()),
+                "somebinary" => Value::binary(row.7, FutureSpanId::unknown()),
+                "somenull" => Value::nothing(FutureSpanId::unknown()),
             },
-            Span::unknown(),
+            FutureSpanId::unknown(),
         )
     }
 }

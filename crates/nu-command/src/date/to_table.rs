@@ -82,7 +82,7 @@ impl Command for SubCommand {
     }
 }
 
-fn parse_date_into_table(date: DateTime<FixedOffset>, head: Span) -> Value {
+fn parse_date_into_table(date: DateTime<FixedOffset>, head: FutureSpanId) -> Value {
     let record = record! {
         "year" => Value::int(date.year() as i64, head),
         "month" => Value::int(date.month() as i64, head),
@@ -97,7 +97,7 @@ fn parse_date_into_table(date: DateTime<FixedOffset>, head: Span) -> Value {
     Value::list(vec![Value::record(record, head)], head)
 }
 
-fn helper(val: Value, head: Span) -> Value {
+fn helper(val: Value, head: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::String { val, .. } => match parse_date_from_string(&val, val_span) {

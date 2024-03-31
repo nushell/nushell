@@ -57,7 +57,7 @@ impl Command for SubCommand {
     }
 }
 
-fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+fn to_url(input: PipelineData, head: FutureSpanId) -> Result<PipelineData, ShellError> {
     let output: Result<String, ShellError> = input
         .into_iter()
         .map(move |value| {

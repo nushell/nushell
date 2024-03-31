@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{record, FutureSpanId, ShellError, Value};
 use std::{
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc},
@@ -8,7 +8,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct DirBuilder {
-    pub tag: Span,
+    pub tag: FutureSpanId,
     pub min: Option<u64>,
     pub deref: bool,
     pub exclude: Option<Pattern>,
@@ -17,7 +17,7 @@ pub struct DirBuilder {
 
 impl DirBuilder {
     pub fn new(
-        tag: Span,
+        tag: FutureSpanId,
         min: Option<u64>,
         deref: bool,
         exclude: Option<Pattern>,
@@ -41,7 +41,7 @@ pub struct DirInfo {
     size: u64,
     blocks: u64,
     path: PathBuf,
-    tag: Span,
+    tag: FutureSpanId,
 }
 
 #[derive(Debug, Clone)]
@@ -49,11 +49,15 @@ pub struct FileInfo {
     path: PathBuf,
     size: u64,
     blocks: Option<u64>,
-    tag: Span,
+    tag: FutureSpanId,
 }
 
 impl FileInfo {
-    pub fn new(path: impl Into<PathBuf>, deref: bool, tag: Span) -> Result<Self, ShellError> {
+    pub fn new(
+        path: impl Into<PathBuf>,
+        deref: bool,
+        tag: FutureSpanId,
+    ) -> Result<Self, ShellError> {
         let path = path.into();
         let m = if deref {
             std::fs::metadata(&path)
@@ -223,15 +227,15 @@ impl From<FileInfo> for Value {
                 "path" => Value::string(f.path.display().to_string(), f.tag),
                 "apparent" => Value::filesize(f.size as i64, f.tag),
                 "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
-                "directories" => Value::nothing(Span::unknown()),
-                "files" => Value::nothing(Span::unknown()),
+                "directories" => Value::nothing(FutureSpanId::unknown()),
+                "files" => Value::nothing(FutureSpanId::unknown()),
             },
             f.tag,
         )
     }
 }
 
-fn value_from_vec<V>(vec: Vec<V>, tag: Span) -> Value
+fn value_from_vec<V>(vec: Vec<V>, tag: FutureSpanId) -> Value
 where
     V: Into<Value>,
 {

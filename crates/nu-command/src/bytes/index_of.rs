@@ -109,7 +109,7 @@ impl Command for BytesIndexOf {
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_int(0),
-                    "ColB" => Value::binary(vec![0x14, 0x15, 0x16], Span::test_data()),
+                    "ColB" => Value::binary(vec![0x14, 0x15, 0x16], FutureSpanId::test_data()),
                     "ColC" => Value::test_int(-1),
                 })])),
             },
@@ -117,7 +117,7 @@ impl Command for BytesIndexOf {
     }
 }
 
-fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
+fn index_of(val: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::Binary { val, .. } => index_of_impl(val, args, val_span),
@@ -135,7 +135,7 @@ fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn index_of_impl(input: &[u8], arg: &Arguments, span: FutureSpanId) -> Value {
     if arg.all {
         search_all_index(input, &arg.pattern, arg.end, span)
     } else {
@@ -160,7 +160,7 @@ fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     }
 }
 
-fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) -> Value {
+fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: FutureSpanId) -> Value {
     let mut result = vec![];
     if from_end {
         let (mut left, mut right) = (

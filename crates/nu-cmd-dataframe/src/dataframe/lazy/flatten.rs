@@ -40,7 +40,7 @@ Example {
                 description: "Flatten the specified dataframe",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr flatten hobbies | dfr collect",
                 result: Some(
-                   NuDataFrame::try_from_columns(vec![
+                    NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "id".to_string(),
                         vec![
@@ -66,14 +66,14 @@ Example {
                             Value::test_string("Football"),
                         ]),
                    ], None).expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                   .into_value(FutureSpanId::test_data()),
                     )
             },
         Example {
                 description: "Select a column and flatten the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr flatten)",
                 result: Some(
-                   NuDataFrame::try_from_columns(vec![
+                    NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "hobbies".to_string(),
                         vec![
@@ -83,7 +83,7 @@ Example {
                             Value::test_string("Football"),
                         ]),
                    ], None).expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                   .into_value(FutureSpanId::test_data()),
                     ),
             },
         ]

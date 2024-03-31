@@ -16,7 +16,7 @@
 use crate::{
     ast::{Block, PipelineElement},
     engine::EngineState,
-    PipelineData, ShellError, Span, Value,
+    FutureSpanId, PipelineData, ShellError, Value,
 };
 use std::{fmt::Debug, ops::DerefMut};
 
@@ -136,7 +136,11 @@ pub trait Debugger: Send + Debug {
     ///
     /// Intended to be called after deactivate()
     #[allow(unused_variables)]
-    fn report(&self, engine_state: &EngineState, debugger_span: Span) -> Result<Value, ShellError> {
+    fn report(
+        &self,
+        engine_state: &EngineState,
+        debugger_span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         Ok(Value::nothing(debugger_span))
     }
 }

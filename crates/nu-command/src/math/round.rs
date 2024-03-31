@@ -61,7 +61,7 @@ impl Command for SubCommand {
                 example: "[1.5 2.3 -3.1] | math round",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(2), Value::test_int(-3)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -73,7 +73,7 @@ impl Command for SubCommand {
                         Value::test_float(2.33),
                         Value::test_float(-3.11),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -85,14 +85,14 @@ impl Command for SubCommand {
                         Value::test_int(120),
                         Value::test_int(-120),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
     }
 }
 
-fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
+fn operate(value: Value, head: FutureSpanId, precision: Option<i64>) -> Value {
     // We treat int values as float values in order to avoid code repetition in the match closure
     let span = value.span();
     let value = if let Value::Int { val, .. } = value {

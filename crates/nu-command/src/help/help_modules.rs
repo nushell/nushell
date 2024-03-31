@@ -122,7 +122,7 @@ pub fn help_modules(
         let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) else {
             return Err(ShellError::ModuleNotFoundAtRuntime {
                 mod_name: name,
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<FutureSpanId>>()),
             });
         };
 
@@ -242,7 +242,7 @@ pub fn help_modules(
     }
 }
 
-fn build_help_modules(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_modules(engine_state: &EngineState, stack: &Stack, span: FutureSpanId) -> Vec<Value> {
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_modules();
 

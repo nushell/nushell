@@ -1,12 +1,12 @@
 use super::Expression;
-use crate::{Span, VarId};
+use crate::{FutureSpanId, VarId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
     pub guard: Option<Expression>,
-    pub span: Span,
+    pub span: FutureSpanId,
 }
 
 impl MatchPattern {

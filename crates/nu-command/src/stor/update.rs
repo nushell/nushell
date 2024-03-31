@@ -129,7 +129,7 @@ impl Command for StorUpdate {
                         .map_err(|err| ShellError::GenericError {
                             error: "Failed to open SQLite connection in memory from update".into(),
                             msg: err.to_string(),
-                            span: Some(Span::test_data()),
+                            span: Some(FutureSpanId::test_data()),
                             help: None,
                             inner: vec![],
                         })?;

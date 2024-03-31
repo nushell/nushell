@@ -64,7 +64,7 @@ impl Command for StorCreate {
 
 fn process(
     table_name: Option<String>,
-    span: Span,
+    span: FutureSpanId,
     db: &SQLiteDatabase,
     columns: Option<Record>,
 ) -> Result<(), ShellError> {
@@ -123,7 +123,7 @@ fn process(
                     .map_err(|err| ShellError::GenericError {
                         error: "Failed to open SQLite connection in memory from create".into(),
                         msg: err.to_string(),
-                        span: Some(Span::test_data()),
+                        span: Some(FutureSpanId::test_data()),
                         help: None,
                         inner: vec![],
                     })?;
@@ -153,7 +153,7 @@ mod test {
     #[test]
     fn test_process_with_valid_parameters() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = FutureSpanId::unknown();
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
         let mut columns = Record::new();
         columns.insert(
@@ -169,7 +169,7 @@ mod test {
     #[test]
     fn test_process_with_missing_table_name() {
         let table_name = None;
-        let span = Span::unknown();
+        let span = FutureSpanId::unknown();
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
         let mut columns = Record::new();
         columns.insert(
@@ -189,7 +189,7 @@ mod test {
     #[test]
     fn test_process_with_missing_columns() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = FutureSpanId::unknown();
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
 
         let result = process(table_name, span, &db, None);
@@ -204,7 +204,7 @@ mod test {
     #[test]
     fn test_process_with_unsupported_column_data_type() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = FutureSpanId::unknown();
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
         let mut columns = Record::new();
         let column_datatype = "bogus_data_type".to_string();
@@ -220,8 +220,8 @@ mod test {
         let expected_err = ShellError::UnsupportedInput {
             msg: "unsupported column data type".into(),
             input: format!("{:?}", column_datatype.clone()),
-            msg_span: Span::test_data(),
-            input_span: Span::test_data(),
+            msg_span: FutureSpanId::test_data(),
+            input_span: FutureSpanId::test_data(),
         };
         assert_eq!(result.unwrap_err().to_string(), expected_err.to_string());
     }

@@ -87,7 +87,7 @@ string. This way content of every tag is always a table and is easier to parse"#
 }
 
 struct ParsingInfo {
-    span: Span,
+    span: FutureSpanId,
     keep_comments: bool,
     keep_processing_instructions: bool,
 }
@@ -211,7 +211,7 @@ fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, She
     }
 }
 
-fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
+fn process_xml_parse_error(err: roxmltree::Error, span: FutureSpanId) -> ShellError {
     match err {
         roxmltree::Error::InvalidXmlPrefixUri(_) => make_cant_convert_error(
             "The `xmlns:xml` attribute must have an <http://www.w3.org/XML/1998/namespace> URI.",
@@ -311,7 +311,7 @@ fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
     }
 }
 
-fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
+fn make_cant_convert_error(help: impl Into<String>, span: FutureSpanId) -> ShellError {
     ShellError::CantConvert {
         from_type: Type::String.to_string(),
         to_type: "XML".to_string(),
@@ -341,7 +341,7 @@ mod tests {
     }
 
     fn table(list: &[Value]) -> Value {
-        Value::list(list.to_vec(), Span::test_data())
+        Value::list(list.to_vec(), FutureSpanId::test_data())
     }
 
     fn content_tag(
@@ -358,15 +358,15 @@ mod tests {
 
     fn content_string(value: impl Into<String>) -> Value {
         Value::test_record(record! {
-            COLUMN_TAG_NAME =>     Value::nothing(Span::test_data()),
-            COLUMN_ATTRS_NAME =>   Value::nothing(Span::test_data()),
+            COLUMN_TAG_NAME =>     Value::nothing(FutureSpanId::test_data()),
+            COLUMN_ATTRS_NAME =>   Value::nothing(FutureSpanId::test_data()),
             COLUMN_CONTENT_NAME => string(value),
         })
     }
 
     fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
         let info = ParsingInfo {
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
             keep_comments: false,
             keep_processing_instructions: false,
         };

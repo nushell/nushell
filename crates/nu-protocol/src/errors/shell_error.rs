@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
+    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, FutureSpanId, Spanned,
     Value, ActualSpan
 };
 
@@ -28,13 +28,13 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::type_mismatch))]
     OperatorMismatch {
         #[label = "type mismatch for operator"]
-        op_span: Span,
+        op_span: FutureSpanId,
         lhs_ty: String,
         #[label("{lhs_ty}")]
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         rhs_ty: String,
         #[label("{rhs_ty}")]
-        rhs_span: Span,
+        rhs_span: FutureSpanId,
     },
 
     /// An arithmetic operation's resulting value overflowed its possible size.
@@ -48,7 +48,7 @@ pub enum ShellError {
     OperatorOverflow {
         msg: String,
         #[label = "{msg}"]
-        span: Span,
+        span: FutureSpanId,
         help: String,
     },
 
@@ -63,9 +63,9 @@ pub enum ShellError {
     PipelineMismatch {
         exp_input_type: String,
         #[label("expected: {exp_input_type}")]
-        dst_span: Span,
+        dst_span: FutureSpanId,
         #[label("value originates from here")]
-        src_span: Span,
+        src_span: FutureSpanId,
     },
 
     // TODO: properly unify
@@ -83,9 +83,9 @@ pub enum ShellError {
         exp_input_type: String,
         wrong_type: String,
         #[label("only {exp_input_type} input data is supported")]
-        dst_span: Span,
+        dst_span: FutureSpanId,
         #[label("input type: {wrong_type}")]
-        src_span: Span,
+        src_span: FutureSpanId,
     },
 
     /// No input value was piped into the command.
@@ -97,7 +97,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::pipeline_mismatch))]
     PipelineEmpty {
         #[label("no input value was piped in")]
-        dst_span: Span,
+        dst_span: FutureSpanId,
     },
 
     // TODO: remove non type error usages
@@ -111,7 +111,7 @@ pub enum ShellError {
     TypeMismatch {
         err_message: String,
         #[label = "{err_message}"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A command received an argument with correct type but incorrect value.
@@ -124,9 +124,9 @@ pub enum ShellError {
     IncorrectValue {
         msg: String,
         #[label = "{msg}"]
-        val_span: Span,
+        val_span: FutureSpanId,
         #[label = "encountered here"]
-        call_span: Span,
+        call_span: FutureSpanId,
     },
 
     /// This value cannot be used with this operator.
@@ -140,7 +140,7 @@ pub enum ShellError {
     UnsupportedOperator {
         operator: Operator,
         #[label = "unsupported operator"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Invalid assignment left-hand side
@@ -152,7 +152,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::assignment_requires_variable))]
     AssignmentRequiresVar {
         #[label = "needs to be a variable"]
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
     },
 
     /// Invalid assignment left-hand side
@@ -164,7 +164,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::assignment_requires_mutable_variable))]
     AssignmentRequiresMutableVar {
         #[label = "needs to be a mutable variable"]
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
     },
 
     /// An operator was not recognized during evaluation.
@@ -177,7 +177,7 @@ pub enum ShellError {
     UnknownOperator {
         op_token: String,
         #[label = "unknown operator"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An expected command parameter is missing.
@@ -190,7 +190,7 @@ pub enum ShellError {
     MissingParameter {
         param_name: String,
         #[label = "missing parameter: {param_name}"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Two parameters conflict with each other or are otherwise mutually exclusive.
@@ -204,10 +204,10 @@ pub enum ShellError {
         left_message: String,
         // Be cautious, as flags can share the same span, resulting in a panic (ex: `rm -pt`)
         #[label("{left_message}")]
-        left_span: Span,
+        left_span: FutureSpanId,
         right_message: String,
         #[label("{right_message}")]
-        right_span: Span,
+        right_span: FutureSpanId,
     },
 
     /// There's some issue with number or matching of delimiters in an expression.
@@ -220,7 +220,7 @@ pub enum ShellError {
     DelimiterError {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An operation received parameters with some sort of incompatibility
@@ -235,7 +235,7 @@ pub enum ShellError {
     IncompatibleParametersSingle {
         msg: String,
         #[label = "{msg}"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// You're trying to run an unsupported external command.
@@ -247,7 +247,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::external_commands))]
     ExternalNotSupported {
         #[label = "external not supported"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     // TODO: consider moving to a more generic error variant for invalid values
@@ -260,7 +260,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::invalid_probability))]
     InvalidProbability {
         #[label = "invalid probability: must be between 0 and 1"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The first value in a `..` range must be compatible with the second one.
@@ -274,7 +274,7 @@ pub enum ShellError {
         left_flank: String,
         right_flank: String,
         #[label = "expected a valid range"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
@@ -307,7 +307,7 @@ pub enum ShellError {
         msg: String,
         label: String,
         #[label = "{label}"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
@@ -333,7 +333,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::variable_not_found))]
     VariableNotFoundAtRuntime {
         #[label = "variable not found"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A referenced environment variable was not found at runtime.
@@ -346,7 +346,7 @@ pub enum ShellError {
     EnvVarNotFoundAtRuntime {
         envvar_name: String,
         #[label = "environment variable not found"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A referenced module was not found at runtime.
@@ -359,7 +359,7 @@ pub enum ShellError {
     ModuleNotFoundAtRuntime {
         mod_name: String,
         #[label = "module not found"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A referenced overlay was not found at runtime.
@@ -372,7 +372,7 @@ pub enum ShellError {
     OverlayNotFoundAtRuntime {
         overlay_name: String,
         #[label = "overlay not found"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The given item was not found. This is a fairly generic error that depends on context.
@@ -384,7 +384,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::parser::not_found))]
     NotFound {
         #[label = "did not find anything under this name"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Failed to convert a value of one type into a different type.
@@ -398,7 +398,7 @@ pub enum ShellError {
         to_type: String,
         from_type: String,
         #[label("can't convert {from_type} to {to_type}")]
-        span: Span,
+        span: FutureSpanId,
         #[help]
         help: Option<String>,
     },
@@ -408,9 +408,9 @@ pub enum ShellError {
     CantConvertToDuration {
         details: String,
         #[label("can't be converted to duration")]
-        dst_span: Span,
+        dst_span: FutureSpanId,
         #[label("this string value...")]
-        src_span: Span,
+        src_span: FutureSpanId,
         #[help]
         help: Option<String>,
     },
@@ -431,7 +431,7 @@ pub enum ShellError {
     EnvVarNotAString {
         envvar_name: String,
         #[label("value not representable as a string")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// This environment variable cannot be set manually.
@@ -449,7 +449,7 @@ pub enum ShellError {
     AutomaticEnvVarSetManually {
         envvar_name: String,
         #[label("cannot set '{envvar_name}' manually")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// It is not possible to replace the entire environment at once
@@ -465,7 +465,7 @@ pub enum ShellError {
     )]
     CannotReplaceEnv {
         #[label("setting '$env' not allowed")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Division by zero is not a thing.
@@ -477,7 +477,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::division_by_zero))]
     DivisionByZero {
         #[label("division by zero")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An error happened while trying to create a range.
@@ -491,7 +491,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::range_to_countable))]
     CannotCreateRange {
         #[label = "can't convert to countable values"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// You attempted to access an index beyond the available length of a value.
@@ -504,7 +504,7 @@ pub enum ShellError {
     AccessBeyondEnd {
         max_idx: usize,
         #[label = "index too large (max: {max_idx})"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// You attempted to insert data at a list position higher than the end.
@@ -517,7 +517,7 @@ pub enum ShellError {
     InsertAfterNextFreeIndex {
         available_idx: usize,
         #[label = "can't insert at index (the next available index is {available_idx})"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// You attempted to access an index when it's empty.
@@ -529,7 +529,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::access_beyond_end))]
     AccessEmptyContent {
         #[label = "index too large (empty content)"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     // TODO: check to be taken over by `AccessBeyondEnd`
@@ -542,7 +542,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::access_beyond_end_of_stream))]
     AccessBeyondEndOfStream {
         #[label = "index too large"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried to index into a type that does not support pathed access.
@@ -555,7 +555,7 @@ pub enum ShellError {
     IncompatiblePathAccess {
         type_name: String,
         #[label("{type_name} doesn't support cell paths")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The requested column does not exist.
@@ -568,9 +568,9 @@ pub enum ShellError {
     CantFindColumn {
         col_name: String,
         #[label = "cannot find column '{col_name}'"]
-        span: Span,
+        span: FutureSpanId,
         #[label = "value originates here"]
-        src_span: Span,
+        src_span: FutureSpanId,
     },
 
     /// Attempted to insert a column into a table, but a column with that name already exists.
@@ -583,9 +583,9 @@ pub enum ShellError {
     ColumnAlreadyExists {
         col_name: String,
         #[label = "column '{col_name}' already exists"]
-        span: Span,
+        span: FutureSpanId,
         #[label = "value originates here"]
-        src_span: Span,
+        src_span: FutureSpanId,
     },
 
     /// The given operation can only be performed on lists.
@@ -597,9 +597,9 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::not_a_list))]
     NotAList {
         #[label = "value not a list"]
-        dst_span: Span,
+        dst_span: FutureSpanId,
         #[label = "value originates here"]
-        src_span: Span,
+        src_span: FutureSpanId,
     },
 
     /// Fields can only be defined once
@@ -612,9 +612,9 @@ pub enum ShellError {
     ColumnDefinedTwice {
         col_name: String,
         #[label = "field redefined here"]
-        second_use: Span,
+        second_use: FutureSpanId,
         #[label = "field first defined here"]
-        first_use: Span,
+        first_use: FutureSpanId,
     },
 
     /// Attempted to create a record from different number of columns and values
@@ -626,9 +626,9 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::record_cols_vals_mismatch))]
     RecordColsValsMismatch {
         #[label = "problematic value"]
-        bad_value: Span,
+        bad_value: FutureSpanId,
         #[label = "attempted to create the record here"]
-        creation_site: Span,
+        creation_site: FutureSpanId,
     },
 
     /// An error happened while performing an external command.
@@ -642,7 +642,7 @@ pub enum ShellError {
         label: String,
         help: String,
         #[label("{label}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An operation was attempted with an input unsupported for some reason.
@@ -656,9 +656,9 @@ pub enum ShellError {
         msg: String,
         input: String,
         #[label("{msg}")]
-        msg_span: Span,
+        msg_span: FutureSpanId,
         #[label("{input}")]
-        input_span: Span,
+        input_span: FutureSpanId,
     },
 
     /// Failed to parse an input into a datetime value.
@@ -691,7 +691,7 @@ pub enum ShellError {
     DatetimeParseError {
         msg: String,
         #[label("datetime parsing failed")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A network operation failed.
@@ -704,7 +704,7 @@ pub enum ShellError {
     NetworkFailure {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Help text for this command could not be found.
@@ -716,7 +716,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::command_not_found))]
     CommandNotFound {
         #[label("command not found")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// This alias could not be found
@@ -728,7 +728,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::alias_not_found))]
     AliasNotFound {
         #[label("alias not found")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Failed to find a file during a nushell operation.
@@ -741,7 +741,7 @@ pub enum ShellError {
     FileNotFound {
         file: String,
         #[label("file not found")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Failed to find a file during a nushell operation.
@@ -754,7 +754,7 @@ pub enum ShellError {
     FileNotFoundCustom {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The registered plugin data for a plugin is invalid.
@@ -810,7 +810,7 @@ pub enum ShellError {
     CustomValueIncorrectForPlugin {
         name: String,
         #[label("the `{dest_plugin}` plugin does not support this kind of value")]
-        span: Span,
+        span: FutureSpanId,
         dest_plugin: String,
         #[help("this value came from the `{}` plugin")]
         src_plugin: Option<String>,
@@ -827,7 +827,7 @@ pub enum ShellError {
     CustomValueFailedToEncode {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The plugin failed to encode a custom value.
@@ -844,7 +844,7 @@ pub enum ShellError {
     CustomValueFailedToDecode {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// I/O operation interrupted.
@@ -857,7 +857,7 @@ pub enum ShellError {
     IOInterrupted {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An I/O operation failed.
@@ -879,7 +879,7 @@ pub enum ShellError {
     IOErrorSpanned {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried to `cd` to a path that isn't a directory.
@@ -891,7 +891,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
     NotADirectory {
         #[label("is not a directory")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Attempted to perform an operation on a directory that doesn't exist.
@@ -904,7 +904,7 @@ pub enum ShellError {
     DirectoryNotFound {
         dir: String,
         #[label("directory not found")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The requested move operation cannot be completed. This is typically because both paths exist,
@@ -919,10 +919,10 @@ pub enum ShellError {
     MoveNotPossible {
         source_message: String,
         #[label("{source_message}")]
-        source_span: Span,
+        source_span: FutureSpanId,
         destination_message: String,
         #[label("{destination_message}")]
-        destination_span: Span,
+        destination_span: FutureSpanId,
     },
 
     /// Failed to create either a file or directory.
@@ -935,7 +935,7 @@ pub enum ShellError {
     CreateNotPossible {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Changing the access time ("atime") of this file is not possible.
@@ -948,7 +948,7 @@ pub enum ShellError {
     ChangeAccessTimeNotPossible {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Changing the modification time ("mtime") of this file is not possible.
@@ -961,7 +961,7 @@ pub enum ShellError {
     ChangeModifiedTimeNotPossible {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Unable to remove this item.
@@ -974,7 +974,7 @@ pub enum ShellError {
     RemoveNotPossible {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Error while trying to read a file
@@ -987,7 +987,7 @@ pub enum ShellError {
     ReadingFile {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A name was not found. Did you mean a different name?
@@ -1000,7 +1000,7 @@ pub enum ShellError {
     DidYouMean {
         suggestion: String,
         #[label("did you mean '{suggestion}'?")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A name was not found. Did you mean a different name?
@@ -1014,7 +1014,7 @@ pub enum ShellError {
         msg: String,
         suggestion: String,
         #[label("did you mean '{suggestion}'?")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The given input must be valid UTF-8 for further processing.
@@ -1026,7 +1026,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::parser::non_utf8))]
     NonUtf8 {
         #[label("non-UTF8 string")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The given input must be valid UTF-8 for further processing.
@@ -1039,7 +1039,7 @@ pub enum ShellError {
     NonUtf8Custom {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// A custom value could not be converted to a Dataframe.
@@ -1052,7 +1052,7 @@ pub enum ShellError {
     DowncastNotPossible {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The value given for this configuration is not supported.
@@ -1066,7 +1066,7 @@ pub enum ShellError {
         expected: String,
         value: String,
         #[label("expected {expected}, got {value}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An expected configuration value is not present.
@@ -1079,7 +1079,7 @@ pub enum ShellError {
     MissingConfigValue {
         missing_value: String,
         #[label("missing {missing_value}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Negative value passed when positive one is required.
@@ -1091,7 +1091,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::needs_positive_value))]
     NeedsPositiveValue {
         #[label("use a positive value")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// This is a generic error type used for different situations.
@@ -1101,7 +1101,7 @@ pub enum ShellError {
         error: String,
         msg: String,
         #[label("{msg}")]
-        span: Option<Span>,
+        span: Option<FutureSpanId>,
         #[help]
         help: Option<String>,
         #[related]
@@ -1117,7 +1117,7 @@ pub enum ShellError {
         error: String,
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// This is a generic error type used for user and plugin-generated errors.
@@ -1136,7 +1136,7 @@ pub enum ShellError {
         removed: String,
         replacement: String,
         #[label("'{removed}' has been removed from Nushell. Please use '{replacement}' instead.")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     // It should be only used by commands accepts block, and accept inputs from pipeline.
@@ -1145,7 +1145,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::eval_block_with_input))]
     EvalBlockWithInput {
         #[label("source value")]
-        span: Span,
+        span: FutureSpanId,
         #[related]
         sources: Vec<ShellError>,
     },
@@ -1154,21 +1154,21 @@ pub enum ShellError {
     #[error("Break used outside of loop")]
     Break {
         #[label("used outside of loop")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Continue event, which may become an error if used outside of a loop
     #[error("Continue used outside of loop")]
     Continue {
         #[label("used outside of loop")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
     Return {
         #[label("used outside of function")]
-        span: Span,
+        span: FutureSpanId,
         value: Box<Value>,
     },
 
@@ -1182,7 +1182,7 @@ pub enum ShellError {
     RecursionLimitReached {
         recursion_limit: u64,
         #[label("This called itself too many times")]
-        span: Option<Span>,
+        span: Option<FutureSpanId>,
     },
 
     /// An attempt to access a record column failed.
@@ -1192,14 +1192,14 @@ pub enum ShellError {
         message: String,
         column_name: String,
         #[label("Could not access '{column_name}' on this record")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Operation interrupted by user
     #[error("Operation interrupted by user")]
     InterruptedByUser {
         #[label("This operation was interrupted")]
-        span: Option<Span>,
+        span: Option<FutureSpanId>,
     },
 
     /// An attempt to use, as a match guard, an expression that
@@ -1211,7 +1211,7 @@ pub enum ShellError {
     )]
     MatchGuardNotBool {
         #[label("not a boolean expression")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// An attempt to run a command marked for constant evaluation lacking the const. eval.
@@ -1228,7 +1228,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     MissingConstEvalImpl {
         #[label("command lacks constant implementation")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried assigning non-constant value to a constant
@@ -1243,7 +1243,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     NotAConstant {
         #[label("Value is not a parse-time constant")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried running a command that is not const-compatible
@@ -1259,7 +1259,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     NotAConstCommand {
         #[label("This command cannot run at parse time.")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried getting a help message at parse time.
@@ -1274,7 +1274,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     NotAConstHelp {
         #[label("This command cannot run at parse time.")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Invalid glob pattern
@@ -1290,7 +1290,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     InvalidGlobPattern {
         msg: String,
         #[label("{msg}")]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried spreading a non-list inside a list or command call.
@@ -1305,7 +1305,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     CannotSpreadAsList {
         #[label = "cannot spread value"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Tried spreading a non-record inside a record.
@@ -1320,7 +1320,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     CannotSpreadAsRecord {
         #[label = "cannot spread value"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Lists are not automatically spread when calling external commands
@@ -1336,7 +1336,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     CannotPassListToExternal {
         arg: String,
         #[label = "Spread operator (...) is necessary to spread lists"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// Out of bounds.
@@ -1352,7 +1352,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         left_flank: String,
         right_flank: String,
         #[label = "byte index is not a char boundary or is out of bounds of the input"]
-        span: Span,
+        span: FutureSpanId,
     },
 
     /// The config directory could not be found
@@ -1367,7 +1367,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     )]
     ConfigDirNotFound {
         #[label = "Could not find config directory"]
-        span: Option<Span>,
+        span: Option<FutureSpanId>,
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
@@ -1460,7 +1460,7 @@ fn shell_error_serialize_roundtrip() {
     // Ensure that we can serialize and deserialize `ShellError`, and check that it basically would
     // look the same
     let original_error = ShellError::CantConvert {
-        span: Span::new(100, 200),
+        span: FutureSpanId::new(100, 200),
         to_type: "Foo".into(),
         from_type: "Bar".into(),
         help: Some("this is a test".into()),

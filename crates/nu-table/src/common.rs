@@ -2,7 +2,7 @@ use crate::{
     clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
+use nu_protocol::{Config, FooterMode, FutureSpanId, ShellError, TableMode, TrimStrategy, Value};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -68,14 +68,14 @@ pub fn wrap_text(text: &str, width: usize, config: &Config) -> String {
 pub fn get_header_style(style_computer: &StyleComputer) -> TextStyle {
     TextStyle::with_style(
         Alignment::Center,
-        style_computer.compute("header", &Value::string("", Span::unknown())),
+        style_computer.compute("header", &Value::string("", FutureSpanId::unknown())),
     )
 }
 
 pub fn get_index_style(style_computer: &StyleComputer) -> TextStyle {
     TextStyle::with_style(
         Alignment::Right,
-        style_computer.compute("row_index", &Value::string("", Span::unknown())),
+        style_computer.compute("row_index", &Value::string("", FutureSpanId::unknown())),
     )
 }
 
@@ -84,7 +84,7 @@ pub fn get_leading_trailing_space_style(style_computer: &StyleComputer) -> TextS
         Alignment::Right,
         style_computer.compute(
             "leading_trailing_space_bg",
-            &Value::string("", Span::unknown()),
+            &Value::string("", FutureSpanId::unknown()),
         ),
     )
 }
@@ -108,7 +108,7 @@ pub fn get_empty_style(style_computer: &StyleComputer) -> NuText {
         String::from("❎"),
         TextStyle::with_style(
             Alignment::Right,
-            style_computer.compute("empty", &Value::nothing(Span::unknown())),
+            style_computer.compute("empty", &Value::nothing(FutureSpanId::unknown())),
         ),
     )
 }
@@ -139,7 +139,7 @@ fn make_styled_string(
                 text,
                 TextStyle::with_style(
                     Alignment::Center,
-                    style_computer.compute("empty", &Value::nothing(Span::unknown())),
+                    style_computer.compute("empty", &Value::nothing(FutureSpanId::unknown())),
                 ),
             )
         }
@@ -194,7 +194,7 @@ pub fn load_theme(mode: TableMode) -> TableTheme {
 }
 
 fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
-    style_computer.compute("separator", &Value::nothing(Span::unknown()))
+    style_computer.compute("separator", &Value::nothing(FutureSpanId::unknown()))
 }
 
 fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {

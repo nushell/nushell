@@ -2,7 +2,7 @@ use nu_parser::*;
 use nu_protocol::{
     ast::{Argument, Call, Expr, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    FutureSpanId, ParseError, PipelineData, ShellError, Signature, SyntaxShape,
 };
 use rstest::rstest;
 
@@ -310,7 +310,7 @@ pub fn parse_cell_path() {
 
     working_set.add_variable(
         "foo".to_string().into_bytes(),
-        Span::test_data(),
+        FutureSpanId::test_data(),
         nu_protocol::Type::record(),
         false,
     );
@@ -355,7 +355,7 @@ pub fn parse_cell_path_optional() {
 
     working_set.add_variable(
         "foo".to_string().into_bytes(),
-        Span::test_data(),
+        FutureSpanId::test_data(),
         nu_protocol::Type::record(),
         false,
     );
@@ -763,7 +763,7 @@ mod string {
     }
 
     mod interpolation {
-        use nu_protocol::Span;
+        use nu_protocol::FutureSpanId;
 
         use super::*;
 
@@ -885,7 +885,7 @@ mod string {
 
             working_set.add_variable(
                 "foo".to_string().into_bytes(),
-                Span::new(0, 0),
+                FutureSpanId::new(0, 0),
                 nu_protocol::Type::CellPath,
                 false,
             );
@@ -909,7 +909,7 @@ mod string {
 
             working_set.add_variable(
                 "foo".to_string().into_bytes(),
-                Span::new(0, 0),
+                FutureSpanId::new(0, 0),
                 nu_protocol::Type::CellPath,
                 false,
             );

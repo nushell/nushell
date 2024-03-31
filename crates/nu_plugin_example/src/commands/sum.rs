@@ -1,5 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, FutureSpanId, LabeledError, PipelineData, Signature, Type, Value,
+};
 
 use crate::ExamplePlugin;
 
@@ -92,7 +94,7 @@ impl IntOrFloat {
         }
     }
 
-    pub(crate) fn to_value(self, span: Span) -> Value {
+    pub(crate) fn to_value(self, span: FutureSpanId) -> Value {
         match self {
             IntOrFloat::Int(v) => Value::int(v, span),
             IntOrFloat::Float(v) => Value::float(v, span),

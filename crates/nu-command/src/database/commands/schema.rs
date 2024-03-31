@@ -83,7 +83,10 @@ impl Command for SchemaDb {
     }
 }
 
-fn open_sqlite_db_connection(db: &SQLiteDatabase, span: Span) -> Result<Connection, ShellError> {
+fn open_sqlite_db_connection(
+    db: &SQLiteDatabase,
+    span: FutureSpanId,
+) -> Result<Connection, ShellError> {
     db.open_connection().map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -97,7 +100,7 @@ fn get_table_columns(
     db: &SQLiteDatabase,
     conn: &Connection,
     table: &DbTable,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let columns = db
         .get_columns(conn, table)
@@ -129,7 +132,7 @@ fn get_table_constraints(
     db: &SQLiteDatabase,
     conn: &Connection,
     table: &DbTable,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let constraints = db
         .get_constraints(conn, table)
@@ -160,7 +163,7 @@ fn get_table_foreign_keys(
     db: &SQLiteDatabase,
     conn: &Connection,
     table: &DbTable,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let foreign_keys = db
         .get_foreign_keys(conn, table)
@@ -190,7 +193,7 @@ fn get_table_indexes(
     db: &SQLiteDatabase,
     conn: &Connection,
     table: &DbTable,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let indexes = db
         .get_indexes(conn, table)

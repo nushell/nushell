@@ -156,7 +156,7 @@ impl Command for SubCommand {
     }
 }
 
-fn get_dirname(path: &Path, span: Span, args: &Arguments) -> Value {
+fn get_dirname(path: &Path, span: FutureSpanId, args: &Arguments) -> Value {
     let num_levels = args.num_levels.as_ref().map_or(1, |val| *val);
 
     let mut dirname = path;

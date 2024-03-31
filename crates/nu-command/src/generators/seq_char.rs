@@ -41,7 +41,7 @@ impl Command for SeqChar {
                         Value::test_string('d'),
                         Value::test_string('e'),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -114,7 +114,11 @@ fn seq_char(
     run_seq_char(start, end, span)
 }
 
-fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData, ShellError> {
+fn run_seq_char(
+    start_ch: char,
+    end_ch: char,
+    span: FutureSpanId,
+) -> Result<PipelineData, ShellError> {
     let mut result_vec = vec![];
     for current_ch in start_ch as u8..end_ch as u8 + 1 {
         result_vec.push((current_ch as char).to_string())

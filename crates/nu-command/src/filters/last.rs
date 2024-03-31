@@ -41,7 +41,7 @@ impl Command for Last {
                 description: "Return the last 2 items of a list/table",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(3)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -52,7 +52,7 @@ impl Command for Last {
             Example {
                 example: "0x[01 23 45] | last 2",
                 description: "Return the last 2 bytes of a binary value",
-                result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
+                result: Some(Value::binary(vec![0x23, 0x45], FutureSpanId::test_data())),
             },
             Example {
                 example: "1..3 | last",

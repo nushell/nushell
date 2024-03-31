@@ -41,7 +41,10 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             Example {
                 description: "Decode an UTF-16 string into nushell UTF-8 string",
                 example: r#"0x[00 53 00 6F 00 6D 00 65 00 20 00 44 00 61 00 74 00 61] | decode utf-16be"#,
-                result: Some(Value::string("Some Data".to_owned(), Span::test_data())),
+                result: Some(Value::string(
+                    "Some Data".to_owned(),
+                    FutureSpanId::test_data(),
+                )),
             },
         ]
     }

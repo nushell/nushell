@@ -1,5 +1,5 @@
 use super::NuLazyFrame;
-use nu_protocol::{record, CustomValue, ShellError, Span, Value};
+use nu_protocol::{record, CustomValue, FutureSpanId, ShellError, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuLazyFrame {
@@ -11,7 +11,7 @@ impl CustomValue for NuLazyFrame {
         unimplemented!("typetag_deserialize")
     }
 
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         let cloned = NuLazyFrame {
             lazy: self.lazy.clone(),
             from_eager: self.from_eager,
@@ -25,7 +25,7 @@ impl CustomValue for NuLazyFrame {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         let optimized_plan = self
             .as_ref()
             .describe_optimized_plan()

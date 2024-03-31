@@ -1,5 +1,5 @@
 use super::helper::ReconstructVal;
-use crate::{record, Config, ShellError, Span, Value};
+use crate::{record, Config, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -52,7 +52,7 @@ impl FromStr for TableMode {
 }
 
 impl ReconstructVal for TableMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         Value::string(
             match self {
                 TableMode::Basic => "basic",
@@ -109,7 +109,7 @@ impl FromStr for FooterMode {
 }
 
 impl ReconstructVal for FooterMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         Value::string(
             match self {
                 FooterMode::Always => "always".to_string(),
@@ -146,7 +146,7 @@ impl FromStr for TableIndexMode {
 }
 
 impl ReconstructVal for TableIndexMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         Value::string(
             match self {
                 TableIndexMode::Always => "always",
@@ -289,7 +289,7 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
     None
 }
 
-pub(super) fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_trim_strategy(config: &Config, span: FutureSpanId) -> Value {
     match &config.trim_strategy {
         TrimStrategy::Wrap { try_to_keep_words } => Value::record(
             record! {
@@ -320,7 +320,7 @@ pub struct TableIndent {
     pub right: usize,
 }
 
-pub(super) fn reconstruct_padding(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_padding(config: &Config, span: FutureSpanId) -> Value {
     // For better completions always reconstruct the record version even though unsigned int would
     // be supported, `as` conversion is sane as it came from an i64 original
     Value::record(

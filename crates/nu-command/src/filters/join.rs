@@ -143,7 +143,7 @@ fn join(
     left_join_key: &str,
     right_join_key: &str,
     join_type: JoinType,
-    span: Span,
+    span: FutureSpanId,
 ) -> Value {
     // Inner / Right Join
     // ------------------
@@ -253,7 +253,7 @@ fn join_rows(
     include_inner: IncludeInner,
     sep: &str,
     config: &Config,
-    span: Span,
+    span: FutureSpanId,
 ) {
     for this_row in this {
         if let Value::Record {

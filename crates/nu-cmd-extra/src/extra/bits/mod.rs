@@ -20,7 +20,7 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
-use nu_protocol::{ShellError, Span, Spanned, Value};
+use nu_protocol::{FutureSpanId, ShellError, Spanned, Value};
 use std::iter;
 
 #[derive(Clone, Copy)]
@@ -46,7 +46,7 @@ enum InputNumType {
 
 fn get_number_bytes(
     number_bytes: Option<Spanned<usize>>,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<NumberBytes, ShellError> {
     match number_bytes {
         None => Ok(NumberBytes::Auto),
@@ -103,7 +103,7 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
     }
 }
 
-fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F, head: Span) -> Value
+fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F, head: FutureSpanId) -> Value
 where
     F: Fn((i64, i64)) -> i64,
 {

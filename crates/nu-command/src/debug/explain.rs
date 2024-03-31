@@ -60,7 +60,7 @@ pub fn get_pipeline_elements(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-    span: Span,
+    span: FutureSpanId,
 ) -> Vec<Value> {
     let eval_expression = get_eval_expression(engine_state);
 
@@ -112,7 +112,7 @@ fn get_arguments(
     eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Vec<Value> {
     let mut arg_value = vec![];
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     for arg in &call.arguments {
         match arg {
             // I think the second argument to Argument::Named is the short name, but I'm not really sure.

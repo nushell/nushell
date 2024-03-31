@@ -102,7 +102,7 @@ fn action(
         case_insensitive,
         ..
     }: &Arguments,
-    head: Span,
+    head: FutureSpanId,
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {

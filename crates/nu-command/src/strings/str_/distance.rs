@@ -94,7 +94,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: FutureSpanId) -> Value {
     let compare_string = &args.compare_string;
     match input {
         Value::String { val, .. } => {

@@ -1,4 +1,4 @@
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, FutureSpanId, Value};
 use rstest::rstest;
 
 #[test]
@@ -9,26 +9,34 @@ fn test_comparison_nothing() {
         Value::test_float(1.0),
     ];
 
-    let nothing = Value::nothing(Span::test_data());
+    let nothing = Value::nothing(FutureSpanId::test_data());
 
     for value in values {
         assert!(matches!(
-            value.eq(Span::test_data(), &nothing, Span::test_data()),
+            value.eq(
+                FutureSpanId::test_data(),
+                &nothing,
+                FutureSpanId::test_data()
+            ),
             Ok(Value::Bool { val: false, .. })
         ));
 
         assert!(matches!(
-            value.ne(Span::test_data(), &nothing, Span::test_data()),
+            value.ne(
+                FutureSpanId::test_data(),
+                &nothing,
+                FutureSpanId::test_data()
+            ),
             Ok(Value::Bool { val: true, .. })
         ));
 
         assert!(matches!(
-            nothing.eq(Span::test_data(), &value, Span::test_data()),
+            nothing.eq(FutureSpanId::test_data(), &value, FutureSpanId::test_data()),
             Ok(Value::Bool { val: false, .. })
         ));
 
         assert!(matches!(
-            nothing.ne(Span::test_data(), &value, Span::test_data()),
+            nothing.ne(FutureSpanId::test_data(), &value, FutureSpanId::test_data()),
             Ok(Value::Bool { val: true, .. })
         ));
     }

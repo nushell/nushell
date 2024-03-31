@@ -3,7 +3,8 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    record, Config, FutureSpanId, HistoryFileFormat, PipelineData, Record, ShellError, Value,
+    VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -12,7 +13,7 @@ use std::{
 };
 
 /// Create a Value for `$nu`.
-pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+pub fn create_nu_constant(engine_state: &EngineState, span: FutureSpanId) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         let cwd = engine_state.current_work_dir();
 
@@ -226,7 +227,7 @@ pub fn eval_const_subexpression(
     working_set: &StateWorkingSet,
     block: &Block,
     mut input: PipelineData,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for element in pipeline.elements.iter() {
@@ -281,7 +282,7 @@ impl Eval for EvalConst {
         _: &mut (),
         path: String,
         _: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         Ok(Value::string(path, span))
     }
@@ -291,7 +292,7 @@ impl Eval for EvalConst {
         _: &mut (),
         _: String,
         _: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
     }
@@ -300,7 +301,7 @@ impl Eval for EvalConst {
         working_set: &StateWorkingSet,
         _: &mut (),
         var_id: VarId,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         match working_set.get_variable(var_id).const_val.as_ref() {
             Some(val) => Ok(val.clone()),
@@ -312,7 +313,7 @@ impl Eval for EvalConst {
         working_set: &StateWorkingSet,
         _: &mut (),
         call: &Call,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
@@ -324,7 +325,7 @@ impl Eval for EvalConst {
         _: &mut (),
         _: &Expression,
         _: &[ExternalArgument],
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // TODO: It may be more helpful to give not_a_const_command error
         Err(ShellError::NotAConstant { span })
@@ -334,7 +335,7 @@ impl Eval for EvalConst {
         working_set: &StateWorkingSet,
         _: &mut (),
         block_id: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
@@ -346,11 +347,11 @@ impl Eval for EvalConst {
 
     fn regex_match(
         _: &StateWorkingSet,
-        _op_span: Span,
+        _op_span: FutureSpanId,
         _: &Value,
         _: &Value,
         _: bool,
-        expr_span: Span,
+        expr_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr_span })
     }
@@ -361,8 +362,8 @@ impl Eval for EvalConst {
         _: &Expression,
         _: &Expression,
         _: Assignment,
-        _op_span: Span,
-        expr_span: Span,
+        _op_span: FutureSpanId,
+        expr_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         Err(ShellError::NotAConstant { span: expr_span })
@@ -372,12 +373,12 @@ impl Eval for EvalConst {
         _: &StateWorkingSet,
         _: &mut (),
         _: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn eval_overlay(_: &StateWorkingSet, span: Span) -> Result<Value, ShellError> {
+    fn eval_overlay(_: &StateWorkingSet, span: FutureSpanId) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
     }
 

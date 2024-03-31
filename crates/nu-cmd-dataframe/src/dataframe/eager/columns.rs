@@ -25,7 +25,7 @@ impl Command for ColumnsDF {
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr columns",
             result: Some(Value::list(
                 vec![Value::test_string("a"), Value::test_string("b")],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }

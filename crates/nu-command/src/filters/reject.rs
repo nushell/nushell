@@ -167,7 +167,7 @@ impl Command for Reject {
 
 fn reject(
     _engine_state: &EngineState,
-    span: Span,
+    span: FutureSpanId,
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {

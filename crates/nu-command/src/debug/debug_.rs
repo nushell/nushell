@@ -62,7 +62,7 @@ impl Command for Debug {
                 example: "['hello'] | debug",
                 result: Some(Value::list(
                     vec![Value::test_string("hello")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -75,7 +75,7 @@ impl Command for Debug {
                         Value::test_string("{version: 0.1.1, patch: true}"),
                         Value::test_string("{version: 0.2.0, patch: false}"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

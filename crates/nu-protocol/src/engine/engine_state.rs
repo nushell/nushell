@@ -6,8 +6,9 @@ use crate::{
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
-    ActualSpan, BlockId, Category, Config, DeclId, Example, FileId, GetSpan, HistoryConfig, Module,
-    ModuleId, OverlayId, ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ActualSpan, BlockId, Category, Config, DeclId, Example, FileId, FutureSpanId, GetSpan,
+    HistoryConfig, Module, ModuleId, OverlayId, ShellError, Signature, SpanId, Type, Value, VarId,
+    VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -126,11 +127,11 @@ impl EngineState {
             files: vec![],
             virtual_paths: vec![],
             vars: vec![
-                Variable::new(Span::new(0, 0), Type::Any, false),
-                Variable::new(Span::new(0, 0), Type::Any, false),
-                Variable::new(Span::new(0, 0), Type::Any, false),
-                Variable::new(Span::new(0, 0), Type::Any, false),
-                Variable::new(Span::new(0, 0), Type::Any, false),
+                Variable::new(FutureSpanId::new(0, 0), Type::Any, false),
+                Variable::new(FutureSpanId::new(0, 0), Type::Any, false),
+                Variable::new(FutureSpanId::new(0, 0), Type::Any, false),
+                Variable::new(FutureSpanId::new(0, 0), Type::Any, false),
+                Variable::new(FutureSpanId::new(0, 0), Type::Any, false),
             ],
             decls: Arc::new(vec![]),
             blocks: Arc::new(vec![]),
@@ -634,7 +635,7 @@ impl EngineState {
         None
     }
 
-    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[FutureSpanId]> {
         self.usage.get_module_comments(module_id)
     }
 
@@ -726,7 +727,7 @@ impl EngineState {
         &[0u8; 0]
     }
 
-    pub fn get_span_id_contents(&self, span: Span) -> &[u8] {
+    pub fn get_span_id_contents(&self, span: FutureSpanId) -> &[u8] {
         for file in &self.files {
             if file.covered_span.contains_span(span) {
                 return &file.content
@@ -901,7 +902,7 @@ impl EngineState {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + content.len();
 
-        let covered_span = Span::new(next_span_start, next_span_end);
+        let covered_span = FutureSpanId::new(next_span_start, next_span_end);
 
         self.files.push(CachedFile {
             name: filename,
@@ -928,7 +929,7 @@ impl EngineState {
         self.config_path.get(key)
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_usage(&self, spans: &[FutureSpanId]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(span.span()))
@@ -1011,25 +1012,25 @@ impl EngineState {
 
 impl<'a> GetSpan for &'a EngineState {
     /// Get existing span
-    fn get_span(&self, span_id: SpanId) -> Span {
+    fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         let sp = *self
             .spans
             .get(span_id.0)
             .expect("internal error: missing span");
 
-        Span::new(sp.start, sp.end)
+        FutureSpanId::new(sp.start, sp.end)
     }
 }
 
 impl GetSpan for EngineState {
     /// Get existing span
-    fn get_span(&self, span_id: SpanId) -> Span {
+    fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         let sp = *self
             .spans
             .get(span_id.0)
             .expect("internal error: missing span");
 
-        Span::new(sp.start, sp.end)
+        FutureSpanId::new(sp.start, sp.end)
     }
 }
 
@@ -1095,7 +1096,7 @@ mod engine_state_tests {
         let mut working_set = StateWorkingSet::new(&engine_state);
         working_set.add_variable(
             varname.as_bytes().into(),
-            Span { start: 0, end: 1 },
+            FutureSpanId { start: 0, end: 1 },
             Type::Int,
             false,
         );
@@ -1118,7 +1119,10 @@ mod engine_state_tests {
         );
 
         let mut plugins = HashMap::new();
-        plugins.insert("example".into(), Value::string("value", Span::test_data()));
+        plugins.insert(
+            "example".into(),
+            Value::string("value", FutureSpanId::test_data()),
+        );
 
         let mut config = engine_state.get_config().clone();
         config.plugins = plugins;

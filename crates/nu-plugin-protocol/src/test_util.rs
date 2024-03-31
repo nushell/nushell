@@ -1,5 +1,5 @@
 use crate::PluginCustomValue;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, FutureSpanId, Value};
 use serde::{Deserialize, Serialize};
 
 /// A custom value that can be used for testing.
@@ -8,7 +8,7 @@ pub struct TestCustomValue(pub i32);
 
 #[typetag::serde(name = "nu_plugin_protocol::test_util::TestCustomValue")]
 impl CustomValue for TestCustomValue {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -16,7 +16,7 @@ impl CustomValue for TestCustomValue {
         "TestCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::int(self.0 as i64, span))
     }
 

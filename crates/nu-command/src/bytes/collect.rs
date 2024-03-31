@@ -82,14 +82,17 @@ impl Command for BytesCollect {
             Example {
                 description: "Create a byte array from input",
                 example: "[0x[11] 0x[13 15]] | bytes collect",
-                result: Some(Value::binary(vec![0x11, 0x13, 0x15], Span::test_data())),
+                result: Some(Value::binary(
+                    vec![0x11, 0x13, 0x15],
+                    FutureSpanId::test_data(),
+                )),
             },
             Example {
                 description: "Create a byte array from input with a separator",
                 example: "[0x[11] 0x[33] 0x[44]] | bytes collect 0x[01]",
                 result: Some(Value::binary(
                     vec![0x11, 0x01, 0x33, 0x01, 0x44],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

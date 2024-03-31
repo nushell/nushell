@@ -1,6 +1,6 @@
 mod custom_value;
 
-use nu_protocol::{record, PipelineData, ShellError, Span, Value};
+use nu_protocol::{record, FutureSpanId, PipelineData, ShellError, Value};
 use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -54,7 +54,7 @@ impl From<Expr> for NuExpression {
 }
 
 impl NuExpression {
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self), span)
     }
 
@@ -83,7 +83,7 @@ impl NuExpression {
         }
     }
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_pipeline(input: PipelineData, span: FutureSpanId) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
     }
@@ -113,7 +113,7 @@ impl NuExpression {
         f(expr, other).into()
     }
 
-    pub fn to_value(&self, span: Span) -> Result<Value, ShellError> {
+    pub fn to_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         expr_to_value(self.as_ref(), span)
     }
 
@@ -162,7 +162,7 @@ impl ExtractedExpr {
     }
 }
 
-pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
+pub fn expr_to_value(expr: &Expr, span: FutureSpanId) -> Result<Value, ShellError> {
     match expr {
         Expr::Alias(expr, alias) => Ok(Value::record(
             record! {
@@ -429,7 +429,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type SubPlan are not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: FutureSpanId::unknown(),
         }),
         // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
         // I am not sure what we can meaningfully do with this at this time.
@@ -437,7 +437,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type Selector to Nu Values is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: FutureSpanId::unknown(),
         }),
     }
 }

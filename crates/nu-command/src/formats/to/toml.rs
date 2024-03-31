@@ -105,7 +105,7 @@ fn toml_list(engine_state: &EngineState, input: &[Value]) -> Result<Vec<toml::Va
 fn toml_into_pipeline_data(
     toml_value: &toml::Value,
     value_type: Type,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     match toml::to_string(&toml_value) {
         Ok(serde_toml_string) => Ok(Value::string(serde_toml_string, span).into_pipeline_data()),
@@ -125,7 +125,7 @@ fn toml_into_pipeline_data(
 fn value_to_toml_value(
     engine_state: &EngineState,
     v: &Value,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<toml::Value, ShellError> {
     match v {
         Value::Record { .. } => helper(engine_state, v),
@@ -143,7 +143,7 @@ fn value_to_toml_value(
 fn to_toml(
     engine_state: &EngineState,
     input: PipelineData,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let value = input.into_value(span);
 
@@ -182,7 +182,7 @@ mod tests {
                 .unwrap()
                 .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
                 .unwrap(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let reference_date = toml::Value::String(String::from("1980-10-12T10:12:44+02:00"));
@@ -202,18 +202,18 @@ mod tests {
 
         let mut m = indexmap::IndexMap::new();
         m.insert("rust".to_owned(), Value::test_string("editor"));
-        m.insert("is".to_owned(), Value::nothing(Span::test_data()));
+        m.insert("is".to_owned(), Value::nothing(FutureSpanId::test_data()));
         m.insert(
             "features".to_owned(),
             Value::list(
                 vec![Value::test_string("hello"), Value::test_string("array")],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ),
         );
         let tv = value_to_toml_value(
             &engine_state,
-            &Value::record(m.into_iter().collect(), Span::test_data()),
-            Span::test_data(),
+            &Value::record(m.into_iter().collect(), FutureSpanId::test_data()),
+            FutureSpanId::test_data(),
         )
         .expect("Expected Ok from valid TOML dictionary");
         assert_eq!(
@@ -229,13 +229,13 @@ mod tests {
         value_to_toml_value(
             &engine_state,
             &Value::test_string("not_valid"),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
             &engine_state,
-            &Value::list(vec![Value::test_string("1")], Span::test_data()),
-            Span::test_data(),
+            &Value::list(vec![Value::test_string("1")], FutureSpanId::test_data()),
+            FutureSpanId::test_data(),
         )
         .expect_err("Expected non-valid toml (Table) to cause error!");
     }

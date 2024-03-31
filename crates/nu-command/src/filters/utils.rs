@@ -2,13 +2,13 @@ use nu_engine::{CallExt, ClosureEval};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},
-    IntoPipelineData, PipelineData, ShellError, Span, Value,
+    FutureSpanId, IntoPipelineData, PipelineData, ShellError, Value,
 };
 
 pub fn chain_error_with_input(
     error_source: ShellError,
     input_is_error: bool,
-    span: Span,
+    span: FutureSpanId,
 ) -> ShellError {
     if !input_is_error {
         return ShellError::EvalBlockWithInput {

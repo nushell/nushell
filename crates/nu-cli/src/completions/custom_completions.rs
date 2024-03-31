@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
+    FutureSpanId, PipelineData, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{collections::HashMap, sync::Arc};
@@ -37,7 +37,7 @@ impl Completer for CustomCompletion {
         &mut self,
         _: &StateWorkingSet,
         prefix: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         pos: usize,
         completion_options: &CompletionOptions,

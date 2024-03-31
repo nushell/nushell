@@ -97,7 +97,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 span: _,
             }) = result
             {
-                let rest_spans: Vec<Span> = rest.iter().map(|arg| arg.span).collect();
+                let rest_spans: Vec<FutureSpanId> = rest.iter().map(|arg| arg.span).collect();
                 Err(ShellError::NotFound {
                     span: span(&rest_spans),
                 })
@@ -202,7 +202,7 @@ pub fn highlight_search_string(
             return Err(ShellError::GenericError {
                 error: "Could not compile regex".into(),
                 msg: err.to_string(),
-                span: Some(Span::test_data()),
+                span: Some(FutureSpanId::test_data()),
                 help: None,
                 inner: vec![],
             });

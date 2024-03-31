@@ -28,7 +28,7 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
-    PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
+    FutureSpanId, PipelineData, RawStream, ShellError, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -278,7 +278,7 @@ fn main() -> Result<()> {
 
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
-        Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
+        Value::string(env!("CARGO_PKG_VERSION"), FutureSpanId::unknown()),
     );
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
@@ -378,7 +378,10 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
-    let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    let nu_const = create_nu_constant(
+        &engine_state,
+        input.span().unwrap_or_else(FutureSpanId::unknown),
+    )?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
     perf(
         "create_nu_constant",

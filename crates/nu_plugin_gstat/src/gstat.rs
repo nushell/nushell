@@ -1,5 +1,5 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
-use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value};
+use nu_protocol::{record, FutureSpanId, IntoSpanned, LabeledError, Spanned, Value};
 use std::{fmt::Write, ops::BitAnd, path::Path};
 
 // git status
@@ -25,7 +25,7 @@ impl GStat {
         value: &Value,
         current_dir: &str,
         path: Option<Spanned<String>>,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, LabeledError> {
         // use std::any::Any;
         // eprintln!("input type: {:?} value: {:#?}", &value.type_id(), &value);
@@ -141,7 +141,7 @@ impl GStat {
         ))
     }
 
-    fn create_empty_git_status(&self, span: Span) -> Value {
+    fn create_empty_git_status(&self, span: FutureSpanId) -> Value {
         Value::record(
             record! {
                 "idx_added_staged" => Value::int(-1, span),

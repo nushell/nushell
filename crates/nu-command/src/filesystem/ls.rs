@@ -526,7 +526,7 @@ pub(crate) fn dir_entry_dict(
     filename: &std::path::Path, // absolute path
     display_name: &str,         // file name to be displayed
     metadata: Option<&std::fs::Metadata>,
-    span: Span,
+    span: FutureSpanId,
     long: bool,
     du: bool,
     ctrl_c: Option<Arc<AtomicBool>>,
@@ -623,7 +623,7 @@ pub(crate) fn dir_entry_dict(
 
             if md.is_dir() {
                 if du {
-                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
+                    let params = DirBuilder::new(FutureSpanId::new(0, 2), None, false, None, false);
                     let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
 
                     Value::filesize(dir_size as i64, span)
@@ -752,7 +752,7 @@ mod windows_helper {
     pub fn dir_entry_dict_windows_fallback(
         filename: &Path,
         display_name: &str,
-        span: Span,
+        span: FutureSpanId,
         long: bool,
     ) -> Value {
         let mut record = Record::new();
@@ -848,7 +848,10 @@ mod windows_helper {
     }
 
     // wrapper around the FindFirstFileW Win32 API
-    fn find_first_file(filename: &Path, span: Span) -> Result<WIN32_FIND_DATAW, ShellError> {
+    fn find_first_file(
+        filename: &Path,
+        span: FutureSpanId,
+    ) -> Result<WIN32_FIND_DATAW, ShellError> {
         unsafe {
             let mut find_data = WIN32_FIND_DATAW::default();
             // The windows crate really needs a nicer way to do string conversions

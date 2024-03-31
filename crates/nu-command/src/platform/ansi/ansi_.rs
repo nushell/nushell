@@ -838,7 +838,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 
 fn generate_ansi_code_list(
     ctrlc: Option<Arc<AtomicBool>>,
-    call_span: Span,
+    call_span: FutureSpanId,
     use_ansi_coloring: bool,
 ) -> Result<PipelineData, ShellError> {
     return Ok(CODE_LIST

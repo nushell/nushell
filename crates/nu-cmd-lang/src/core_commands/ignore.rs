@@ -52,7 +52,7 @@ impl Command for Ignore {
         vec![Example {
             description: "Ignore the output of an echo command",
             example: "echo done | ignore",
-            result: Some(Value::nothing(Span::test_data())),
+            result: Some(Value::nothing(FutureSpanId::test_data())),
         }]
     }
 

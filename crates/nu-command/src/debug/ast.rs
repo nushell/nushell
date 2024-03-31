@@ -86,7 +86,7 @@ impl Command for Ast {
             let output_record = Value::record(
                 record! {
                     "block" => Value::string(block_json, *block_span),
-                    "error" => Value::string(error_json, Span::test_data()),
+                    "error" => Value::string(error_json, FutureSpanId::test_data()),
                 },
                 pipeline.span,
             );

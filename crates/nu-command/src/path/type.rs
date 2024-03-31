@@ -97,7 +97,7 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
+fn r#type(path: &Path, span: FutureSpanId, _: &Arguments) -> Value {
     let meta = if path.starts_with("~") {
         let p = expand_tilde(path);
         std::fs::symlink_metadata(p)

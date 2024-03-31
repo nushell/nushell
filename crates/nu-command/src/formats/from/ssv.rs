@@ -261,7 +261,7 @@ fn from_ssv_string_to_value(
     noheaders: bool,
     aligned_columns: bool,
     split_at: usize,
-    span: Span,
+    span: FutureSpanId,
 ) -> Value {
     let rows = string_to_table(s, noheaders, aligned_columns, split_at)
         .into_iter()

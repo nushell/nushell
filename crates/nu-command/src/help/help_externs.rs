@@ -135,7 +135,7 @@ pub fn help_externs(
     }
 }
 
-fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: FutureSpanId) -> Vec<Value> {
     let mut scope = ScopeData::new(engine_state, stack);
     scope.populate_decls();
     scope.collect_externs(span)

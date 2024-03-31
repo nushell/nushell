@@ -107,7 +107,7 @@ impl Command for Flatten {
                                 )
                         }),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             }
         ]

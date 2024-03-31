@@ -9,7 +9,7 @@
 //! use nu_plugin_test_support::PluginTest;
 //! use nu_protocol::{
 //!     Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signature,
-//!     Span, Type, Value,
+//!     FutureSpanId, Type, Value,
 //! };
 //!
 //! struct LowercasePlugin;
@@ -82,7 +82,7 @@
 //!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(None);
 //!     let output = PluginTest::new("lowercase", LowercasePlugin.into())?
 //!         .eval_with("lowercase", input)?
-//!         .into_value(Span::test_data());
+//!         .into_value(FutureSpanId::test_data());
 //!
 //!     assert_eq!(
 //!         Value::test_list(vec![

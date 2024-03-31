@@ -50,7 +50,7 @@ impl Command for SubCommand {
                         Value::test_string("l"),
                         Value::test_string("o"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -62,7 +62,7 @@ impl Command for SubCommand {
                         Value::test_string("ほ"),
                         Value::test_string("げ"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -114,7 +114,7 @@ fn split_chars(
     )
 }
 
-fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
+fn split_chars_helper(v: &Value, name: FutureSpanId, graphemes: bool) -> Value {
     let span = v.span();
     match v {
         Value::Error { error, .. } => Value::error(*error.clone(), span),

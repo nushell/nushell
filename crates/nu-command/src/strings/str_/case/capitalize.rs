@@ -98,7 +98,7 @@ fn operate(
     )
 }
 
-fn action(input: &Value, head: Span) -> Value {
+fn action(input: &Value, head: FutureSpanId) -> Value {
     match input {
         Value::String { val, .. } => Value::string(uppercase_helper(val), head),
         Value::Error { .. } => input.clone(),

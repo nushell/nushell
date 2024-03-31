@@ -196,7 +196,7 @@ fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value>>, 
 
 fn group_closure(
     values: Vec<Value>,
-    span: Span,
+    span: FutureSpanId,
     closure: Closure,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -216,7 +216,7 @@ fn group_closure(
     Ok(groups)
 }
 
-fn groups_to_record(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
+fn groups_to_record(groups: IndexMap<String, Vec<Value>>, span: FutureSpanId) -> Value {
     Value::record(
         groups
             .into_iter()
@@ -226,7 +226,7 @@ fn groups_to_record(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
     )
 }
 
-fn groups_to_table(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
+fn groups_to_table(groups: IndexMap<String, Vec<Value>>, span: FutureSpanId) -> Value {
     Value::list(
         groups
             .into_iter()

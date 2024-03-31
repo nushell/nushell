@@ -11,7 +11,7 @@ use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, Span, Value, VarId,
+    DeclId, FutureSpanId, Value, VarId,
 };
 use ropey::Rope;
 use std::{
@@ -178,7 +178,7 @@ impl LanguageServer {
         }
     }
 
-    fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
+    fn span_to_range(span: &FutureSpanId, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
         let line = rope_of_file.byte_to_line(span.start - offset);
         let character = span.start - offset - rope_of_file.line_to_char(line);
 
@@ -208,7 +208,7 @@ impl LanguageServer {
         path: &Path,
         file: &Rope,
         location: usize,
-    ) -> Option<(Id, usize, Span)> {
+    ) -> Option<(Id, usize, FutureSpanId)> {
         let file_path = path.to_string_lossy();
 
         // TODO: think about passing down the rope into the working_set

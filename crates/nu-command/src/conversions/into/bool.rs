@@ -110,7 +110,7 @@ fn into_bool(
     operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
+fn string_to_boolean(s: &str, span: FutureSpanId) -> Result<bool, ShellError> {
     match s.trim().to_ascii_lowercase().as_str() {
         "true" => Ok(true),
         "false" => Ok(false),
@@ -132,7 +132,7 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: FutureSpanId) -> Value {
     match input {
         Value::Bool { .. } => input.clone(),
         Value::Int { val, .. } => Value::bool(*val != 0, span),

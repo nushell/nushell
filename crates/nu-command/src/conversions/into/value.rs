@@ -90,7 +90,7 @@ struct UpdateCellIterator {
     input: PipelineIterator,
     columns: Option<HashSet<String>>,
     display_as_filesizes: bool,
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl Iterator for UpdateCellIterator {
@@ -136,7 +136,11 @@ impl Iterator for UpdateCellIterator {
 
 // This function will check each cell to see if it matches a regular expression
 // for a particular datatype. If it does, it will convert the cell to that datatype.
-fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Value, ShellError> {
+fn process_cell(
+    val: Value,
+    display_as_filesizes: bool,
+    span: FutureSpanId,
+) -> Result<Value, ShellError> {
     // step 1: convert value to string
     let val_str = val.coerce_str().unwrap_or_default();
 

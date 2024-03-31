@@ -1,6 +1,6 @@
 use crate::{string_width, string_wrap, TableTheme};
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Span, Value};
+use nu_protocol::{Config, FutureSpanId, Record, Value};
 use tabled::{
     grid::{
         color::{AnsiColor, StaticColor},
@@ -64,7 +64,7 @@ fn build_table(
     ));
 
     // color_config closures for "separator" are just given a null.
-    let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
+    let color = style_computer.compute("separator", &Value::nothing(FutureSpanId::unknown()));
     let color = color.paint(" ").to_string();
     if let Ok(color) = Color::try_from(color) {
         // # SAFETY

@@ -1,6 +1,6 @@
 use crate::{cool_custom_value::CoolCustomValue, CustomValuePlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Signature, Span, Value};
+use nu_protocol::{Category, Example, FutureSpanId, LabeledError, Signature, Value};
 
 pub struct Generate;
 
@@ -23,7 +23,7 @@ impl SimplePluginCommand for Generate {
         vec![Example {
             example: "custom-value generate",
             description: "Generate a new CoolCustomValue",
-            result: Some(CoolCustomValue::new("abc").into_value(Span::test_data())),
+            result: Some(CoolCustomValue::new("abc").into_value(FutureSpanId::test_data())),
         }]
     }
 

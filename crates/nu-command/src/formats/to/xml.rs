@@ -131,7 +131,7 @@ impl Job {
         }
     }
 
-    fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    fn run(mut self, input: PipelineData, head: FutureSpanId) -> Result<PipelineData, ShellError> {
         let value = input.into_value(head);
 
         self.write_xml_entry(value, true).and_then(|_| {
@@ -221,15 +221,15 @@ impl Job {
             let tag = record
                 .get(COLUMN_TAG_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(FutureSpanId::unknown()));
             let attrs = record
                 .get(COLUMN_ATTRS_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(FutureSpanId::unknown()));
             let content = record
                 .get(COLUMN_CONTENT_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(FutureSpanId::unknown()));
 
             let content_span = content.span();
             let tag_span = tag.span();
@@ -276,9 +276,9 @@ impl Job {
     /// Convert record to tag-like entry: tag, PI, comment.
     fn write_tag_like(
         &mut self,
-        entry_span: Span,
+        entry_span: FutureSpanId,
         tag: String,
-        tag_span: Span,
+        tag_span: FutureSpanId,
         attrs: Value,
         content: Value,
         top_level: bool,
@@ -356,7 +356,7 @@ impl Job {
 
     fn write_comment(
         &mut self,
-        entry_span: Span,
+        entry_span: FutureSpanId,
         attrs: Value,
         content: Value,
     ) -> Result<(), ShellError> {
@@ -385,7 +385,7 @@ impl Job {
 
     fn write_processing_instruction(
         &mut self,
-        entry_span: Span,
+        entry_span: FutureSpanId,
         tag: &str,
         attrs: Value,
         content: String,
@@ -416,9 +416,9 @@ impl Job {
 
     fn write_tag(
         &mut self,
-        entry_span: Span,
+        entry_span: FutureSpanId,
         tag: String,
-        tag_span: Span,
+        tag_span: FutureSpanId,
         attrs: Record,
         children: Vec<Value>,
     ) -> Result<(), ShellError> {
@@ -488,7 +488,7 @@ impl Job {
         Ok(h)
     }
 
-    fn write_xml_text(&mut self, val: &str, span: Span) -> Result<(), ShellError> {
+    fn write_xml_text(&mut self, val: &str, span: FutureSpanId) -> Result<(), ShellError> {
         let text = Event::Text(if self.partial_escape {
             BytesText::from_escaped(escape::partial_escape(val))
         } else {

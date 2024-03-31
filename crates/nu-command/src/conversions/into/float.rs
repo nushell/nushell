@@ -83,7 +83,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, head: FutureSpanId) -> Value {
     let span = input.span();
     match input {
         Value::Float { .. } => input.clone(),
@@ -143,7 +143,11 @@ mod tests {
         let word = Value::test_string("3.1415");
         let expected = Value::test_float(3.1415);
 
-        let actual = action(&word, &CellPathOnlyArgs::from(vec![]), Span::test_data());
+        let actual = action(
+            &word,
+            &CellPathOnlyArgs::from(vec![]),
+            FutureSpanId::test_data(),
+        );
         assert_eq!(actual, expected);
     }
 
@@ -154,7 +158,7 @@ mod tests {
         let actual = action(
             &invalid_str,
             &CellPathOnlyArgs::from(vec![]),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual.get_type(), Error);
@@ -167,7 +171,7 @@ mod tests {
         let actual = action(
             &input_int,
             &CellPathOnlyArgs::from(vec![]),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected);

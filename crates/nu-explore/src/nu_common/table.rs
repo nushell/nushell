@@ -1,6 +1,6 @@
 use crate::nu_common::NuConfig;
 use nu_color_config::StyleComputer;
-use nu_protocol::{Record, Span, Value};
+use nu_protocol::{FutureSpanId, Record, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
@@ -26,7 +26,7 @@ pub fn try_build_table(
 
 fn try_build_map(
     record: &Record,
-    span: Span,
+    span: FutureSpanId,
     style_computer: &StyleComputer,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &NuConfig,
@@ -35,7 +35,7 @@ fn try_build_map(
         config,
         style_computer,
         ctrlc,
-        Span::unknown(),
+        FutureSpanId::unknown(),
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
         config.table_mode,
@@ -55,14 +55,14 @@ fn try_build_list(
     vals: Vec<Value>,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &NuConfig,
-    span: Span,
+    span: FutureSpanId,
     style_computer: &StyleComputer,
 ) -> String {
     let opts = TableOpts::new(
         config,
         style_computer,
         ctrlc,
-        Span::unknown(),
+        FutureSpanId::unknown(),
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
         config.table_mode,

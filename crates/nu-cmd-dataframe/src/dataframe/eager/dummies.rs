@@ -38,10 +38,10 @@ impl Command for Dummies {
                             Series::new("b_2", &[1_u8, 0]),
                             Series::new("b_4", &[0_u8, 1]),
                         ],
-                        Span::test_data(),
+                        FutureSpanId::test_data(),
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -54,10 +54,10 @@ impl Command for Dummies {
                             Series::new("0_2", &[0_u8, 1, 1, 0, 0]),
                             Series::new("0_3", &[0_u8, 0, 0, 1, 1]),
                         ],
-                        Span::test_data(),
+                        FutureSpanId::test_data(),
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
         ]

@@ -62,7 +62,7 @@ fn fmt(
     operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: FutureSpanId) -> Value {
     match input {
         Value::Float { val, .. } => fmt_it_64(*val, span),
         Value::Int { val, .. } => fmt_it(*val, span),
@@ -81,7 +81,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     }
 }
 
-fn fmt_it(num: i64, span: Span) -> Value {
+fn fmt_it(num: i64, span: FutureSpanId) -> Value {
     Value::record(
         record! {
             "binary" => Value::string(format!("{num:#b}"), span),
@@ -97,7 +97,7 @@ fn fmt_it(num: i64, span: Span) -> Value {
     )
 }
 
-fn fmt_it_64(num: f64, span: Span) -> Value {
+fn fmt_it_64(num: f64, span: FutureSpanId) -> Value {
     Value::record(
         record! {
             "binary" => Value::string(format!("{:b}", num.to_bits()), span),

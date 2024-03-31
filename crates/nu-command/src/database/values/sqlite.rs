@@ -2,7 +2,7 @@ use super::definitions::{
     db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
-use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, FutureSpanId, PipelineData, Record, ShellError, Spanned, Value};
 use rusqlite::{
     types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
     ToSql,
@@ -40,7 +40,7 @@ impl SQLiteDatabase {
 
     pub fn try_from_path(
         path: &Path,
-        span: Span,
+        span: FutureSpanId,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<Self, ShellError> {
         let mut file = File::open(path).map_err(|e| ShellError::ReadingFile {
@@ -90,12 +90,12 @@ impl SQLiteDatabase {
         }
     }
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_pipeline(input: PipelineData, span: FutureSpanId) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         let db = Box::new(self);
         Value::custom(db, span)
     }
@@ -104,7 +104,7 @@ impl SQLiteDatabase {
         &self,
         sql: &Spanned<String>,
         params: NuSqlParams,
-        call_span: Span,
+        call_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let conn = open_sqlite_db(&self.path, call_span)?;
 
@@ -351,7 +351,7 @@ impl SQLiteDatabase {
 }
 
 impl CustomValue for SQLiteDatabase {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         let cloned = SQLiteDatabase {
             path: self.path.clone(),
             ctrlc: self.ctrlc.clone(),
@@ -364,7 +364,7 @@ impl CustomValue for SQLiteDatabase {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, span)?;
         read_entire_sqlite_db(db, span, self.ctrlc.clone()).map_err(|e| ShellError::GenericError {
             error: "Failed to read from SQLite database".into(),
@@ -385,9 +385,9 @@ impl CustomValue for SQLiteDatabase {
 
     fn follow_path_int(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         _index: usize,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // In theory we could support this, but tables don't have an especially well-defined order
         Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span: path_span })
@@ -395,9 +395,9 @@ impl CustomValue for SQLiteDatabase {
 
     fn follow_path_string(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         _column_name: String,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, path_span)?;
 
@@ -421,7 +421,7 @@ impl CustomValue for SQLiteDatabase {
     }
 }
 
-pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellError> {
+pub fn open_sqlite_db(path: &Path, call_span: FutureSpanId) -> Result<Connection, ShellError> {
     if path.to_string_lossy() == MEMORY_DB {
         open_connection_in_memory_custom()
     } else {
@@ -468,7 +468,7 @@ pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError
                 exp_input_type:
                     "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
                 wrong_type: val.get_type().to_string(),
-                dst_span: Span::unknown(),
+                dst_span: FutureSpanId::unknown(),
                 src_span: val.span(),
             })
         }
@@ -537,7 +537,7 @@ pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
 fn read_single_table(
     conn: Connection,
     table_name: String,
-    call_span: Span,
+    call_span: FutureSpanId,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Value, SqliteError> {
     // TODO: Should use params here?
@@ -548,7 +548,7 @@ fn read_single_table(
 fn prepared_statement_to_nu_list(
     mut stmt: Statement,
     params: NuSqlParams,
-    call_span: Span,
+    call_span: FutureSpanId,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Value, SqliteError> {
     let column_names = stmt
@@ -625,7 +625,7 @@ fn prepared_statement_to_nu_list(
 
 fn read_entire_sqlite_db(
     conn: Connection,
-    call_span: Span,
+    call_span: FutureSpanId,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Value, SqliteError> {
     let mut tables = Record::new();
@@ -650,7 +650,11 @@ fn read_entire_sqlite_db(
     Ok(Value::record(tables, call_span))
 }
 
-pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: &[String]) -> Value {
+pub fn convert_sqlite_row_to_nu_value(
+    row: &Row,
+    span: FutureSpanId,
+    column_names: &[String],
+) -> Value {
     let record = column_names
         .iter()
         .enumerate()
@@ -665,7 +669,7 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: &[Str
     Value::record(record, span)
 }
 
-pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
+pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: FutureSpanId) -> Value {
     match value {
         ValueRef::Null => Value::nothing(span),
         ValueRef::Integer(i) => Value::int(i, span),
@@ -686,7 +690,7 @@ pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
         error: "Failed to open SQLite custom connection in memory".into(),
         msg: e.to_string(),
-        span: Some(Span::test_data()),
+        span: Some(FutureSpanId::test_data()),
         help: None,
         inner: vec![],
     })
@@ -696,7 +700,7 @@ pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
     Connection::open_in_memory().map_err(|e| ShellError::GenericError {
         error: "Failed to open SQLite standard connection in memory".into(),
         msg: e.to_string(),
-        span: Some(Span::test_data()),
+        span: Some(FutureSpanId::test_data()),
         help: None,
         inner: vec![],
     })
@@ -710,7 +714,7 @@ mod test {
     #[test]
     fn can_read_empty_db() {
         let db = open_connection_in_memory().unwrap();
-        let converted_db = read_entire_sqlite_db(db, Span::test_data(), None).unwrap();
+        let converted_db = read_entire_sqlite_db(db, FutureSpanId::test_data(), None).unwrap();
 
         let expected = Value::test_record(Record::new());
 
@@ -730,7 +734,7 @@ mod test {
             [],
         )
         .unwrap();
-        let converted_db = read_entire_sqlite_db(db, Span::test_data(), None).unwrap();
+        let converted_db = read_entire_sqlite_db(db, FutureSpanId::test_data(), None).unwrap();
 
         let expected = Value::test_record(record! {
             "person" => Value::test_list(vec![]),
@@ -741,7 +745,7 @@ mod test {
 
     #[test]
     fn can_read_null_and_non_null_data() {
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         let db = open_connection_in_memory().unwrap();
 
         db.execute(

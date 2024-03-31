@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 use indexmap::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, FutureSpanId, Value};
 use polars::{
     chunked_array::ops::SortMultipleOptions,
     prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series},
@@ -56,7 +56,7 @@ impl Display for DataFrameValue {
 
 impl Default for DataFrameValue {
     fn default() -> Self {
-        Self(Value::nothing(Span::unknown()))
+        Self(Value::nothing(FutureSpanId::unknown()))
     }
 }
 
@@ -127,16 +127,16 @@ impl NuDataFrame {
         self.df.clone().lazy()
     }
 
-    fn default_value(span: Span) -> Value {
+    fn default_value(span: FutureSpanId) -> Value {
         let dataframe = DataFrame::default();
         NuDataFrame::dataframe_into_value(dataframe, span)
     }
 
-    pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
+    pub fn dataframe_into_value(dataframe: DataFrame, span: FutureSpanId) -> Value {
         Value::custom(Box::new(Self::new(false, dataframe)), span)
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
             Value::custom(Box::new(lazy), span)
@@ -145,7 +145,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn series_to_value(series: Series, span: Span) -> Result<Value, ShellError> {
+    pub fn series_to_value(series: Series, span: FutureSpanId) -> Result<Value, ShellError> {
         match DataFrame::new(vec![series]) {
             Ok(dataframe) => Ok(NuDataFrame::dataframe_into_value(dataframe, span)),
             Err(e) => Err(ShellError::GenericError {
@@ -192,10 +192,10 @@ impl NuDataFrame {
         }
 
         let df = conversion::from_parsed_columns(column_values)?;
-        add_missing_columns(df, &maybe_schema, Span::unknown())
+        add_missing_columns(df, &maybe_schema, FutureSpanId::unknown())
     }
 
-    pub fn try_from_series(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_series(columns: Vec<Series>, span: FutureSpanId) -> Result<Self, ShellError> {
         let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
             msg: format!("Unable to create DataFrame: {e}"),
@@ -221,10 +221,10 @@ impl NuDataFrame {
         }
 
         let df = conversion::from_parsed_columns(column_values)?;
-        add_missing_columns(df, &maybe_schema, Span::unknown())
+        add_missing_columns(df, &maybe_schema, FutureSpanId::unknown())
     }
 
-    pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
+    pub fn fill_list_nan(list: Vec<Value>, list_span: FutureSpanId, fill: Value) -> Value {
         let newlist = list
             .into_iter()
             .map(|value| {
@@ -245,7 +245,7 @@ impl NuDataFrame {
         Value::list(newlist, list_span)
     }
 
-    pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
+    pub fn columns(&self, span: FutureSpanId) -> Result<Vec<Column>, ShellError> {
         let height = self.df.height();
         self.df
             .get_columns()
@@ -296,7 +296,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_pipeline(input: PipelineData, span: FutureSpanId) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(value)
     }
@@ -309,7 +309,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {
+    pub fn column(&self, column: &str, span: FutureSpanId) -> Result<Self, ShellError> {
         let s = self.df.column(column).map_err(|_| {
             let possibilities = self
                 .df
@@ -343,7 +343,7 @@ impl NuDataFrame {
         self.df.width() == 1
     }
 
-    pub fn as_series(&self, span: Span) -> Result<Series, ShellError> {
+    pub fn as_series(&self, span: FutureSpanId) -> Result<Series, ShellError> {
         if !self.is_series() {
             return Err(ShellError::GenericError {
                 error: "Error using as series".into(),
@@ -363,7 +363,7 @@ impl NuDataFrame {
         Ok(series.clone())
     }
 
-    pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
+    pub fn get_value(&self, row: usize, span: FutureSpanId) -> Result<Value, ShellError> {
         let series = self.as_series(span)?;
         let column = conversion::create_column(&series, row, row + 1, span)?;
 
@@ -379,7 +379,7 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, span: FutureSpanId) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let size: usize = 20;
 
@@ -402,14 +402,14 @@ impl NuDataFrame {
         self.df.height()
     }
 
-    pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn head(&self, rows: Option<usize>, span: FutureSpanId) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
         let values = self.to_rows(0, to_row, span)?;
 
         Ok(values)
     }
 
-    pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn tail(&self, rows: Option<usize>, span: FutureSpanId) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
@@ -424,7 +424,7 @@ impl NuDataFrame {
         &self,
         from_row: usize,
         to_row: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let upper_row = to_row.min(df.height());
@@ -541,7 +541,7 @@ impl NuDataFrame {
 fn add_missing_columns(
     df: NuDataFrame,
     maybe_schema: &Option<NuSchema>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError> {
     // If there are fields that are in the schema, but not in the dataframe
     // add them to the dataframe.

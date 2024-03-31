@@ -73,7 +73,7 @@ fn to_csv(
     input: PipelineData,
     noheaders: bool,
     separator: Option<Spanned<String>>,
-    head: Span,
+    head: FutureSpanId,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
     let sep = match separator {

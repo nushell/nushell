@@ -1,13 +1,15 @@
 use csv::{Writer, WriterBuilder};
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
-use nu_protocol::{Config, IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{
+    Config, FutureSpanId, IntoPipelineData, PipelineData, Record, ShellError, Value,
+};
 use std::{collections::VecDeque, error::Error};
 
 fn from_value_to_delimited_string(
     value: &Value,
     separator: char,
     config: &Config,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<String, ShellError> {
     let span = value.span();
     match value {
@@ -21,10 +23,10 @@ fn from_value_to_delimited_string(
 
 fn record_to_delimited(
     record: &Record,
-    span: Span,
+    span: FutureSpanId,
     separator: char,
     config: &Config,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<String, ShellError> {
     let mut wtr = WriterBuilder::new()
         .delimiter(separator as u8)
@@ -46,10 +48,10 @@ fn record_to_delimited(
 
 fn table_to_delimited(
     vals: &[Value],
-    span: Span,
+    span: FutureSpanId,
     separator: char,
     config: &Config,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<String, ShellError> {
     if let Some(val) = find_non_record(vals) {
         return Err(make_unsupported_input_error(val, head, span));
@@ -94,7 +96,7 @@ fn writer_to_string(writer: Writer<Vec<u8>>) -> Result<String, Box<dyn Error>> {
     Ok(String::from_utf8(writer.into_inner()?)?)
 }
 
-fn make_conversion_error(type_from: &str, span: Span) -> ShellError {
+fn make_conversion_error(type_from: &str, span: FutureSpanId) -> ShellError {
     ShellError::CantConvert {
         to_type: type_from.to_string(),
         from_type: "string".to_string(),
@@ -106,8 +108,8 @@ fn make_conversion_error(type_from: &str, span: Span) -> ShellError {
 fn to_string_tagged_value(
     v: &Value,
     config: &Config,
-    span: Span,
-    head: Span,
+    span: FutureSpanId,
+    head: FutureSpanId,
 ) -> Result<String, ShellError> {
     match &v {
         Value::String { .. }
@@ -127,7 +129,11 @@ fn to_string_tagged_value(
     }
 }
 
-fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellError {
+fn make_unsupported_input_error(
+    value: &Value,
+    head: FutureSpanId,
+    span: FutureSpanId,
+) -> ShellError {
     ShellError::UnsupportedInput {
         msg: "Unexpected type".to_string(),
         input: format!("input type: {:?}", value.get_type()),
@@ -147,7 +153,7 @@ pub fn to_delimited_data(
     sep: char,
     format_name: &'static str,
     input: PipelineData,
-    span: Span,
+    span: FutureSpanId,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
     let value = input.into_value(span);

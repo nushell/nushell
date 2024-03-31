@@ -73,12 +73,12 @@ impl Command for SubCommand {
                 description: "Encode multiple urls with escape characters in list",
                 example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | url encode",
                 result: Some(Value::list(
-                     vec![
+                    vec![
                         Value::test_string("https://example.com/foo%20bar"),
                         Value::test_string("https://example.com/a%3Eb"),
                         Value::test_string("%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034"),
                     ],
-                     Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -90,7 +90,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: FutureSpanId) -> Value {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = NON_ALPHANUMERIC;
@@ -109,7 +109,7 @@ fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, _arg: &CellPathOnlyArgs, head: FutureSpanId) -> Value {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');

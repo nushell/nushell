@@ -45,7 +45,7 @@ impl Command for SubCommand {
                         Value::test_string("4"),
                         Value::test_string("5")
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -57,7 +57,7 @@ impl Command for SubCommand {
                         Value::test_string("AB,"),
                         Value::test_string("AC"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -69,7 +69,7 @@ impl Command for SubCommand {
                         Value::test_string("Welcome, home!"),
                         Value::test_string("Welcome, mon ami!"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -81,7 +81,7 @@ impl Command for SubCommand {
                         Value::test_string("AB\\"),
                         Value::test_string("AC"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -94,7 +94,7 @@ impl Command for SubCommand {
                         Value::test_string("banana"),
                         Value::test_string("cherry")
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -106,7 +106,7 @@ impl Command for SubCommand {
                         Value::test_string("C:\\Users"),
                         Value::test_string("C:\\Windows"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -120,7 +120,7 @@ impl Command for SubCommand {
                         Value::test_string("AcDeG"),
                         Value::test_string("AcDfG"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -133,7 +133,7 @@ impl Command for SubCommand {
                         Value::test_string("AB"),
                         Value::test_string("AC"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -146,7 +146,7 @@ impl Command for SubCommand {
                         Value::test_string("AC"),
                         Value::test_string("A"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -159,7 +159,7 @@ impl Command for SubCommand {
                         Value::test_string("A"),
                         Value::test_string("AC"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             },
 
@@ -173,7 +173,7 @@ impl Command for SubCommand {
                         Value::test_string("AC2D"),
                         Value::test_string("AC5D"),
                     ],
-                    Span::test_data()
+                    FutureSpanId::test_data()
                 )),
             }
         ]
@@ -214,7 +214,7 @@ impl Command for SubCommand {
     }
 }
 
-fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
+fn str_expand(contents: &str, span: FutureSpanId, value_span: FutureSpanId) -> Value {
     use bracoxide::{
         expand,
         parser::{parse, ParsingError},
@@ -287,33 +287,45 @@ mod tests {
     #[test]
     fn dots() {
         assert_eq!(
-            str_expand("{a.b.c,d}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{a.b.c,d}",
+                FutureSpanId::test_data(),
+                FutureSpanId::test_data()
+            ),
             Value::list(
                 vec![
-                    Value::string(String::from("a.b.c"), Span::test_data(),),
-                    Value::string(String::from("d"), Span::test_data(),)
+                    Value::string(String::from("a.b.c"), FutureSpanId::test_data(),),
+                    Value::string(String::from("d"), FutureSpanId::test_data(),)
                 ],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )
         );
         assert_eq!(
-            str_expand("{1.2.3,a}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{1.2.3,a}",
+                FutureSpanId::test_data(),
+                FutureSpanId::test_data()
+            ),
             Value::list(
                 vec![
-                    Value::string(String::from("1.2.3"), Span::test_data(),),
-                    Value::string(String::from("a"), Span::test_data(),)
+                    Value::string(String::from("1.2.3"), FutureSpanId::test_data(),),
+                    Value::string(String::from("a"), FutureSpanId::test_data(),)
                 ],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )
         );
         assert_eq!(
-            str_expand("{a-1.2,b}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{a-1.2,b}",
+                FutureSpanId::test_data(),
+                FutureSpanId::test_data()
+            ),
             Value::list(
                 vec![
-                    Value::string(String::from("a-1.2"), Span::test_data(),),
-                    Value::string(String::from("b"), Span::test_data(),)
+                    Value::string(String::from("a-1.2"), FutureSpanId::test_data(),),
+                    Value::string(String::from("b"), FutureSpanId::test_data(),)
                 ],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )
         );
     }

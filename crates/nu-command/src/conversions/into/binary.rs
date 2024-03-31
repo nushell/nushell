@@ -71,7 +71,7 @@ impl Command for SubCommand {
                         .to_string()
                         .as_bytes()
                         .to_vec(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -79,7 +79,7 @@ impl Command for SubCommand {
                 example: "1 | into binary",
                 result: Some(Value::binary(
                     i64::from(1).to_ne_bytes().to_vec(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -87,7 +87,7 @@ impl Command for SubCommand {
                 example: "true | into binary",
                 result: Some(Value::binary(
                     i64::from(1).to_ne_bytes().to_vec(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -105,13 +105,13 @@ impl Command for SubCommand {
                 example: "1.234 | into binary",
                 result: Some(Value::binary(
                     1.234f64.to_ne_bytes().to_vec(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "convert an int to a nushell binary primitive with compact enabled",
                 example: "10 | into binary --compact",
-                result: Some(Value::binary(vec![10], Span::test_data())),
+                result: Some(Value::binary(vec![10], FutureSpanId::test_data())),
             },
         ]
     }
@@ -149,7 +149,7 @@ fn into_binary(
     }
 }
 
-pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+pub fn action(input: &Value, _args: &Arguments, span: FutureSpanId) -> Value {
     let value = match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),
@@ -227,7 +227,7 @@ mod test {
                 cell_paths: None,
                 compact: true,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         if cfg!(target_endian = "little") {
             assert_eq!(actual, Value::test_binary(little));

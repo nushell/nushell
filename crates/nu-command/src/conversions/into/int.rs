@@ -193,7 +193,7 @@ impl Command for SubCommand {
                 example: "[false, true] | into int",
                 result: Some(Value::list(
                     vec![Value::test_int(0), Value::test_int(1)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -240,7 +240,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let radix = args.radix;
     let signed = args.signed;
     let little_endian = args.little_endian;
@@ -376,7 +376,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
+fn convert_int(input: &Value, head: FutureSpanId, radix: u32) -> Value {
     let i = match input {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
@@ -437,7 +437,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     }
 }
 
-fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
+fn int_from_string(a_string: &str, span: FutureSpanId) -> Result<i64, ShellError> {
     // Get the Locale so we know what the thousands separator is
     let locale = get_system_locale();
 
@@ -537,7 +537,7 @@ mod test {
                 signed: false,
                 little_endian: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
@@ -553,7 +553,7 @@ mod test {
                 signed: false,
                 little_endian: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, Value::test_int(5));
     }
@@ -569,7 +569,7 @@ mod test {
                 signed: false,
                 little_endian: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, Value::test_int(255));
     }
@@ -586,7 +586,7 @@ mod test {
                 signed: false,
                 little_endian: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual.get_type(), Error)
@@ -609,7 +609,7 @@ mod test {
                 signed: false,
                 little_endian: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         // ignore fractional seconds -- I don't want to hard code test values that might vary due to leap nanoseconds.
         let exp_truncated = (int_expected / 1_000_000_000) * 1_000_000_000;
@@ -632,7 +632,7 @@ mod test {
                 signed: false,
                 little_endian: false,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         if let Value::Error { error, .. } = actual {
             if let ShellError::IncorrectValue { msg: e, .. } = *error {

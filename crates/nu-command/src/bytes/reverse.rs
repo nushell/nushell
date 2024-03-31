@@ -52,19 +52,22 @@ impl Command for BytesReverse {
                 example: "0x[1F FF AA AA] | bytes reverse",
                 result: Some(Value::binary(
                     vec![0xAA, 0xAA, 0xFF, 0x1F],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "Reverse bytes `0x[FF AA AA]`",
                 example: "0x[FF AA AA] | bytes reverse",
-                result: Some(Value::binary(vec![0xAA, 0xAA, 0xFF], Span::test_data())),
+                result: Some(Value::binary(
+                    vec![0xAA, 0xAA, 0xFF],
+                    FutureSpanId::test_data(),
+                )),
             },
         ]
     }
 }
 
-fn reverse(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn reverse(val: &Value, _args: &CellPathOnlyArgs, span: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::Binary { val, .. } => {

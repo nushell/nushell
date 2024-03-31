@@ -116,7 +116,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: FutureSpanId) -> Value {
     let value_span = input.span();
     match input {
         Value::Filesize { .. } => input.clone(),
@@ -138,7 +138,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         ),
     }
 }
-fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
+fn int_from_string(a_string: &str, span: FutureSpanId) -> Result<i64, ShellError> {
     // Get the Locale so we know what the thousands separator is
     let locale = get_system_locale();
 

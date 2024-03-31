@@ -56,7 +56,7 @@ impl Command for SubCommand {
                 example: "'file:///file.txt' | ansi link --text 'Open Me!'",
                 result: Some(Value::string(
                     "\u{1b}]8;;file:///file.txt\u{1b}\\Open Me!\u{1b}]8;;\u{1b}\\",
-                    Span::unknown(),
+                    FutureSpanId::unknown(),
                 )),
             },
             Example {
@@ -64,7 +64,7 @@ impl Command for SubCommand {
                 example: "'https://www.nushell.sh/' | ansi link",
                 result: Some(Value::string(
                     "\u{1b}]8;;https://www.nushell.sh/\u{1b}\\https://www.nushell.sh/\u{1b}]8;;\u{1b}\\",
-                    Span::unknown(),
+                    FutureSpanId::unknown(),
                 )),
             },
             Example {
@@ -105,7 +105,7 @@ fn process_each_path(
     mut value: Value,
     column_paths: &[CellPath],
     text: Option<&str>,
-    command_span: Span,
+    command_span: FutureSpanId,
 ) -> Value {
     for path in column_paths {
         let ret = value.update_cell_path(&path.members, Box::new(|v| process_value(v, text)));

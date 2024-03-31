@@ -53,13 +53,13 @@ impl Command for SubCommand {
             example: "[1.5 2.3 -3.1] | math floor",
             result: Some(Value::list(
                 vec![Value::test_int(1), Value::test_int(2), Value::test_int(-4)],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }
 }
 
-fn operate(value: Value, head: Span) -> Value {
+fn operate(value: Value, head: FutureSpanId) -> Value {
     let span = value.span();
     match value {
         Value::Int { .. } => value,

@@ -2,7 +2,7 @@ use crate::{
     cool_custom_value::CoolCustomValue, second_custom_value::SecondCustomValue, CustomValuePlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, FutureSpanId, LabeledError, ShellError, Signature, Value};
 
 pub struct Update;
 
@@ -26,12 +26,14 @@ impl SimplePluginCommand for Update {
             Example {
                 example: "custom-value generate | custom-value update",
                 description: "Update a CoolCustomValue",
-                result: Some(CoolCustomValue::new("abcxyz").into_value(Span::test_data())),
+                result: Some(CoolCustomValue::new("abcxyz").into_value(FutureSpanId::test_data())),
             },
             Example {
                 example: "custom-value generate2 | custom-value update",
                 description: "Update a SecondCustomValue",
-                result: Some(SecondCustomValue::new("xyzabc").into_value(Span::test_data())),
+                result: Some(
+                    SecondCustomValue::new("xyzabc").into_value(FutureSpanId::test_data()),
+                ),
             },
         ]
     }

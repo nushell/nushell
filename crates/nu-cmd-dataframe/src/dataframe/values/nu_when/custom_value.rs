@@ -1,5 +1,5 @@
 use super::NuWhen;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, FutureSpanId, ShellError, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuWhen {
@@ -11,7 +11,7 @@ impl CustomValue for NuWhen {
         unimplemented!("typetag_deserialize")
     }
 
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         let cloned = self.clone();
 
         Value::custom(Box::new(cloned), span)
@@ -21,7 +21,7 @@ impl CustomValue for NuWhen {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         let val: String = match self {
             NuWhen::Then(_) => "whenthen".into(),
             NuWhen::ChainedThen(_) => "whenthenthen".into(),

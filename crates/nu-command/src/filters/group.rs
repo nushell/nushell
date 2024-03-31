@@ -30,18 +30,18 @@ impl Command for Group {
         let stream_test_1 = vec![
             Value::list(
                 vec![Value::test_int(1), Value::test_int(2)],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ),
             Value::list(
                 vec![Value::test_int(3), Value::test_int(4)],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ),
         ];
 
         vec![Example {
             example: "[1 2 3 4] | group 2",
             description: "Group the a list by pairs",
-            result: Some(Value::list(stream_test_1, Span::test_data())),
+            result: Some(Value::list(stream_test_1, FutureSpanId::test_data())),
         }]
     }
 
@@ -71,7 +71,7 @@ impl Command for Group {
 struct EachGroupIterator {
     group_size: usize,
     input: Box<dyn Iterator<Item = Value> + Send>,
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl Iterator for EachGroupIterator {

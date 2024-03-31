@@ -10,7 +10,7 @@ use crate::{
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Span, Value};
+use nu_protocol::{Config, FutureSpanId, Record, ShellError, Value};
 use std::{cmp::max, collections::HashMap};
 use tabled::grid::config::Position;
 
@@ -536,7 +536,7 @@ fn value_list_to_string(
     (buf, TextStyle::default())
 }
 
-fn dive_options<'b>(cfg: &Cfg<'b>, span: Span) -> Cfg<'b> {
+fn dive_options<'b>(cfg: &Cfg<'b>, span: FutureSpanId) -> Cfg<'b> {
     let mut cfg = cfg.clone();
     cfg.opts.span = span;
     if let Some(deep) = cfg.format.expand_limit.as_mut() {

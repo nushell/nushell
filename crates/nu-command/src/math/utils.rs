@@ -1,11 +1,11 @@
 use core::slice;
 use indexmap::IndexMap;
-use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{ast::Call, FutureSpanId, IntoPipelineData, PipelineData, ShellError, Value};
 
 pub fn run_with_function(
     call: &Call,
     input: PipelineData,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    mf: impl Fn(&[Value], FutureSpanId, FutureSpanId) -> Result<Value, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let res = calculate(input, name, mf);
@@ -17,9 +17,9 @@ pub fn run_with_function(
 
 fn helper_for_tables(
     values: &[Value],
-    val_span: Span,
-    name: Span,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    val_span: FutureSpanId,
+    name: FutureSpanId,
+    mf: impl Fn(&[Value], FutureSpanId, FutureSpanId) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     // If we are not dealing with Primitives, then perhaps we are dealing with a table
     // Create a key for each column name
@@ -62,8 +62,8 @@ fn helper_for_tables(
 
 pub fn calculate(
     values: PipelineData,
-    name: Span,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    name: FutureSpanId,
+    mf: impl Fn(&[Value], FutureSpanId, FutureSpanId) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     // TODO implement spans for ListStream, thus negating the need for unwrap_or().
     let span = values.span().unwrap_or(name);

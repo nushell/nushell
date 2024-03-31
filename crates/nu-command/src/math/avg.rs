@@ -72,7 +72,11 @@ impl Command for SubCommand {
     }
 }
 
-pub fn average(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn average(
+    values: &[Value],
+    span: FutureSpanId,
+    head: FutureSpanId,
+) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
     let total = &sum(Value::int(0, head), values.to_vec(), span, head)?;
     let span = total.span();

@@ -6,7 +6,7 @@ use nu_protocol::{
     cli_error::{report_error, report_error_new},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+    PipelineData, PositionalArg, ShellError, FutureSpanId, Type, Value, VarId,
 };
 use std::sync::Arc;
 
@@ -296,7 +296,7 @@ fn run_hook(
     closure: &Closure,
     optional_input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let block = engine_state.get_block(closure.block_id);
 

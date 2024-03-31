@@ -9,7 +9,7 @@ pub use stream::*;
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, Range, ShellError, Span, Value,
+    format_error, Config, Range, ShellError, FutureSpanId, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -57,7 +57,7 @@ pub enum PipelineData {
         stdout: Option<RawStream>,
         stderr: Option<RawStream>,
         exit_code: Option<ListStream>,
-        span: Span,
+        span: FutureSpanId,
         metadata: Option<PipelineMetadata>,
         trim_end_newline: bool,
     },
@@ -65,7 +65,10 @@ pub enum PipelineData {
 }
 
 impl PipelineData {
-    pub fn new_with_metadata(metadata: Option<PipelineMetadata>, span: Span) -> PipelineData {
+    pub fn new_with_metadata(
+        metadata: Option<PipelineMetadata>,
+        span: FutureSpanId,
+    ) -> PipelineData {
         PipelineData::Value(Value::nothing(span), metadata)
     }
 
@@ -77,10 +80,10 @@ impl PipelineData {
             stdout: None,
             stderr: None,
             exit_code: Some(ListStream::from_stream(
-                [Value::int(exit_code, Span::unknown())].into_iter(),
+                [Value::int(exit_code, FutureSpanId::unknown())].into_iter(),
                 None,
             )),
-            span: Span::unknown(),
+            span: FutureSpanId::unknown(),
             metadata: None,
             trim_end_newline: false,
         }
@@ -116,7 +119,7 @@ impl PipelineData {
     }
 
     /// PipelineData doesn't always have a Span, but we can try!
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<FutureSpanId> {
         match self {
             PipelineData::ListStream(..) => None,
             PipelineData::ExternalStream { span, .. } => Some(*span),
@@ -125,7 +128,7 @@ impl PipelineData {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         match self {
             PipelineData::Empty => Value::nothing(span),
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
@@ -333,7 +336,7 @@ impl PipelineData {
                     if command.get_block_id().is_some() {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
-                        let call = Call::new(Span::unknown());
+                        let call = Call::new(FutureSpanId::unknown());
                         let stack = &mut stack.start_capture();
                         let table = command.run(engine_state, stack, &call, data)?;
                         table.write_all_and_flush(engine_state, config, false, false)?;
@@ -402,7 +405,7 @@ impl PipelineData {
     /// Try convert from self into iterator
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.
-    pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
+    pub fn into_iter_strict(self, span: FutureSpanId) -> Result<PipelineIterator, ShellError> {
         match self {
             PipelineData::Value(value, metadata) => match value {
                 Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
@@ -480,8 +483,8 @@ impl PipelineData {
     /// The `span` will be used if `ListStream` is encountered since it doesn't carry a span.
     pub fn collect_string_strict(
         self,
-        span: Span,
-    ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
+        span: FutureSpanId,
+    ) -> Result<(String, FutureSpanId, Option<PipelineMetadata>), ShellError> {
         match self {
             PipelineData::Empty => Ok((String::new(), span, None)),
             PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
@@ -511,7 +514,7 @@ impl PipelineData {
     pub fn follow_cell_path(
         self,
         cell_path: &[PathMember],
-        head: Span,
+        head: FutureSpanId,
         insensitive: bool,
     ) -> Result<Value, ShellError> {
         match self {
@@ -535,7 +538,7 @@ impl PipelineData {
         &mut self,
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
-        head: Span,
+        head: FutureSpanId,
     ) -> Result<(), ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
@@ -876,7 +879,7 @@ impl PipelineData {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
 
-            let call = Call::new(Span::new(0, 0));
+            let call = Call::new(FutureSpanId::new(0, 0));
             let table = command.run(engine_state, stack, &call, self)?;
             table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         } else {
@@ -1087,7 +1090,7 @@ impl Iterator for PipelineIterator {
                 Ok(x) => x,
                 Err(err) => Value::error(
                     err,
-                    Span::unknown(), //FIXME: unclear where this span should come from
+                    FutureSpanId::unknown(), //FIXME: unclear where this span should come from
                 ),
             }),
         }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{record, ShellError, Span, Value};
+use crate::{record, FutureSpanId, ShellError, Value};
 
 use super::helper::{
     process_bool_config, report_invalid_key, report_invalid_value, ReconstructVal,
@@ -67,7 +67,7 @@ impl PluginGcConfigs {
 }
 
 impl ReconstructVal for PluginGcConfigs {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         Value::record(
             record! {
                 "default" => self.default.reconstruct_value(span),
@@ -111,7 +111,7 @@ fn process_plugins(
     }
 }
 
-fn reconstruct_plugins(plugins: &HashMap<String, PluginGcConfig>, span: Span) -> Value {
+fn reconstruct_plugins(plugins: &HashMap<String, PluginGcConfig>, span: FutureSpanId) -> Value {
     Value::record(
         plugins
             .iter()
@@ -183,7 +183,7 @@ impl PluginGcConfig {
 }
 
 impl ReconstructVal for PluginGcConfig {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         Value::record(
             record! {
                 "enabled" => Value::bool(self.enabled, span),
@@ -247,6 +247,6 @@ mod tests {
     #[test]
     fn reconstruct() {
         let (input, expected) = test_pair();
-        assert_eq!(expected, input.reconstruct_value(Span::test_data()));
+        assert_eq!(expected, input.reconstruct_value(FutureSpanId::test_data()));
     }
 }

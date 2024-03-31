@@ -103,19 +103,19 @@ impl Command for BitsShr {
                 example: "[15 35 2] | bits shr 2",
                 result: Some(Value::list(
                     vec![Value::test_int(3), Value::test_int(8), Value::test_int(0)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "Shift right a binary value",
                 example: "0x[4f f4] | bits shr 4",
-                result: Some(Value::binary(vec![0x04, 0xff], Span::test_data())),
+                result: Some(Value::binary(vec![0x04, 0xff], FutureSpanId::test_data())),
             },
         ]
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let Arguments {
         signed,
         number_size,

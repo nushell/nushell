@@ -177,14 +177,20 @@ fn addr_of(s: &str) -> usize {
     s.as_ptr() as usize
 }
 
-fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, Span)> {
+fn split_whitespace_indices(
+    s: &str,
+    span: FutureSpanId,
+) -> impl Iterator<Item = (&str, FutureSpanId)> {
     s.split_whitespace().map(move |sub| {
         let start_offset = span.start + addr_of(sub) - addr_of(s);
-        (sub, Span::new(start_offset, start_offset + sub.len()))
+        (
+            sub,
+            FutureSpanId::new(start_offset, start_offset + sub.len()),
+        )
     })
 }
 
-fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+fn compound_to_duration(s: &str, span: FutureSpanId) -> Result<i64, ShellError> {
     let mut duration_ns: i64 = 0;
 
     for (substring, substring_span) in split_whitespace_indices(s, span) {
@@ -195,7 +201,7 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     Ok(duration_ns)
 }
 
-fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+fn string_to_duration(s: &str, span: FutureSpanId) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span.span(),
@@ -228,7 +234,7 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     })
 }
 
-fn action(input: &Value, unit: &str, span: Span) -> Value {
+fn action(input: &Value, unit: &str, span: FutureSpanId) -> Value {
     let value_span = input.span();
     match input {
         Value::Duration { .. } => input.clone(),
@@ -296,7 +302,7 @@ mod test {
         let actual = action(
             &Value::test_string(phrase),
             "ns",
-            Span::new(0, phrase.len()),
+            FutureSpanId::new(0, phrase.len()),
         );
         match actual {
             Value::Duration {

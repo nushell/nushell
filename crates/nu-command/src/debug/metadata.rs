@@ -115,7 +115,11 @@ impl Command for Metadata {
     }
 }
 
-fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head: Span) -> Value {
+fn build_metadata_record(
+    arg: &Value,
+    metadata: Option<&PipelineMetadata>,
+    head: FutureSpanId,
+) -> Value {
     let mut record = Record::new();
 
     let span = arg.span();

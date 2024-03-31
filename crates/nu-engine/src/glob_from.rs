@@ -1,6 +1,6 @@
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{NuGlob, ShellError, Span, Spanned};
+use nu_protocol::{FutureSpanId, NuGlob, ShellError, Spanned};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -19,7 +19,7 @@ const GLOB_CHARS: &[char] = &['*', '?', '['];
 pub fn glob_from(
     pattern: &Spanned<NuGlob>,
     cwd: &Path,
-    span: Span,
+    span: FutureSpanId,
     options: Option<MatchOptions>,
 ) -> Result<
     (

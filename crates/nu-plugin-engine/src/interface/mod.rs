@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, ListStream,
-    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    PipelineData, PluginSignature, ShellError, FutureSpanId, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
@@ -108,7 +108,7 @@ struct PluginCallState {
     /// Channel to receive context on to be used if needed
     context_rx: Option<mpsc::Receiver<Context>>,
     /// Span associated with the call, if any
-    span: Option<Span>,
+    span: Option<FutureSpanId>,
     /// Channel for plugin custom values that should be kept alive for the duration of the plugin
     /// call. The plugin custom values on this channel are never read, we just hold on to it to keep
     /// them in memory so they can be dropped at the end of the call. We hold the sender as well so
@@ -993,12 +993,12 @@ impl PluginInterface {
         other_value: Value,
     ) -> Result<Option<Ordering>, ShellError> {
         // Check that the value came from the right source
-        value.verify_source(Span::unknown(), &self.state.source)?;
+        value.verify_source(FutureSpanId::unknown(), &self.state.source)?;
 
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
         let call = PluginCall::CustomValueOp(
-            value.without_source().into_spanned(Span::unknown()),
+            value.without_source().into_spanned(FutureSpanId::unknown()),
             CustomValueOp::PartialCmp(other_value),
         );
         match self.plugin_call(call, None)? {
@@ -1027,7 +1027,7 @@ impl PluginInterface {
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
         drop(self.write_plugin_call(
-            PluginCall::CustomValueOp(value.into_spanned(Span::unknown()), CustomValueOp::Dropped),
+            PluginCall::CustomValueOp(value.into_spanned(FutureSpanId::unknown()), CustomValueOp::Dropped),
             None,
         )?);
         Ok(())
@@ -1133,7 +1133,7 @@ pub struct CurrentCallState {
     /// plugin call returns.
     entered_foreground: bool,
     /// The span that caused the plugin call.
-    span: Option<Span>,
+    span: Option<FutureSpanId>,
 }
 
 impl CurrentCallState {

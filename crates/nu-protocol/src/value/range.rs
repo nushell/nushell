@@ -7,7 +7,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::{ast::RangeInclusion, ShellError, Span, Value};
+use crate::{ast::RangeInclusion, ShellError, FutureSpanId, Value};
 
 mod int_range {
     use std::{
@@ -19,7 +19,7 @@ mod int_range {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{ast::RangeInclusion, ShellError, Span, Value};
+    use crate::{ast::RangeInclusion, ShellError, FutureSpanId, Value};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
@@ -34,7 +34,7 @@ mod int_range {
             next: Value,
             end: Value,
             inclusion: RangeInclusion,
-            span: Span,
+            span: FutureSpanId,
         ) -> Result<Self, ShellError> {
             fn to_int(value: Value) -> Result<Option<i64>, ShellError> {
                 match value {
@@ -242,7 +242,7 @@ mod float_range {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Span, Value};
+    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, FutureSpanId, Value};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct FloatRange {
@@ -257,7 +257,7 @@ mod float_range {
             next: Value,
             end: Value,
             inclusion: RangeInclusion,
-            span: Span,
+            span: FutureSpanId,
         ) -> Result<Self, ShellError> {
             fn to_float(value: Value) -> Result<Option<f64>, ShellError> {
                 match value {
@@ -480,8 +480,15 @@ mod float_range {
         ctrlc: Option<Arc<AtomicBool>>,
     }
 
-    impl Iterator for Iter {
-        type Item = f64;
+impl RangeIterator {
+    pub fn new(range: Range, ctrlc: Option<Arc<AtomicBool>>, span: FutureSpanId) -> RangeIterator {
+        let moves_up = range.moves_up();
+        let is_end_inclusive = range.is_end_inclusive();
+
+        let start = match range.from {
+            Value::Nothing { .. } => Value::int(0, span),
+            x => x,
+        };
 
         fn next(&mut self) -> Option<Self::Item> {
             if let Some(iter) = self.iter {
@@ -524,7 +531,7 @@ impl Range {
         next: Value,
         end: Value,
         inclusion: RangeInclusion,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         // promote to float range if any Value is float
         if matches!(start, Value::Float { .. })
@@ -549,7 +556,7 @@ impl Range {
         }
     }
 
-    pub fn into_range_iter(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+    pub fn into_range_iter(self, span: FutureSpanId, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
         match self {
             Range::IntRange(range) => Iter::IntIter(range.into_range_iter(ctrlc), span),
             Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(ctrlc), span),
@@ -609,8 +616,8 @@ impl From<FloatRange> for Range {
 }
 
 pub enum Iter {
-    IntIter(int_range::Iter, Span),
-    FloatIter(float_range::Iter, Span),
+    IntIter(int_range::Iter, FutureSpanId),
+    FloatIter(float_range::Iter, FutureSpanId),
 }
 
 impl Iterator for Iter {

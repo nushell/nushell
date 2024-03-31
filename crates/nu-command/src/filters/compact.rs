@@ -53,7 +53,7 @@ impl Command for Compact {
                 description: "Filter out all records where 'World' is null",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "Hello" => Value::nothing(Span::test_data()),
+                    "Hello" => Value::nothing(FutureSpanId::test_data()),
                     "World" => Value::test_int(3),
                 })])),
             },

@@ -33,7 +33,7 @@ impl Command for Values {
                 description: "Get the values from the record (produce a list)",
                 result: Some(Value::list(
                     vec![Value::test_string("normal"), Value::test_int(31415)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -49,7 +49,7 @@ impl Command for Values {
                         Value::test_int(16),
                         Value::test_int(32),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -63,7 +63,7 @@ impl Command for Values {
                                 Value::test_string("mv"),
                                 Value::test_string("cd"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::list(
                             vec![
@@ -71,10 +71,10 @@ impl Command for Values {
                                 Value::test_string("move"),
                                 Value::test_string("change directory"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -98,8 +98,8 @@ impl Command for Values {
 // does not necessarily equal row number.
 pub fn get_values<'a>(
     input: impl IntoIterator<Item = &'a Value>,
-    head: Span,
-    input_span: Span,
+    head: FutureSpanId,
+    input_span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let mut output: IndexMap<String, Vec<Value>> = IndexMap::new();
 
@@ -131,7 +131,7 @@ pub fn get_values<'a>(
 
 fn values(
     engine_state: &EngineState,
-    head: Span,
+    head: FutureSpanId,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();

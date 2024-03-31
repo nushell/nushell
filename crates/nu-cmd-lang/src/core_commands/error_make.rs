@@ -64,7 +64,7 @@ impl Command for ErrorMake {
                         help: None,
                         inner: vec![],
                     },
-                    Span::unknown(),
+                    FutureSpanId::unknown(),
                 )),
             },
             Example {
@@ -86,11 +86,11 @@ impl Command for ErrorMake {
                     ShellError::GenericError {
                         error: "my custom error message".into(),
                         msg: "my custom label text".into(),
-                        span: Some(Span::new(123, 456)),
+                        span: Some(FutureSpanId::new(123, 456)),
                         help: Some("A help string, suggesting a fix to the user".into()),
                         inner: vec![],
                     },
-                    Span::unknown(),
+                    FutureSpanId::unknown(),
                 )),
             },
             Example {
@@ -113,7 +113,7 @@ impl Command for ErrorMake {
 
 const UNABLE_TO_PARSE: &str = "Unable to parse error format.";
 
-fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
+fn make_other_error(value: &Value, throw_span: Option<FutureSpanId>) -> ShellError {
     let span = value.span();
     let value = match value {
         Value::Record { val, .. } => val,
@@ -254,13 +254,15 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
     }
 
     // correct return: everything present
-    let mut error =
-        LabeledError::new(msg).with_label(text, Span::new(span_start as usize, span_end as usize));
+    let mut error = LabeledError::new(msg).with_label(
+        text,
+        FutureSpanId::new(span_start as usize, span_end as usize),
+    );
     error.help = help;
     error.into()
 }
 
-fn get_span_sides(span: &Record, span_span: Span, side: &str) -> Result<i64, ShellError> {
+fn get_span_sides(span: &Record, span_span: FutureSpanId, side: &str) -> Result<i64, ShellError> {
     match span.get(side) {
         Some(Value::Int { val, .. }) => Ok(*val),
         Some(_) => Err(ShellError::GenericError {

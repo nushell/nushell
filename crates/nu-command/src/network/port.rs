@@ -103,7 +103,7 @@ fn get_free_port(
         };
 
         let range_span = match (start_span, end_span) {
-            (Some(start), Some(end)) => Span::new(start.start, end.end),
+            (Some(start), Some(end)) => FutureSpanId::new(start.start, end.end),
             (Some(start), None) => start,
             (None, Some(end)) => end,
             (None, None) => call.head,

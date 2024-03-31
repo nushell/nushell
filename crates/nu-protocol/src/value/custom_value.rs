@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::{ast::Operator, ShellError, Span, Value};
+use crate::{ast::Operator, FutureSpanId, ShellError, Value};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -9,7 +9,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     ///
     /// This can reemit a `Value::CustomValue(Self, span)` or materialize another representation
     /// if necessary.
-    fn clone_value(&self, span: Span) -> Value;
+    fn clone_value(&self, span: FutureSpanId) -> Value;
 
     //fn category(&self) -> Category;
 
@@ -22,7 +22,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     ///
     /// This imposes the requirement that you can represent the custom value in some form using the
     /// Value representations that already exist in nushell
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError>;
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError>;
 
     /// Any representation used to downcast object to its original type
     fn as_any(&self) -> &dyn std::any::Any;
@@ -33,9 +33,9 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Follow cell path by numeric index (e.g. rows)
     fn follow_path_int(
         &self,
-        self_span: Span,
+        self_span: FutureSpanId,
         index: usize,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let _ = (self_span, index);
         Err(ShellError::IncompatiblePathAccess {
@@ -47,9 +47,9 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Follow cell path by string key (e.g. columns)
     fn follow_path_string(
         &self,
-        self_span: Span,
+        self_span: FutureSpanId,
         column_name: String,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let _ = (self_span, column_name);
         Err(ShellError::IncompatiblePathAccess {
@@ -71,9 +71,9 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Default impl raises [`ShellError::UnsupportedOperator`].
     fn operation(
         &self,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: Operator,
-        op: Span,
+        op: FutureSpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         let _ = (lhs_span, right);

@@ -2,7 +2,7 @@ use super::{DataFrameValue, NuDataFrame, NuSchema};
 use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
-use nu_protocol::{Record, ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, Record, ShellError, Value};
 use polars::{
     chunked_array::{
         builder::AnonymousOwnedListBuilder, object::builder::ObjectChunkedBuilder, ChunkedArray,
@@ -142,7 +142,7 @@ pub fn create_column(
     series: &Series,
     from_row: usize,
     to_row: usize,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Column, ShellError> {
     let size = to_row - from_row;
     let values = series_to_values(series, Some(from_row), Some(size), span)?;
@@ -151,7 +151,7 @@ pub fn create_column(
 
 // Adds a separator to the vector of values using the column names from the
 // dataframe to create the Values Row
-pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
+pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: FutureSpanId) {
     let mut record = Record::new();
 
     record.push("index", Value::string("...", span));
@@ -422,7 +422,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                     let record = v.as_record()?;
                     insert_record(&mut column_values, record.clone(), &schema)?;
                     let df = from_parsed_columns(column_values)?;
-                    structs.push(df.as_series(Span::unknown())?);
+                    structs.push(df.as_series(FutureSpanId::unknown())?);
                 }
 
                 let chunked = StructChunked::new(column.name(), structs.as_ref()).map_err(|e| {
@@ -610,7 +610,7 @@ fn series_to_values(
     series: &Series,
     maybe_from_row: Option<usize>,
     maybe_size: Option<usize>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     match series.dtype() {
         DataType::Null => {
@@ -950,7 +950,7 @@ fn series_to_values(
                     }
                     .map(|ca| {
                         let sublist: Vec<Value> = if let Some(ref s) = ca {
-                            series_to_values(s, None, None, Span::unknown())?
+                            series_to_values(s, None, None, FutureSpanId::unknown())?
                         } else {
                             // empty item
                             vec![]
@@ -1079,7 +1079,7 @@ fn series_to_values(
     }
 }
 
-fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellError> {
+fn any_value_to_value(any_value: &AnyValue, span: FutureSpanId) -> Result<Value, ShellError> {
     match any_value {
         AnyValue::Null => Ok(Value::nothing(span)),
         AnyValue::Boolean(b) => Ok(Value::bool(*b, span)),
@@ -1173,7 +1173,7 @@ fn nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> i64 {
 fn datetime_from_epoch_nanos(
     nanos: i64,
     timezone: &Option<String>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {
         polars_tz
@@ -1192,7 +1192,7 @@ fn datetime_from_epoch_nanos(
     Ok(tz.timestamp_nanos(nanos).fixed_offset())
 }
 
-fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
+fn time_from_midnight(nanos: i64, span: FutureSpanId) -> Result<Value, ShellError> {
     let today = Utc::now().date_naive();
     NaiveTime::from_hms_opt(0, 0, 0) // midnight
         .map(|time| time + Duration::nanoseconds(nanos)) // current time
@@ -1226,12 +1226,12 @@ mod tests {
     fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
         let values = vec![
             Value::list(
-                vec![Value::string("bar".to_string(), Span::test_data())],
-                Span::test_data(),
+                vec![Value::string("bar".to_string(), FutureSpanId::test_data())],
+                FutureSpanId::test_data(),
             ),
             Value::list(
-                vec![Value::string("baz".to_string(), Span::test_data())],
-                Span::test_data(),
+                vec![Value::string("baz".to_string(), FutureSpanId::test_data())],
+                FutureSpanId::test_data(),
             ),
         ];
         let column = Column {
@@ -1245,7 +1245,7 @@ mod tests {
 
         let column_map = indexmap!("foo".to_string() => typed_column);
         let parsed_df = from_parsed_columns(column_map)?;
-        let parsed_columns = parsed_df.columns(Span::test_data())?;
+        let parsed_columns = parsed_df.columns(FutureSpanId::test_data())?;
         assert_eq!(parsed_columns.len(), 1);
         let column = parsed_columns
             .first()
@@ -1258,7 +1258,7 @@ mod tests {
 
     #[test]
     fn test_any_value_to_value() -> Result<(), Box<dyn std::error::Error>> {
-        let span = Span::test_data();
+        let span = FutureSpanId::test_data();
         assert_eq!(
             any_value_to_value(&AnyValue::Null, span)?,
             Value::nothing(span)

@@ -96,7 +96,7 @@ impl Command for BitsNot {
                         Value::test_int(252),
                         Value::test_int(253),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -109,7 +109,7 @@ impl Command for BitsNot {
                         Value::test_int(65532),
                         Value::test_int(65533),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -122,19 +122,22 @@ impl Command for BitsNot {
                         Value::test_int(-4),
                         Value::test_int(-3),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "Apply logical negation to binary data",
                 example: "0x[ff 00 7f] | bits not",
-                result: Some(Value::binary(vec![0x00, 0xff, 0x80], Span::test_data())),
+                result: Some(Value::binary(
+                    vec![0x00, 0xff, 0x80],
+                    FutureSpanId::test_data(),
+                )),
             },
         ]
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let Arguments {
         signed,
         number_size,

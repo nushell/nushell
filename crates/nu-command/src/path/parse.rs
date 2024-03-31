@@ -183,7 +183,7 @@ On Windows, an extra 'prefix' column is added."#
     }
 }
 
-fn parse(path: &Path, span: Span, args: &Arguments) -> Value {
+fn parse(path: &Path, span: FutureSpanId, args: &Arguments) -> Value {
     let mut record = Record::new();
 
     #[cfg(windows)]

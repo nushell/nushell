@@ -60,7 +60,7 @@ impl Command for DecodeBase64 {
                 example: "'U29tZSBEYXRh' | decode base64 --binary",
                 result: Some(Value::binary(
                     [0x53, 0x6f, 0x6d, 0x65, 0x20, 0x44, 0x61, 0x74, 0x61],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

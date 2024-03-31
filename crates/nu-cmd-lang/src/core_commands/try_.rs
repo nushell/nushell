@@ -133,7 +133,7 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
 }
 
 /// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
-fn err_to_record(error: ShellError, head: Span) -> Value {
+fn err_to_record(error: ShellError, head: FutureSpanId) -> Value {
     Value::record(
         record! {
             "msg" => Value::string(error.to_string(), head),

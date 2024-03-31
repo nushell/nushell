@@ -4,7 +4,8 @@ use eml_parser::EmlParser;
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, FutureSpanId, LabeledError, ShellError, Signature, SyntaxShape,
+    Type, Value,
 };
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
@@ -65,11 +66,11 @@ Test' | from eml",
             result: Some(Value::test_record(record! {
                     "Subject" => Value::test_string("Welcome"),
                     "From" =>    Value::test_record(record! {
-                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Name" =>        Value::nothing(FutureSpanId::test_data()),
                         "Address" =>     Value::test_string("test@email.com"),
                     }),
                     "To" => Value::test_record(record! {
-                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Name" =>        Value::nothing(FutureSpanId::test_data()),
                         "Address" =>     Value::test_string("someone@somewhere.com"),
                     }),
                     "Body" => Value::test_string("Test"),
@@ -85,11 +86,11 @@ Test' | from eml -b 1",
             result: Some(Value::test_record(record! {
                     "Subject" => Value::test_string("Welcome"),
                     "From" =>    Value::test_record(record! {
-                        "Name" =>          Value::nothing(Span::test_data()),
+                        "Name" =>          Value::nothing(FutureSpanId::test_data()),
                         "Address" =>       Value::test_string("test@email.com"),
                     }),
                     "To" => Value::test_record(record! {
-                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Name" =>        Value::nothing(FutureSpanId::test_data()),
                         "Address" =>     Value::test_string("someone@somewhere.com"),
                     }),
                     "Body" => Value::test_string("T"),
@@ -98,7 +99,7 @@ Test' | from eml -b 1",
     ]
 }
 
-fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
+fn emailaddress_to_value(span: FutureSpanId, email_address: &EmailAddress) -> Value {
     let (n, a) = match email_address {
         EmailAddress::AddressOnly { address } => {
             (Value::nothing(span), Value::string(address, span))
@@ -117,7 +118,7 @@ fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
     )
 }
 
-fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
+fn headerfieldvalue_to_value(head: FutureSpanId, value: &HeaderFieldValue) -> Value {
     use HeaderFieldValue::*;
 
     match value {
@@ -134,7 +135,7 @@ fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
     }
 }
 
-fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, LabeledError> {
+fn from_eml(input: &Value, body_preview: usize, head: FutureSpanId) -> Result<Value, LabeledError> {
     let value = input.coerce_string()?;
 
     let eml = EmlParser::from_string(value)

@@ -3,7 +3,8 @@ use std::cmp::Ordering;
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, SimplePluginCommand};
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    CustomValue, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    CustomValue, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Type,
+    Value,
 };
 
 use serde::{Deserialize, Serialize};
@@ -12,14 +13,14 @@ use serde::{Deserialize, Serialize};
 struct CustomU32(u32);
 
 impl CustomU32 {
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self), span)
     }
 }
 
 #[typetag::serde]
 impl CustomValue for CustomU32 {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         self.clone().into_value(span)
     }
 
@@ -27,7 +28,7 @@ impl CustomValue for CustomU32 {
         "CustomU32".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::int(self.0 as i64, span))
     }
 
@@ -77,7 +78,7 @@ impl SimplePluginCommand for IntoU32 {
         vec![Example {
             example: "340 | into u32",
             description: "Make a u32",
-            result: Some(CustomU32(340).into_value(Span::test_data())),
+            result: Some(CustomU32(340).into_value(FutureSpanId::test_data())),
         }]
     }
 
@@ -141,9 +142,9 @@ fn test_into_int_from_u32() -> Result<(), ShellError> {
     let result = PluginTest::new("custom_u32", CustomU32Plugin.into())?
         .eval_with(
             "into int from u32",
-            PipelineData::Value(CustomU32(42).into_value(Span::test_data()), None),
+            PipelineData::Value(CustomU32(42).into_value(FutureSpanId::test_data()), None),
         )?
-        .into_value(Span::test_data());
+        .into_value(FutureSpanId::test_data());
     assert_eq!(Value::test_int(42), result);
     Ok(())
 }

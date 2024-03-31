@@ -5,7 +5,7 @@ use crate::completions::{
 use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    levenshtein_distance, FutureSpanId,
 };
 use reedline::Suggestion;
 use std::{
@@ -35,7 +35,7 @@ impl Completer for DirectoryCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         prefix: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
@@ -125,12 +125,12 @@ impl Completer for DirectoryCompletion {
 }
 
 pub fn directory_completion(
-    span: nu_protocol::Span,
+    span: nu_protocol::FutureSpanId,
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
+) -> Vec<(nu_protocol::FutureSpanId, String, Option<Style>)> {
     complete_item(true, span, partial, cwd, options, engine_state, stack)
 }

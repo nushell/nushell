@@ -64,7 +64,7 @@ impl Command for SubCommand {
             .expect("to timezone: help example is invalid")
             .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
         {
-            LocalResult::Single(dt) => Some(Value::date(dt, Span::test_data())),
+            LocalResult::Single(dt) => Some(Value::date(dt, FutureSpanId::test_data())),
             _ => panic!("to timezone: help example is invalid"),
         };
 
@@ -98,7 +98,7 @@ impl Command for SubCommand {
     }
 }
 
-fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
+fn helper(value: Value, head: FutureSpanId, timezone: &Spanned<String>) -> Value {
     let val_span = value.span();
     match value {
         Value::Date { val, .. } => _to_timezone(val, timezone, head),
@@ -126,7 +126,11 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
     }
 }
 
-fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
+fn _to_timezone(
+    dt: DateTime<FixedOffset>,
+    timezone: &Spanned<String>,
+    span: FutureSpanId,
+) -> Value {
     match datetime_in_timezone(&dt, timezone.item.as_str()) {
         Ok(dt) => Value::date(dt, span),
         Err(_) => Value::error(

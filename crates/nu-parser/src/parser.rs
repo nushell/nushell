@@ -12,8 +12,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, span_concat, ActualSpan, BlockId,
-    DidYouMean, Flag, GetSpan, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape,
-    Type, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    DidYouMean, Flag, FutureSpanId, GetSpan, ParseError, PositionalArg, Signature, Spanned,
+    SyntaxShape, Type, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -4239,7 +4239,7 @@ pub fn parse_match_block_expression(
             pattern = MatchPattern {
                 pattern: Pattern::Or(or_pattern),
                 guard: None,
-                span: Span::new(start, end),
+                span: FutureSpanId::new(start, end),
             }
         // A match guard
         } else if connector == b"if" {
@@ -5194,7 +5194,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[ActualSpan])
             ];
 
             let expr = Expr::Call(Box::new(Call {
-                head: Span::unknown(),
+                head: FutureSpanId::unknown(),
                 decl_id,
                 arguments,
                 parser_info: HashMap::new(),
@@ -5370,7 +5370,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: ActualSpan) -> Expr
                 }
             }
             output.push(RecordItem::Spread(
-                Span::new(curr_span.start, curr_span.start + 3),
+                FutureSpanId::new(curr_span.start, curr_span.start + 3),
                 inner,
             ));
         } else {
@@ -6195,7 +6195,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         output.push(Argument::Named((
             Spanned {
                 item: "keep-env".to_string(),
-                span: Span::new(0, 0),
+                span: FutureSpanId::new(0, 0),
             },
             None,
             None,
@@ -6207,7 +6207,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         Expression::new(
             working_set,
             Expr::Call(Box::new(Call {
-                head: Span::new(0, 0),
+                head: FutureSpanId::new(0, 0),
                 arguments: output,
                 decl_id,
                 parser_info: HashMap::new(),

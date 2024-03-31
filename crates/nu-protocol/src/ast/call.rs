@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    GetSpan, ShellError, Span, Spanned, Value,
+    FutureSpanId, GetSpan, ShellError, Spanned, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -17,7 +17,7 @@ pub enum Argument {
 
 impl Argument {
     /// The span for an argument
-    pub fn get_span(&self, state: &impl GetSpan) -> Span {
+    pub fn get_span(&self, state: &impl GetSpan) -> FutureSpanId {
         match self {
             Argument::Positional(e) => e.get_span(state),
             Argument::Named((named, short, expr)) => {
@@ -30,7 +30,7 @@ impl Argument {
                     named.span.end
                 };
 
-                Span::new(start, end)
+                FutureSpanId::new(start, end)
             }
             Argument::Unknown(e) => e.get_span(state),
             Argument::Spread(e) => e.get_span(state),
@@ -48,14 +48,14 @@ pub enum ExternalArgument {
 pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,
-    pub head: Span,
+    pub head: FutureSpanId,
     pub arguments: Vec<Argument>,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
 
 impl Call {
-    pub fn new(head: Span) -> Call {
+    pub fn new(head: FutureSpanId) -> Call {
         Self {
             decl_id: 0,
             head,
@@ -70,7 +70,7 @@ impl Call {
     ///
     /// If there are one or more arguments the span encompasses the start of the first argument to
     /// end of the last argument
-    pub fn arguments_span(&self, state: &impl GetSpan) -> Span {
+    pub fn arguments_span(&self, state: &impl GetSpan) -> FutureSpanId {
         let past = self.head.past();
 
         let start = self
@@ -86,7 +86,7 @@ impl Call {
             .unwrap_or(past)
             .end;
 
-        Span::new(start, end)
+        FutureSpanId::new(start, end)
     }
 
     pub fn named_iter(
@@ -331,7 +331,7 @@ impl Call {
         }
     }
 
-    pub fn span(&self, state: &impl GetSpan) -> Span {
+    pub fn span(&self, state: &impl GetSpan) -> FutureSpanId {
         let mut span = self.head;
 
         for positional in self.positional_iter() {
@@ -369,29 +369,29 @@ mod test {
 
         let named = Spanned {
             item: "named".to_string(),
-            span: Span::new(2, 3),
+            span: FutureSpanId::new(2, 3),
         };
         let short = Spanned {
             item: "short".to_string(),
-            span: Span::new(5, 7),
+            span: FutureSpanId::new(5, 7),
         };
         let expr = Expression::garbage(&mut working_set, ActualSpan::new(11, 13));
 
         let arg = Argument::Named((named.clone(), None, None));
 
-        assert_eq!(Span::new(2, 3), arg.get_span(&working_set));
+        assert_eq!(FutureSpanId::new(2, 3), arg.get_span(&working_set));
 
         let arg = Argument::Named((named.clone(), Some(short.clone()), None));
 
-        assert_eq!(Span::new(2, 7), arg.get_span(&working_set));
+        assert_eq!(FutureSpanId::new(2, 7), arg.get_span(&working_set));
 
         let arg = Argument::Named((named.clone(), None, Some(expr.clone())));
 
-        assert_eq!(Span::new(2, 13), arg.get_span(&working_set));
+        assert_eq!(FutureSpanId::new(2, 13), arg.get_span(&working_set));
 
         let arg = Argument::Named((named.clone(), Some(short.clone()), Some(expr.clone())));
 
-        assert_eq!(Span::new(2, 13), arg.get_span(&working_set));
+        assert_eq!(FutureSpanId::new(2, 13), arg.get_span(&working_set));
     }
 
     #[test]
@@ -399,7 +399,7 @@ mod test {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let span = Span::new(2, 3);
+        let span = FutureSpanId::new(2, 3);
         let expr = Expression::garbage(&mut working_set, span.span());
         let arg = Argument::Positional(expr);
 
@@ -411,7 +411,7 @@ mod test {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let span = Span::new(2, 3);
+        let span = FutureSpanId::new(2, 3);
         let expr = Expression::garbage(&mut working_set, span.span());
         let arg = Argument::Unknown(expr);
 
@@ -423,10 +423,10 @@ mod test {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let mut call = Call::new(Span::new(0, 1));
+        let mut call = Call::new(FutureSpanId::new(0, 1));
         call.add_positional(Expression::garbage(&mut working_set, ActualSpan::new(2, 3)));
         call.add_positional(Expression::garbage(&mut working_set, ActualSpan::new(5, 7)));
 
-        assert_eq!(Span::new(2, 7), call.arguments_span(&working_set));
+        assert_eq!(FutureSpanId::new(2, 7), call.arguments_span(&working_set));
     }
 }

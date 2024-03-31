@@ -5,7 +5,7 @@ use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
     engine::{EngineState, Stack},
     eval_const::create_nu_constant,
-    PipelineData, Span, Spanned, Value, NU_VARIABLE_ID,
+    FutureSpanId, PipelineData, Spanned, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
@@ -46,10 +46,10 @@ fn setup_engine() -> EngineState {
     // parsing config.nu breaks without PWD set, so set a valid path
     engine_state.add_env_var(
         "PWD".into(),
-        Value::string(home_path.to_string_lossy(), Span::test_data()),
+        Value::string(home_path.to_string_lossy(), FutureSpanId::test_data()),
     );
 
-    let nu_const = create_nu_constant(&engine_state, Span::unknown())
+    let nu_const = create_nu_constant(&engine_state, FutureSpanId::unknown())
         .expect("Failed to create nushell constant.");
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
@@ -73,7 +73,7 @@ fn bench_command_with_custom_stack_and_engine(
 ) {
     load_standard_library(&mut engine).unwrap();
     let commands = Spanned {
-        span: Span::unknown(),
+        span: FutureSpanId::unknown(),
         item: scaled_command,
     };
 
@@ -95,7 +95,7 @@ fn bench_command_with_custom_stack_and_engine(
 fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
     let mut engine = setup_engine();
     let commands = Spanned {
-        span: Span::unknown(),
+        span: FutureSpanId::unknown(),
         item: command.to_string(),
     };
 
@@ -253,7 +253,7 @@ mod eval_commands {
         )));
         load_standard_library(&mut engine).unwrap();
         let commands = Spanned {
-            span: Span::unknown(),
+            span: FutureSpanId::unknown(),
             item: format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
         };
 
@@ -376,7 +376,7 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
             .collect(),
     );
 
-    Value::list(vec![record; row_cnt], Span::test_data())
+    Value::list(vec![record; row_cnt], FutureSpanId::test_data())
 }
 
 #[divan::bench_group()]

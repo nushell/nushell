@@ -124,7 +124,7 @@ impl Command for BytesAt {
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: FutureSpanId) -> Value {
     let range = &args.indexes;
     match input {
         Value::Binary { val, .. } => {

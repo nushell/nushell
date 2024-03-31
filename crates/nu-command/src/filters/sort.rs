@@ -48,7 +48,7 @@ impl Command for Sort {
                 description: "sort the list by increasing value",
                 result: Some(Value::list(
                     vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -56,7 +56,7 @@ impl Command for Sort {
                 description: "sort the list by decreasing value",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -68,7 +68,7 @@ impl Command for Sort {
                         Value::test_string("betty"),
                         Value::test_string("sarah"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -80,7 +80,7 @@ impl Command for Sort {
                         Value::test_string("betty"),
                         Value::test_string("amy"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -92,7 +92,7 @@ impl Command for Sort {
                         Value::test_string("Car"),
                         Value::test_string("Truck"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -104,7 +104,7 @@ impl Command for Sort {
                         Value::test_string("Car"),
                         Value::test_string("airplane"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -182,7 +182,7 @@ impl Command for Sort {
 
 fn sort_record(
     record: Record,
-    rec_span: Span,
+    rec_span: FutureSpanId,
     sort_by_value: bool,
     reverse: bool,
     insensitive: bool,
@@ -252,7 +252,7 @@ fn sort_record(
 
 pub fn sort(
     vec: &mut [Value],
-    span: Span,
+    span: FutureSpanId,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
@@ -307,7 +307,7 @@ pub fn process(
     left: &Value,
     right: &Value,
     columns: &[String],
-    span: Span,
+    span: FutureSpanId,
     insensitive: bool,
     natural: bool,
 ) -> Ordering {

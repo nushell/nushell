@@ -141,7 +141,7 @@ path."#
     }
 }
 
-fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
+fn relative_to(path: &Path, span: FutureSpanId, args: &Arguments) -> Value {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
     match lhs.strip_prefix(&rhs) {

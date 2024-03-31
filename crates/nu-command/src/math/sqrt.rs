@@ -53,13 +53,13 @@ impl Command for SubCommand {
             example: "[9 16] | math sqrt",
             result: Some(Value::list(
                 vec![Value::test_float(3.0), Value::test_float(4.0)],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }
 }
 
-fn operate(value: Value, head: Span) -> Value {
+fn operate(value: Value, head: FutureSpanId) -> Value {
     let span = value.span();
     match value {
         Value::Int { val, .. } => {
@@ -89,7 +89,7 @@ fn operate(value: Value, head: Span) -> Value {
     }
 }
 
-fn error_negative_sqrt(head: Span, span: Span) -> Value {
+fn error_negative_sqrt(head: FutureSpanId, span: FutureSpanId) -> Value {
     Value::error(
         ShellError::UnsupportedInput {
             msg: String::from("Can't square root a negative number"),

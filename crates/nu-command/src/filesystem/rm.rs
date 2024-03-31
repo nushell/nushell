@@ -217,7 +217,7 @@ fn rm(
         });
     }
 
-    let targets_span = Span::new(
+    let targets_span = FutureSpanId::new(
         paths
             .iter()
             .map(|x| x.span.start)
@@ -231,7 +231,7 @@ fn rm(
     );
 
     let (mut target_exists, mut empty_span) = (false, call.head);
-    let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
+    let mut all_targets: HashMap<PathBuf, FutureSpanId> = HashMap::new();
 
     for target in paths {
         let path = expand_path_with(

@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Range, ShellError, Span, Value,
+    report_error, FutureSpanId, Range, ShellError, Value,
 };
 use std::{ops::Bound, path::PathBuf};
 
@@ -20,7 +20,7 @@ pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf 
     })
 }
 
-type MakeRangeError = fn(&str, Span) -> ShellError;
+type MakeRangeError = fn(&str, FutureSpanId) -> ShellError;
 
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     match range {
@@ -84,7 +84,7 @@ fn get_editor_commandline(
 pub fn get_editor(
     engine_state: &EngineState,
     stack: &Stack,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<(String, Vec<String>), ShellError> {
     let config = engine_state.get_config();
     let env_vars = stack.get_env_vars(engine_state);

@@ -5,7 +5,7 @@ use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
     Range, Table, ValueWithUnit,
 };
-use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, Span, VarId};
+use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, FutureSpanId, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -122,7 +122,7 @@ pub enum RecordItem {
     /// A key: val mapping
     Pair(Expression, Expression),
     /// Span for the "..." and the expression that's being spread
-    Spread(Span, Expression),
+    Spread(FutureSpanId, Expression),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -130,7 +130,7 @@ pub enum ListItem {
     /// A normal expression
     Item(Expression),
     /// Span for the "..." and the expression that's being spread
-    Spread(Span, Expression),
+    Spread(FutureSpanId, Expression),
 }
 
 impl ListItem {

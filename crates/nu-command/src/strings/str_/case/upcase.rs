@@ -83,7 +83,7 @@ fn operate(
     )
 }
 
-fn action(input: &Value, head: Span) -> Value {
+fn action(input: &Value, head: FutureSpanId) -> Value {
     match input {
         Value::String { val: s, .. } => Value::string(s.to_uppercase(), head),
         Value::Error { .. } => input.clone(),
@@ -115,7 +115,7 @@ mod tests {
     fn upcases() {
         let word = Value::test_string("andres");
 
-        let actual = action(&word, Span::test_data());
+        let actual = action(&word, FutureSpanId::test_data());
         let expected = Value::test_string("ANDRES");
         assert_eq!(actual, expected);
     }

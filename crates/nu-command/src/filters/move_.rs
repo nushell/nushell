@@ -173,7 +173,7 @@ impl Command for Move {
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record or table".to_string(),
                 dst_span: call.head,
-                src_span: Span::new(call.head.start, call.head.start),
+                src_span: FutureSpanId::new(call.head.start, call.head.start),
             }),
         }
     }
@@ -184,7 +184,7 @@ fn move_record_columns(
     record: &Record,
     columns: &[Value],
     before_or_after: &Spanned<BeforeOrAfter>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let mut column_idx: Vec<usize> = Vec::with_capacity(columns.len());
 
@@ -267,7 +267,7 @@ mod test {
 
     // helper
     fn get_test_record(columns: Vec<&str>, values: Vec<i64>) -> Record {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         Record::from_raw_cols_vals(
             columns.iter().map(|col| col.to_string()).collect(),
             values.iter().map(|val| Value::test_int(*val)).collect(),
@@ -286,7 +286,7 @@ mod test {
 
     #[test]
     fn move_after_with_single_column() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("c".to_string()),
@@ -310,7 +310,7 @@ mod test {
 
     #[test]
     fn move_after_with_multiple_columns() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("c".to_string()),
@@ -335,7 +335,7 @@ mod test {
 
     #[test]
     fn move_before_with_single_column() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("b".to_string()),
@@ -359,7 +359,7 @@ mod test {
 
     #[test]
     fn move_before_with_multiple_columns() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("b".to_string()),
@@ -384,7 +384,7 @@ mod test {
 
     #[test]
     fn move_with_multiple_columns_reorders_columns() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("e".to_string()),
@@ -413,7 +413,7 @@ mod test {
 
     #[test]
     fn move_fails_when_pivot_not_present() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b"], vec![1, 2]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("non-existent".to_string()),
@@ -428,7 +428,7 @@ mod test {
 
     #[test]
     fn move_fails_when_column_not_present() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b"], vec![1, 2]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::Before("b".to_string()),
@@ -443,7 +443,7 @@ mod test {
 
     #[test]
     fn move_fails_when_column_is_also_pivot() {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
         let after: Spanned<BeforeOrAfter> = Spanned {
             item: BeforeOrAfter::After("b".to_string()),

@@ -21,7 +21,7 @@ use crate::{
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    Config, ShellError, Span, Type,
+    Config, ShellError, FutureSpanId, Type,
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -50,56 +50,56 @@ pub enum Value {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Int {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Float {
         val: f64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Filesize {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Duration {
         val: i64,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Date {
         val: DateTime<FixedOffset>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Range {
         val: Range,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     String {
         val: String,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Glob {
         val: String,
@@ -107,69 +107,69 @@ pub enum Value {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Record {
         val: SharedCow<Record>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     List {
         vals: Vec<Value>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Closure {
         val: Closure,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Nothing {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Error {
         error: Box<ShellError>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Binary {
         val: Vec<u8>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     CellPath {
         val: CellPath,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     Custom {
         val: Box<dyn CustomValue>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
     #[serde(skip)]
     LazyRecord {
         val: Box<dyn for<'a> LazyRecord<'a>>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
-        internal_span: Span,
+        internal_span: FutureSpanId,
     },
 }
 
@@ -691,7 +691,7 @@ impl Value {
     }
 
     /// Get the span for the current value
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> FutureSpanId {
         match self {
             Value::Bool { internal_span, .. }
             | Value::Int { internal_span, .. }
@@ -715,7 +715,7 @@ impl Value {
     }
 
     /// Set the value's span to a new span
-    pub fn set_span(&mut self, new_span: Span) {
+    pub fn set_span(&mut self, new_span: FutureSpanId) {
         match self {
             Value::Bool { internal_span, .. }
             | Value::Int { internal_span, .. }
@@ -739,7 +739,7 @@ impl Value {
     }
 
     /// Update the value with a new span
-    pub fn with_span(mut self, new_span: Span) -> Value {
+    pub fn with_span(mut self, new_span: FutureSpanId) -> Value {
         self.set_span(new_span);
         self
     }
@@ -1660,7 +1660,7 @@ impl Value {
         &mut self,
         cell_path: &[PathMember],
         new_val: Value,
-        head_span: Span,
+        head_span: FutureSpanId,
     ) -> Result<(), ShellError> {
         let v_span = self.span();
         if let Some((member, path)) = cell_path.split_first() {
@@ -1878,63 +1878,63 @@ impl Value {
         opt.into_iter().flatten()
     }
 
-    pub fn bool(val: bool, span: Span) -> Value {
+    pub fn bool(val: bool, span: FutureSpanId) -> Value {
         Value::Bool {
             val,
             internal_span: span,
         }
     }
 
-    pub fn int(val: i64, span: Span) -> Value {
+    pub fn int(val: i64, span: FutureSpanId) -> Value {
         Value::Int {
             val,
             internal_span: span,
         }
     }
 
-    pub fn float(val: f64, span: Span) -> Value {
+    pub fn float(val: f64, span: FutureSpanId) -> Value {
         Value::Float {
             val,
             internal_span: span,
         }
     }
 
-    pub fn filesize(val: i64, span: Span) -> Value {
+    pub fn filesize(val: i64, span: FutureSpanId) -> Value {
         Value::Filesize {
             val,
             internal_span: span,
         }
     }
 
-    pub fn duration(val: i64, span: Span) -> Value {
+    pub fn duration(val: i64, span: FutureSpanId) -> Value {
         Value::Duration {
             val,
             internal_span: span,
         }
     }
 
-    pub fn date(val: DateTime<FixedOffset>, span: Span) -> Value {
+    pub fn date(val: DateTime<FixedOffset>, span: FutureSpanId) -> Value {
         Value::Date {
             val,
             internal_span: span,
         }
     }
 
-    pub fn range(val: Range, span: Span) -> Value {
+    pub fn range(val: Range, span: FutureSpanId) -> Value {
         Value::Range {
             val,
             internal_span: span,
         }
     }
 
-    pub fn string(val: impl Into<String>, span: Span) -> Value {
+    pub fn string(val: impl Into<String>, span: FutureSpanId) -> Value {
         Value::String {
             val: val.into(),
             internal_span: span,
         }
     }
 
-    pub fn glob(val: impl Into<String>, no_expand: bool, span: Span) -> Value {
+    pub fn glob(val: impl Into<String>, no_expand: bool, span: FutureSpanId) -> Value {
         Value::Glob {
             val: val.into(),
             no_expand,
@@ -1942,21 +1942,21 @@ impl Value {
         }
     }
 
-    pub fn record(val: Record, span: Span) -> Value {
+    pub fn record(val: Record, span: FutureSpanId) -> Value {
         Value::Record {
             val: SharedCow::new(val),
             internal_span: span,
         }
     }
 
-    pub fn list(vals: Vec<Value>, span: Span) -> Value {
+    pub fn list(vals: Vec<Value>, span: FutureSpanId) -> Value {
         Value::List {
             vals,
             internal_span: span,
         }
     }
 
-    pub fn closure(val: Closure, span: Span) -> Value {
+    pub fn closure(val: Closure, span: FutureSpanId) -> Value {
         Value::Closure {
             val,
             internal_span: span,
@@ -1964,41 +1964,41 @@ impl Value {
     }
 
     /// Create a new `Nothing` value
-    pub fn nothing(span: Span) -> Value {
+    pub fn nothing(span: FutureSpanId) -> Value {
         Value::Nothing {
             internal_span: span,
         }
     }
 
-    pub fn error(error: ShellError, span: Span) -> Value {
+    pub fn error(error: ShellError, span: FutureSpanId) -> Value {
         Value::Error {
             error: Box::new(error),
             internal_span: span,
         }
     }
 
-    pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
+    pub fn binary(val: impl Into<Vec<u8>>, span: FutureSpanId) -> Value {
         Value::Binary {
             val: val.into(),
             internal_span: span,
         }
     }
 
-    pub fn cell_path(val: CellPath, span: Span) -> Value {
+    pub fn cell_path(val: CellPath, span: FutureSpanId) -> Value {
         Value::CellPath {
             val,
             internal_span: span,
         }
     }
 
-    pub fn custom(val: Box<dyn CustomValue>, span: Span) -> Value {
+    pub fn custom(val: Box<dyn CustomValue>, span: FutureSpanId) -> Value {
         Value::Custom {
             val,
             internal_span: span,
         }
     }
 
-    pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: Span) -> Value {
+    pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: FutureSpanId) -> Value {
         Value::LazyRecord {
             val,
             internal_span: span,
@@ -2008,103 +2008,103 @@ impl Value {
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_bool(val: bool) -> Value {
-        Value::bool(val, Span::test_data())
+        Value::bool(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_int(val: i64) -> Value {
-        Value::int(val, Span::test_data())
+        Value::int(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_float(val: f64) -> Value {
-        Value::float(val, Span::test_data())
+        Value::float(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_filesize(val: i64) -> Value {
-        Value::filesize(val, Span::test_data())
+        Value::filesize(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_duration(val: i64) -> Value {
-        Value::duration(val, Span::test_data())
+        Value::duration(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
-        Value::date(val, Span::test_data())
+        Value::date(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_range(val: Range) -> Value {
-        Value::range(val, Span::test_data())
+        Value::range(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_string(val: impl Into<String>) -> Value {
-        Value::string(val, Span::test_data())
+        Value::string(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_glob(val: impl Into<String>) -> Value {
-        Value::glob(val, false, Span::test_data())
+        Value::glob(val, false, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_record(val: Record) -> Value {
-        Value::record(val, Span::test_data())
+        Value::record(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_list(vals: Vec<Value>) -> Value {
-        Value::list(vals, Span::test_data())
+        Value::list(vals, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_closure(val: Closure) -> Value {
-        Value::closure(val, Span::test_data())
+        Value::closure(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_nothing() -> Value {
-        Value::nothing(Span::test_data())
+        Value::nothing(FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_binary(val: impl Into<Vec<u8>>) -> Value {
-        Value::binary(val, Span::test_data())
+        Value::binary(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_cell_path(val: CellPath) -> Value {
-        Value::cell_path(val, Span::test_data())
+        Value::cell_path(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_custom_value(val: Box<dyn CustomValue>) -> Value {
-        Value::custom(val, Span::test_data())
+        Value::custom(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
-        Value::lazy_record(val, Span::test_data())
+        Value::lazy_record(val, FutureSpanId::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data,
@@ -2136,7 +2136,7 @@ impl Value {
             Value::test_nothing(),
             Value::error(
                 ShellError::NushellFailed { msg: String::new() },
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ),
             Value::test_binary(Vec::new()),
             Value::test_cell_path(CellPath {
@@ -2150,7 +2150,7 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::Nothing {
-            internal_span: Span::unknown(),
+            internal_span: FutureSpanId::unknown(),
         }
     }
 }
@@ -2541,7 +2541,12 @@ impl PartialEq for Value {
 }
 
 impl Value {
-    pub fn add(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn add(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
@@ -2611,7 +2616,12 @@ impl Value {
         }
     }
 
-    pub fn append(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn append(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
                 let mut lhs = lhs.clone();
@@ -2650,7 +2660,12 @@ impl Value {
         }
     }
 
-    pub fn sub(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn sub(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
@@ -2728,7 +2743,12 @@ impl Value {
         }
     }
 
-    pub fn mul(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn mul(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_mul(*rhs) {
@@ -2783,7 +2803,12 @@ impl Value {
         }
     }
 
-    pub fn div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn div(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
@@ -2887,7 +2912,12 @@ impl Value {
         }
     }
 
-    pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn floor_div(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
@@ -3023,7 +3053,12 @@ impl Value {
         }
     }
 
-    pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn lt(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
@@ -3063,7 +3098,12 @@ impl Value {
         }
     }
 
-    pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn lte(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
@@ -3101,7 +3141,12 @@ impl Value {
             })
     }
 
-    pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn gt(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
@@ -3139,7 +3184,12 @@ impl Value {
             })
     }
 
-    pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn gte(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
@@ -3181,7 +3231,12 @@ impl Value {
         }
     }
 
-    pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn eq(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
@@ -3209,7 +3264,12 @@ impl Value {
         }
     }
 
-    pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn ne(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         if let (Value::Custom { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
                 self.span(),
@@ -3237,7 +3297,12 @@ impl Value {
         }
     }
 
-    pub fn r#in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn r#in(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
@@ -3285,7 +3350,12 @@ impl Value {
         }
     }
 
-    pub fn not_in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn not_in(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
@@ -3339,10 +3409,10 @@ impl Value {
     pub fn regex_match(
         &self,
         engine_state: &EngineState,
-        op: Span,
+        op: FutureSpanId,
         rhs: &Value,
         invert: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let rhs_span = rhs.span();
         match (self, rhs) {
@@ -3404,7 +3474,12 @@ impl Value {
         }
     }
 
-    pub fn starts_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn starts_with(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::bool(lhs.starts_with(rhs), span))
@@ -3425,7 +3500,12 @@ impl Value {
         }
     }
 
-    pub fn ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn ends_with(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::bool(lhs.ends_with(rhs), span))
@@ -3446,7 +3526,12 @@ impl Value {
         }
     }
 
-    pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_shl(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs << rhs, span))
@@ -3464,7 +3549,12 @@ impl Value {
         }
     }
 
-    pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_shr(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs >> rhs, span))
@@ -3482,7 +3572,12 @@ impl Value {
         }
     }
 
-    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_or(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs | rhs, span))
@@ -3500,7 +3595,12 @@ impl Value {
         }
     }
 
-    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_xor(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs ^ rhs, span))
@@ -3518,7 +3618,12 @@ impl Value {
         }
     }
 
-    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn bit_and(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::int(*lhs & rhs, span))
@@ -3536,7 +3641,12 @@ impl Value {
         }
     }
 
-    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn modulo(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
@@ -3587,7 +3697,12 @@ impl Value {
         }
     }
 
-    pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn and(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
                 Ok(Value::bool(*lhs && *rhs, span))
@@ -3605,7 +3720,12 @@ impl Value {
         }
     }
 
-    pub fn or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn or(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
                 Ok(Value::bool(*lhs || *rhs, span))
@@ -3623,7 +3743,12 @@ impl Value {
         }
     }
 
-    pub fn xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn xor(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
                 Ok(Value::bool((*lhs && !*rhs) || (!*lhs && *rhs), span))
@@ -3641,7 +3766,12 @@ impl Value {
         }
     }
 
-    pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn pow(
+        &self,
+        op: FutureSpanId,
+        rhs: &Value,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {

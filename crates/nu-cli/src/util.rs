@@ -4,7 +4,7 @@ use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token,
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    print_if_stream, report_error, report_error_new, PipelineData, ShellError, Span, Value,
+    print_if_stream, report_error, report_error_new, FutureSpanId, PipelineData, ShellError, Value,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -320,7 +320,7 @@ pub fn eval_source(
 fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
     stack.add_env_var(
         "LAST_EXIT_CODE".to_string(),
-        Value::int(exit_code, Span::unknown()),
+        Value::int(exit_code, FutureSpanId::unknown()),
     );
 }
 

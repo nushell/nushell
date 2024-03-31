@@ -67,7 +67,7 @@ impl Command for StorExport {
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to open SQLite connection in memory from export".into(),
                     msg: err.to_string(),
-                    span: Some(Span::test_data()),
+                    span: Some(FutureSpanId::test_data()),
                     help: None,
                     inner: vec![],
                 })?;

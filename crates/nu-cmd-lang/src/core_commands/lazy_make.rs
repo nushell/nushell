@@ -130,7 +130,7 @@ struct NuLazyRecord {
     stack: Arc<Mutex<Stack>>,
     columns: Vec<String>,
     get_value: Closure,
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl std::fmt::Debug for NuLazyRecord {
@@ -169,11 +169,11 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
         })
     }
 
-    fn span(&self) -> Span {
+    fn span(&self) -> FutureSpanId {
         self.span
     }
 
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         Value::lazy_record(Box::new((*self).clone()), span)
     }
 }

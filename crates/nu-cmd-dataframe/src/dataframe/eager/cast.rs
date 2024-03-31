@@ -47,10 +47,10 @@ impl Command for CastDF {
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr cast u8 a | dfr schema",
                 result: Some(Value::record(
                     record! {
-                        "a" => Value::string("u8", Span::test_data()),
-                        "b" => Value::string("i64", Span::test_data()),
+                        "a" => Value::string("u8", FutureSpanId::test_data()),
+                        "b" => Value::string("i64", FutureSpanId::test_data()),
                     },
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -58,10 +58,10 @@ impl Command for CastDF {
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr into-lazy | dfr cast u8 a | dfr schema",
                 result: Some(Value::record(
                     record! {
-                        "a" => Value::string("u8", Span::test_data()),
-                        "b" => Value::string("i64", Span::test_data()),
+                        "a" => Value::string("u8", FutureSpanId::test_data()),
+                        "b" => Value::string("i64", FutureSpanId::test_data()),
                     },
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {

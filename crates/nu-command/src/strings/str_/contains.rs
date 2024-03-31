@@ -141,7 +141,7 @@ fn action(
         substring,
         ..
     }: &Arguments,
-    head: Span,
+    head: FutureSpanId,
 ) -> Value {
     match input {
         Value::String { val, .. } => Value::bool(

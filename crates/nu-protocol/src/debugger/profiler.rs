@@ -7,7 +7,7 @@ use crate::{
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
-    record, PipelineData, ShellError, Span, Value,
+    record, FutureSpanId, PipelineData, ShellError, Value,
 };
 use std::time::Instant;
 
@@ -20,14 +20,14 @@ struct ElementInfo {
     start: Instant,
     duration_sec: f64,
     depth: i64,
-    element_span: Span,
+    element_span: FutureSpanId,
     element_output: Option<Value>,
     expr: Option<String>,
     children: Vec<ElementId>,
 }
 
 impl ElementInfo {
-    pub fn new(depth: i64, element_span: Span) -> Self {
+    pub fn new(depth: i64, element_span: FutureSpanId) -> Self {
         ElementInfo {
             start: Instant::now(),
             duration_sec: 0.0,
@@ -62,7 +62,7 @@ impl Profiler {
         collect_expanded_source: bool,
         collect_values: bool,
         collect_exprs: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Self {
         let first = ElementInfo {
             start: Instant::now(),
@@ -189,7 +189,11 @@ impl Debugger for Profiler {
         self.element_stack.pop();
     }
 
-    fn report(&self, engine_state: &EngineState, profiler_span: Span) -> Result<Value, ShellError> {
+    fn report(
+        &self,
+        engine_state: &EngineState,
+        profiler_span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         Ok(Value::list(
             collect_data(
                 engine_state,
@@ -203,7 +207,7 @@ impl Debugger for Profiler {
     }
 }
 
-fn profiler_error(msg: impl Into<String>, span: Span) -> ShellError {
+fn profiler_error(msg: impl Into<String>, span: FutureSpanId) -> ShellError {
     ShellError::GenericError {
         error: "Profiler Error".to_string(),
         msg: msg.into(),
@@ -221,7 +225,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Bool(_) => "bool".to_string(),
         Expr::Call(call) => {
             let decl = engine_state.get_decl(call.decl_id);
-            if decl.name() == "collect" && call.head == Span::new(0, 0) {
+            if decl.name() == "collect" && call.head == FutureSpanId::new(0, 0) {
                 "call (implicit collect)"
             } else {
                 "call"
@@ -269,7 +273,7 @@ fn collect_data(
     profiler: &Profiler,
     element_id: ElementId,
     parent_id: ElementId,
-    profiler_span: Span,
+    profiler_span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let element = &profiler.elements[element_id.0];
 

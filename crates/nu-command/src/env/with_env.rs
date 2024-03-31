@@ -46,7 +46,7 @@ impl Command for WithEnv {
             example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
             result: Some(Value::list(
                 vec![Value::test_string("Y"), Value::test_string("Z")],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }

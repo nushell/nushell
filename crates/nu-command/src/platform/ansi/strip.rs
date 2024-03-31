@@ -68,7 +68,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, _span: FutureSpanId) -> Value {
     let span = input.span();
     match input {
         Value::String { val, .. } => {
@@ -85,7 +85,7 @@ fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::{action, Arguments, SubCommand};
-    use nu_protocol::{engine::EngineState, Span, Value};
+    use nu_protocol::{engine::EngineState, FutureSpanId, Value};
 
     #[test]
     fn examples_work_as_expected() {
@@ -105,7 +105,7 @@ mod tests {
             config: EngineState::new().get_config().clone(),
         };
 
-        let actual = action(&input_string, &args, Span::test_data());
+        let actual = action(&input_string, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 }

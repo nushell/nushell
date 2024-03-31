@@ -1,5 +1,5 @@
 use nu_plugin_protocol::{StreamData, StreamId, StreamMessage};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, FutureSpanId, Value};
 use std::{
     collections::{btree_map, BTreeMap},
     iter::FusedIterator,
@@ -153,7 +153,7 @@ pub trait FromShellError {
 // For List streams.
 impl FromShellError for Value {
     fn from_shell_error(err: ShellError) -> Self {
-        Value::error(err, Span::unknown())
+        Value::error(err, FutureSpanId::unknown())
     }
 }
 

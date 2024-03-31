@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{span, ModuleId, Span, VarId};
+use crate::{span, FutureSpanId, ModuleId, VarId};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImportPatternMember {
-    Glob { span: Span },
-    Name { name: Vec<u8>, span: Span },
-    List { names: Vec<(Vec<u8>, Span)> },
+    Glob { span: FutureSpanId },
+    Name { name: Vec<u8>, span: FutureSpanId },
+    List { names: Vec<(Vec<u8>, FutureSpanId)> },
 }
 
 impl ImportPatternMember {
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> FutureSpanId {
         let mut spans = vec![];
         match self {
             ImportPatternMember::Glob { span } => spans.push(*span),
@@ -30,7 +30,7 @@ impl ImportPatternMember {
 pub struct ImportPatternHead {
     pub name: Vec<u8>,
     pub id: Option<ModuleId>,
-    pub span: Span,
+    pub span: FutureSpanId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,7 +50,7 @@ impl ImportPattern {
             head: ImportPatternHead {
                 name: vec![],
                 id: None,
-                span: Span::unknown(),
+                span: FutureSpanId::unknown(),
             },
             members: vec![],
             hidden: HashSet::new(),
@@ -58,7 +58,7 @@ impl ImportPattern {
         }
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> FutureSpanId {
         let mut spans = vec![self.head.span];
 
         for member in &self.members {

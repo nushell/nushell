@@ -162,7 +162,7 @@ impl Command for Du {
 fn du_for_one_pattern(
     args: DuArgs,
     current_dir: &Path,
-    call_span: Span,
+    call_span: FutureSpanId,
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
     let exclude = args.exclude.map_or(Ok(None), move |x| {
@@ -181,7 +181,7 @@ fn du_for_one_pattern(
         None => nu_engine::glob_from(
             &Spanned {
                 item: NuGlob::Expand("*".into()),
-                span: Span::unknown(),
+                span: FutureSpanId::unknown(),
             },
             current_dir,
             call_span,

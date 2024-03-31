@@ -50,7 +50,7 @@ little reason to use this over just writing the values as-is."#
                 example: "echo 1 2 3",
                 result: Some(Value::list(
                     vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {

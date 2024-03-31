@@ -78,7 +78,7 @@ impl Command for Uniq {
                 example: "[2 3 3 4] | uniq",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -86,7 +86,7 @@ impl Command for Uniq {
                 example: "[1 2 2] | uniq -d",
                 result: Some(Value::list(
                     vec![Value::test_int(2)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -94,7 +94,7 @@ impl Command for Uniq {
                 example: "[1 2 2] | uniq --unique",
                 result: Some(Value::list(
                     vec![Value::test_int(1)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -160,9 +160,9 @@ impl ValueCounter {
         ValueCounter {
             val,
             val_to_compare: if flag_ignore_case {
-                clone_to_folded_case(&vals_to_compare.with_span(Span::unknown()))
+                clone_to_folded_case(&vals_to_compare.with_span(FutureSpanId::unknown()))
             } else {
-                vals_to_compare.with_span(Span::unknown())
+                vals_to_compare.with_span(FutureSpanId::unknown())
             },
             count: 1,
             index,
@@ -215,10 +215,10 @@ fn sort_attributes(val: Value) -> Value {
 
 fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
     let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown()))
+    nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(FutureSpanId::unknown()))
 }
 
-fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
+fn generate_results_with_count(head: FutureSpanId, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
     uniq_values
         .into_iter()
         .map(|item| {

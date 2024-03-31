@@ -116,7 +116,7 @@ impl Command for Table {
         let list_themes: bool = call.has_flag(engine_state, stack, "list")?;
         // if list argument is present we just need to return a list of supported table themes
         if list_themes {
-            let val = Value::list(supported_table_modes(), Span::test_data());
+            let val = Value::list(supported_table_modes(), FutureSpanId::test_data());
             return Ok(val.into_pipeline_data());
         }
 
@@ -442,7 +442,10 @@ fn handle_record(
             let mut record_iter = record.into_iter();
             record = Record::with_capacity(limit * 2 + 1);
             record.extend(record_iter.by_ref().take(limit));
-            record.push(String::from("..."), Value::string("...", Span::unknown()));
+            record.push(
+                String::from("..."),
+                Value::string("...", FutureSpanId::unknown()),
+            );
             record.extend(record_iter.skip(prev_len - 2 * limit));
         }
     }
@@ -485,7 +488,7 @@ fn build_table_kv(
     record: Record,
     table_view: TableView,
     opts: TableOpts<'_>,
-    span: Span,
+    span: FutureSpanId,
 ) -> StringResult {
     match table_view {
         TableView::General => JustTable::kv_table(&record, opts),
@@ -508,7 +511,7 @@ fn build_table_batch(
     vals: Vec<Value>,
     table_view: TableView,
     opts: TableOpts<'_>,
-    span: Span,
+    span: FutureSpanId,
 ) -> StringResult {
     match table_view {
         TableView::General => JustTable::table(&vals, opts),
@@ -665,7 +668,7 @@ fn make_clickable_link(
 }
 
 struct PagingTableCreator {
-    head: Span,
+    head: FutureSpanId,
     stream: ListStream,
     engine_state: EngineState,
     stack: Stack,
@@ -678,7 +681,7 @@ struct PagingTableCreator {
 
 impl PagingTableCreator {
     fn new(
-        head: Span,
+        head: FutureSpanId,
         stream: ListStream,
         engine_state: EngineState,
         stack: Stack,
@@ -900,7 +903,7 @@ fn stream_collect_abbriviated(
 }
 
 fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
-    let dummy = || Value::string(String::from("..."), Span::unknown());
+    let dummy = || Value::string(String::from("..."), FutureSpanId::unknown());
     let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
 
     if is_record_list {
@@ -912,7 +915,7 @@ fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
                 .columns()
                 .map(|key| (key.clone(), dummy()))
                 .collect(),
-            Span::unknown(),
+            FutureSpanId::unknown(),
         )
     } else {
         dummy()
@@ -927,7 +930,7 @@ fn render_path_name(
     path: &str,
     config: &Config,
     ls_colors: &LsColors,
-    span: Span,
+    span: FutureSpanId,
 ) -> Option<Value> {
     if !config.use_ls_colors {
         return None;

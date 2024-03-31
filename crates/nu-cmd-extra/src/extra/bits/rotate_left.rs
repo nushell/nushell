@@ -101,19 +101,22 @@ impl Command for BitsRol {
                 example: "[5 3 2] | bits rol 2",
                 result: Some(Value::list(
                     vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "rotate left binary data",
                 example: "0x[c0 ff ee] | bits rol 10",
-                result: Some(Value::binary(vec![0xff, 0xbb, 0x03], Span::test_data())),
+                result: Some(Value::binary(
+                    vec![0xff, 0xbb, 0x03],
+                    FutureSpanId::test_data(),
+                )),
             },
         ]
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let Arguments {
         signed,
         number_size,

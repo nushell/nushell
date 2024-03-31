@@ -144,7 +144,7 @@ fn into_record(
     Ok(res.into_pipeline_data())
 }
 
-fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
+fn parse_date_into_record(date: DateTime<FixedOffset>, span: FutureSpanId) -> Value {
     Value::record(
         record! {
             "year" => Value::int(date.year() as i64, span),
@@ -159,7 +159,7 @@ fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
     )
 }
 
-fn parse_duration_into_record(duration: i64, span: Span) -> Value {
+fn parse_duration_into_record(duration: i64, span: FutureSpanId) -> Value {
     let (sign, periods) = format_duration_as_timeperiod(duration);
 
     let mut record = Record::new();

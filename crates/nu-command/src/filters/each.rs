@@ -86,9 +86,9 @@ with 'transpose' first."#
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping null results",
                 result: Some(Value::test_list(vec![
-                    Value::nothing(Span::test_data()),
+                    Value::nothing(FutureSpanId::test_data()),
                     Value::test_string("found 2!"),
-                    Value::nothing(Span::test_data()),
+                    Value::nothing(FutureSpanId::test_data()),
                 ])),
             },
         ]

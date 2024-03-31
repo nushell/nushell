@@ -71,7 +71,11 @@ impl Command for SubCommand {
     }
 }
 
-pub fn maximum(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn maximum(
+    values: &[Value],
+    span: FutureSpanId,
+    head: FutureSpanId,
+) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
     max_func(Value::nothing(head), values.to_vec(), span, head)
 }

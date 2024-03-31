@@ -112,10 +112,10 @@ fn stats(
     )
 }
 
-fn counter(contents: &str, span: Span) -> Value {
+fn counter(contents: &str, span: FutureSpanId) -> Value {
     let counts = uwc_count(&ALL_COUNTERS[..], contents);
 
-    fn get_count(counts: &BTreeMap<Counter, usize>, counter: Counter, span: Span) -> Value {
+    fn get_count(counts: &BTreeMap<Counter, usize>, counter: Counter, span: FutureSpanId) -> Value {
         Value::int(counts.get(&counter).copied().unwrap_or(0) as i64, span)
     }
 

@@ -7,7 +7,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, PipelineData, ShellError, Span, Value,
+    report_error, Config, FutureSpanId, PipelineData, ShellError, Value,
 };
 use std::{io::Write, sync::Arc};
 
@@ -37,7 +37,7 @@ pub fn evaluate_file(
             &working_set,
             &ShellError::FileNotFoundCustom {
                 msg: format!("Could not access file '{}': {:?}", path, e.to_string()),
-                span: Span::unknown(),
+                span: FutureSpanId::unknown(),
             },
         );
         std::process::exit(1);
@@ -52,7 +52,7 @@ pub fn evaluate_file(
                     "Input file name '{}' is not valid UTF8",
                     file_path.to_string_lossy()
                 ),
-                span: Span::unknown(),
+                span: FutureSpanId::unknown(),
             },
         );
         std::process::exit(1);
@@ -70,7 +70,7 @@ pub fn evaluate_file(
                         file_path_str,
                         e.to_string()
                     ),
-                    span: Span::unknown(),
+                    span: FutureSpanId::unknown(),
                 },
             );
             std::process::exit(1);
@@ -83,7 +83,7 @@ pub fn evaluate_file(
             &working_set,
             &ShellError::FileNotFoundCustom {
                 msg: format!("The file path '{file_path_str}' does not have a parent"),
-                span: Span::unknown(),
+                span: FutureSpanId::unknown(),
             },
         );
         std::process::exit(1);
@@ -91,15 +91,15 @@ pub fn evaluate_file(
 
     stack.add_env_var(
         "FILE_PWD".to_string(),
-        Value::string(parent.to_string_lossy(), Span::unknown()),
+        Value::string(parent.to_string_lossy(), FutureSpanId::unknown()),
     );
     stack.add_env_var(
         "CURRENT_FILE".to_string(),
-        Value::string(file_path.to_string_lossy(), Span::unknown()),
+        Value::string(file_path.to_string_lossy(), FutureSpanId::unknown()),
     );
     stack.add_env_var(
         "PROCESS_PATH".to_string(),
-        Value::string(path, Span::unknown()),
+        Value::string(path, FutureSpanId::unknown()),
     );
 
     let source_filename = file_path

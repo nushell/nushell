@@ -40,7 +40,7 @@ impl Command for DecodeHex {
                 example: "'0102030A0a0B' | decode hex",
                 result: Some(Value::binary(
                     [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -48,7 +48,7 @@ impl Command for DecodeHex {
                 example: "'01 02  03 0A 0a 0B' | decode hex",
                 result: Some(Value::binary(
                     [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

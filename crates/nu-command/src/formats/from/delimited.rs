@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, IntoPipelineData, PipelineData, ShellError, Value};
 
 fn from_delimited_string_to_value(
     DelimitedReaderConfig {
@@ -13,7 +13,7 @@ fn from_delimited_string_to_value(
         trim,
     }: DelimitedReaderConfig,
     s: String,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Value, csv::Error> {
     let mut reader = ReaderBuilder::new()
         .has_headers(!noheaders)
@@ -77,7 +77,7 @@ pub(super) struct DelimitedReaderConfig {
 pub(super) fn from_delimited_data(
     config: DelimitedReaderConfig,
     input: PipelineData,
-    name: Span,
+    name: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let (concat_string, _span, metadata) = input.collect_string_strict(name)?;
 

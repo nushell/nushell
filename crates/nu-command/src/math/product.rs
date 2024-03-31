@@ -62,7 +62,11 @@ impl Command for SubCommand {
 }
 
 /// Calculate product of given values
-pub fn product(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn product(
+    values: &[Value],
+    span: FutureSpanId,
+    head: FutureSpanId,
+) -> Result<Value, ShellError> {
     let product_func = reducer_for(Reduce::Product);
     product_func(Value::nothing(head), values.to_vec(), span, head)
 }

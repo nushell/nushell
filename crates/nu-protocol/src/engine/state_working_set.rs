@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
     },
-    ActualSpan, BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
-    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ActualSpan, BlockId, Category, Config, DeclId, FileId, FutureSpanId, GetSpan, Module, ModuleId,
+    ParseError, ParseWarning, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -265,7 +265,12 @@ impl<'a> StateWorkingSet<'a> {
         self.num_blocks() - 1
     }
 
-    pub fn add_module(&mut self, name: &str, module: Module, comments: Vec<Span>) -> ModuleId {
+    pub fn add_module(
+        &mut self,
+        name: &str,
+        module: Module,
+        comments: Vec<FutureSpanId>,
+    ) -> ModuleId {
         let name = name.as_bytes().to_vec();
 
         self.delta.modules.push(Arc::new(module));
@@ -280,7 +285,7 @@ impl<'a> StateWorkingSet<'a> {
         module_id
     }
 
-    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[FutureSpanId]> {
         self.delta
             .usage
             .get_module_comments(module_id)
@@ -334,7 +339,7 @@ impl<'a> StateWorkingSet<'a> {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
 
-        let covered_span = Span::new(next_span_start, next_span_end);
+        let covered_span = FutureSpanId::new(next_span_start, next_span_end);
 
         self.delta.files.push(CachedFile {
             name: filename.into(),
@@ -352,7 +357,7 @@ impl<'a> StateWorkingSet<'a> {
         self.num_virtual_paths() - 1
     }
 
-    pub fn get_span_for_filename(&self, filename: &str) -> Option<Span> {
+    pub fn get_span_for_filename(&self, filename: &str) -> Option<FutureSpanId> {
         let file_id = self.files().position(|file| &*file.name == filename)?;
 
         Some(self.get_span_for_file(file_id))
@@ -362,7 +367,7 @@ impl<'a> StateWorkingSet<'a> {
     /// On invalid `FileId`
     ///
     /// Use with care
-    pub fn get_span_for_file(&self, file_id: FileId) -> Span {
+    pub fn get_span_for_file(&self, file_id: FileId) -> FutureSpanId {
         let result = self
             .files()
             .nth(file_id)
@@ -386,7 +391,7 @@ impl<'a> StateWorkingSet<'a> {
         return self.permanent_state.get_span_contents(span);
     }
 
-    pub fn get_span_id_contents(&self, span: Span) -> &[u8] {
+    pub fn get_span_id_contents(&self, span: FutureSpanId) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
             for cached_file in &self.delta.files {
@@ -599,7 +604,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn add_variable(
         &mut self,
         mut name: Vec<u8>,
-        span: Span,
+        span: FutureSpanId,
         ty: Type,
         mutable: bool,
     ) -> VarId {
@@ -976,7 +981,7 @@ impl<'a> StateWorkingSet<'a> {
         build_usage(&comment_lines)
     }
 
-    pub fn find_block_by_span(&self, span: Span) -> Option<Arc<Block>> {
+    pub fn find_block_by_span(&self, span: FutureSpanId) -> Option<Arc<Block>> {
         for block in &self.delta.blocks {
             if Some(span) == block.span {
                 return Some(block.clone());
@@ -992,7 +997,7 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
+    pub fn find_module_by_span(&self, span: FutureSpanId) -> Option<ModuleId> {
         for (id, module) in self.delta.modules.iter().enumerate() {
             if Some(span) == module.span {
                 return Some(self.permanent_state.num_modules() + id);
@@ -1044,24 +1049,24 @@ impl<'a> StateWorkingSet<'a> {
 }
 
 impl<'a> GetSpan for StateWorkingSet<'a> {
-    fn get_span(&self, span_id: SpanId) -> Span {
+    fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         get_span(self, span_id)
     }
 }
 
 impl<'a> GetSpan for &'a StateWorkingSet<'a> {
-    fn get_span(&self, span_id: SpanId) -> Span {
+    fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         get_span(self, span_id)
     }
 }
 
 impl<'a, 'b> GetSpan for &'b mut StateWorkingSet<'a> {
-    fn get_span(&self, span_id: SpanId) -> Span {
+    fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         get_span(self, span_id)
     }
 }
 
-fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> Span {
+fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> FutureSpanId {
     let num_permanent_spans = working_set.permanent_state.num_spans();
     if span_id.0 < num_permanent_spans {
         working_set.permanent_state.get_span(span_id)
@@ -1072,7 +1077,7 @@ fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> Span {
             .get(span_id.0 - num_permanent_spans)
             .expect("internal error: missing span");
 
-        Span::new(sp.start, sp.end)
+        FutureSpanId::new(sp.start, sp.end)
     }
 }
 

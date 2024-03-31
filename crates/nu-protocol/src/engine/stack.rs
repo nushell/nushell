@@ -3,7 +3,7 @@ use crate::{
         EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
         DEFAULT_OVERLAY_NAME,
     },
-    OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    OutDest, ShellError, FutureSpanId, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -168,7 +168,7 @@ impl Stack {
     /// Lookup a variable, erroring if it is not found
     ///
     /// The passed-in span will be used to tag the value
-    pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+    pub fn get_var(&self, var_id: VarId, span: FutureSpanId) -> Result<Value, ShellError> {
         match self.lookup_var(var_id) {
             Some(v) => Ok(v.with_span(span)),
             None => Err(ShellError::VariableNotFoundAtRuntime { span }),
@@ -179,7 +179,11 @@ impl Stack {
     ///
     /// While the passed-in span will be used for errors, the returned value
     /// has the span from where it was originally defined
-    pub fn get_var_with_origin(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+    pub fn get_var_with_origin(
+        &self,
+        var_id: VarId,
+        span: FutureSpanId,
+    ) -> Result<Value, ShellError> {
         match self.lookup_var(var_id) {
             Some(v) => Ok(v),
             None => {
@@ -281,7 +285,7 @@ impl Stack {
     pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
         let mut vars = vec![];
 
-        let fake_span = Span::new(0, 0);
+        let fake_span = FutureSpanId::new(0, 0);
 
         for capture in captures {
             // Note: this assumes we have calculated captures correctly and that commands
@@ -598,11 +602,11 @@ impl Stack {
 mod test {
     use std::sync::Arc;
 
-    use crate::{engine::EngineState, Span, Value};
+    use crate::{engine::EngineState, FutureSpanId, Value};
 
     use super::Stack;
 
-    const ZERO_SPAN: Span = Span { start: 0, end: 0 };
+    const ZERO_SPAN: FutureSpanId = FutureSpanId { start: 0, end: 0 };
     fn string_value(s: &str) -> Value {
         Value::String {
             val: s.to_string(),

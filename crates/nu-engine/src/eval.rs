@@ -8,7 +8,7 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
-    Config, FromValue, GetSpan, IntoPipelineData, OutDest, PipelineData, ShellError, Span, Spanned, Type,
+    Config, FromValue, GetSpan, IntoPipelineData, OutDest, PipelineData, ShellError, FutureSpanId, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
@@ -584,7 +584,7 @@ pub fn eval_variable(
     engine_state: &EngineState,
     stack: &Stack,
     var_id: VarId,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     match var_id {
         // $nu
@@ -630,7 +630,7 @@ impl Eval for EvalRuntime {
         stack: &mut Stack,
         path: String,
         quoted: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         if quoted {
             Ok(Value::string(path, span))
@@ -647,7 +647,7 @@ impl Eval for EvalRuntime {
         stack: &mut Self::MutState,
         path: String,
         quoted: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         if path == "-" {
             Ok(Value::string("-", span))
@@ -665,7 +665,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         var_id: VarId,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         eval_variable(engine_state, stack, var_id, span)
     }
@@ -674,7 +674,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _: Span,
+        _: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // FIXME: protect this collect with ctrl-c
         Ok(eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
@@ -685,7 +685,7 @@ impl Eval for EvalRuntime {
         stack: &mut Stack,
         head: &Expression,
         args: &[ExternalArgument],
-        _: Span,
+        _: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let span = head.get_span(engine_state);
         // FIXME: protect this collect with ctrl-c
@@ -696,7 +696,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         block_id: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let block = engine_state.get_block(block_id);
 
@@ -709,11 +709,11 @@ impl Eval for EvalRuntime {
 
     fn regex_match(
         engine_state: &EngineState,
-        op_span: Span,
+        op_span: FutureSpanId,
         lhs: &Value,
         rhs: &Value,
         invert: bool,
-        expr_span: Span,
+        expr_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
     }
@@ -724,8 +724,8 @@ impl Eval for EvalRuntime {
         lhs: &Expression,
         rhs: &Expression,
         assignment: Assignment,
-        op_span: Span,
-        _expr_span: Span,
+        op_span: FutureSpanId,
+        _expr_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let rhs = eval_expression::<D>(engine_state, stack, rhs)?;
 
@@ -832,7 +832,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         block_id: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let captures = engine_state
             .get_block(block_id)
@@ -855,7 +855,7 @@ impl Eval for EvalRuntime {
         Ok(Value::closure(Closure { block_id, captures }, span))
     }
 
-    fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+    fn eval_overlay(engine_state: &EngineState, span: FutureSpanId) -> Result<Value, ShellError> {
         let name = String::from_utf8_lossy(engine_state.get_span_id_contents(span)).to_string();
 
         Ok(Value::string(name, span))

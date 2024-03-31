@@ -42,7 +42,7 @@ impl Command for DropNth {
                 description: "Drop the first, second, and third row",
                 result: Some(Value::list(
                     vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -50,7 +50,7 @@ impl Command for DropNth {
                 description: "Drop the first, second, and third row",
                 result: Some(Value::list(
                     vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -58,7 +58,7 @@ impl Command for DropNth {
                 description: "Drop rows 0 2 4",
                 result: Some(Value::list(
                     vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -66,7 +66,7 @@ impl Command for DropNth {
                 description: "Drop rows 2 0 4",
                 result: Some(Value::list(
                     vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -74,20 +74,23 @@ impl Command for DropNth {
                 example: "[first second third fourth fifth] | drop nth (1..3)",
                 result: Some(Value::list(
                     vec![Value::test_string("first"), Value::test_string("fifth")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 1..",
                 description: "Drop all rows except first row",
-                result: Some(Value::list(vec![Value::test_int(0)], Span::test_data())),
+                result: Some(Value::list(
+                    vec![Value::test_int(0)],
+                    FutureSpanId::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | drop nth 3..",
                 description: "Drop rows 3,4,5",
                 result: Some(Value::list(
                     vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

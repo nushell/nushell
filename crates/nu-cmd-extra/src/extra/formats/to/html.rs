@@ -333,7 +333,7 @@ fn to_html(
     Ok(Value::string(output_string, head).into_pipeline_data())
 }
 
-fn theme_demo(span: Span) -> PipelineData {
+fn theme_demo(span: FutureSpanId) -> PipelineData {
     // If asset doesn't work, make sure to return the default theme
     let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
     let result: Vec<Value> = html_themes

@@ -135,7 +135,7 @@ impl Command for Glob {
 
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
-        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
+        let (not_patterns, not_pattern_span): (Vec<String>, FutureSpanId) = match paths_to_exclude {
             None => (vec![], span),
             Some(f) => {
                 let pat_span = f.span();
@@ -259,7 +259,7 @@ fn glob_to_value<'a>(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Vec<Value>, ShellError> {
     let mut result: Vec<Value> = Vec::new();
     for entry in glob_results {

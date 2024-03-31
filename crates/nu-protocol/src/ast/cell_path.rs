@@ -1,5 +1,5 @@
 use super::Expression;
-use crate::Span;
+use crate::FutureSpanId;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
@@ -7,18 +7,18 @@ use std::{cmp::Ordering, fmt::Display};
 pub enum PathMember {
     String {
         val: String,
-        span: Span,
+        span: FutureSpanId,
         optional: bool,
     },
     Int {
         val: usize,
-        span: Span,
+        span: FutureSpanId,
         optional: bool,
     },
 }
 
 impl PathMember {
-    pub fn int(val: usize, optional: bool, span: Span) -> Self {
+    pub fn int(val: usize, optional: bool, span: FutureSpanId) -> Self {
         PathMember::Int {
             val,
             span,
@@ -26,7 +26,7 @@ impl PathMember {
         }
     }
 
-    pub fn string(val: String, optional: bool, span: Span) -> Self {
+    pub fn string(val: String, optional: bool, span: FutureSpanId) -> Self {
         PathMember::String {
             val,
             span,
@@ -38,7 +38,7 @@ impl PathMember {
         PathMember::Int {
             val,
             optional,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         }
     }
 
@@ -46,7 +46,7 @@ impl PathMember {
         PathMember::String {
             val,
             optional,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         }
     }
 

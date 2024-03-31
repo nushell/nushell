@@ -106,7 +106,7 @@ fn get_event_type_filter(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<EventTypeFilter, ShellError> {
     let event_type_filter = call.get_flag::<Value>(engine_state, stack, "types")?;
     let event_type_filter = event_type_filter
@@ -146,7 +146,7 @@ impl EventTypeFilter {
         }
     }
 
-    fn from_value(value: Value, head: Span) -> Result<EventTypeFilter, ShellError> {
+    fn from_value(value: Value, head: FutureSpanId) -> Result<EventTypeFilter, ShellError> {
         if let Value::List { vals, .. } = value {
             let mut filter = Self::none();
             for event_type in vals {
@@ -170,7 +170,7 @@ impl EventTypeFilter {
         }
     }
 
-    fn wrong_type_error(head: Span, val: &str, val_span: Span) -> ShellError {
+    fn wrong_type_error(head: FutureSpanId, val: &str, val_span: FutureSpanId) -> ShellError {
         ShellError::UnsupportedInput {
             msg: format!("{} is not a valid event type", val),
             input: "value originates from here".into(),
@@ -179,7 +179,7 @@ impl EventTypeFilter {
         }
     }
 
-    fn bad_list_error(head: Span, value: &Value) -> ShellError {
+    fn bad_list_error(head: FutureSpanId, value: &Value) -> ShellError {
         ShellError::UnsupportedInput {
             msg: "--types expects a list of strings".to_string(),
             input: "value originates from here".into(),
@@ -233,7 +233,7 @@ impl DeferredConsoleRestore {
 }
 
 fn parse_event(
-    head: Span,
+    head: FutureSpanId,
     event: &crossterm::event::Event,
     filter: &EventTypeFilter,
     add_raw: bool,
@@ -269,7 +269,7 @@ impl FocusEventType {
 }
 
 fn create_focus_event(
-    head: Span,
+    head: FutureSpanId,
     filter: &EventTypeFilter,
     event_type: FocusEventType,
 ) -> Option<Value> {
@@ -287,7 +287,7 @@ fn create_focus_event(
 }
 
 fn create_key_event(
-    head: Span,
+    head: FutureSpanId,
     filter: &EventTypeFilter,
     event: &crossterm::event::KeyEvent,
     add_raw: bool,
@@ -334,7 +334,7 @@ fn create_key_event(
     }
 }
 
-fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
+fn get_keycode_name(head: FutureSpanId, code: &KeyCode) -> (Value, Value) {
     let (typ, code) = match code {
         KeyCode::F(n) => ("f", n.to_string()),
         KeyCode::Char(c) => ("char", c.to_string()),
@@ -345,7 +345,7 @@ fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
     (Value::string(typ, head), Value::string(code, head))
 }
 
-fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
+fn parse_modifiers(head: FutureSpanId, modifiers: &KeyModifiers) -> Value {
     const ALL_MODIFIERS: [KeyModifiers; 6] = [
         KeyModifiers::SHIFT,
         KeyModifiers::CONTROL,
@@ -366,7 +366,7 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
 }
 
 fn create_mouse_event(
-    head: Span,
+    head: FutureSpanId,
     filter: &EventTypeFilter,
     event: &MouseEvent,
     add_raw: bool,
@@ -404,7 +404,11 @@ fn create_mouse_event(
     }
 }
 
-fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Option<Value> {
+fn create_paste_event(
+    head: FutureSpanId,
+    filter: &EventTypeFilter,
+    content: &str,
+) -> Option<Value> {
     if filter.listen_paste {
         let record = record! {
             "type" => Value::string("paste", head),
@@ -418,7 +422,7 @@ fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Op
 }
 
 fn create_resize_event(
-    head: Span,
+    head: FutureSpanId,
     filter: &EventTypeFilter,
     columns: u16,
     rows: u16,

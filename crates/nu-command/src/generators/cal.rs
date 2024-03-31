@@ -134,7 +134,7 @@ pub fn cal(
     Ok(Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data())
 }
 
-fn get_invalid_year_shell_error(head: Span) -> ShellError {
+fn get_invalid_year_shell_error(head: FutureSpanId) -> ShellError {
     ShellError::TypeMismatch {
         err_message: "The year is invalid".to_string(),
         span: head,
@@ -201,7 +201,7 @@ fn get_current_date() -> (i32, u32, u32) {
 fn add_months_of_year_to_table(
     arguments: &Arguments,
     calendar_vec_deque: &mut VecDeque<Value>,
-    tag: Span,
+    tag: FutureSpanId,
     selected_year: i32,
     (start_month, end_month): (u32, u32),
     current_month: u32,
@@ -236,7 +236,7 @@ fn add_months_of_year_to_table(
 fn add_month_to_table(
     arguments: &Arguments,
     calendar_vec_deque: &mut VecDeque<Value>,
-    tag: Span,
+    tag: FutureSpanId,
     selected_year: i32,
     current_month: u32,
     current_day_option: Option<u32>,
@@ -327,8 +327,8 @@ fn add_month_to_table(
                 if let Some(current_day) = current_day_option {
                     if current_day == adjusted_day_number {
                         // This colors the current day
-                        let header_style =
-                            style_computer.compute("header", &Value::nothing(Span::unknown()));
+                        let header_style = style_computer
+                            .compute("header", &Value::nothing(FutureSpanId::unknown()));
 
                         value = Value::string(
                             header_style

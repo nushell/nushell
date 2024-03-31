@@ -1,14 +1,14 @@
 use nu_protocol::{
     ast::{Call, Expression},
     engine::{EngineState, Stack},
-    FromValue, ShellError, Span, Spanned, Value,
+    FromValue, FutureSpanId, ShellError, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 
 /// A representation of the plugin's invocation command including command line args
 ///
 /// The `EvaluatedCall` contains information about the way a `Plugin` was invoked representing the
-/// [`Span`] corresponding to the invocation as well as the arguments it was invoked with. It is
+/// [`FutureSpanId`] corresponding to the invocation as well as the arguments it was invoked with. It is
 /// one of the items passed to `PluginCommand::run()`, along with the plugin reference, the engine
 /// interface, and a [`Value`] that represents the input.
 ///
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluatedCall {
     /// Span of the command invocation
-    pub head: Span,
+    pub head: FutureSpanId,
     /// Values of positional arguments
     pub positional: Vec<Value>,
     /// Names and values of named arguments
@@ -63,9 +63,9 @@ impl EvaluatedCall {
     /// # Examples
     /// Invoked as `my_command --foo`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -79,9 +79,9 @@ impl EvaluatedCall {
     ///
     /// Invoked as `my_command --bar`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -95,15 +95,15 @@ impl EvaluatedCall {
     ///
     /// Invoked as `my_command --foo=true`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
-    /// #         Some(Value::bool(true, Span::unknown()))
+    /// #         Some(Value::bool(true, FutureSpanId::unknown()))
     /// #     )],
     /// # };
     /// assert!(call.has_flag("foo").unwrap());
@@ -111,15 +111,15 @@ impl EvaluatedCall {
     ///
     /// Invoked as `my_command --foo=false`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
-    /// #         Some(Value::bool(false, Span::unknown()))
+    /// #         Some(Value::bool(false, FutureSpanId::unknown()))
     /// #     )],
     /// # };
     /// assert!(!call.has_flag("foo").unwrap());
@@ -127,15 +127,15 @@ impl EvaluatedCall {
     ///
     /// Invoked with wrong type as `my_command --foo=1`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
-    /// #         Some(Value::int(1, Span::unknown()))
+    /// #         Some(Value::int(1, FutureSpanId::unknown()))
     /// #     )],
     /// # };
     /// assert!(call.has_flag("foo").is_err());
@@ -164,9 +164,9 @@ impl EvaluatedCall {
     /// # Examples
     /// Invoked as `my_command --foo 123`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -185,9 +185,9 @@ impl EvaluatedCall {
     ///
     /// Invoked as `my_command`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -215,9 +215,9 @@ impl EvaluatedCall {
     /// Examples:
     /// Invoked as `my_command a b c`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: vec![
@@ -245,9 +245,9 @@ impl EvaluatedCall {
     /// # Examples
     /// Invoked as `my_command --foo 123`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -262,9 +262,9 @@ impl EvaluatedCall {
     ///
     /// Invoked as `my_command --bar 123`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -279,9 +279,9 @@ impl EvaluatedCall {
     ///
     /// Invoked as `my_command --foo abc`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -306,9 +306,9 @@ impl EvaluatedCall {
     /// # Example
     /// Invoked as `my_command zero one two three`:
     /// ```
-    /// # use nu_protocol::{Spanned, Span, Value};
-    /// # use nu_plugin_protocol::EvaluatedCall;
-    /// # let null_span = Span::new(0, 0);
+    /// # use nu_protocol::{Spanned, FutureSpanId, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = FutureSpanId::new(0, 0);
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: vec![
@@ -368,28 +368,28 @@ impl EvaluatedCall {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::{Span, Spanned, Value};
+    use nu_protocol::{FutureSpanId, Spanned, Value};
 
     #[test]
     fn call_to_value() {
         let call = EvaluatedCall {
-            head: Span::new(0, 10),
+            head: FutureSpanId::new(0, 10),
             positional: vec![
-                Value::float(1.0, Span::new(0, 10)),
-                Value::string("something", Span::new(0, 10)),
+                Value::float(1.0, FutureSpanId::new(0, 10)),
+                Value::string("something", FutureSpanId::new(0, 10)),
             ],
             named: vec![
                 (
                     Spanned {
                         item: "name".to_string(),
-                        span: Span::new(0, 10),
+                        span: FutureSpanId::new(0, 10),
                     },
-                    Some(Value::float(1.0, Span::new(0, 10))),
+                    Some(Value::float(1.0, FutureSpanId::new(0, 10))),
                 ),
                 (
                     Spanned {
                         item: "flag".to_string(),
-                        span: Span::new(0, 10),
+                        span: FutureSpanId::new(0, 10),
                     },
                     None,
                 ),

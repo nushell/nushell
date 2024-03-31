@@ -4,7 +4,8 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
+    Config, FutureSpanId, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError, Value,
+    VarId,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -309,7 +310,7 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         path: String,
         quoted: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn eval_directory(
@@ -317,21 +318,21 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         path: String,
         quoted: bool,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn eval_var(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         var_id: VarId,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn eval_call<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         call: &Call,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn eval_external_call(
@@ -339,23 +340,23 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         head: &Expression,
         args: &[ExternalArgument],
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn eval_subexpression<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         block_id: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn regex_match(
         state: Self::State<'_>,
-        op_span: Span,
+        op_span: FutureSpanId,
         lhs: &Value,
         rhs: &Value,
         invert: bool,
-        expr_span: Span,
+        expr_span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     #[allow(clippy::too_many_arguments)]
@@ -365,18 +366,18 @@ pub trait Eval {
         lhs: &Expression,
         rhs: &Expression,
         assignment: Assignment,
-        op_span: Span,
-        expr_span: Span,
+        op_span: FutureSpanId,
+        expr_span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
     fn eval_row_condition_or_closure(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         block_id: usize,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 
-    fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
+    fn eval_overlay(state: Self::State<'_>, span: FutureSpanId) -> Result<Value, ShellError>;
 
     /// For expressions that should never actually be evaluated
     fn unreachable(state: Self::State<'_>, expr: &Expression) -> Result<Value, ShellError>;

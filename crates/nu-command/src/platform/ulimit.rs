@@ -244,7 +244,11 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
 });
 
 /// Convert `rlim_t` to `Value` representation
-fn limit_to_value(limit: rlim_t, multiplier: rlim_t, span: Span) -> Result<Value, ShellError> {
+fn limit_to_value(
+    limit: rlim_t,
+    multiplier: rlim_t,
+    span: FutureSpanId,
+) -> Result<Value, ShellError> {
     if limit == RLIM_INFINITY {
         return Ok(Value::string("unlimited", span));
     }
@@ -300,7 +304,7 @@ fn fill_record(
     max_len: usize,
     soft: bool,
     hard: bool,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Record, ShellError> {
     let mut record = Record::new();
     let mut desc = String::new();
@@ -338,7 +342,7 @@ fn set_limits(
     res: &ResourceInfo,
     soft: bool,
     hard: bool,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<(), ShellError> {
     let (mut soft_limit, mut hard_limit) = getrlimit(res.resource)?;
     let new_limit = parse_limit(limit_value, res, soft, soft_limit, hard_limit, call_span)?;
@@ -429,7 +433,7 @@ fn parse_limit(
     soft: bool,
     soft_limit: rlim_t,
     hard_limit: rlim_t,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<rlim_t, ShellError> {
     match limit_value {
         Value::Int { val, internal_span } => {

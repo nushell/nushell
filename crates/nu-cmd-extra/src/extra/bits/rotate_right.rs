@@ -105,19 +105,22 @@ impl Command for BitsRor {
                         Value::test_int(16392),
                         Value::test_int(23),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "rotate right binary data",
                 example: "0x[ff bb 03] | bits ror 10",
-                result: Some(Value::binary(vec![0xc0, 0xff, 0xee], Span::test_data())),
+                result: Some(Value::binary(
+                    vec![0xc0, 0xff, 0xee],
+                    FutureSpanId::test_data(),
+                )),
             },
         ]
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let Arguments {
         signed,
         number_size,

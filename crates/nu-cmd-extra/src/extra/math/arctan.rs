@@ -66,7 +66,7 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
+fn operate(value: Value, head: FutureSpanId, use_degrees: bool) -> Value {
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
             let span = numeric.span();

@@ -52,7 +52,7 @@ fn entry(
     arg: impl Into<String>,
     path: impl Into<String>,
     cmd_type: impl Into<String>,
-    span: Span,
+    span: FutureSpanId,
 ) -> Value {
     Value::record(
         record! {
@@ -64,7 +64,11 @@ fn entry(
     )
 }
 
-fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
+fn get_entry_in_commands(
+    engine_state: &EngineState,
+    name: &str,
+    span: FutureSpanId,
+) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
         let cmd_type = if engine_state.get_decl(decl_id).is_custom_command() {
             "custom"
@@ -85,7 +89,7 @@ fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> 
 fn get_entries_in_nu(
     engine_state: &EngineState,
     name: &str,
-    span: Span,
+    span: FutureSpanId,
     skip_after_first_found: bool,
 ) -> Vec<Value> {
     let mut all_entries = vec![];
@@ -104,7 +108,7 @@ fn get_entries_in_nu(
 #[cfg(feature = "which-support")]
 fn get_first_entry_in_path(
     item: &str,
-    span: Span,
+    span: FutureSpanId,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
 ) -> Option<Value> {
@@ -116,7 +120,7 @@ fn get_first_entry_in_path(
 #[cfg(not(feature = "which-support"))]
 fn get_first_entry_in_path(
     _item: &str,
-    _span: Span,
+    _span: FutureSpanId,
     _cwd: impl AsRef<Path>,
     _paths: impl AsRef<OsStr>,
 ) -> Option<Value> {
@@ -126,7 +130,7 @@ fn get_first_entry_in_path(
 #[cfg(feature = "which-support")]
 fn get_all_entries_in_path(
     item: &str,
-    span: Span,
+    span: FutureSpanId,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
 ) -> Vec<Value> {
@@ -141,7 +145,7 @@ fn get_all_entries_in_path(
 #[cfg(not(feature = "which-support"))]
 fn get_all_entries_in_path(
     _item: &str,
-    _span: Span,
+    _span: FutureSpanId,
     _cwd: impl AsRef<Path>,
     _paths: impl AsRef<OsStr>,
 ) -> Vec<Value> {

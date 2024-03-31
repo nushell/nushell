@@ -107,7 +107,7 @@ impl Command for BytesReplace {
     }
 }
 
-fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
+fn replace(val: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::Binary { val, .. } => replace_impl(val, args, val_span),
@@ -125,7 +125,7 @@ fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn replace_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn replace_impl(input: &[u8], arg: &Arguments, span: FutureSpanId) -> Value {
     let mut replaced = vec![];
     let replace_all = arg.all;
 

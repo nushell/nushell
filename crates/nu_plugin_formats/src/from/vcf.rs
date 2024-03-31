@@ -4,7 +4,7 @@ use ical::{parser::vcard::component::*, property::Property};
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, FutureSpanId, LabeledError, ShellError, Signature, Type, Value,
 };
 
 pub struct FromVcf;
@@ -91,17 +91,17 @@ END:VCARD' | from vcf",
                     Value::test_record(record! {
                             "name" =>   Value::test_string("N"),
                             "value" =>  Value::test_string("Foo"),
-                            "params" => Value::nothing(Span::test_data()),
+                            "params" => Value::nothing(FutureSpanId::test_data()),
                     }),
                     Value::test_record(record! {
                             "name" =>   Value::test_string("FN"),
                             "value" =>  Value::test_string("Bar"),
-                            "params" => Value::nothing(Span::test_data()),
+                            "params" => Value::nothing(FutureSpanId::test_data()),
                     }),
                     Value::test_record(record! {
                             "name" =>   Value::test_string("EMAIL"),
                             "value" =>  Value::test_string("foo@bar.com"),
-                            "params" => Value::nothing(Span::test_data()),
+                            "params" => Value::nothing(FutureSpanId::test_data()),
                     }),
                 ],
             ),
@@ -109,14 +109,14 @@ END:VCARD' | from vcf",
     }]
 }
 
-fn contact_to_value(contact: VcardContact, span: Span) -> Value {
+fn contact_to_value(contact: VcardContact, span: FutureSpanId) -> Value {
     Value::record(
         record! { "properties" => properties_to_value(contact.properties, span) },
         span,
     )
 }
 
-fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
+fn properties_to_value(properties: Vec<Property>, span: FutureSpanId) -> Value {
     Value::list(
         properties
             .into_iter()
@@ -145,7 +145,7 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
     )
 }
 
-fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
+fn params_to_value(params: Vec<(String, Vec<String>)>, span: FutureSpanId) -> Value {
     let mut row = IndexMap::new();
 
     for (param_name, param_values) in params {

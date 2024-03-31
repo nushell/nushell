@@ -108,7 +108,7 @@ impl Command for Lines {
             example: r#"$"two\nlines" | lines"#,
             result: Some(Value::list(
                 vec![Value::test_string("two"), Value::test_string("lines")],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }
@@ -119,7 +119,7 @@ struct RawStreamLinesAdapter {
     inner: RawStream,
     inner_complete: bool,
     skip_empty: bool,
-    span: Span,
+    span: FutureSpanId,
     incomplete_line: String,
     queue: VecDeque<String>,
 }
@@ -204,7 +204,7 @@ impl Iterator for RawStreamLinesAdapter {
 }
 
 impl RawStreamLinesAdapter {
-    pub fn new(inner: RawStream, span: Span, skip_empty: bool) -> Self {
+    pub fn new(inner: RawStream, span: FutureSpanId, skip_empty: bool) -> Self {
         Self {
             inner,
             span,

@@ -111,7 +111,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
     }
 }
 
-fn int_to_cell_path(val: i64, span: Span) -> Value {
+fn int_to_cell_path(val: i64, span: FutureSpanId) -> Value {
     let member = match int_to_path_member(val, span) {
         Ok(m) => m,
         Err(e) => {
@@ -126,7 +126,7 @@ fn int_to_cell_path(val: i64, span: Span) -> Value {
     Value::cell_path(path, span)
 }
 
-fn int_to_path_member(val: i64, span: Span) -> Result<PathMember, ShellError> {
+fn int_to_path_member(val: i64, span: FutureSpanId) -> Result<PathMember, ShellError> {
     let Ok(val) = val.try_into() else {
         return Err(ShellError::NeedsPositiveValue { span });
     };
@@ -134,7 +134,7 @@ fn int_to_path_member(val: i64, span: Span) -> Result<PathMember, ShellError> {
     Ok(PathMember::int(val, false, span))
 }
 
-fn list_to_cell_path(vals: &[Value], span: Span) -> Result<Value, ShellError> {
+fn list_to_cell_path(vals: &[Value], span: FutureSpanId) -> Result<Value, ShellError> {
     let mut members = vec![];
 
     for val in vals {
@@ -148,8 +148,8 @@ fn list_to_cell_path(vals: &[Value], span: Span) -> Result<Value, ShellError> {
 
 fn record_to_path_member(
     record: &Record,
-    val_span: Span,
-    span: Span,
+    val_span: FutureSpanId,
+    span: FutureSpanId,
 ) -> Result<PathMember, ShellError> {
     let Some(value) = record.get("value") else {
         return Err(ShellError::CantFindColumn {
@@ -170,7 +170,7 @@ fn record_to_path_member(
     Ok(member)
 }
 
-fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
+fn value_to_cell_path(value: &Value, span: FutureSpanId) -> Result<Value, ShellError> {
     match value {
         Value::Int { val, .. } => Ok(int_to_cell_path(*val, span)),
         Value::List { vals, .. } => list_to_cell_path(vals, span),
@@ -183,7 +183,7 @@ fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
     }
 }
 
-fn value_to_path_member(val: &Value, span: Span) -> Result<PathMember, ShellError> {
+fn value_to_path_member(val: &Value, span: FutureSpanId) -> Result<PathMember, ShellError> {
     let member = match val {
         Value::Int {
             val,

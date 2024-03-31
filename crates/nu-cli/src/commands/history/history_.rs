@@ -151,7 +151,7 @@ impl Command for History {
     }
 }
 
-fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
+fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: FutureSpanId) -> Value {
     //1. Format all the values
     //2. Create a record of either short or long columns and values
 

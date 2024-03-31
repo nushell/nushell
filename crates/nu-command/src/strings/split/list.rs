@@ -59,7 +59,7 @@ impl Command for SubCommand {
                                 Value::test_string("b"),
                                 Value::test_string("c"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::list(
                             vec![
@@ -67,10 +67,10 @@ impl Command for SubCommand {
                                 Value::test_string("f"),
                                 Value::test_string("g"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -81,19 +81,19 @@ impl Command for SubCommand {
                         Value::list(
                             vec![Value::list(
                                 vec![Value::test_int(1), Value::test_int(2)],
-                                Span::test_data(),
+                                FutureSpanId::test_data(),
                             )],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::list(
                             vec![Value::list(
                                 vec![Value::test_int(3), Value::test_int(4)],
-                                Span::test_data(),
+                                FutureSpanId::test_data(),
                             )],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -107,7 +107,7 @@ impl Command for SubCommand {
                                 Value::test_string("c"),
                                 Value::test_string("d"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::list(
                             vec![
@@ -115,10 +115,10 @@ impl Command for SubCommand {
                                 Value::test_string("f"),
                                 Value::test_string("g"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -126,21 +126,21 @@ impl Command for SubCommand {
                 example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
                 result: Some(Value::list(
                     vec![
-                        Value::list(vec![Value::test_string("a")], Span::test_data()),
+                        Value::list(vec![Value::test_string("a")], FutureSpanId::test_data()),
                         Value::list(
                             vec![
                                 Value::test_string("c"),
                                 Value::test_string("d"),
                                 Value::test_string("a"),
                             ],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::list(
                             vec![Value::test_string("f"), Value::test_string("g")],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

@@ -199,7 +199,7 @@ fn operate(
 fn action(
     input: PipelineData,
     table: Table,
-    span: Span,
+    span: FutureSpanId,
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Value, ShellError> {
     match input {
@@ -227,7 +227,7 @@ fn action(
 
 fn insert_in_transaction(
     stream: impl Iterator<Item = Value>,
-    span: Span,
+    span: FutureSpanId,
     mut table: Table,
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Value, ShellError> {
@@ -333,7 +333,7 @@ fn insert_value(
         val => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".into(),
             wrong_type: val.get_type().to_string(),
-            dst_span: Span::unknown(),
+            dst_span: FutureSpanId::unknown(),
             src_span: val.span(),
         }),
     }
@@ -378,7 +378,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Table(_) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "sql".into(),
             wrong_type: val.get_type().to_string(),
-            dst_span: Span::unknown(),
+            dst_span: FutureSpanId::unknown(),
             src_span: val.span(),
         }),
     }

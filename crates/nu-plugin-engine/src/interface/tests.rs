@@ -18,7 +18,7 @@ use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
     CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    ShellError, FutureSpanId, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -149,7 +149,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
 
     let stream = manager.read_pipeline_data(
         PipelineDataHeader::ExternalStream(ExternalStreamInfo {
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
             stdout: Some(RawStreamInfo {
                 id: 0,
                 is_binary: false,
@@ -377,7 +377,7 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     manager.consume(PluginOutput::CallResponse(
         1,
         PluginCallResponse::PipelineData(PipelineDataHeader::ExternalStream(ExternalStreamInfo {
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
             stdout: Some(RawStreamInfo {
                 id: 1,
                 is_binary: false,
@@ -445,7 +445,7 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
                     block_id: 0,
                     captures: vec![],
                 },
-                span: Span::test_data(),
+                span: FutureSpanId::test_data(),
             },
             positional: vec![],
             input: PipelineDataHeader::ListStream(ListStreamInfo { id: 2 }),
@@ -781,7 +781,7 @@ fn interface_write_plugin_call_writes_custom_value_op() -> Result<(), ShellError
         PluginCall::CustomValueOp(
             Spanned {
                 item: test_plugin_custom_value(),
-                span: Span::test_data(),
+                span: FutureSpanId::test_data(),
             },
             CustomValueOp::ToBaseValue,
         ),
@@ -813,7 +813,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
         PluginCall::Run(CallInfo {
             name: "foo".into(),
             call: EvaluatedCall {
-                head: Span::test_data(),
+                head: FutureSpanId::test_data(),
                 positional: vec![],
                 named: vec![],
             },
@@ -851,7 +851,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
         PluginCall::Run(CallInfo {
             name: "foo".into(),
             call: EvaluatedCall {
-                head: Span::test_data(),
+                head: FutureSpanId::test_data(),
                 positional: vec![],
                 named: vec![],
             },
@@ -936,7 +936,7 @@ fn interface_receive_plugin_call_receives_error() -> Result<(), ShellError> {
     let (tx, rx) = mpsc::channel();
     tx.send(ReceivedPluginCallMessage::Error(
         ShellError::ExternalNotSupported {
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         },
     ))
     .expect("failed to send on new channel");
@@ -1058,7 +1058,7 @@ fn interface_run() -> Result<(), ShellError> {
         CallInfo {
             name: "bogus".into(),
             call: EvaluatedCall {
-                head: Span::test_data(),
+                head: FutureSpanId::test_data(),
                 positional: vec![],
                 named: vec![],
             },
@@ -1069,7 +1069,7 @@ fn interface_run() -> Result<(), ShellError> {
 
     assert_eq!(
         Value::test_int(number),
-        result.into_value(Span::test_data())
+        result.into_value(FutureSpanId::test_data())
     );
     assert!(test.has_unconsumed_write());
     Ok(())
@@ -1090,7 +1090,7 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 
     let result = interface.custom_value_to_base_value(Spanned {
         item: test_plugin_custom_value_with_source(),
-        span: Span::test_data(),
+        span: FutureSpanId::test_data(),
     })?;
 
     assert_eq!(Value::test_string(string), result);
@@ -1118,7 +1118,7 @@ fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellEr
         match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
             Ok(data) => assert_eq!(
                 value.get_type(),
-                data.into_value(Span::test_data()).get_type()
+                data.into_value(FutureSpanId::test_data()).get_type()
             ),
             Err(err) => panic!("failed to accept {value:?}: {err}"),
         }
@@ -1208,7 +1208,7 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
 
 #[test]
 fn prepare_custom_value_verifies_source() {
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     let source = Arc::new(PluginSource::new_fake("test"));
 
     let mut val: Box<dyn CustomValue> = Box::new(test_plugin_custom_value());
@@ -1239,7 +1239,7 @@ fn prepare_custom_value_verifies_source() {
 struct DropCustomVal;
 #[typetag::serde]
 impl CustomValue for DropCustomVal {
-    fn clone_value(&self, _span: Span) -> Value {
+    fn clone_value(&self, _span: FutureSpanId) -> Value {
         unimplemented!()
     }
 
@@ -1247,7 +1247,7 @@ impl CustomValue for DropCustomVal {
         "DropCustomVal".into()
     }
 
-    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, _span: FutureSpanId) -> Result<Value, ShellError> {
         unimplemented!()
     }
 
@@ -1266,7 +1266,7 @@ impl CustomValue for DropCustomVal {
 
 #[test]
 fn prepare_custom_value_sends_to_keep_channel_if_drop_notify() -> Result<(), ShellError> {
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     let source = Arc::new(PluginSource::new_fake("test"));
     let (tx, rx) = mpsc::channel();
     let state = CurrentCallState {
@@ -1305,7 +1305,7 @@ fn prepare_custom_value_sends_to_keep_channel_if_drop_notify() -> Result<(), She
 #[test]
 fn prepare_plugin_call_run() {
     // Check that args are handled
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     let source = Arc::new(PluginSource::new_fake("test"));
     let other_source = Arc::new(PluginSource::new_fake("other"));
     let cv_ok = test_plugin_custom_value()
@@ -1399,7 +1399,7 @@ fn prepare_plugin_call_run() {
 #[test]
 fn prepare_plugin_call_custom_value_op() {
     // Check behavior with custom value ops
-    let span = Span::test_data();
+    let span = FutureSpanId::test_data();
     let source = Arc::new(PluginSource::new_fake("test"));
     let other_source = Arc::new(PluginSource::new_fake("other"));
     let cv_ok = test_plugin_custom_value().with_source(source.clone());

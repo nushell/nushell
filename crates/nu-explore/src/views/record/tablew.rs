@@ -511,7 +511,7 @@ impl Widget for IndexColumn<'_> {
             let text = i.to_string();
             let style = nu_style_to_tui(self.style_computer.compute(
                 "row_index",
-                &Value::string(text.as_str(), nu_protocol::Span::unknown()),
+                &Value::string(text.as_str(), nu_protocol::FutureSpanId::unknown()),
             ));
 
             let p = Paragraph::new(text)
@@ -708,7 +708,10 @@ fn head_row_text(head: &str, style_computer: &StyleComputer) -> NuText {
         String::from(head),
         TextStyle::with_style(
             Alignment::Center,
-            style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown())),
+            style_computer.compute(
+                "header",
+                &Value::string(head, nu_protocol::FutureSpanId::unknown()),
+            ),
         ),
     )
 }

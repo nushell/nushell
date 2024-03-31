@@ -184,7 +184,7 @@ impl<'a> Debug for StyleComputer<'a> {
 
 #[test]
 fn test_computable_style_static() {
-    use nu_protocol::Span;
+    use nu_protocol::FutureSpanId;
 
     let style1 = Style::default().italic();
     let style2 = Style::default().underline();
@@ -202,11 +202,11 @@ fn test_computable_style_static() {
         .collect(),
     );
     assert_eq!(
-        style_computer.compute("string", &Value::nothing(Span::unknown())),
+        style_computer.compute("string", &Value::nothing(FutureSpanId::unknown())),
         style1
     );
     assert_eq!(
-        style_computer.compute("row_index", &Value::nothing(Span::unknown())),
+        style_computer.compute("row_index", &Value::nothing(FutureSpanId::unknown())),
         style2
     );
 }

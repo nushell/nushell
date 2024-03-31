@@ -55,7 +55,7 @@ repeating this process with row 1, and so on."#
                             "index" => Value::test_int(3),
                         }),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -125,8 +125,8 @@ repeating this process with row 1, and so on."#
             (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
                 // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
-                let span = if val.span() == Span::test_data() {
-                    Span::new(call.head.start, call.head.start)
+                let span = if val.span() == FutureSpanId::test_data() {
+                    FutureSpanId::new(call.head.start, call.head.start)
                 } else {
                     val.span()
                 };
@@ -141,7 +141,7 @@ repeating this process with row 1, and so on."#
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "input, and argument, to be both record or both table".to_string(),
                 dst_span: call.head,
-                src_span: Span::new(call.head.start, call.head.start),
+                src_span: FutureSpanId::new(call.head.start, call.head.start),
             }),
         }
     }

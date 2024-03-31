@@ -178,7 +178,7 @@ fn string_helper(
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let digits = args.decimals_value;
     let config = &args.config;
     match input {

@@ -65,14 +65,14 @@ impl Command for SubCommand {
                         Value::test_string("si"),
                         Value::test_string("looc"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, _arg: &CellPathOnlyArgs, head: FutureSpanId) -> Value {
     match input {
         Value::String { val, .. } => Value::string(val.chars().rev().collect::<String>(), head),
         Value::Error { .. } => input.clone(),

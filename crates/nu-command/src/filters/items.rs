@@ -111,7 +111,7 @@ impl Command for Items {
                     Value::test_string("new york"),
                     Value::test_string("san francisco"),
                 ],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }

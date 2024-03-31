@@ -1,10 +1,10 @@
 use chardetng::EncodingDetector;
 use encoding_rs::Encoding;
-use nu_protocol::{ShellError, Span, Spanned, Value};
+use nu_protocol::{FutureSpanId, ShellError, Spanned, Value};
 
 pub fn detect_encoding_name(
-    head: Span,
-    input: Span,
+    head: FutureSpanId,
+    input: FutureSpanId,
     bytes: &[u8],
 ) -> Result<&'static Encoding, ShellError> {
     let mut detector = EncodingDetector::new();
@@ -23,7 +23,7 @@ pub fn detect_encoding_name(
 }
 
 pub fn decode(
-    head: Span,
+    head: FutureSpanId,
     encoding_name: Spanned<String>,
     bytes: &[u8],
 ) -> Result<Value, ShellError> {
@@ -38,10 +38,10 @@ pub fn decode(
 }
 
 pub fn encode(
-    head: Span,
+    head: FutureSpanId,
     encoding_name: Spanned<String>,
     s: &str,
-    s_span: Span,
+    s_span: FutureSpanId,
     ignore_errors: bool,
 ) -> Result<Value, ShellError> {
     // Workaround for a bug in the Encodings Specification.
@@ -80,7 +80,7 @@ pub fn encode(
     }
 }
 
-fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellError> {
+fn parse_encoding(span: FutureSpanId, label: &str) -> Result<&'static Encoding, ShellError> {
     // Workaround for a bug in the Encodings Specification.
     let label = if label.eq_ignore_ascii_case("utf16") {
         "utf-16"
@@ -119,7 +119,7 @@ mod test {
     #[case::utf8("utf8", "")]
     #[case::utf_hyphen_8("utf-8", "")]
     fn smoke(#[case] encoding: String, #[case] expected: &str) {
-        let test_span = Span::test_data();
+        let test_span = FutureSpanId::test_data();
         let encoding = Spanned {
             item: encoding,
             span: test_span,
@@ -162,7 +162,8 @@ mod test {
             185, 224, 161, 232, 210, 227, 185, 228, 193, 226, 164, 195, 171, 205, 191, 183, 236], "TIS-620")]
     fn smoke_encoding_name(#[case] bytes: &[u8], #[case] expected: &str) {
         let encoding_name =
-            detect_encoding_name(Span::test_data(), Span::test_data(), bytes).unwrap();
+            detect_encoding_name(FutureSpanId::test_data(), FutureSpanId::test_data(), bytes)
+                .unwrap();
         assert_eq!(
             encoding_name,
             Encoding::for_label(expected.as_bytes()).unwrap()

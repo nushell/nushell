@@ -29,7 +29,7 @@ impl Command for BytesBuild {
             description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
             result: Some(Value::binary(
                 vec![0x01, 0x02, 0x03, 0x04],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }

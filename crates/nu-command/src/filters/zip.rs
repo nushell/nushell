@@ -35,17 +35,17 @@ impl Command for Zip {
     fn examples(&self) -> Vec<Example> {
         let test_row_1 = Value::list(
             vec![Value::test_int(1), Value::test_int(4)],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let test_row_2 = Value::list(
             vec![Value::test_int(2), Value::test_int(5)],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let test_row_3 = Value::list(
             vec![Value::test_int(3), Value::test_int(6)],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         vec![
@@ -56,14 +56,14 @@ impl Command for Zip {
                     vec![
                         Value::list(
                             vec![Value::test_int(1), Value::test_int(3)],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::list(
                             vec![Value::test_int(2), Value::test_int(4)],
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -71,7 +71,7 @@ impl Command for Zip {
                 description: "Zip two ranges",
                 result: Some(Value::list(
                     vec![test_row_1.clone(), test_row_2.clone(), test_row_3.clone()],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -79,7 +79,7 @@ impl Command for Zip {
                 description: "Zip two streams",
                 result: Some(Value::list(
                     vec![test_row_1, test_row_2, test_row_3],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {

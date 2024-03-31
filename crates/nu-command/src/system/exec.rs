@@ -73,7 +73,10 @@ fn exec(
 }
 
 #[cfg(unix)]
-fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineData, ShellError> {
+fn exec_impl(
+    mut command: std::process::Command,
+    span: FutureSpanId,
+) -> Result<PipelineData, ShellError> {
     use std::os::unix::process::CommandExt;
 
     let error = command.exec();
@@ -88,7 +91,10 @@ fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineD
 }
 
 #[cfg(windows)]
-fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineData, ShellError> {
+fn exec_impl(
+    mut command: std::process::Command,
+    span: FutureSpanId,
+) -> Result<PipelineData, ShellError> {
     match command.spawn() {
         Ok(mut child) => match child.wait() {
             Ok(status) => std::process::exit(status.code().unwrap_or(0)),

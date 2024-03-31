@@ -1,5 +1,5 @@
 use super::Pipeline;
-use crate::{engine::EngineState, OutDest, Signature, Span, Type, VarId};
+use crate::{engine::EngineState, OutDest, Signature, FutureSpanId, Type, VarId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,7 +8,7 @@ pub struct Block {
     pub pipelines: Vec<Pipeline>,
     pub captures: Vec<VarId>,
     pub redirect_env: bool,
-    pub span: Option<Span>, // None option encodes no span to avoid using test_span()
+    pub span: Option<FutureSpanId>, // None option encodes no span to avoid using test_span()
 }
 
 impl Block {

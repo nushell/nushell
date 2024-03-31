@@ -1,9 +1,9 @@
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{record, FutureSpanId, ShellError, Value};
 
 pub(crate) fn parse_date_from_string(
     input: &str,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<DateTime<FixedOffset>, Value> {
     match dtparse::parse(input) {
         Ok((native_dt, fixed_offset)) => {
@@ -38,7 +38,7 @@ pub(crate) fn parse_date_from_string(
 /// # Arguments
 /// * `head` - use the call's head
 /// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `format date`
-pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
+pub(crate) fn generate_strftime_list(head: FutureSpanId, show_parse_only_formats: bool) -> Value {
     let now = Local::now();
 
     struct FormatSpecification<'a> {

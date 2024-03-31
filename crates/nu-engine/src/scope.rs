@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    record, ModuleId, Signature, Span, SyntaxShape, Type, Value,
+    record, FutureSpanId, ModuleId, Signature, SyntaxShape, Type, Value,
 };
 use std::{cmp::Ordering, collections::HashMap};
 
@@ -46,7 +46,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn collect_vars(&self, span: Span) -> Vec<Value> {
+    pub fn collect_vars(&self, span: FutureSpanId) -> Vec<Value> {
         let mut vars = vec![];
 
         for (var_name, var_id) in &self.vars_map {
@@ -80,7 +80,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         vars
     }
 
-    pub fn collect_commands(&self, span: Span) -> Vec<Value> {
+    pub fn collect_commands(&self, span: FutureSpanId) -> Vec<Value> {
         let mut commands = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
@@ -133,7 +133,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         commands
     }
 
-    fn collect_signatures(&self, signature: &Signature, span: Span) -> Value {
+    fn collect_signatures(&self, signature: &Signature, span: FutureSpanId) -> Value {
         let mut sigs = signature
             .input_output_types
             .iter()
@@ -180,7 +180,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         input_type: &Type,
         output_type: &Type,
         signature: &Signature,
-        span: Span,
+        span: FutureSpanId,
     ) -> Vec<Value> {
         let mut sig_records = vec![];
 
@@ -328,7 +328,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records
     }
 
-    pub fn collect_externs(&self, span: Span) -> Vec<Value> {
+    pub fn collect_externs(&self, span: FutureSpanId) -> Vec<Value> {
         let mut externals = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
@@ -349,7 +349,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         externals
     }
 
-    pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
+    pub fn collect_aliases(&self, span: FutureSpanId) -> Vec<Value> {
         let mut aliases = vec![];
 
         for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
@@ -387,7 +387,12 @@ impl<'e, 's> ScopeData<'e, 's> {
         aliases
     }
 
-    fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> Value {
+    fn collect_module(
+        &self,
+        module_name: &[u8],
+        module_id: &ModuleId,
+        span: FutureSpanId,
+    ) -> Value {
         let module = self.engine_state.get_module(*module_id);
 
         let all_decls = module.decls();
@@ -498,7 +503,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         )
     }
 
-    pub fn collect_modules(&self, span: Span) -> Vec<Value> {
+    pub fn collect_modules(&self, span: FutureSpanId) -> Vec<Value> {
         let mut modules = vec![];
 
         for (module_name, module_id) in &self.modules_map {
@@ -509,7 +514,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         modules
     }
 
-    pub fn collect_engine_state(&self, span: Span) -> Value {
+    pub fn collect_engine_state(&self, span: FutureSpanId) -> Value {
         let num_env_vars = self
             .engine_state
             .env_vars

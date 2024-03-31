@@ -1,4 +1,4 @@
-use crate::Span;
+use crate::FutureSpanId;
 use std::sync::Arc;
 
 /// Unit of cached source code
@@ -11,5 +11,5 @@ pub struct CachedFile {
     /// Source code as raw bytes
     pub content: Arc<[u8]>,
     /// global span coordinates that are covered by this [`CachedFile`]
-    pub covered_span: Span,
+    pub covered_span: FutureSpanId,
 }

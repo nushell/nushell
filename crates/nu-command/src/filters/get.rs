@@ -105,7 +105,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 example: "[{A: A0}] | get A",
                 result: Some(Value::list(
                     vec![Value::test_string("A0")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {

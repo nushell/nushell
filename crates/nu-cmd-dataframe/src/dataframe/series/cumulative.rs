@@ -11,7 +11,7 @@ enum CumType {
 }
 
 impl CumType {
-    fn from_str(roll_type: &str, span: Span) -> Result<Self, ShellError> {
+    fn from_str(roll_type: &str, span: FutureSpanId) -> Result<Self, ShellError> {
         match roll_type {
             "min" => Ok(Self::Min),
             "max" => Ok(Self::Max),
@@ -77,7 +77,7 @@ impl Command for Cumulative {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }

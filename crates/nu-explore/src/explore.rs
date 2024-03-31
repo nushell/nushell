@@ -298,7 +298,10 @@ fn insert_style(map: &mut HashMap<String, Value>, key: &str, value: Style) {
 
     let value = nu_color_config::NuStyle::from(value);
     if let Ok(val) = nu_json::to_string_raw(&value) {
-        map.insert(String::from(key), Value::string(val, Span::unknown()));
+        map.insert(
+            String::from(key),
+            Value::string(val, FutureSpanId::unknown()),
+        );
     }
 }
 
@@ -307,7 +310,10 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
         return;
     }
 
-    map.insert(String::from(key), Value::bool(value, Span::unknown()));
+    map.insert(
+        String::from(key),
+        Value::bool(value, FutureSpanId::unknown()),
+    );
 }
 
 fn insert_int(map: &mut HashMap<String, Value>, key: &str, value: i64) {
@@ -315,7 +321,10 @@ fn insert_int(map: &mut HashMap<String, Value>, key: &str, value: i64) {
         return;
     }
 
-    map.insert(String::from(key), Value::int(value, Span::unknown()));
+    map.insert(
+        String::from(key),
+        Value::int(value, FutureSpanId::unknown()),
+    );
 }
 
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
@@ -331,5 +340,5 @@ fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &Style
 }
 
 fn lookup_color(style_computer: &StyleComputer, key: &str) -> nu_ansi_term::Style {
-    style_computer.compute(key, &Value::nothing(Span::unknown()))
+    style_computer.compute(key, &Value::nothing(FutureSpanId::unknown()))
 }

@@ -81,7 +81,7 @@ impl Command for FormatPattern {
                 example: "[[col1, col2]; [v1, v2] [v3, v4]] | format pattern '{col2}'",
                 result: Some(Value::list(
                     vec![Value::test_string("v2"), Value::test_string("v4")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -99,9 +99,9 @@ impl Command for FormatPattern {
 enum FormatOperation {
     FixedText(String),
     // raw input is something like {column1.column2}
-    ValueFromColumn(String, Span),
+    ValueFromColumn(String, FutureSpanId),
     // raw input is something like {$it.column1.column2} or {$var}.
-    ValueNeedEval(String, Span),
+    ValueNeedEval(String, FutureSpanId),
 }
 
 /// Given a pattern that is fed into the Format command, we can process it and subdivide it
@@ -114,7 +114,7 @@ enum FormatOperation {
 /// "$it.column1.column2" or "$variable"
 fn extract_formatting_operations(
     input: String,
-    error_span: Span,
+    error_span: FutureSpanId,
     span_start: usize,
 ) -> Result<Vec<FormatOperation>, ShellError> {
     let mut output = vec![];
@@ -163,12 +163,12 @@ fn extract_formatting_operations(
             if column_need_eval {
                 output.push(FormatOperation::ValueNeedEval(
                     column_name.clone(),
-                    Span::new(span_start + column_span_start, span_start + column_span_end),
+                    FutureSpanId::new(span_start + column_span_start, span_start + column_span_end),
                 ));
             } else {
                 output.push(FormatOperation::ValueFromColumn(
                     column_name.clone(),
-                    Span::new(span_start + column_span_start, span_start + column_span_end),
+                    FutureSpanId::new(span_start + column_span_start, span_start + column_span_end),
                 ));
             }
         }
@@ -187,7 +187,7 @@ fn format(
     engine_state: &EngineState,
     working_set: &mut StateWorkingSet,
     stack: &mut Stack,
-    head_span: Span,
+    head_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let data_as_value = input_data;
 

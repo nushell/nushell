@@ -105,7 +105,7 @@ impl Command for FormatDuration {
     }
 }
 
-fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
+fn format_value_impl(val: &Value, arg: &Arguments, span: FutureSpanId) -> Value {
     let inner_span = val.span();
     match val {
         Value::Duration { val: inner, .. } => {
@@ -143,8 +143,8 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
 fn convert_inner_to_unit(
     val: i64,
     to_unit: &str,
-    span: Span,
-    value_span: Span,
+    span: FutureSpanId,
+    value_span: FutureSpanId,
 ) -> Result<f64, ShellError> {
     match to_unit {
         "ns" => Ok(val as f64),

@@ -1,4 +1,4 @@
-use crate::{ShellError, Span, Value};
+use crate::{FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub enum Unit {
 }
 
 impl Unit {
-    pub fn build_value(self, size: i64, span: Span) -> Result<Value, ShellError> {
+    pub fn build_value(self, size: i64, span: FutureSpanId) -> Result<Value, ShellError> {
         match self {
             Unit::Byte => Ok(Value::filesize(size, span)),
             Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),

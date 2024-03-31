@@ -411,7 +411,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
         Example {
@@ -435,7 +435,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
     ],
@@ -462,7 +462,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
         Example {
@@ -486,7 +486,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
     ],
@@ -513,7 +513,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
         Example {
@@ -537,7 +537,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
     ],
@@ -564,7 +564,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
         Example {
@@ -588,7 +588,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
     ],
@@ -623,7 +623,7 @@ expr_command!(
                 None
             )
             .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
+            .into_value(FutureSpanId::test_data()),
         ),
     },],
     median,
@@ -649,7 +649,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
         Example {
@@ -673,7 +673,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
     ],
@@ -702,7 +702,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
         Example {
@@ -726,7 +726,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         },
     ],

@@ -20,8 +20,8 @@ use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value, NU_VARIABLE_ID,
+    report_error_new, FutureSpanId, HistoryConfig, HistoryFileFormat, PipelineData, ShellError,
+    Spanned, Value, NU_VARIABLE_ID,
 };
 use nu_utils::{
     filesystem::{have_permission, PermissionResult},
@@ -94,10 +94,13 @@ pub fn evaluate_repl(
     // seed env vars
     unique_stack.add_env_var(
         "CMD_DURATION_MS".into(),
-        Value::string("0823", Span::unknown()),
+        Value::string("0823", FutureSpanId::unknown()),
     );
 
-    unique_stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
+    unique_stack.add_env_var(
+        "LAST_EXIT_CODE".into(),
+        Value::int(0, FutureSpanId::unknown()),
+    );
 
     let mut line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
@@ -123,7 +126,7 @@ pub fn evaluate_repl(
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
+    let nu_const = create_nu_constant(engine_state, FutureSpanId::unknown())?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
@@ -389,7 +392,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor = if config.use_ansi_coloring {
         line_editor.with_hinter(Box::new({
             // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-            let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+            let style = style_computer.compute("hints", &Value::nothing(FutureSpanId::unknown()));
             CwdAwareHinter::default().with_style(style)
         }))
     } else {
@@ -423,7 +426,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     );
 
     start_time = std::time::Instant::now();
-    let buffer_editor = get_editor(engine_state, &stack_arc, Span::unknown());
+    let buffer_editor = get_editor(engine_state, &stack_arc, FutureSpanId::unknown());
 
     line_editor = if let Ok((cmd, args)) = buffer_editor {
         let mut command = std::process::Command::new(cmd);
@@ -648,7 +651,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
             stack.add_env_var(
                 "CMD_DURATION_MS".into(),
-                Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
+                Value::string(
+                    format!("{}", cmd_duration.as_millis()),
+                    FutureSpanId::unknown(),
+                ),
             );
 
             if history_supports_meta {
@@ -820,7 +826,7 @@ enum ReplOperation {
         /// the target
         target: PathBuf,
         /// span information for debugging
-        span: Span,
+        span: FutureSpanId,
     },
     /// run a command
     RunCommand(String),
@@ -870,7 +876,7 @@ fn do_auto_cd(
     cwd: String,
     stack: &mut Stack,
     engine_state: &mut EngineState,
-    span: Span,
+    span: FutureSpanId,
 ) {
     let path = {
         if !path.exists() {
@@ -897,11 +903,14 @@ fn do_auto_cd(
         return;
     }
 
-    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
+    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), FutureSpanId::unknown()));
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
-    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+    stack.add_env_var(
+        "PWD".into(),
+        Value::string(path.clone(), FutureSpanId::unknown()),
+    );
     let cwd = Value::string(cwd, span);
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
@@ -932,7 +941,7 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
-    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, FutureSpanId::unknown()));
 }
 
 ///

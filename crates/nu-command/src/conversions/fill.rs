@@ -82,35 +82,35 @@ impl Command for Fill {
                 description:
                     "Fill a string on the left side to a width of 15 with the character '─'",
                 example: "'nushell' | fill --alignment l --character '─' --width 15",
-                result: Some(Value::string("nushell────────", Span::test_data())),
+                result: Some(Value::string("nushell────────", FutureSpanId::test_data())),
             },
             Example {
                 description:
                     "Fill a string on the right side to a width of 15 with the character '─'",
                 example: "'nushell' | fill --alignment r --character '─' --width 15",
-                result: Some(Value::string("────────nushell", Span::test_data())),
+                result: Some(Value::string("────────nushell", FutureSpanId::test_data())),
             },
             Example {
                 description: "Fill a string on both sides to a width of 15 with the character '─'",
                 example: "'nushell' | fill --alignment m --character '─' --width 15",
-                result: Some(Value::string("────nushell────", Span::test_data())),
+                result: Some(Value::string("────nushell────", FutureSpanId::test_data())),
             },
             Example {
                 description:
                     "Fill a number on the left side to a width of 5 with the character '0'",
                 example: "1 | fill --alignment right --character '0' --width 5",
-                result: Some(Value::string("00001", Span::test_data())),
+                result: Some(Value::string("00001", FutureSpanId::test_data())),
             },
             Example {
                 description: "Fill a number on both sides to a width of 5 with the character '0'",
                 example: "1.1 | fill --alignment center --character '0' --width 5",
-                result: Some(Value::string("01.10", Span::test_data())),
+                result: Some(Value::string("01.10", FutureSpanId::test_data())),
             },
             Example {
                 description:
                     "Fill a filesize on the left side to a width of 5 with the character '0'",
                 example: "1kib | fill --alignment middle --character '0' --width 10",
-                result: Some(Value::string("0001024000", Span::test_data())),
+                result: Some(Value::string("0001024000", FutureSpanId::test_data())),
             },
         ]
     }
@@ -168,7 +168,7 @@ fn fill(
     operate(action, arg, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     match input {
         Value::Int { val, .. } => fill_int(*val, args, span),
         Value::Filesize { val, .. } => fill_int(*val, args, span),
@@ -188,19 +188,19 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn fill_float(num: f64, args: &Arguments, span: Span) -> Value {
+fn fill_float(num: f64, args: &Arguments, span: FutureSpanId) -> Value {
     let s = num.to_string();
     let out_str = pad(&s, args.width, &args.character, args.alignment, false);
 
     Value::string(out_str, span)
 }
-fn fill_int(num: i64, args: &Arguments, span: Span) -> Value {
+fn fill_int(num: i64, args: &Arguments, span: FutureSpanId) -> Value {
     let s = num.to_string();
     let out_str = pad(&s, args.width, &args.character, args.alignment, false);
 
     Value::string(out_str, span)
 }
-fn fill_string(s: &str, args: &Arguments, span: Span) -> Value {
+fn fill_string(s: &str, args: &Arguments, span: FutureSpanId) -> Value {
     let out_str = pad(s, args.width, &args.character, args.alignment, false);
 
     Value::string(out_str, span)

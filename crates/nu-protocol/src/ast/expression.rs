@@ -1,7 +1,8 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    ActualSpan, BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
+    ActualSpan, BlockId, DeclId, FutureSpanId, GetSpan, Signature, SpanId, Type, VarId,
+    IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -320,7 +321,7 @@ impl Expression {
     pub fn replace_span(
         &mut self,
         working_set: &mut StateWorkingSet,
-        replaced: Span,
+        replaced: FutureSpanId,
         new_span_id: SpanId,
     ) {
         if replaced.contains_span(working_set.get_span(self.span_id)) {
@@ -535,7 +536,7 @@ impl Expression {
     //     engine_state.get_span(self.span_id)
     // }
 
-    pub fn get_span(&self, state: &impl GetSpan) -> Span {
+    pub fn get_span(&self, state: &impl GetSpan) -> FutureSpanId {
         state.get_span(self.span_id)
     }
 

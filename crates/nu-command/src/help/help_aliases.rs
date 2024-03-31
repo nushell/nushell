@@ -115,13 +115,13 @@ pub fn help_aliases(
 
         let Some(alias) = engine_state.find_decl(name.as_bytes(), &[]) else {
             return Err(ShellError::AliasNotFound {
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<FutureSpanId>>()),
             });
         };
 
         let Some(alias) = engine_state.get_decl(alias).as_alias() else {
             return Err(ShellError::AliasNotFound {
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<FutureSpanId>>()),
             });
         };
 
@@ -159,7 +159,7 @@ pub fn help_aliases(
     }
 }
 
-fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: FutureSpanId) -> Vec<Value> {
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_decls();
 

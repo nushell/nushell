@@ -193,7 +193,7 @@ fn parse_module(
     filename: Option<String>,
     contents: &[u8],
     is_debug: bool,
-    call_head: Span,
+    call_head: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let filename = filename.unwrap_or_else(|| "empty".to_string());
 
@@ -220,7 +220,7 @@ fn parse_script(
     filename: Option<&str>,
     contents: &[u8],
     is_debug: bool,
-    call_head: Span,
+    call_head: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let starting_error_count = working_set.parse_errors.len();
     parse(working_set, filename, contents, false);
@@ -232,7 +232,7 @@ fn check_parse(
     working_set: &StateWorkingSet,
     is_debug: bool,
     help: Option<String>,
-    call_head: Span,
+    call_head: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     if starting_error_count != working_set.parse_errors.len() {
         let msg = format!(
@@ -263,8 +263,8 @@ fn parse_file_script(
     path: &Path,
     working_set: &mut StateWorkingSet,
     is_debug: bool,
-    path_span: Span,
-    call_head: Span,
+    path_span: FutureSpanId,
+    call_head: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let filename = check_path(working_set, path_span, call_head)?;
 
@@ -282,8 +282,8 @@ fn parse_file_or_dir_module(
     path_bytes: &[u8],
     working_set: &mut StateWorkingSet,
     is_debug: bool,
-    path_span: Span,
-    call_head: Span,
+    path_span: FutureSpanId,
+    call_head: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let _ = check_path(working_set, path_span, call_head)?;
 
@@ -316,8 +316,8 @@ fn parse_file_or_dir_module(
 
 fn check_path(
     working_set: &mut StateWorkingSet,
-    path_span: Span,
-    call_head: Span,
+    path_span: FutureSpanId,
+    call_head: FutureSpanId,
 ) -> Result<String, ShellError> {
     let bytes = working_set.get_span_id_contents(path_span);
     let (filename, err) = unescape_unquote_string(bytes, path_span.span());

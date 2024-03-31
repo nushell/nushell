@@ -20,7 +20,7 @@ pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
 pub use split::SubCommand as PathSplit;
 
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, ShellError, Value};
 use std::path::Path as StdPath;
 
 #[cfg(windows)]
@@ -30,9 +30,9 @@ const ALLOWED_COLUMNS: [&str; 3] = ["parent", "stem", "extension"];
 
 trait PathSubcommandArguments {}
 
-fn operate<F, A>(cmd: &F, args: &A, v: Value, name: Span) -> Value
+fn operate<F, A>(cmd: &F, args: &A, v: Value, name: FutureSpanId) -> Value
 where
-    F: Fn(&StdPath, Span, &A) -> Value + Send + Sync + 'static,
+    F: Fn(&StdPath, FutureSpanId, &A) -> Value + Send + Sync + 'static,
     A: PathSubcommandArguments + Send + Sync + 'static,
 {
     let span = v.span();
@@ -42,11 +42,11 @@ where
     }
 }
 
-fn handle_invalid_values(rest: Value, name: Span) -> Value {
+fn handle_invalid_values(rest: Value, name: FutureSpanId) -> Value {
     Value::error(err_from_value(&rest, name), name)
 }
 
-fn err_from_value(rest: &Value, name: Span) -> ShellError {
+fn err_from_value(rest: &Value, name: FutureSpanId) -> ShellError {
     match rest {
         Value::Error { error, .. } => *error.clone(),
         _ => {

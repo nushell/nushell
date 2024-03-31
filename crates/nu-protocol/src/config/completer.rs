@@ -1,8 +1,9 @@
+use std::future::Future;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{record, Config, Span, Value};
+use crate::{record, Config, FutureSpanId, Value};
 
 use super::helper::ReconstructVal;
 
@@ -26,7 +27,7 @@ impl FromStr for CompletionAlgorithm {
 }
 
 impl ReconstructVal for CompletionAlgorithm {
-    fn reconstruct_value(&self, span: Span) -> Value {
+    fn reconstruct_value(&self, span: FutureSpanId) -> Value {
         let str = match self {
             CompletionAlgorithm::Prefix => "prefix",
             CompletionAlgorithm::Fuzzy => "fuzzy",
@@ -35,7 +36,7 @@ impl ReconstructVal for CompletionAlgorithm {
     }
 }
 
-pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_external_completer(config: &Config, span: FutureSpanId) -> Value {
     if let Some(closure) = config.external_completer.as_ref() {
         Value::closure(closure.clone(), span)
     } else {
@@ -43,7 +44,7 @@ pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Val
     }
 }
 
-pub(super) fn reconstruct_external(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_external(config: &Config, span: FutureSpanId) -> Value {
     Value::record(
         record! {
             "max_results" => Value::int(config.max_external_completion_results, span),

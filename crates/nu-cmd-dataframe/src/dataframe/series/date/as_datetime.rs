@@ -58,7 +58,7 @@ impl Command for AsDateTime {
                                         "%Y-%m-%d %H:%M:%S %z",
                                     )
                                     .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
+                                    FutureSpanId::test_data(),
                                 ),
                                 Value::date(
                                     DateTime::parse_from_str(
@@ -66,14 +66,14 @@ impl Command for AsDateTime {
                                         "%Y-%m-%d %H:%M:%S %z",
                                     )
                                     .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
+                                    FutureSpanId::test_data(),
                                 ),
                             ],
                         )],
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -90,7 +90,7 @@ impl Command for AsDateTime {
                                         "%Y-%m-%d %H:%M:%S.%9f %z",
                                     )
                                     .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
+                                    FutureSpanId::test_data(),
                                 ),
                                 Value::date(
                                     DateTime::parse_from_str(
@@ -98,14 +98,14 @@ impl Command for AsDateTime {
                                         "%Y-%m-%d %H:%M:%S.%9f %z",
                                     )
                                     .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
+                                    FutureSpanId::test_data(),
                                 ),
                             ],
                         )],
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
         ]

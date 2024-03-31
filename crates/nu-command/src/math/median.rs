@@ -71,7 +71,11 @@ enum Pick {
     Median,
 }
 
-pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn median(
+    values: &[Value],
+    span: FutureSpanId,
+    head: FutureSpanId,
+) -> Result<Value, ShellError> {
     let take = if values.len() % 2 == 0 {
         Pick::MedianAverage
     } else {

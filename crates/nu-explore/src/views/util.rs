@@ -32,7 +32,8 @@ pub fn set_span(
 }
 
 pub fn lookup_tui_color(style_computer: &StyleComputer, key: &str) -> Style {
-    let nu_style = style_computer.compute(key, &Value::nothing(nu_protocol::Span::unknown()));
+    let nu_style =
+        style_computer.compute(key, &Value::nothing(nu_protocol::FutureSpanId::unknown()));
     nu_style_to_tui(nu_style)
 }
 
@@ -143,7 +144,10 @@ pub fn make_styled_string(
                 text,
                 TextStyle::with_style(
                     Alignment::Center,
-                    style_computer.compute("empty", &Value::nothing(nu_protocol::Span::unknown())),
+                    style_computer.compute(
+                        "empty",
+                        &Value::nothing(nu_protocol::FutureSpanId::unknown()),
+                    ),
                 ),
             )
         }

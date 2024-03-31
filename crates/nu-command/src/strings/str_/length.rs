@@ -112,7 +112,7 @@ impl Command for SubCommand {
                 example: "['hi' 'there'] | str length",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(5)],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -133,7 +133,7 @@ fn run(
     operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
+fn action(input: &Value, arg: &Arguments, head: FutureSpanId) -> Value {
     match input {
         Value::String { val, .. } => Value::int(
             if arg.graphemes {
@@ -162,14 +162,14 @@ mod test {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), FutureSpanId::test_data());
 
         let options = Arguments {
             cell_paths: None,
             graphemes: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_int(28));
     }
 

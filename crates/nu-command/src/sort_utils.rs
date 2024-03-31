@@ -1,6 +1,6 @@
 use alphanumeric_sort::compare_str;
 use nu_engine::column::nonexistent_column;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, ShellError, Value};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
@@ -60,7 +60,7 @@ pub fn sort_value_in_place(
 pub fn sort(
     vec: &mut [Value],
     sort_columns: Vec<String>,
-    span: Span,
+    span: FutureSpanId,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
@@ -95,7 +95,7 @@ pub fn sort(
                 for col in &sort_columns {
                     let val = item
                         .get_data_by_key(col)
-                        .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                        .unwrap_or_else(|| Value::nothing(FutureSpanId::unknown()));
                     vals.push(val);
                 }
             }
@@ -167,7 +167,7 @@ pub fn compare(
     left: &Value,
     right: &Value,
     columns: &[String],
-    span: Span,
+    span: FutureSpanId,
     insensitive: bool,
     natural: bool,
 ) -> Ordering {

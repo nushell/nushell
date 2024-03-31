@@ -47,7 +47,7 @@ impl Command for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -76,7 +76,7 @@ impl Command for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -95,7 +95,7 @@ impl Command for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -114,7 +114,7 @@ impl Command for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -136,9 +136,9 @@ impl Command for ToDataFrame {
                             Series::from_any_values_and_dtype("c", &vals, &dtype, false)
                                 .expect("List series should not fail")
                         }
-                    ], Span::test_data())
+                    ], FutureSpanId::test_data())
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -148,9 +148,9 @@ impl Command for ToDataFrame {
                         Series::new("a", [1u8, 2]),
                         Series::new("b", ["foo", "bar"]),
                         Series::new("c", [3i64, 3]),
-                    ], Span::test_data())
+                    ], FutureSpanId::test_data())
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             }
         ]

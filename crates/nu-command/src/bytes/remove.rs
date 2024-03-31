@@ -121,7 +121,7 @@ impl Command for BytesRemove {
     }
 }
 
-fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
+fn remove(val: &Value, args: &Arguments, span: FutureSpanId) -> Value {
     let val_span = val.span();
     match val {
         Value::Binary { val, .. } => remove_impl(val, args, val_span),
@@ -139,7 +139,7 @@ fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn remove_impl(input: &[u8], arg: &Arguments, span: FutureSpanId) -> Value {
     let mut result = vec![];
     let remove_all = arg.all;
     let input_len = input.len();

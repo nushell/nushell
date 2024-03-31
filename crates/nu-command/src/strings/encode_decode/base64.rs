@@ -11,7 +11,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{EngineState, Stack},
-    PipelineData, ShellError, Span, Spanned, Value,
+    FutureSpanId, PipelineData, ShellError, Spanned, Value,
 };
 
 pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
@@ -81,7 +81,7 @@ fn action(
     input: &Value,
     // only used for `decode` action
     args: &Arguments,
-    command_span: Span,
+    command_span: FutureSpanId,
 ) -> Value {
     let base64_config = &args.encoding_config;
     let output_binary = args.binary;
@@ -208,7 +208,7 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::{action, ActionType, Arguments, Base64Config};
-    use nu_protocol::{Span, Spanned, Value};
+    use nu_protocol::{FutureSpanId, Spanned, Value};
 
     #[test]
     fn base64_encode_standard() {
@@ -221,14 +221,14 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "standard".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Encode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
@@ -244,14 +244,14 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "standard-no-padding".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Encode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
@@ -267,14 +267,14 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "url-safe".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Encode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn base64_decode_binhex() {
         let word = Value::test_string("A5\"KC9jRB@IIF'8bF!");
-        let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
+        let expected = Value::binary(b"a binhex test".as_slice(), FutureSpanId::test_data());
 
         let actual = action(
             &word,
@@ -290,14 +290,14 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "binhex".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Decode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn base64_decode_binhex_with_new_line_input() {
         let word = Value::test_string("A5\"KC9jRB\n@IIF'8bF!");
-        let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
+        let expected = Value::binary(b"a binhex test".as_slice(), FutureSpanId::test_data());
 
         let actual = action(
             &word,
@@ -313,21 +313,21 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "binhex".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Decode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn base64_encode_binary() {
-        let word = Value::binary(vec![77, 97, 110], Span::test_data());
+        let word = Value::binary(vec![77, 97, 110], FutureSpanId::test_data());
         let expected = Value::test_string("TWFu");
 
         let actual = action(
@@ -336,21 +336,21 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "standard".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Encode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn base64_decode_binary_expect_error() {
-        let word = Value::binary(vec![77, 97, 110], Span::test_data());
+        let word = Value::binary(vec![77, 97, 110], FutureSpanId::test_data());
 
         let actual = action(
             &word,
@@ -358,14 +358,14 @@ mod tests {
                 encoding_config: Base64Config {
                     character_set: Spanned {
                         item: "standard".to_string(),
-                        span: Span::test_data(),
+                        span: FutureSpanId::test_data(),
                     },
                     action_type: ActionType::Decode,
                 },
                 binary: true,
                 cell_paths: None,
             },
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         match actual {

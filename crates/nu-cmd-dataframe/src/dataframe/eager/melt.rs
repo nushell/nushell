@@ -99,7 +99,7 @@ impl Command for MeltDF {
                     ),
                 ], None)
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }
@@ -182,7 +182,7 @@ fn command(
 fn check_column_datatypes<T: AsRef<str>>(
     df: &polars::prelude::DataFrame,
     cols: &[T],
-    col_span: Span,
+    col_span: FutureSpanId,
 ) -> Result<(), ShellError> {
     if cols.is_empty() {
         return Err(ShellError::GenericError {

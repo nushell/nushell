@@ -5,7 +5,7 @@ use nu_protocol::{
         RecordItem,
     },
     engine::StateWorkingSet,
-    DeclId, GetSpan, Span, VarId,
+    DeclId, FutureSpanId, GetSpan, VarId,
 };
 use std::fmt::{Display, Formatter, Result};
 
@@ -90,7 +90,10 @@ impl Display for FlatShape {
     }
 }
 
-pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
+pub fn flatten_block(
+    working_set: &StateWorkingSet,
+    block: &Block,
+) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = vec![];
 
     for pipeline in &block.pipelines {
@@ -102,7 +105,7 @@ pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span,
 pub fn flatten_expression(
     working_set: &StateWorkingSet,
     expr: &Expression,
-) -> Vec<(Span, FlatShape)> {
+) -> Vec<(FutureSpanId, FlatShape)> {
     if let Some(custom_completion) = &expr.custom_completion {
         return vec![(
             expr.get_span(&working_set),
@@ -120,7 +123,7 @@ pub fn flatten_expression(
         }
         Expr::UnaryNot(inner_expr) => {
             let mut output = vec![(
-                Span::new(
+                FutureSpanId::new(
                     expr.get_span(&working_set).start,
                     expr.get_span(&working_set).start + 3,
                 ),
@@ -140,7 +143,7 @@ pub fn flatten_expression(
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
                     output.push((
-                        Span::new(outer_span.start, first.0.start),
+                        FutureSpanId::new(outer_span.start, first.0.start),
                         FlatShape::Closure,
                     ));
                 }
@@ -148,7 +151,10 @@ pub fn flatten_expression(
 
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
-                    Some((Span::new(last.0.end, outer_span.end), FlatShape::Closure))
+                    Some((
+                        FutureSpanId::new(last.0.end, outer_span.end),
+                        FlatShape::Closure,
+                    ))
                 } else {
                     None
                 }
@@ -172,13 +178,19 @@ pub fn flatten_expression(
 
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
-                    output.push((Span::new(outer_span.start, first.0.start), FlatShape::Block));
+                    output.push((
+                        FutureSpanId::new(outer_span.start, first.0.start),
+                        FlatShape::Block,
+                    ));
                 }
             }
 
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
-                    Some((Span::new(last.0.end, outer_span.end), FlatShape::Block))
+                    Some((
+                        FutureSpanId::new(last.0.end, outer_span.end),
+                        FlatShape::Block,
+                    ))
                 } else {
                     None
                 }
@@ -219,7 +231,7 @@ pub fn flatten_expression(
                     }
                     Argument::Spread(expr) => {
                         args.push((
-                            Span::new(
+                            FutureSpanId::new(
                                 expr.get_span(&working_set).start - 3,
                                 expr.get_span(&working_set).start,
                             ),
@@ -268,7 +280,7 @@ pub fn flatten_expression(
                     },
                     ExternalArgument::Spread(expr) => {
                         output.push((
-                            Span::new(
+                            FutureSpanId::new(
                                 expr.get_span(&working_set).start - 3,
                                 expr.get_span(&working_set).start,
                             ),
@@ -397,7 +409,7 @@ pub fn flatten_expression(
 
                         if let Some(first) = flattened.first() {
                             if first.0.start > last_end {
-                                output.push((Span::new(last_end, first.0.start), FlatShape::List));
+                                output.push((FutureSpanId::new(last_end, first.0.start), FlatShape::List));
                             }
                         }
 
@@ -410,7 +422,7 @@ pub fn flatten_expression(
                     ListItem::Spread(_, expr) => {
                         let expr_span = expr.get_span(&working_set);
                         let mut output = vec![(
-                            Span::new(expr_span.start, expr_span.start + 3),
+                            FutureSpanId::new(expr_span.start, expr_span.start + 3),
                             FlatShape::Operator,
                         )];
                         output.extend(flatten_expression(working_set, expr));
@@ -419,7 +431,7 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((Span::new(last_end, outer_span.end), FlatShape::List));
+                output.push((FutureSpanId::new(last_end, outer_span.end), FlatShape::List));
             }
             output
         }
@@ -435,7 +447,7 @@ pub fn flatten_expression(
                     output.insert(
                         0,
                         (
-                            Span::new(
+                            FutureSpanId::new(
                                 expr.get_span(&working_set).start,
                                 expr.get_span(&working_set).start + 2,
                             ),
@@ -443,7 +455,7 @@ pub fn flatten_expression(
                         ),
                     );
                     output.push((
-                        Span::new(
+                        FutureSpanId::new(
                             expr.get_span(&working_set).end - 1,
                             expr.get_span(&working_set).end,
                         ),
@@ -466,8 +478,10 @@ pub fn flatten_expression(
 
                         if let Some(first) = flattened_lhs.first() {
                             if first.0.start > last_end {
-                                output
-                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                                output.push((
+                                    FutureSpanId::new(last_end, first.0.start),
+                                    FlatShape::Record,
+                                ));
                             }
                         }
                         if let Some(last) = flattened_lhs.last() {
@@ -477,8 +491,10 @@ pub fn flatten_expression(
 
                         if let Some(first) = flattened_rhs.first() {
                             if first.0.start > last_end {
-                                output
-                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                                output.push((
+                                    FutureSpanId::new(last_end, first.0.start),
+                                    FlatShape::Record,
+                                ));
                             }
                         }
                         if let Some(last) = flattened_rhs.last() {
@@ -489,7 +505,10 @@ pub fn flatten_expression(
                     }
                     RecordItem::Spread(op_span, record) => {
                         if op_span.start > last_end {
-                            output.push((Span::new(last_end, op_span.start), FlatShape::Record));
+                            output.push((
+                                FutureSpanId::new(last_end, op_span.start),
+                                FlatShape::Record,
+                            ));
                         }
                         output.push((*op_span, FlatShape::Operator));
                         last_end = op_span.end;
@@ -497,8 +516,10 @@ pub fn flatten_expression(
                         let flattened_inner = flatten_expression(working_set, record);
                         if let Some(first) = flattened_inner.first() {
                             if first.0.start > last_end {
-                                output
-                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                                output.push((
+                                    FutureSpanId::new(last_end, first.0.start),
+                                    FlatShape::Record,
+                                ));
                             }
                         }
                         if let Some(last) = flattened_inner.last() {
@@ -509,7 +530,10 @@ pub fn flatten_expression(
                 }
             }
             if last_end < outer_span.end {
-                output.push((Span::new(last_end, outer_span.end), FlatShape::Record));
+                output.push((
+                    FutureSpanId::new(last_end, outer_span.end),
+                    FlatShape::Record,
+                ));
             }
 
             output
@@ -537,7 +561,7 @@ pub fn flatten_expression(
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
-                        output.push((Span::new(last_end, first.0.start), FlatShape::Table));
+                        output.push((FutureSpanId::new(last_end, first.0.start), FlatShape::Table));
                     }
                 }
 
@@ -552,7 +576,10 @@ pub fn flatten_expression(
                     let flattened = flatten_expression(working_set, expr);
                     if let Some(first) = flattened.first() {
                         if first.0.start > last_end {
-                            output.push((Span::new(last_end, first.0.start), FlatShape::Table));
+                            output.push((
+                                FutureSpanId::new(last_end, first.0.start),
+                                FlatShape::Table,
+                            ));
                         }
                     }
 
@@ -565,7 +592,10 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((Span::new(last_end, outer_span.end), FlatShape::Table));
+                output.push((
+                    FutureSpanId::new(last_end, outer_span.end),
+                    FlatShape::Table,
+                ));
             }
 
             output
@@ -582,7 +612,7 @@ pub fn flatten_expression(
 pub fn flatten_pipeline_element(
     working_set: &StateWorkingSet,
     pipeline_element: &PipelineElement,
-) -> Vec<(Span, FlatShape)> {
+) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = if let Some(span) = pipeline_element.pipe {
         let mut output = vec![(span, FlatShape::Pipe)];
         output.extend(flatten_expression(working_set, &pipeline_element.expr));
@@ -624,7 +654,7 @@ pub fn flatten_pipeline_element(
 pub fn flatten_pipeline(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
-) -> Vec<(Span, FlatShape)> {
+) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = vec![];
     for expr in &pipeline.elements {
         output.extend(flatten_pipeline_element(working_set, expr))
@@ -632,7 +662,7 @@ pub fn flatten_pipeline(
     output
 }
 
-pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
+pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = vec![];
     match &match_pattern.pattern {
         Pattern::Garbage => {
@@ -648,14 +678,14 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
                     output.push((
-                        Span::new(match_pattern.span.start, first.span.start),
+                        FutureSpanId::new(match_pattern.span.start, first.span.start),
                         FlatShape::MatchPattern,
                     ));
                     for item in items {
                         output.extend(flatten_pattern(item));
                     }
                     output.push((
-                        Span::new(last.span.end, match_pattern.span.end),
+                        FutureSpanId::new(last.span.end, match_pattern.span.end),
                         FlatShape::MatchPattern,
                     ))
                 }
@@ -667,14 +697,14 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
                     output.push((
-                        Span::new(match_pattern.span.start, first.1.span.start),
+                        FutureSpanId::new(match_pattern.span.start, first.1.span.start),
                         FlatShape::MatchPattern,
                     ));
                     for item in items {
                         output.extend(flatten_pattern(&item.1));
                     }
                     output.push((
-                        Span::new(last.1.span.end, match_pattern.span.end),
+                        FutureSpanId::new(last.1.span.end, match_pattern.span.end),
                         FlatShape::MatchPattern,
                     ))
                 }

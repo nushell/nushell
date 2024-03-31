@@ -80,7 +80,7 @@ fn to_md(
     pretty: bool,
     per_element: bool,
     config: &Config,
-    head: Span,
+    head: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let (grouped_input, single_list) = group_by(input, head, config);
     if per_element || single_list {
@@ -210,7 +210,7 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
     output_string
 }
 
-pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineData, bool) {
+pub fn group_by(values: PipelineData, head: FutureSpanId, config: &Config) -> (PipelineData, bool) {
     let mut lists = IndexMap::new();
     let mut single_list = false;
     for val in values {

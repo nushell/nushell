@@ -75,7 +75,7 @@ impl Command for FormatDate {
                 example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -84,7 +84,7 @@ impl Command for FormatDate {
                 example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -106,7 +106,7 @@ impl Command for FormatDate {
     }
 }
 
-fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> Value
+fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: FutureSpanId) -> Value
 where
     Tz::Offset: Display,
 {
@@ -141,7 +141,12 @@ where
     }
 }
 
-fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span: Span) -> Value {
+fn format_helper(
+    value: Value,
+    formatter: &str,
+    formatter_span: FutureSpanId,
+    head_span: FutureSpanId,
+) -> Value {
     match value {
         Value::Date { val, .. } => format_from(val, formatter, formatter_span),
         Value::String { val, .. } => {
@@ -164,7 +169,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
     }
 }
 
-fn format_helper_rfc2822(value: Value, span: Span) -> Value {
+fn format_helper_rfc2822(value: Value, span: FutureSpanId) -> Value {
     let val_span = value.span();
     match value {
         Value::Date { val, .. } => Value::string(val.to_rfc2822(), span),

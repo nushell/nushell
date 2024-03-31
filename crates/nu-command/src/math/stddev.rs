@@ -76,8 +76,10 @@ impl Command for SubCommand {
     }
 }
 
-pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: Span, head: Span| {
+pub fn compute_stddev(
+    sample: bool,
+) -> impl Fn(&[Value], FutureSpanId, FutureSpanId) -> Result<Value, ShellError> {
+    move |values: &[Value], span: FutureSpanId, head: FutureSpanId| {
         // variance() produces its own usable error, so we can use `?` to propagated the error.
         let variance = variance(sample)(values, span, head)?;
         let val_span = variance.span();

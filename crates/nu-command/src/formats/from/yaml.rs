@@ -73,8 +73,8 @@ impl Command for FromYml {
 
 fn convert_yaml_value_to_nu_value(
     v: &serde_yaml::Value,
-    span: Span,
-    val_span: Span,
+    span: FutureSpanId,
+    val_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let err_not_compatible_number = ShellError::UnsupportedInput {
         msg: "Expected a nu-compatible number in YAML input".to_string(),
@@ -187,8 +187,8 @@ fn convert_yaml_value_to_nu_value(
 
 pub fn from_yaml_string_to_value(
     s: String,
-    span: Span,
-    val_span: Span,
+    span: FutureSpanId,
+    val_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let mut documents = vec![];
 
@@ -235,7 +235,7 @@ pub fn get_examples() -> Vec<Example<'static>> {
     ]
 }
 
-fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+fn from_yaml(input: PipelineData, head: FutureSpanId) -> Result<PipelineData, ShellError> {
     let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
     match from_yaml_string_to_value(concat_string, head, span) {
@@ -276,8 +276,8 @@ mod test {
         for tc in tt {
             let actual = from_yaml_string_to_value(
                 tc.input.to_owned(),
-                Span::test_data(),
-                Span::test_data(),
+                FutureSpanId::test_data(),
+                FutureSpanId::test_data(),
             );
             if actual.is_err() {
                 assert!(
@@ -315,8 +315,8 @@ mod test {
         for ii in 1..1000 {
             let actual = from_yaml_string_to_value(
                 String::from(test_yaml),
-                Span::test_data(),
-                Span::test_data(),
+                FutureSpanId::test_data(),
+                FutureSpanId::test_data(),
             );
 
             let expected: Result<Value, ShellError> = Ok(Value::test_list(vec![
@@ -402,7 +402,11 @@ mod test {
         for test_case in test_cases {
             let doc = serde_yaml::Deserializer::from_str(test_case.input);
             let v: serde_yaml::Value = serde_yaml::Value::deserialize(doc.last().unwrap()).unwrap();
-            let result = convert_yaml_value_to_nu_value(&v, Span::test_data(), Span::test_data());
+            let result = convert_yaml_value_to_nu_value(
+                &v,
+                FutureSpanId::test_data(),
+                FutureSpanId::test_data(),
+            );
             assert!(result.is_ok());
             assert!(result.ok().unwrap() == test_case.expected.ok().unwrap());
         }

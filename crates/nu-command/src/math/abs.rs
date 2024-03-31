@@ -58,13 +58,13 @@ impl Command for SubCommand {
                     Value::test_float(100.0),
                     Value::test_int(25),
                 ],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }
 }
 
-fn abs_helper(val: Value, head: Span) -> Value {
+fn abs_helper(val: Value, head: FutureSpanId) -> Value {
     let span = val.span();
     match val {
         Value::Int { val, .. } => Value::int(val.abs(), span),

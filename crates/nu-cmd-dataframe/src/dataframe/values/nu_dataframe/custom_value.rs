@@ -1,5 +1,5 @@
 use super::NuDataFrame;
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, FutureSpanId, ShellError, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuDataFrame {
@@ -11,7 +11,7 @@ impl CustomValue for NuDataFrame {
         unimplemented!("typetag_deserialize")
     }
 
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         let cloned = NuDataFrame {
             df: self.df.clone(),
             from_lazy: false,
@@ -24,7 +24,7 @@ impl CustomValue for NuDataFrame {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         let vals = self.print(span)?;
 
         Ok(Value::list(vals, span))
@@ -40,18 +40,18 @@ impl CustomValue for NuDataFrame {
 
     fn follow_path_int(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         count: usize,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         self.get_value(count, path_span)
     }
 
     fn follow_path_string(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         column_name: String,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let column = self.column(&column_name, path_span)?;
         Ok(column.into_value(path_span))
@@ -69,9 +69,9 @@ impl CustomValue for NuDataFrame {
 
     fn operation(
         &self,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: Operator,
-        op: Span,
+        op: FutureSpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         self.compute_with_value(lhs_span, operator, op, right)

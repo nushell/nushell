@@ -150,7 +150,7 @@ fn action(
     fg_end: Option<Rgb>,
     bg_start: Option<Rgb>,
     bg_end: Option<Rgb>,
-    command_span: Span,
+    command_span: FutureSpanId,
 ) -> Value {
     let span = input.span();
     match input {
@@ -302,7 +302,7 @@ fn action(
 mod tests {
     use super::{action, SubCommand};
     use nu_ansi_term::Rgb;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{FutureSpanId, Value};
 
     #[test]
     fn examples_work_as_expected() {
@@ -323,7 +323,7 @@ mod tests {
             Some(fg_end),
             None,
             None,
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected);
     }

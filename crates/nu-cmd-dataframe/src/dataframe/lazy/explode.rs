@@ -39,7 +39,7 @@ impl Command for LazyExplode {
                 description: "Explode the specified dataframe",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr explode hobbies | dfr collect",
                 result: Some(
-                   NuDataFrame::try_from_columns(vec![
+                    NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "id".to_string(),
                         vec![
@@ -65,14 +65,14 @@ impl Command for LazyExplode {
                             Value::test_string("Football"),
                         ]),
                    ], None).expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                   .into_value(FutureSpanId::test_data()),
                     )
             },
             Example {
                 description: "Select a column and explode the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr explode)",
                 result: Some(
-                   NuDataFrame::try_from_columns(vec![
+                    NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "hobbies".to_string(),
                         vec![
@@ -82,7 +82,7 @@ impl Command for LazyExplode {
                             Value::test_string("Football"),
                         ]),
                    ], None).expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                   .into_value(FutureSpanId::test_data()),
                     ),
             },
         ]

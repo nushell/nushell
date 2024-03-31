@@ -63,7 +63,7 @@ impl Command for Default {
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]

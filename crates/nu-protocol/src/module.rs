@@ -1,6 +1,6 @@
 use crate::{
-    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
-    Value, VarId,
+    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, FutureSpanId, ModuleId,
+    ParseError, Value, VarId,
 };
 
 use indexmap::IndexMap;
@@ -34,7 +34,7 @@ pub struct Module {
     pub constants: IndexMap<Vec<u8>, VarId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
-    pub span: Option<Span>,
+    pub span: Option<FutureSpanId>,
 }
 
 impl Module {
@@ -50,7 +50,7 @@ impl Module {
         }
     }
 
-    pub fn from_span(name: Vec<u8>, span: Span) -> Self {
+    pub fn from_span(name: Vec<u8>, span: FutureSpanId) -> Self {
         Module {
             name,
             decls: IndexMap::new(),
@@ -96,7 +96,7 @@ impl Module {
         self_id: ModuleId,
         members: &[ImportPatternMember],
         name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the same as self.name)
-        backup_span: Span,
+        backup_span: FutureSpanId,
     ) -> (ResolvedImportPattern, Vec<ParseError>) {
         let final_name = name_override.unwrap_or(&self.name).to_vec();
 

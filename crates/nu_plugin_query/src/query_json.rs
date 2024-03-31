@@ -1,7 +1,9 @@
 use crate::Query;
 use gjson::Value as gjValue;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{
+    Category, FutureSpanId, LabeledError, Record, Signature, Spanned, SyntaxShape, Value,
+};
 
 pub struct QueryJson;
 
@@ -93,7 +95,7 @@ fn query_contains_modifiers(query: &str) -> bool {
     // @join: Joins multiple objects into a single object.
 }
 
-fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
+fn convert_gjson_value_to_nu_value(v: &gjValue, span: FutureSpanId) -> Value {
     match v.kind() {
         gjson::Kind::Array => {
             let mut vals = vec![];

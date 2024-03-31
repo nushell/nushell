@@ -6,7 +6,7 @@ macro_rules! generate_tests {
             StreamData,
         };
         use nu_protocol::{
-            LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
+            FutureSpanId, LabeledError, PluginSignature, Signature, Spanned, SyntaxShape, Value,
         };
 
         #[test]
@@ -106,20 +106,20 @@ macro_rules! generate_tests {
         fn call_round_trip_run() {
             let name = "test".to_string();
 
-            let input = Value::bool(false, Span::new(1, 20));
+            let input = Value::bool(false, FutureSpanId::new(1, 20));
 
             let call = EvaluatedCall {
-                head: Span::new(0, 10),
+                head: FutureSpanId::new(0, 10),
                 positional: vec![
-                    Value::float(1.0, Span::new(0, 10)),
-                    Value::string("something", Span::new(0, 10)),
+                    Value::float(1.0, FutureSpanId::new(0, 10)),
+                    Value::string("something", FutureSpanId::new(0, 10)),
                 ],
                 named: vec![(
                     Spanned {
                         item: "name".to_string(),
-                        span: Span::new(0, 10),
+                        span: FutureSpanId::new(0, 10),
                     },
-                    Some(Value::float(1.0, Span::new(0, 10))),
+                    Some(Value::float(1.0, FutureSpanId::new(0, 10))),
                 )],
             };
 
@@ -174,7 +174,7 @@ macro_rules! generate_tests {
         #[test]
         fn call_round_trip_customvalueop() {
             let data = vec![1, 2, 3, 4, 5, 6, 7];
-            let span = Span::new(0, 20);
+            let span = FutureSpanId::new(0, 20);
 
             let custom_value_op = PluginCall::CustomValueOp(
                 Spanned {
@@ -287,7 +287,7 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_value() {
-            let value = Value::int(10, Span::new(2, 30));
+            let value = Value::int(10, FutureSpanId::new(2, 30));
 
             let response = PluginCallResponse::value(value.clone());
             let output = PluginOutput::CallResponse(4, response);
@@ -318,7 +318,7 @@ macro_rules! generate_tests {
             let name = "test";
 
             let data = vec![1, 2, 3, 4, 5];
-            let span = Span::new(2, 30);
+            let span = FutureSpanId::new(2, 30);
 
             let value = Value::custom(
                 Box::new(PluginCustomValue::new(name.into(), data.clone(), true)),
@@ -368,7 +368,7 @@ macro_rules! generate_tests {
                 .with_code("test::error")
                 .with_url("https://example.org/test/error")
                 .with_help("some help")
-                .with_label("msg", Span::new(2, 30))
+                .with_label("msg", FutureSpanId::new(2, 30))
                 .with_inner(ShellError::IOError {
                     msg: "io error".into(),
                 });
@@ -420,7 +420,7 @@ macro_rules! generate_tests {
 
         #[test]
         fn input_round_trip_stream_data_list() {
-            let span = Span::new(12, 30);
+            let span = FutureSpanId::new(12, 30);
             let item = Value::int(1, span);
 
             let stream_data = StreamData::List(item.clone());
@@ -476,7 +476,7 @@ macro_rules! generate_tests {
 
         #[test]
         fn output_round_trip_stream_data_list() {
-            let span = Span::new(12, 30);
+            let span = FutureSpanId::new(12, 30);
             let item = Value::int(1, span);
 
             let stream_data = StreamData::List(item.clone());

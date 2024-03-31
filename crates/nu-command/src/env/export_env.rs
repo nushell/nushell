@@ -55,7 +55,7 @@ impl Command for ExportEnv {
             Example {
                 description: "Set an environment variable",
                 example: r#"export-env { $env.SPAM = 'eggs' }"#,
-                result: Some(Value::nothing(Span::test_data())),
+                result: Some(Value::nothing(FutureSpanId::test_data())),
             },
             Example {
                 description: "Set an environment variable and examine its value",

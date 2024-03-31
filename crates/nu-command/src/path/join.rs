@@ -112,7 +112,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 example: r"[ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
                 result: Some(Value::list(
                     vec![Value::test_string(r"C:\Users\viking\spam.txt")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -157,7 +157,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
                 result: Some(Value::list(
                     vec![Value::test_string(r"/home/viking/spam.txt")],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -185,7 +185,7 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
     }
 }
 
-fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
+fn handle_value(v: Value, args: &Arguments, head: FutureSpanId) -> Value {
     let span = v.span();
     match v {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
@@ -196,7 +196,7 @@ fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
+fn join_single(path: &Path, head: FutureSpanId, args: &Arguments) -> Value {
     let mut result = path.to_path_buf();
     for path_to_append in &args.append {
         result.push(&path_to_append.item)
@@ -205,7 +205,7 @@ fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
     Value::string(result.to_string_lossy(), head)
 }
 
-fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
+fn join_list(parts: &[Value], head: FutureSpanId, span: FutureSpanId, args: &Arguments) -> Value {
     let path: Result<PathBuf, ShellError> = parts.iter().map(Value::coerce_string).collect();
 
     match path {
@@ -234,14 +234,18 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
     }
 }
 
-fn join_record(record: &Record, head: Span, span: Span, args: &Arguments) -> Value {
+fn join_record(record: &Record, head: FutureSpanId, span: FutureSpanId, args: &Arguments) -> Value {
     match merge_record(record, head, span) {
         Ok(p) => join_single(p.as_path(), head, args),
         Err(error) => Value::error(error, span),
     }
 }
 
-fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, ShellError> {
+fn merge_record(
+    record: &Record,
+    head: FutureSpanId,
+    span: FutureSpanId,
+) -> Result<PathBuf, ShellError> {
     for key in record.columns() {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");

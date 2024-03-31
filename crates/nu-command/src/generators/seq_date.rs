@@ -87,7 +87,7 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-09"),
                         Value::test_string("2020-01-10"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -103,7 +103,7 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-26"),
                         Value::test_string("2020-01-31"),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -183,7 +183,7 @@ pub fn run_seq_dates(
     increment: Value,
     day_count: Option<Value>,
     reverse: bool,
-    call_span: Span,
+    call_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let today = Local::now().date_naive();
     // if cannot convert , it will return error

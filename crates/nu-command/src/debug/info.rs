@@ -42,7 +42,7 @@ impl Command for DebugInfo {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = Span::unknown();
+        let span = FutureSpanId::unknown();
 
         let record = LazySystemInfoRecord { span };
 
@@ -60,7 +60,7 @@ impl Command for DebugInfo {
 
 #[derive(Debug, Clone)]
 struct LazySystemInfoRecord {
-    span: Span,
+    span: FutureSpanId,
 }
 
 impl LazySystemInfoRecord {
@@ -212,11 +212,11 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
         self.get_column_value_with_system(column, None)
     }
 
-    fn span(&self) -> Span {
+    fn span(&self) -> FutureSpanId {
         self.span
     }
 
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         Value::lazy_record(Box::new(LazySystemInfoRecord { span }), span)
     }
 

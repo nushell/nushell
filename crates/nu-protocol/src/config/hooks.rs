@@ -1,4 +1,4 @@
-use crate::{Config, Record, ShellError, Span, Value};
+use crate::{Config, FutureSpanId, Record, ShellError, Value};
 use serde::{Deserialize, Serialize};
 
 /// Definition of a parsed hook from the config object
@@ -19,7 +19,7 @@ impl Hooks {
             env_change: None,
             display_output: Some(Value::string(
                 "if (term size).columns >= 100 { table -e } else { table }",
-                Span::unknown(),
+                FutureSpanId::unknown(),
             )),
             command_not_found: None,
         }
@@ -66,7 +66,7 @@ pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
     }
 }
 
-pub(super) fn reconstruct_hooks(config: &Config, span: Span) -> Value {
+pub(super) fn reconstruct_hooks(config: &Config, span: FutureSpanId) -> Value {
     let mut hook = Record::new();
     if let Some(ref value) = config.hooks.pre_prompt {
         hook.push("pre_prompt", value.clone());

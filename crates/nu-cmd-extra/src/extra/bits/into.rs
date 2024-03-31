@@ -66,42 +66,49 @@ impl Command for BitsInto {
                 description: "convert a binary value into a string, padded to 8 places with 0s",
                 example: "0x[1] | into bits",
                 result: Some(Value::string("00000001",
-                    Span::test_data(),
+                                           FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "convert an int into a string, padded to 8 places with 0s",
                 example: "1 | into bits",
                 result: Some(Value::string("00000001",
-                    Span::test_data(),
+                                           FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "convert a filesize value into a string, padded to 8 places with 0s",
                 example: "1b | into bits",
                 result: Some(Value::string("00000001",
-                    Span::test_data(),
+                                           FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "convert a duration value into a string, padded to 8 places with 0s",
                 example: "1ns | into bits",
                 result: Some(Value::string("00000001",
-                    Span::test_data(),
+                                           FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "convert a boolean value into a string, padded to 8 places with 0s",
                 example: "true | into bits",
                 result: Some(Value::string("00000001",
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
+                )),
+            },
+            Example {
+                description: "convert a datetime value into a string, padded to 8 places with 0s",
+                example: "2023-04-17T01:02:03 | into bits",
+                result: Some(Value::string("01001101 01101111 01101110 00100000 01000001 01110000 01110010 00100000 00110001 00110111 00100000 00110000 00110001 00111010 00110000 00110010 00111010 00110000 00110011 00100000 00110010 00110000 00110010 00110011",
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
                 description: "convert a string into a raw binary string, padded with 0s to 8 places",
                 example: "'nushell.sh' | into bits",
                 result: Some(Value::string("01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000",
-                    Span::test_data(),
+                                           FutureSpanId::test_data(),
                 )),
             },
         ]
@@ -137,7 +144,7 @@ fn into_bits(
     }
 }
 
-fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
+fn convert_to_smallest_number_type(num: i64, span: FutureSpanId) -> Value {
     if let Some(v) = num.to_i8() {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
@@ -169,7 +176,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
     }
 }
 
-pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+pub fn action(input: &Value, _args: &Arguments, span: FutureSpanId) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();

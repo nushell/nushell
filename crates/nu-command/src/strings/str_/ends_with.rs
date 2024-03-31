@@ -91,7 +91,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: FutureSpanId) -> Value {
     match input {
         Value::String { val: s, .. } => {
             let ends_with = if args.case_insensitive {

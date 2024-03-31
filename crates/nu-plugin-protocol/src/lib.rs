@@ -22,8 +22,8 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
-    ShellError, Span, Spanned, Value,
+    ast::Operator, engine::Closure, Config, FutureSpanId, LabeledError, PipelineData,
+    PluginSignature, RawStream, ShellError, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -121,7 +121,7 @@ pub struct ListStreamInfo {
 /// Additional information about external streams
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ExternalStreamInfo {
-    pub span: Span,
+    pub span: FutureSpanId,
     pub stdout: Option<RawStreamInfo>,
     pub stderr: Option<RawStreamInfo>,
     pub exit_code: Option<ListStreamInfo>,

@@ -79,7 +79,7 @@ impl Command for DropColumn {
 fn drop_cols(
     engine_state: &EngineState,
     input: PipelineData,
-    head: Span,
+    head: FutureSpanId,
     columns: usize,
 ) -> Result<PipelineData, ShellError> {
     // For simplicity and performance, we use the first row's columns
@@ -141,7 +141,11 @@ fn drop_cols(
     }
 }
 
-fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
+fn drop_cols_set(
+    val: &mut Value,
+    head: FutureSpanId,
+    drop: usize,
+) -> Result<HashSet<String>, ShellError> {
     if let Value::Record { val: record, .. } = val {
         let len = record.len().saturating_sub(drop);
         Ok(record.to_mut().drain(len..).map(|(col, _)| col).collect())
@@ -152,7 +156,7 @@ fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<Str
 
 fn drop_record_cols(
     val: &mut Value,
-    head: Span,
+    head: FutureSpanId,
     drop_cols: &HashSet<String>,
 ) -> Result<(), ShellError> {
     if let Value::Record { val, .. } = val {
@@ -163,7 +167,7 @@ fn drop_record_cols(
     }
 }
 
-fn unsupported_value_error(val: &Value, head: Span) -> ShellError {
+fn unsupported_value_error(val: &Value, head: FutureSpanId) -> ShellError {
     ShellError::OnlySupportsThisInputType {
         exp_input_type: "table or record".into(),
         wrong_type: val.get_type().to_string(),

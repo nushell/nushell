@@ -1,7 +1,7 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, ShellError, Value};
 use polars::prelude::{col, when, ChainedThen, Then};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -50,7 +50,7 @@ impl From<ChainedThen> for NuWhen {
 }
 
 impl NuWhen {
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self), span)
     }
 

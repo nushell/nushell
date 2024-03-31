@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    PipelineData, ShellError, Span, Value, NU_VARIABLE_ID,
+    FutureSpanId, PipelineData, ShellError, Value, NU_VARIABLE_ID,
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
@@ -32,7 +32,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
 
     // Add $nu
     let nu_const =
-        create_nu_constant(&engine_state, Span::test_data()).expect("Failed creating $nu");
+        create_nu_constant(&engine_state, FutureSpanId::test_data()).expect("Failed creating $nu");
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     // New stack
@@ -41,13 +41,16 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(
+            dir_str.clone(),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
+        ),
     );
     stack.add_env_var(
         "TEST".to_string(),
         Value::string(
             "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
         ),
     );
     #[cfg(windows)]
@@ -55,7 +58,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
         "Path".to_string(),
         Value::string(
             "c:\\some\\path;c:\\some\\other\\path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
         ),
     );
     #[cfg(not(windows))]
@@ -63,7 +66,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
         "PATH".to_string(),
         Value::string(
             "/some/path:/some/other/path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
         ),
     );
 
@@ -93,13 +96,16 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(
+            dir_str.clone(),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
+        ),
     );
     stack.add_env_var(
         "TEST".to_string(),
         Value::string(
             "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
         ),
     );
 
@@ -129,13 +135,16 @@ pub fn new_partial_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(
+            dir_str.clone(),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
+        ),
     );
     stack.add_env_var(
         "TEST".to_string(),
         Value::string(
             "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::FutureSpanId::new(0, dir_str.len()),
         ),
     );
 
@@ -199,7 +208,7 @@ pub fn merge_input(
         engine_state,
         stack,
         &block,
-        PipelineData::Value(Value::nothing(Span::unknown()), None),
+        PipelineData::Value(Value::nothing(FutureSpanId::unknown()), None),
     )
     .is_ok());
 

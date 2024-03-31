@@ -131,7 +131,7 @@ fn open_path(
     path: impl AsRef<OsStr>,
     engine_state: &EngineState,
     stack: &Stack,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<(), ShellError> {
     try_commands(open::commands(path), engine_state, stack, span)
 }
@@ -140,7 +140,7 @@ fn try_commands(
     commands: Vec<std::process::Command>,
     engine_state: &EngineState,
     stack: &Stack,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<(), ShellError> {
     let env_vars_str = env_to_strings(engine_state, stack)?;
     let cmd_run_result = commands.into_iter().map(|mut cmd| {

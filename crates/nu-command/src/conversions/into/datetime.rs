@@ -157,7 +157,7 @@ impl Command for SubCommand {
         let example_result_1 = |nanos: i64| {
             Some(Value::date(
                 Utc.timestamp_nanos(nanos).into(),
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ))
         };
         vec![
@@ -204,7 +204,7 @@ impl Command for SubCommand {
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::date(
                             DateTime::parse_from_str(
@@ -212,7 +212,7 @@ impl Command for SubCommand {
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                         Value::date(
                             DateTime::parse_from_str(
@@ -220,10 +220,10 @@ impl Command for SubCommand {
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),
-                            Span::test_data(),
+                            FutureSpanId::test_data(),
                         ),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -248,7 +248,7 @@ impl Command for SubCommand {
 #[derive(Clone)]
 struct DatetimeFormat(String);
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: FutureSpanId) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
@@ -405,7 +405,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn list_human_readable_examples(span: Span) -> Value {
+fn list_human_readable_examples(span: FutureSpanId) -> Value {
     let examples: Vec<String> = vec![
         "Today 18:30".into(),
         "2022-11-07 13:25:30".into(),
@@ -465,10 +465,10 @@ mod tests {
             format_options: fmt_options,
             cell_paths: None,
         };
-        let actual = action(&date_str, &args, Span::test_data());
+        let actual = action(&date_str, &args, FutureSpanId::test_data());
         let expected = Value::date(
             DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z").unwrap(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected)
     }
@@ -481,10 +481,10 @@ mod tests {
             format_options: None,
             cell_paths: None,
         };
-        let actual = action(&date_str, &args, Span::test_data());
+        let actual = action(&date_str, &args, FutureSpanId::test_data());
         let expected = Value::date(
             DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         assert_eq!(actual, expected)
     }
@@ -494,17 +494,17 @@ mod tests {
         let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: None,
             cell_paths: None,
         };
-        let actual = action(&date_str, &args, Span::test_data());
+        let actual = action(&date_str, &args, FutureSpanId::test_data());
         let expected = Value::date(
             DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected)
@@ -515,17 +515,17 @@ mod tests {
         let date_int = Value::test_int(1_614_434_140_000_000_000);
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: None,
             cell_paths: None,
         };
-        let actual = action(&date_int, &args, Span::test_data());
+        let actual = action(&date_int, &args, FutureSpanId::test_data());
         let expected = Value::date(
             DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected)
@@ -536,17 +536,17 @@ mod tests {
         let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::Local,
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: None,
             cell_paths: None,
         };
-        let actual = action(&date_str, &args, Span::test_data());
+        let actual = action(&date_str, &args, FutureSpanId::test_data());
         let expected = Value::date(
             Local.timestamp_opt(1614434140, 0).unwrap().into(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected)
@@ -560,11 +560,11 @@ mod tests {
             format_options: None,
             cell_paths: None,
         };
-        let actual = action(&date_str, &args, Span::test_data());
+        let actual = action(&date_str, &args, FutureSpanId::test_data());
 
         let expected = Value::date(
             Utc.timestamp_opt(1614434140, 0).unwrap().into(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         assert_eq!(actual, expected)
@@ -579,7 +579,7 @@ mod tests {
             format_options: fmt_options,
             cell_paths: None,
         };
-        let actual = action(&date_str, &args, Span::test_data());
+        let actual = action(&date_str, &args, FutureSpanId::test_data());
 
         assert_eq!(actual.get_type(), Error);
     }

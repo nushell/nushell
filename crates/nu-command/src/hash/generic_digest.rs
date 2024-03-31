@@ -133,7 +133,7 @@ where
     }
 }
 
-pub(super) fn action<D>(input: &Value, args: &Arguments, _span: Span) -> Value
+pub(super) fn action<D>(input: &Value, args: &Arguments, _span: FutureSpanId) -> Value
 where
     D: HashDigest,
     digest::Output<D>: core::fmt::LowerHex,

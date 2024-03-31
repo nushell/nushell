@@ -1,11 +1,11 @@
-use crate::{ModuleId, Span};
+use crate::{FutureSpanId, ModuleId};
 use std::collections::HashMap;
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
 pub(super) struct Usage {
     // TODO: Move decl usages here
-    module_comments: HashMap<ModuleId, Vec<Span>>,
+    module_comments: HashMap<ModuleId, Vec<FutureSpanId>>,
 }
 
 impl Usage {
@@ -15,11 +15,11 @@ impl Usage {
         }
     }
 
-    pub fn add_module_comments(&mut self, module_id: ModuleId, comments: Vec<Span>) {
+    pub fn add_module_comments(&mut self, module_id: ModuleId, comments: Vec<FutureSpanId>) {
         self.module_comments.insert(module_id, comments);
     }
 
-    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[FutureSpanId]> {
         self.module_comments.get(&module_id).map(|v| v.as_ref())
     }
 

@@ -156,7 +156,7 @@ pub enum ActionMode {
     Global,
 }
 
-fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
+fn action(input: &Value, arg: &Arguments, head: FutureSpanId) -> Value {
     let char_ = arg.to_trim;
     let trim_side = &arg.trim_side;
     let mode = &arg.mode;
@@ -223,7 +223,7 @@ fn trim(s: &str, char_: Option<char>, trim_side: &TrimSide) -> String {
 #[cfg(test)]
 mod tests {
     use crate::strings::str_::trim::trim_::*;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{FutureSpanId, Value};
 
     #[test]
     fn test_examples() {
@@ -246,7 +246,7 @@ mod tests {
             vals.iter()
                 .map(|x| Value::test_string(x.to_string()))
                 .collect(),
-            Span::test_data(),
+            FutureSpanId::test_data(),
         )
     }
 
@@ -261,7 +261,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -275,7 +275,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -290,7 +290,7 @@ mod tests {
             mode: ActionMode::Global,
         };
 
-        let actual = action(&number, &args, Span::test_data());
+        let actual = action(&number, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -306,7 +306,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -321,7 +321,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -336,7 +336,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -351,7 +351,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -366,7 +366,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&number, &args, Span::test_data());
+        let actual = action(&number, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -381,7 +381,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -396,7 +396,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -408,7 +408,7 @@ mod tests {
                 Value::test_int(65),
                 Value::test_string(" d"),
             ],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let expected = Value::list(
             vec![
@@ -416,7 +416,7 @@ mod tests {
                 Value::test_int(65),
                 Value::test_string("d"),
             ],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
 
         let args = Arguments {
@@ -425,7 +425,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -440,7 +440,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
     #[test]
@@ -454,7 +454,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -468,7 +468,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -482,7 +482,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&number, &args, Span::test_data());
+        let actual = action(&number, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -496,7 +496,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -508,7 +508,7 @@ mod tests {
                 Value::test_int(65),
                 Value::test_string(" d"),
             ],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let expected = Value::list(
             vec![
@@ -516,7 +516,7 @@ mod tests {
                 Value::test_int(65),
                 Value::test_string(" d"),
             ],
-            Span::test_data(),
+            FutureSpanId::test_data(),
         );
         let args = Arguments {
             to_trim: None,
@@ -524,7 +524,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Global,
         };
-        let actual = action(&row, &args, Span::test_data());
+        let actual = action(&row, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -539,7 +539,7 @@ mod tests {
             cell_paths: None,
             mode: ActionMode::Local,
         };
-        let actual = action(&word, &args, Span::test_data());
+        let actual = action(&word, &args, FutureSpanId::test_data());
         assert_eq!(actual, expected);
     }
 }

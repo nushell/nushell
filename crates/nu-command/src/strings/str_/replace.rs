@@ -188,7 +188,7 @@ fn action(
         multiline,
         ..
     }: &Arguments,
-    head: Span,
+    head: FutureSpanId,
 ) -> Value {
     match input {
         Value::String { val, .. } => {
@@ -267,7 +267,7 @@ mod tests {
     fn test_spanned_string(val: &str) -> Spanned<String> {
         Spanned {
             item: String::from(val),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         }
     }
 
@@ -292,7 +292,7 @@ mod tests {
             multiline: false,
         };
 
-        let actual = action(&word, &options, Span::test_data());
+        let actual = action(&word, &options, FutureSpanId::test_data());
         assert_eq!(actual, Value::test_string("Carga.toml"));
     }
 }

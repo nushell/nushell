@@ -4,7 +4,7 @@ use ical::{parser::ical::component::*, property::Property};
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, FutureSpanId, LabeledError, ShellError, Signature, Type, Value,
 };
 use std::io::BufReader;
 
@@ -97,7 +97,7 @@ END:VCALENDAR' | from ics",
     }]
 }
 
-fn calendar_to_value(calendar: IcalCalendar, span: Span) -> Value {
+fn calendar_to_value(calendar: IcalCalendar, span: FutureSpanId) -> Value {
     Value::record(
         record! {
             "properties" => properties_to_value(calendar.properties, span),
@@ -112,7 +112,7 @@ fn calendar_to_value(calendar: IcalCalendar, span: Span) -> Value {
     )
 }
 
-fn events_to_value(events: Vec<IcalEvent>, span: Span) -> Value {
+fn events_to_value(events: Vec<IcalEvent>, span: FutureSpanId) -> Value {
     Value::list(
         events
             .into_iter()
@@ -130,7 +130,7 @@ fn events_to_value(events: Vec<IcalEvent>, span: Span) -> Value {
     )
 }
 
-fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> Value {
+fn alarms_to_value(alarms: Vec<IcalAlarm>, span: FutureSpanId) -> Value {
     Value::list(
         alarms
             .into_iter()
@@ -145,7 +145,7 @@ fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> Value {
     )
 }
 
-fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> Value {
+fn todos_to_value(todos: Vec<IcalTodo>, span: FutureSpanId) -> Value {
     Value::list(
         todos
             .into_iter()
@@ -163,7 +163,7 @@ fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> Value {
     )
 }
 
-fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> Value {
+fn journals_to_value(journals: Vec<IcalJournal>, span: FutureSpanId) -> Value {
     Value::list(
         journals
             .into_iter()
@@ -178,7 +178,7 @@ fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> Value {
     )
 }
 
-fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> Value {
+fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: FutureSpanId) -> Value {
     Value::list(
         free_busys
             .into_iter()
@@ -193,7 +193,7 @@ fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> Value {
     )
 }
 
-fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> Value {
+fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: FutureSpanId) -> Value {
     Value::list(
         timezones
             .into_iter()
@@ -211,7 +211,10 @@ fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> Value {
     )
 }
 
-fn timezone_transitions_to_value(transitions: Vec<IcalTimeZoneTransition>, span: Span) -> Value {
+fn timezone_transitions_to_value(
+    transitions: Vec<IcalTimeZoneTransition>,
+    span: FutureSpanId,
+) -> Value {
     Value::list(
         transitions
             .into_iter()
@@ -226,7 +229,7 @@ fn timezone_transitions_to_value(transitions: Vec<IcalTimeZoneTransition>, span:
     )
 }
 
-fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
+fn properties_to_value(properties: Vec<Property>, span: FutureSpanId) -> Value {
     Value::list(
         properties
             .into_iter()
@@ -255,7 +258,7 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
     )
 }
 
-fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
+fn params_to_value(params: Vec<(String, Vec<String>)>, span: FutureSpanId) -> Value {
     let mut row = IndexMap::new();
 
     for (param_name, param_values) in params {

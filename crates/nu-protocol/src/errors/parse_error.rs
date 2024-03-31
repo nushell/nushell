@@ -3,7 +3,7 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
-use crate::{ast::RedirectionSource, did_you_mean, ActualSpan, Span, Type};
+use crate::{ast::RedirectionSource, did_you_mean, ActualSpan, FutureSpanId, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -499,7 +499,7 @@ pub enum ParseError {
     RedirectingBuiltinCommand(
         &'static str,
         #[label("not allowed here")] ActualSpan,
-        #[label("...and here")] Option<ActualSpan>,
+        #[label("...and here")] Option<FutureSpanId>,
     ),
 
     #[error("This command does not have a ...rest parameter")]
@@ -512,7 +512,7 @@ pub enum ParseError {
 
 impl ParseError {
     // TODO SPAN: Change return type to ActualSpan
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> FutureSpanId {
         match self {
             ParseError::ExtraTokens(s) => *s,
             ParseError::ExtraPositional(_, s) => *s,

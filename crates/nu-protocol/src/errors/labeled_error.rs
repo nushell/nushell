@@ -3,7 +3,7 @@ use std::fmt;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 
-use crate::Span;
+use crate::FutureSpanId;
 
 use super::ShellError;
 
@@ -62,14 +62,14 @@ impl LabeledError {
     /// # Example
     ///
     /// ```rust
-    /// # use nu_protocol::{LabeledError, Span};
-    /// # let span = Span::test_data();
+    /// # use nu_protocol::{LabeledError, FutureSpanId};
+    /// # let span = FutureSpanId::test_data();
     /// let error = LabeledError::new("An error")
     ///     .with_label("happened here", span);
     /// assert_eq!("happened here", &error.labels[0].text);
     /// assert_eq!(span, error.labels[0].span);
     /// ```
-    pub fn with_label(mut self, text: impl Into<String>, span: Span) -> Self {
+    pub fn with_label(mut self, text: impl Into<String>, span: FutureSpanId) -> Self {
         self.labels.push(ErrorLabel {
             text: text.into(),
             span,
@@ -158,7 +158,7 @@ impl LabeledError {
                 .flatten()
                 .map(|label| ErrorLabel {
                     text: label.label().unwrap_or("").into(),
-                    span: Span::new(label.offset(), label.offset() + label.len()),
+                    span: FutureSpanId::new(label.offset(), label.offset() + label.len()),
                 })
                 .collect(),
             code: diag.code().map(|s| s.to_string()),
@@ -180,7 +180,7 @@ pub struct ErrorLabel {
     /// Text to show together with the span
     pub text: String,
     /// Span pointing at where the text references in the source
-    pub span: Span,
+    pub span: FutureSpanId,
 }
 
 impl fmt::Display for LabeledError {

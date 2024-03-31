@@ -104,7 +104,7 @@ impl Command for UniqBy {
     }
 }
 
-fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellError> {
+fn validate(vec: &[Value], columns: &[String], span: FutureSpanId) -> Result<(), ShellError> {
     let first = vec.first();
     if let Some(v) = first {
         let val_span = v.span();
@@ -146,7 +146,7 @@ fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> c
     Box::new(move |ms: crate::ItemMapperState| -> crate::ValueCounter {
         let item_column_values = get_data_by_columns(&columns, &ms.item);
 
-        let col_vals = Value::list(item_column_values, Span::unknown());
+        let col_vals = Value::list(item_column_values, FutureSpanId::unknown());
 
         crate::ValueCounter::new_vals_to_compare(ms.item, ms.flag_ignore_case, col_vals, ms.index)
     })

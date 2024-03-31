@@ -79,14 +79,14 @@ impl Command for SubCommand {
                         Value::test_float(3.0),
                         Value::test_float(2.0),
                     ],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
         ]
     }
 }
 
-fn operate(value: Value, head: Span, base: f64) -> Value {
+fn operate(value: Value, head: FutureSpanId, base: f64) -> Value {
     let span = value.span();
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {

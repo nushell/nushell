@@ -104,7 +104,7 @@ impl Command for ParEach {
                 Err(e) => Err(e).map_err(|e| ShellError::GenericError {
                     error: "Error creating thread pool".into(),
                     msg: e.to_string(),
-                    span: Some(Span::unknown()),
+                    span: Some(FutureSpanId::unknown()),
                     help: None,
                     inner: vec![],
                 }),
