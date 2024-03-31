@@ -1,95 +1,87 @@
-mod date;
-pub use date::*;
-
-mod string;
-pub use string::*;
-
-mod masks;
-pub use masks::*;
-
-mod indexes;
-pub use indexes::*;
-
+// mod date;
+// pub use date::*;
+//
+// mod string;
+// pub use string::*;
+//
+// mod masks;
+// pub use masks::*;
+//
+// mod indexes;
+// pub use indexes::*;
+//
 mod all_false;
-mod all_true;
-mod arg_max;
-mod arg_min;
-mod cumulative;
-mod n_null;
-mod n_unique;
-mod rolling;
-mod shift;
-mod unique;
-mod value_counts;
-
-use nu_protocol::engine::StateWorkingSet;
-
+// mod all_true;
+// mod arg_max;
+// mod arg_min;
+// mod cumulative;
+// mod n_null;
+// mod n_unique;
+// mod rolling;
+// mod shift;
+// mod unique;
+// mod value_counts;
+//
+// use nu_protocol::engine::StateWorkingSet;
+//
 pub use all_false::AllFalse;
-pub use all_true::AllTrue;
-pub use arg_max::ArgMax;
-pub use arg_min::ArgMin;
-pub use cumulative::Cumulative;
-pub use n_null::NNull;
-pub use n_unique::NUnique;
-pub use rolling::Rolling;
-pub use shift::Shift;
-pub use unique::Unique;
-pub use value_counts::ValueCount;
+use nu_plugin::PluginCommand;
 
-pub fn add_series_decls(working_set: &mut StateWorkingSet) {
-    macro_rules! bind_command {
-            ( $command:expr ) => {
-                working_set.add_decl(Box::new($command));
-            };
-            ( $( $command:expr ),* ) => {
-                $( working_set.add_decl(Box::new($command)); )*
-            };
-        }
+use crate::PolarsPlugin;
+// pub use all_true::AllTrue;
+// pub use arg_max::ArgMax;
+// pub use arg_min::ArgMin;
+// pub use cumulative::Cumulative;
+// pub use n_null::NNull;
+// pub use n_unique::NUnique;
+// pub use rolling::Rolling;
+// pub use shift::Shift;
+// pub use unique::Unique;
+// pub use value_counts::ValueCount;
 
-    // Series commands
-    bind_command!(
-        AllFalse,
-        AllTrue,
-        ArgMax,
-        ArgMin,
-        ArgSort,
-        ArgTrue,
-        ArgUnique,
-        AsDate,
-        AsDateTime,
-        Concatenate,
-        Contains,
-        Cumulative,
-        GetDay,
-        GetHour,
-        GetMinute,
-        GetMonth,
-        GetNanosecond,
-        GetOrdinal,
-        GetSecond,
-        GetWeek,
-        GetWeekDay,
-        GetYear,
-        IsDuplicated,
-        IsIn,
-        IsNotNull,
-        IsNull,
-        IsUnique,
-        NNull,
-        NUnique,
-        NotSeries,
-        Replace,
-        ReplaceAll,
-        Rolling,
-        SetSeries,
-        SetWithIndex,
-        Shift,
-        StrLengths,
-        StrSlice,
-        StrFTime,
-        ToLowerCase,
-        ToUpperCase,
-        Unique,
-        ValueCount
-    );
+pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
+    vec![
+        Box::new(AllFalse),
+        //     Box::new(AllTrue),
+        //     Box::new(ArgMax),
+        //     Box::new(ArgMin),
+        //     Box::new(ArgSort),
+        //     Box::new(ArgTrue),
+        //     Box::new(ArgUnique),
+        //     Box::new(AsDate),
+        //     Box::new(AsDateTime),
+        //     Box::new(Concatenate),
+        //     Box::new(Contains),
+        //     Box::new(Cumulative),
+        //     Box::new(GetDay),
+        //     Box::new(GetHour),
+        //     Box::new(GetMinute),
+        //     Box::new(GetMonth),
+        //     Box::new(GetNanosecond),
+        //     Box::new(GetOrdinal),
+        //     Box::new(GetSecond),
+        //     Box::new(GetWeek),
+        //     Box::new(GetWeekDay),
+        //     Box::new(GetYear),
+        //     Box::new(IsDuplicated),
+        //     Box::new(IsIn),
+        //     Box::new(IsNotNull),
+        //     Box::new(IsNull),
+        //     Box::new(IsUnique),
+        //     Box::new(NNull),
+        //     Box::new(NUnique),
+        //     Box::new(NotSeries),
+        //     Box::new(Replace),
+        //     Box::new(ReplaceAll),
+        //     Box::new(Rolling),
+        //     Box::new(SetSeries),
+        //     Box::new(SetWithIndex),
+        //     Box::new(Shift),
+        //     Box::new(StrLengths),
+        //     Box::new(StrSlice),
+        //     Box::new(StrFTime),
+        //     Box::new(ToLowerCase),
+        //     Box::new(ToUpperCase),
+        //     Box::new(Unique),
+    ]
 }

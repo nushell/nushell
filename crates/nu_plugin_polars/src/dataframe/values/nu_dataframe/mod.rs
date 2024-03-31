@@ -7,7 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, Record, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
@@ -19,8 +19,8 @@ use crate::{Cacheable, PolarsPlugin};
 pub use self::custom_value::NuDataFrameCustomValue;
 
 use super::{
-    nu_schema::NuSchema, utils::DEFAULT_ROWS, CustomValueSupport, NuLazyFrame, PolarsPluginObject,
-    PolarsPluginType,
+    cant_convert_err, nu_schema::NuSchema, utils::DEFAULT_ROWS, CustomValueSupport, NuLazyFrame,
+    PolarsPluginObject, PolarsPluginType,
 };
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
@@ -447,6 +447,34 @@ impl NuDataFrame {
 
     pub fn schema(&self) -> NuSchema {
         NuSchema::new(self.df.schema())
+    }
+
+    /// This differs from try_from_value as it will attempt to coerce the type into a NuDataFrame.
+    /// So, if the pipeline type is a NuLazyFrame it will be collected and returned as NuDataFrame.
+    pub fn try_from_value_coerce(
+        plugin: &PolarsPlugin,
+        value: &Value,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        match PolarsPluginObject::try_from_value(plugin, value)? {
+            PolarsPluginObject::NuDataFrame(df) => Ok(df),
+            PolarsPluginObject::NuLazyFrame(lazy) => lazy.collect(span),
+            _ => Err(cant_convert_err(
+                value,
+                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
+            )),
+        }
+    }
+
+    /// This differs from try_from_pipeline as it will attempt to coerce the type into a NuDataFrame.
+    /// So, if the pipeline type is a NuLazyFrame it will be collected and returned as NuDataFrame.
+    pub fn try_from_pipeline_coerce(
+        plugin: &PolarsPlugin,
+        input: PipelineData,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value_coerce(plugin, &value, span)
     }
 }
 

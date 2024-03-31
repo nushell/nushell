@@ -11,7 +11,7 @@ use nu_protocol::{ast::Operator, CustomValue, LabeledError, Spanned, Value};
 
 use crate::{
     eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
-    values::PolarsPluginCustomValue,
+    series::series_commands, values::PolarsPluginCustomValue,
 };
 
 #[derive(Default)]
@@ -25,6 +25,7 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut eager_commands());
         commands.append(&mut lazy_commands());
         commands.append(&mut expr_commands());
+        commands.append(&mut series_commands());
         commands
     }
 
