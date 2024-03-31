@@ -15,7 +15,7 @@ pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 use nu_plugin::EngineInterface;
 use nu_protocol::{ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 pub use nu_schema::{str_to_dtype, NuSchema};
-pub use nu_when::{NuWhen, NuWhenCustomValue};
+pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 use uuid::Uuid;
 
 use crate::{Cacheable, PolarsPlugin};
