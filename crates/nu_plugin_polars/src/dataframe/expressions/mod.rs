@@ -4,7 +4,7 @@ mod col;
 mod concat_str;
 mod datepart;
 mod expressions_macro;
-// mod is_in;
+mod is_in;
 // mod lit;
 // mod otherwise;
 // mod quantile;
@@ -18,8 +18,8 @@ pub use crate::dataframe::expressions::col::ExprCol;
 pub use crate::dataframe::expressions::concat_str::ExprConcatStr;
 pub use crate::dataframe::expressions::datepart::ExprDatePart;
 pub use crate::dataframe::expressions::expressions_macro::*;
+pub use crate::dataframe::expressions::is_in::ExprIsIn;
 use crate::PolarsPlugin;
-// pub use crate::dataframe::expressions::is_in::ExprIsIn;
 // pub use crate::dataframe::expressions::lit::ExprLit;
 // pub use crate::dataframe::expressions::otherwise::ExprOtherwise;
 // pub use crate::dataframe::expressions::quantile::ExprQuantile;
@@ -29,12 +29,13 @@ pub(crate) fn expr_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
     vec![
         Box::new(ExprAlias),
         Box::new(ExprArgWhere),
+        Box::new(ExprAggGroups),
         Box::new(ExprCol),
         Box::new(ExprConcatStr),
-        Box::new(ExprDatePart),
-        Box::new(ExprList),
-        Box::new(ExprAggGroups),
         Box::new(ExprCount),
+        Box::new(ExprDatePart),
+        Box::new(ExprIsIn),
+        Box::new(ExprList),
         Box::new(ExprNot),
         Box::new(ExprMax),
         Box::new(ExprMin),
