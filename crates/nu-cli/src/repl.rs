@@ -23,7 +23,10 @@ use nu_protocol::{
     report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value, NU_VARIABLE_ID,
 };
-use nu_utils::utils::perf;
+use nu_utils::{
+    filesystem::{have_permission, PermissionResult},
+    utils::perf,
+};
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
     HistorySessionId, Reedline, SqliteBackedHistory, Vi,
@@ -774,6 +777,16 @@ fn do_auto_cd(
             .expect("internal error: cannot canonicalize known path");
         path.to_string_lossy().to_string()
     };
+
+    if let PermissionResult::PermissionDenied(reason) = have_permission(path.clone()) {
+        report_error_new(
+            engine_state,
+            &ShellError::IOError {
+                msg: format!("Cannot change directory to {path}: {reason}"),
+            },
+        );
+        return;
+    }
 
     stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
 
