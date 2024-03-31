@@ -12,13 +12,13 @@ use crate::{
 /// and pass it into an error viewer to display to the user.
 #[derive(Debug, Clone, Error, Diagnostic, PartialEq)]
 pub enum ShellError {
-    // TODO SPAN: Remove
-    #[error("Testing a span using a SpanId instead of Span.")]
-    #[diagnostic(code(nu::shell::test_error))]
-    TestError {
-        #[label("points here")]
-        span: SpanId,
-    },
+    // TODO SPAN: Testing errors with SpanIds; Remove
+    // #[error("Testing a span using a SpanId instead of Span.")]
+    // #[diagnostic(code(nu::shell::test_error))]
+    // TestError {
+    //     #[label("points here")]
+    //     span: SpanId,
+    // },
 
     /// An operator received two arguments of incompatible types.
     ///

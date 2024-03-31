@@ -28,9 +28,10 @@ impl Command for Panic {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // TODO SPAN: Remove
-        let head_id = engine_state.find_span_id(call.head).expect("missing span");
-        return Err(ShellError::TestError { span: head_id });
+        // TODO SPAN: Testing errors with SpanIds; Remove
+        // let head_id = engine_state.find_span_id(call.head).expect("missing span");
+        // return Err(ShellError::TestError { span: head_id });
+
         let maybe_msg: String = call
             .opt(engine_state, stack, 0)?
             .unwrap_or("Panic!".to_string());
