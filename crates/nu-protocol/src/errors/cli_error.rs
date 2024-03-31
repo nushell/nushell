@@ -1,6 +1,6 @@
 use crate::{
     engine::{EngineState, StateWorkingSet},
-    ErrorStyle,
+    ErrorStyle, GetSpan, SpanId,
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
@@ -93,7 +93,23 @@ impl<'src> miette::Diagnostic for CliError<'src> {
     }
 
     fn labels<'a>(&'a self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + 'a>> {
-        self.0.labels()
+        // self.0.labels()
+
+        // TODO SPAN: This is a hack to support SpanIds in miette.
+        self.0.labels().map(|it| {
+            let x: Vec<LabeledSpan> = it
+                .map(|labeled_span| {
+                    let span_id = SpanId(labeled_span.offset());
+                    let span = self.1.get_span(span_id);
+                    LabeledSpan::new_with_span(
+                        labeled_span.label().map(|label| label.to_string()),
+                        span,
+                    )
+                })
+                .collect();
+
+            Box::new(x.into_iter()) as Box<dyn Iterator<Item = LabeledSpan>>
+        })
     }
 
     // Finally, we redirect the source_code method to our own source.

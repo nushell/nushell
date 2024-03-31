@@ -1,3 +1,4 @@
+use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
 pub type VarId = usize;
@@ -9,3 +10,10 @@ pub type FileId = usize;
 pub type VirtualPathId = usize;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SpanId(pub usize); // more robust ID style used in the new parser
+
+// TODO SPAN: This is a hack to support SpanIds in miette.
+impl From<SpanId> for SourceSpan {
+    fn from(s: SpanId) -> Self {
+        Self::new(s.0.into(), s.0.into())
+    }
+}
