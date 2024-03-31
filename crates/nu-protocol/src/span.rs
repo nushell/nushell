@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::SpanId;
 
 pub trait GetSpan {
+    // TODO SPAN: This needs to return ActualSpan
     fn get_span(&self, span_id: SpanId) -> Span;
 }
 
@@ -75,6 +76,7 @@ impl<T> IntoSpanned for T {
     }
 }
 
+// TODO SPAN: This will eventually become SpanId
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
@@ -131,6 +133,11 @@ impl Span {
             end: self.end,
         }
     }
+
+    // TODO SPAN: This will later require engine_state/working_set reference once Span becomes SpanId
+    fn span(&self) -> ActualSpan {
+        ActualSpan::new(self.start, self.end)
+    }
 }
 
 /// Used when you have a slice of spans of at least size 1
@@ -149,6 +156,84 @@ pub fn span(spans: &[Span]) -> Span {
             .max()
             .expect("Must be an end. Length > 0");
         Span::new(spans[0].start, end)
+    }
+}
+
+// TODO SPAN: This will become the original Span
+/// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
+/// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
+/// a given point of interest.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ActualSpan {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl From<ActualSpan> for SourceSpan {
+    fn from(s: ActualSpan) -> Self {
+        Self::new(s.start.into(), s.end - s.start)
+    }
+}
+
+impl ActualSpan {
+    pub fn new(start: usize, end: usize) -> Self {
+        debug_assert!(
+            end >= start,
+            "Can't create a Span whose end < start, start={start}, end={end}"
+        );
+
+        ActualSpan { start, end }
+    }
+
+    pub const fn unknown() -> Self {
+        ActualSpan { start: 0, end: 0 }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub const fn test_data() -> Self {
+        Self::unknown()
+    }
+
+    pub fn offset(&self, offset: usize) -> Self {
+        ActualSpan::new(self.start - offset, self.end - offset)
+    }
+
+    pub fn contains(&self, pos: usize) -> bool {
+        pos >= self.start && pos < self.end
+    }
+
+    pub fn contains_span(&self, span: ActualSpan) -> bool {
+        span.start >= self.start && span.end <= self.end
+    }
+
+    /// Point to the space just past this span, useful for missing
+    /// values
+    pub fn past(&self) -> Self {
+        ActualSpan {
+            start: self.end,
+            end: self.end,
+        }
+    }
+}
+
+/// Used when you have a slice of spans of at least size 1
+pub fn span_concat(spans: &[ActualSpan]) -> ActualSpan {
+    let length = spans.len();
+
+    //TODO debug_assert!(length > 0, "expect spans > 0");
+    if length == 0 {
+        ActualSpan::unknown()
+    } else if length == 1 {
+        spans[0]
+    } else {
+        let end = spans
+            .iter()
+            .map(|s| s.end)
+            .max()
+            .expect("Must be an end. Length > 0");
+        ActualSpan::new(spans[0].start, end)
     }
 }
 
