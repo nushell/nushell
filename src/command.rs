@@ -61,7 +61,12 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>, Ve
     } else {
         Vec::default()
     };
-    (args_to_nushell, script_name, args_to_script, args_to_commands)
+    (
+        args_to_nushell,
+        script_name,
+        args_to_script,
+        args_to_commands,
+    )
 }
 
 pub(crate) fn parse_commandline_args(

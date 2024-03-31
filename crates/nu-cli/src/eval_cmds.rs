@@ -1,4 +1,3 @@
-
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
