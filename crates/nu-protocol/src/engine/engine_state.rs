@@ -99,7 +99,7 @@ pub struct EngineState {
     pub history_enabled: bool,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
-    pub(super) currently_parsed_cwd: Option<PathBuf>,
+    pub currently_parsed_cwd: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
