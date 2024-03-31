@@ -1,3 +1,4 @@
+
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
@@ -35,10 +36,17 @@ pub fn evaluate_commands(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
+        let mut commands = commands.item.clone();
         if !args_to_commands.is_empty() {
-            // Command args support: maybe wrap the commands inside a wrapped function and call it with args_to_commands
+            // Should args_to_commands be escaped in case some of them have spaces??
+            // It would be easier if https://github.com/nushell/nushell/issues/12343 could be addressed first.
+            commands = format!(
+                "def --wrapped wrapped_commands [...args] {{ {} }}; wrapped_commands {}",
+                commands,
+                args_to_commands.join(" "),
+            )
         }
-        let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
+        let output = parse(&mut working_set, None, commands.as_bytes(), false);
         if let Some(warning) = working_set.parse_warnings.first() {
             report_error(&working_set, warning);
         }
