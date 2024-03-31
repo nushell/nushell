@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = "0.91.1"
+# version = "0.92.0"
 
 def create_left_prompt [] {
     let dir = match (do --ignore-shell-errors { $env.PWD | path relative-to $nu.home-path }) {
