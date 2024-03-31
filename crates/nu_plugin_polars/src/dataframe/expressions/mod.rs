@@ -8,7 +8,7 @@ mod is_in;
 mod lit;
 mod otherwise;
 mod quantile;
-// mod when;
+mod when;
 
 use nu_plugin::PluginCommand;
 
@@ -22,8 +22,8 @@ pub use crate::dataframe::expressions::is_in::ExprIsIn;
 pub use crate::dataframe::expressions::lit::ExprLit;
 pub use crate::dataframe::expressions::otherwise::ExprOtherwise;
 pub use crate::dataframe::expressions::quantile::ExprQuantile;
+pub use crate::dataframe::expressions::when::ExprWhen;
 use crate::PolarsPlugin;
-// pub use crate::dataframe::expressions::when::ExprWhen;
 
 pub(crate) fn expr_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
@@ -47,5 +47,6 @@ pub(crate) fn expr_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(ExprQuantile),
         Box::new(ExprStd),
         Box::new(ExprVar),
+        Box::new(ExprWhen),
     ]
 }

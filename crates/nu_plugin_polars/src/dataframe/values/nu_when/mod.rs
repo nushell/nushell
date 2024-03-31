@@ -52,6 +52,24 @@ impl From<ChainedThen> for NuWhenType {
     }
 }
 
+impl From<NuWhenType> for NuWhen {
+    fn from(when_type: NuWhenType) -> Self {
+        Self::new(when_type)
+    }
+}
+
+impl From<Then> for NuWhen {
+    fn from(then: Then) -> Self {
+        Self::new(then.into())
+    }
+}
+
+impl From<ChainedThen> for NuWhen {
+    fn from(chained_then: ChainedThen) -> Self {
+        Self::new(chained_then.into())
+    }
+}
+
 impl NuWhen {
     pub fn new(when_type: NuWhenType) -> Self {
         Self {
