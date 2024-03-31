@@ -3172,6 +3172,7 @@ dependencies = [
  "crossterm_winapi",
  "log",
  "lscolors",
+ "nix",
  "num-format",
  "strip-ansi-escapes",
  "sys-locale",

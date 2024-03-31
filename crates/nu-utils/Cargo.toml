@@ -26,3 +26,6 @@ unicase = "2.7.0"
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi = "0.9"
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, default-features = false, features = ["user"] }
