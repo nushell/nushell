@@ -49,7 +49,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         //     Box::new(ArgTrue),
         //     Box::new(ArgUnique),
         Box::new(AsDate),
-        //     Box::new(AsDateTime),
+        Box::new(AsDateTime),
         //     Box::new(Concatenate),
         //     Box::new(Contains),
         Box::new(Cumulative),

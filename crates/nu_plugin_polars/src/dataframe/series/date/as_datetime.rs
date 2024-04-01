@@ -1,20 +1,26 @@
+use crate::{
+    values::{to_pipeline_data, CustomValueSupport},
+    PolarsPlugin,
+};
+
 use super::super::super::values::{Column, NuDataFrame};
 
 use chrono::DateTime;
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::prelude::{IntoSeries, StringMethods, TimeUnit};
 
 #[derive(Clone)]
 pub struct AsDateTime;
 
-impl Command for AsDateTime {
+impl PluginCommand for AsDateTime {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr as-datetime"
+        "polars as-datetime"
     }
 
     fn usage(&self) -> &str {
@@ -51,7 +57,7 @@ impl Command for AsDateTime {
         vec![
             Example {
                 description: "Converts string to datetime",
-                example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S""#,
+                example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S""#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -84,7 +90,7 @@ impl Command for AsDateTime {
             },
             Example {
                 description: "Converts string to datetime with high resolutions",
-                example: r#"["2021-12-30 00:00:00.123456789" "2021-12-31 00:00:00.123456789"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S.%9f""#,
+                example: r#"["2021-12-30 00:00:00.123456789" "2021-12-31 00:00:00.123456789"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S.%9f""#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -120,25 +126,25 @@ impl Command for AsDateTime {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let format: String = call.req(engine_state, stack, 0)?;
-    let not_exact = call.has_flag(engine_state, stack, "not-exact")?;
+    let format: String = call.req(0)?;
+    let not_exact = call.has_flag("not-exact")?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let series = df.as_series(call.head)?;
     let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
@@ -178,8 +184,8 @@ fn command(
         .into_series();
 
     res.rename("datetime");
-    NuDataFrame::try_from_series(vec![res], call.head)
-        .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+    let df = NuDataFrame::try_from_series_columns(vec![res], call.head)?;
+    to_pipeline_data(plugin, engine, call.head, df)
 }
 
 #[cfg(test)]
