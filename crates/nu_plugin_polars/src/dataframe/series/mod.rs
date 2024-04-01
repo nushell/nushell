@@ -1,6 +1,6 @@
-// mod date;
-// pub use date::*;
-//
+mod date;
+pub use date::*;
+
 // mod string;
 // pub use string::*;
 //
@@ -48,7 +48,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         //     Box::new(ArgSort),
         //     Box::new(ArgTrue),
         //     Box::new(ArgUnique),
-        //     Box::new(AsDate),
+        Box::new(AsDate),
         //     Box::new(AsDateTime),
         //     Box::new(Concatenate),
         //     Box::new(Contains),

@@ -1,19 +1,21 @@
+use crate::{values::to_pipeline_data, PolarsPlugin};
+
 use super::super::super::values::NuDataFrame;
 
-use nu_engine::CallExt;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
 use polars::prelude::{IntoSeries, StringMethods};
 
 #[derive(Clone)]
 pub struct AsDate;
 
-impl Command for AsDate {
+impl PluginCommand for AsDate {
+    type Plugin = PolarsPlugin;
+
     fn name(&self) -> &str {
-        "dfr as-date"
+        "polars as-date"
     }
 
     fn usage(&self) -> &str {
@@ -41,32 +43,32 @@ impl Command for AsDate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Converts string to date",
-            example: r#"["2021-12-30" "2021-12-31"] | dfr into-df | dfr as-datetime "%Y-%m-%d""#,
+            example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
             result: None,
         }]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        command(engine_state, stack, call, input)
+    ) -> Result<PipelineData, LabeledError> {
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let format: String = call.req(engine_state, stack, 0)?;
-    let not_exact = call.has_flag(engine_state, stack, "not-exact")?;
+    let format: String = call.req(0)?;
+    let not_exact = call.has_flag("not-exact")?;
 
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let series = df.as_series(call.head)?;
     let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
@@ -94,6 +96,6 @@ fn command(
 
     res.rename("date");
 
-    NuDataFrame::try_from_series(vec![res], call.head)
-        .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+    let df = NuDataFrame::try_from_series_columns(vec![res], call.head)?;
+    to_pipeline_data(plugin, engine, call.head, df)
 }
