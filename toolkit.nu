@@ -487,52 +487,46 @@ export def cov [] {
 }
 
 
-# Check if a benchmark end node.
-def is-end-node [record: record] {
-    return (($record | get -i "time") != null)
-}
+# Build a benchmark record from the output of `cargo bench`.
+# Set md_tabs to true if you want to export the data to markdown.
+def cleanup_benchmark_report [bench_str, md_tabs:bool = false] {
+    let report = $bench_str 
+    | str replace --all -m --regex "^(│  │  ├─|│  │  ╰─|   │  ├─|   │  ╰─|      ├─|      ╰─|│     ├─|│     ╰─)" "\t\t"
+    | str replace --all -m --regex "^(│  ├─|│  ╰─|   ├─|   ╰─)" "\t"
+    | str replace --all -m --regex "(│|├─|╰─)" ""
+    | lines
+    | skip 1 # skip header row.
+    | split column -c -r "( {2,})" name fastest slowest median mean
+    | to csv
+    | from csv
+    | update cells --columns [fastest slowest median mean] {|value| $value | if ($value | is-empty) { "" } else { $value | str replace " " "" | into duration } }
 
-# Formats the benchmark data into a more readable format.
-def format-benchmark-data [bench_data: record, make_duration: bool] {
-    let bench_data = ($bench_data.benchmarks.benchmarks | transpose name values)
-    let bench_data = (($bench_data  | each { |it_mod|
-        if (is-end-node $it_mod.values) {
-            { "name": $it_mod.name, time: $it_mod.values.time }
-        } else {
-            ($it_mod.values | transpose name values) | each { |it_bench|
-                if (is-end-node $it_bench.values) {
-                    { "name": $"($it_mod.name) / ($it_bench.name)", time: $it_bench.values.time }
-                } else {
-                    ($it_bench.values | transpose name value) | each { |it_arg| 
-                        { "name": $"($it_mod.name) / ($it_bench.name) / ($it_arg.name)" , time: $it_arg.value.time}
-                    }
-                }
-            }
-        }
-    }) | flatten | flatten | flatten)
-    # default is ints in picoseconds.
-    if $make_duration {
-        return ($bench_data | each { |it|
-            { "name": $it.name,
-              "fastest": (($it.fastest / 1000) | math round | into duration),,
-              "slowest": (($it.slowest / 1000) | math round | into duration),,
-              "median": (($it.median / 1000) | math round | into duration),,
-              "mean": (($it.mean / 1000) | math round | into duration),
-            }
-        })
+
+    if $md_tabs {
+        return ($report | update cells --columns [name] {|value| $value | str replace --all "\t" "&ensp;"})
     } else {
-        return $bench_data
+        return $report
     }
 }
 
-# Compare two benchmark files and return a report of the differences.
-def compare-benchmarks [old: string, new: string] {
-    let old = format-benchmark-data (open $old ) false
-    let new = format-benchmark-data (open $new) false
-
-    return (($old | zip $new) | each { |it|
+# Generate a comparison between two benchmark reports.
+# Use md_tabs and into_md if you want to publish results to github as markdown, otherwise you get
+# a record of the data with standard \t as level indicators.
+def generate_benchmark_comparison [old_data: string, new_data: string, md_tabs:bool = false, into_md:bool = false] {
+    let old_report =  cleanup_benchmark_report $old_data $md_tabs
+    let new_report =  cleanup_benchmark_report $new_data $md_tabs
+    
+    let combined_report = ($old_report | zip $new_report)
+    let comparason_report = ($combined_report | each { |it|
         let old = $it.0
         let new = $it.1
+        
+        # If record is empty, its just a header.
+        if ($old | select fastest | get fastest | is-empty) {
+            return {
+                "Name": $old.name,
+            }
+        }
         let relative = ($old.fastest / $new.fastest) | math round -p 2
 
         # Notes are based on the relative performance of the two runs
@@ -546,12 +540,32 @@ def compare-benchmarks [old: string, new: string] {
             else {" "})
         {
             "Name": $old.name,
-            "Old": (($old.fastest / 1000) | math round | into duration),
-            "New": (($new.fastest / 1000) | math round | into duration),
+            "Old": $old.fastest,
+            "New": $new.fastest,
             "Relative": $relative,
             "Note": $note
         }
     })
+
+    if $into_md {
+        # Not sure why convertion has to be done to make it work.
+        return ($comparason_report| to csv | from csv | to md)
+    } else {
+        return $comparason_report
+    }
+}
+
+# Generate a comparison between two benchmark report files.
+# ex: generate_benchmark_comparison_path ./old_benchmarks.txt ./new_benchmarks.txt
+def generate_benchmark_comparison_path [old_path: path, new_path: path, md_tabs:bool = false, into_md:bool = false] {
+    let old_data = open $old_path
+    let new_data = open $new_path
+    return (generate_benchmark_comparison $old_data $new_data $md_tabs $into_md)
+}
+
+# run cargo bench and save the benchmark output at the selected path.
+def store_benchmarks [p: path] {
+    (cargo bench) | tee { save $p }
 }
 
 export def main [] { help toolkit }
