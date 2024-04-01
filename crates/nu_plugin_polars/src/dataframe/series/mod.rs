@@ -60,7 +60,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(GetNanosecond),
         Box::new(GetOrdinal),
         Box::new(GetSecond),
-        //     Box::new(GetWeek),
+        Box::new(GetWeek),
         //     Box::new(GetWeekDay),
         //     Box::new(GetYear),
         //     Box::new(IsDuplicated),
