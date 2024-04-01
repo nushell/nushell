@@ -14,7 +14,7 @@ mod all_false;
 mod all_true;
 mod arg_max;
 mod arg_min;
-// mod cumulative;
+mod cumulative;
 // mod n_null;
 // mod n_unique;
 // mod rolling;
@@ -31,7 +31,7 @@ use crate::PolarsPlugin;
 pub use all_true::AllTrue;
 pub use arg_max::ArgMax;
 pub use arg_min::ArgMin;
-// pub use cumulative::Cumulative;
+pub use cumulative::Cumulative;
 // pub use n_null::NNull;
 // pub use n_unique::NUnique;
 // pub use rolling::Rolling;
@@ -52,7 +52,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         //     Box::new(AsDateTime),
         //     Box::new(Concatenate),
         //     Box::new(Contains),
-        //     Box::new(Cumulative),
+        Box::new(Cumulative),
         //     Box::new(GetDay),
         //     Box::new(GetHour),
         //     Box::new(GetMinute),
