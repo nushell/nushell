@@ -141,7 +141,7 @@ fn mkdir_umask_permission() {
         assert_eq!(
             actual, 0o40755,
             "Most *nix systems have 0o00022 as the umask. \
-            So directory permission should be 0o40755 = 0o40777 - 0o00022"
+            So directory permission should be 0o40755 = 0o40777 & (!0o00022)"
         );
     })
 }
