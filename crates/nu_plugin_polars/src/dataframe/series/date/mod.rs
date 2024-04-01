@@ -9,8 +9,8 @@ mod get_ordinal;
 mod get_second;
 mod get_week;
 mod get_weekday;
-// mod get_year;
-//
+mod get_year;
+
 pub use as_date::AsDate;
 pub use as_datetime::AsDateTime;
 pub use get_day::GetDay;
@@ -22,4 +22,4 @@ pub use get_ordinal::GetOrdinal;
 pub use get_second::GetSecond;
 pub use get_week::GetWeek;
 pub use get_weekday::GetWeekDay;
-// pub use get_year::GetYear;
+pub use get_year::GetYear;
