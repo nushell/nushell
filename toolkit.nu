@@ -517,7 +517,7 @@ def generate_benchmark_comparison [old_data: string, new_data: string, md_tabs:b
     let new_report =  cleanup_benchmark_report $new_data $md_tabs
     
     let combined_report = ($old_report | zip $new_report)
-    let comparason_report = ($combined_report | each { |it|
+    let comparison_report = ($combined_report | each { |it|
         let old = $it.0
         let new = $it.1
         
@@ -548,10 +548,10 @@ def generate_benchmark_comparison [old_data: string, new_data: string, md_tabs:b
     })
 
     if $into_md {
-        # Not sure why convertion has to be done to make it work.
-        return ($comparason_report| to csv | from csv | to md)
+        # Not sure why conversion has to be done to make it work.
+        return ($comparison_report| to csv | from csv | to md)
     } else {
-        return $comparason_report
+        return $comparison_report
     }
 }
 
