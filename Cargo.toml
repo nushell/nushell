@@ -211,7 +211,7 @@ nix = { workspace = true, default-features = false, features = [
 nu-test-support = { path = "./crates/nu-test-support", version = "0.91.1" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
-divan = { git = "https://github.com/OliverKillane/divan.git", rev = "c54ac74" }
+divan = "0.1.14"
 pretty_assertions = "1.4"
 rstest = { workspace = true, default-features = false }
 serial_test = "3.0"
