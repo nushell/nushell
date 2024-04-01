@@ -72,7 +72,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         //     Box::new(NUnique),
         //     Box::new(NotSeries),
         Box::new(Replace),
-        //     Box::new(ReplaceAll),
+        Box::new(ReplaceAll),
         //     Box::new(Rolling),
         //     Box::new(SetSeries),
         //     Box::new(SetWithIndex),

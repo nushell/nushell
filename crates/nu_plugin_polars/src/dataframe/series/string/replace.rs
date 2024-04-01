@@ -1,4 +1,5 @@
 use crate::{
+    missing_flag_error,
     values::{to_pipeline_data, CustomValueSupport},
     PolarsPlugin,
 };
@@ -118,16 +119,6 @@ fn command(
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     to_pipeline_data(plugin, engine, call.head, df)
-}
-
-fn missing_flag_error(flag: &str, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: format!("Missing flag: {flag}"),
-        msg: "".into(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
 }
 
 // todo: fix tests
