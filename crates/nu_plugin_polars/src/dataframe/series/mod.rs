@@ -1,9 +1,9 @@
 mod date;
 pub use date::*;
 
-// mod string;
-// pub use string::*;
-//
+mod string;
+pub use string::*;
+
 // mod masks;
 // pub use masks::*;
 //
@@ -50,7 +50,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         //     Box::new(ArgUnique),
         Box::new(AsDate),
         Box::new(AsDateTime),
-        //     Box::new(Concatenate),
+        Box::new(Concatenate),
         //     Box::new(Contains),
         Box::new(Cumulative),
         Box::new(GetDay),
