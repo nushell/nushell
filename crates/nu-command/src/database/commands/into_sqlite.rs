@@ -115,31 +115,56 @@ impl Table {
         &mut self,
         record: &Record,
     ) -> Result<rusqlite::Transaction, nu_protocol::ShellError> {
+        let first_row_null = record.values().any(Value::is_nothing);
         let columns = get_columns_with_sqlite_types(record)?;
 
-        // create a string for sql table creation
-        let create_statement = format!(
-            "CREATE TABLE IF NOT EXISTS [{}] ({})",
-            self.table_name,
-            columns
-                .into_iter()
-                .map(|(col_name, sql_type)| format!("{col_name} {sql_type}"))
-                .collect::<Vec<_>>()
-                .join(", ")
+        let table_exists_query = format!(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{}';",
+            self.name(),
         );
 
-        // execute the statement
-        self.conn.execute(&create_statement, []).map_err(|err| {
-            eprintln!("{:?}", err);
-
-            ShellError::GenericError {
-                error: "Failed to create table".into(),
-                msg: err.to_string(),
+        let table_count: u64 = self
+            .conn
+            .query_row(&table_exists_query, [], |row| row.get(0))
+            .map_err(|err| ShellError::GenericError {
+                error: format!("{:#?}", err),
+                msg: format!("{:#?}", err),
                 span: None,
                 help: None,
                 inner: Vec::new(),
+            })?;
+
+        if table_count == 0 {
+            if first_row_null {
+                eprintln!(
+                    "Warning: The first row contains a null value, which has an \
+unknown SQL type. Null values will be assumed to be TEXT columns. \
+If this is undesirable, you can create the table first with your desired schema."
+                );
             }
-        })?;
+
+            // create a string for sql table creation
+            let create_statement = format!(
+                "CREATE TABLE [{}] ({})",
+                self.table_name,
+                columns
+                    .into_iter()
+                    .map(|(col_name, sql_type)| format!("{col_name} {sql_type}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+
+            // execute the statement
+            self.conn
+                .execute(&create_statement, [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to create table".into(),
+                    msg: err.to_string(),
+                    span: None,
+                    help: None,
+                    inner: Vec::new(),
+                })?;
+        }
 
         self.conn
             .transaction()
@@ -209,7 +234,7 @@ fn insert_in_transaction(
     let mut stream = stream.peekable();
     let first_val = match stream.peek() {
         None => return Ok(Value::nothing(span)),
-        Some(val) => val.as_record()?,
+        Some(val) => val.as_record()?.clone(),
     };
 
     if first_val.is_empty() {
@@ -223,7 +248,7 @@ fn insert_in_transaction(
     }
 
     let table_name = table.name().clone();
-    let tx = table.try_init(first_val)?;
+    let tx = table.try_init(&first_val)?;
 
     for stream_value in stream {
         if let Some(ref ctrlc) = ctrl_c {
@@ -332,6 +357,11 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         Type::Duration => Ok("BIGINT"),
         Type::Filesize => Ok("INTEGER"),
 
+        // [NOTE] On null values, we just assume TEXT. This could end up
+        // creating a table where the column type is wrong in the table schema.
+        // This means the table could end up with the wrong schema.
+        Type::Nothing => Ok("TEXT"),
+
         // intentionally enumerated so that any future types get handled
         Type::Any
         | Type::Block
@@ -341,7 +371,6 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Error
         | Type::List(_)
         | Type::ListStream
-        | Type::Nothing
         | Type::Range
         | Type::Record(_)
         | Type::Signature

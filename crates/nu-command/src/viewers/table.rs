@@ -919,7 +919,7 @@ fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
     }
 }
 
-fn is_record_list<'a>(mut batch: impl Iterator<Item = &'a Value> + ExactSizeIterator) -> bool {
+fn is_record_list<'a>(mut batch: impl ExactSizeIterator<Item = &'a Value>) -> bool {
     batch.len() > 0 && batch.all(|value| matches!(value, Value::Record { .. }))
 }
 

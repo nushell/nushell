@@ -106,9 +106,8 @@ winreg = { workspace = true }
 uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]
-libc = { workspace = true }
 umask = { workspace = true }
-nix = { workspace = true, default-features = false, features = ["user", "resource"] }
+nix = { workspace = true, default-features = false, features = ["user", "resource", "pthread"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = { workspace = true }

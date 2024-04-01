@@ -13,7 +13,7 @@ const DEFAULT_MODE: u32 = 0o777;
 
 #[cfg(not(windows))]
 fn get_mode() -> u32 {
-    DEFAULT_MODE - mode::get_umask()
+    !mode::get_umask() & DEFAULT_MODE
 }
 
 #[cfg(windows)]

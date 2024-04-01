@@ -104,7 +104,7 @@ impl ViewCommand for HelpCmd {
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
-        self.input_command = args.trim().to_owned();
+        args.trim().clone_into(&mut self.input_command);
 
         Ok(())
     }

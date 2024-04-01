@@ -663,7 +663,7 @@ fn prepare_history_metadata(
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
-                c.hostname = hostname.clone();
+                c.hostname.clone_from(hostname);
 
                 c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                 c
@@ -810,6 +810,7 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 }
 
 ///

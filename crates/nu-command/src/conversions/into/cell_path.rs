@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{CellPath, PathMember};
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct IntoCellPath;

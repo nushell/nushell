@@ -458,8 +458,7 @@ pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError
             Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
         }
         Value::Binary { val, .. } => Box::new(val),
-        Value::Nothing { .. } => Box::new(None::<String>),
-
+        Value::Nothing { .. } => Box::new(rusqlite::types::Null),
         val => {
             return Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type:
