@@ -102,7 +102,7 @@ fn command(
             inner: vec![],
         })?;
 
-    let df = NuDataFrame::try_from_series_columns(vec![res.into_series()], call.head)?;
+    let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     to_pipeline_data(plugin, engine, call.head, df)
 }
 

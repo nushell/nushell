@@ -171,7 +171,7 @@ impl NuDataFrame {
         add_missing_columns(df, &maybe_schema, Span::unknown())
     }
 
-    pub fn try_from_series_columns(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
+    pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
         let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
             msg: format!("Unable to create DataFrame: {e}"),

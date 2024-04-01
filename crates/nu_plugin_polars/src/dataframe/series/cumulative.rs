@@ -144,7 +144,7 @@ fn command(
     let name = format!("{}_{}", series.name(), cum_type.to_str());
     res.rename(&name);
 
-    let df = NuDataFrame::try_from_series_columns(vec![res.into_series()], call.head)?;
+    let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     to_pipeline_data(plugin, engine, call.head, df)
 }
 

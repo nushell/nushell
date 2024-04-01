@@ -93,7 +93,7 @@ fn command(
 
     let res = casted.day().into_series();
 
-    let df = NuDataFrame::try_from_series_columns(vec![res], call.head)?;
+    let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     to_pipeline_data(plugin, engine, call.head, df)
 }
 

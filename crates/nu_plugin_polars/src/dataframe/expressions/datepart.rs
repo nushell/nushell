@@ -79,7 +79,7 @@ impl PluginCommand for ExprDatePart {
                 (polars col datetime | polars datepart second | polars as datetime_second ),
                 (polars col datetime | polars datepart nanosecond | polars as datetime_ns ) ]"#,
                 result: Some(
-                    NuDataFrame::try_from_series_columns(
+                    NuDataFrame::try_from_series_vec(
                         vec![
                             Series::new("datetime", &[dt.timestamp_nanos_opt()])
                                 .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))

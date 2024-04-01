@@ -797,7 +797,7 @@ mod test {
     #[test]
     fn test_compute_between_series_comparisons() {
         let series = Series::new("c", &[1, 2]);
-        let df = NuDataFrame::try_from_series_columns(vec![series], Span::test_data())
+        let df = NuDataFrame::try_from_series_vec(vec![series], Span::test_data())
             .expect("should be able to create a simple dataframe");
 
         let c0 = df

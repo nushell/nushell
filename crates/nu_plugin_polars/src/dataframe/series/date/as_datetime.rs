@@ -184,7 +184,7 @@ fn command(
         .into_series();
 
     res.rename("datetime");
-    let df = NuDataFrame::try_from_series_columns(vec![res], call.head)?;
+    let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     to_pipeline_data(plugin, engine, call.head, df)
 }
 

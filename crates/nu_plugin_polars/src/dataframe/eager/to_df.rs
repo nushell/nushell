@@ -139,7 +139,7 @@ impl PluginCommand for ToDataFrame {
                 description: "Convert to a dataframe and provide a schema",
                 example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| polars into-df -s {a: u8, b: {a: list<u64>}, c: list<str>}",
                 result: Some(
-                    NuDataFrame::try_from_series_columns(vec![
+                    NuDataFrame::try_from_series_vec(vec![
                         Series::new("a", &[1u8]),
                         {
                             let dtype = DataType::Struct(vec![Field::new("a", DataType::List(Box::new(DataType::UInt64)))]);
@@ -163,7 +163,7 @@ impl PluginCommand for ToDataFrame {
             Example {
                 description: "Convert to a dataframe and provide a schema that adds a new column",
                 example: r#"[[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s {a: u8, b:str, c:i64} | polars fill-null 3"#,
-                result: Some(NuDataFrame::try_from_series_columns(vec![
+                result: Some(NuDataFrame::try_from_series_vec(vec![
                         Series::new("a", [1u8, 2]),
                         Series::new("b", ["foo", "bar"]),
                         Series::new("c", [3i64, 3]),

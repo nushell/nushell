@@ -39,7 +39,7 @@ impl PluginCommand for Dummies {
                 description: "Create new dataframe with dummy variables from a dataframe",
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars dummies",
                 result: Some(
-                    NuDataFrame::try_from_series_columns(
+                    NuDataFrame::try_from_series_vec(
                         vec![
                             Series::new("a_1", &[1_u8, 0]),
                             Series::new("a_3", &[0_u8, 1]),
@@ -57,7 +57,7 @@ impl PluginCommand for Dummies {
                 description: "Create new dataframe with dummy variables from a series",
                 example: "[1 2 2 3 3] | polars into-df | polars dummies",
                 result: Some(
-                    NuDataFrame::try_from_series_columns(
+                    NuDataFrame::try_from_series_vec(
                         vec![
                             Series::new("0_1", &[1_u8, 0, 0, 0, 0]),
                             Series::new("0_2", &[0_u8, 1, 1, 0, 0]),
