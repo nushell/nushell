@@ -1,6 +1,6 @@
 mod as_date;
 mod as_datetime;
-// mod get_day;
+mod get_day;
 // mod get_hour;
 // mod get_minute;
 // mod get_month;
@@ -13,7 +13,7 @@ mod as_datetime;
 //
 pub use as_date::AsDate;
 pub use as_datetime::AsDateTime;
-// pub use get_day::GetDay;
+pub use get_day::GetDay;
 // pub use get_hour::GetHour;
 // pub use get_minute::GetMinute;
 // pub use get_month::GetMonth;
