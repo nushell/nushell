@@ -559,12 +559,11 @@ impl ExternalCommand {
                                         "{cause}: child process '{commandname}' core dumped"
                                     );
                                     eprintln!("{}", style.paint(&message));
-                                    let _ = exit_code_tx.send(Value::error(
-                                        ShellError::ExternalCommand {
-                                            label: "core dumped".into(),
-                                            help: message,
-                                            span: head,
-                                        },
+                                    let _ = exit_code_tx.send(Value::int(
+                                        // If we don't get a code (unlikely)
+                                        // assume the program aborted
+                                        // SIGABRT (6) + 0x80 (128) = 134
+                                        x.code().unwrap_or(nix::libc::SIGABRT & 0x80).into(),
                                         head,
                                     ));
                                     return Ok(());
