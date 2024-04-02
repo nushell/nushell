@@ -563,7 +563,7 @@ impl ExternalCommand {
                                         // If we don't get a code (unlikely)
                                         // assume the program aborted
                                         // SIGABRT (6) + 0x80 (128) = 134
-                                        x.code().unwrap_or(nix::libc::SIGABRT & 0x80).into(),
+                                        x.code().unwrap_or(nix::libc::SIGABRT + 0x80).into(),
                                         head,
                                     ));
                                     return Ok(());
