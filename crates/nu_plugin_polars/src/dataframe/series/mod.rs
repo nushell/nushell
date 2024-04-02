@@ -7,9 +7,9 @@ pub use string::*;
 mod masks;
 pub use masks::*;
 
-// mod indexes;
-// pub use indexes::*;
-//
+mod indexes;
+pub use indexes::*;
+
 mod all_false;
 mod all_true;
 mod arg_max;
@@ -43,8 +43,8 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(AllTrue),
         Box::new(ArgMax),
         Box::new(ArgMin),
-        //     Box::new(ArgSort),
-        //     Box::new(ArgTrue),
+        Box::new(ArgSort),
+        Box::new(ArgTrue),
         //     Box::new(ArgUnique),
         Box::new(AsDate),
         Box::new(AsDateTime),
