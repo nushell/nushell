@@ -131,7 +131,7 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let mut pos = 0;
 
-    let def_type_name = if spans.len() >= 3 {
+    let decl_type_name = if spans.len() >= 3 {
         // definition can't have only two spans, minimum is 3, e.g., 'extern spam []'
         let first_word = working_set.get_span_contents(spans[0]);
 
@@ -146,9 +146,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
-    if def_type_name != b"def" && def_type_name != b"extern" {
+    let is_def = if decl_type_name == b"def" {
+        true
+    } else if decl_type_name == b"extern" {
+        false
+    } else {
         return;
-    }
+    };
 
     // Now, pos should point at the next span after the def-like call.
     // Skip all potential flags, like --env, --wrapped or --help:
@@ -167,6 +171,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
 
     // Now, pos should point at the command name.
     let name_pos = pos;
+    pos += 1;
 
     let Some(name) = parse_string(working_set, spans[name_pos]).as_string() else {
         return;
@@ -181,35 +186,24 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     }
 
+    let body_pos = if is_def { spans.len() - 1 } else { spans.len() };
     // Find signature
-    let mut signature_pos = None;
-
-    while pos < spans.len() {
-        if working_set
-            .get_span_contents(spans[pos])
-            .starts_with(&[b'['])
-            || working_set
-                .get_span_contents(spans[pos])
-                .starts_with(&[b'('])
-        {
-            signature_pos = Some(pos);
-            break;
-        }
-
-        pos += 1;
-    }
+    let signature_pos = spans[pos..body_pos]
+        .iter()
+        .position(|&span| {
+            let contents = working_set.get_span_contents(span);
+            contents.starts_with(&[b'[']) || contents.starts_with(&[b'('])
+        })
+        .map(|offset| pos + offset);
 
     let Some(signature_pos) = signature_pos else {
         return;
     };
 
-    let mut allow_unknown_args = false;
-
-    for span in spans {
-        if working_set.get_span_contents(*span) == b"--wrapped" && def_type_name == b"def" {
-            allow_unknown_args = true;
-        }
-    }
+    let allow_unknown_args = is_def
+        && spans[..name_pos]
+            .iter()
+            .any(|&span| working_set.get_span_contents(span) == b"--wrapped");
 
     let starting_error_count = working_set.parse_errors.len();
 
@@ -217,10 +211,10 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     // FIXME: because parse_signature will update the scope with the variables it sees
     // we end up parsing the signature twice per def. The first time is during the predecl
     // so that we can see the types that are part of the signature, which we need for parsing.
-    // The second time is when we actually parse the body itworking_set.
+    // The second time is when we actually parse the body.
     // We can't reuse the first time because the variables that are created during parse_signature
     // are lost when we exit the scope below.
-    let sig = parse_full_signature(working_set, &spans[signature_pos..]);
+    let sig = parse_full_signature(working_set, &spans[signature_pos..body_pos]);
     working_set.parse_errors.truncate(starting_error_count);
     working_set.exit_scope();
 

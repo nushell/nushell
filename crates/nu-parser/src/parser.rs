@@ -3090,26 +3090,37 @@ pub fn parse_input_output_types(
 }
 
 pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let arg_signature = working_set.get_span_contents(spans[0]);
+    match spans.len() {
+        1 => parse_signature(working_set, spans[0]),
+        2.. if working_set.get_span_contents(spans[0]).ends_with(b":") => {
+            let mut arg_signature =
+                parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1));
 
-    if arg_signature.ends_with(b":") {
-        let mut arg_signature =
-            parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1));
+            let input_output_types = parse_input_output_types(working_set, &spans[1..]);
 
-        let input_output_types = parse_input_output_types(working_set, &spans[1..]);
-
-        if let Expression {
-            expr: Expr::Signature(sig),
-            span: expr_span,
-            ..
-        } = &mut arg_signature
-        {
-            sig.input_output_types = input_output_types;
-            expr_span.end = span(&spans[1..]).end;
+            if let Expression {
+                expr: Expr::Signature(sig),
+                span: expr_span,
+                ..
+            } = &mut arg_signature
+            {
+                sig.input_output_types = input_output_types;
+                expr_span.end = span(&spans[1..]).end;
+            }
+            arg_signature
         }
-        arg_signature
-    } else {
-        parse_signature(working_set, spans[0])
+        3.. if working_set.get_span_contents(spans[1]) == b":" => {
+            working_set.error(ParseError::Expected(
+                "]: but found extra whitespace in between",
+                Span::new(spans[0].end - 1, spans[1].end),
+            ));
+            garbage(span(&spans[1..]))
+        }
+        _ => {
+            let extra_spans = span(&spans[1..]);
+            working_set.error(ParseError::ExtraTokens(extra_spans));
+            garbage(extra_spans)
+        }
     }
 }
 
