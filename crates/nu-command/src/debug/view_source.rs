@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 
 use std::fmt::Write;
 
@@ -41,6 +42,7 @@ impl Command for ViewSource {
                     let vec_of_optional = &sig.optional_positional;
                     let rest = &sig.rest_positional;
                     let vec_of_flags = &sig.named;
+                    let type_signatures = &sig.input_output_types;
 
                     if decl.is_alias() {
                         if let Some(alias) = &decl.as_alias() {
@@ -58,13 +60,36 @@ impl Command for ViewSource {
                         if let Some(block_span) = block.span {
                             let contents = engine_state.get_span_contents(block_span);
                             // name of function
-                            let mut final_contents = format!("def {val} [ ");
+                            let mut final_contents = String::new();
+                            if val.contains(" ") {
+                                let _ = write!(&mut final_contents, "def \"{val}\" [");
+                            } else {
+                                let _ = write!(&mut final_contents, "def {val} [");
+                            };
+                            if !vec_of_required.is_empty()
+                                || !vec_of_optional.is_empty()
+                                || !(vec_of_flags.len() == 1)
+                                || rest.is_some()
+                            {
+                                final_contents.push_str(" ");
+                            }
                             for n in vec_of_required {
                                 let _ = write!(&mut final_contents, "{}: {} ", n.name, n.shape);
-                                // positional argu,emts
+                                // positional arguments
                             }
                             for n in vec_of_optional {
-                                let _ = write!(&mut final_contents, "{}?: {} ", n.name, n.shape);
+                                if let Some(s) = n.default_value.clone() {
+                                    let _ = write!(
+                                        &mut final_contents,
+                                        "{}: {} = {} ",
+                                        n.name,
+                                        n.shape,
+                                        s.to_expanded_string(" ", &Config::default())
+                                    );
+                                } else {
+                                    let _ =
+                                        write!(&mut final_contents, "{}?: {} ", n.name, n.shape);
+                                }
                             }
                             for n in vec_of_flags {
                                 // skip adding the help flag
@@ -86,6 +111,19 @@ impl Command for ViewSource {
                                     "...{}:{}",
                                     rest_arg.name, rest_arg.shape
                                 );
+                            }
+                            let len = type_signatures.len();
+                            if len != 0 {
+                                final_contents.push_str("]: [");
+                                let mut c = 0;
+                                for (insig, outsig) in type_signatures {
+                                    c += 1;
+                                    let s = format!("{} -> {}", insig, outsig);
+                                    final_contents.push_str(&s);
+                                    if c != len {
+                                        final_contents.push_str(", ")
+                                    }
+                                }
                             }
                             final_contents.push_str("] ");
                             final_contents.push_str(&String::from_utf8_lossy(contents));
