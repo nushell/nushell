@@ -20,10 +20,8 @@ mod n_unique;
 mod rolling;
 mod shift;
 mod unique;
-// mod value_counts;
-//
-// use nu_protocol::engine::StateWorkingSet;
-//
+mod value_counts;
+
 pub use all_false::AllFalse;
 use nu_plugin::PluginCommand;
 
@@ -37,7 +35,7 @@ pub use n_unique::NUnique;
 pub use rolling::Rolling;
 pub use shift::Shift;
 pub use unique::Unique;
-// pub use value_counts::ValueCount;
+pub use value_counts::ValueCount;
 
 pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
@@ -83,5 +81,6 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(ToLowerCase),
         Box::new(ToUpperCase),
         Box::new(Unique),
+        Box::new(ValueCount),
     ]
 }
