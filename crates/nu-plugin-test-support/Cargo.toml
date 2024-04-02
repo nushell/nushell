@@ -3,6 +3,7 @@ name = "nu-plugin-test-support"
 version = "0.92.0"
 edition = "2021"
 license = "MIT"
+description = "Testing support for Nushell plugins"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-test-support"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
