@@ -64,7 +64,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(IsDuplicated),
         Box::new(IsIn),
         Box::new(IsNotNull),
-        //     Box::new(IsNull),
+        Box::new(IsNull),
         //     Box::new(IsUnique),
         Box::new(NNull),
         Box::new(NUnique),
