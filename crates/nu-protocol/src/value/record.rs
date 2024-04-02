@@ -2,9 +2,9 @@ use std::ops::RangeBounds;
 
 use crate::{ShellError, Span, Value};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct Record {
     inner: Vec<(String, Value)>,
 }
@@ -256,6 +256,55 @@ impl Record {
         Drain {
             iter: self.inner.drain(range),
         }
+    }
+}
+
+impl Serialize for Record {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.len()))?;
+        for (k, v) in self {
+            map.serialize_entry(k, v)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Record {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(RecordVisitor)
+    }
+}
+
+struct RecordVisitor;
+
+impl<'de> Visitor<'de> for RecordVisitor {
+    type Value = Record;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a nushell `Record` mapping string keys/columns to nushell `Value`")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        let mut record = Record::with_capacity(map.size_hint().unwrap_or(0));
+
+        while let Some((key, value)) = map.next_entry::<String, Value>()? {
+            if record.insert(key, value).is_some() {
+                return Err(serde::de::Error::custom(
+                    "invalid entry, duplicate keys are not allowed for `Record`",
+                ));
+            }
+        }
+
+        Ok(record)
     }
 }
 
