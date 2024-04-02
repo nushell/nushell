@@ -90,10 +90,10 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let pattern: String = call
         .get_flag("pattern")?
-        .ok_or(missing_flag_error("pattern", call.head))?;
+        .ok_or_else(|| missing_flag_error("pattern", call.head))?;
     let replace: String = call
         .get_flag("replace")?
-        .ok_or(missing_flag_error("replace", call.head))?;
+        .ok_or_else(|| missing_flag_error("replace", call.head))?;
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let series = df.as_series(call.head)?;
