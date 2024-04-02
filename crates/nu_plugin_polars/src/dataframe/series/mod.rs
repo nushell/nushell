@@ -18,7 +18,7 @@ mod cumulative;
 mod n_null;
 mod n_unique;
 mod rolling;
-// mod shift;
+mod shift;
 // mod unique;
 // mod value_counts;
 //
@@ -35,7 +35,7 @@ pub use cumulative::Cumulative;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
 pub use rolling::Rolling;
-// pub use shift::Shift;
+pub use shift::Shift;
 // pub use unique::Unique;
 // pub use value_counts::ValueCount;
 
@@ -76,7 +76,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(Rolling),
         //     Box::new(SetSeries),
         //     Box::new(SetWithIndex),
-        //     Box::new(Shift),
+        Box::new(Shift),
         Box::new(StrLengths),
         Box::new(StrSlice),
         Box::new(StrFTime),
