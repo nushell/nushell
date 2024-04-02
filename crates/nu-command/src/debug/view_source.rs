@@ -61,17 +61,17 @@ impl Command for ViewSource {
                             let contents = engine_state.get_span_contents(block_span);
                             // name of function
                             let mut final_contents = String::new();
-                            if val.contains(" ") {
+                            if val.contains(' ') {
                                 let _ = write!(&mut final_contents, "def \"{val}\" [");
                             } else {
                                 let _ = write!(&mut final_contents, "def {val} [");
                             };
                             if !vec_of_required.is_empty()
                                 || !vec_of_optional.is_empty()
-                                || !(vec_of_flags.len() == 1)
+                                || vec_of_flags.len()!= 1
                                 || rest.is_some()
                             {
-                                final_contents.push_str(" ");
+                                final_contents.push(' ');
                             }
                             for n in vec_of_required {
                                 let _ = write!(&mut final_contents, "{}: {} ", n.name, n.shape);
