@@ -4,9 +4,9 @@ pub use date::*;
 mod string;
 pub use string::*;
 
-// mod masks;
-// pub use masks::*;
-//
+mod masks;
+pub use masks::*;
+
 // mod indexes;
 // pub use indexes::*;
 //
@@ -61,7 +61,7 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(GetWeek),
         Box::new(GetWeekDay),
         Box::new(GetYear),
-        //     Box::new(IsDuplicated),
+        Box::new(IsDuplicated),
         //     Box::new(IsIn),
         //     Box::new(IsNotNull),
         //     Box::new(IsNull),
