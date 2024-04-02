@@ -68,7 +68,7 @@ impl Command for ViewSource {
                             };
                             if !vec_of_required.is_empty()
                                 || !vec_of_optional.is_empty()
-                                || vec_of_flags.len()!= 1
+                                || vec_of_flags.len() != 1
                                 || rest.is_some()
                             {
                                 final_contents.push(' ');
