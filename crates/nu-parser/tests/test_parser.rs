@@ -1191,6 +1191,16 @@ mod range {
 
         assert!(!working_set.parse_errors.is_empty());
     }
+
+    #[test]
+    fn vars_not_read_as_units() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let _ = parse(&mut working_set, None, b"0..<$day", true);
+
+        assert!(working_set.parse_errors.is_empty());
+    }
 }
 
 #[cfg(test)]

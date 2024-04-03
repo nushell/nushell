@@ -2323,6 +2323,9 @@ pub fn parse_unit_value<'res>(
         let lhs = strip_underscores(value[..lhs_len].as_bytes());
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
+        if lhs.ends_with('$') {
+            return None;
+        }
 
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,
