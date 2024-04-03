@@ -2260,7 +2260,7 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    match parse_unit_value(bytes, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
+    match parse_unit_value(bytes, span, DURATION_UNIT_GROUPS, Type::Duration, false) {
         Some(Ok(expr)) => expr,
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("duration"));
@@ -2285,9 +2285,7 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(span);
     }
 
-    match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
-        x.to_ascii_uppercase()
-    }) {
+    match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, true) {
         Some(Ok(expr)) => expr,
         Some(Err(mk_err_for)) => {
             working_set.error(mk_err_for("filesize"));
@@ -2308,7 +2306,7 @@ pub fn parse_unit_value<'res>(
     span: Span,
     unit_groups: &[UnitGroup],
     ty: Type,
-    transform: fn(String) -> String,
+    ignore_unit_case: bool,
 ) -> Option<ParseUnitResult<'res>> {
     if bytes.len() < 2
         || !(bytes[0].is_ascii_digit() || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
@@ -2316,11 +2314,24 @@ pub fn parse_unit_value<'res>(
         return None;
     }
 
-    let value = transform(String::from_utf8_lossy(bytes).into());
+    // TODO: refactor into trait or proper helper as this certainly not the only use
+    fn ends_with_case_insensitive(haystack: &[u8], needle: &[u8]) -> bool {
+        // Adapted from `std::slice::ends_with`
+        let (m, n) = (haystack.len(), needle.len());
+        m >= n && needle.eq_ignore_ascii_case(&haystack[m - n..])
+    }
 
-    if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
-        let lhs_len = value.len() - name.len();
-        let lhs = strip_underscores(value[..lhs_len].as_bytes());
+    let unit_filter = |x: &&UnitGroup| {
+        if ignore_unit_case {
+            ends_with_case_insensitive(bytes, x.1.as_bytes())
+        } else {
+            bytes.ends_with(x.1.as_bytes())
+        }
+    };
+
+    if let Some((unit, name, convert)) = unit_groups.iter().find(unit_filter) {
+        let lhs_len = bytes.len() - name.len();
+        let lhs = strip_underscores(&bytes[..lhs_len]);
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
         if lhs.ends_with('$') {

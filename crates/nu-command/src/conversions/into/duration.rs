@@ -201,7 +201,7 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         span,
         DURATION_UNIT_GROUPS,
         Type::Duration,
-        |x| x,
+        false,
     ) {
         if let Expr::ValueWithUnit(value, unit) = expression.expr {
             if let Expr::Int(x) = value.expr {
