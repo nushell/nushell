@@ -2,15 +2,15 @@ use nu_cli::{eval_source, evaluate_commands};
 use nu_parser::parse;
 use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    engine::{self, EngineState, Stack},
+    engine::{EngineState, Stack},
     eval_const::create_nu_constant,
-    IntoSpanned, PipelineData, Span, Spanned, Value, NU_VARIABLE_ID,
+    PipelineData, Span, Spanned, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
 use std::path::{Path, PathBuf};
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
