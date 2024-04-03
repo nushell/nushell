@@ -5,9 +5,7 @@ use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
 use crate::values::CustomValueSupport;
 use crate::{Cacheable, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
 macro_rules! lazy_command {
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident) => {
@@ -238,30 +236,4 @@ lazy_command!(
     }],
     cache,
     test_cache
-);
-
-// LazyMedian command
-// Expands to a command definition for median aggregation
-lazy_command!(
-    LazyMedian,
-    "polars median",
-    "Aggregates columns to their median value",
-    vec![Example {
-        description: "Median value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median",
-        result: Some(
-            NuDataFrame::try_from_columns(
-                vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)],),
-                ],
-                None
-            )
-            .expect("simple df for test should not fail")
-            .base_value(Span::test_data())
-            .expect("rendering base value should not fail"),
-        ),
-    },],
-    median?,
-    test_median
 );

@@ -9,6 +9,7 @@ mod flatten;
 pub mod groupby;
 mod join;
 mod macro_commands;
+mod median;
 mod quantile;
 mod select;
 mod sort_by_expr;
@@ -45,7 +46,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFilter),
         Box::new(LazyFlatten),
         Box::new(LazyJoin),
-        Box::new(LazyMedian),
+        Box::new(median::LazyMedian),
         Box::new(LazyReverse),
         Box::new(LazySelect),
         Box::new(LazySortBy),

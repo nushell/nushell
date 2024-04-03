@@ -635,42 +635,6 @@ lazy_expr_command!(
     test_mean
 );
 
-// ExprMedian command
-// Expands to a command definition for median aggregation
-expr_command!(
-    ExprMedian,
-    // todo - fix.. should only be a single polars median command.
-    "polars expr-median",
-    "Creates a median expression for an aggregation.",
-    vec![Example {
-        description: "Median aggregation for a group-by",
-        example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | polars into-df
-    | polars group-by a
-    | polars agg (polars col b | polars median)"#,
-        result: Some(
-            NuDataFrame::try_from_columns(
-                vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(3.0), Value::test_float(1.0)],
-                    ),
-                ],
-                None
-            )
-            .expect("simple df for test should not fail")
-            .base_value(Span::test_data())
-            .expect("rendering base value should not fail"),
-        ),
-    },],
-    median,
-    test_median
-);
-
 // ExprStd command
 // Expands to a command definition for std aggregation
 lazy_expr_command!(

@@ -43,7 +43,6 @@ pub(crate) fn expr_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(ExprOtherwise),
         Box::new(ExprSum),
         Box::new(ExprMean),
-        Box::new(ExprMedian),
         Box::new(ExprQuantile),
         Box::new(ExprStd),
         Box::new(ExprVar),
