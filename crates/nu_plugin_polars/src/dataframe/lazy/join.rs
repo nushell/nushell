@@ -31,7 +31,7 @@ impl PluginCommand for LazyJoin {
             .required("right_on", SyntaxShape::Any, "Right column(s) to join on")
             .switch(
                 "inner",
-                "inner joing between lazyframes (default)",
+                "inner joining between lazyframes (default)",
                 Some('i'),
             )
             .switch("left", "left join between lazyframes", Some('l'))

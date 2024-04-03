@@ -219,7 +219,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
     }
 }
 
-/// Handles the ability for a PolarsObjectType implmentations to convert between
+/// Handles the ability for a PolarsObjectType implementations to convert between
 /// their respective CustValue type.
 /// PolarsPluginObjectType's (NuDataFrame, NuLazyFrame) should
 /// implement this trait.  
