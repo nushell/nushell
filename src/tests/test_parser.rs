@@ -723,17 +723,35 @@ fn def_with_input_output_mismatch_2() -> TestResult {
 }
 
 #[test]
-fn def_with_input_output_broken_1() -> TestResult {
+fn def_with_input_output_missing_arrow() -> TestResult {
     fail_test(r#"def foo []: int { 3 }"#, "expected arrow")
 }
 
 #[test]
-fn def_with_input_output_broken_2() -> TestResult {
+fn def_with_input_output_missing_output_type() -> TestResult {
     fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
 }
 
 #[test]
-fn def_with_input_output_broken_3() -> TestResult {
+fn def_with_input_output_missing_input_type() -> TestResult {
+    fail_test(r#"def foo []: -> int { 3 }"#, "unknown type")
+}
+
+#[test]
+fn def_with_input_output_space_before_colon() -> TestResult {
+    fail_test(
+        r#"def foo [] : int -> int { 3 }"#,
+        "expected ]: but found extra whitespace in between",
+    )
+}
+
+#[test]
+fn def_with_input_output_unmatched_closing_brace() -> TestResult {
+    fail_test(r#"def foo []: int -> int ] { 3 }"#, "unbalanced [ and ]")
+}
+
+#[test]
+fn def_with_input_output_invalid_completer() -> TestResult {
     fail_test(
         r#"def foo []: int -> int@completer {}"#,
         "Unexpected custom completer",
@@ -741,7 +759,7 @@ fn def_with_input_output_broken_3() -> TestResult {
 }
 
 #[test]
-fn def_with_input_output_broken_4() -> TestResult {
+fn def_with_input_output_invalid_completer_in_generic() -> TestResult {
     fail_test(
         r#"def foo []: int -> list<int@completer> {}"#,
         "Unexpected custom completer",
