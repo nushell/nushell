@@ -7,7 +7,7 @@ use nu_plugin::EngineInterface;
 use nu_protocol::{LabeledError, ShellError};
 use uuid::Uuid;
 
-use crate::{values::PolarsPluginObject, PolarsPlugin};
+use crate::{plugin_debug, values::PolarsPluginObject, PolarsPlugin};
 
 #[derive(Default)]
 pub struct Cache {
@@ -41,11 +41,11 @@ impl Cache {
     ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
         let removed = lock.remove(uuid);
-        eprintln!("PolarsPlugin: removing {uuid} from cache: {removed:?}");
+        plugin_debug!("PolarsPlugin: removing {uuid} from cache: {removed:?}");
         // Once there are no more entries in the cache
         // we can turn plugin gc back on
         if lock.is_empty() {
-            eprintln!("PolarsPlugin: Cache is empty enabling GC");
+            plugin_debug!("PolarsPlugin: Cache is empty enabling GC");
             engine.set_gc_disabled(false).map_err(LabeledError::from)?;
         }
         drop(lock);
@@ -59,12 +59,12 @@ impl Cache {
         value: PolarsPluginObject,
     ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
-        eprintln!("PolarsPlugin: Inserting {uuid} into cache: {value:?}");
+        plugin_debug!("PolarsPlugin: Inserting {uuid} into cache: {value:?}");
         // turn off plugin gc the first time an entry is added to the cache
         // as we don't want the plugin to be garbage collected if there
         // is any live data
         if lock.is_empty() {
-            eprintln!("PolarsPlugin: Cache has values disabling GC");
+            plugin_debug!("PolarsPlugin: Cache has values disabling GC");
             engine.set_gc_disabled(true).map_err(LabeledError::from)?;
         }
         let result = lock.insert(uuid, value);

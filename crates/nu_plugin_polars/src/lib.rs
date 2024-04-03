@@ -14,6 +14,18 @@ use crate::{
     series::series_commands, values::PolarsPluginCustomValue,
 };
 
+#[macro_export]
+macro_rules! plugin_debug {
+    ($($arg:tt)*) => {{
+        if std::env::var("POLARS_PLUGIN_DEBUG")
+            .ok()
+            .filter(|x| x == "1" || x == "true")
+            .is_some() {
+            eprintln!($($arg)*);
+        }
+    }};
+}
+
 #[derive(Default)]
 pub struct PolarsPlugin {
     pub(crate) cache: Cache,
@@ -44,7 +56,7 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
     ) -> Result<Value, LabeledError> {
-        eprintln!("Polars plugin customn_value_to_base_value called");
+        plugin_debug!("Polars plugin customn_value_to_base_value called");
         let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
             CustomValueType::NuDataFrame(cv) => cv.custom_value_to_base_value(self, engine),
             CustomValueType::NuLazyFrame(cv) => cv.custom_value_to_base_value(self, engine),
