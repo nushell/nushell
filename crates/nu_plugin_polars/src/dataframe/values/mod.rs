@@ -321,6 +321,7 @@ pub fn cache_and_to_value(
 
 /// Caches the object, converts it to a it's CustomValue counterpart
 /// And creates a pipeline data object out of it
+#[inline]
 pub fn to_pipeline_data(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
