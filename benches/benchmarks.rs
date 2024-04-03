@@ -136,9 +136,7 @@ fn bench_load_standard_lib(c: &mut Criterion) {
     c.bench_function("load_standard_lib", |b| {
         let engine = setup_engine();
         b.iter_batched(
-            || {
-                return engine.clone();
-            },
+            || engine.clone(),
             |mut engine| {
                 load_standard_library(&mut engine).unwrap();
             },
