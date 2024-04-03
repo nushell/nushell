@@ -66,7 +66,7 @@ fn main() {
         println!("first: {}", array.first().unwrap());
 
         // Add a value
-        array.push(Value::String("tak".to_string()));
+        array.push(Value::String("baz".to_string()));
     }
 
     // Encode to Hjson
