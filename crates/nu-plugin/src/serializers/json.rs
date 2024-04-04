@@ -52,7 +52,26 @@ impl Encoder<PluginOutput> for JsonSerializer {
         serde_json::to_writer(&mut *writer, plugin_output).map_err(json_encode_err)?;
         writer.write_all(b"\n").map_err(|err| ShellError::IOError {
             msg: err.to_string(),
-        })
+        })?;
+
+        // If this environment variable is set to a writable file, append the JSON format plugin output.
+        // This is pretty much essential information when writing a plugin by hand, as opposed to using
+        // the Rust crate.
+        if let Ok(path) = std::env::var("NU_PLUGIN_OUTPUT_JSON") {
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+            {
+                use std::io::Write;
+                serde_json::to_writer(&mut f, plugin_output)
+                    .unwrap_or_else(|e| panic!("dump JSON to {}: {}", &path, e));
+                f.write_all(b"\n\n")
+                    .unwrap_or_else(|e| panic!("write terminating newline to {}: {}", &path, e));
+            }
+        }
+
+        Ok(())
     }
 
     fn decode(
