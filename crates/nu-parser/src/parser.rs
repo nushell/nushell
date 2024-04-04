@@ -2323,6 +2323,11 @@ pub fn parse_unit_value<'res>(
         let lhs = strip_underscores(value[..lhs_len].as_bytes());
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
+        if lhs.ends_with('$') {
+            // If `parse_unit_value` has higher precedence over `parse_range`,
+            // a variable with the name of a unit could otherwise not be used as the end of a range.
+            return None;
+        }
 
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,
