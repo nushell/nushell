@@ -30,6 +30,10 @@ impl CustomValue for NuWhenCustomValue {
         ))
     }
 
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
