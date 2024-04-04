@@ -80,34 +80,23 @@ impl Encoder<PluginOutput> for JsonSerializer {
             .map(Some)
             .or_else(json_decode_err)?;
 
-        if let Some((mut f, path)) = std::env::var("NU_PLUGIN_OUTPUT_JSON")
+        if let Some(mut f) = std::env::var("NU_PLUGIN_OUTPUT_JSON")
             .ok()
             .and_then(|path| {
                 std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
-                    .open(&path)
+                    .open(path)
                     .ok()
-                    .map(|f| (f, path))
             })
         {
             // If this environment variable is set to a writable file, append the JSON format plugin output.
             use std::io::Write;
 
-            match plugin_output {
-                Some(ref plugin_output) => {
-                    serde_json::to_writer(&mut f, plugin_output)
-                        .unwrap_or_else(|e| panic!("dump plugin output JSON to {}: {}", &path, e));
-                    f.write_all(b"\n\n").unwrap_or_else(|e| {
-                        panic!("write terminating newline to {}: {}", &path, e)
-                    });
-                }
-                None => {
-                    f.write_all(b"\n\n").unwrap_or_else(|e| {
-                        panic!("write terminating newline to {}: {}", &path, e)
-                    });
-                }
+            if let Some(ref plugin_output) = plugin_output {
+                _ = serde_json::to_writer(&mut f, plugin_output);
             }
+            _ = f.write_all(b"\n\n");
         }
 
         Ok(plugin_output)
