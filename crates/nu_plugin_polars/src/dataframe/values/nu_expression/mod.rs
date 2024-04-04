@@ -480,7 +480,7 @@ impl CustomValueSupport for NuExpression {
 
     fn can_downcast(value: &Value) -> bool {
         match value {
-            Value::Custom { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::Custom { val, .. } => val.as_any().downcast_ref::<Self::CV>().is_some(),
             Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
                 true
