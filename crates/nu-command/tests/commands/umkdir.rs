@@ -123,6 +123,20 @@ fn creates_directory_three_dots_quotation_marks() {
     })
 }
 
+#[test]
+fn respects_cwd() {
+    Playground::setup("mkdir_respects_cwd", |dirs, _| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir some_folder; cd some_folder; mkdir another/deeper_one"
+        );
+
+        let expected = dirs.test().join("some_folder/another/deeper_one");
+
+        assert!(expected.exists());
+    })
+}
+
 #[cfg(not(windows))]
 #[test]
 fn mkdir_umask_permission() {

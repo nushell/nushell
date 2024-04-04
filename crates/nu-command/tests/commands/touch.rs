@@ -502,3 +502,16 @@ fn create_a_file_with_tilde() {
         assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
     })
 }
+
+#[test]
+fn respects_cwd() {
+    Playground::setup("touch_respects_cwd", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir dir; cd dir; touch i_will_be_created.txt"
+        );
+
+        let path = dirs.test().join("dir/i_will_be_created.txt");
+        assert!(path.exists());
+    })
+}
