@@ -37,9 +37,45 @@ impl Encoder<PluginInput> for JsonSerializer {
         reader: &mut impl std::io::BufRead,
     ) -> Result<Option<PluginInput>, nu_protocol::ShellError> {
         let mut de = serde_json::Deserializer::from_reader(reader);
-        PluginInput::deserialize(&mut de)
+        let plugin_input = PluginInput::deserialize(&mut de)
             .map(Some)
-            .or_else(json_decode_err)
+            .or_else(json_decode_err);
+
+        if let Some((mut f, path)) = std::env::var("NU_PLUGIN_INPUT_JSON").ok().and_then(|path| {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .ok()
+                .map(|f| (f, path))
+        }) {
+            // If this environment variable is set to a writable file, append the JSON format plugin input.
+            // This is pretty much essential information when writing a plugin by hand, as opposed to using
+            // the Rust crate.
+
+            use std::io::Write;
+
+            match plugin_input {
+                Ok(Some(ref plugin_input)) => {
+                    serde_json::to_writer(&mut f, plugin_input)
+                        .unwrap_or_else(|e| panic!("dump plugin input JSON to {}: {}", &path, e));
+                    f.write_all(b"\n\n").unwrap_or_else(|e| {
+                        panic!("write terminating newline to {}: {}", &path, e)
+                    });
+                }
+                Ok(None) => {
+                    f.write_all(b"\n\n").unwrap_or_else(|e| {
+                        panic!("write terminating newline to {}: {}", &path, e)
+                    });
+                }
+                Err(ref e) => {
+                    writeln!(f, "{}\n", e)
+                        .unwrap_or_else(|e| panic!("write error to {}: {}", &path, e));
+                }
+            }
+        };
+
+        plugin_input
     }
 }
 
@@ -68,9 +104,10 @@ impl Encoder<PluginOutput> for JsonSerializer {
             // If this environment variable is set to a writable file, append the JSON format plugin output.
             // This is pretty much essential information when writing a plugin by hand, as opposed to using
             // the Rust crate.
+
             use std::io::Write;
             serde_json::to_writer(&mut f, plugin_output)
-                .unwrap_or_else(|e| panic!("dump JSON to {}: {}", &path, e));
+                .unwrap_or_else(|e| panic!("dump plugin output JSON to {}: {}", &path, e));
             f.write_all(b"\n\n")
                 .unwrap_or_else(|e| panic!("write terminating newline to {}: {}", &path, e));
         }
