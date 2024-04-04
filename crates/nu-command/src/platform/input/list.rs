@@ -128,7 +128,7 @@ impl Command for InputList {
         //     ..Default::default()
         // };
 
-        let ans: InteractMode = if multi {
+        let answer: InteractMode = if multi {
             let multi_select = MultiSelect::new(); //::with_theme(&theme);
 
             InteractMode::Multi(
@@ -179,7 +179,7 @@ impl Command for InputList {
             )
         };
 
-        Ok(match ans {
+        Ok(match answer {
             InteractMode::Multi(res) => {
                 if index {
                     match res {

@@ -231,6 +231,9 @@ pub trait Interface: Clone + Send {
     /// The output message type, which must be capable of encapsulating a [`StreamMessage`].
     type Output: From<StreamMessage>;
 
+    /// Any context required to construct [`PipelineData`]. Can be `()` if not needed.
+    type DataContext;
+
     /// Write an output message.
     fn write(&self, output: Self::Output) -> Result<(), ShellError>;
 
@@ -245,7 +248,11 @@ pub trait Interface: Clone + Send {
 
     /// Prepare [`PipelineData`] to be written. This is called by `init_write_pipeline_data()` as
     /// a hook so that values that need special handling can be taken care of.
-    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError>;
+    fn prepare_pipeline_data(
+        &self,
+        data: PipelineData,
+        context: &Self::DataContext,
+    ) -> Result<PipelineData, ShellError>;
 
     /// Initialize a write for [`PipelineData`]. This returns two parts: the header, which can be
     /// embedded in the particular message that references the stream, and a writer, which will
@@ -258,6 +265,7 @@ pub trait Interface: Clone + Send {
     fn init_write_pipeline_data(
         &self,
         data: PipelineData,
+        context: &Self::DataContext,
     ) -> Result<(PipelineDataHeader, PipelineDataWriter<Self>), ShellError> {
         // Allocate a stream id and a writer
         let new_stream = |high_pressure_mark: i32| {
@@ -269,7 +277,7 @@ pub trait Interface: Clone + Send {
                     .write_stream(id, self.clone(), high_pressure_mark)?;
             Ok::<_, ShellError>((id, writer))
         };
-        match self.prepare_pipeline_data(data)? {
+        match self.prepare_pipeline_data(data, context)? {
             PipelineData::Value(value, _) => {
                 Ok((PipelineDataHeader::Value(value), PipelineDataWriter::None))
             }

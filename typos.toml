@@ -1,10 +1,12 @@
 [files]
-extend-exclude = ["crates/nu-command/tests/commands/table.rs", "*.tsv", "*.json", "*.txt"]
+extend-exclude = ["crates/nu-command/tests/commands/table.rs", "*.tsv", "*.json", "*.txt", "tests/fixtures/formats/*"]
 
 [default.extend-words]
 # Ignore false-positives
 nd = "nd"
+pn = "pn"
 fo = "fo"
+ful = "ful"
 ons = "ons"
 ba = "ba"
 Plasticos = "Plasticos"

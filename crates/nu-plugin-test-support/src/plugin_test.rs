@@ -136,7 +136,7 @@ impl PluginTest {
             move |mut value| match PluginCustomValue::serialize_custom_values_in(&mut value) {
                 Ok(()) => {
                     // Make sure to mark them with the source so they pass correctly, too.
-                    PluginCustomValue::add_source(&mut value, &source);
+                    let _ = PluginCustomValue::add_source_in(&mut value, &source);
                     value
                 }
                 Err(err) => Value::error(err, value.span()),

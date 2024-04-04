@@ -182,6 +182,20 @@ fn drop_check_custom_value_prints_message_on_drop() {
 }
 
 #[test]
+fn handle_make_then_get_success() {
+    // The drop notification must wait until the `handle get` call has finished in order for this
+    // to succeed
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "42 | custom-value handle make | custom-value handle get"
+    );
+
+    assert_eq!(actual.out, "42");
+    assert!(actual.status.success());
+}
+
+#[test]
 fn custom_value_in_example_is_rendered() {
     let actual = nu_with_plugins!(
         cwd: "tests",
