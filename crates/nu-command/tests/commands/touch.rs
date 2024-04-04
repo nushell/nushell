@@ -508,7 +508,7 @@ fn respects_cwd() {
     Playground::setup("touch_respects_cwd", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "mkdir dir; cd dir; touch i_will_be_created.txt"
+            "mkdir 'dir'; cd 'dir'; touch 'i_will_be_created.txt'"
         );
 
         let path = dirs.test().join("dir/i_will_be_created.txt");

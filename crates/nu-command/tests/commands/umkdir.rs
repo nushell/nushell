@@ -128,7 +128,7 @@ fn respects_cwd() {
     Playground::setup("mkdir_respects_cwd", |dirs, _| {
         nu!(
             cwd: dirs.test(),
-            "mkdir some_folder; cd some_folder; mkdir another/deeper_one"
+            "mkdir 'some_folder'; cd 'some_folder'; mkdir 'another/deeper_one'"
         );
 
         let expected = dirs.test().join("some_folder/another/deeper_one");
