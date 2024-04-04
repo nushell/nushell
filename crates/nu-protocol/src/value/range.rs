@@ -26,7 +26,6 @@ mod int_range {
         pub(crate) start: i64,
         pub(crate) step: i64,
         pub(crate) end: Bound<i64>,
-        pub(crate) span: Span,
     }
 
     impl IntRange {
@@ -82,12 +81,7 @@ mod int_range {
                 (None, None) => (1, Bound::Unbounded),
             };
 
-            Ok(Self {
-                start,
-                step,
-                end,
-                span,
-            })
+            Ok(Self { start, step, end })
         }
 
         pub fn start(&self) -> i64 {
@@ -238,7 +232,6 @@ mod float_range {
         pub(crate) start: f64,
         pub(crate) step: f64,
         pub(crate) end: Bound<f64>,
-        pub(crate) span: Span,
     }
 
     impl FloatRange {
@@ -317,12 +310,7 @@ mod float_range {
                 Bound::Unbounded
             };
 
-            Ok(Self {
-                start,
-                step,
-                end,
-                span,
-            })
+            Ok(Self { start, step, end })
         }
 
         pub fn start(&self) -> f64 {
@@ -431,7 +419,6 @@ mod float_range {
                     Bound::Excluded(b) => Bound::Excluded(b as f64),
                     Bound::Unbounded => Bound::Unbounded,
                 },
-                span: range.span,
             }
         }
     }
@@ -532,10 +519,10 @@ impl Range {
         }
     }
 
-    pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+    pub fn into_range_iter(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
         match self {
-            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(ctrlc), range.span),
-            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(ctrlc), range.span),
+            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(ctrlc), span),
+            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(ctrlc), span),
         }
     }
 }

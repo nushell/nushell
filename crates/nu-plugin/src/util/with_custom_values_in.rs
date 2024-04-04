@@ -83,7 +83,7 @@ fn find_custom_values() {
         Ok(())
     })
     .expect("error");
-    assert_eq!(7, found, "found in value");
+    assert_eq!(4, found, "found in value");
 
     // Try it on bare custom value too
     found = 0;

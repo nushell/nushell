@@ -60,7 +60,7 @@ impl Command for Take {
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
                     }
                     Value::Range { val, .. } => Ok(val
-                        .into_range_iter(ctrlc.clone())
+                        .into_range_iter(span, ctrlc.clone())
                         .take(rows_desired)
                         .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     // Propagate errors by explicitly matching them before the final case.

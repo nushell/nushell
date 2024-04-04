@@ -404,7 +404,7 @@ impl PipelineData {
     /// It returns Err if the `self` cannot be converted to an iterator.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
         match self {
-            PipelineData::Value(val, metadata) => match val {
+            PipelineData::Value(value, metadata) => match value {
                 Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
                     ListStream::from_stream(vals.into_iter(), None),
                     metadata,
@@ -417,7 +417,7 @@ impl PipelineData {
                     metadata,
                 ))),
                 Value::Range { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
-                        ListStream::from_stream(val.into_range_iter(None), None),
+                        ListStream::from_stream(val.into_range_iter(value.span(), None), None),
                         metadata,
                     )))
                 ,
@@ -558,8 +558,21 @@ impl PipelineData {
         F: FnMut(Value) -> Value + 'static + Send,
     {
         match self {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .map(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => match f(value) {
+                        Value::Error { error, .. } => Err(*error),
+                        v => Ok(v.into_pipeline_data()),
+                    },
+                }
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
@@ -580,15 +593,6 @@ impl PipelineData {
                     Ok(f(Value::binary(collected.item, collected.span)).into_pipeline_data())
                 }
             }
-
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())
-                .map(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => match f(v) {
-                Value::Error { error, .. } => Err(*error),
-                v => Ok(v.into_pipeline_data()),
-            },
         }
     }
 
@@ -606,8 +610,18 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .flat_map(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => Ok(f(value).into_iter().into_pipeline_data(ctrlc)),
+                }
             }
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
@@ -633,11 +647,6 @@ impl PipelineData {
                         .into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())
-                .flat_map(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
 
@@ -652,8 +661,24 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .filter(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => {
+                        if f(&value) {
+                            Ok(value.into_pipeline_data())
+                        } else {
+                            Ok(Value::nothing(span).into_pipeline_data())
+                        }
+                    }
+                }
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
@@ -683,17 +708,6 @@ impl PipelineData {
                     } else {
                         Ok(PipelineData::new_with_metadata(None, collected.span))
                     }
-                }
-            }
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())
-                .filter(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => {
-                if f(&v) {
-                    Ok(v.into_pipeline_data())
-                } else {
-                    Ok(Value::nothing(v.span()).into_pipeline_data())
                 }
             }
         }
@@ -820,7 +834,7 @@ impl PipelineData {
                                 }
                             }
                         }
-                        let range_values: Vec<Value> = val.into_range_iter(None).collect();
+                        let range_values: Vec<Value> = val.into_range_iter(span, None).collect();
                         Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::Value(x, metadata)),
@@ -942,17 +956,20 @@ impl IntoIterator for PipelineData {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            PipelineData::Value(v, metadata) => match v {
-                Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
-                    ListStream::from_stream(vals.into_iter(), None),
-                    metadata,
-                )),
-                Value::Range { val, .. } => PipelineIterator(PipelineData::ListStream(
-                    ListStream::from_stream(val.into_range_iter(None), None),
-                    metadata,
-                )),
-                x => PipelineIterator(PipelineData::Value(x, metadata)),
-            },
+            PipelineData::Value(value, metadata) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
+                        ListStream::from_stream(vals.into_iter(), None),
+                        metadata,
+                    )),
+                    Value::Range { val, .. } => PipelineIterator(PipelineData::ListStream(
+                        ListStream::from_stream(val.into_range_iter(span, None), None),
+                        metadata,
+                    )),
+                    x => PipelineIterator(PipelineData::Value(x, metadata)),
+                }
+            }
             x => PipelineIterator(x),
         }
     }

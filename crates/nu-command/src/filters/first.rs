@@ -133,7 +133,7 @@ fn first_helper(
                     }
                 }
                 Value::Range { val, .. } => {
-                    let mut iter = val.into_range_iter(ctrlc.clone());
+                    let mut iter = val.into_range_iter(span, ctrlc.clone());
                     if return_single_element {
                         if let Some(v) = iter.next() {
                             Ok(v.into_pipeline_data())

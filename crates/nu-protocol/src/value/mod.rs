@@ -1103,7 +1103,9 @@ impl Value {
                             }
                         }
                         Value::Range { val, .. } => {
-                            if let Some(item) = val.into_range_iter(None).nth(*count) {
+                            if let Some(item) =
+                                val.into_range_iter(current.span(), None).nth(*count)
+                            {
                                 current = item;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
@@ -2179,7 +2181,6 @@ impl Value {
                 start: 0,
                 step: 1,
                 end: Bound::Excluded(0),
-                span: Span::test_data(),
             })),
             Value::test_float(0.0),
             Value::test_string(String::new()),
