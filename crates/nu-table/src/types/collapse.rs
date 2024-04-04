@@ -51,6 +51,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             let record = std::mem::take(val);
             *val = SharedCow::new(
                 record
+                    .into_owned()
                     .into_iter()
                     .map(|(mut header, mut val)| {
                         colorize_value(&mut val, config, style_computer);

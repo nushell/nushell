@@ -156,7 +156,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
-            for (column_index, (column, value)) in val.into_iter().enumerate() {
+            for (column_index, (column, value)) in val.into_owned().into_iter().enumerate() {
                 let column_requested = columns.iter().find(|c| c.to_string() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
@@ -164,7 +164,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                 match value {
                     Value::Record { ref val, .. } => {
                         if need_flatten {
-                            for (col, val) in val.clone() {
+                            for (col, val) in val.clone().into_owned() {
                                 if out.contains_key(&col) {
                                     out.insert(format!("{column}_{col}"), val);
                                 } else {

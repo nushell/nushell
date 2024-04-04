@@ -2778,7 +2778,6 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "nu-utils",
  "num",
  "polars",
  "polars-arrow",

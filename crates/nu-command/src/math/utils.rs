@@ -91,6 +91,7 @@ pub fn calculate(
                 unreachable!()
             };
             record
+                .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
                     *val = mf(slice::from_ref(val), span, name)?;

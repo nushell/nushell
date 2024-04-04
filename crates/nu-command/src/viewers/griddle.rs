@@ -108,7 +108,7 @@ prints out the list properly."#
                 // dbg!("value::record");
                 let mut items = vec![];
 
-                for (i, (c, v)) in val.into_iter().enumerate() {
+                for (i, (c, v)) in val.into_owned().into_iter().enumerate() {
                     items.push((i, c, v.to_expanded_string(", ", config)))
                 }
 

@@ -195,7 +195,8 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     for val in vals {
         match val {
             Value::Record { val, .. } => {
-                for (i, (_key, val)) in val.into_iter().take(count_columns).enumerate() {
+                for (i, (_key, val)) in val.into_owned().into_iter().take(count_columns).enumerate()
+                {
                     let cell = convert_nu_value_to_table_value(val, config);
                     list[i].push(cell);
                 }

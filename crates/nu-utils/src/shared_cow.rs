@@ -5,6 +5,8 @@ use std::{fmt, ops, sync::Arc};
 ///
 /// Unlike `Arc`, this is only intended to help save memory usage and reduce the amount of effort
 /// required to clone unmodified values with easy to use copy-on-write.
+///
+/// This should more or less reflect the API of [`std::borrow::Cow`] as much as is sensible.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
 pub struct SharedCow<T: Clone>(Arc<T>);
@@ -22,6 +24,12 @@ impl<T: Clone> SharedCow<T> {
             Ok(value) => value,
             Err(arc) => (*arc).clone(),
         }
+    }
+
+    /// Get a mutable reference to the value inside the [`SharedCow`]. This will result in a clone
+    /// being created only if the value was shared with multiple references.
+    pub fn to_mut(&mut self) -> &mut T {
+        Arc::make_mut(&mut self.0)
     }
 
     /// Convert the `Shared` value into an `Arc`
@@ -101,23 +109,5 @@ impl<T: Clone> ops::Deref for SharedCow<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<T: Clone> ops::DerefMut for SharedCow<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        Arc::make_mut(&mut self.0)
-    }
-}
-
-impl<T> IntoIterator for SharedCow<T>
-where
-    T: Clone + IntoIterator,
-{
-    type Item = <T as IntoIterator>::Item;
-    type IntoIter = <T as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        (*self).clone().into_iter()
     }
 }
