@@ -54,21 +54,25 @@ impl Encoder<PluginOutput> for JsonSerializer {
             msg: err.to_string(),
         })?;
 
-        // If this environment variable is set to a writable file, append the JSON format plugin output.
-        // This is pretty much essential information when writing a plugin by hand, as opposed to using
-        // the Rust crate.
-        if let Ok(path) = std::env::var("NU_PLUGIN_OUTPUT_JSON") {
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&path)
-            {
-                use std::io::Write;
-                serde_json::to_writer(&mut f, plugin_output)
-                    .unwrap_or_else(|e| panic!("dump JSON to {}: {}", &path, e));
-                f.write_all(b"\n\n")
-                    .unwrap_or_else(|e| panic!("write terminating newline to {}: {}", &path, e));
-            }
+        if let Some((mut f, path)) = std::env::var("NU_PLUGIN_OUTPUT_JSON")
+            .ok()
+            .and_then(|path| {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                    .ok()
+                    .map(|f| (f, path))
+            })
+        {
+            // If this environment variable is set to a writable file, append the JSON format plugin output.
+            // This is pretty much essential information when writing a plugin by hand, as opposed to using
+            // the Rust crate.
+            use std::io::Write;
+            serde_json::to_writer(&mut f, plugin_output)
+                .unwrap_or_else(|e| panic!("dump JSON to {}: {}", &path, e));
+            f.write_all(b"\n\n")
+                .unwrap_or_else(|e| panic!("write terminating newline to {}: {}", &path, e));
         }
 
         Ok(())
