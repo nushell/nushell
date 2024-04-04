@@ -132,7 +132,7 @@ impl Command for Commandline {
                     engine_state,
                     &ShellError::GenericError {
                         error: "`--replace (-r)` is deprecated".into(),
-                        msg: "Replaceing the current contents of the buffer by `--replace (-p)` or positional argument is deprecated".into(),
+                        msg: "Replacing the current contents of the buffer by `--replace (-p)` or positional argument is deprecated".into(),
                         span: Some(call.arguments_span()),
                         help: Some("Use `commandline edit --replace (-r)`".into()),
                         inner: vec![],
