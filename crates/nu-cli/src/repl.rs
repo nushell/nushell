@@ -267,7 +267,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     );
 
     start_time = std::time::Instant::now();
-    //Reset the ctrl-c handler
+    // Reset the ctrl-c handler
     if let Some(ctrlc) = &mut engine_state.ctrlc {
         ctrlc.store(false, Ordering::SeqCst);
     }
@@ -281,10 +281,42 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     );
 
     start_time = std::time::Instant::now();
+    // Right before we start our prompt and take input from the user,
+    // fire the "pre_prompt" hook
+    if let Some(hook) = engine_state.get_config().hooks.pre_prompt.clone() {
+        if let Err(err) = eval_hook(engine_state, &mut stack, None, vec![], &hook, "pre_prompt") {
+            report_error_new(engine_state, &err);
+        }
+    }
+    perf(
+        "pre-prompt hook",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
+    // Next, check all the environment variables they ask for
+    // fire the "env_change" hook
+    let env_change = engine_state.get_config().hooks.env_change.clone();
+    if let Err(error) = hook::eval_env_change_hook(env_change, engine_state, &mut stack) {
+        report_error_new(engine_state, &error)
+    }
+    perf(
+        "env-change hook",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    let engine_reference = Arc::new(engine_state.clone());
     let config = engine_state.get_config();
 
-    let engine_reference = std::sync::Arc::new(engine_state.clone());
-
+    start_time = std::time::Instant::now();
     // Find the configured cursor shapes for each mode
     let cursor_config = CursorConfig {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
@@ -304,7 +336,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // at this line we have cloned the state for the completer and the transient prompt
     // until we drop those, we cannot use the stack in the REPL loop itself
     // See STACK-REFERENCE to see where we have taken a reference
-    let mut stack_arc = Arc::new(stack);
+    let stack_arc = Arc::new(stack);
 
     let mut line_editor = line_editor
         .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
@@ -428,50 +460,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     );
 
     start_time = std::time::Instant::now();
-    // Right before we start our prompt and take input from the user,
-    // fire the "pre_prompt" hook
-    if let Some(hook) = config.hooks.pre_prompt.clone() {
-        if let Err(err) = eval_hook(
-            engine_state,
-            &mut Stack::with_parent(stack_arc.clone()),
-            None,
-            vec![],
-            &hook,
-            "pre_prompt",
-        ) {
-            report_error_new(engine_state, &err);
-        }
-    }
-    perf(
-        "pre-prompt hook",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
-    // Next, check all the environment variables they ask for
-    // fire the "env_change" hook
-    let config = engine_state.get_config();
-    if let Err(error) = hook::eval_env_change_hook(
-        config.hooks.env_change.clone(),
-        engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
-    ) {
-        report_error_new(engine_state, &error)
-    }
-    perf(
-        "env-change hook",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
     let config = &engine_state.get_config().clone();
     prompt_update::update_prompt(
         config,
@@ -508,6 +496,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::<DefaultCompleter>::default());
     let shell_integration = config.shell_integration;
 
+    let mut stack = Stack::unwrap_unique(stack_arc);
+
     match input {
         Ok(Signal::Success(s)) => {
             let hostname = System::host_name();
@@ -530,7 +520,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
                 if let Err(err) = eval_hook(
                     engine_state,
-                    &mut Stack::with_parent(stack_arc.clone()),
+                    &mut stack,
                     None,
                     vec![],
                     &hook,
@@ -551,8 +541,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
             // Actual command execution logic starts from here
             let start_time = Instant::now();
-
-            let mut stack = Stack::unwrap_unique(stack_arc);
 
             match parse_operation(s.clone(), engine_state, &stack) {
                 Ok(operation) => match operation {
@@ -598,22 +586,20 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             }
 
             flush_engine_state_repl_buffer(engine_state, &mut line_editor);
-            // put the stack back into the arc
-            stack_arc = Arc::new(stack);
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
             if shell_integration {
-                run_ansi_sequence(&get_command_finished_marker(&stack_arc, engine_state));
+                run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
             }
         }
         Ok(Signal::CtrlD) => {
             // When exiting clear to a new line
             if shell_integration {
-                run_ansi_sequence(&get_command_finished_marker(&stack_arc, engine_state));
+                run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
             }
             println!();
-            return (false, Stack::unwrap_unique(stack_arc), line_editor);
+            return (false, stack, line_editor);
         }
         Err(err) => {
             let message = err.to_string();
@@ -625,7 +611,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 // Alternatively only allow that expected failures let the REPL loop
             }
             if shell_integration {
-                run_ansi_sequence(&get_command_finished_marker(&stack_arc, engine_state));
+                run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
             }
         }
     }
@@ -647,7 +633,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         use_color,
     );
 
-    (true, Stack::unwrap_unique(stack_arc), line_editor)
+    (true, stack, line_editor)
 }
 
 ///

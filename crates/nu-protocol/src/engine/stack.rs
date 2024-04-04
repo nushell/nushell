@@ -125,9 +125,9 @@ impl Stack {
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
-        for item in child.parent_deletions.into_iter() {
-            unique_stack.vars.remove(item);
-        }
+        unique_stack
+            .vars
+            .retain(|(var, _)| !child.parent_deletions.contains(var));
         unique_stack
     }
     pub fn with_env(
