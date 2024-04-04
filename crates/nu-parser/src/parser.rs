@@ -2324,6 +2324,8 @@ pub fn parse_unit_value<'res>(
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
         if lhs.ends_with('$') {
+            // If `parse_unit_value` has higher precedence over `parse_range`,
+            // a variable with the name of a unit could otherwise not be used as the end of a range.
             return None;
         }
 
