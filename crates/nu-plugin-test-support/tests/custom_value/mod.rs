@@ -35,6 +35,10 @@ impl CustomValue for CustomU32 {
         self
     }
 
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         other
             .as_custom_value()

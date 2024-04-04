@@ -379,6 +379,10 @@ impl CustomValue for SQLiteDatabase {
         self
     }
 
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn follow_path_int(
         &self,
         _self_span: Span,

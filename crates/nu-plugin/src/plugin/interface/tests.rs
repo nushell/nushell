@@ -82,6 +82,7 @@ impl InterfaceManager for TestInterfaceManager {
 
 impl Interface for TestInterface {
     type Output = PluginOutput;
+    type DataContext = ();
 
     fn write(&self, output: Self::Output) -> Result<(), ShellError> {
         self.test.write(&output)
@@ -99,7 +100,11 @@ impl Interface for TestInterface {
         &self.stream_manager_handle
     }
 
-    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError> {
+    fn prepare_pipeline_data(
+        &self,
+        data: PipelineData,
+        _context: &(),
+    ) -> Result<PipelineData, ShellError> {
         // Add an arbitrary check to the data to verify this is being called
         match data {
             PipelineData::Value(Value::Binary { .. }, None) => Err(ShellError::NushellFailed {
@@ -318,7 +323,7 @@ fn write_pipeline_data_empty() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&test);
     let interface = manager.get_interface();
 
-    let (header, writer) = interface.init_write_pipeline_data(PipelineData::Empty)?;
+    let (header, writer) = interface.init_write_pipeline_data(PipelineData::Empty, &())?;
 
     assert!(matches!(header, PipelineDataHeader::Empty));
 
@@ -340,7 +345,7 @@ fn write_pipeline_data_value() -> Result<(), ShellError> {
     let value = Value::test_int(7);
 
     let (header, writer) =
-        interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None))?;
+        interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None), &())?;
 
     match header {
         PipelineDataHeader::Value(read_value) => assert_eq!(value, read_value),
@@ -365,7 +370,7 @@ fn write_pipeline_data_prepared_properly() {
     // Sending a binary should be an error in our test scenario
     let value = Value::test_binary(vec![7, 8]);
 
-    match interface.init_write_pipeline_data(PipelineData::Value(value, None)) {
+    match interface.init_write_pipeline_data(PipelineData::Value(value, None), &()) {
         Ok(_) => panic!("prepare_pipeline_data was not called"),
         Err(err) => {
             assert_eq!(
@@ -397,7 +402,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
         None,
     );
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe)?;
+    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
 
     let info = match header {
         PipelineDataHeader::ListStream(info) => info,
@@ -472,7 +477,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
         trim_end_newline: true,
     };
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe)?;
+    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
 
     let info = match header {
         PipelineDataHeader::ExternalStream(info) => info,
