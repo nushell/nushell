@@ -13,7 +13,7 @@ mod int_range {
     use std::{
         cmp::Ordering,
         fmt::Display,
-        ops::{Bound, RangeBounds},
+        ops::Bound,
         sync::{atomic::AtomicBool, Arc},
     };
 
@@ -101,7 +101,21 @@ mod int_range {
         }
 
         pub fn contains(&self, value: i64) -> bool {
-            <(Bound<i64>, Bound<i64>)>::from(*self).contains(&value)
+            if self.step < 0 {
+                value <= self.start
+                    && match self.end {
+                        Bound::Included(end) => value >= end,
+                        Bound::Excluded(end) => value > end,
+                        Bound::Unbounded => true,
+                    }
+            } else {
+                self.start <= value
+                    && match self.end {
+                        Bound::Included(end) => value <= end,
+                        Bound::Excluded(end) => value < end,
+                        Bound::Unbounded => true,
+                    }
+            }
         }
 
         pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
@@ -171,16 +185,6 @@ mod int_range {
         }
     }
 
-    impl From<IntRange> for (Bound<i64>, Bound<i64>) {
-        fn from(range: IntRange) -> Self {
-            if range.step < 0 {
-                (range.end, Bound::Included(range.start))
-            } else {
-                (Bound::Included(range.start), range.end)
-            }
-        }
-    }
-
     pub struct Iter {
         current: Option<i64>,
         step: i64,
@@ -219,7 +223,7 @@ mod float_range {
     use std::{
         cmp::Ordering,
         fmt::Display,
-        ops::{Bound, RangeBounds},
+        ops::Bound,
         sync::{atomic::AtomicBool, Arc},
     };
 
@@ -330,7 +334,21 @@ mod float_range {
         }
 
         pub fn contains(&self, value: f64) -> bool {
-            <(Bound<f64>, Bound<f64>)>::from(*self).contains(&value)
+            if self.step < 0.0 {
+                value <= self.start
+                    && match self.end {
+                        Bound::Included(end) => value >= end,
+                        Bound::Excluded(end) => value > end,
+                        Bound::Unbounded => true,
+                    }
+            } else {
+                self.start <= value
+                    && match self.end {
+                        Bound::Included(end) => value <= end,
+                        Bound::Excluded(end) => value < end,
+                        Bound::Unbounded => true,
+                    }
+            }
         }
 
         pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
@@ -428,16 +446,6 @@ mod float_range {
             match range {
                 Range::IntRange(range) => range.into(),
                 Range::FloatRange(range) => range,
-            }
-        }
-    }
-
-    impl From<FloatRange> for (Bound<f64>, Bound<f64>) {
-        fn from(range: FloatRange) -> Self {
-            if range.step < 0.0 {
-                (range.end, Bound::Included(range.start))
-            } else {
-                (Bound::Included(range.start), range.end)
             }
         }
     }
