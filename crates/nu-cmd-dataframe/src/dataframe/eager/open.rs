@@ -121,7 +121,9 @@ fn command(
             "jsonl" => from_jsonl(engine_state, stack, call),
             "avro" => from_avro(engine_state, stack, call),
             _ => Err(ShellError::FileNotFoundCustom {
-                msg: format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
+                msg: format!(
+                    "{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json, jsonl, avro"
+                ),
                 span: blamed,
             }),
         },
