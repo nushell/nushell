@@ -229,62 +229,46 @@ fn run_export_extern() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn run_in_login_mode() {
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} --no-config-file --login --commands 'echo $nu.is-login'",
-            nu_test_support::fs::executable_path()
-        ))
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .args(["-l", "-c", "echo $nu.is-login"])
         .output()
-        .expect("true");
+        .expect("failed to run nu");
 
+    assert_eq!("true\n", String::from_utf8_lossy(&child_output.stdout));
     assert!(child_output.stderr.is_empty());
 }
 
 #[test]
-#[cfg(not(windows))]
 fn run_in_not_login_mode() {
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -c 'echo $nu.is-login'",
-            nu_test_support::fs::executable_path()
-        ))
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .args(["-c", "echo $nu.is-login"])
         .output()
-        .expect("false");
+        .expect("failed to run nu");
 
+    assert_eq!("false\n", String::from_utf8_lossy(&child_output.stdout));
     assert!(child_output.stderr.is_empty());
 }
 
 #[test]
-#[cfg(not(windows))]
 fn run_in_interactive_mode() {
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -i -c 'echo $nu.is-interactive'",
-            nu_test_support::fs::executable_path()
-        ))
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .args(["-i", "-c", "echo $nu.is-interactive"])
         .output()
-        .expect("true");
+        .expect("failed to run nu");
 
+    assert_eq!("true\n", String::from_utf8_lossy(&child_output.stdout));
     assert!(child_output.stderr.is_empty());
 }
 
 #[test]
-#[cfg(not(windows))]
 fn run_in_noninteractive_mode() {
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -c 'echo $nu.is-interactive'",
-            nu_test_support::fs::executable_path()
-        ))
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .args(["-c", "echo $nu.is-interactive"])
         .output()
-        .expect("false");
+        .expect("failed to run nu");
 
+    assert_eq!("false\n", String::from_utf8_lossy(&child_output.stdout));
     assert!(child_output.stderr.is_empty());
 }
 
