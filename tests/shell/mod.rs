@@ -289,18 +289,13 @@ fn run_in_noninteractive_mode() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn run_with_no_newline() {
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} --no-newline -c '\"hello world\"'",
-            nu_test_support::fs::executable_path()
-        ))
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .args(["--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
 
-    assert_eq!(child_output.stdout, b"hello world"); // with no newline
+    assert_eq!("hello world", String::from_utf8_lossy(&child_output.stdout)); // with no newline
     assert!(child_output.stderr.is_empty());
 }
 
