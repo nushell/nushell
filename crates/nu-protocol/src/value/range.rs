@@ -132,9 +132,9 @@ mod int_range {
         fn cmp(&self, other: &Self) -> Ordering {
             // Ranges are compared roughly according to their list representation.
             // Compare in order:
-            // - the first element (start)
-            // - the second element (step)
-            // - the length/end bound (end)
+            // - the head element (start)
+            // - the tail elements (step)
+            // - the length (end)
             self.start
                 .cmp(&other.start)
                 .then(self.step.cmp(&other.step))
@@ -148,9 +148,17 @@ mod int_range {
                             ord
                         }
                     }
-                    (Bound::Included(_), Bound::Excluded(_)) => Ordering::Greater,
+                    (Bound::Included(l), Bound::Excluded(r)) => match l.cmp(&r) {
+                        Ordering::Equal => Ordering::Greater,
+                        ord if self.step < 0 => ord.reverse(),
+                        ord => ord,
+                    },
+                    (Bound::Excluded(l), Bound::Included(r)) => match l.cmp(&r) {
+                        Ordering::Equal => Ordering::Less,
+                        ord if self.step < 0 => ord.reverse(),
+                        ord => ord,
+                    },
                     (Bound::Included(_), Bound::Unbounded) => Ordering::Less,
-                    (Bound::Excluded(_), Bound::Included(_)) => Ordering::Less,
                     (Bound::Excluded(_), Bound::Unbounded) => Ordering::Less,
                     (Bound::Unbounded, Bound::Included(_)) => Ordering::Greater,
                     (Bound::Unbounded, Bound::Excluded(_)) => Ordering::Greater,
@@ -375,9 +383,9 @@ mod float_range {
 
             // Ranges are compared roughly according to their list representation.
             // Compare in order:
-            // - the first element (start)
-            // - the second element (step)
-            // - the length/end bound (end)
+            // - the head element (start)
+            // - the tail elements (step)
+            // - the length (end)
             float_cmp(self.start, other.start)
                 .then(float_cmp(self.step, other.step))
                 .then_with(|| match (self.end, other.end) {
@@ -390,9 +398,17 @@ mod float_range {
                             ord
                         }
                     }
-                    (Bound::Included(_), Bound::Excluded(_)) => Ordering::Greater,
+                    (Bound::Included(l), Bound::Excluded(r)) => match float_cmp(l, r) {
+                        Ordering::Equal => Ordering::Greater,
+                        ord if self.step < 0.0 => ord.reverse(),
+                        ord => ord,
+                    },
+                    (Bound::Excluded(l), Bound::Included(r)) => match float_cmp(l, r) {
+                        Ordering::Equal => Ordering::Less,
+                        ord if self.step < 0.0 => ord.reverse(),
+                        ord => ord,
+                    },
                     (Bound::Included(_), Bound::Unbounded) => Ordering::Less,
-                    (Bound::Excluded(_), Bound::Included(_)) => Ordering::Less,
                     (Bound::Excluded(_), Bound::Unbounded) => Ordering::Less,
                     (Bound::Unbounded, Bound::Included(_)) => Ordering::Greater,
                     (Bound::Unbounded, Bound::Excluded(_)) => Ordering::Greater,
