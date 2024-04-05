@@ -336,7 +336,17 @@ pub fn run_seq_dates(
             }
         }
         ret.push(Value::string(date_string, call_span));
-        next += step_size;
+        if let Some(n) = next.checked_add_signed(step_size) {
+            next = n;
+        } else {
+            return Err(ShellError::GenericError {
+                error: "date overflow".into(),
+                msg: "adding the increment overflowed".into(),
+                span: Some(call_span),
+                help: None,
+                inner: vec![],
+            });
+        }
 
         if is_out_of_range(next) {
             break;
