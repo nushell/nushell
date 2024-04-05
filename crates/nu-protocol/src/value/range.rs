@@ -50,35 +50,40 @@ mod int_range {
             }
 
             let start = to_int(start)?.unwrap_or(0);
+
+            let next_span = next.span();
             let next = to_int(next)?;
+            if next.is_some_and(|next| next == start) {
+                return Err(ShellError::CannotCreateRange { span: next_span });
+            }
+
             let end = to_int(end)?;
 
-            let (step, end) = match (next, end) {
+            let step = match (next, end) {
                 (Some(next), Some(end)) => {
-                    if (next < start) != (end < start) || next == start {
+                    if (next < start) != (end < start) {
                         return Err(ShellError::CannotCreateRange { span });
                     }
-                    let end = match inclusion {
-                        RangeInclusion::Inclusive => Bound::Included(end),
-                        RangeInclusion::RightExclusive => Bound::Excluded(end),
-                    };
-                    (next - start, end)
+                    next - start
                 }
-                (Some(next), None) => {
-                    if next == start {
-                        return Err(ShellError::CannotCreateRange { span });
-                    }
-                    (next - start, Bound::Unbounded)
-                }
+                (Some(next), None) => next - start,
                 (None, Some(end)) => {
-                    let step = if end < start { -1 } else { 1 };
-                    let end = match inclusion {
-                        RangeInclusion::Inclusive => Bound::Included(end),
-                        RangeInclusion::RightExclusive => Bound::Excluded(end),
-                    };
-                    (step, end)
+                    if end < start {
+                        -1
+                    } else {
+                        1
+                    }
                 }
-                (None, None) => (1, Bound::Unbounded),
+                (None, None) => 1,
+            };
+
+            let end = if let Some(end) = end {
+                match inclusion {
+                    RangeInclusion::Inclusive => Bound::Included(end),
+                    RangeInclusion::RightExclusive => Bound::Excluded(end),
+                }
+            } else {
+                Bound::Unbounded
             };
 
             Ok(Self { start, step, end })
@@ -313,10 +318,11 @@ mod float_range {
             let end = if let Some(end) = end {
                 if end.is_infinite() {
                     Bound::Unbounded
-                } else if inclusion == RangeInclusion::Inclusive {
-                    Bound::Included(end)
                 } else {
-                    Bound::Excluded(end)
+                    match inclusion {
+                        RangeInclusion::Inclusive => Bound::Included(end),
+                        RangeInclusion::RightExclusive => Bound::Excluded(end),
+                    }
                 }
             } else {
                 Bound::Unbounded
