@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Mutex, MutexGuard, TryLockError},
+    sync::{Mutex, MutexGuard},
 };
 
 use nu_plugin::EngineInterface;
@@ -16,16 +16,7 @@ pub struct Cache {
 
 impl Cache {
     fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, PolarsPluginObject>>, ShellError> {
-        match self.cache.try_lock() {
-            Ok(lock) => Ok(lock),
-            Err(TryLockError::WouldBlock) => {
-                // sleep then try again
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                self.cache.try_lock()
-            }
-            e @ Err(_) => e,
-        }
-        .map_err(|e| ShellError::GenericError {
+        self.cache.lock().map_err(|e| ShellError::GenericError {
             error: format!("error acquiring cache lock: {e}"),
             msg: "".into(),
             span: None,
