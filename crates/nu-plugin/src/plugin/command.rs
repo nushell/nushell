@@ -1,5 +1,6 @@
 use nu_protocol::{
-    Example, LabeledError, PipelineData, PluginExample, PluginSignature, Signature, Value,
+    Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
+    Signature, Value,
 };
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
@@ -358,4 +359,37 @@ pub fn create_plugin_signature(command: &(impl PluginCommand + ?Sized)) -> Plugi
             .map(PluginExample::from)
             .collect(),
     )
+}
+
+/// Render examples to their base value so they can be sent in the response to `Signature`.
+pub(crate) fn render_examples(
+    plugin: &impl Plugin,
+    engine: &EngineInterface,
+    examples: &mut [PluginExample],
+) -> Result<(), ShellError> {
+    for example in examples {
+        if let Some(ref mut value) = example.result {
+            value.recurse_mut(&mut |value| {
+                let span = value.span();
+                match value {
+                    Value::Custom { .. } => {
+                        let value_taken = std::mem::replace(value, Value::nothing(span));
+                        let Value::Custom { val, .. } = value_taken else {
+                            unreachable!()
+                        };
+                        *value =
+                            plugin.custom_value_to_base_value(engine, val.into_spanned(span))?;
+                        Ok::<_, ShellError>(())
+                    }
+                    // Collect LazyRecord before proceeding
+                    Value::LazyRecord { ref val, .. } => {
+                        *value = val.collect()?;
+                        Ok(())
+                    }
+                    _ => Ok(()),
+                }
+            })?;
+        }
+    }
+    Ok(())
 }

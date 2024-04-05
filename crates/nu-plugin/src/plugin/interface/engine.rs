@@ -403,16 +403,8 @@ impl EngineInterface {
     /// Any custom values in the examples will be rendered using `to_base_value()`.
     pub(crate) fn write_signature(
         &self,
-        mut signature: Vec<PluginSignature>,
+        signature: Vec<PluginSignature>,
     ) -> Result<(), ShellError> {
-        // Render any custom values in the examples to plain values so that the engine doesn't
-        // have to keep custom values around just to render the help pages.
-        for sig in signature.iter_mut() {
-            for value in sig.examples.iter_mut().flat_map(|e| e.result.as_mut()) {
-                PluginCustomValue::render_to_base_value_in(value)?;
-            }
-        }
-
         let response = PluginCallResponse::Signature(signature);
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()

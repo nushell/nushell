@@ -2441,15 +2441,28 @@ impl PartialOrd for Value {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
                     // the order of cols shouldn't affect the equal property.
-                    let (lhs_cols_ordered, lhs_vals_ordered) = reorder_record_inner(lhs);
-                    let (rhs_cols_ordered, rhs_vals_ordered) = reorder_record_inner(rhs);
+                    let mut lhs = lhs.clone();
+                    let mut rhs = rhs.clone();
+                    lhs.sort_cols();
+                    rhs.sort_cols();
 
-                    let result = lhs_cols_ordered.partial_cmp(&rhs_cols_ordered);
-                    if result == Some(Ordering::Equal) {
-                        lhs_vals_ordered.partial_cmp(&rhs_vals_ordered)
-                    } else {
-                        result
+                    // Check columns first
+                    for (a, b) in lhs.columns().zip(rhs.columns()) {
+                        let result = a.partial_cmp(b);
+                        if result != Some(Ordering::Equal) {
+                            return result;
+                        }
                     }
+                    // Then check the values
+                    for (a, b) in lhs.values().zip(rhs.values()) {
+                        let result = a.partial_cmp(b);
+                        if result != Some(Ordering::Equal) {
+                            return result;
+                        }
+                    }
+                    // If all of the comparisons were equal, then lexicographical order dictates
+                    // that the shorter sequence is less than the longer one
+                    lhs.len().partial_cmp(&rhs.len())
                 }
                 Value::LazyRecord { val, .. } => {
                     if let Ok(rhs) = val.collect() {
@@ -3764,12 +3777,6 @@ impl Value {
             }),
         }
     }
-}
-
-fn reorder_record_inner(record: &Record) -> (Vec<&String>, Vec<&Value>) {
-    let mut kv_pairs = record.iter().collect::<Vec<_>>();
-    kv_pairs.sort_by_key(|(col, _)| *col);
-    kv_pairs.into_iter().unzip()
 }
 
 // TODO: The name of this function is overly broad with partial compatibility
