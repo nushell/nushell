@@ -27,7 +27,7 @@ impl PluginCommand for ListDF {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
             example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
-    ls"#,
+    polars ls"#,
             result: None,
         }]
     }
@@ -45,6 +45,7 @@ impl PluginCommand for ListDF {
                     "key" => Value::string(key.to_string(), call.head),
                     "columns" => Value::int(df.as_ref().width() as i64, call.head),
                     "rows" => Value::int(df.as_ref().height() as i64, call.head),
+                    "type" => Value::string("NuDataFrame", call.head),
                 },
                 call.head,
             ))),
@@ -55,11 +56,38 @@ impl PluginCommand for ListDF {
                         "key" => Value::string(key.to_string(), call.head),
                         "columns" => Value::int(lf.as_ref().width() as i64, call.head),
                         "rows" => Value::int(lf.as_ref().height() as i64, call.head),
+                        "type" => Value::string("NuLazyFrame", call.head),
                     },
                     call.head,
                 )))
             }
-            _ => Ok(None),
+            PolarsPluginObject::NuExpression(_) => Ok(Some(Value::record(
+                record! {
+                    "key" => Value::string(key.to_string(), call.head),
+                    "columns" => Value::nothing(call.head),
+                    "rows" => Value::nothing(call.head),
+                    "type" => Value::string("NuExpression", call.head),
+                },
+                call.head,
+            ))),
+            PolarsPluginObject::NuLazyGroupBy(_) => Ok(Some(Value::record(
+                record! {
+                    "key" => Value::string(key.to_string(), call.head),
+                    "columns" => Value::nothing(call.head),
+                    "rows" => Value::nothing(call.head),
+                    "type" => Value::string("NuLazyGroupBy", call.head),
+                },
+                call.head,
+            ))),
+            PolarsPluginObject::NuWhen(_) => Ok(Some(Value::record(
+                record! {
+                    "key" => Value::string(key.to_string(), call.head),
+                    "columns" => Value::nothing(call.head),
+                    "rows" => Value::nothing(call.head),
+                    "type" => Value::string("NuWhen", call.head),
+                },
+                call.head,
+            ))),
         })?;
         let vals = vals.into_iter().flatten().collect();
         let list = Value::list(vals, call.head);

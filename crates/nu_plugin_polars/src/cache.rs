@@ -74,19 +74,10 @@ impl Cache {
     where
         F: FnMut((&Uuid, &PolarsPluginObject)) -> Result<T, ShellError>,
     {
-        let lock = self
-            .cache
-            .try_lock()
-            .map_err(|e| ShellError::GenericError {
-                error: format!("error getting entries from cache: {e}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })?;
-
+        let lock = self.lock()?;
         let mut vals: Vec<T> = Vec::new();
         for entry in lock.iter() {
+            eprintln!("entry: {:?}", entry);
             let val = func(entry)?;
             vals.push(val);
         }
