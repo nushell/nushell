@@ -67,9 +67,7 @@ pub fn get_pipeline_elements(
     let eval_expression = get_eval_expression(engine_state);
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        let mut i = 0;
-        while i < pipeline.elements.len() {
-            let pipeline_element = &pipeline.elements[i];
+        for (i, pipeline_element) in pipeline.elements.iter().enumerate() {
             let pipeline_expression = &pipeline_element.expr;
             let pipeline_span = pipeline_element.expr.span;
 
@@ -101,7 +99,6 @@ pub fn get_pipeline_elements(
                     "span_end" => Value::int(value_span_end, span),
             };
             element_values.push(Value::record(record, value_span));
-            i += 1;
         }
     }
     Ok(element_values)
