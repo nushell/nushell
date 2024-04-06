@@ -68,13 +68,12 @@ pub fn get_pipeline_elements(
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         for (i, pipeline_element) in pipeline.elements.iter().enumerate() {
-            let pipeline_expression = &pipeline_element.expr;
-            let pipeline_span = pipeline_element.expr.span;
+            let expression = &pipeline_element.expr;
+            let expr_span = pipeline_element.expr.span;
 
-            let element_str =
-                String::from_utf8_lossy(engine_state.get_span_contents(pipeline_span));
-            let value = Value::string(element_str.to_string(), pipeline_span);
-            let expr = pipeline_expression.expr.clone();
+            let element_str = String::from_utf8_lossy(engine_state.get_span_contents(expr_span));
+            let value = Value::string(element_str.to_string(), expr_span);
+            let expr = expression.expr.clone();
             let (command_name, command_args_value) = if let Expr::Call(call) = expr {
                 let command = engine_state.get_decl(call.decl_id);
                 (
