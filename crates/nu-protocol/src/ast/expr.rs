@@ -6,8 +6,8 @@ use super::{
     RangeOperator,
 };
 use crate::{
-    ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, IoStream, Signature, Span,
-    Spanned, VarId,
+    ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, Signature, Span, Spanned, Stdoe,
+    VarId,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -56,10 +56,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn stdio_redirect(
-        &self,
-        engine_state: &EngineState,
-    ) -> (Option<IoStream>, Option<IoStream>) {
+    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<Stdoe>, Option<Stdoe>) {
         // Usages of `$in` will be wrapped by a `collect` call by the parser,
         // so we do not have to worry about that when considering
         // which of the expressions below may consume pipeline output.
@@ -89,7 +86,7 @@ impl Expr {
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // so we can discard the previous output by redirecting it to `Null`.
-                (Some(IoStream::Null), None)
+                (Some(Stdoe::Null), None)
             }
             Expr::VarDecl(_)
             | Expr::Operator(_)
@@ -103,7 +100,7 @@ impl Expr {
             | Expr::Garbage => {
                 // These should be impossible to pipe to,
                 // but even it is, the pipeline output is not used in any way.
-                (Some(IoStream::Null), None)
+                (Some(Stdoe::Null), None)
             }
             Expr::RowCondition(_) | Expr::MatchBlock(_) => {
                 // These should be impossible to pipe to,

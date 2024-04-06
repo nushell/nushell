@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
-use nu_protocol::{engine::Closure, IoStream, ListStream, RawStream};
+use nu_protocol::{engine::Closure, ListStream, RawStream, Stdoe};
 use std::thread;
 
 #[derive(Clone)]
@@ -191,7 +191,7 @@ impl Command for Do {
                 metadata,
                 trim_end_newline,
             }) if ignore_program_errors
-                && !matches!(caller_stack.stdout(), IoStream::Pipe | IoStream::Capture) =>
+                && !matches!(caller_stack.stdout(), Stdoe::Pipe | Stdoe::Capture) =>
             {
                 Ok(PipelineData::ExternalStream {
                     stdout,

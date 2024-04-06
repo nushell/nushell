@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_protocol::{engine::Closure, IoStream, RawStream};
+use nu_protocol::{engine::Closure, RawStream, Stdoe};
 use std::{sync::mpsc, thread};
 
 #[derive(Clone)]
@@ -198,8 +198,8 @@ use it in your pipeline."#
         }
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Capture), Some(IoStream::Capture))
+    fn stdio_redirect(&self) -> (Option<Stdoe>, Option<Stdoe>) {
+        (Some(Stdoe::Capture), Some(Stdoe::Capture))
     }
 }
 

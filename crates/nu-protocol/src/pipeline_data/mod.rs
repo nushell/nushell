@@ -1,9 +1,9 @@
-mod io_stream;
 mod metadata;
+mod stdoe;
 mod stream;
 
-pub use io_stream::*;
 pub use metadata::*;
+pub use stdoe::*;
 pub use stream::*;
 
 use crate::{
@@ -234,10 +234,10 @@ impl PipelineData {
             ) => {
                 fn needs_redirect(
                     stream: Option<RawStream>,
-                    io_stream: &IoStream,
+                    io_stream: &Stdoe,
                 ) -> Result<RawStream, Option<RawStream>> {
                     match (stream, io_stream) {
-                        (Some(stream), IoStream::Pipe | IoStream::Capture) => Err(Some(stream)),
+                        (Some(stream), Stdoe::Pipe | Stdoe::Capture) => Err(Some(stream)),
                         (Some(stream), _) => Ok(stream),
                         (None, _) => Err(None),
                     }
@@ -296,22 +296,22 @@ impl PipelineData {
                     trim_end_newline,
                 })
             }
-            (data, IoStream::Pipe | IoStream::Capture) => Ok(data),
+            (data, Stdoe::Pipe | Stdoe::Capture) => Ok(data),
             (PipelineData::Empty, _) => Ok(PipelineData::Empty),
-            (PipelineData::Value(_, _), IoStream::Null) => Ok(PipelineData::Empty),
-            (PipelineData::ListStream(stream, _), IoStream::Null) => {
+            (PipelineData::Value(_, _), Stdoe::Null) => Ok(PipelineData::Empty),
+            (PipelineData::ListStream(stream, _), Stdoe::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(value, _), IoStream::File(file)) => {
+            (PipelineData::Value(value, _), Stdoe::File(file)) => {
                 let bytes = value_to_bytes(value)?;
                 let mut file = file.try_clone()?;
                 file.write_all(&bytes)?;
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::ListStream(stream, _), IoStream::File(file)) => {
+            (PipelineData::ListStream(stream, _), Stdoe::File(file)) => {
                 let mut file = file.try_clone()?;
                 // use BufWriter here?
                 for value in stream {
@@ -324,7 +324,7 @@ impl PipelineData {
             }
             (
                 data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
-                IoStream::Inherit,
+                Stdoe::Inherit,
             ) => {
                 let config = engine_state.get_config();
 
@@ -1037,10 +1037,10 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
 }
 
 /// Only call this if `output_stream` is not `IoStream::Pipe` or `IoStream::Capture`.
-fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io::Result<()> {
+fn consume_child_output(child_output: RawStream, output_stream: &Stdoe) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {
-        IoStream::Pipe | IoStream::Capture => {
+        Stdoe::Pipe | Stdoe::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
             // but IoStream::Pipe means to redirect output
             // into an OS pipe for *future use* (as input for another command).
@@ -1049,13 +1049,13 @@ fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io
             // since there will be no reader for its pipe.
             debug_assert!(false)
         }
-        IoStream::Null => {
+        Stdoe::Null => {
             io::copy(&mut output, &mut io::sink())?;
         }
-        IoStream::Inherit => {
+        Stdoe::Inherit => {
             io::copy(&mut output, &mut io::stdout())?;
         }
-        IoStream::File(file) => {
+        Stdoe::File(file) => {
             io::copy(&mut output, &mut file.try_clone()?)?;
         }
     }

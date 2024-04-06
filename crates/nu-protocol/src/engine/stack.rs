@@ -3,7 +3,7 @@ use crate::{
         EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio,
         DEFAULT_OVERLAY_NAME,
     },
-    IoStream, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    Stdoe, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -515,7 +515,7 @@ impl Stack {
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
     /// otherwise it will be the process's stdout indicated by [`IoStream::Inherit`].
-    pub fn stdout(&self) -> &IoStream {
+    pub fn stdout(&self) -> &Stdoe {
         self.stdio.stdout()
     }
 
@@ -524,17 +524,17 @@ impl Stack {
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
     /// otherwise it will be the process's stderr indicated by [`IoStream::Inherit`].
-    pub fn stderr(&self) -> &IoStream {
+    pub fn stderr(&self) -> &Stdoe {
         self.stdio.stderr()
     }
 
     /// Returns the [`IoStream`] to use for the last command's stdout.
-    pub fn pipe_stdout(&self) -> Option<&IoStream> {
+    pub fn pipe_stdout(&self) -> Option<&Stdoe> {
         self.stdio.pipe_stdout.as_ref()
     }
 
     /// Returns the [`IoStream`] to use for the last command's stderr.
-    pub fn pipe_stderr(&self) -> Option<&IoStream> {
+    pub fn pipe_stderr(&self) -> Option<&Stdoe> {
         self.stdio.pipe_stderr.as_ref()
     }
 
@@ -568,7 +568,7 @@ impl Stack {
     ///
     /// See [`Stack::start_capture`] which can temporarily set stdout as [`IoStream::Capture`] for a mutable `Stack` reference.
     pub fn capture(mut self) -> Self {
-        self.stdio.pipe_stdout = Some(IoStream::Capture);
+        self.stdio.pipe_stdout = Some(Stdoe::Capture);
         self.stdio.pipe_stderr = None;
         self
     }

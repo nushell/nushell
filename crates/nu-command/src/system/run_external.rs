@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_protocol::{ast::Expr, did_you_mean, IoStream, ListStream, NuGlob, RawStream};
+use nu_protocol::{ast::Expr, did_you_mean, ListStream, NuGlob, RawStream, Stdoe};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
@@ -225,8 +225,8 @@ pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
     pub arg_keep_raw: Vec<bool>,
-    pub out: IoStream,
-    pub err: IoStream,
+    pub out: Stdoe,
+    pub err: Stdoe,
     pub env_vars: HashMap<String, String>,
 }
 
@@ -523,7 +523,7 @@ impl ExternalCommand {
                         RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, None)
                     });
 
-                    if matches!(self.err, IoStream::Pipe) {
+                    if matches!(self.err, Stdoe::Pipe) {
                         (stderr, stdout)
                     } else {
                         (stdout, stderr)
@@ -634,7 +634,7 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        let reader = if matches!(self.out, IoStream::Pipe) && matches!(self.err, IoStream::Pipe) {
+        let reader = if matches!(self.out, Stdoe::Pipe) && matches!(self.err, Stdoe::Pipe) {
             let (reader, writer) = os_pipe::pipe()?;
             let writer_clone = writer.try_clone()?;
             process.stdout(writer);

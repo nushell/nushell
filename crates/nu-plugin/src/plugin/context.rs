@@ -3,7 +3,7 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Spanned, Value,
+    Config, IntoSpanned, PipelineData, PluginIdentity, ShellError, Spanned, Stdoe, Value,
 };
 use std::{
     borrow::Cow,
@@ -178,13 +178,13 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             .reset_pipes();
 
         let stdout = if redirect_stdout {
-            Some(Redirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(Stdoe::Capture))
         } else {
             None
         };
 
         let stderr = if redirect_stderr {
-            Some(Redirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(Stdoe::Capture))
         } else {
             None
         };

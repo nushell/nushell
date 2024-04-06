@@ -1,7 +1,7 @@
 use std::{fs::File, io, process::Stdio, sync::Arc};
 
 #[derive(Debug, Clone)]
-pub enum IoStream {
+pub enum Stdoe {
     /// Redirect the `stdout` and/or `stderr` of one command as the input for the next command in the pipeline.
     ///
     /// The output pipe will be available in `PipelineData::ExternalStream::stdout`.
@@ -28,27 +28,27 @@ pub enum IoStream {
     File(Arc<File>), // Arc<File>, since we sometimes need to clone `IoStream` into iterators, etc.
 }
 
-impl From<File> for IoStream {
+impl From<File> for Stdoe {
     fn from(file: File) -> Self {
         Arc::new(file).into()
     }
 }
 
-impl From<Arc<File>> for IoStream {
+impl From<Arc<File>> for Stdoe {
     fn from(file: Arc<File>) -> Self {
         Self::File(file)
     }
 }
 
-impl TryFrom<&IoStream> for Stdio {
+impl TryFrom<&Stdoe> for Stdio {
     type Error = io::Error;
 
-    fn try_from(stream: &IoStream) -> Result<Self, Self::Error> {
-        match stream {
-            IoStream::Pipe | IoStream::Capture => Ok(Self::piped()),
-            IoStream::Null => Ok(Self::null()),
-            IoStream::Inherit => Ok(Self::inherit()),
-            IoStream::File(file) => Ok(file.try_clone()?.into()),
+    fn try_from(stdoe: &Stdoe) -> Result<Self, Self::Error> {
+        match stdoe {
+            Stdoe::Pipe | Stdoe::Capture => Ok(Self::piped()),
+            Stdoe::Null => Ok(Self::null()),
+            Stdoe::Inherit => Ok(Self::inherit()),
+            Stdoe::File(file) => Ok(file.try_clone()?.into()),
         }
     }
 }

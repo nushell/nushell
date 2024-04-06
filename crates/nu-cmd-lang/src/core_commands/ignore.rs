@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, IoStream};
+use nu_protocol::{engine::StateWorkingSet, Stdoe};
 
 #[derive(Clone)]
 pub struct Ignore;
@@ -56,8 +56,8 @@ impl Command for Ignore {
         }]
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Null), None)
+    fn stdio_redirect(&self) -> (Option<Stdoe>, Option<Stdoe>) {
+        (Some(Stdoe::Null), None)
     }
 }
 
