@@ -50,6 +50,19 @@ pub fn encode(
     } else {
         parse_encoding(encoding_name.span, &encoding_name.item)
     }?;
+
+    // Since the Encoding Standard doesn't specify encoders for "UTF-16BE" and "UTF-16LE"
+    // Check if the encoding is one of them and return an error
+    if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
+        return Err(ShellError::GenericError {
+            error: format!(r#"{} encoding is not supported"#, &encoding_name.item),
+            msg: "invalid encoding".into(),
+            span: Some(encoding_name.span),
+            help: Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
+            inner: vec![],
+        });
+    }
+
     let (result, _actual_encoding, replacements) = encoding.encode(s);
     // Because encoding_rs is a Web-facing crate, it defaults to replacing unknowns with HTML entities.
     // This behaviour can be enabled with -i. Otherwise, it becomes an error.
@@ -102,9 +115,7 @@ mod test {
     #[case::iso_8859_1("iso-8859-1", "Some ¼½¿ Data µ¶·¸¹º")]
     #[case::cp1252("cp1252", "Some ¼½¿ Data")]
     #[case::latin5("latin5", "Some ¼½¿ Data µ¶·¸¹º")]
-    // Tests for specific renditions of UTF-16 and UTF-8 labels
-    #[case::utf16("utf16", "")]
-    #[case::utf_hyphen_16("utf-16", "")]
+    // Tests for specific renditions of UTF-8 labels
     #[case::utf8("utf8", "")]
     #[case::utf_hyphen_8("utf-8", "")]
     fn smoke(#[case] encoding: String, #[case] expected: &str) {
