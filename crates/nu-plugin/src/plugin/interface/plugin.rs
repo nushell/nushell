@@ -93,6 +93,9 @@ impl std::fmt::Debug for PluginInterfaceState {
 struct PluginCallState {
     /// The sender back to the thread that is waiting for the plugin call response
     sender: Option<mpsc::Sender<ReceivedPluginCallMessage>>,
+    /// Don't try to send the plugin call response. This is only used for `Dropped` to avoid an
+    /// error
+    dont_send_response: bool,
     /// Interrupt signal to be used for stream iterators
     ctrlc: Option<Arc<AtomicBool>>,
     /// Channel to receive context on to be used if needed
@@ -244,11 +247,12 @@ impl PluginInterfaceManager {
             // Remove the subscription sender, since this will be the last message.
             //
             // We can spawn a new one if we need it for engine calls.
-            if e.get_mut()
-                .sender
-                .take()
-                .and_then(|s| s.send(ReceivedPluginCallMessage::Response(response)).ok())
-                .is_none()
+            if !e.get().dont_send_response
+                && e.get_mut()
+                    .sender
+                    .take()
+                    .and_then(|s| s.send(ReceivedPluginCallMessage::Response(response)).ok())
+                    .is_none()
             {
                 log::warn!("Received a plugin call response for id={id}, but the caller hung up");
             }
@@ -688,13 +692,18 @@ impl PluginInterface {
             }
         };
 
+        // Don't try to send a response for a Dropped call.
+        let dont_send_response =
+            matches!(call, PluginCall::CustomValueOp(_, CustomValueOp::Dropped));
+
         // Register the subscription to the response, and the context
         self.state
             .plugin_call_subscription_sender
             .send((
                 id,
                 PluginCallState {
-                    sender: Some(tx),
+                    sender: Some(tx).filter(|_| !dont_send_response),
+                    dont_send_response,
                     ctrlc,
                     context_rx: Some(context_rx),
                     keep_plugin_custom_values,
@@ -938,13 +947,15 @@ impl PluginInterface {
 
     /// Notify the plugin about a dropped custom value.
     pub fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
+        // Make sure we don't block here. This can happen on the receiver thread, which would cause a deadlock. We should not try to receive the response - just let it be discarded.
+        //
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
-        self.custom_value_op_expecting_value(
-            value.into_spanned(Span::unknown()),
-            CustomValueOp::Dropped,
-        )
-        .map(|_| ())
+        drop(self.write_plugin_call(
+            PluginCall::CustomValueOp(value.into_spanned(Span::unknown()), CustomValueOp::Dropped),
+            None,
+        )?);
+        Ok(())
     }
 }
 

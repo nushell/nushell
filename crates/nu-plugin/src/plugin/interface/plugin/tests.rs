@@ -193,6 +193,7 @@ fn fake_plugin_call(
         id,
         PluginCallState {
             sender: Some(tx),
+            dont_send_response: false,
             ctrlc: None,
             context_rx: None,
             keep_plugin_custom_values: mpsc::channel(),
@@ -496,6 +497,7 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
         0,
         PluginCallState {
             sender: None,
+            dont_send_response: false,
             ctrlc: None,
             context_rx: Some(context_rx),
             keep_plugin_custom_values: mpsc::channel(),
@@ -560,6 +562,7 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
             n,
             PluginCallState {
                 sender: None,
+                dont_send_response: false,
                 ctrlc: None,
                 context_rx: None,
                 keep_plugin_custom_values: mpsc::channel(),
@@ -594,6 +597,7 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
             n,
             PluginCallState {
                 sender: None,
+                dont_send_response: false,
                 ctrlc: None,
                 context_rx: None,
                 keep_plugin_custom_values: mpsc::channel(),
