@@ -20,9 +20,10 @@ impl Command for Echo {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"When given no arguments, it returns an empty string. When given one argument,
-it returns it. Otherwise, it returns a list of the arguments. There is usually
-little reason to use this over just writing the values as-is."#
+        r#"Unlike `print`, `echo` does not print to stdout. When given no arguments,
+it returns an empty string. When given one argument, it returns it. Otherwise,
+it returns a list of the arguments. There is usually little reason to use this
+over just writing the values as-is."#
     }
 
     fn run(
