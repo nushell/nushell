@@ -73,7 +73,7 @@ use it in your pipeline."#
 
         let closure_engine_state = engine_state.clone();
         let mut closure_stack = stack
-            .captures_to_stack_preserve_stdio(captures)
+            .captures_to_stack_preserve_stdoe(captures)
             .reset_pipes();
 
         let metadata = input.metadata();

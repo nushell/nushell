@@ -208,7 +208,7 @@ impl PipelineData {
         }
     }
 
-    /// Writes all values or redirects all output to the current stdio streams in `stack`.
+    /// Writes all values or redirects all output to the current stdoe streams in `stack`.
     ///
     /// For [`Stdoe::Pipe`] and [`Stdoe::Capture`], this will return the `PipelineData` as is
     /// without consuming input and without writing anything.

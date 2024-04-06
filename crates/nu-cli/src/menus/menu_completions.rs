@@ -28,7 +28,7 @@ impl NuMenuCompleter {
         Self {
             block_id,
             span,
-            stack: stack.reset_stdio().capture(),
+            stack: stack.reset_stdoe().capture(),
             engine_state,
             only_buffer_difference,
         }

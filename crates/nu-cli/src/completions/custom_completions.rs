@@ -24,7 +24,7 @@ impl CustomCompletion {
     pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
             engine_state,
-            stack: stack.reset_stdio().capture(),
+            stack: stack.reset_stdoe().capture(),
             decl_id,
             line,
             sort_by: SortBy::None,

@@ -28,7 +28,7 @@ impl Redirection {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct StackStdio {
+pub(crate) struct StackStdoe {
     /// The stream to use for the next command's stdout.
     pub pipe_stdout: Option<Stdoe>,
     /// The stream to use for the next command's stderr.
@@ -59,7 +59,7 @@ pub(crate) struct StackStdio {
     pub parent_stderr: Option<Stdoe>,
 }
 
-impl StackStdio {
+impl StackStdoe {
     pub(crate) fn new() -> Self {
         Self {
             pipe_stdout: None,
@@ -114,32 +114,32 @@ impl<'a> StackIoGuard<'a> {
         stdout: Option<Redirection>,
         stderr: Option<Redirection>,
     ) -> Self {
-        let stdio = &mut stack.stdio;
+        let stdoe = &mut stack.stdoe;
 
         let (old_pipe_stdout, old_parent_stdout) = match stdout {
             Some(Redirection::Pipe(stdout)) => {
-                let old = mem::replace(&mut stdio.pipe_stdout, Some(stdout));
-                (old, stdio.parent_stdout.take())
+                let old = mem::replace(&mut stdoe.pipe_stdout, Some(stdout));
+                (old, stdoe.parent_stdout.take())
             }
             Some(Redirection::File(file)) => {
                 let file = Stdoe::from(file);
                 (
-                    mem::replace(&mut stdio.pipe_stdout, Some(file.clone())),
-                    stdio.push_stdout(file),
+                    mem::replace(&mut stdoe.pipe_stdout, Some(file.clone())),
+                    stdoe.push_stdout(file),
                 )
             }
-            None => (stdio.pipe_stdout.take(), stdio.parent_stdout.take()),
+            None => (stdoe.pipe_stdout.take(), stdoe.parent_stdout.take()),
         };
 
         let (old_pipe_stderr, old_parent_stderr) = match stderr {
             Some(Redirection::Pipe(stderr)) => {
-                let old = mem::replace(&mut stdio.pipe_stderr, Some(stderr));
-                (old, stdio.parent_stderr.take())
+                let old = mem::replace(&mut stdoe.pipe_stderr, Some(stderr));
+                (old, stdoe.parent_stderr.take())
             }
             Some(Redirection::File(file)) => {
-                (stdio.pipe_stderr.take(), stdio.push_stderr(file.into()))
+                (stdoe.pipe_stderr.take(), stdoe.push_stderr(file.into()))
             }
-            None => (stdio.pipe_stderr.take(), stdio.parent_stderr.take()),
+            None => (stdoe.pipe_stderr.take(), stdoe.parent_stderr.take()),
         };
 
         StackIoGuard {
@@ -168,17 +168,17 @@ impl<'a> DerefMut for StackIoGuard<'a> {
 
 impl Drop for StackIoGuard<'_> {
     fn drop(&mut self) {
-        self.stdio.pipe_stdout = self.old_pipe_stdout.take();
-        self.stdio.pipe_stderr = self.old_pipe_stderr.take();
+        self.stdoe.pipe_stdout = self.old_pipe_stdout.take();
+        self.stdoe.pipe_stderr = self.old_pipe_stderr.take();
 
         let old_stdout = self.old_parent_stdout.take();
-        if let Some(stdout) = mem::replace(&mut self.stdio.parent_stdout, old_stdout) {
-            self.stdio.stdout = stdout;
+        if let Some(stdout) = mem::replace(&mut self.stdoe.parent_stdout, old_stdout) {
+            self.stdoe.stdout = stdout;
         }
 
         let old_stderr = self.old_parent_stderr.take();
-        if let Some(stderr) = mem::replace(&mut self.stdio.parent_stderr, old_stderr) {
-            self.stdio.stderr = stderr;
+        if let Some(stderr) = mem::replace(&mut self.stdoe.parent_stderr, old_stderr) {
+            self.stdoe.stderr = stderr;
         }
     }
 }
@@ -191,8 +191,8 @@ pub struct StackCaptureGuard<'a> {
 
 impl<'a> StackCaptureGuard<'a> {
     pub(crate) fn new(stack: &'a mut Stack) -> Self {
-        let old_pipe_stdout = mem::replace(&mut stack.stdio.pipe_stdout, Some(Stdoe::Capture));
-        let old_pipe_stderr = stack.stdio.pipe_stderr.take();
+        let old_pipe_stdout = mem::replace(&mut stack.stdoe.pipe_stdout, Some(Stdoe::Capture));
+        let old_pipe_stderr = stack.stdoe.pipe_stderr.take();
         Self {
             stack,
             old_pipe_stdout,
@@ -217,8 +217,8 @@ impl<'a> DerefMut for StackCaptureGuard<'a> {
 
 impl Drop for StackCaptureGuard<'_> {
     fn drop(&mut self) {
-        self.stdio.pipe_stdout = self.old_pipe_stdout.take();
-        self.stdio.pipe_stderr = self.old_pipe_stderr.take();
+        self.stdoe.pipe_stdout = self.old_pipe_stdout.take();
+        self.stdoe.pipe_stderr = self.old_pipe_stderr.take();
     }
 }
 
@@ -232,20 +232,20 @@ pub struct StackCallArgGuard<'a> {
 
 impl<'a> StackCallArgGuard<'a> {
     pub(crate) fn new(stack: &'a mut Stack) -> Self {
-        let old_pipe_stdout = mem::replace(&mut stack.stdio.pipe_stdout, Some(Stdoe::Capture));
-        let old_pipe_stderr = stack.stdio.pipe_stderr.take();
+        let old_pipe_stdout = mem::replace(&mut stack.stdoe.pipe_stdout, Some(Stdoe::Capture));
+        let old_pipe_stderr = stack.stdoe.pipe_stderr.take();
 
         let old_stdout = stack
-            .stdio
+            .stdoe
             .parent_stdout
             .take()
-            .map(|stdout| mem::replace(&mut stack.stdio.stdout, stdout));
+            .map(|stdout| mem::replace(&mut stack.stdoe.stdout, stdout));
 
         let old_stderr = stack
-            .stdio
+            .stdoe
             .parent_stderr
             .take()
-            .map(|stderr| mem::replace(&mut stack.stdio.stderr, stderr));
+            .map(|stderr| mem::replace(&mut stack.stdoe.stderr, stderr));
 
         Self {
             stack,
@@ -273,13 +273,13 @@ impl<'a> DerefMut for StackCallArgGuard<'a> {
 
 impl Drop for StackCallArgGuard<'_> {
     fn drop(&mut self) {
-        self.stdio.pipe_stdout = self.old_pipe_stdout.take();
-        self.stdio.pipe_stderr = self.old_pipe_stderr.take();
+        self.stdoe.pipe_stdout = self.old_pipe_stdout.take();
+        self.stdoe.pipe_stderr = self.old_pipe_stderr.take();
         if let Some(stdout) = self.old_stdout.take() {
-            self.stdio.push_stdout(stdout);
+            self.stdoe.push_stdout(stdout);
         }
         if let Some(stderr) = self.old_stderr.take() {
-            self.stdio.push_stderr(stderr);
+            self.stdoe.push_stderr(stderr);
         }
     }
 }

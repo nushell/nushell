@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio,
+        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdoe,
         DEFAULT_OVERLAY_NAME,
     },
     ShellError, Span, Stdoe, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
@@ -44,7 +44,7 @@ pub struct Stack {
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
     pub parent_deletions: Vec<VarId>,
-    pub(crate) stdio: StackStdio,
+    pub(crate) stdoe: StackStdoe,
 }
 
 impl Default for Stack {
@@ -56,7 +56,7 @@ impl Default for Stack {
 impl Stack {
     /// Create a new stack.
     ///
-    /// Stdio will be set to [`Stdoe::Inherit`]. So, if the last command is an external command,
+    /// stdout and stderr will be set to [`Stdoe::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
     /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
@@ -70,7 +70,7 @@ impl Stack {
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
-            stdio: StackStdio::new(),
+            stdoe: StackStdoe::new(),
         }
     }
 
@@ -102,7 +102,7 @@ impl Stack {
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
-            stdio: parent.stdio.clone(),
+            stdoe: parent.stdoe.clone(),
             parent_stack: Some(parent),
         }
     }
@@ -257,10 +257,10 @@ impl Stack {
     }
 
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        self.captures_to_stack_preserve_stdio(captures).capture()
+        self.captures_to_stack_preserve_stdoe(captures).capture()
     }
 
-    pub fn captures_to_stack_preserve_stdio(&self, captures: Vec<(VarId, Value)>) -> Stack {
+    pub fn captures_to_stack_preserve_stdoe(&self, captures: Vec<(VarId, Value)>) -> Stack {
         // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
         env_vars.push(HashMap::new());
@@ -273,7 +273,7 @@ impl Stack {
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
-            stdio: self.stdio.clone(),
+            stdoe: self.stdoe.clone(),
         }
     }
 
@@ -303,7 +303,7 @@ impl Stack {
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
-            stdio: self.stdio.clone(),
+            stdoe: self.stdoe.clone(),
         }
     }
 
@@ -516,7 +516,7 @@ impl Stack {
     /// otherwise it will be the current file redirection,
     /// otherwise it will be the process's stdout indicated by [`Stdoe::Inherit`].
     pub fn stdout(&self) -> &Stdoe {
-        self.stdio.stdout()
+        self.stdoe.stdout()
     }
 
     /// Returns the [`Stdoe`] to use for the current command's stderr.
@@ -525,17 +525,17 @@ impl Stack {
     /// otherwise it will be the current file redirection,
     /// otherwise it will be the process's stderr indicated by [`Stdoe::Inherit`].
     pub fn stderr(&self) -> &Stdoe {
-        self.stdio.stderr()
+        self.stdoe.stderr()
     }
 
     /// Returns the [`Stdoe`] of the pipe redirection applied to the current command's stdout.
     pub fn pipe_stdout(&self) -> Option<&Stdoe> {
-        self.stdio.pipe_stdout.as_ref()
+        self.stdoe.pipe_stdout.as_ref()
     }
 
     /// Returns the [`Stdoe`] of the pipe redirection applied to the current command's stderr.
     pub fn pipe_stderr(&self) -> Option<&Stdoe> {
-        self.stdio.pipe_stderr.as_ref()
+        self.stdoe.pipe_stderr.as_ref()
     }
 
     /// Temporarily set the pipe stdout redirection to [`Stdoe::Capture`].
@@ -545,10 +545,10 @@ impl Stack {
         StackCaptureGuard::new(self)
     }
 
-    /// Temporarily use the stdio redirections in the parent scope.
+    /// Temporarily use the stdoe redirections in the parent scope.
     ///
     /// This is used before evaluating an argument to a call.
-    pub fn use_call_arg_stdio(&mut self) -> StackCallArgGuard {
+    pub fn use_call_arg_stdoe(&mut self) -> StackCallArgGuard {
         StackCallArgGuard::new(self)
     }
 
@@ -563,32 +563,32 @@ impl Stack {
 
     /// Mark stdout for the last command as [`Stdoe::Capture`].
     ///
-    /// This will irreversibly alter the stdio redirections, and so it only makes sense to use this on an owned `Stack`
+    /// This will irreversibly alter the stdoe redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     ///
     /// See [`Stack::start_capture`] which can temporarily set stdout as [`Stdoe::Capture`] for a mutable `Stack` reference.
     pub fn capture(mut self) -> Self {
-        self.stdio.pipe_stdout = Some(Stdoe::Capture);
-        self.stdio.pipe_stderr = None;
+        self.stdoe.pipe_stdout = Some(Stdoe::Capture);
+        self.stdoe.pipe_stderr = None;
         self
     }
 
     /// Clears any pipe and file redirections and resets stdout and stderr to [`Stdoe::Inherit`].
     ///
-    /// This will irreversibly reset the stdio redirections, and so it only makes sense to use this on an owned `Stack`
+    /// This will irreversibly reset the stdoe redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
-    pub fn reset_stdio(mut self) -> Self {
-        self.stdio = StackStdio::new();
+    pub fn reset_stdoe(mut self) -> Self {
+        self.stdoe = StackStdoe::new();
         self
     }
 
     /// Clears any pipe redirections, keeping the current stdout and stderr.
     ///
-    /// This will irreversibly reset some of the stdio redirections, and so it only makes sense to use this on an owned `Stack`
+    /// This will irreversibly reset some of the stdoe redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     pub fn reset_pipes(mut self) -> Self {
-        self.stdio.pipe_stdout = None;
-        self.stdio.pipe_stderr = None;
+        self.stdoe.pipe_stdout = None;
+        self.stdoe.pipe_stderr = None;
         self
     }
 }
