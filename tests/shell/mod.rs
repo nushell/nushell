@@ -231,7 +231,7 @@ fn run_export_extern() {
 #[test]
 fn run_in_login_mode() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["-l", "-c", "echo $nu.is-login"])
+        .args(["-n", "-l", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
 
