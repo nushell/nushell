@@ -257,6 +257,32 @@ impl Record {
             iter: self.inner.drain(range),
         }
     }
+
+    /// Sort the record by its columns.
+    ///
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "c" => Value::test_string("foo"),
+    ///     "b" => Value::test_int(42),
+    ///     "a" => Value::test_nothing(),
+    /// );
+    ///
+    /// rec.sort_cols();
+    ///
+    /// assert_eq!(
+    ///     Value::test_record(rec),
+    ///     Value::test_record(record!(
+    ///         "a" => Value::test_nothing(),
+    ///         "b" => Value::test_int(42),
+    ///         "c" => Value::test_string("foo"),
+    ///     ))
+    /// );
+    /// ```
+    pub fn sort_cols(&mut self) {
+        self.inner.sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
+    }
 }
 
 impl FromIterator<(String, Value)> for Record {

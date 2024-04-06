@@ -18,6 +18,7 @@ jobs:
     name: Std
 
     strategy:
+      fail-fast: false
       matrix:
         target:
         - aarch64-apple-darwin
@@ -78,10 +79,11 @@ jobs:
       run: |
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
-    - name: Setup Rust toolchain and cache
+    - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
+        cache: false
         rustflags: ''
 
     - name: Setup Nushell
@@ -167,10 +169,11 @@ jobs:
       run: |
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
-    - name: Setup Rust toolchain and cache
+    - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
+        cache: false
         rustflags: ''
 
     - name: Setup Nushell
