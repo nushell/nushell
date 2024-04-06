@@ -10,7 +10,7 @@ use std::{
     env,
     ffi::OsStr,
     fmt::Write,
-    io::{BufReader, Read, Write as WriteTrait},
+    io::{BufReader, BufWriter, Read, Write as WriteTrait},
     ops::Deref,
     path::Path,
     process::{Child, ChildStdout, Command as CommandSys, Stdio},
@@ -33,8 +33,8 @@ use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-use self::gc::PluginGc;
 pub use self::interface::{PluginRead, PluginWrite};
+use self::{command::render_examples, gc::PluginGc};
 
 mod command;
 mod context;
@@ -178,8 +178,9 @@ fn make_plugin_interface(
     let encoder = get_plugin_encoding(&mut stdout)?;
 
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
+    let writer = BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, stdin);
 
-    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(stdin), encoder));
+    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(writer), encoder));
     manager.set_garbage_collector(gc);
 
     let interface = manager.get_interface();
@@ -651,7 +652,12 @@ where
                     let sigs = commands
                         .values()
                         .map(|command| create_plugin_signature(command.deref()))
-                        .collect();
+                        .map(|mut sig| {
+                            render_examples(plugin, &engine, &mut sig.examples)?;
+                            Ok(sig)
+                        })
+                        .collect::<Result<Vec<_>, ShellError>>()
+                        .try_to_report(&engine)?;
                     engine.write_signature(sigs).try_to_report(&engine)?;
                 }
                 // Run the plugin on a background thread, handling any input or output streams

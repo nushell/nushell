@@ -1,11 +1,15 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ast::{Block, RangeInclusion},
+    ast::Block,
     debugger::WithoutDebug,
     engine::{StateDelta, StateWorkingSet},
+    Range,
 };
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    sync::Arc,
+    {collections::HashSet, ops::Bound},
+};
 
 pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,
@@ -219,17 +223,45 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Date { val, .. } => {
                 write!(f, "Date({:?})", val)
             }
-            Value::Range { val, .. } => match val.inclusion {
-                RangeInclusion::Inclusive => write!(
-                    f,
-                    "Range({:?}..{:?}, step: {:?})",
-                    val.from, val.to, val.incr
-                ),
-                RangeInclusion::RightExclusive => write!(
-                    f,
-                    "Range({:?}..<{:?}, step: {:?})",
-                    val.from, val.to, val.incr
-                ),
+            Value::Range { val, .. } => match val {
+                Range::IntRange(range) => match range.end() {
+                    Bound::Included(end) => write!(
+                        f,
+                        "Range({:?}..{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Excluded(end) => write!(
+                        f,
+                        "Range({:?}..<{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Unbounded => {
+                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
+                    }
+                },
+                Range::FloatRange(range) => match range.end() {
+                    Bound::Included(end) => write!(
+                        f,
+                        "Range({:?}..{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Excluded(end) => write!(
+                        f,
+                        "Range({:?}..<{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Unbounded => {
+                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
+                    }
+                },
             },
             Value::String { val, .. } | Value::Glob { val, .. } => {
                 write!(f, "{:?}", val)

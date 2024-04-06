@@ -15,6 +15,7 @@ mod generate;
 mod generate2;
 mod handle_get;
 mod handle_make;
+mod handle_update;
 mod update;
 mod update_arg;
 
@@ -23,6 +24,7 @@ use generate::Generate;
 use generate2::Generate2;
 use handle_get::HandleGet;
 use handle_make::HandleMake;
+use handle_update::HandleUpdate;
 use nu_protocol::{CustomValue, LabeledError, Spanned, Value};
 use update::Update;
 use update_arg::UpdateArg;
@@ -49,6 +51,7 @@ impl Plugin for CustomValuePlugin {
             Box::new(DropCheck),
             Box::new(HandleGet),
             Box::new(HandleMake),
+            Box::new(HandleUpdate),
         ]
     }
 

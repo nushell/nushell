@@ -224,7 +224,7 @@ impl PluginCustomValue {
 
     /// Serialize a custom value into a [`PluginCustomValue`]. This should only be done on the
     /// plugin side.
-    pub(crate) fn serialize_from_custom_value(
+    pub fn serialize_from_custom_value(
         custom_value: &dyn CustomValue,
         span: Span,
     ) -> Result<PluginCustomValue, ShellError> {
@@ -240,7 +240,7 @@ impl PluginCustomValue {
 
     /// Deserialize a [`PluginCustomValue`] into a `Box<dyn CustomValue>`. This should only be done
     /// on the plugin side.
-    pub(crate) fn deserialize_to_custom_value(
+    pub fn deserialize_to_custom_value(
         &self,
         span: Span,
     ) -> Result<Box<dyn CustomValue>, ShellError> {
@@ -272,7 +272,7 @@ impl PluginCustomValue {
     ///
     /// This method will collapse `LazyRecord` in-place as necessary to make the guarantee,
     /// since `LazyRecord` could return something different the next time it is called.
-    pub(crate) fn verify_source(
+    pub fn verify_source(
         value: Spanned<&dyn CustomValue>,
         source: &PluginSource,
     ) -> Result<(), ShellError> {
@@ -356,7 +356,7 @@ impl PluginCustomValue {
     }
 
     /// Render any custom values in the `Value` using `to_base_value()`
-    pub(crate) fn render_to_base_value_in(value: &mut Value) -> Result<(), ShellError> {
+    pub fn render_to_base_value_in(value: &mut Value) -> Result<(), ShellError> {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {

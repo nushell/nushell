@@ -1,4 +1,4 @@
-use std::{convert::Infallible, sync::Arc};
+use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
 use nu_ansi_term::Style;
 use nu_engine::eval_block;
@@ -222,7 +222,7 @@ impl PluginTest {
                         });
 
                         // Check for equality with the result
-                        if *expectation != value {
+                        if !self.value_eq(expectation, &value)? {
                             // If they're not equal, print a diff of the debug format
                             let expectation_formatted = format!("{:#?}", expectation);
                             let value_formatted = format!("{:#?}", value);
@@ -271,5 +271,77 @@ impl PluginTest {
         command: &impl PluginCommand,
     ) -> Result<(), ShellError> {
         self.test_examples(&command.examples())
+    }
+
+    /// This implements custom value comparison with `plugin.custom_value_partial_cmp()` to behave
+    /// as similarly as possible to comparison in the engine.
+    ///
+    /// NOTE: Try to keep these reflecting the same comparison as `Value::partial_cmp` does under
+    /// normal circumstances. Otherwise people will be very confused.
+    fn value_eq(&self, a: &Value, b: &Value) -> Result<bool, ShellError> {
+        match (a, b) {
+            (Value::Custom { val, .. }, _) => {
+                // We have to serialize both custom values before handing them to the plugin
+                let mut serialized =
+                    PluginCustomValue::serialize_from_custom_value(val.as_ref(), a.span())?;
+                serialized.set_source(Some(self.source.clone()));
+                let mut b_serialized = b.clone();
+                PluginCustomValue::serialize_custom_values_in(&mut b_serialized)?;
+                PluginCustomValue::add_source_in(&mut b_serialized, &self.source)?;
+                // Now get the plugin reference and execute the comparison
+                let persistent = self.source.persistent(None)?.get_plugin(None)?;
+                let ordering = persistent.custom_value_partial_cmp(serialized, b_serialized)?;
+                Ok(matches!(
+                    ordering.map(Ordering::from),
+                    Some(Ordering::Equal)
+                ))
+            }
+            // All container types need to be here except Closure.
+            (Value::List { vals: a_vals, .. }, Value::List { vals: b_vals, .. }) => {
+                // Must be the same length, with all elements equivalent
+                Ok(a_vals.len() == b_vals.len() && {
+                    for (a_el, b_el) in a_vals.iter().zip(b_vals) {
+                        if !self.value_eq(a_el, b_el)? {
+                            return Ok(false);
+                        }
+                    }
+                    true
+                })
+            }
+            (Value::Record { val: a_rec, .. }, Value::Record { val: b_rec, .. }) => {
+                // Must be the same length
+                if a_rec.len() != b_rec.len() {
+                    return Ok(false);
+                }
+
+                // reorder cols and vals to make more logically compare.
+                // more general, if two record have same col and values,
+                // the order of cols shouldn't affect the equal property.
+                let mut a_rec = a_rec.clone();
+                let mut b_rec = b_rec.clone();
+                a_rec.sort_cols();
+                b_rec.sort_cols();
+
+                // Check columns first
+                for (a, b) in a_rec.columns().zip(b_rec.columns()) {
+                    if a != b {
+                        return Ok(false);
+                    }
+                }
+                // Then check the values
+                for (a, b) in a_rec.values().zip(b_rec.values()) {
+                    if !self.value_eq(a, b)? {
+                        return Ok(false);
+                    }
+                }
+                // All equal, and same length
+                Ok(true)
+            }
+            // Must collect lazy records to compare.
+            (Value::LazyRecord { val: a_val, .. }, _) => self.value_eq(&a_val.collect()?, b),
+            (_, Value::LazyRecord { val: b_val, .. }) => self.value_eq(a, &b_val.collect()?),
+            // Fall back to regular eq.
+            _ => Ok(a == b),
+        }
     }
 }

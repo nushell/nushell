@@ -2,8 +2,9 @@ use core::fmt::Write;
 use fancy_regex::Regex;
 use nu_engine::{command_prelude::*, get_columns};
 use nu_parser::escape_quote_string;
-use nu_protocol::ast::RangeInclusion;
+use nu_protocol::Range;
 use once_cell::sync::Lazy;
+use std::ops::Bound;
 
 #[derive(Clone)]
 pub struct ToNuon;
@@ -234,16 +235,26 @@ pub fn value_to_string(
             }
         }
         Value::Nothing { .. } => Ok("null".to_string()),
-        Value::Range { val, .. } => Ok(format!(
-            "{}..{}{}",
-            value_to_string(&val.from, span, depth + 1, indent)?,
-            if val.inclusion == RangeInclusion::RightExclusive {
-                "<"
-            } else {
-                ""
-            },
-            value_to_string(&val.to, span, depth + 1, indent)?
-        )),
+        Value::Range { val, .. } => match val {
+            Range::IntRange(range) => Ok(range.to_string()),
+            Range::FloatRange(range) => {
+                let start =
+                    value_to_string(&Value::float(range.start(), span), span, depth + 1, indent)?;
+                match range.end() {
+                    Bound::Included(end) => Ok(format!(
+                        "{}..{}",
+                        start,
+                        value_to_string(&Value::float(end, span), span, depth + 1, indent)?
+                    )),
+                    Bound::Excluded(end) => Ok(format!(
+                        "{}..<{}",
+                        start,
+                        value_to_string(&Value::float(end, span), span, depth + 1, indent)?
+                    )),
+                    Bound::Unbounded => Ok(format!("{start}..",)),
+                }
+            }
+        },
         Value::Record { val, .. } => {
             let mut collection = vec![];
             for (col, val) in &**val {
