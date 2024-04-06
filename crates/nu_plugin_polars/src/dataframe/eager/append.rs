@@ -134,14 +134,15 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo - fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(AppendDF {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use nu_plugin_test_support::PluginTest;
+
+    use super::*;
+
+    #[test]
+    #[ignore = "work in progress"]
+    fn test_examples() -> Result<(), ShellError> {
+        PluginTest::new("polars", PolarsPlugin::default().into())?.test_command_examples(&AppendDF)
+    }
+}
