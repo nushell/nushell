@@ -33,8 +33,8 @@ use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-use self::gc::PluginGc;
 pub use self::interface::{PluginRead, PluginWrite};
+use self::{command::render_examples, gc::PluginGc};
 
 mod command;
 mod context;
@@ -651,7 +651,12 @@ where
                     let sigs = commands
                         .values()
                         .map(|command| create_plugin_signature(command.deref()))
-                        .collect();
+                        .map(|mut sig| {
+                            render_examples(plugin, &engine, &mut sig.examples)?;
+                            Ok(sig)
+                        })
+                        .collect::<Result<Vec<_>, ShellError>>()
+                        .try_to_report(&engine)?;
                     engine.write_signature(sigs).try_to_report(&engine)?;
                 }
                 // Run the plugin on a background thread, handling any input or output streams
