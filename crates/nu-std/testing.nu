@@ -1,4 +1,4 @@
-use std/log.nu
+use std log
 
 def "nu-complete threads" [] {
     seq 1 (sys|get cpu|length)
