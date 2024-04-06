@@ -71,33 +71,28 @@ pub fn get_pipeline_elements(
             let expression = &pipeline_element.expr;
             let expr_span = pipeline_element.expr.span;
 
-            let element_str = String::from_utf8_lossy(engine_state.get_span_contents(expr_span));
-            let value = Value::string(element_str.to_string(), expr_span);
-            let expr = expression.expr.clone();
-            let (command_name, command_args_value) = if let Expr::Call(call) = expr {
+            let (command_name, command_args_value, ty) = if let Expr::Call(call) = &expression.expr
+            {
                 let command = engine_state.get_decl(call.decl_id);
                 (
                     command.name().to_string(),
-                    get_arguments(engine_state, stack, *call, eval_expression),
+                    get_arguments(engine_state, stack, call.as_ref(), eval_expression),
+                    command.signature().get_output_type().to_string(),
                 )
             } else {
-                ("no-op".to_string(), vec![])
+                ("no-op".to_string(), vec![], expression.ty.to_string())
             };
-            let index = format!("{pipeline_idx}_{i}");
-            let value_type = value.get_type();
-            let value_span = value.span();
-            let value_span_start = value_span.start as i64;
-            let value_span_end = value_span.end as i64;
 
             let record = record! {
-                    "cmd_index" => Value::string(index, span),
-                    "cmd_name" => Value::string(command_name, value_span),
-                    "type" => Value::string(value_type.to_string(), span),
-                    "cmd_args" => Value::list(command_args_value, value_span),
-                    "span_start" => Value::int(value_span_start, span),
-                    "span_end" => Value::int(value_span_end, span),
+                "cmd_index" => Value::string(format!("{pipeline_idx}_{i}"), span),
+                "cmd_name" => Value::string(command_name, expr_span),
+                "type" => Value::string(ty, span),
+                "cmd_args" => Value::list(command_args_value, expr_span),
+                "span_start" => Value::int(expr_span.start as i64, span),
+                "span_end" => Value::int(expr_span.end as i64, span),
             };
-            element_values.push(Value::record(record, value_span));
+
+            element_values.push(Value::record(record, expr_span));
         }
     }
     Ok(element_values)
@@ -106,7 +101,7 @@ pub fn get_pipeline_elements(
 fn get_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: Call,
+    call: &Call,
     eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Vec<Value> {
     let mut arg_value = vec![];
