@@ -2444,8 +2444,8 @@ impl PartialOrd for Value {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
                     // the order of cols shouldn't affect the equal property.
-                    let mut lhs = lhs.clone();
-                    let mut rhs = rhs.clone();
+                    let mut lhs = lhs.clone().into_owned();
+                    let mut rhs = rhs.clone().into_owned();
                     lhs.sort_cols();
                     rhs.sort_cols();
 
