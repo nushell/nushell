@@ -7,6 +7,7 @@ use pretty_assertions::assert_eq;
 mod environment;
 
 mod pipeline;
+mod repl;
 
 //FIXME: jt: we need to focus some fixes on wix as the plugins will differ
 #[ignore]
