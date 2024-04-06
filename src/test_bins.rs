@@ -8,7 +8,10 @@ use nu_protocol::{
     PipelineData, Value,
 };
 use nu_std::load_standard_library;
-use std::io::{self, BufRead, Read, Write};
+use std::{
+    io::{self, BufRead, Read, Write},
+    sync::Arc,
+};
 
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
@@ -236,7 +239,7 @@ pub fn nu_repl() {
     let source_lines = args();
 
     let mut engine_state = get_engine_state();
-    let mut stack = Stack::new();
+    let mut top_stack = Arc::new(Stack::new());
 
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -245,6 +248,7 @@ pub fn nu_repl() {
     load_standard_library(&mut engine_state).expect("Could not load the standard library.");
 
     for (i, line) in source_lines.iter().enumerate() {
+        let mut stack = Stack::with_parent(top_stack.clone());
         let cwd = nu_engine::env::current_dir(&engine_state, &stack)
             .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
@@ -324,13 +328,15 @@ pub fn nu_repl() {
         let input = PipelineData::empty();
         let config = engine_state.get_config();
 
-        let stack = &mut stack.start_capture();
-        match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
-            Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
-                Ok(s) => last_output = s,
+        {
+            let stack = &mut stack.start_capture();
+            match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
+                Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
+                    Ok(s) => last_output = s,
+                    Err(err) => outcome_err(&engine_state, &err),
+                },
                 Err(err) => outcome_err(&engine_state, &err),
-            },
-            Err(err) => outcome_err(&engine_state, &err),
+            }
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
@@ -340,6 +346,7 @@ pub fn nu_repl() {
             let _ = std::env::set_current_dir(path.as_ref());
             engine_state.add_env_var("PWD".into(), cwd);
         }
+        top_stack = Arc::new(Stack::with_changes_from_child(top_stack, stack));
     }
 
     outcome_ok(last_output)
