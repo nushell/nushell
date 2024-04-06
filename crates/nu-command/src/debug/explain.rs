@@ -41,7 +41,7 @@ impl Command for Explain {
         let ctrlc = engine_state.ctrlc.clone();
         let mut stack = stack.captures_to_stack(capture_block.captures);
 
-        let elements = get_pipeline_elements(engine_state, &mut stack, block, call.head)?;
+        let elements = get_pipeline_elements(engine_state, &mut stack, block, call.head);
 
         Ok(elements.into_pipeline_data(ctrlc))
     }
@@ -61,15 +61,23 @@ pub fn get_pipeline_elements(
     stack: &mut Stack,
     block: &Block,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let mut element_values = vec![];
-
+) -> Vec<Value> {
     let eval_expression = get_eval_expression(engine_state);
 
-    for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        for (i, pipeline_element) in pipeline.elements.iter().enumerate() {
-            let expression = &pipeline_element.expr;
-            let expr_span = pipeline_element.expr.span;
+    block
+        .pipelines
+        .iter()
+        .enumerate()
+        .flat_map(|(p_idx, pipeline)| {
+            pipeline
+                .elements
+                .iter()
+                .enumerate()
+                .map(move |(e_idx, element)| (format!("{p_idx}_{e_idx}"), element))
+        })
+        .map(move |(cmd_index, element)| {
+            let expression = &element.expr;
+            let expr_span = element.expr.span;
 
             let (command_name, command_args_value, ty) = if let Expr::Call(call) = &expression.expr
             {
@@ -84,7 +92,7 @@ pub fn get_pipeline_elements(
             };
 
             let record = record! {
-                "cmd_index" => Value::string(format!("{pipeline_idx}_{i}"), span),
+                "cmd_index" => Value::string(cmd_index, span),
                 "cmd_name" => Value::string(command_name, expr_span),
                 "type" => Value::string(ty, span),
                 "cmd_args" => Value::list(command_args_value, expr_span),
@@ -92,10 +100,9 @@ pub fn get_pipeline_elements(
                 "span_end" => Value::int(expr_span.end as i64, span),
             };
 
-            element_values.push(Value::record(record, expr_span));
-        }
-    }
-    Ok(element_values)
+            Value::record(record, expr_span)
+        })
+        .collect()
 }
 
 fn get_arguments(
