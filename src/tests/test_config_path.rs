@@ -234,10 +234,10 @@ fn test_xdg_config_empty() {
     Playground::setup("xdg_config_empty", |_, playground| {
         playground.with_env("XDG_CONFIG_HOME", "");
 
-        let actual = nu!("$nu.default-config-dir");
+        let actual = run(playground, "$nu.default-config-dir");
         let expected = dirs_next::config_dir().unwrap().join("nushell");
         assert_eq!(
-            actual.out,
+            actual,
             adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
     });
@@ -249,10 +249,10 @@ fn test_xdg_config_bad() {
         let xdg_config_home = r#"mn2''6t\/k*((*&^//k//: "#;
         playground.with_env("XDG_CONFIG_HOME", xdg_config_home);
 
-        let actual = nu!("$nu.default-config-dir");
+        let actual = run(playground, "$nu.default-config-dir");
         let expected = dirs_next::config_dir().unwrap().join("nushell");
         assert_eq!(
-            actual.out,
+            actual,
             adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
 
