@@ -3107,6 +3107,7 @@ name = "nu-plugin-test-support"
 version = "0.92.2"
 dependencies = [
  "nu-ansi-term",
+ "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
  "nu-plugin",

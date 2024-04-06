@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
 use nu_ansi_term::Style;
+use nu_cmd_lang::Let;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
@@ -38,6 +39,7 @@ impl PluginTest {
     ) -> Result<PluginTest, ShellError> {
         let mut engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(Let));
 
         let reg_plugin = fake_register(&mut working_set, name, plugin)?;
         let source = Arc::new(PluginSource::new(reg_plugin));
