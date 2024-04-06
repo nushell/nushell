@@ -10,7 +10,7 @@ use std::{
     env,
     ffi::OsStr,
     fmt::Write,
-    io::{BufReader, Read, Write as WriteTrait},
+    io::{BufReader, BufWriter, Read, Write as WriteTrait},
     ops::Deref,
     path::Path,
     process::{Child, ChildStdout, Command as CommandSys, Stdio},
@@ -178,8 +178,9 @@ fn make_plugin_interface(
     let encoder = get_plugin_encoding(&mut stdout)?;
 
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
+    let writer = BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, stdin);
 
-    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(stdin), encoder));
+    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(writer), encoder));
     manager.set_garbage_collector(gc);
 
     let interface = manager.get_interface();
