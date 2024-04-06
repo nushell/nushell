@@ -509,7 +509,7 @@ pub(crate) fn dir_entry_dict(
 
             #[cfg(unix)]
             {
-                use crate::filesystem::util::users;
+                use nu_utils::filesystem::users;
                 use std::os::unix::fs::MetadataExt;
 
                 let mode = md.permissions().mode();
