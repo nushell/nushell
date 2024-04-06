@@ -210,10 +210,10 @@ impl PipelineData {
 
     /// Writes all values or redirects all output to the current stdio streams in `stack`.
     ///
-    /// For [`IoStream::Pipe`] and [`IoStream::Capture`], this will return the `PipelineData` as is
+    /// For [`Stdoe::Pipe`] and [`Stdoe::Capture`], this will return the `PipelineData` as is
     /// without consuming input and without writing anything.
     ///
-    /// For the other [`IoStream`]s, the given `PipelineData` will be completely consumed
+    /// For the other [`Stdoe`]s, the given `PipelineData` will be completely consumed
     /// and `PipelineData::Empty` will be returned.
     pub fn write_to_io_streams(
         self,
@@ -1036,13 +1036,13 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     }
 }
 
-/// Only call this if `output_stream` is not `IoStream::Pipe` or `IoStream::Capture`.
+/// Only call this if `output_stream` is not `Stdoe::Pipe` or `Stdoe::Capture`.
 fn consume_child_output(child_output: RawStream, output_stream: &Stdoe) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {
         Stdoe::Pipe | Stdoe::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
-            // but IoStream::Pipe means to redirect output
+            // but Stdoe::Pipe means to redirect output
             // into an OS pipe for *future use* (as input for another command).
             // So, this branch makes no sense, and will simply drop `output` instead of draining it.
             // This could trigger a `SIGPIPE` for the external command,

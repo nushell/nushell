@@ -12,7 +12,7 @@ pub enum Redirection {
     ///
     /// This will only affect the last command of a block.
     /// This is created by pipes and pipe redirections (`|`, `e>|`, `o+e>|`, etc.),
-    /// or set by the next command in the pipeline (e.g., `ignore` sets stdout to [`IoStream::Null`]).
+    /// or set by the next command in the pipeline (e.g., `ignore` sets stdout to [`Stdoe::Null`]).
     Pipe(Stdoe),
     /// A file redirection.
     ///
@@ -71,20 +71,20 @@ impl StackStdio {
         }
     }
 
-    /// Returns the [`IoStream`] to use for current command's stdout.
+    /// Returns the [`Stdoe`] to use for current command's stdout.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stdout indicated by [`IoStream::Inherit`].
+    /// otherwise it will be the process's stdout indicated by [`Stdoe::Inherit`].
     pub(crate) fn stdout(&self) -> &Stdoe {
         self.pipe_stdout.as_ref().unwrap_or(&self.stdout)
     }
 
-    /// Returns the [`IoStream`] to use for current command's stderr.
+    /// Returns the [`Stdoe`] to use for current command's stderr.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stderr indicated by [`IoStream::Inherit`].
+    /// otherwise it will be the process's stderr indicated by [`Stdoe::Inherit`].
     pub(crate) fn stderr(&self) -> &Stdoe {
         self.pipe_stderr.as_ref().unwrap_or(&self.stderr)
     }

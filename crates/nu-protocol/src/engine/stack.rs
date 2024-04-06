@@ -3,7 +3,7 @@ use crate::{
         EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio,
         DEFAULT_OVERLAY_NAME,
     },
-    Stdoe, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    ShellError, Span, Stdoe, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -56,7 +56,7 @@ impl Default for Stack {
 impl Stack {
     /// Create a new stack.
     ///
-    /// Stdio will be set to [`IoStream::Inherit`]. So, if the last command is an external command,
+    /// Stdio will be set to [`Stdoe::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
     /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
@@ -510,35 +510,35 @@ impl Stack {
         self.active_overlays.retain(|o| o != name);
     }
 
-    /// Returns the [`IoStream`] to use for the current command's stdout.
+    /// Returns the [`Stdoe`] to use for the current command's stdout.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stdout indicated by [`IoStream::Inherit`].
+    /// otherwise it will be the process's stdout indicated by [`Stdoe::Inherit`].
     pub fn stdout(&self) -> &Stdoe {
         self.stdio.stdout()
     }
 
-    /// Returns the [`IoStream`] to use for the current command's stderr.
+    /// Returns the [`Stdoe`] to use for the current command's stderr.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stderr indicated by [`IoStream::Inherit`].
+    /// otherwise it will be the process's stderr indicated by [`Stdoe::Inherit`].
     pub fn stderr(&self) -> &Stdoe {
         self.stdio.stderr()
     }
 
-    /// Returns the [`IoStream`] to use for the last command's stdout.
+    /// Returns the [`Stdoe`] of the pipe redirection applied to the current command's stdout.
     pub fn pipe_stdout(&self) -> Option<&Stdoe> {
         self.stdio.pipe_stdout.as_ref()
     }
 
-    /// Returns the [`IoStream`] to use for the last command's stderr.
+    /// Returns the [`Stdoe`] of the pipe redirection applied to the current command's stderr.
     pub fn pipe_stderr(&self) -> Option<&Stdoe> {
         self.stdio.pipe_stderr.as_ref()
     }
 
-    /// Temporarily set the pipe stdout redirection to [`IoStream::Capture`].
+    /// Temporarily set the pipe stdout redirection to [`Stdoe::Capture`].
     ///
     /// This is used before evaluating an expression into a `Value`.
     pub fn start_capture(&mut self) -> StackCaptureGuard {
@@ -561,19 +561,19 @@ impl Stack {
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    /// Mark stdout for the last command as [`IoStream::Capture`].
+    /// Mark stdout for the last command as [`Stdoe::Capture`].
     ///
     /// This will irreversibly alter the stdio redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     ///
-    /// See [`Stack::start_capture`] which can temporarily set stdout as [`IoStream::Capture`] for a mutable `Stack` reference.
+    /// See [`Stack::start_capture`] which can temporarily set stdout as [`Stdoe::Capture`] for a mutable `Stack` reference.
     pub fn capture(mut self) -> Self {
         self.stdio.pipe_stdout = Some(Stdoe::Capture);
         self.stdio.pipe_stderr = None;
         self
     }
 
-    /// Clears any pipe and file redirections and resets stdout and stderr to [`IoStream::Inherit`].
+    /// Clears any pipe and file redirections and resets stdout and stderr to [`Stdoe::Inherit`].
     ///
     /// This will irreversibly reset the stdio redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
