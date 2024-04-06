@@ -382,7 +382,10 @@ fn rm(
                         ))]
                         {
                             trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
+                                Error::new(
+                                    ErrorKind::Other,
+                                    format!("{e:?}\nTry '--permanent' flag"),
+                                )
                             })
                         }
 
