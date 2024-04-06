@@ -337,12 +337,6 @@ impl PluginTest {
                 // All equal, and same length
                 Ok(true)
             }
-            (Value::Range { val: a_rng, .. }, Value::Range { val: b_rng, .. }) => {
-                Ok(a_rng.inclusion == b_rng.inclusion
-                    && self.value_eq(&a_rng.from, &b_rng.from)?
-                    && self.value_eq(&a_rng.to, &b_rng.to)?
-                    && self.value_eq(&a_rng.incr, &b_rng.incr)?)
-            }
             // Must collect lazy records to compare.
             (Value::LazyRecord { val: a_val, .. }, _) => self.value_eq(&a_val.collect()?, b),
             (_, Value::LazyRecord { val: b_val, .. }) => self.value_eq(a, &b_val.collect()?),

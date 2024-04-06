@@ -112,7 +112,7 @@ impl Stack {
     ///
     /// Here it is assumed that child was created with a call to Stack::with_parent
     /// with parent
-    pub fn with_changes_from_child(parent: Arc<Stack>, mut child: Stack) -> Stack {
+    pub fn with_changes_from_child(parent: Arc<Stack>, child: Stack) -> Stack {
         // we're going to drop the link to the parent stack on our new stack
         // so that we can unwrap the Arc as a unique reference
         //
@@ -121,15 +121,18 @@ impl Stack {
         drop(child.parent_stack);
         let mut unique_stack = Stack::unwrap_unique(parent);
 
-        unique_stack.vars.append(&mut child.vars);
+        unique_stack
+            .vars
+            .retain(|(var, _)| !child.parent_deletions.contains(var));
+        for (var, value) in child.vars {
+            unique_stack.add_var(var, value);
+        }
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
         unique_stack
-            .vars
-            .retain(|(var, _)| !child.parent_deletions.contains(var));
-        unique_stack
     }
+
     pub fn with_env(
         &mut self,
         env_vars: &[EnvVars],
