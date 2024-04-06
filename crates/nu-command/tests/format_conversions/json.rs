@@ -229,11 +229,13 @@ fn unbounded_from_in_range_fails() {
 #[test]
 fn inf_in_range_fails() {
     let actual = nu!(r#"inf..5 | to json"#);
-    assert!(actual.err.contains("Cannot create range"));
+    assert!(actual.err.contains("can't convert to countable values"));
     let actual = nu!(r#"5..inf | to json"#);
-    assert!(actual.err.contains("Cannot create range"));
+    assert!(actual
+        .err
+        .contains("Unbounded ranges are not allowed when converting to this format"));
     let actual = nu!(r#"-inf..inf | to json"#);
-    assert!(actual.err.contains("Cannot create range"));
+    assert!(actual.err.contains("can't convert to countable values"));
 }
 
 #[test]

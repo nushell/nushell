@@ -168,8 +168,9 @@ pub trait Eval {
                 } else {
                     Value::nothing(expr.span)
                 };
+
                 Ok(Value::range(
-                    Range::new(expr.span, from, next, to, operator)?,
+                    Range::new(from, next, to, operator.inclusion, expr.span)?,
                     expr.span,
                 ))
             }

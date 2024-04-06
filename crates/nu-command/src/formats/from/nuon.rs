@@ -292,7 +292,7 @@ fn convert_to_value(
             };
 
             Ok(Value::range(
-                Range::new(expr.span, from, next, to, &operator)?,
+                Range::new(from, next, to, operator.inclusion, expr.span)?,
                 expr.span,
             ))
         }

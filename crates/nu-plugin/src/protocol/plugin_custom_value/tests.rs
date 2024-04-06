@@ -6,10 +6,7 @@ use crate::{
         TestCustomValue,
     },
 };
-use nu_protocol::{
-    ast::RangeInclusion, engine::Closure, record, CustomValue, IntoSpanned, Range, ShellError,
-    Span, Value,
-};
+use nu_protocol::{engine::Closure, record, CustomValue, IntoSpanned, ShellError, Span, Value};
 use std::sync::Arc;
 
 #[test]
@@ -58,50 +55,6 @@ fn add_source_in_at_root() -> Result<(), ShellError> {
         plugin_custom_value.source.as_ref().map(Arc::as_ptr)
     );
     Ok(())
-}
-
-fn check_range_custom_values(
-    val: &Value,
-    mut f: impl FnMut(&str, &dyn CustomValue) -> Result<(), ShellError>,
-) -> Result<(), ShellError> {
-    let range = val.as_range()?;
-    for (name, val) in [
-        ("from", &range.from),
-        ("incr", &range.incr),
-        ("to", &range.to),
-    ] {
-        let custom_value = val
-            .as_custom_value()
-            .unwrap_or_else(|_| panic!("{name} not custom value"));
-        f(name, custom_value)?;
-    }
-    Ok(())
-}
-
-#[test]
-fn add_source_in_nested_range() -> Result<(), ShellError> {
-    let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let mut val = Value::test_range(Range {
-        from: orig_custom_val.clone(),
-        incr: orig_custom_val.clone(),
-        to: orig_custom_val.clone(),
-        inclusion: RangeInclusion::Inclusive,
-    });
-    let source = Arc::new(PluginSource::new_fake("foo"));
-    PluginCustomValue::add_source_in(&mut val, &source)?;
-
-    check_range_custom_values(&val, |name, custom_value| {
-        let plugin_custom_value: &PluginCustomValue = custom_value
-            .as_any()
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("{name} not PluginCustomValue"));
-        assert_eq!(
-            Some(Arc::as_ptr(&source)),
-            plugin_custom_value.source.as_ref().map(Arc::as_ptr),
-            "{name} source not set correctly"
-        );
-        Ok(())
-    })
 }
 
 fn check_record_custom_values(
@@ -293,31 +246,6 @@ fn serialize_in_root() -> Result<(), ShellError> {
 }
 
 #[test]
-fn serialize_in_range() -> Result<(), ShellError> {
-    let orig_custom_val = Value::test_custom_value(Box::new(TestCustomValue(-1)));
-    let mut val = Value::test_range(Range {
-        from: orig_custom_val.clone(),
-        incr: orig_custom_val.clone(),
-        to: orig_custom_val.clone(),
-        inclusion: RangeInclusion::Inclusive,
-    });
-    PluginCustomValue::serialize_custom_values_in(&mut val)?;
-
-    check_range_custom_values(&val, |name, custom_value| {
-        let plugin_custom_value: &PluginCustomValue = custom_value
-            .as_any()
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("{name} not PluginCustomValue"));
-        assert_eq!(
-            "TestCustomValue",
-            plugin_custom_value.name(),
-            "{name} name not set correctly"
-        );
-        Ok(())
-    })
-}
-
-#[test]
 fn serialize_in_record() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(TestCustomValue(32)));
     let mut val = Value::test_record(record! {
@@ -398,31 +326,6 @@ fn deserialize_in_root() -> Result<(), ShellError> {
         panic!("Failed to downcast to TestCustomValue");
     }
     Ok(())
-}
-
-#[test]
-fn deserialize_in_range() -> Result<(), ShellError> {
-    let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let mut val = Value::test_range(Range {
-        from: orig_custom_val.clone(),
-        incr: orig_custom_val.clone(),
-        to: orig_custom_val.clone(),
-        inclusion: RangeInclusion::Inclusive,
-    });
-    PluginCustomValue::deserialize_custom_values_in(&mut val)?;
-
-    check_range_custom_values(&val, |name, custom_value| {
-        let test_custom_value: &TestCustomValue = custom_value
-            .as_any()
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("{name} not TestCustomValue"));
-        assert_eq!(
-            expected_test_custom_value(),
-            *test_custom_value,
-            "{name} not deserialized correctly"
-        );
-        Ok(())
-    })
 }
 
 #[test]

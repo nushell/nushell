@@ -409,7 +409,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc);
+            let stream = ListStream::from_stream(val.into_range_iter(span, ctrlc.clone()), ctrlc);
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }

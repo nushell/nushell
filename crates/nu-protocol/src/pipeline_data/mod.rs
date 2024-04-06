@@ -9,7 +9,7 @@ pub use stream::*;
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, ShellError, Span, Value,
+    format_error, Config, Range, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -404,7 +404,7 @@ impl PipelineData {
     /// It returns Err if the `self` cannot be converted to an iterator.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
         match self {
-            PipelineData::Value(val, metadata) => match val {
+            PipelineData::Value(value, metadata) => match value {
                 Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
                     ListStream::from_stream(vals.into_iter(), None),
                     metadata,
@@ -416,13 +416,11 @@ impl PipelineData {
                     ),
                     metadata,
                 ))),
-                Value::Range { val, .. } => match val.into_range_iter(None) {
-                    Ok(iter) => Ok(PipelineIterator(PipelineData::ListStream(
-                        ListStream::from_stream(iter, None),
+                Value::Range { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
+                        ListStream::from_stream(val.into_range_iter(value.span(), None), None),
                         metadata,
-                    ))),
-                    Err(error) => Err(error),
-                },
+                    )))
+                ,
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
@@ -560,8 +558,21 @@ impl PipelineData {
         F: FnMut(Value) -> Value + 'static + Send,
     {
         match self {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .map(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => match f(value) {
+                        Value::Error { error, .. } => Err(*error),
+                        v => Ok(v.into_pipeline_data()),
+                    },
+                }
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
@@ -582,15 +593,6 @@ impl PipelineData {
                     Ok(f(Value::binary(collected.item, collected.span)).into_pipeline_data())
                 }
             }
-
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())?
-                .map(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => match f(v) {
-                Value::Error { error, .. } => Err(*error),
-                v => Ok(v.into_pipeline_data()),
-            },
         }
     }
 
@@ -608,8 +610,18 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .flat_map(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => Ok(f(value).into_iter().into_pipeline_data(ctrlc)),
+                }
             }
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
@@ -635,11 +647,6 @@ impl PipelineData {
                         .into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())?
-                .flat_map(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
 
@@ -654,8 +661,24 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .filter(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => {
+                        if f(&value) {
+                            Ok(value.into_pipeline_data())
+                        } else {
+                            Ok(Value::nothing(span).into_pipeline_data())
+                        }
+                    }
+                }
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
@@ -685,17 +708,6 @@ impl PipelineData {
                     } else {
                         Ok(PipelineData::new_with_metadata(None, collected.span))
                     }
-                }
-            }
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())?
-                .filter(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => {
-                if f(&v) {
-                    Ok(v.into_pipeline_data())
-                } else {
-                    Ok(Value::nothing(v.span()).into_pipeline_data())
                 }
             }
         }
@@ -793,47 +805,43 @@ impl PipelineData {
     /// converting `to json` or `to nuon`.
     /// `1..3 | to XX -> [1,2,3]`
     pub fn try_expand_range(self) -> Result<PipelineData, ShellError> {
-        let input = match self {
-            PipelineData::Value(v, metadata) => match v {
-                Value::Range { val, .. } => {
-                    let span = val.to.span();
-                    match (&val.to, &val.from) {
-                        (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
-                            if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
-                                return Err(ShellError::GenericError {
-                                    error: "Cannot create range".into(),
-                                    msg: "Infinity is not allowed when converting to json".into(),
-                                    span: Some(span),
-                                    help: Some("Consider removing infinity".into()),
-                                    inner: vec![],
-                                });
+        match self {
+            PipelineData::Value(v, metadata) => {
+                let span = v.span();
+                match v {
+                    Value::Range { val, .. } => {
+                        match val {
+                            Range::IntRange(range) => {
+                                if range.is_unbounded() {
+                                    return Err(ShellError::GenericError {
+                                        error: "Cannot create range".into(),
+                                        msg: "Unbounded ranges are not allowed when converting to this format".into(),
+                                        span: Some(span),
+                                        help: Some("Consider using ranges with valid start and end point.".into()),
+                                        inner: vec![],
+                                    });
+                                }
+                            }
+                            Range::FloatRange(range) => {
+                                if range.is_unbounded() {
+                                    return Err(ShellError::GenericError {
+                                        error: "Cannot create range".into(),
+                                        msg: "Unbounded ranges are not allowed when converting to this format".into(),
+                                        span: Some(span),
+                                        help: Some("Consider using ranges with valid start and end point.".into()),
+                                        inner: vec![],
+                                    });
+                                }
                             }
                         }
-                        (Value::Int { val, .. }, _) => {
-                            if *val == i64::MAX || *val == i64::MIN {
-                                return Err(ShellError::GenericError {
-                                    error: "Cannot create range".into(),
-                                    msg: "Unbounded ranges are not allowed when converting to json"
-                                        .into(),
-                                    span: Some(span),
-                                    help: Some(
-                                        "Consider using ranges with valid start and end point."
-                                            .into(),
-                                    ),
-                                    inner: vec![],
-                                });
-                            }
-                        }
-                        _ => (),
+                        let range_values: Vec<Value> = val.into_range_iter(span, None).collect();
+                        Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
-                    let range_values: Vec<Value> = val.into_range_iter(None)?.collect();
-                    PipelineData::Value(Value::list(range_values, span), None)
+                    x => Ok(PipelineData::Value(x, metadata)),
                 }
-                x => PipelineData::Value(x, metadata),
-            },
-            _ => self,
-        };
-        Ok(input)
+            }
+            _ => Ok(self),
+        }
     }
 
     /// Consume and print self data immediately.
@@ -948,26 +956,17 @@ impl IntoIterator for PipelineData {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            PipelineData::Value(v, metadata) => {
-                let span = v.span();
-                match v {
+            PipelineData::Value(value, metadata) => {
+                let span = value.span();
+                match value {
                     Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
                         ListStream::from_stream(vals.into_iter(), None),
                         metadata,
                     )),
-                    Value::Range { val, .. } => match val.into_range_iter(None) {
-                        Ok(iter) => PipelineIterator(PipelineData::ListStream(
-                            ListStream::from_stream(iter, None),
-                            metadata,
-                        )),
-                        Err(error) => PipelineIterator(PipelineData::ListStream(
-                            ListStream::from_stream(
-                                std::iter::once(Value::error(error, span)),
-                                None,
-                            ),
-                            metadata,
-                        )),
-                    },
+                    Value::Range { val, .. } => PipelineIterator(PipelineData::ListStream(
+                        ListStream::from_stream(val.into_range_iter(span, None), None),
+                        metadata,
+                    )),
                     x => PipelineIterator(PipelineData::Value(x, metadata)),
                 }
             }
