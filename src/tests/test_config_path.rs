@@ -62,6 +62,23 @@ fn run(playground: &mut Playground, command: &str) -> String {
         .to_string()
 }
 
+#[cfg(not(windows))]
+fn run_interactive_stderr(xdg_config_home: impl AsRef<Path>) -> String {
+    let child_output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "{:?} -i -c 'echo $nu.is-interactive'",
+            nu_test_support::fs::executable_path()
+        ))
+        .env("XDG_CONFIG_HOME", adjust_canonicalization(xdg_config_home))
+        .output()
+        .expect("Should have outputted");
+
+    return String::from_utf8_lossy(&child_output.stderr)
+        .trim()
+        .to_string();
+}
+
 fn test_config_path_helper(playground: &mut Playground, config_dir_nushell: PathBuf) {
     // Create the config dir folder structure if it does not already exist
     if !config_dir_nushell.exists() {
@@ -229,7 +246,8 @@ fn test_xdg_config_empty() {
 #[test]
 fn test_xdg_config_bad() {
     Playground::setup("xdg_config_bad", |_, playground| {
-        playground.with_env("XDG_CONFIG_HOME", r#"mn2''6t\/k*((*&^//k//: "#);
+        let xdg_config_home = r#"mn2''6t\/k*((*&^//k//: "#;
+        playground.with_env("XDG_CONFIG_HOME", xdg_config_home);
 
         let actual = nu!("$nu.default-config-dir");
         let expected = dirs_next::config_dir().unwrap().join("nushell");
@@ -237,5 +255,29 @@ fn test_xdg_config_bad() {
             actual.out,
             adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
         );
+
+        #[cfg(not(windows))]
+        {
+            let stderr = run_interactive_stderr(xdg_config_home);
+            assert!(
+                stderr.contains("xdg_config_home_invalid"),
+                "stderr was {}",
+                stderr
+            );
+        }
+    });
+}
+
+/// Shouldn't complain if XDG_CONFIG_HOME is a symlink
+#[test]
+#[cfg(not(windows))]
+fn test_xdg_config_symlink() {
+    Playground::setup("xdg_config_symlink", |_, playground| {
+        let config_link = "config_link";
+
+        playground.symlink("real", config_link);
+
+        let stderr = run_interactive_stderr(playground.cwd().join(config_link));
+        assert!(stderr.is_empty(), "stderr was {}", stderr);
     });
 }
