@@ -189,15 +189,15 @@ fn command_eager(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo - fix test
-// #[cfg(test)]
-// mod test {
-//
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(CastDF {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&CastDF)?;
+        Ok(())
+    }
+}

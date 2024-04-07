@@ -190,9 +190,11 @@ pub mod test {
         // we need to cache values in the examples
         for example in &examples {
             if let Some(ref result) = example.result {
-                let obj = PolarsPluginObject::try_from_value(&plugin, result)?;
-                let id = obj.id();
-                plugin.cache.insert(None, id, obj).unwrap();
+                // if it's a polars plugin object, try to cache it
+                if let Ok(obj) = PolarsPluginObject::try_from_value(&plugin, result) {
+                    let id = obj.id();
+                    plugin.cache.insert(None, id, obj).unwrap();
+                }
             }
         }
 
