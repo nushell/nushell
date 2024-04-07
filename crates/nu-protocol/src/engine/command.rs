@@ -134,7 +134,7 @@ pub trait Command: Send + Sync + CommandClone {
         }
     }
 
-    fn stdio_redirect(&self) -> (Option<OutDest>, Option<OutDest>) {
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
     }
 }

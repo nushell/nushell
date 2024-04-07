@@ -496,7 +496,7 @@ pub fn eval_block<D: DebugContext>(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
-            let (next_out, next_err) = next.stdio_redirect(engine_state);
+            let (next_out, next_err) = next.pipe_redirection(engine_state);
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,

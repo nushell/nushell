@@ -56,16 +56,19 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<OutDest>, Option<OutDest>) {
+    pub fn pipe_redirection(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<OutDest>, Option<OutDest>) {
         // Usages of `$in` will be wrapped by a `collect` call by the parser,
         // so we do not have to worry about that when considering
         // which of the expressions below may consume pipeline output.
         match self {
-            Expr::Call(call) => engine_state.get_decl(call.decl_id).stdio_redirect(),
+            Expr::Call(call) => engine_state.get_decl(call.decl_id).pipe_redirection(),
             Expr::Subexpression(block_id) | Expr::Block(block_id) => engine_state
                 .get_block(*block_id)
-                .stdio_redirect(engine_state),
-            Expr::FullCellPath(cell_path) => cell_path.head.expr.stdio_redirect(engine_state),
+                .pipe_redirection(engine_state),
+            Expr::FullCellPath(cell_path) => cell_path.head.expr.pipe_redirection(engine_state),
             Expr::Bool(_)
             | Expr::Int(_)
             | Expr::Float(_)

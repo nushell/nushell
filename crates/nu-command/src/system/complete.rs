@@ -118,7 +118,7 @@ impl Command for Complete {
         }]
     }
 
-    fn stdio_redirect(&self) -> (Option<OutDest>, Option<OutDest>) {
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }

@@ -20,9 +20,12 @@ impl Block {
         self.pipelines.is_empty()
     }
 
-    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<OutDest>, Option<OutDest>) {
+    pub fn pipe_redirection(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Option<OutDest>, Option<OutDest>) {
         if let Some(first) = self.pipelines.first() {
-            first.stdio_redirect(engine_state)
+            first.pipe_redirection(engine_state)
         } else {
             (None, None)
         }
