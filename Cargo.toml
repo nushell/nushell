@@ -95,7 +95,7 @@ lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.5"
 lsp-types = "0.95.0"
 mach2 = "0.4"
-md5 = { version = "0.10", package = "md-5"}
+md5 = { version = "0.10", package = "md-5" }
 miette = "7.2"
 mime = "0.3"
 mime_guess = "2.0"
@@ -212,6 +212,7 @@ nu-test-support = { path = "./crates/nu-test-support", version = "0.92.2" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
 divan = "0.1.14"
+tango-bench = { git = "https://github.com/bazhenov/tango.git", branch = "dev" }
 pretty_assertions = "1.4"
 rstest = { workspace = true, default-features = false }
 serial_test = "3.0"
@@ -258,9 +259,8 @@ dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
 sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
 
 [profile.release]
-opt-level = "s"     # Optimize for size
-strip = "debuginfo"
-lto = "thin"
+opt-level = "s" # Optimize for size
+# lto = "thin"
 
 # build with `cargo build --profile profiling`
 # to analyze performance with tooling like linux perf
@@ -290,6 +290,7 @@ bench = false
 
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
+
 [[bench]]
-name = "benchmarks"
+name = "benchmark"
 harness = false
