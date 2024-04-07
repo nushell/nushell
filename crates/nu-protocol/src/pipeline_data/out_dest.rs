@@ -26,7 +26,7 @@ pub enum OutDest {
     /// This causes external commands to inherit nushell's stdout or stderr.
     Inherit,
     /// Redirect output to a file.
-    File(Arc<File>), // Arc<File>, since we sometimes need to clone `Stdoe` into iterators, etc.
+    File(Arc<File>), // Arc<File>, since we sometimes need to clone `OutDest` into iterators, etc.
 }
 
 impl From<File> for OutDest {
@@ -44,8 +44,8 @@ impl From<Arc<File>> for OutDest {
 impl TryFrom<&OutDest> for Stdio {
     type Error = io::Error;
 
-    fn try_from(stdoe: &OutDest) -> Result<Self, Self::Error> {
-        match stdoe {
+    fn try_from(out_dest: &OutDest) -> Result<Self, Self::Error> {
+        match out_dest {
             OutDest::Pipe | OutDest::Capture => Ok(Self::piped()),
             OutDest::Null => Ok(Self::null()),
             OutDest::Inherit => Ok(Self::inherit()),

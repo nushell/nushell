@@ -12,7 +12,7 @@ pub enum Redirection {
     ///
     /// This will only affect the last command of a block.
     /// This is created by pipes and pipe redirections (`|`, `e>|`, `o+e>|`, etc.),
-    /// or set by the next command in the pipeline (e.g., `ignore` sets stdout to [`Stdoe::Null`]).
+    /// or set by the next command in the pipeline (e.g., `ignore` sets stdout to [`OutDest::Null`]).
     Pipe(OutDest),
     /// A file redirection.
     ///
@@ -71,20 +71,20 @@ impl StackOutDest {
         }
     }
 
-    /// Returns the [`Stdoe`] to use for current command's stdout.
+    /// Returns the [`OutDest`] to use for current command's stdout.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stdout indicated by [`Stdoe::Inherit`].
+    /// otherwise it will be the process's stdout indicated by [`OutDest::Inherit`].
     pub(crate) fn stdout(&self) -> &OutDest {
         self.pipe_stdout.as_ref().unwrap_or(&self.stdout)
     }
 
-    /// Returns the [`Stdoe`] to use for current command's stderr.
+    /// Returns the [`OutDest`] to use for current command's stderr.
     ///
     /// This will be the pipe redirection if one is set,
     /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stderr indicated by [`Stdoe::Inherit`].
+    /// otherwise it will be the process's stderr indicated by [`OutDest::Inherit`].
     pub(crate) fn stderr(&self) -> &OutDest {
         self.pipe_stderr.as_ref().unwrap_or(&self.stderr)
     }
@@ -114,32 +114,33 @@ impl<'a> StackIoGuard<'a> {
         stdout: Option<Redirection>,
         stderr: Option<Redirection>,
     ) -> Self {
-        let stdoe = &mut stack.out_dest;
+        let out_dest = &mut stack.out_dest;
 
         let (old_pipe_stdout, old_parent_stdout) = match stdout {
             Some(Redirection::Pipe(stdout)) => {
-                let old = mem::replace(&mut stdoe.pipe_stdout, Some(stdout));
-                (old, stdoe.parent_stdout.take())
+                let old = mem::replace(&mut out_dest.pipe_stdout, Some(stdout));
+                (old, out_dest.parent_stdout.take())
             }
             Some(Redirection::File(file)) => {
                 let file = OutDest::from(file);
                 (
-                    mem::replace(&mut stdoe.pipe_stdout, Some(file.clone())),
-                    stdoe.push_stdout(file),
+                    mem::replace(&mut out_dest.pipe_stdout, Some(file.clone())),
+                    out_dest.push_stdout(file),
                 )
             }
-            None => (stdoe.pipe_stdout.take(), stdoe.parent_stdout.take()),
+            None => (out_dest.pipe_stdout.take(), out_dest.parent_stdout.take()),
         };
 
         let (old_pipe_stderr, old_parent_stderr) = match stderr {
             Some(Redirection::Pipe(stderr)) => {
-                let old = mem::replace(&mut stdoe.pipe_stderr, Some(stderr));
-                (old, stdoe.parent_stderr.take())
+                let old = mem::replace(&mut out_dest.pipe_stderr, Some(stderr));
+                (old, out_dest.parent_stderr.take())
             }
-            Some(Redirection::File(file)) => {
-                (stdoe.pipe_stderr.take(), stdoe.push_stderr(file.into()))
-            }
-            None => (stdoe.pipe_stderr.take(), stdoe.parent_stderr.take()),
+            Some(Redirection::File(file)) => (
+                out_dest.pipe_stderr.take(),
+                out_dest.push_stderr(file.into()),
+            ),
+            None => (out_dest.pipe_stderr.take(), out_dest.parent_stderr.take()),
         };
 
         StackIoGuard {
