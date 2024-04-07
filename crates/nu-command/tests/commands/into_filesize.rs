@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline, Outcome};
 
 #[test]
 fn into_filesize_int() {
@@ -60,4 +60,11 @@ fn into_filesize_negative_filesize() {
     let actual = nu!("-3kib | into filesize");
 
     assert!(actual.out.contains("-3.0 KiB"));
+}
+
+#[test]
+fn into_negative_filesize() {
+    let actual: Outcome = nu!("-1 | into filesize");
+
+    assert!(actual.out.contains("-1 B"));
 }
