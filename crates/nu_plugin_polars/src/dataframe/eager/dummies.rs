@@ -89,20 +89,20 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let drop_first: bool = call.has_flag("drop-first")?;
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let df = df
-        .as_ref()
-        .to_dummies(None, drop_first)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error calculating dummies".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: Some("The only allowed column types for dummies are String or Int".into()),
-            inner: vec![],
-        })?;
+    let polars_df =
+        df.as_ref()
+            .to_dummies(None, drop_first)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error calculating dummies".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: Some("The only allowed column types for dummies are String or Int".into()),
+                inner: vec![],
+            })?;
 
-    let df = NuDataFrame::new(false, df);
+    let df: NuDataFrame = polars_df.into();
     to_pipeline_data(plugin, engine, call.head, df)
 }
 

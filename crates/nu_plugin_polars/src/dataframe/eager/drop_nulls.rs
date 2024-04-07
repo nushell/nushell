@@ -109,7 +109,7 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let columns: Option<Vec<Value>> = call.opt(0)?;
 
@@ -133,7 +133,7 @@ fn command(
             help: None,
             inner: vec![],
         })?;
-    let df = NuDataFrame::new(false, polars_df);
+    let df = NuDataFrame::new(df.from_lazy, polars_df);
     to_pipeline_data(plugin, engine, call.head, df)
 }
 

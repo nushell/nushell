@@ -1,4 +1,4 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::PolarsPlugin;
 
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -53,7 +53,7 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let names: Vec<Value> = df
         .as_ref()

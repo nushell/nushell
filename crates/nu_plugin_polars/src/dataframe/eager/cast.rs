@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{str_to_dtype, to_pipeline_data, NuExpression, NuLazyFrame},
-    values::CustomValueSupport,
+    values::{cant_convert_err, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -51,6 +51,39 @@ impl PluginCommand for CastDF {
             .category(Category::Custom("dataframe".into()))
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Cast a column in a dataframe to a different dtype",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars cast u8 a | polars schema",
+                result: Some(Value::record(
+                    record! {
+                        "a" => Value::string("u8", Span::test_data()),
+                        "b" => Value::string("i64", Span::test_data()),
+                    },
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Cast a column in a lazy dataframe to a different dtype",
+                example:
+                    "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
+                result: Some(Value::record(
+                    record! {
+                        "a" => Value::string("u8", Span::test_data()),
+                        "b" => Value::string("i64", Span::test_data()),
+                    },
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Cast a column in a expression to a different dtype",
+                example: r#"[[a b]; [1 2] [1 4]] | polars into-df | polars group-by a | polars agg [ (polars col b | polars cast u8 | polars min | polars as "b_min") ] | polars schema"#,
+                result: None,
+            },
+        ]
+    }
+
     fn run(
         &self,
         plugin: &Self::Plugin,
@@ -58,65 +91,32 @@ impl PluginCommand for CastDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-        Example {
-            description: "Cast a column in a dataframe to a different dtype",
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars cast u8 a | polars schema",
-            result: Some(Value::record(
-                record! {
-                    "a" => Value::string("u8", Span::test_data()),
-                    "b" => Value::string("i64", Span::test_data()),
-                },
-                Span::test_data(),
+        let value = input.into_value(call.head);
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                let (dtype, column_nm) = df_args(call)?;
+                command_lazy(plugin, engine, call, column_nm, dtype, lazy)
+            }
+            PolarsPluginObject::NuDataFrame(df) => {
+                let (dtype, column_nm) = df_args(call)?;
+                command_eager(plugin, engine, call, column_nm, dtype, df)
+            }
+            PolarsPluginObject::NuExpression(expr) => {
+                let dtype: String = call.req(0)?;
+                let dtype = str_to_dtype(&dtype, call.head)?;
+                let expr: NuExpression = expr.to_polars().cast(dtype).into();
+                to_pipeline_data(plugin, engine, call.head, expr)
+            }
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
             )),
-        },
-        Example {
-            description: "Cast a column in a lazy dataframe to a different dtype",
-            example:
-                "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
-            result: Some(Value::record(
-                record! {
-                    "a" => Value::string("u8", Span::test_data()),
-                    "b" => Value::string("i64", Span::test_data()),
-                },
-                Span::test_data(),
-            )),
-        },
-        Example {
-            description: "Cast a column in a expression to a different dtype",
-            example: r#"[[a b]; [1 2] [1 4]] | polars into-df | polars group-by a | polars agg [ (polars col b | polars cast u8 | polars min | polars as "b_min") ] | polars schema"#,
-            result: None,
-        },
-    ]
-    }
-}
-
-fn command(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head);
-    if NuLazyFrame::can_downcast(&value) {
-        let (dtype, column_nm) = df_args(call)?;
-        let df = NuLazyFrame::try_from_value(plugin, &value)?;
-        command_lazy(plugin, engine, call, column_nm, dtype, df)
-    } else if NuDataFrame::can_downcast(&value) {
-        let (dtype, column_nm) = df_args(call)?;
-        let df = NuDataFrame::try_from_value(plugin, &value)?;
-        command_eager(plugin, engine, call, column_nm, dtype, df)
-    } else {
-        let dtype: String = call.req(0)?;
-        let dtype = str_to_dtype(&dtype, call.head)?;
-
-        let expr = NuExpression::try_from_value(plugin, &value)?;
-        let expr: NuExpression = expr.to_polars().cast(dtype).into();
-        to_pipeline_data(plugin, engine, call.head, expr)
+        }
+        .map_err(LabeledError::from)
     }
 }
 

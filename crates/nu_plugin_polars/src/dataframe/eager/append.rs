@@ -125,7 +125,7 @@ fn command(
         Axis::Row
     };
 
-    let df_other = NuDataFrame::try_from_value(plugin, &other)?;
+    let df_other = NuDataFrame::try_from_value_coerce(plugin, &other, call.head)?;
     let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
     let df = df.append_df(&df_other, axis, call.head)?;
 

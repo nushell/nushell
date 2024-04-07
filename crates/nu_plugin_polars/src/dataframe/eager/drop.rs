@@ -73,7 +73,7 @@ fn command(
     let columns: Vec<Value> = call.rest(0)?;
     let (col_string, col_span) = convert_columns(columns, call.head)?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let new_df = col_string
         .first()
