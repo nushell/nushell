@@ -12,24 +12,30 @@ use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
+#[derive(Clone)]
+pub struct PathBuiltFromString {
+    parts: Vec<String>,
+    isdir: bool,
+}
+
 fn complete_rec(
     partial: &[String],
-    built: &[String],
+    built: &PathBuiltFromString,
     cwd: &Path,
     options: &CompletionOptions,
     dir: bool,
     isdir: bool,
-) -> Vec<Vec<String>> {
+) -> Vec<PathBuiltFromString> {
     let mut completions = vec![];
 
     let mut built_path = cwd.to_path_buf();
-    for part in built {
+    for part in &built.parts {
         built_path.push(part);
     }
 
     if partial.first().is_some_and(|s| s == "..") {
-        let mut built = built.to_vec();
-        built.push("..".to_string());
+        let mut built = built.clone();
+        built.parts.push("..".to_string());
         return complete_rec(&partial[1..], &built, cwd, options, dir, isdir);
     }
 
@@ -40,8 +46,9 @@ fn complete_rec(
     for entry in result.filter_map(|e| e.ok()) {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
         let path = entry.path();
-        let mut built = built.to_vec();
-        built.push(entry_name.clone());
+        let mut built = built.clone();
+        built.parts.push(entry_name.clone());
+        built.isdir = path.is_dir();
 
         if !dir || path.is_dir() {
             match partial.split_first() {
@@ -77,16 +84,16 @@ enum OriginalCwd {
 }
 
 impl OriginalCwd {
-    fn apply(&self, mut p: Vec<String>) -> String {
+    fn apply(&self, mut p: PathBuiltFromString) -> String {
         match self {
             Self::None => {}
-            Self::Home => p.insert(0, "~".to_string()),
-            Self::Prefix(s) => p.insert(0, s.clone()),
-            Self::Local => p.insert(0, ".".to_string()),
+            Self::Home => p.parts.insert(0, "~".to_string()),
+            Self::Prefix(s) => p.parts.insert(0, s.clone()),
+            Self::Local => p.parts.insert(0, ".".to_string()),
         };
 
-        let mut ret = p.join(MAIN_SEPARATOR_STR);
-        if Path::new(&ret).is_dir() {
+        let mut ret = p.parts.join(MAIN_SEPARATOR_STR);
+        if p.isdir {
             ret.push(SEP);
         }
         ret
@@ -198,7 +205,10 @@ pub fn complete_item(
 
     complete_rec(
         partial.as_slice(),
-        &[],
+        &PathBuiltFromString {
+            parts: vec![],
+            isdir: false,
+        },
         &cwd,
         options,
         want_directory,
