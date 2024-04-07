@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline, Outcome};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn into_filesize_int() {

@@ -110,7 +110,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert negative file size to filesize",
                 example: "-1KB | into filesize",
-                result: Some(Value::test_filesize(-1000))
+                result: Some(Value::test_filesize(-1000)),
             },
         ]
     }
