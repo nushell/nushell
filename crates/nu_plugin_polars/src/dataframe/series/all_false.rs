@@ -47,8 +47,7 @@ impl PluginCommand for AllFalse {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("should be able to get base value for dataframe"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -108,14 +107,13 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(AllFalse {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&AllFalse)
+    }
+}
