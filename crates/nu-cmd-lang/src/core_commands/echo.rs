@@ -20,10 +20,11 @@ impl Command for Echo {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"Unlike `print`, which prints unstructured text to stdout, `echo` does not print to stdout. When given no arguments,
-it returns an empty string. When given one argument, it returns it as a nushell value. Otherwise,
-it returns a list of the arguments. There is usually little reason to use this
-over just writing the values as-is."#
+        r#"Unlike `print`, which prints unstructured text to stdout, `echo` is like an
+identity function and simply returns its arguments. When given no arguments,
+it returns an empty string. When given one argument, it returns it as a
+nushell value. Otherwise, it returns a list of the arguments. There is usually
+little reason to use this over just writing the values as-is."#
     }
 
     fn run(
