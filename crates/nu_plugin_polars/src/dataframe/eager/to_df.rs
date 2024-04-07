@@ -61,8 +61,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -91,8 +90,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -111,8 +109,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -131,8 +128,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -156,8 +152,7 @@ impl PluginCommand for ToDataFrame {
                         }
                     ], Span::test_data())
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -169,8 +164,7 @@ impl PluginCommand for ToDataFrame {
                         Series::new("c", [3i64, 3]),
                     ], Span::test_data())
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             }
         ]
@@ -195,16 +189,14 @@ impl PluginCommand for ToDataFrame {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use crate::test::test_polars_plugin_command;
 
     use super::*;
-    use nu_plugin_test_support::PluginTest;
     use nu_protocol::ShellError;
 
     #[test]
     #[ignore = "fix tests"]
     fn test_into_df() -> Result<(), ShellError> {
-        PluginTest::new("polars", Arc::new(PolarsPlugin::default()))?
-            .test_command_examples(&ToDataFrame)
+        test_polars_plugin_command(&ToDataFrame)
     }
 }

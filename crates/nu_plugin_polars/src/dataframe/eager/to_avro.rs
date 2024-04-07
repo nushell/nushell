@@ -8,7 +8,6 @@ use nu_protocol::{
 use polars_io::avro::{AvroCompression, AvroWriter};
 use polars_io::SerWriter;
 
-use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 
 use super::super::values::NuDataFrame;
@@ -88,7 +87,7 @@ fn command(
     let file_name: Spanned<PathBuf> = call.req(0)?;
     let compression = get_compression(call)?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),

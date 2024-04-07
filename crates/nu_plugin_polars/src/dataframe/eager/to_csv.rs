@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 use polars::prelude::{CsvWriter, SerWriter};
 
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::PolarsPlugin;
 
 use super::super::values::NuDataFrame;
 
@@ -74,7 +74,7 @@ fn command(
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
