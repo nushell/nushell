@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 use polars::prelude::{JsonWriter, SerWriter};
 
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::PolarsPlugin;
 
 use super::super::values::NuDataFrame;
 
@@ -59,7 +59,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(0)?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),

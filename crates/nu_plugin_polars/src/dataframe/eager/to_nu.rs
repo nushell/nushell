@@ -132,20 +132,13 @@ fn expression_command(
     Ok(PipelineData::Value(value, None))
 }
 
-// todo - fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::expressions::ExprCol;
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples_dataframe_input() {
-//         test_dataframe(vec![Box::new(ToNu {})])
-//     }
-//
-//     #[test]
-//     fn test_examples_expression_input() {
-//         test_dataframe(vec![Box::new(ToNu {}), Box::new(ExprCol {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ToNu)
+    }
+}

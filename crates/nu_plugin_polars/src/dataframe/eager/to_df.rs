@@ -195,7 +195,6 @@ mod test {
     use nu_protocol::ShellError;
 
     #[test]
-    #[ignore = "fix tests"]
     fn test_into_df() -> Result<(), ShellError> {
         test_polars_plugin_command(&ToDataFrame)
     }
