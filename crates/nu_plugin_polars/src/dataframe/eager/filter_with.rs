@@ -56,8 +56,7 @@ impl PluginCommand for FilterWith {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -72,8 +71,7 @@ impl PluginCommand for FilterWith {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -155,14 +153,13 @@ fn command_lazy(
     to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::expressions::ExprCol;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(FilterWith {}), Box::new(ExprCol {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&FilterWith)
+    }
+}
