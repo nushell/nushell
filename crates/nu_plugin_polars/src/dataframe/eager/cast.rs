@@ -197,7 +197,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&CastDF)?;
-        Ok(())
+        test_polars_plugin_command(&CastDF)
     }
 }

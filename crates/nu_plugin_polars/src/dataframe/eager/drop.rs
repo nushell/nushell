@@ -122,7 +122,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&DropDF)?;
-        Ok(())
+        test_polars_plugin_command(&DropDF)
     }
 }
