@@ -1,11 +1,11 @@
-use std::ops::{Add, Div, Mul, Rem, Sub};
-
 use crate::{
     values::{CustomValueSupport, PolarsPluginCustomValue},
-    PolarsPlugin,
+    Cacheable, PolarsPlugin,
 };
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
 use super::NuExpression;
+use nu_plugin::EngineInterface;
 use nu_protocol::{
     ast::{Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
@@ -56,7 +56,7 @@ impl CustomValue for NuExpressionCustomValue {
 }
 
 fn compute_with_value(
-    plugin: &PolarsPlugin,
+    (plugin, engine): (&PolarsPlugin, &EngineInterface),
     left: &NuExpression,
     lhs_span: Span,
     operator: Operator,
@@ -74,9 +74,15 @@ fn compute_with_value(
             })?;
 
             match rhs.as_ref() {
-                polars::prelude::Expr::Literal(..) => {
-                    with_operator(operator, left, rhs, lhs_span, right.span(), op)
-                }
+                polars::prelude::Expr::Literal(..) => with_operator(
+                    (plugin, engine),
+                    operator,
+                    left,
+                    rhs,
+                    lhs_span,
+                    right.span(),
+                    op,
+                ),
                 _ => Err(ShellError::TypeMismatch {
                     err_message: "Only literal expressions or number".into(),
                     span: right.span(),
@@ -85,12 +91,21 @@ fn compute_with_value(
         }
         _ => {
             let rhs = NuExpression::try_from_value(plugin, right)?;
-            with_operator(operator, left, &rhs, lhs_span, right.span(), op)
+            with_operator(
+                (plugin, engine),
+                operator,
+                left,
+                &rhs,
+                lhs_span,
+                right.span(),
+                op,
+            )
         }
     }
 }
 
 fn with_operator(
+    (plugin, engine): (&PolarsPlugin, &EngineInterface),
     operator: Operator,
     left: &NuExpression,
     right: &NuExpression,
@@ -99,35 +114,53 @@ fn with_operator(
     op_span: Span,
 ) -> Result<Value, ShellError> {
     match operator {
-        Operator::Math(Math::Plus) => apply_arithmetic(left, right, lhs_span, Add::add),
-        Operator::Math(Math::Minus) => apply_arithmetic(left, right, lhs_span, Sub::sub),
-        Operator::Math(Math::Multiply) => apply_arithmetic(left, right, lhs_span, Mul::mul),
-        Operator::Math(Math::Divide) => apply_arithmetic(left, right, lhs_span, Div::div),
-        Operator::Math(Math::Modulo) => apply_arithmetic(left, right, lhs_span, Rem::rem),
-        Operator::Math(Math::FloorDivision) => apply_arithmetic(left, right, lhs_span, Div::div),
+        Operator::Math(Math::Plus) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Add::add)
+        }
+        Operator::Math(Math::Minus) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Sub::sub)
+        }
+        Operator::Math(Math::Multiply) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Mul::mul)
+        }
+        Operator::Math(Math::Divide) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Div::div)
+        }
+        Operator::Math(Math::Modulo) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Rem::rem)
+        }
+        Operator::Math(Math::FloorDivision) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Div::div)
+        }
         Operator::Comparison(Comparison::Equal) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::eq)
+            .cache(plugin, engine)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::NotEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::neq)
+            .cache(plugin, engine)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::GreaterThan) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::gt)
+            .cache(plugin, engine)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::GreaterThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::gt_eq)
+            .cache(plugin, engine)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::LessThan) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt)
+            .cache(plugin, engine)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::LessThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt_eq)
+            .cache(plugin, engine)?
             .into_value(lhs_span)),
         _ => Err(ShellError::OperatorMismatch {
             op_span,
@@ -140,6 +173,8 @@ fn with_operator(
 }
 
 fn apply_arithmetic<F>(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
     left: &NuExpression,
     right: &NuExpression,
     span: Span,
@@ -150,7 +185,7 @@ where
 {
     let expr: NuExpression = f(left.as_ref().clone(), right.as_ref().clone()).into();
 
-    Ok(expr.into_value(span))
+    Ok(expr.cache(plugin, engine)?.into_value(span))
 }
 
 impl PolarsPluginCustomValue for NuExpressionCustomValue {
@@ -159,14 +194,14 @@ impl PolarsPluginCustomValue for NuExpressionCustomValue {
     fn custom_value_operation(
         &self,
         plugin: &crate::PolarsPlugin,
-        _engine: &nu_plugin::EngineInterface,
+        engine: &nu_plugin::EngineInterface,
         lhs_span: Span,
         operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
         right: Value,
     ) -> Result<Value, ShellError> {
         let expr = NuExpression::try_from_custom_value(plugin, self)?;
         compute_with_value(
-            plugin,
+            (plugin, engine),
             &expr,
             lhs_span,
             operator.item,

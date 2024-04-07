@@ -1,7 +1,7 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
+    values::CustomValueSupport,
+    Cacheable, PolarsPlugin,
 };
 
 use super::super::values::NuLazyFrame;
@@ -50,8 +50,7 @@ impl PluginCommand for LazyCollect {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -65,18 +64,20 @@ impl PluginCommand for LazyCollect {
     ) -> Result<PipelineData, LabeledError> {
         let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)?;
         let eager = lazy.collect(call.head)?;
-        to_pipeline_data(plugin, engine, call.head, eager).map_err(LabeledError::from)
+        Ok(PipelineData::Value(
+            eager.cache(plugin, engine)?.into_value(call.head),
+            None,
+        ))
     }
 }
 
-// todo - fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazyCollect {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&LazyCollect)
+    }
+}

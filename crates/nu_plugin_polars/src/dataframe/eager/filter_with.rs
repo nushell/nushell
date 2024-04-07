@@ -7,7 +7,10 @@ use polars::prelude::LazyFrame;
 
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject},
+    values::{
+        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
+        PolarsPluginType,
+    },
     PolarsPlugin,
 };
 
@@ -85,17 +88,15 @@ impl PluginCommand for FilterWith {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
-
-        match PolarsPluginObject::try_from_value(plugin, &value).map_err(LabeledError::from)? {
-            PolarsPluginObject::NuDataFrame(df) => {
-                command_eager(plugin, engine, call, df).map_err(LabeledError::from)
-            }
-            PolarsPluginObject::NuLazyFrame(lazy) => {
-                command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
-            }
-            _ => Err(LabeledError::new("Unsupported type: {value}")
-                .with_label("Unsupported Type", call.head)),
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
+            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
+            )),
         }
+        .map_err(LabeledError::from)
     }
 }
 
@@ -115,7 +116,8 @@ fn command_eager(
 
         to_pipeline_data(plugin, engine, call.head, lazy)
     } else {
-        let mask = NuDataFrame::try_from_value(plugin, &mask_value)?.as_series(mask_span)?;
+        let mask = NuDataFrame::try_from_value_coerce(plugin, &mask_value, mask_span)?
+            .as_series(mask_span)?;
         let mask = mask.bool().map_err(|e| ShellError::GenericError {
             error: "Error casting to bool".into(),
             msg: e.to_string(),
@@ -124,7 +126,7 @@ fn command_eager(
             inner: vec![],
         })?;
 
-        let df = df
+        let polars_df = df
             .as_ref()
             .filter(mask)
             .map_err(|e| ShellError::GenericError {
@@ -134,7 +136,7 @@ fn command_eager(
                 help: Some("The only allowed column types for dummies are String or Int".into()),
                 inner: vec![],
             })?;
-        let df = NuDataFrame::new(false, df);
+        let df = NuDataFrame::new(df.from_lazy, polars_df);
         to_pipeline_data(plugin, engine, call.head, df)
     }
 }
@@ -147,9 +149,7 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     let expr: Value = call.req(0)?;
     let expr = NuExpression::try_from_value(plugin, &expr)?;
-
     let lazy = lazy.apply_with_expr(expr, LazyFrame::filter);
-
     to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
@@ -159,7 +159,6 @@ mod test {
     use crate::test::test_polars_plugin_command;
 
     #[test]
-    #[ignore = "still broken"]
     fn test_examples() -> Result<(), ShellError> {
         test_polars_plugin_command(&FilterWith)
     }

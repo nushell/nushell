@@ -60,7 +60,6 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
     ) -> Result<Value, LabeledError> {
-        plugin_debug!("Polars plugin custom_value_to_base_value called");
         let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
             CustomValueType::NuDataFrame(cv) => cv.custom_value_to_base_value(self, engine),
             CustomValueType::NuLazyFrame(cv) => cv.custom_value_to_base_value(self, engine),

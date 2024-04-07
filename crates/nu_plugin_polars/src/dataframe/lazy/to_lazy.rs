@@ -1,4 +1,4 @@
-use crate::{dataframe::values::NuSchema, values::to_pipeline_data, PolarsPlugin};
+use crate::{dataframe::values::NuSchema, values::CustomValueSupport, Cacheable, PolarsPlugin};
 
 use super::super::values::{NuDataFrame, NuLazyFrame};
 
@@ -53,6 +53,9 @@ impl PluginCommand for ToLazyFrame {
 
         let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
         let lazy = NuLazyFrame::from_dataframe(df);
-        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+        Ok(PipelineData::Value(
+            lazy.cache(plugin, engine)?.into_value(call.head),
+            None,
+        ))
     }
 }
