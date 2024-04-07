@@ -109,7 +109,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert string with unit to filesize",
-                example: "-1KB | into filesize",
+                example: "'-1KB' | into filesize",
                 result: Some(Value::test_filesize(-1000)),
             },
         ]
