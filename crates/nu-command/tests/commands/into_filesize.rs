@@ -64,7 +64,7 @@ fn into_filesize_negative_filesize() {
 
 #[test]
 fn into_negative_filesize() {
-    let actual = nu!("-1 | into filesize");
+    let actual = nu!("'-1' | into filesize");
 
     assert!(actual.out.contains("-1 B"));
 }
