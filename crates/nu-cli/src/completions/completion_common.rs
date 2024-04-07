@@ -57,9 +57,6 @@ fn complete_rec(
                         if !rest.is_empty() || isdir {
                             completions
                                 .extend(complete_rec(rest, &built, cwd, options, dir, isdir));
-                            if entry_name.eq(base) {
-                                break;
-                            }
                         } else {
                             completions.push(built);
                         }
@@ -198,8 +195,7 @@ pub fn complete_item(
             Component::ParentDir => {
                 partial.push("..".to_string());
             }
-            Component::Normal(c) => partial.push(c.to_string_lossy().into_owned()),
-            _ => {}
+            _ => partial.push(component.as_os_str().to_string_lossy().into_owned()),
         }
     }
 
