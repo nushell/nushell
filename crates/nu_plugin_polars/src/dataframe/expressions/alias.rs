@@ -76,20 +76,13 @@ impl PluginCommand for ExprAlias {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::eager::ToNu;
-//     use crate::dataframe::expressions::ExprCol;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(ExprAlias {}),
-//             Box::new(ExprCol {}),
-//             Box::new(ToNu {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&ExprAlias)
+    }
+}

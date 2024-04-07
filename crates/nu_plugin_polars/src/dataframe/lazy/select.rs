@@ -49,8 +49,7 @@ impl PluginCommand for LazySelect {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -73,14 +72,14 @@ impl PluginCommand for LazySelect {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazySelect {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::test::test_polars_plugin_command;
+
+    use super::*;
+
+    #[test]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&LazySelect)
+    }
+}

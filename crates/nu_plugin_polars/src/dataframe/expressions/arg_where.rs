@@ -44,8 +44,7 @@ impl PluginCommand for ExprArgWhere {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -68,20 +67,14 @@ impl PluginCommand for ExprArgWhere {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::expressions::ExprAlias;
-//     use crate::dataframe::lazy::LazySelect;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(ExprArgWhere {}),
-//             Box::new(ExprAlias {}),
-//             Box::new(LazySelect {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    #[ignore = "still broken"]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&ExprArgWhere)
+    }
+}
