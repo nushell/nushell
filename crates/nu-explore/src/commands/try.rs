@@ -1,13 +1,10 @@
-use std::io::{Error, ErrorKind, Result};
-
+use super::{default_color_list, ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
+use crate::views::InteractiveView;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-
-use crate::views::InteractiveView;
-
-use super::{default_color_list, ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
+use std::io::{Error, ErrorKind, Result};
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
@@ -67,7 +64,7 @@ impl ViewCommand for TryCmd {
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
-        self.command = args.trim().to_owned();
+        args.trim().clone_into(&mut self.command);
 
         Ok(())
     }

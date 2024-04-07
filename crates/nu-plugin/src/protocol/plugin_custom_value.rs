@@ -1,9 +1,11 @@
-use std::{cmp::Ordering, convert::Infallible, sync::Arc};
+use std::{cmp::Ordering, sync::Arc};
 
-use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Value};
+use crate::{
+    plugin::{PluginInterface, PluginSource},
+    util::with_custom_values_in,
+};
+use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
-
-use crate::plugin::{PluginInterface, PluginSource};
 
 #[cfg(test)]
 mod tests;
@@ -52,10 +54,16 @@ fn is_false(b: &bool) -> bool {
     !b
 }
 
+impl PluginCustomValue {
+    pub fn into_value(self, span: Span) -> Value {
+        Value::custom(Box::new(self), span)
+    }
+}
+
 #[typetag::serde]
 impl CustomValue for PluginCustomValue {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        self.clone().into_value(span)
     }
 
     fn type_name(&self) -> String {
@@ -129,6 +137,10 @@ impl CustomValue for PluginCustomValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl PluginCustomValue {
@@ -166,9 +178,13 @@ impl PluginCustomValue {
 
     /// Which plugin the custom value came from. This is not defined on the plugin side. The engine
     /// side is responsible for maintaining it, and it is not sent over the serialization boundary.
-    #[cfg(test)]
-    pub(crate) fn source(&self) -> &Option<Arc<PluginSource>> {
+    pub fn source(&self) -> &Option<Arc<PluginSource>> {
         &self.source
+    }
+
+    /// Set the [`PluginSource`] for this [`PluginCustomValue`].
+    pub fn set_source(&mut self, source: Option<Arc<PluginSource>>) {
+        self.source = source;
     }
 
     /// Create the [`PluginCustomValue`] with the given source.
@@ -208,7 +224,7 @@ impl PluginCustomValue {
 
     /// Serialize a custom value into a [`PluginCustomValue`]. This should only be done on the
     /// plugin side.
-    pub(crate) fn serialize_from_custom_value(
+    pub fn serialize_from_custom_value(
         custom_value: &dyn CustomValue,
         span: Span,
     ) -> Result<PluginCustomValue, ShellError> {
@@ -224,7 +240,7 @@ impl PluginCustomValue {
 
     /// Deserialize a [`PluginCustomValue`] into a `Box<dyn CustomValue>`. This should only be done
     /// on the plugin side.
-    pub(crate) fn deserialize_to_custom_value(
+    pub fn deserialize_to_custom_value(
         &self,
         span: Span,
     ) -> Result<Box<dyn CustomValue>, ShellError> {
@@ -236,84 +252,55 @@ impl PluginCustomValue {
         })
     }
 
-    /// Add a [`PluginSource`] to all [`PluginCustomValue`]s within a value, recursively.
-    pub fn add_source(value: &mut Value, source: &Arc<PluginSource>) {
-        // This can't cause an error.
-        let _: Result<(), Infallible> = value.recurse_mut(&mut |value| {
-            let span = value.span();
-            match value {
-                // Set source on custom value
-                Value::CustomValue { ref val, .. } => {
-                    if let Some(custom_value) = val.as_any().downcast_ref::<PluginCustomValue>() {
-                        // Since there's no `as_mut_any()`, we have to copy the whole thing
-                        let mut custom_value = custom_value.clone();
-                        custom_value.source = Some(source.clone());
-                        *value = Value::custom_value(Box::new(custom_value), span);
-                    }
-                    Ok(())
-                }
-                // LazyRecord could generate other values, but we shouldn't be receiving it anyway
-                //
-                // It's better to handle this as a bug
-                Value::LazyRecord { .. } => unimplemented!("add_source for LazyRecord"),
-                _ => Ok(()),
-            }
-        });
+    /// Add a [`PluginSource`] to the given [`CustomValue`] if it is a [`PluginCustomValue`].
+    pub fn add_source(value: &mut dyn CustomValue, source: &Arc<PluginSource>) {
+        if let Some(custom_value) = value.as_mut_any().downcast_mut::<PluginCustomValue>() {
+            custom_value.set_source(Some(source.clone()));
+        }
     }
 
-    /// Check that all [`CustomValue`]s present within the `value` are [`PluginCustomValue`]s that
-    /// come from the given `source`, and return an error if not.
+    /// Add a [`PluginSource`] to all [`PluginCustomValue`]s within the value, recursively.
+    pub fn add_source_in(value: &mut Value, source: &Arc<PluginSource>) -> Result<(), ShellError> {
+        with_custom_values_in(value, |custom_value| {
+            Self::add_source(custom_value.item, source);
+            Ok::<_, ShellError>(())
+        })
+    }
+
+    /// Check that a [`CustomValue`] is a [`PluginCustomValue`] that come from the given `source`,
+    /// and return an error if not.
     ///
     /// This method will collapse `LazyRecord` in-place as necessary to make the guarantee,
     /// since `LazyRecord` could return something different the next time it is called.
-    pub(crate) fn verify_source(
-        value: &mut Value,
+    pub fn verify_source(
+        value: Spanned<&dyn CustomValue>,
         source: &PluginSource,
     ) -> Result<(), ShellError> {
-        value.recurse_mut(&mut |value| {
-            let span = value.span();
-            match value {
-                // Set source on custom value
-                Value::CustomValue { val, .. } => {
-                    if let Some(custom_value) = val.as_any().downcast_ref::<PluginCustomValue>() {
-                        if custom_value
-                            .source
-                            .as_ref()
-                            .map(|s| s.is_compatible(source))
-                            .unwrap_or(false)
-                        {
-                            Ok(())
-                        } else {
-                            Err(ShellError::CustomValueIncorrectForPlugin {
-                                name: custom_value.name().to_owned(),
-                                span,
-                                dest_plugin: source.name().to_owned(),
-                                src_plugin: custom_value
-                                    .source
-                                    .as_ref()
-                                    .map(|s| s.name().to_owned()),
-                            })
-                        }
-                    } else {
-                        // Only PluginCustomValues can be sent
-                        Err(ShellError::CustomValueIncorrectForPlugin {
-                            name: val.type_name(),
-                            span,
-                            dest_plugin: source.name().to_owned(),
-                            src_plugin: None,
-                        })
-                    }
-                }
-                // LazyRecord would be a problem for us, since it could return something else the
-                // next time, and we have to collect it anyway to serialize it. Collect it in place,
-                // and then verify the source of the result
-                Value::LazyRecord { val, .. } => {
-                    *value = val.collect()?;
-                    Ok(())
-                }
-                _ => Ok(()),
+        if let Some(custom_value) = value.item.as_any().downcast_ref::<PluginCustomValue>() {
+            if custom_value
+                .source
+                .as_ref()
+                .map(|s| s.is_compatible(source))
+                .unwrap_or(false)
+            {
+                Ok(())
+            } else {
+                Err(ShellError::CustomValueIncorrectForPlugin {
+                    name: custom_value.name().to_owned(),
+                    span: value.span,
+                    dest_plugin: source.name().to_owned(),
+                    src_plugin: custom_value.source.as_ref().map(|s| s.name().to_owned()),
+                })
             }
-        })
+        } else {
+            // Only PluginCustomValues can be sent
+            Err(ShellError::CustomValueIncorrectForPlugin {
+                name: value.item.type_name(),
+                span: value.span,
+                dest_plugin: source.name().to_owned(),
+                src_plugin: None,
+            })
+        }
     }
 
     /// Convert all plugin-native custom values to [`PluginCustomValue`] within the given `value`,
@@ -322,13 +309,13 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     if val.as_any().downcast_ref::<PluginCustomValue>().is_some() {
                         // Already a PluginCustomValue
                         Ok(())
                     } else {
                         let serialized = Self::serialize_from_custom_value(&**val, span)?;
-                        *value = Value::custom_value(Box::new(serialized), span);
+                        *value = Value::custom(Box::new(serialized), span);
                         Ok(())
                     }
                 }
@@ -348,10 +335,10 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     if let Some(val) = val.as_any().downcast_ref::<PluginCustomValue>() {
                         let deserialized = val.deserialize_to_custom_value(span)?;
-                        *value = Value::custom_value(deserialized, span);
+                        *value = Value::custom(deserialized, span);
                         Ok(())
                     } else {
                         // Already not a PluginCustomValue
@@ -369,11 +356,11 @@ impl PluginCustomValue {
     }
 
     /// Render any custom values in the `Value` using `to_base_value()`
-    pub(crate) fn render_to_base_value_in(value: &mut Value) -> Result<(), ShellError> {
+    pub fn render_to_base_value_in(value: &mut Value) -> Result<(), ShellError> {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::CustomValue { ref val, .. } => {
+                Value::Custom { ref val, .. } => {
                     *value = val.to_base_value(span)?;
                     Ok(())
                 }

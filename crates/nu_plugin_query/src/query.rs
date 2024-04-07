@@ -1,9 +1,6 @@
-use crate::query_json::QueryJson;
-use crate::query_web::QueryWeb;
-use crate::query_xml::QueryXml;
-
+use crate::{query_json::QueryJson, query_web::QueryWeb, query_xml::QueryXml};
 use nu_plugin::{EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, PluginSignature, Value};
+use nu_protocol::{Category, LabeledError, Signature, Value};
 
 #[derive(Default)]
 pub struct Query;
@@ -35,10 +32,16 @@ pub struct QueryCommand;
 impl SimplePluginCommand for QueryCommand {
     type Plugin = Query;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("query")
-            .usage("Show all the query commands")
-            .category(Category::Filters)
+    fn name(&self) -> &str {
+        "query"
+    }
+
+    fn usage(&self) -> &str {
+        "Show all the query commands"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(PluginCommand::name(self)).category(Category::Filters)
     }
 
     fn run(

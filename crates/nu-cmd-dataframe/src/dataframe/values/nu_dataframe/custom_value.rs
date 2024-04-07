@@ -17,7 +17,7 @@ impl CustomValue for NuDataFrame {
             from_lazy: false,
         };
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {
@@ -31,6 +31,10 @@ impl CustomValue for NuDataFrame {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
 
@@ -55,7 +59,7 @@ impl CustomValue for NuDataFrame {
 
     fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
         match other {
-            Value::CustomValue { val, .. } => val
+            Value::Custom { val, .. } => val
                 .as_any()
                 .downcast_ref::<Self>()
                 .and_then(|other| self.is_equal(other)),

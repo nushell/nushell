@@ -1,33 +1,39 @@
 use crate::{
     cool_custom_value::CoolCustomValue, second_custom_value::SecondCustomValue, CustomValuePlugin,
 };
-
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{
-    Category, LabeledError, PluginExample, PluginSignature, ShellError, Span, Value,
-};
+use nu_protocol::{Category, Example, LabeledError, ShellError, Signature, Span, Value};
 
 pub struct Update;
 
 impl SimplePluginCommand for Update {
     type Plugin = CustomValuePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("custom-value update")
-            .usage("PluginSignature for a plugin that updates a custom value")
-            .category(Category::Experimental)
-            .plugin_examples(vec![
-                PluginExample {
-                    example: "custom-value generate | custom-value update".into(),
-                    description: "Update a CoolCustomValue".into(),
-                    result: Some(CoolCustomValue::new("abcxyz").into_value(Span::test_data())),
-                },
-                PluginExample {
-                    example: "custom-value generate | custom-value update".into(),
-                    description: "Update a SecondCustomValue".into(),
-                    result: Some(CoolCustomValue::new("xyzabc").into_value(Span::test_data())),
-                },
-            ])
+    fn name(&self) -> &str {
+        "custom-value update"
+    }
+
+    fn usage(&self) -> &str {
+        "PluginSignature for a plugin that updates a custom value"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name()).category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                example: "custom-value generate | custom-value update",
+                description: "Update a CoolCustomValue",
+                result: Some(CoolCustomValue::new("abcxyz").into_value(Span::test_data())),
+            },
+            Example {
+                example: "custom-value generate2 | custom-value update",
+                description: "Update a SecondCustomValue",
+                result: Some(SecondCustomValue::new("xyzabc").into_value(Span::test_data())),
+            },
+        ]
     }
 
     fn run(
@@ -55,4 +61,12 @@ impl SimplePluginCommand for Update {
         }
         .into())
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("custom_values", crate::CustomValuePlugin::new().into())?
+        .test_command_examples(&Update)
 }

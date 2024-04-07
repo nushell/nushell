@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
-use nu_plugin::{Plugin, PluginDeclaration};
+use nu_plugin::{create_plugin_signature, Plugin, PluginDeclaration};
 use nu_protocol::{engine::StateWorkingSet, RegisteredPlugin, ShellError};
 
 use crate::{fake_persistent_plugin::FakePersistentPlugin, spawn_fake_plugin::spawn_fake_plugin};
@@ -15,7 +15,7 @@ pub fn fake_register(
     let reg_plugin_clone = reg_plugin.clone();
 
     for command in plugin.commands() {
-        let signature = command.signature();
+        let signature = create_plugin_signature(command.deref());
         let decl = PluginDeclaration::new(reg_plugin.clone(), signature);
         working_set.add_decl(Box::new(decl));
     }

@@ -1,9 +1,6 @@
 use chrono::SecondsFormat;
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct ToToml;
@@ -60,7 +57,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::String { val, .. } | Value::Glob { val, .. } => toml::Value::String(val.clone()),
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
@@ -96,7 +93,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
-        Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
+        Value::Custom { .. } => toml::Value::String("<Custom Value>".to_string()),
     })
 }
 

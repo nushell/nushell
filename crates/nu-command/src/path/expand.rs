@@ -1,15 +1,11 @@
-use std::path::Path;
-
-use nu_engine::env::{current_dir_str, current_dir_str_const};
-use nu_engine::CallExt;
-use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
-
 use super::PathSubcommandArguments;
+use nu_engine::{
+    command_prelude::*,
+    env::{current_dir_str, current_dir_str_const},
+};
+use nu_path::{canonicalize_with, expand_path_with};
+use nu_protocol::engine::StateWorkingSet;
+use std::path::Path;
 
 struct Arguments {
     strict: bool,
@@ -152,7 +148,10 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
         match canonicalize_with(path, &args.cwd) {
             Ok(p) => {
                 if args.not_follow_symlink {
-                    Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                    Value::string(
+                        expand_path_with(path, &args.cwd, true).to_string_lossy(),
+                        span,
+                    )
                 } else {
                     Value::string(p.to_string_lossy(), span)
                 }
@@ -171,12 +170,18 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
             ),
         }
     } else if args.not_follow_symlink {
-        Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+        Value::string(
+            expand_path_with(path, &args.cwd, true).to_string_lossy(),
+            span,
+        )
     } else {
         canonicalize_with(path, &args.cwd)
             .map(|p| Value::string(p.to_string_lossy(), span))
             .unwrap_or_else(|_| {
-                Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                Value::string(
+                    expand_path_with(path, &args.cwd, true).to_string_lossy(),
+                    span,
+                )
             })
     }
 }

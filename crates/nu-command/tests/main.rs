@@ -233,7 +233,7 @@ fn usage_start_uppercase() {
 
         // Check lowercase to allow usage to contain syntax like:
         //
-        // "`let-env FOO = ...` …"
+        // "`$env.FOO = ...`"
         if usage.starts_with(|u: char| u.is_lowercase()) {
             failures.push(format!("{cmd_name}: \"{usage}\""));
         }

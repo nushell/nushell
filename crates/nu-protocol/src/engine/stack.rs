@@ -1,12 +1,14 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-
 use crate::{
-    engine::{EngineState, DEFAULT_OVERLAY_NAME},
+    engine::{
+        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio,
+        DEFAULT_OVERLAY_NAME,
+    },
     IoStream, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
-
-use super::{Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackStdio};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -110,7 +112,7 @@ impl Stack {
     ///
     /// Here it is assumed that child was created with a call to Stack::with_parent
     /// with parent
-    pub fn with_changes_from_child(parent: Arc<Stack>, mut child: Stack) -> Stack {
+    pub fn with_changes_from_child(parent: Arc<Stack>, child: Stack) -> Stack {
         // we're going to drop the link to the parent stack on our new stack
         // so that we can unwrap the Arc as a unique reference
         //
@@ -119,15 +121,18 @@ impl Stack {
         drop(child.parent_stack);
         let mut unique_stack = Stack::unwrap_unique(parent);
 
-        unique_stack.vars.append(&mut child.vars);
+        unique_stack
+            .vars
+            .retain(|(var, _)| !child.parent_deletions.contains(var));
+        for (var, value) in child.vars {
+            unique_stack.add_var(var, value);
+        }
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
-        for item in child.parent_deletions.into_iter() {
-            unique_stack.vars.remove(item);
-        }
         unique_stack
     }
+
     pub fn with_env(
         &mut self,
         env_vars: &[EnvVars],
@@ -135,11 +140,11 @@ impl Stack {
     ) {
         // Do not clone the environment if it hasn't changed
         if self.env_vars.iter().any(|scope| !scope.is_empty()) {
-            self.env_vars = env_vars.to_owned();
+            env_vars.clone_into(&mut self.env_vars);
         }
 
         if !self.env_hidden.is_empty() {
-            self.env_hidden = env_hidden.to_owned();
+            self.env_hidden.clone_from(env_hidden);
         }
     }
 

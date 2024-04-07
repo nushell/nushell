@@ -1,19 +1,16 @@
-use nu_engine::current_dir;
-use nu_engine::CallExt;
-use nu_path::expand_path_with;
-use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::IntoSpanned;
-use nu_protocol::{
-    Category, DataSource, Example, IoStream, PipelineData, PipelineMetadata, RawStream, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::thread;
-
 use crate::progress_bar;
+use nu_engine::{command_prelude::*, current_dir};
+use nu_path::expand_path_with;
+use nu_protocol::{
+    ast::{Expr, Expression},
+    DataSource, IoStream, PipelineMetadata, RawStream,
+};
+use std::{
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct Save;
@@ -92,14 +89,14 @@ impl Command for Save {
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
         let path = Spanned {
-            item: expand_path_with(path_arg.item, &cwd),
+            item: expand_path_with(path_arg.item, &cwd, true),
             span: path_arg.span,
         };
 
         let stderr_path = call
             .get_flag::<Spanned<PathBuf>>(engine_state, stack, "stderr")?
             .map(|arg| Spanned {
-                item: expand_path_with(arg.item, cwd),
+                item: expand_path_with(arg.item, cwd, true),
                 span: arg.span,
             });
 

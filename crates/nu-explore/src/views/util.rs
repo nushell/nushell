@@ -1,5 +1,4 @@
-use std::borrow::Cow;
-
+use crate::nu_common::{truncate_str, NuColor, NuStyle, NuText};
 use nu_color_config::{Alignment, StyleComputer};
 use nu_protocol::{ShellError, Value};
 use nu_table::{string_width, TextStyle};
@@ -8,8 +7,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
 };
-
-use crate::nu_common::{truncate_str, NuColor, NuStyle, NuText};
+use std::borrow::Cow;
 
 pub fn set_span(
     buf: &mut Buffer,

@@ -5,6 +5,7 @@ mod roll_right;
 mod roll_up;
 
 use nu_protocol::{ShellError, Value};
+
 pub use roll_::Roll;
 pub use roll_down::RollDown;
 pub use roll_left::RollLeft;

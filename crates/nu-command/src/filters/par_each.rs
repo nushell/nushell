@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::engine::Closure;
 use rayon::prelude::*;
 
 use super::utils::chain_error_with_input;
@@ -145,84 +139,104 @@ impl Command for ParEach {
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(create_pool(max_threads)?
-                .install(|| {
-                    let vec = val
-                        .into_range_iter(ctrlc.clone())
-                        .expect("unable to create a range iterator")
-                        .enumerate()
-                        .par_bridge()
-                        .map(move |(index, x)| {
-                            let block = engine_state.get_block(block_id);
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => Ok(create_pool(max_threads)?.install(|| {
+                        let vec = vals
+                            .par_iter()
+                            .enumerate()
+                            .map(move |(index, x)| {
+                                let block = engine_state.get_block(block_id);
 
-                            let mut stack = stack.clone();
+                                let mut stack = stack.clone();
 
-                            if let Some(var) = block.signature.get_positional(0) {
-                                if let Some(var_id) = &var.var_id {
-                                    stack.add_var(*var_id, x.clone());
+                                if let Some(var) = block.signature.get_positional(0) {
+                                    if let Some(var_id) = &var.var_id {
+                                        stack.add_var(*var_id, x.clone());
+                                    }
                                 }
-                            }
 
-                            let val_span = x.span();
-                            let x_is_error = x.is_error();
+                                let val_span = x.span();
+                                let x_is_error = x.is_error();
 
-                            let val = match eval_block_with_early_return(
-                                engine_state,
-                                &mut stack,
-                                block,
-                                x.into_pipeline_data(),
-                            ) {
-                                Ok(v) => v.into_value(span),
-                                Err(error) => Value::error(
-                                    chain_error_with_input(error, x_is_error, val_span),
-                                    val_span,
-                                ),
-                            };
+                                let val = match eval_block_with_early_return(
+                                    engine_state,
+                                    &mut stack,
+                                    block,
+                                    x.clone().into_pipeline_data(),
+                                ) {
+                                    Ok(v) => v.into_value(span),
+                                    Err(error) => Value::error(
+                                        chain_error_with_input(error, x_is_error, val_span),
+                                        val_span,
+                                    ),
+                                };
 
-                            (index, val)
-                        })
-                        .collect::<Vec<_>>();
+                                (index, val)
+                            })
+                            .collect::<Vec<_>>();
 
-                    apply_order(vec).into_pipeline_data(ctrlc)
-                })),
-            PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(create_pool(max_threads)?
-                .install(|| {
-                    let vec = val
-                        .par_iter()
-                        .enumerate()
-                        .map(move |(index, x)| {
-                            let block = engine_state.get_block(block_id);
+                        apply_order(vec).into_pipeline_data(ctrlc)
+                    })),
+                    Value::Range { val, .. } => Ok(create_pool(max_threads)?.install(|| {
+                        let vec = val
+                            .into_range_iter(span, ctrlc.clone())
+                            .enumerate()
+                            .par_bridge()
+                            .map(move |(index, x)| {
+                                let block = engine_state.get_block(block_id);
 
-                            let mut stack = stack.clone();
+                                let mut stack = stack.clone();
 
-                            if let Some(var) = block.signature.get_positional(0) {
-                                if let Some(var_id) = &var.var_id {
-                                    stack.add_var(*var_id, x.clone());
+                                if let Some(var) = block.signature.get_positional(0) {
+                                    if let Some(var_id) = &var.var_id {
+                                        stack.add_var(*var_id, x.clone());
+                                    }
                                 }
+
+                                let val_span = x.span();
+                                let x_is_error = x.is_error();
+
+                                let val = match eval_block_with_early_return(
+                                    engine_state,
+                                    &mut stack,
+                                    block,
+                                    x.into_pipeline_data(),
+                                ) {
+                                    Ok(v) => v.into_value(span),
+                                    Err(error) => Value::error(
+                                        chain_error_with_input(error, x_is_error, val_span),
+                                        val_span,
+                                    ),
+                                };
+
+                                (index, val)
+                            })
+                            .collect::<Vec<_>>();
+
+                        apply_order(vec).into_pipeline_data(ctrlc)
+                    })),
+                    // This match allows non-iterables to be accepted,
+                    // which is currently considered undesirable (Nov 2022).
+                    value => {
+                        let block = engine_state.get_block(block_id);
+
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, value.clone());
                             }
+                        }
 
-                            let val_span = x.span();
-                            let x_is_error = x.is_error();
-
-                            let val = match eval_block_with_early_return(
-                                engine_state,
-                                &mut stack,
-                                block,
-                                x.clone().into_pipeline_data(),
-                            ) {
-                                Ok(v) => v.into_value(span),
-                                Err(error) => Value::error(
-                                    chain_error_with_input(error, x_is_error, val_span),
-                                    val_span,
-                                ),
-                            };
-
-                            (index, val)
-                        })
-                        .collect::<Vec<_>>();
-
-                    apply_order(vec).into_pipeline_data(ctrlc)
-                })),
+                        eval_block_with_early_return(
+                            engine_state,
+                            &mut stack,
+                            block,
+                            value.into_pipeline_data(),
+                        )
+                    }
+                }
+            }
             PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
                 let vec = stream
                     .enumerate()
@@ -300,24 +314,6 @@ impl Command for ParEach {
 
                 apply_order(vec).into_pipeline_data(ctrlc)
             })),
-            // This match allows non-iterables to be accepted,
-            // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(x, ..) => {
-                let block = engine_state.get_block(block_id);
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, x.clone());
-                    }
-                }
-
-                eval_block_with_early_return(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    x.into_pipeline_data(),
-                )
-            }
         }
         .and_then(|x| x.filter(|v| !v.is_nothing(), outer_ctrlc))
         .map(|res| res.set_metadata(metadata))

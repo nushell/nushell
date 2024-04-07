@@ -1,25 +1,19 @@
 use super::util::opt_for_glob_pattern;
-use crate::DirBuilder;
-use crate::DirInfo;
+use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
+use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::NuGlob;
-use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -118,12 +112,14 @@ impl Command for Ls {
         let (path, p_tag, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
-                let p = expand_to_real_path(pat.item.as_ref());
-
-                let expanded = nu_path::expand_path_with(&p, &cwd);
+                let expanded = nu_path::expand_path_with(
+                    pat.item.as_ref(),
+                    &cwd,
+                    matches!(pat.item, NuGlob::Expand(..)),
+                );
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
                 if !directory && expanded.is_dir() {
-                    if permission_denied(&p) {
+                    if permission_denied(&expanded) {
                         #[cfg(unix)]
                         let error_msg = format!(
                             "The permissions of {:o} do not allow access for this user",
@@ -151,9 +147,17 @@ impl Command for Ls {
                     }
                     extra_star_under_given_directory = true;
                 }
-                let absolute_path = p.is_absolute();
+
+                // it's absolute path if:
+                // 1. pattern is absolute.
+                // 2. pattern can be expanded, and after expands to real_path, it's absolute.
+                //    here `expand_to_real_path` call is required, because `~/aaa` should be absolute
+                //    path.
+                let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
+                    || (pat.item.is_expand()
+                        && expand_to_real_path(pat.item.as_ref()).is_absolute());
                 (
-                    p,
+                    expanded,
                     p_tag,
                     absolute_path,
                     matches!(pat.item, NuGlob::DoNotExpand(_)),
@@ -505,8 +509,9 @@ pub(crate) fn dir_entry_dict(
 
             #[cfg(unix)]
             {
-                use crate::filesystem::util::users;
+                use nu_utils::filesystem::users;
                 use std::os::unix::fs::MetadataExt;
+
                 let mode = md.permissions().mode();
                 record.push(
                     "mode",
@@ -521,19 +526,19 @@ pub(crate) fn dir_entry_dict(
 
                 record.push(
                     "user",
-                    if let Some(user) = users::get_user_by_uid(md.uid()) {
+                    if let Some(user) = users::get_user_by_uid(md.uid().into()) {
                         Value::string(user.name, span)
                     } else {
-                        Value::int(md.uid() as i64, span)
+                        Value::int(md.uid().into(), span)
                     },
                 );
 
                 record.push(
                     "group",
-                    if let Some(group) = users::get_group_by_gid(md.gid()) {
+                    if let Some(group) = users::get_group_by_gid(md.gid().into()) {
                         Value::string(group.name, span)
                     } else {
-                        Value::int(md.gid() as i64, span)
+                        Value::int(md.gid().into(), span)
                     },
                 );
             }

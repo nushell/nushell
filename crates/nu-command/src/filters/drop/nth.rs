@@ -1,11 +1,7 @@
 use itertools::Either;
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, RangeInclusion};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, PipelineIterator, Range,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{PipelineIterator, Range};
+use std::ops::Bound;
 
 #[derive(Clone)]
 pub struct DropNth;
@@ -106,8 +102,8 @@ impl Command for DropNth {
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
         let number_or_range = extract_int_or_range(engine_state, stack, call)?;
-        let mut lower_bound = None;
-        let rows = match number_or_range {
+
+        let rows = match number_or_range.item {
             Either::Left(row_number) => {
                 let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
                 let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
@@ -115,66 +111,71 @@ impl Command for DropNth {
                 rows.sort_unstable();
                 rows
             }
-            Either::Right(row_range) => {
-                let from = row_range.from.as_int()?; // as usize;
-                let to = row_range.to.as_int()?; // as usize;
-
+            Either::Right(Range::FloatRange(_)) => {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "float range".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call.head,
+                    input_span: number_or_range.span,
+                });
+            }
+            Either::Right(Range::IntRange(range)) => {
                 // check for negative range inputs, e.g., (2..-5)
-                if from.is_negative() || to.is_negative() {
-                    let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "drop nth accepts only positive ints".to_string(),
-                        span: span.span,
+                let end_negative = match range.end() {
+                    Bound::Included(end) | Bound::Excluded(end) => end < 0,
+                    Bound::Unbounded => false,
+                };
+                if range.start().is_negative() || end_negative {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "drop nth accepts only positive ints".into(),
+                        input: "value originates from here".into(),
+                        msg_span: call.head,
+                        input_span: number_or_range.span,
                     });
                 }
                 // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
-                if to < from {
-                    let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
-                    return Err(ShellError::TypeMismatch {
-                        err_message:
-                            "The upper bound needs to be equal or larger to the lower bound"
-                                .to_string(),
-                        span: span.span,
+                if range.step() < 0 {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "The upper bound needs to be equal or larger to the lower bound"
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: call.head,
+                        input_span: number_or_range.span,
                     });
                 }
 
-                // check for equality to isize::MAX because for some reason,
-                // the parser returns isize::MAX when we provide a range without upper bound (e.g., 5.. )
-                let mut to = to as usize;
-                let from = from as usize;
+                let start = range.start() as usize;
 
-                if let PipelineData::Value(Value::List { ref vals, .. }, _) = input {
-                    let max = from + vals.len() - 1;
-                    if to > max {
-                        to = max;
+                let end = match range.end() {
+                    Bound::Included(end) => end as usize,
+                    Bound::Excluded(end) => (end - 1) as usize,
+                    Bound::Unbounded => {
+                        return Ok(input
+                            .into_iter()
+                            .take(start)
+                            .into_pipeline_data_with_metadata(
+                                metadata,
+                                engine_state.ctrlc.clone(),
+                            ))
                     }
                 };
 
-                if to > 0 && to as isize == isize::MAX {
-                    lower_bound = Some(from);
-                    vec![from]
-                } else if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
-                    (from..=to).collect()
+                let end = if let PipelineData::Value(Value::List { vals, .. }, _) = &input {
+                    end.min(vals.len() - 1)
                 } else {
-                    (from..to).collect()
-                }
+                    end
+                };
+
+                (start..=end).collect()
             }
         };
 
-        if let Some(lower_bound) = lower_bound {
-            Ok(input
-                .into_iter()
-                .take(lower_bound)
-                .collect::<Vec<_>>()
-                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
-        } else {
-            Ok(DropNthIterator {
-                input: input.into_iter(),
-                rows,
-                current: 0,
-            }
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+        Ok(DropNthIterator {
+            input: input.into_iter(),
+            rows,
+            current: 0,
         }
+        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 }
 
@@ -182,16 +183,20 @@ fn extract_int_or_range(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-) -> Result<Either<i64, Range>, ShellError> {
-    let value = call.req::<Value>(engine_state, stack, 0)?;
+) -> Result<Spanned<Either<i64, Range>>, ShellError> {
+    let value: Value = call.req(engine_state, stack, 0)?;
 
     let int_opt = value.as_int().map(Either::Left).ok();
-    let range_opt = value.as_range().map(|r| Either::Right(r.clone())).ok();
+    let range_opt = value.as_range().map(Either::Right).ok();
 
     int_opt
         .or(range_opt)
         .ok_or_else(|| ShellError::TypeMismatch {
             err_message: "int or range".into(),
+            span: value.span(),
+        })
+        .map(|either| Spanned {
+            item: either,
             span: value.span(),
         })
 }

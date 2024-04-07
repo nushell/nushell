@@ -3,8 +3,7 @@ use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
 use nu_utils::strip_ansi_unlikely;
-use std::cmp::min;
-use std::collections::HashMap;
+use std::{cmp::min, collections::HashMap};
 use tabled::{
     builder::Builder,
     grid::{
@@ -455,17 +454,6 @@ fn load_theme(
         let color = convert_style(style);
         let color = AnsiColor::from(color);
         table.get_config_mut().set_border_color_global(color);
-    }
-}
-
-struct FooterStyle;
-
-impl<R: ExactRecords, D> TableOption<R, D, ColoredConfig> for FooterStyle {
-    fn change(self, records: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
-        if let Some(line) = cfg.get_horizontal_line(1).cloned() {
-            let count_rows = records.count_rows();
-            cfg.insert_horizontal_line(count_rows - 1, line);
-        }
     }
 }
 

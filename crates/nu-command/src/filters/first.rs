@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct First;
@@ -139,11 +133,15 @@ fn first_helper(
                     }
                 }
                 Value::Range { val, .. } => {
+                    let mut iter = val.into_range_iter(span, ctrlc.clone());
                     if return_single_element {
-                        Ok(val.from.into_pipeline_data())
+                        if let Some(v) = iter.next() {
+                            Ok(v.into_pipeline_data())
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
                     } else {
-                        Ok(val
-                            .into_range_iter(ctrlc.clone())?
+                        Ok(iter
                             .take(rows_desired)
                             .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }

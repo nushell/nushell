@@ -1,9 +1,5 @@
 use nu_ansi_term::{build_all_gradient_text, gradient::TargetGround, Gradient, Rgb};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

@@ -32,7 +32,7 @@ pub enum Unit {
 }
 
 impl Unit {
-    pub fn to_value(&self, size: i64, span: Span) -> Result<Value, ShellError> {
+    pub fn build_value(self, size: i64, span: Span) -> Result<Value, ShellError> {
         match self {
             Unit::Byte => Ok(Value::filesize(size, span)),
             Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),

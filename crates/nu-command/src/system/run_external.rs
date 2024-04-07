@@ -1,25 +1,18 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::get_eval_expression;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, Expr},
-    did_you_mean,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoSpanned, IoStream, ListStream, NuGlob, PipelineData, RawStream,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_protocol::{ast::Expr, did_you_mean, IoStream, ListStream, NuGlob, RawStream};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::{Command as CommandSys, Stdio},
+    sync::{mpsc, Arc},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct External;
@@ -466,20 +459,26 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                let stack = &mut stack.start_capture();
-                                // Attempt to render the input as a table before piping it to the external.
-                                // This is important for pagers like `less`;
-                                // they need to get Nu data rendered for display to users.
-                                //
-                                // TODO: should we do something different for list<string> inputs?
-                                // Users often expect those to be piped to *nix tools as raw strings separated by newlines
-                                let input = crate::Table::run(
-                                    &crate::Table,
-                                    &engine_state,
-                                    stack,
-                                    &Call::new(head),
-                                    input,
-                                );
+                                let input = match input {
+                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => {
+                                        Ok(input)
+                                    }
+                                    input => {
+                                        let stack = &mut stack.start_capture();
+                                        // Attempt to render the input as a table before piping it to the external.
+                                        // This is important for pagers like `less`;
+                                        // they need to get Nu data rendered for display to users.
+                                        //
+                                        // TODO: should we do something different for list<string> inputs?
+                                        // Users often expect those to be piped to *nix tools as raw strings separated by newlines
+                                        crate::Table.run(
+                                            &engine_state,
+                                            stack,
+                                            &Call::new(head),
+                                            input,
+                                        )
+                                    }
+                                };
 
                                 if let Ok(input) = input {
                                     for value in input.into_iter() {
@@ -534,44 +533,38 @@ impl ExternalCommand {
                 // Create a thread to wait for an exit code.
                 thread::Builder::new()
                     .name("exit code waiter".into())
-                    .spawn(move || {
-                        match child.as_mut().wait() {
-                            Err(err) => Err(ShellError::ExternalCommand {
-                                label: "External command exited with error".into(),
-                                help: err.to_string(),
-                                span
-                            }),
-                            Ok(x) => {
-                                #[cfg(unix)]
-                                {
-                                    use nu_ansi_term::{Color, Style};
-                                    use std::ffi::CStr;
-                                    use std::os::unix::process::ExitStatusExt;
+                    .spawn(move || match child.as_mut().wait() {
+                        Err(err) => Err(ShellError::ExternalCommand {
+                            label: "External command exited with error".into(),
+                            help: err.to_string(),
+                            span,
+                        }),
+                        Ok(x) => {
+                            #[cfg(unix)]
+                            {
+                                use nix::sys::signal::Signal;
+                                use nu_ansi_term::{Color, Style};
+                                use std::os::unix::process::ExitStatusExt;
 
-                                    if x.core_dumped() {
-                                        let cause = x.signal().and_then(|sig| unsafe {
-                                            // SAFETY: We should be the first to call `char * strsignal(int sig)`
-                                            let sigstr_ptr = libc::strsignal(sig);
-                                            if sigstr_ptr.is_null() {
-                                                return None;
-                                            }
-
-                                            // SAFETY: The pointer points to a valid non-null string
-                                            let sigstr = CStr::from_ptr(sigstr_ptr);
-                                            sigstr.to_str().map(String::from).ok()
-                                        });
-
-                                        let cause = cause.as_deref().unwrap_or("Something went wrong");
+                                if x.core_dumped() {
+                                    let cause = x
+                                        .signal()
+                                        .and_then(|sig| {
+                                            Signal::try_from(sig).ok().map(Signal::as_str)
+                                        })
+                                        .unwrap_or("Something went wrong");
 
                                     let style = Style::new().bold().on(Color::Red);
-                                    eprintln!(
-                                        "{}",
-                                        style.paint(format!(
-                                            "{cause}: oops, process '{commandname}' core dumped"
-                                        ))
+                                    let message = format!(
+                                        "{cause}: child process '{commandname}' core dumped"
                                     );
-                                    let _ = exit_code_tx.send(Value::error (
-                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
+                                    eprintln!("{}", style.paint(&message));
+                                    let _ = exit_code_tx.send(Value::error(
+                                        ShellError::ExternalCommand {
+                                            label: "core dumped".into(),
+                                            help: message,
+                                            span: head,
+                                        },
                                         head,
                                     ));
                                     return Ok(());
@@ -586,8 +579,8 @@ impl ExternalCommand {
                             }
                             Ok(())
                         }
-                    }
-                }).map_err(|e| e.into_spanned(head))?;
+                    })
+                    .map_err(|e| e.into_spanned(head))?;
 
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 

@@ -1,8 +1,6 @@
-use std::sync::{Arc, Weak};
-
-use nu_protocol::{PluginIdentity, ShellError, Span};
-
 use super::GetPlugin;
+use nu_protocol::{PluginIdentity, ShellError, Span};
+use std::sync::{Arc, Weak};
 
 /// The source of a custom value or plugin command. Includes a weak reference to the persistent
 /// plugin so it can be retrieved.
@@ -42,7 +40,10 @@ impl PluginSource {
 
     /// Try to upgrade the persistent reference, and return an error referencing `span` as the
     /// object that referenced it otherwise
-    pub(crate) fn persistent(&self, span: Option<Span>) -> Result<Arc<dyn GetPlugin>, ShellError> {
+    ///
+    /// This is not a public API.
+    #[doc(hidden)]
+    pub fn persistent(&self, span: Option<Span>) -> Result<Arc<dyn GetPlugin>, ShellError> {
         self.persistent
             .upgrade()
             .ok_or_else(|| ShellError::GenericError {

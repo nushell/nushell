@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 use std::collections::HashSet;
 
@@ -129,7 +123,7 @@ fn drop_cols(
                 } => {
                     let len = record.len().saturating_sub(columns);
                     record.truncate(len);
-                    Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
+                    Ok(Value::record(*record, span).into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),

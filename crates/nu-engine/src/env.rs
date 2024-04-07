@@ -1,15 +1,16 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-use nu_protocol::ast::{Call, Expr};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
-
-use nu_path::canonicalize_with;
-use nu_protocol::debugger::WithoutDebug;
-
 use crate::eval_block;
+use nu_path::canonicalize_with;
+use nu_protocol::{
+    ast::{Call, Expr},
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
+    Config, PipelineData, ShellError, Span, Value, VarId,
+};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[cfg(windows)]
 const ENV_PATH_NAME: &str = "Path";
@@ -353,7 +354,7 @@ pub fn find_in_dirs_env(
 /// is the canonical way to fetch config at runtime when you have Stack available.
 pub fn get_config(engine_state: &EngineState, stack: &Stack) -> Config {
     if let Some(mut config_record) = stack.get_env_var(engine_state, "config") {
-        config_record.into_config(engine_state.get_config()).0
+        config_record.parse_as_config(engine_state.get_config()).0
     } else {
         engine_state.get_config().clone()
     }

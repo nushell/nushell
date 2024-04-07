@@ -1,10 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use polars::prelude::{Expr, JoinType};
 
 #[derive(Clone)]
@@ -26,7 +22,7 @@ impl Command for LazyJoin {
             .required("right_on", SyntaxShape::Any, "Right column(s) to join on")
             .switch(
                 "inner",
-                "inner joing between lazyframes (default)",
+                "inner join between lazyframes (default)",
                 Some('i'),
             )
             .switch("left", "left join between lazyframes", Some('l'))

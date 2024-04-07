@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{DataType, Field, Schema, SchemaRef, TimeUnit};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct NuSchema {

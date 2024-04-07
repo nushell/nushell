@@ -18,9 +18,9 @@ use nu_protocol::{
     span, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
-use std::path::{Path, PathBuf};
 use std::{
     collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -592,7 +592,7 @@ pub fn parse_def(
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
-            signature.name = name.clone();
+            signature.name.clone_from(&name);
             if !has_wrapped {
                 *signature = signature.add_help();
             }
@@ -751,9 +751,9 @@ pub fn parse_extern(
                     name.clone()
                 };
 
-                signature.name = external_name.clone();
-                signature.usage = usage.clone();
-                signature.extra_usage = extra_usage.clone();
+                signature.name.clone_from(&external_name);
+                signature.usage.clone_from(&usage);
+                signature.extra_usage.clone_from(&extra_usage);
                 signature.allows_unknown_args = true;
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
@@ -1233,7 +1233,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = def_call.clone();
+                    call.clone_from(def_call);
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
@@ -1269,7 +1269,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = def_call.clone();
+                    call.clone_from(def_call);
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
@@ -1325,7 +1325,7 @@ pub fn parse_export_in_module(
                 if let Some(Expr::Call(alias_call)) =
                     pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = alias_call.clone();
+                    call.clone_from(alias_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_alias_decl_id;
@@ -1380,7 +1380,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
                 if let Some(Expr::Call(use_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = use_call.clone();
+                    call.clone_from(use_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_use_decl_id;
@@ -1412,7 +1412,7 @@ pub fn parse_export_in_module(
                 if let Some(Expr::Call(module_call)) =
                     pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = module_call.clone();
+                    call.clone_from(module_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_module_decl_id;
@@ -1463,7 +1463,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'const' call into the 'export const' in a very clumsy way
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = def_call.clone();
+                    call.clone_from(def_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_const_decl_id;

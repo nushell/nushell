@@ -1,5 +1,13 @@
-use std::cmp::min;
-
+use super::{
+    record::{RecordView, TableTheme},
+    util::{lookup_tui_color, nu_style_to_tui},
+    Layout, Orientation, View, ViewConfig,
+};
+use crate::{
+    nu_common::{collect_pipeline, run_command_with_value},
+    pager::{report::Report, Frame, Transition, ViewInfo},
+    util::create_map,
+};
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
 use nu_protocol::{
@@ -11,18 +19,7 @@ use ratatui::{
     style::{Modifier, Style},
     widgets::{BorderType, Borders, Paragraph},
 };
-
-use crate::{
-    nu_common::{collect_pipeline, run_command_with_value},
-    pager::{report::Report, Frame, Transition, ViewInfo},
-    util::create_map,
-};
-
-use super::{
-    record::{RecordView, TableTheme},
-    util::{lookup_tui_color, nu_style_to_tui},
-    Layout, Orientation, View, ViewConfig,
-};
+use std::cmp::min;
 
 pub struct InteractiveView<'a> {
     input: Value,

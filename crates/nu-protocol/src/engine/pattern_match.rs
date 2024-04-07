@@ -23,7 +23,7 @@ impl Matcher for Pattern {
             Pattern::Record(field_patterns) => match value {
                 Value::Record { val, .. } => {
                     'top: for field_pattern in field_patterns {
-                        for (col, val) in val {
+                        for (col, val) in &**val {
                             if col == &field_pattern.0 {
                                 // We have found the field
                                 let result = field_pattern.1.match_value(val, matches);
@@ -145,7 +145,7 @@ impl Matcher for Pattern {
                         let span = unit.span;
 
                         if let Expr::Int(size) = amount.expr {
-                            match &unit.item.to_value(size, span) {
+                            match &unit.item.build_value(size, span) {
                                 Ok(v) => v == value,
                                 _ => false,
                             }

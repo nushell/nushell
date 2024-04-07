@@ -3,15 +3,18 @@ mod events;
 pub mod report;
 mod status_bar;
 
-use std::{
-    cmp::min,
-    io::{self, Result, Stdout},
-    result,
-    sync::atomic::Ordering,
+use self::{
+    command_bar::CommandBar,
+    report::{Report, Severity},
+    status_bar::StatusBar,
 };
-
-use std::collections::HashMap;
-
+use super::views::{Layout, View};
+use crate::{
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
+    registry::{Command, CommandRegistry},
+    util::map_into_value,
+    views::{util::nu_style_to_tui, ViewConfig},
+};
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -20,6 +23,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
+use events::UIEvents;
 use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
@@ -27,23 +31,13 @@ use nu_protocol::{
     Record, Value,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
-
-use crate::{
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
-    registry::{Command, CommandRegistry},
-    util::map_into_value,
-    views::{util::nu_style_to_tui, ViewConfig},
+use std::{
+    cmp::min,
+    collections::HashMap,
+    io::{self, Result, Stdout},
+    result,
+    sync::atomic::Ordering,
 };
-
-use self::{
-    command_bar::CommandBar,
-    report::{Report, Severity},
-    status_bar::StatusBar,
-};
-
-use super::views::{Layout, View};
-
-use events::UIEvents;
 
 pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
@@ -301,7 +295,7 @@ fn render_ui(
         if pager.cmd_buf.run_cmd {
             let args = pager.cmd_buf.buf_cmd2.clone();
             pager.cmd_buf.run_cmd = false;
-            pager.cmd_buf.buf_cmd2 = String::new();
+            pager.cmd_buf.buf_cmd2.clear();
 
             let out =
                 pager_run_command(engine_state, stack, pager, &mut view_stack, &commands, args);
@@ -820,21 +814,21 @@ fn handle_general_key_events2<V>(
 {
     match key.code {
         KeyCode::Char('?') => {
-            search.buf_cmd_input = String::new();
+            search.buf_cmd_input.clear();
             search.is_search_input = true;
             search.is_reversed = true;
 
             info.report = None;
         }
         KeyCode::Char('/') => {
-            search.buf_cmd_input = String::new();
+            search.buf_cmd_input.clear();
             search.is_search_input = true;
             search.is_reversed = false;
 
             info.report = None;
         }
         KeyCode::Char(':') => {
-            command.buf_cmd2 = String::new();
+            command.buf_cmd2.clear();
             command.is_cmd_input = true;
             command.cmd_exec_info = None;
 
@@ -843,7 +837,7 @@ fn handle_general_key_events2<V>(
         KeyCode::Char('n') => {
             if !search.search_results.is_empty() {
                 if search.buf_cmd_input.is_empty() {
-                    search.buf_cmd_input = search.buf_cmd.clone();
+                    search.buf_cmd_input.clone_from(&search.buf_cmd);
                 }
 
                 if search.search_index + 1 == search.search_results.len() {
@@ -869,7 +863,7 @@ fn search_input_key_event(
 ) -> bool {
     match &key.code {
         KeyCode::Esc => {
-            buf.buf_cmd_input = String::new();
+            buf.buf_cmd_input.clear();
 
             if let Some(view) = view {
                 if !buf.buf_cmd.is_empty() {
@@ -884,7 +878,7 @@ fn search_input_key_event(
             true
         }
         KeyCode::Enter => {
-            buf.buf_cmd = buf.buf_cmd_input.clone();
+            buf.buf_cmd.clone_from(&buf.buf_cmd_input);
             buf.is_search_input = false;
 
             true
@@ -988,7 +982,8 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
                     buf.cmd_history_pos + 1,
                     buf.cmd_history.len().saturating_sub(1),
                 );
-                buf.buf_cmd2 = buf.cmd_history[buf.cmd_history_pos].clone();
+                buf.buf_cmd2
+                    .clone_from(&buf.cmd_history[buf.cmd_history_pos]);
             }
 
             true
@@ -997,7 +992,8 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
             if !buf.cmd_history.is_empty() {
                 buf.cmd_history_allow = true;
                 buf.cmd_history_pos = buf.cmd_history_pos.saturating_sub(1);
-                buf.buf_cmd2 = buf.cmd_history[buf.cmd_history_pos].clone();
+                buf.buf_cmd2
+                    .clone_from(&buf.cmd_history[buf.cmd_history_pos]);
             }
 
             true

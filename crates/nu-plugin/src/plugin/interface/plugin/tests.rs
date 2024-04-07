@@ -1,27 +1,33 @@
-use std::{sync::mpsc, time::Duration};
-
-use nu_protocol::{
-    engine::Closure, IntoInterruptiblePipelineData, PipelineData, PluginSignature, ShellError,
-    Span, Spanned, Value,
+use super::{
+    Context, PluginCallState, PluginInterface, PluginInterfaceManager, ReceivedPluginCallMessage,
 };
-
 use crate::{
     plugin::{
         context::PluginExecutionBogusContext,
-        interface::{test_util::TestCase, Interface, InterfaceManager},
+        interface::{plugin::CurrentCallState, test_util::TestCase, Interface, InterfaceManager},
         PluginSource,
     },
     protocol::{
-        test_util::{expected_test_custom_value, test_plugin_custom_value},
+        test_util::{
+            expected_test_custom_value, test_plugin_custom_value,
+            test_plugin_custom_value_with_source,
+        },
         CallInfo, CustomValueOp, EngineCall, EngineCallResponse, ExternalStreamInfo,
         ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId, PluginCustomValue,
         PluginInput, Protocol, ProtocolInfo, RawStreamInfo, StreamData, StreamMessage,
     },
     EvaluatedCall, PluginCallResponse, PluginOutput,
 };
-
-use super::{
-    Context, PluginCallState, PluginInterface, PluginInterfaceManager, ReceivedPluginCallMessage,
+use nu_protocol::{
+    ast::{Math, Operator},
+    engine::Closure,
+    CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PluginSignature,
+    ShellError, Span, Spanned, Value,
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    sync::{mpsc, Arc},
+    time::Duration,
 };
 
 #[test]
@@ -187,8 +193,10 @@ fn fake_plugin_call(
         id,
         PluginCallState {
             sender: Some(tx),
+            dont_send_response: false,
             ctrlc: None,
             context_rx: None,
+            keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 0,
         },
     );
@@ -489,8 +497,10 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
         0,
         PluginCallState {
             sender: None,
+            dont_send_response: false,
             ctrlc: None,
             context_rx: Some(context_rx),
+            keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 1,
         },
     );
@@ -552,8 +562,10 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
             n,
             PluginCallState {
                 sender: None,
+                dont_send_response: false,
                 ctrlc: None,
                 context_rx: None,
+                keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
             },
         );
@@ -585,8 +597,10 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
             n,
             PluginCallState {
                 sender: None,
+                dont_send_response: false,
                 ctrlc: None,
                 context_rx: None,
+                keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
             },
         );
@@ -737,7 +751,7 @@ fn interface_write_plugin_call_registers_subscription() -> Result<(), ShellError
     );
 
     let interface = manager.get_interface();
-    let _ = interface.write_plugin_call(PluginCall::Signature, None, mpsc::channel().1)?;
+    let _ = interface.write_plugin_call(PluginCall::Signature, None)?;
 
     manager.receive_plugin_call_subscriptions();
     assert!(!manager.plugin_call_states.is_empty(), "not registered");
@@ -750,9 +764,8 @@ fn interface_write_plugin_call_writes_signature() -> Result<(), ShellError> {
     let manager = test.plugin("test");
     let interface = manager.get_interface();
 
-    let (writer, _) =
-        interface.write_plugin_call(PluginCall::Signature, None, mpsc::channel().1)?;
-    writer.write()?;
+    let result = interface.write_plugin_call(PluginCall::Signature, None)?;
+    result.writer.write()?;
 
     let written = test.next_written().expect("nothing written");
     match written {
@@ -771,18 +784,17 @@ fn interface_write_plugin_call_writes_custom_value_op() -> Result<(), ShellError
     let manager = test.plugin("test");
     let interface = manager.get_interface();
 
-    let (writer, _) = interface.write_plugin_call(
+    let result = interface.write_plugin_call(
         PluginCall::CustomValueOp(
             Spanned {
-                item: test_plugin_custom_value(),
+                item: test_plugin_custom_value_with_source(),
                 span: Span::test_data(),
             },
             CustomValueOp::ToBaseValue,
         ),
         None,
-        mpsc::channel().1,
     )?;
-    writer.write()?;
+    result.writer.write()?;
 
     let written = test.next_written().expect("nothing written");
     match written {
@@ -804,7 +816,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
     let manager = test.plugin("test");
     let interface = manager.get_interface();
 
-    let (writer, _) = interface.write_plugin_call(
+    let result = interface.write_plugin_call(
         PluginCall::Run(CallInfo {
             name: "foo".into(),
             call: EvaluatedCall {
@@ -815,9 +827,8 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
             input: PipelineData::Value(Value::test_int(-1), None),
         }),
         None,
-        mpsc::channel().1,
     )?;
-    writer.write()?;
+    result.writer.write()?;
 
     let written = test.next_written().expect("nothing written");
     match written {
@@ -843,7 +854,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
     let interface = manager.get_interface();
 
     let values = vec![Value::test_int(1), Value::test_int(2)];
-    let (writer, _) = interface.write_plugin_call(
+    let result = interface.write_plugin_call(
         PluginCall::Run(CallInfo {
             name: "foo".into(),
             call: EvaluatedCall {
@@ -854,9 +865,8 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             input: values.clone().into_pipeline_data(None),
         }),
         None,
-        mpsc::channel().1,
     )?;
-    writer.write()?;
+    result.writer.write()?;
 
     let written = test.next_written().expect("nothing written");
     let info = match written {
@@ -917,7 +927,7 @@ fn interface_receive_plugin_call_receives_response() -> Result<(), ShellError> {
     .expect("failed to send on new channel");
     drop(tx); // so we don't deadlock on recv()
 
-    let response = interface.receive_plugin_call_response(rx, None, mpsc::channel().0)?;
+    let response = interface.receive_plugin_call_response(rx, None, CurrentCallState::default())?;
     assert!(
         matches!(response, PluginCallResponse::Signature(_)),
         "wrong response: {response:?}"
@@ -940,7 +950,7 @@ fn interface_receive_plugin_call_receives_error() -> Result<(), ShellError> {
     drop(tx); // so we don't deadlock on recv()
 
     let error = interface
-        .receive_plugin_call_response(rx, None, mpsc::channel().0)
+        .receive_plugin_call_response(rx, None, CurrentCallState::default())
         .expect_err("did not receive error");
     assert!(
         matches!(error, ShellError::ExternalNotSupported { .. }),
@@ -969,7 +979,7 @@ fn interface_receive_plugin_call_handles_engine_call() -> Result<(), ShellError>
     // an error, but it should still do the engine call
     drop(tx);
     interface
-        .receive_plugin_call_response(rx, Some(&mut context), mpsc::channel().0)
+        .receive_plugin_call_response(rx, Some(&mut context), CurrentCallState::default())
         .expect_err("no error even though there was no response");
 
     // Check for the engine call response output
@@ -1086,7 +1096,7 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
     });
 
     let result = interface.custom_value_to_base_value(Spanned {
-        item: test_plugin_custom_value(),
+        item: test_plugin_custom_value_with_source(),
         span: Span::test_data(),
     })?;
 
@@ -1111,8 +1121,9 @@ fn normal_values(interface: &PluginInterface) -> Vec<Value> {
 #[test]
 fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellError> {
     let interface = TestCase::new().plugin("test").get_interface();
+    let state = CurrentCallState::default();
     for value in normal_values(&interface) {
-        match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None)) {
+        match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
             Ok(data) => assert_eq!(
                 value.get_type(),
                 data.into_value(Span::test_data()).get_type()
@@ -1127,7 +1138,8 @@ fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellEr
 fn interface_prepare_pipeline_data_accepts_normal_streams() -> Result<(), ShellError> {
     let interface = TestCase::new().plugin("test").get_interface();
     let values = normal_values(&interface);
-    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None))?;
+    let state = CurrentCallState::default();
+    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None), &state)?;
 
     let mut count = 0;
     for (expected_value, actual_value) in values.iter().zip(data) {
@@ -1171,8 +1183,9 @@ fn bad_custom_values() -> Vec<Value> {
 #[test]
 fn interface_prepare_pipeline_data_rejects_bad_custom_value() -> Result<(), ShellError> {
     let interface = TestCase::new().plugin("test").get_interface();
+    let state = CurrentCallState::default();
     for value in bad_custom_values() {
-        match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None)) {
+        match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
             Err(err) => match err {
                 ShellError::CustomValueIncorrectForPlugin { .. } => (),
                 _ => panic!("expected error type CustomValueIncorrectForPlugin, but got {err:?}"),
@@ -1188,7 +1201,8 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
 {
     let interface = TestCase::new().plugin("test").get_interface();
     let values = bad_custom_values();
-    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None))?;
+    let state = CurrentCallState::default();
+    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None), &state)?;
 
     let mut count = 0;
     for value in data {
@@ -1201,4 +1215,298 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
         "didn't receive as many values as expected"
     );
     Ok(())
+}
+
+#[test]
+fn prepare_custom_value_verifies_source() {
+    let span = Span::test_data();
+    let source = Arc::new(PluginSource::new_fake("test"));
+
+    let mut val = test_plugin_custom_value();
+    assert!(CurrentCallState::default()
+        .prepare_custom_value(
+            Spanned {
+                item: &mut val,
+                span,
+            },
+            &source
+        )
+        .is_err());
+
+    let mut val = test_plugin_custom_value().with_source(Some(source.clone()));
+    assert!(CurrentCallState::default()
+        .prepare_custom_value(
+            Spanned {
+                item: &mut val,
+                span,
+            },
+            &source
+        )
+        .is_ok());
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct DropCustomVal;
+#[typetag::serde]
+impl CustomValue for DropCustomVal {
+    fn clone_value(&self, _span: Span) -> Value {
+        unimplemented!()
+    }
+
+    fn type_name(&self) -> String {
+        "DropCustomVal".into()
+    }
+
+    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+        unimplemented!()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn notify_plugin_on_drop(&self) -> bool {
+        true
+    }
+}
+
+#[test]
+fn prepare_custom_value_sends_to_keep_channel_if_drop_notify() -> Result<(), ShellError> {
+    let span = Span::test_data();
+    let source = Arc::new(PluginSource::new_fake("test"));
+    let (tx, rx) = mpsc::channel();
+    let state = CurrentCallState {
+        context_tx: None,
+        keep_plugin_custom_values_tx: Some(tx),
+    };
+    // Try with a custom val that has drop check set
+    let mut drop_val = PluginCustomValue::serialize_from_custom_value(&DropCustomVal, span)?
+        .with_source(Some(source.clone()));
+    state.prepare_custom_value(
+        Spanned {
+            item: &mut drop_val,
+            span,
+        },
+        &source,
+    )?;
+    // Check that the custom value was actually sent
+    assert!(rx.try_recv().is_ok());
+    // Now try with one that doesn't have it
+    let mut not_drop_val = test_plugin_custom_value().with_source(Some(source.clone()));
+    state.prepare_custom_value(
+        Spanned {
+            item: &mut not_drop_val,
+            span,
+        },
+        &source,
+    )?;
+    // Should not have been sent to the channel
+    assert!(rx.try_recv().is_err());
+    Ok(())
+}
+
+#[test]
+fn prepare_plugin_call_run() {
+    // Check that args are handled
+    let span = Span::test_data();
+    let source = Arc::new(PluginSource::new_fake("test"));
+    let other_source = Arc::new(PluginSource::new_fake("other"));
+    let cv_ok = test_plugin_custom_value()
+        .with_source(Some(source.clone()))
+        .into_value(span);
+    let cv_bad = test_plugin_custom_value()
+        .with_source(Some(other_source))
+        .into_value(span);
+
+    let fixtures = [
+        (
+            true, // should succeed
+            PluginCall::Run(CallInfo {
+                name: "".into(),
+                call: EvaluatedCall {
+                    head: span,
+                    positional: vec![Value::test_int(4)],
+                    named: vec![("x".to_owned().into_spanned(span), Some(Value::test_int(6)))],
+                },
+                input: PipelineData::Empty,
+            }),
+        ),
+        (
+            true, // should succeed
+            PluginCall::Run(CallInfo {
+                name: "".into(),
+                call: EvaluatedCall {
+                    head: span,
+                    positional: vec![cv_ok.clone()],
+                    named: vec![("ok".to_owned().into_spanned(span), Some(cv_ok.clone()))],
+                },
+                input: PipelineData::Empty,
+            }),
+        ),
+        (
+            false, // should fail
+            PluginCall::Run(CallInfo {
+                name: "".into(),
+                call: EvaluatedCall {
+                    head: span,
+                    positional: vec![cv_bad.clone()],
+                    named: vec![],
+                },
+                input: PipelineData::Empty,
+            }),
+        ),
+        (
+            false, // should fail
+            PluginCall::Run(CallInfo {
+                name: "".into(),
+                call: EvaluatedCall {
+                    head: span,
+                    positional: vec![],
+                    named: vec![("bad".to_owned().into_spanned(span), Some(cv_bad.clone()))],
+                },
+                input: PipelineData::Empty,
+            }),
+        ),
+        (
+            true, // should succeed
+            PluginCall::Run(CallInfo {
+                name: "".into(),
+                call: EvaluatedCall {
+                    head: span,
+                    positional: vec![],
+                    named: vec![],
+                },
+                // Shouldn't check input - that happens somewhere else
+                input: PipelineData::Value(cv_bad.clone(), None),
+            }),
+        ),
+    ];
+
+    for (should_succeed, mut fixture) in fixtures {
+        let result = CurrentCallState::default().prepare_plugin_call(&mut fixture, &source);
+        if should_succeed {
+            assert!(
+                result.is_ok(),
+                "Expected success, but failed with {:?} on {fixture:#?}",
+                result.unwrap_err(),
+            );
+        } else {
+            assert!(
+                result.is_err(),
+                "Expected failure, but succeeded on {fixture:#?}",
+            );
+        }
+    }
+}
+
+#[test]
+fn prepare_plugin_call_custom_value_op() {
+    // Check behavior with custom value ops
+    let span = Span::test_data();
+    let source = Arc::new(PluginSource::new_fake("test"));
+    let other_source = Arc::new(PluginSource::new_fake("other"));
+    let cv_ok = test_plugin_custom_value().with_source(Some(source.clone()));
+    let cv_ok_val = cv_ok.clone_value(span);
+    let cv_bad = test_plugin_custom_value().with_source(Some(other_source));
+    let cv_bad_val = cv_bad.clone_value(span);
+
+    let fixtures = [
+        (
+            true, // should succeed
+            PluginCall::CustomValueOp::<PipelineData>(
+                Spanned {
+                    item: cv_ok.clone(),
+                    span,
+                },
+                CustomValueOp::ToBaseValue,
+            ),
+        ),
+        (
+            false, // should fail
+            PluginCall::CustomValueOp(
+                Spanned {
+                    item: cv_bad.clone(),
+                    span,
+                },
+                CustomValueOp::ToBaseValue,
+            ),
+        ),
+        (
+            true, // should succeed
+            PluginCall::CustomValueOp(
+                Spanned {
+                    item: test_plugin_custom_value(),
+                    span,
+                },
+                // Dropped shouldn't check. We don't have a source set.
+                CustomValueOp::Dropped,
+            ),
+        ),
+        (
+            true, // should succeed
+            PluginCall::CustomValueOp::<PipelineData>(
+                Spanned {
+                    item: cv_ok.clone(),
+                    span,
+                },
+                CustomValueOp::PartialCmp(cv_ok_val.clone()),
+            ),
+        ),
+        (
+            false, // should fail
+            PluginCall::CustomValueOp(
+                Spanned {
+                    item: cv_ok.clone(),
+                    span,
+                },
+                CustomValueOp::PartialCmp(cv_bad_val.clone()),
+            ),
+        ),
+        (
+            true, // should succeed
+            PluginCall::CustomValueOp::<PipelineData>(
+                Spanned {
+                    item: cv_ok.clone(),
+                    span,
+                },
+                CustomValueOp::Operation(
+                    Operator::Math(Math::Append).into_spanned(span),
+                    cv_ok_val.clone(),
+                ),
+            ),
+        ),
+        (
+            false, // should fail
+            PluginCall::CustomValueOp(
+                Spanned {
+                    item: cv_ok.clone(),
+                    span,
+                },
+                CustomValueOp::Operation(
+                    Operator::Math(Math::Append).into_spanned(span),
+                    cv_bad_val.clone(),
+                ),
+            ),
+        ),
+    ];
+
+    for (should_succeed, mut fixture) in fixtures {
+        let result = CurrentCallState::default().prepare_plugin_call(&mut fixture, &source);
+        if should_succeed {
+            assert!(
+                result.is_ok(),
+                "Expected success, but failed with {:?} on {fixture:#?}",
+                result.unwrap_err(),
+            );
+        } else {
+            assert!(
+                result.is_err(),
+                "Expected failure, but succeeded on {fixture:#?}",
+            );
+        }
+    }
 }

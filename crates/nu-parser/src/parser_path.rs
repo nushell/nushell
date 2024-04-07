@@ -1,6 +1,8 @@
 use nu_protocol::engine::{StateWorkingSet, VirtualPath};
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 /// An abstraction over a PathBuf that can have virtual paths (files and directories). Virtual
 /// paths always exist and represent a way to ship Nushell code inside the binary without requiring

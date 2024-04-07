@@ -1,10 +1,5 @@
 use indexmap::IndexMap;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Values;
@@ -111,7 +106,7 @@ pub fn get_values<'a>(
     for item in input {
         match item {
             Value::Record { val, .. } => {
-                for (k, v) in val {
+                for (k, v) in &**val {
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
@@ -152,7 +147,7 @@ fn values(
                         .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     Err(err) => Err(err),
                 },
-                Value::CustomValue { val, .. } => {
+                Value::Custom { val, .. } => {
                     let input_as_base_value = val.to_base_value(span)?;
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols

@@ -1,26 +1,24 @@
+use crate::{
+    ast::Block,
+    debugger::{Debugger, NoopDebugger},
+    engine::{
+        usage::{build_usage, Usage},
+        CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
+        Variable, Visibility, DEFAULT_OVERLAY_NAME,
+    },
+    BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+};
 use fancy_regex::Regex;
 use lru::LruCache;
-
-use super::cached_file::CachedFile;
-use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{
-    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
-};
-use crate::ast::Block;
-use crate::debugger::{Debugger, NoopDebugger};
-use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, VirtualPathId,
-};
-use crate::{Category, Value};
-use std::collections::HashMap;
-use std::num::NonZeroUsize;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::atomic::Ordering;
-use std::sync::{
-    atomic::{AtomicBool, AtomicU32},
-    Arc, Mutex, MutexGuard, PoisonError,
+use std::{
+    collections::HashMap,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc, Mutex, MutexGuard, PoisonError,
+    },
 };
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
@@ -294,7 +292,7 @@ impl EngineState {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
+                            let (config, error) = new_record.parse_as_config(&self.config);
                             self.config = Arc::new(config);
                             config_updated = true;
                             env_vars.insert(k, new_record);
@@ -532,11 +530,7 @@ impl EngineState {
                     let examples = decl
                         .examples()
                         .into_iter()
-                        .map(|eg| PluginExample {
-                            example: eg.example.into(),
-                            description: eg.description.into(),
-                            result: eg.result,
-                        })
+                        .map(PluginExample::from)
                         .collect();
                     let sig_with_examples = PluginSignature::new(sig, examples);
                     serde_json::to_string_pretty(&sig_with_examples)
@@ -733,7 +727,7 @@ impl EngineState {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
@@ -743,7 +737,11 @@ impl EngineState {
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
-                    output.push((decl.0.clone(), Some(command.usage().to_string())));
+                    output.push((
+                        decl.0.clone(),
+                        Some(command.usage().to_string()),
+                        command.command_type(),
+                    ));
                 }
             }
         }
@@ -785,11 +783,7 @@ impl EngineState {
 
     /// Returns the configuration settings for command history or `None` if history is disabled
     pub fn history_config(&self) -> Option<HistoryConfig> {
-        if self.history_enabled {
-            Some(self.config.history)
-        } else {
-            None
-        }
+        self.history_enabled.then(|| self.config.history)
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {

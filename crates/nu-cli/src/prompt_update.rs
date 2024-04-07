@@ -1,11 +1,9 @@
 use crate::NushellPrompt;
 use log::trace;
 use nu_engine::get_eval_subexpression;
-
-use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Value,
+    report_error, Config, PipelineData, Value,
 };
 use reedline::Prompt;
 

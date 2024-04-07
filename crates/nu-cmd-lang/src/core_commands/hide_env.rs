@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    did_you_mean, Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::did_you_mean;
 
 #[derive(Clone)]
 pub struct HideEnv;

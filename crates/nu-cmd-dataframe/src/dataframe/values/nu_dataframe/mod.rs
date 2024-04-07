@@ -6,15 +6,14 @@ mod operations;
 pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
-use indexmap::map::IndexMap;
+use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
+use indexmap::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher};
-
-use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -117,15 +116,15 @@ impl NuDataFrame {
     }
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
-        Value::custom_value(Box::new(Self::new(false, dataframe)), span)
+        Value::custom(Box::new(Self::new(false, dataframe)), span)
     }
 
     pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Value::custom_value(Box::new(lazy), span)
+            Value::custom(Box::new(lazy), span)
         } else {
-            Value::custom_value(Box::new(self), span)
+            Value::custom(Box::new(self), span)
         }
     }
 
@@ -153,7 +152,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::CustomValue { .. } => return Self::try_from_value(value),
+                Value::Custom { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
                     let record = vals
                         .into_iter()
@@ -164,7 +163,7 @@ impl NuDataFrame {
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
                 Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
+                    conversion::insert_record(&mut column_values, *record, &maybe_schema)?
                 }
                 _ => {
                     let key = "0".to_string();
@@ -257,7 +256,7 @@ impl NuDataFrame {
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
@@ -284,7 +283,7 @@ impl NuDataFrame {
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::Custom { val, .. } = value {
             val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false

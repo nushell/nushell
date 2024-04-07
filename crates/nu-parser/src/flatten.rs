@@ -1,9 +1,11 @@
-use nu_protocol::ast::{
-    Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
-    PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection, RecordItem,
+use nu_protocol::{
+    ast::{
+        Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
+        PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection, RecordItem,
+    },
+    engine::StateWorkingSet,
+    DeclId, Span, VarId,
 };
-use nu_protocol::{engine::StateWorkingSet, Span};
-use nu_protocol::{DeclId, VarId};
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]

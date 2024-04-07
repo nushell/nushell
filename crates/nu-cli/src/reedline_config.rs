@@ -1,11 +1,12 @@
 use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
+use log::trace;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     create_menus,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
     ShellError, Span, Value,
@@ -78,6 +79,7 @@ pub(crate) fn add_menus(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
+    trace!("add_menus: config: {:#?}", &config);
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
@@ -1311,9 +1313,8 @@ fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::record;
-
     use super::*;
+    use nu_protocol::record;
 
     #[test]
     fn test_send_event() {

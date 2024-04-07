@@ -1,15 +1,9 @@
 use crate::help::highlight_search_string;
-
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
-    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{Config, ListStream};
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
@@ -374,10 +368,9 @@ fn find_with_rest_and_highlight(
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));
 
-    let cols_to_search_in_map = match call.get_flag(&engine_state, stack, "columns")? {
-        Some(cols) => cols,
-        None => vec![],
-    };
+    let cols_to_search_in_map: Vec<_> = call
+        .get_flag(&engine_state, stack, "columns")?
+        .unwrap_or_default();
 
     let cols_to_search_in_filter = cols_to_search_in_map.clone();
 
@@ -537,7 +530,7 @@ fn value_should_be_printed(
         | Value::Glob { .. }
         | Value::List { .. }
         | Value::CellPath { .. }
-        | Value::CustomValue { .. } => term_contains_value(term, &lower_value, span),
+        | Value::Custom { .. } => term_contains_value(term, &lower_value, span),
         Value::Record { val, .. } => {
             record_matches_term(val, columns_to_search, filter_config, term, span)
         }

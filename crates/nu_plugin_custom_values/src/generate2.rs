@@ -1,36 +1,43 @@
 use crate::{second_custom_value::SecondCustomValue, CustomValuePlugin};
-
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{
-    Category, LabeledError, PluginExample, PluginSignature, Span, SyntaxShape, Value,
-};
+use nu_protocol::{Category, Example, LabeledError, Signature, Span, SyntaxShape, Value};
 
 pub struct Generate2;
 
 impl SimplePluginCommand for Generate2 {
     type Plugin = CustomValuePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("custom-value generate2")
-            .usage("PluginSignature for a plugin that generates a different custom value")
+    fn name(&self) -> &str {
+        "custom-value generate2"
+    }
+
+    fn usage(&self) -> &str {
+        "PluginSignature for a plugin that generates a different custom value"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .optional(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "An optional closure to pass the custom value to",
             )
             .category(Category::Experimental)
-            .plugin_examples(vec![
-                PluginExample {
-                    example: "custom-value generate2".into(),
-                    description: "Generate a new SecondCustomValue".into(),
-                    result: Some(SecondCustomValue::new("xyz").into_value(Span::test_data())),
-                },
-                PluginExample {
-                    example: "custom-value generate2 { print }".into(),
-                    description: "Generate a new SecondCustomValue and pass it to a closure".into(),
-                    result: None,
-                },
-            ])
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                example: "custom-value generate2",
+                description: "Generate a new SecondCustomValue",
+                result: Some(SecondCustomValue::new("xyz").into_value(Span::test_data())),
+            },
+            Example {
+                example: "custom-value generate2 { print }",
+                description: "Generate a new SecondCustomValue and pass it to a closure",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -53,4 +60,12 @@ impl SimplePluginCommand for Generate2 {
             Ok(second_custom_value)
         }
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("custom_values", crate::CustomValuePlugin::new().into())?
+        .test_command_examples(&Generate2)
 }

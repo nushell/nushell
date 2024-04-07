@@ -3,8 +3,7 @@ use std::cmp::Ordering;
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, SimplePluginCommand};
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    CustomValue, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError, Span,
-    Type, Value,
+    CustomValue, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +13,7 @@ struct CustomU32(u32);
 
 impl CustomU32 {
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 }
 
@@ -33,6 +32,10 @@ impl CustomValue for CustomU32 {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
 
@@ -58,14 +61,24 @@ impl Plugin for CustomU32Plugin {
 impl SimplePluginCommand for IntoU32 {
     type Plugin = CustomU32Plugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("into u32")
-            .input_output_type(Type::Int, Type::Custom("CustomU32".into()))
-            .plugin_examples(vec![PluginExample {
-                example: "340 | into u32".into(),
-                description: "Make a u32".into(),
-                result: Some(CustomU32(340).into_value(Span::test_data())),
-            }])
+    fn name(&self) -> &str {
+        "into u32"
+    }
+
+    fn usage(&self) -> &str {
+        "Convert a number to a 32-bit unsigned integer"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name()).input_output_type(Type::Int, Type::Custom("CustomU32".into()))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "340 | into u32",
+            description: "Make a u32",
+            result: Some(CustomU32(340).into_value(Span::test_data())),
+        }]
     }
 
     fn run(
@@ -87,9 +100,16 @@ impl SimplePluginCommand for IntoU32 {
 impl SimplePluginCommand for IntoIntFromU32 {
     type Plugin = CustomU32Plugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("into int from u32")
-            .input_output_type(Type::Custom("CustomU32".into()), Type::Int)
+    fn name(&self) -> &str {
+        "into int from u32"
+    }
+
+    fn usage(&self) -> &str {
+        "Turn a u32 back into a number"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name()).input_output_type(Type::Custom("CustomU32".into()), Type::Int)
     }
 
     fn run(

@@ -1,10 +1,4 @@
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, env::current_dir};
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -21,12 +15,12 @@ impl Command for Mktemp {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "coreutils",
             "create",
             "directory",
             "file",
             "folder",
             "temporary",
+            "coreutils",
         ]
     }
 

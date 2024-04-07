@@ -1,18 +1,17 @@
-use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
-
 use crate::{current_dir, current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
-use nu_protocol::debugger::DebugContext;
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
+    debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
     Config, FromValue, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
 };
+use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 
 pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,
@@ -48,12 +47,12 @@ pub fn eval_call<D: DebugContext>(
         // To prevent a stack overflow in user code from crashing the shell,
         // we limit the recursion depth of function calls.
         // Picked 50 arbitrarily, should work on all architectures.
-        const MAXIMUM_CALL_STACK_DEPTH: u64 = 50;
+        let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
         callee_stack.recursion_count += 1;
-        if callee_stack.recursion_count > MAXIMUM_CALL_STACK_DEPTH {
+        if callee_stack.recursion_count > maximum_call_stack_depth {
             callee_stack.recursion_count = 0;
             return Err(ShellError::RecursionLimitReached {
-                recursion_limit: MAXIMUM_CALL_STACK_DEPTH,
+                recursion_limit: maximum_call_stack_depth,
                 span: block.span,
             });
         }
@@ -314,7 +313,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
 
 // Try to catch and detect if external command runs to failed.
 fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
-    input.is_external_failed()
+    input.check_external_failed()
 }
 
 fn eval_redirection<D: DebugContext>(
@@ -328,7 +327,7 @@ fn eval_redirection<D: DebugContext>(
             let cwd = current_dir(engine_state, stack)?;
             let value = eval_expression::<D>(engine_state, stack, expr)?;
             let path = Spanned::<PathBuf>::from_value(value)?.item;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             let mut options = OpenOptions::new();
             if *append {
@@ -439,12 +438,12 @@ fn eval_element_with_input_inner<D: DebugContext>(
         }
     }
 
-    let data = match (data, stack.pipe_stdout()) {
-        (
-            data @ (PipelineData::Value(..) | PipelineData::ListStream(..)),
-            Some(IoStream::File(_)),
-        ) => data.write_to_io_streams(engine_state, stack)?,
-        (data, _) => data,
+    let data = if matches!(stack.pipe_stdout(), Some(IoStream::File(_)))
+        && !matches!(stack.pipe_stderr(), Some(IoStream::Pipe))
+    {
+        data.write_to_io_streams(engine_state, stack)?
+    } else {
+        data
     };
 
     Ok((data, ok))
@@ -634,7 +633,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }
@@ -653,7 +652,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(path, cwd);
+            let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }

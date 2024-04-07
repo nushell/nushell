@@ -1,12 +1,11 @@
-use crate::debugger::DebugContext;
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
         ExternalArgument, Math, Operator, RecordItem,
     },
+    debugger::DebugContext,
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-
 use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
@@ -76,7 +75,7 @@ pub trait Eval {
                         RecordItem::Spread(_, inner) => {
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
-                                    for (col_name, val) in inner_val {
+                                    for (col_name, val) in *inner_val {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
@@ -136,7 +135,7 @@ pub trait Eval {
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(e, unit) => match Self::eval::<D>(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+                Value::Int { val, .. } => unit.item.build_value(val, unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
@@ -169,8 +168,9 @@ pub trait Eval {
                 } else {
                     Value::nothing(expr.span)
                 };
+
                 Ok(Value::range(
-                    Range::new(expr.span, from, next, to, operator)?,
+                    Range::new(from, next, to, operator.inclusion, expr.span)?,
                     expr.span,
                 ))
             }

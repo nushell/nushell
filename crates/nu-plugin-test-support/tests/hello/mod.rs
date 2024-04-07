@@ -2,7 +2,7 @@
 
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
-use nu_protocol::{LabeledError, PluginExample, PluginSignature, ShellError, Type, Value};
+use nu_protocol::{Example, LabeledError, ShellError, Signature, Type, Value};
 
 struct HelloPlugin;
 struct Hello;
@@ -16,14 +16,24 @@ impl Plugin for HelloPlugin {
 impl SimplePluginCommand for Hello {
     type Plugin = HelloPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("hello")
-            .input_output_type(Type::Nothing, Type::String)
-            .plugin_examples(vec![PluginExample {
-                example: "hello".into(),
-                description: "Print a friendly greeting".into(),
-                result: Some(Value::test_string("Hello, World!")),
-            }])
+    fn name(&self) -> &str {
+        "hello"
+    }
+
+    fn usage(&self) -> &str {
+        "Print a friendly greeting"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(PluginCommand::name(self)).input_output_type(Type::Nothing, Type::String)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "hello",
+            description: "Print a friendly greeting",
+            result: Some(Value::test_string("Hello, World!")),
+        }]
     }
 
     fn run(
@@ -44,9 +54,9 @@ fn test_specified_examples() -> Result<(), ShellError> {
 
 #[test]
 fn test_an_error_causing_example() -> Result<(), ShellError> {
-    let result = PluginTest::new("hello", HelloPlugin.into())?.test_examples(&[PluginExample {
-        example: "hello --unknown-flag".into(),
-        description: "Run hello with an unknown flag".into(),
+    let result = PluginTest::new("hello", HelloPlugin.into())?.test_examples(&[Example {
+        example: "hello --unknown-flag",
+        description: "Run hello with an unknown flag",
         result: Some(Value::test_string("Hello, World!")),
     }]);
     assert!(result.is_err());
@@ -55,11 +65,24 @@ fn test_an_error_causing_example() -> Result<(), ShellError> {
 
 #[test]
 fn test_an_example_with_the_wrong_result() -> Result<(), ShellError> {
-    let result = PluginTest::new("hello", HelloPlugin.into())?.test_examples(&[PluginExample {
-        example: "hello".into(),
-        description: "Run hello but the example result is wrong".into(),
+    let result = PluginTest::new("hello", HelloPlugin.into())?.test_examples(&[Example {
+        example: "hello",
+        description: "Run hello but the example result is wrong",
         result: Some(Value::test_string("Goodbye, World!")),
     }]);
     assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_requiring_nu_cmd_lang_commands() -> Result<(), ShellError> {
+    use nu_protocol::Span;
+
+    let result = PluginTest::new("hello", HelloPlugin.into())?
+        .eval("do { let greeting = hello; $greeting }")?
+        .into_value(Span::test_data());
+
+    assert_eq!(Value::test_string("Hello, World!"), result);
+
     Ok(())
 }

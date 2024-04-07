@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Default;
@@ -112,7 +106,7 @@ fn default(
                                 record.push(column.item.clone(), value.clone());
                             }
 
-                            Value::record(record, span)
+                            Value::record(*record, span)
                         }
                         _ => item,
                     }

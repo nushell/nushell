@@ -1,8 +1,8 @@
-use std::{
-    borrow::Cow,
-    cmp::{max, Ordering},
+use super::Layout;
+use crate::{
+    nu_common::{truncate_str, NuStyle, NuText},
+    views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
-
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::Value;
 use nu_table::string_width;
@@ -12,13 +12,10 @@ use ratatui::{
     text::Span,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
-
-use crate::{
-    nu_common::{truncate_str, NuStyle, NuText},
-    views::util::{nu_style_to_tui, text_style_to_tui_style},
+use std::{
+    borrow::Cow,
+    cmp::{max, Ordering},
 };
-
-use super::Layout;
 
 #[derive(Debug, Clone)]
 pub struct TableW<'a> {

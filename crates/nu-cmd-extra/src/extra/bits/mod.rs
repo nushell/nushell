@@ -13,7 +13,6 @@ pub use and::BitsAnd;
 pub use bits_::Bits;
 pub use into::BitsInto;
 pub use not::BitsNot;
-use nu_protocol::{ShellError, Value};
 pub use or::BitsOr;
 pub use rotate_left::BitsRol;
 pub use rotate_right::BitsRor;
@@ -21,7 +20,7 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
-use nu_protocol::{Span, Spanned};
+use nu_protocol::{ShellError, Span, Spanned, Value};
 use std::iter;
 
 #[derive(Clone, Copy)]

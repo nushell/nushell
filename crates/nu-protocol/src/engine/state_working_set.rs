@@ -1,16 +1,18 @@
-use super::cached_file::CachedFile;
-use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, Variable, VirtualPath,
-    Visibility, PWD_ENV,
+use crate::{
+    ast::Block,
+    engine::{
+        usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
+    },
+    BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
+    Type, Value, VarId, VirtualPathId,
 };
-use crate::ast::Block;
-use crate::{BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, VirtualPathId};
-use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+};
 
 #[cfg(feature = "plugin")]
 use crate::{PluginIdentity, RegisteredPlugin};
@@ -708,7 +710,7 @@ impl<'a> StateWorkingSet<'a> {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
@@ -721,7 +723,11 @@ impl<'a> StateWorkingSet<'a> {
                         if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;
                         }
-                        output.push((decl.0.clone(), Some(command.usage().to_string())));
+                        output.push((
+                            decl.0.clone(),
+                            Some(command.usage().to_string()),
+                            command.command_type(),
+                        ));
                     }
                 }
             }

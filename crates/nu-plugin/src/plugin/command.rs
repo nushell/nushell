@@ -1,4 +1,7 @@
-use nu_protocol::{LabeledError, PipelineData, PluginSignature, Value};
+use nu_protocol::{
+    Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
+    Signature, Value,
+};
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
 
@@ -19,16 +22,23 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, PipelineData, Type, Value, LabeledError};
+/// # use nu_protocol::{Signature, PipelineData, Type, Value, LabeledError};
 /// struct LowercasePlugin;
 /// struct Lowercase;
 ///
 /// impl PluginCommand for Lowercase {
 ///     type Plugin = LowercasePlugin;
 ///
-///     fn signature(&self) -> PluginSignature {
-///         PluginSignature::build("lowercase")
-///             .usage("Convert each string in a stream to lowercase")
+///     fn name(&self) -> &str {
+///         "lowercase"
+///     }
+///
+///     fn usage(&self) -> &str {
+///         "Convert each string in a stream to lowercase"
+///     }
+///
+///     fn signature(&self) -> Signature {
+///         Signature::build(PluginCommand::name(self))
 ///             .input_output_type(Type::List(Type::String.into()), Type::List(Type::String.into()))
 ///     }
 ///
@@ -60,18 +70,62 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// # }
 /// ```
 pub trait PluginCommand: Sync {
-    /// The type of plugin this command runs on
+    /// The type of plugin this command runs on.
     ///
     /// Since [`.run()`] takes a reference to the plugin, it is necessary to define the type of
     /// plugin that the command expects here.
     type Plugin: Plugin;
 
-    /// The signature of the plugin command
+    /// The name of the command from within Nu.
     ///
-    /// These are aggregated from the [`Plugin`] and sent to the engine on `register`.
-    fn signature(&self) -> PluginSignature;
+    /// In case this contains spaces, it will be treated as a subcommand.
+    fn name(&self) -> &str;
 
-    /// Perform the actual behavior of the plugin command
+    /// The signature of the command.
+    ///
+    /// This defines the arguments and input/output types of the command.
+    fn signature(&self) -> Signature;
+
+    /// A brief description of usage for the command.
+    ///
+    /// This should be short enough to fit in completion menus.
+    fn usage(&self) -> &str;
+
+    /// Additional documentation for usage of the command.
+    ///
+    /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
+    /// page automatically. However, this can be useful for explaining things that would be too
+    /// brief to include in [`.usage()`] and may span multiple lines.
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
+    /// Search terms to help users find the command.
+    ///
+    /// A search query matching any of these search keywords, e.g. on `help --find`, will also
+    /// show this command as a result. This may be used to suggest this command as a replacement
+    /// for common system commands, or based alternate names for the functionality this command
+    /// provides.
+    ///
+    /// For example, a `fold` command might mention `reduce` in its search terms.
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
+
+    /// Examples, in Nu, of how the command might be used.
+    ///
+    /// The examples are not restricted to only including this command, and may demonstrate
+    /// pipelines using the command. A `result` may optionally be provided to show users what the
+    /// command would return.
+    ///
+    /// `PluginTest::test_command_examples()` from the
+    /// [`nu-plugin-test-support`](https://docs.rs/nu-plugin-test-support) crate can be used in
+    /// plugin tests to automatically test that examples produce the `result`s as specified.
+    fn examples(&self) -> Vec<Example> {
+        vec![]
+    }
+
+    /// Perform the actual behavior of the plugin command.
     ///
     /// The behavior of the plugin is defined by the implementation of this method. When Nushell
     /// invoked the plugin [`serve_plugin`](crate::serve_plugin) will call this method and print the
@@ -109,15 +163,23 @@ pub trait PluginCommand: Sync {
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, Type, Value, LabeledError};
+/// # use nu_protocol::{LabeledError, Signature, Type, Value};
 /// struct HelloPlugin;
 /// struct Hello;
 ///
 /// impl SimplePluginCommand for Hello {
 ///     type Plugin = HelloPlugin;
 ///
-///     fn signature(&self) -> PluginSignature {
-///         PluginSignature::build("hello")
+///     fn name(&self) -> &str {
+///         "hello"
+///     }
+///
+///     fn usage(&self) -> &str {
+///         "Every programmer's favorite greeting"
+///     }
+///
+///     fn signature(&self) -> Signature {
+///         Signature::build(PluginCommand::name(self))
 ///             .input_output_type(Type::Nothing, Type::String)
 ///     }
 ///
@@ -143,18 +205,62 @@ pub trait PluginCommand: Sync {
 /// # }
 /// ```
 pub trait SimplePluginCommand: Sync {
-    /// The type of plugin this command runs on
+    /// The type of plugin this command runs on.
     ///
     /// Since [`.run()`] takes a reference to the plugin, it is necessary to define the type of
     /// plugin that the command expects here.
     type Plugin: Plugin;
 
-    /// The signature of the plugin command
+    /// The name of the command from within Nu.
     ///
-    /// These are aggregated from the [`Plugin`] and sent to the engine on `register`.
-    fn signature(&self) -> PluginSignature;
+    /// In case this contains spaces, it will be treated as a subcommand.
+    fn name(&self) -> &str;
 
-    /// Perform the actual behavior of the plugin command
+    /// The signature of the command.
+    ///
+    /// This defines the arguments and input/output types of the command.
+    fn signature(&self) -> Signature;
+
+    /// A brief description of usage for the command.
+    ///
+    /// This should be short enough to fit in completion menus.
+    fn usage(&self) -> &str;
+
+    /// Additional documentation for usage of the command.
+    ///
+    /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
+    /// page automatically. However, this can be useful for explaining things that would be too
+    /// brief to include in [`.usage()`] and may span multiple lines.
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
+    /// Search terms to help users find the command.
+    ///
+    /// A search query matching any of these search keywords, e.g. on `help --find`, will also
+    /// show this command as a result. This may be used to suggest this command as a replacement
+    /// for common system commands, or based alternate names for the functionality this command
+    /// provides.
+    ///
+    /// For example, a `fold` command might mention `reduce` in its search terms.
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
+
+    /// Examples, in Nu, of how the command might be used.
+    ///
+    /// The examples are not restricted to only including this command, and may demonstrate
+    /// pipelines using the command. A `result` may optionally be provided to show users what the
+    /// command would return.
+    ///
+    /// `PluginTest::test_command_examples()` from the
+    /// [`nu-plugin-test-support`](https://docs.rs/nu-plugin-test-support) crate can be used in
+    /// plugin tests to automatically test that examples produce the `result`s as specified.
+    fn examples(&self) -> Vec<Example> {
+        vec![]
+    }
+
+    /// Perform the actual behavior of the plugin command.
     ///
     /// The behavior of the plugin is defined by the implementation of this method. When Nushell
     /// invoked the plugin [`serve_plugin`](crate::serve_plugin) will call this method and print the
@@ -185,8 +291,16 @@ where
 {
     type Plugin = <Self as SimplePluginCommand>::Plugin;
 
-    fn signature(&self) -> PluginSignature {
-        <Self as SimplePluginCommand>::signature(self)
+    fn examples(&self) -> Vec<Example> {
+        <Self as SimplePluginCommand>::examples(self)
+    }
+
+    fn extra_usage(&self) -> &str {
+        <Self as SimplePluginCommand>::extra_usage(self)
+    }
+
+    fn name(&self) -> &str {
+        <Self as SimplePluginCommand>::name(self)
     }
 
     fn run(
@@ -204,4 +318,78 @@ where
         <Self as SimplePluginCommand>::run(self, plugin, engine, call, &input_value)
             .map(|value| PipelineData::Value(value, None))
     }
+
+    fn search_terms(&self) -> Vec<&str> {
+        <Self as SimplePluginCommand>::search_terms(self)
+    }
+
+    fn signature(&self) -> Signature {
+        <Self as SimplePluginCommand>::signature(self)
+    }
+
+    fn usage(&self) -> &str {
+        <Self as SimplePluginCommand>::usage(self)
+    }
+}
+
+/// Build a [`PluginSignature`] from the signature-related methods on [`PluginCommand`].
+///
+/// This is sent to the engine on `register`.
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub fn create_plugin_signature(command: &(impl PluginCommand + ?Sized)) -> PluginSignature {
+    PluginSignature::new(
+        // Add results of trait methods to signature
+        command
+            .signature()
+            .usage(command.usage())
+            .extra_usage(command.extra_usage())
+            .search_terms(
+                command
+                    .search_terms()
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
+            ),
+        // Convert `Example`s to `PluginExample`s
+        command
+            .examples()
+            .into_iter()
+            .map(PluginExample::from)
+            .collect(),
+    )
+}
+
+/// Render examples to their base value so they can be sent in the response to `Signature`.
+pub(crate) fn render_examples(
+    plugin: &impl Plugin,
+    engine: &EngineInterface,
+    examples: &mut [PluginExample],
+) -> Result<(), ShellError> {
+    for example in examples {
+        if let Some(ref mut value) = example.result {
+            value.recurse_mut(&mut |value| {
+                let span = value.span();
+                match value {
+                    Value::Custom { .. } => {
+                        let value_taken = std::mem::replace(value, Value::nothing(span));
+                        let Value::Custom { val, .. } = value_taken else {
+                            unreachable!()
+                        };
+                        *value =
+                            plugin.custom_value_to_base_value(engine, val.into_spanned(span))?;
+                        Ok::<_, ShellError>(())
+                    }
+                    // Collect LazyRecord before proceeding
+                    Value::LazyRecord { ref val, .. } => {
+                        *value = val.collect()?;
+                        Ok(())
+                    }
+                    _ => Ok(()),
+                }
+            })?;
+        }
+    }
+    Ok(())
 }

@@ -1,12 +1,10 @@
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_engine::{command_prelude::*, current_dir};
 
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
 use uucore::mode;
+
+use super::util::get_rest_for_glob_pattern;
 
 #[derive(Clone)]
 pub struct UMkdir;
@@ -16,7 +14,7 @@ const DEFAULT_MODE: u32 = 0o777;
 
 #[cfg(not(windows))]
 fn get_mode() -> u32 {
-    DEFAULT_MODE - mode::get_umask()
+    !mode::get_umask() & DEFAULT_MODE
 }
 
 #[cfg(windows)]
@@ -42,7 +40,7 @@ impl Command for UMkdir {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "rest",
-                SyntaxShape::Directory,
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Directory]),
                 "The name(s) of the path(s) to create.",
             )
             .switch(
@@ -61,10 +59,9 @@ impl Command for UMkdir {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = current_dir(engine_state, stack)?;
-        let mut directories = call
-            .rest::<String>(engine_state, stack, 0)?
+        let mut directories = get_rest_for_glob_pattern(engine_state, stack, call, 0)?
             .into_iter()
-            .map(|dir| nu_path::expand_path_with(dir, &cwd))
+            .map(|dir| nu_path::expand_path_with(dir.item.as_ref(), &cwd, dir.item.is_expand()))
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;

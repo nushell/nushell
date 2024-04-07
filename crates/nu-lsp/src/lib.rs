@@ -1,3 +1,19 @@
+use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
+use lsp_types::{
+    request::{Completion, GotoDefinition, HoverRequest, Request},
+    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
+    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
+    Url,
+};
+use miette::{IntoDiagnostic, Result};
+use nu_cli::{NuCompleter, SuggestionKind};
+use nu_parser::{flatten_block, parse, FlatShape};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    DeclId, Span, Value, VarId,
+};
+use ropey::Rope;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -7,23 +23,6 @@ use std::{
     },
     time::Duration,
 };
-
-use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
-use lsp_types::{
-    request::{Completion, GotoDefinition, HoverRequest, Request},
-    CompletionItem, CompletionParams, CompletionResponse, CompletionTextEdit, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location, MarkupContent, MarkupKind,
-    OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit, Url,
-};
-use miette::{IntoDiagnostic, Result};
-use nu_cli::NuCompleter;
-use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, Span, Value, VarId,
-};
-use reedline::Completer;
-use ropey::Rope;
 
 mod diagnostics;
 mod notification;
@@ -559,7 +558,8 @@ impl LanguageServer {
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
-        let results = completer.complete(&rope_of_file.to_string()[..location], location);
+        let results =
+            completer.fetch_completions_at(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
             None
         } else {
@@ -568,17 +568,18 @@ impl LanguageServer {
                     .into_iter()
                     .map(|r| {
                         let mut start = params.text_document_position.position;
-                        start.character -= (r.span.end - r.span.start) as u32;
+                        start.character -= (r.suggestion.span.end - r.suggestion.span.start) as u32;
 
                         CompletionItem {
-                            label: r.value.clone(),
-                            detail: r.description,
+                            label: r.suggestion.value.clone(),
+                            detail: r.suggestion.description,
+                            kind: Self::lsp_completion_item_kind(r.kind),
                             text_edit: Some(CompletionTextEdit::Edit(TextEdit {
                                 range: Range {
                                     start,
                                     end: params.text_document_position.position,
                                 },
-                                new_text: r.value,
+                                new_text: r.suggestion.value,
                             })),
                             ..Default::default()
                         }
@@ -587,12 +588,28 @@ impl LanguageServer {
             ))
         }
     }
+
+    fn lsp_completion_item_kind(
+        suggestion_kind: Option<SuggestionKind>,
+    ) -> Option<CompletionItemKind> {
+        suggestion_kind.and_then(|suggestion_kind| match suggestion_kind {
+            SuggestionKind::Type(t) => match t {
+                nu_protocol::Type::String => Some(CompletionItemKind::VARIABLE),
+                _ => None,
+            },
+            SuggestionKind::Command(c) => match c {
+                nu_protocol::engine::CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
+                nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
+                _ => None,
+            },
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert_json_diff::assert_json_eq;
+    use assert_json_diff::{assert_json_eq, assert_json_include};
     use lsp_types::{
         notification::{
             DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
@@ -964,7 +981,7 @@ mod tests {
     }
 
     #[test]
-    fn hover_on_command() {
+    fn hover_on_custom_command() {
         let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
@@ -988,6 +1005,36 @@ mod tests {
                 "contents": {
                     "kind": "markdown",
                     "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn hover_on_str_join() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = hover(&client_connection, script.clone(), 5, 8);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "contents": {
+                    "kind": "markdown",
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
@@ -1048,7 +1095,8 @@ mod tests {
                         "start": { "character": 5, "line": 2 },
                         "end": { "character": 9, "line": 2 }
                      }
-                  }
+                  },
+                  "kind": 6
                }
             ])
         );
@@ -1085,7 +1133,8 @@ mod tests {
                         "end": { "line": 0, "character": 8 },
                      },
                      "newText": "config nu"
-                  }
+                  },
+                  "kind": 3
                }
             ])
         );
@@ -1122,7 +1171,45 @@ mod tests {
                         "end": { "line": 0, "character": 14 },
                      },
                      "newText": "str trim"
-                  }
+                  },
+                  "kind": 3
+               }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_keyword() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("keyword.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 0, 2);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!([
+               {
+                  "label": "def",
+                  "textEdit": {
+                     "newText": "def",
+                     "range": {
+                        "start": { "character": 0, "line": 0 },
+                        "end": { "character": 2, "line": 0 }
+                     }
+                  },
+                  "kind": 14
                }
             ])
         );

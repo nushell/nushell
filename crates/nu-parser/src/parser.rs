@@ -1,44 +1,26 @@
 use crate::{
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
-    parse_mut,
+    parse_keywords::*,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
 };
-
-use nu_engine::DIR_VAR_PARSER_INFO;
-use nu_protocol::{
-    ast::{
-        Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
-        ExternalArgument, FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember,
-        MatchPattern, Math, Operator, PathMember, Pattern, Pipeline, PipelineElement,
-        PipelineRedirection, RangeInclusion, RangeOperator, RecordItem, RedirectionTarget,
-    },
-    engine::StateWorkingSet,
-    eval_const::eval_constant,
-    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
-};
-
-use crate::parse_keywords::{
-    find_dirs_var, is_unaliasable_parser_keyword, parse_alias, parse_const, parse_def,
-    parse_def_predecl, parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword,
-    parse_let, parse_module, parse_overlay_hide, parse_overlay_new, parse_overlay_use,
-    parse_source, parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
-};
-
 use itertools::Itertools;
 use log::trace;
+use nu_engine::DIR_VAR_PARSER_INFO;
+use nu_protocol::{
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, span, BlockId, DidYouMean, Flag,
+    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
+    IN_VARIABLE_ID,
+};
 use std::{
     collections::{HashMap, HashSet},
+    num::ParseIntError,
+    str,
     sync::Arc,
 };
-use std::{num::ParseIntError, str};
-
-#[cfg(feature = "plugin")]
-use crate::parse_keywords::parse_register;
 
 pub fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
@@ -2341,6 +2323,11 @@ pub fn parse_unit_value<'res>(
         let lhs = strip_underscores(value[..lhs_len].as_bytes());
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
+        if lhs.ends_with('$') {
+            // If `parse_unit_value` has higher precedence over `parse_range`,
+            // a variable with the name of a unit could otherwise not be used as the end of a range.
+            return None;
+        }
 
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,

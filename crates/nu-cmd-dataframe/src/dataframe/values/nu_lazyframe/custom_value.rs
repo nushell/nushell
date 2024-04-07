@@ -18,7 +18,7 @@ impl CustomValue for NuLazyFrame {
             schema: self.schema.clone(),
         };
 
-        Value::custom_value(Box::new(cloned), span)
+        Value::custom(Box::new(cloned), span)
     }
 
     fn type_name(&self) -> String {
@@ -41,6 +41,10 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }

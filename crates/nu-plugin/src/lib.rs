@@ -17,8 +17,8 @@
 //!
 //! ```rust,no_run
 //! use nu_plugin::{EvaluatedCall, MsgPackSerializer, serve_plugin};
-//! use nu_plugin::{Plugin, PluginCommand, SimplePluginCommand, EngineInterface};
-//! use nu_protocol::{PluginSignature, LabeledError, Value};
+//! use nu_plugin::{EngineInterface, Plugin, PluginCommand, SimplePluginCommand};
+//! use nu_protocol::{LabeledError, Signature, Value};
 //!
 //! struct MyPlugin;
 //! struct MyCommand;
@@ -32,7 +32,15 @@
 //! impl SimplePluginCommand for MyCommand {
 //!     type Plugin = MyPlugin;
 //!
-//!     fn signature(&self) -> PluginSignature {
+//!     fn name(&self) -> &str {
+//!         "my-command"
+//!     }
+//!
+//!     fn usage(&self) -> &str {
+//!         todo!();
+//!     }
+//!
+//!     fn signature(&self) -> Signature {
 //!         todo!();
 //!     }
 //!
@@ -59,7 +67,6 @@ mod plugin;
 mod protocol;
 mod sequence;
 mod serializers;
-mod util;
 
 pub use plugin::{
     serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, PluginRead, PluginWrite,
@@ -71,14 +78,17 @@ pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 // Used by other nu crates.
 #[doc(hidden)]
 pub use plugin::{
-    get_signature, serve_plugin_io, EngineInterfaceManager, GetPlugin, Interface, InterfaceManager,
-    PersistentPlugin, PluginDeclaration, PluginExecutionCommandContext, PluginExecutionContext,
-    PluginInterface, PluginInterfaceManager, PluginSource, ServePluginError,
+    create_plugin_signature, get_signature, serve_plugin_io, EngineInterfaceManager, GetPlugin,
+    Interface, InterfaceManager, PersistentPlugin, PluginDeclaration,
+    PluginExecutionCommandContext, PluginExecutionContext, PluginInterface, PluginInterfaceManager,
+    PluginSource, ServePluginError,
 };
 #[doc(hidden)]
 pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
 #[doc(hidden)]
 pub use serializers::EncodingType;
+#[doc(hidden)]
+pub mod util;
 
 // Used by external benchmarks.
 #[doc(hidden)]

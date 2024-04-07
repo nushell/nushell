@@ -1,13 +1,11 @@
 use crate::prompt_update::{POST_PROMPT_MARKER, PRE_PROMPT_MARKER};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use reedline::DefaultPrompt;
-use {
-    reedline::{
-        Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
-    },
-    std::borrow::Cow,
+use reedline::{
+    DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
+    PromptViMode,
 };
+use std::borrow::Cow;
 
 /// Nushell prompt definition
 #[derive(Clone)]

@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-cmd-dataframe"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-dataframe"
-version = "0.91.1"
+version = "0.92.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,9 +13,9 @@ version = "0.91.1"
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.91.1" }
-nu-parser = { path = "../nu-parser", version = "0.91.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
+nu-engine = { path = "../nu-engine", version = "0.92.2" }
+nu-parser = { path = "../nu-parser", version = "0.92.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.92.2" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
@@ -24,7 +24,8 @@ fancy-regex = { workspace = true }
 indexmap = { workspace = true }
 num = { version = "0.4", optional = true }
 serde = { workspace = true, features = ["derive"] }
-sqlparser = { version = "0.43", optional = true }
+# keep sqlparser at 0.39.0 until we can update polars
+sqlparser = { version = "0.39.0", optional = true }
 polars-io = { version = "0.37", features = ["avro"], optional = true }
 polars-arrow = { version = "0.37", optional = true }
 polars-ops = { version = "0.37", optional = true }
@@ -71,4 +72,4 @@ dataframe = ["num", "polars", "polars-io", "polars-arrow", "polars-ops", "polars
 default = []
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.92.2" }

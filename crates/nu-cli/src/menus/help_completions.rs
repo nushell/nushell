@@ -2,8 +2,7 @@ use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
-use std::fmt::Write;
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 pub struct NuHelpCompleter(Arc<EngineState>);
 
