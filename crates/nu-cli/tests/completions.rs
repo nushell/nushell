@@ -333,7 +333,26 @@ fn partial_completions() {
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
-    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
+    let expected_paths: Vec<String> = vec![
+        file(
+            dir.join("partial_a")
+                .join("..")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial_b")
+                .join("..")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial_c")
+                .join("..")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+    ];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
