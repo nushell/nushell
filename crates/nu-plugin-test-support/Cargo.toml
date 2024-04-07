@@ -15,7 +15,7 @@ nu-parser = { path = "../nu-parser", version = "0.92.2", features = ["plugin"] }
 nu-plugin = { path = "../nu-plugin", version = "0.92.2" }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.92.2" }
 nu-ansi-term = { workspace = true }
-similar = "2.4"
+similar = "2.5"
 
 [dev-dependencies]
 typetag = "0.2"
