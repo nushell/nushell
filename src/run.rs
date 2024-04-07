@@ -145,57 +145,69 @@ pub(crate) fn run_file(
 ) -> Result<(), miette::ErrReport> {
     trace!("run_file");
     let mut stack = nu_protocol::engine::Stack::new();
-    let start_time = std::time::Instant::now();
 
-    #[cfg(feature = "plugin")]
-    read_plugin_file(
-        engine_state,
-        &mut stack,
-        parsed_nu_cli_args.plugin_file,
-        NUSHELL_FOLDER,
-    );
-    perf(
-        "read plugins",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    let start_time = std::time::Instant::now();
-    // only want to load config and env if relative argument is provided.
-    if parsed_nu_cli_args.env_file.is_some() {
-        config_files::read_config_file(engine_state, &mut stack, parsed_nu_cli_args.env_file, true);
-    } else {
-        config_files::read_default_env_file(engine_state, &mut stack)
-    }
-    perf(
-        "read env.nu",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    let start_time = std::time::Instant::now();
-    if parsed_nu_cli_args.config_file.is_some() {
-        config_files::read_config_file(
+    // if the --no-config-file(-n) option is NOT passed, load the plugin file,
+    // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
+    // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
+    //
+    // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
+    if parsed_nu_cli_args.no_config_file.is_none() {
+        let start_time = std::time::Instant::now();
+        #[cfg(feature = "plugin")]
+        read_plugin_file(
             engine_state,
             &mut stack,
-            parsed_nu_cli_args.config_file,
-            false,
+            parsed_nu_cli_args.plugin_file,
+            NUSHELL_FOLDER,
+        );
+        perf(
+            "read plugins",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        let start_time = std::time::Instant::now();
+        // only want to load config and env if relative argument is provided.
+        if parsed_nu_cli_args.env_file.is_some() {
+            config_files::read_config_file(
+                engine_state,
+                &mut stack,
+                parsed_nu_cli_args.env_file,
+                true,
+            );
+        } else {
+            config_files::read_default_env_file(engine_state, &mut stack)
+        }
+        perf(
+            "read env.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        let start_time = std::time::Instant::now();
+        if parsed_nu_cli_args.config_file.is_some() {
+            config_files::read_config_file(
+                engine_state,
+                &mut stack,
+                parsed_nu_cli_args.config_file,
+                false,
+            );
+        }
+        perf(
+            "read config.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
         );
     }
-    perf(
-        "read config.nu",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
     let nu_const = create_nu_constant(engine_state, input.span().unwrap_or_else(Span::unknown))?;

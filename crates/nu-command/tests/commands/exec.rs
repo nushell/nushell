@@ -7,7 +7,7 @@ fn basic_exec() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -c 'exec nu --testbin cococo a b c'
+                nu -n -c 'exec nu --testbin cococo a b c'
             "#
         ));
 
@@ -21,7 +21,7 @@ fn exec_complex_args() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -c 'exec nu --testbin cococo b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --'
+                nu -n -c 'exec nu --testbin cococo b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --'
             "#
         ));
 
@@ -35,7 +35,7 @@ fn exec_fail_batched_short_args() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -c 'exec nu --testbin cococo -ab 10'
+                nu -n -c 'exec nu --testbin cococo -ab 10'
             "#
         ));
 
@@ -49,7 +49,7 @@ fn exec_misc_values() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -c 'let x = "abc"; exec nu --testbin cococo $x ...[ a b c ]'
+                nu -n -c 'let x = "abc"; exec nu --testbin cococo $x ...[ a b c ]'
             "#
         ));
 
