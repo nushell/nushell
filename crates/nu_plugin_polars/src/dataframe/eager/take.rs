@@ -63,8 +63,7 @@ impl PluginCommand for TakeDF {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -81,8 +80,7 @@ impl PluginCommand for TakeDF {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -136,8 +134,8 @@ fn command(
         inner: vec![],
     })?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
-    let df = df
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let polars_df = df
         .to_polars()
         .take(indices)
         .map_err(|e| ShellError::GenericError {
@@ -148,18 +146,17 @@ fn command(
             inner: vec![],
         })?;
 
-    let df = NuDataFrame::new(false, df);
+    let df = NuDataFrame::new(df.from_lazy, polars_df);
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(TakeDF {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&TakeDF)
+    }
+}
