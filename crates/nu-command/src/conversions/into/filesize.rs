@@ -108,7 +108,7 @@ impl Command for SubCommand {
                 result: Some(Value::test_filesize(4000)),
             },
             Example {
-                description: "Convert negative file size to filesize",
+                description: "Convert string with unit to filesize",
                 example: "-1KB | into filesize",
                 result: Some(Value::test_filesize(-1000)),
             },
@@ -145,10 +145,11 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     // Now that we know the locale, get the thousands separator and remove it
     // so strings like 1,123,456 can be parsed as 1123456
     let no_comma_string = a_string.replace(locale.separator(), "");
+    let clean_string = no_comma_string.trim();
 
     // Hadle negative file size
-    if no_comma_string.starts_with('-') {
-        match no_comma_string[1..].trim().parse::<bytesize::ByteSize>() {
+    if let Some(stripped_string) = clean_string.strip_prefix('-') {
+        match stripped_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(-(n.as_u64() as i64)),
             Err(_) => Err(ShellError::CantConvert {
                 to_type: "int".into(),
@@ -158,7 +159,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             }),
         }
     } else {
-        match no_comma_string.trim().parse::<bytesize::ByteSize>() {
+        match clean_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(n.0 as i64),
             Err(_) => Err(ShellError::CantConvert {
                 to_type: "int".into(),
