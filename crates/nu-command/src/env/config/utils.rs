@@ -1,5 +1,5 @@
 use crate::ExternalCommand;
-use nu_protocol::{Span, Spanned, Stdoe};
+use nu_protocol::{OutDest, Span, Spanned};
 use std::{collections::HashMap, path::PathBuf};
 
 pub(crate) fn gen_command(
@@ -29,8 +29,8 @@ pub(crate) fn gen_command(
         name,
         args,
         arg_keep_raw: vec![false; number_of_args],
-        out: Stdoe::Inherit,
-        err: Stdoe::Inherit,
+        out: OutDest::Inherit,
+        err: OutDest::Inherit,
         env_vars: env_vars_str,
     }
 }

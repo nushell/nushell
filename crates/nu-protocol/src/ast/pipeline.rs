@@ -1,7 +1,7 @@
 use crate::{
     ast::Expression,
     engine::{EngineState, StateWorkingSet},
-    Span, Stdoe,
+    OutDest, Span,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -118,7 +118,7 @@ impl PipelineElement {
         }
     }
 
-    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<Stdoe>, Option<Stdoe>) {
+    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<OutDest>, Option<OutDest>) {
         self.expr.expr.stdio_redirect(engine_state)
     }
 }
@@ -161,7 +161,7 @@ impl Pipeline {
         self.elements.is_empty()
     }
 
-    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<Stdoe>, Option<Stdoe>) {
+    pub fn stdio_redirect(&self, engine_state: &EngineState) -> (Option<OutDest>, Option<OutDest>) {
         if let Some(first) = self.elements.first() {
             first.stdio_redirect(engine_state)
         } else {

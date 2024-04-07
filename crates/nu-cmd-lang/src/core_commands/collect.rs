@@ -40,7 +40,7 @@ impl Command for Collect {
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let mut stack_captures =
-            stack.captures_to_stack_preserve_stdoe(capture_block.captures.clone());
+            stack.captures_to_stack_preserve_out_dest(capture_block.captures.clone());
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);

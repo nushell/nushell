@@ -1,6 +1,6 @@
 use super::run_external::create_external_command;
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::Stdoe;
+use nu_protocol::OutDest;
 
 #[derive(Clone)]
 pub struct Exec;
@@ -59,8 +59,8 @@ fn exec(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let mut external_command = create_external_command(engine_state, stack, call)?;
-    external_command.out = Stdoe::Inherit;
-    external_command.err = Stdoe::Inherit;
+    external_command.out = OutDest::Inherit;
+    external_command.err = OutDest::Inherit;
 
     let cwd = current_dir(engine_state, stack)?;
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;

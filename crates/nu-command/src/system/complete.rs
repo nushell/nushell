@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Stdoe;
+use nu_protocol::OutDest;
 use std::thread;
 
 #[derive(Clone)]
@@ -118,7 +118,7 @@ impl Command for Complete {
         }]
     }
 
-    fn stdio_redirect(&self) -> (Option<Stdoe>, Option<Stdoe>) {
-        (Some(Stdoe::Capture), Some(Stdoe::Capture))
+    fn stdio_redirect(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }

@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_protocol::{engine::Closure, RawStream, Stdoe};
+use nu_protocol::{engine::Closure, OutDest, RawStream};
 use std::{sync::mpsc, thread};
 
 #[derive(Clone)]
@@ -73,7 +73,7 @@ use it in your pipeline."#
 
         let closure_engine_state = engine_state.clone();
         let mut closure_stack = stack
-            .captures_to_stack_preserve_stdoe(captures)
+            .captures_to_stack_preserve_out_dest(captures)
             .reset_pipes();
 
         let metadata = input.metadata();
@@ -198,8 +198,8 @@ use it in your pipeline."#
         }
     }
 
-    fn stdio_redirect(&self) -> (Option<Stdoe>, Option<Stdoe>) {
-        (Some(Stdoe::Capture), Some(Stdoe::Capture))
+    fn stdio_redirect(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }
 

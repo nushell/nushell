@@ -3,7 +3,7 @@ use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Redirection, Stack, StateWorkingSet},
-    PipelineData, ShellError, Stdoe, Value,
+    OutDest, PipelineData, ShellError, Value,
 };
 use std::sync::Arc;
 
@@ -96,8 +96,8 @@ fn eval_source2(
     }
 
     let stack = &mut stack.push_redirection(
-        Some(Redirection::Pipe(Stdoe::Capture)),
-        Some(Redirection::Pipe(Stdoe::Capture)),
+        Some(Redirection::Pipe(OutDest::Capture)),
+        Some(Redirection::Pipe(OutDest::Capture)),
     );
     eval_block::<WithoutDebug>(engine_state, stack, &block, input)
 }

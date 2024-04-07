@@ -1,9 +1,9 @@
 mod metadata;
-mod stdoe;
+mod out_dest;
 mod stream;
 
 pub use metadata::*;
-pub use stdoe::*;
+pub use out_dest::*;
 pub use stream::*;
 
 use crate::{
@@ -208,12 +208,12 @@ impl PipelineData {
         }
     }
 
-    /// Writes all values or redirects all output to the current stdoe streams in `stack`.
+    /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
     ///
-    /// For [`Stdoe::Pipe`] and [`Stdoe::Capture`], this will return the `PipelineData` as is
+    /// For [`OutDest::Pipe`] and [`OutDest::Capture`], this will return the `PipelineData` as is
     /// without consuming input and without writing anything.
     ///
-    /// For the other [`Stdoe`]s, the given `PipelineData` will be completely consumed
+    /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
     /// and `PipelineData::Empty` will be returned.
     pub fn write_to_io_streams(
         self,
@@ -234,10 +234,10 @@ impl PipelineData {
             ) => {
                 fn needs_redirect(
                     stream: Option<RawStream>,
-                    io_stream: &Stdoe,
+                    io_stream: &OutDest,
                 ) -> Result<RawStream, Option<RawStream>> {
                     match (stream, io_stream) {
-                        (Some(stream), Stdoe::Pipe | Stdoe::Capture) => Err(Some(stream)),
+                        (Some(stream), OutDest::Pipe | OutDest::Capture) => Err(Some(stream)),
                         (Some(stream), _) => Ok(stream),
                         (None, _) => Err(None),
                     }
@@ -296,22 +296,22 @@ impl PipelineData {
                     trim_end_newline,
                 })
             }
-            (data, Stdoe::Pipe | Stdoe::Capture) => Ok(data),
+            (data, OutDest::Pipe | OutDest::Capture) => Ok(data),
             (PipelineData::Empty, _) => Ok(PipelineData::Empty),
-            (PipelineData::Value(_, _), Stdoe::Null) => Ok(PipelineData::Empty),
-            (PipelineData::ListStream(stream, _), Stdoe::Null) => {
+            (PipelineData::Value(_, _), OutDest::Null) => Ok(PipelineData::Empty),
+            (PipelineData::ListStream(stream, _), OutDest::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(value, _), Stdoe::File(file)) => {
+            (PipelineData::Value(value, _), OutDest::File(file)) => {
                 let bytes = value_to_bytes(value)?;
                 let mut file = file.try_clone()?;
                 file.write_all(&bytes)?;
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::ListStream(stream, _), Stdoe::File(file)) => {
+            (PipelineData::ListStream(stream, _), OutDest::File(file)) => {
                 let mut file = file.try_clone()?;
                 // use BufWriter here?
                 for value in stream {
@@ -324,7 +324,7 @@ impl PipelineData {
             }
             (
                 data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
-                Stdoe::Inherit,
+                OutDest::Inherit,
             ) => {
                 let config = engine_state.get_config();
 
@@ -1036,26 +1036,26 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     }
 }
 
-/// Only call this if `output_stream` is not `Stdoe::Pipe` or `Stdoe::Capture`.
-fn consume_child_output(child_output: RawStream, output_stream: &Stdoe) -> io::Result<()> {
+/// Only call this if `output_stream` is not `OutDest::Pipe` or `OutDest::Capture`.
+fn consume_child_output(child_output: RawStream, output_stream: &OutDest) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {
-        Stdoe::Pipe | Stdoe::Capture => {
+        OutDest::Pipe | OutDest::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
-            // but Stdoe::Pipe means to redirect output
+            // but OutDest::Pipe means to redirect output
             // into an OS pipe for *future use* (as input for another command).
             // So, this branch makes no sense, and will simply drop `output` instead of draining it.
             // This could trigger a `SIGPIPE` for the external command,
             // since there will be no reader for its pipe.
             debug_assert!(false)
         }
-        Stdoe::Null => {
+        OutDest::Null => {
             io::copy(&mut output, &mut io::sink())?;
         }
-        Stdoe::Inherit => {
+        OutDest::Inherit => {
             io::copy(&mut output, &mut io::stdout())?;
         }
-        Stdoe::File(file) => {
+        OutDest::File(file) => {
             io::copy(&mut output, &mut file.try_clone()?)?;
         }
     }

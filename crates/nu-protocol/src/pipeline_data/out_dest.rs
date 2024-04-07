@@ -2,7 +2,7 @@ use std::{fs::File, io, process::Stdio, sync::Arc};
 
 /// Describes where to direct the stdout or stderr output stream of external command to.
 #[derive(Debug, Clone)]
-pub enum Stdoe {
+pub enum OutDest {
     /// Redirect the stdout and/or stderr of one command as the input for the next command in the pipeline.
     ///
     /// The output pipe will be available as the `stdout` of `PipelineData::ExternalStream`.
@@ -29,27 +29,27 @@ pub enum Stdoe {
     File(Arc<File>), // Arc<File>, since we sometimes need to clone `Stdoe` into iterators, etc.
 }
 
-impl From<File> for Stdoe {
+impl From<File> for OutDest {
     fn from(file: File) -> Self {
         Arc::new(file).into()
     }
 }
 
-impl From<Arc<File>> for Stdoe {
+impl From<Arc<File>> for OutDest {
     fn from(file: Arc<File>) -> Self {
         Self::File(file)
     }
 }
 
-impl TryFrom<&Stdoe> for Stdio {
+impl TryFrom<&OutDest> for Stdio {
     type Error = io::Error;
 
-    fn try_from(stdoe: &Stdoe) -> Result<Self, Self::Error> {
+    fn try_from(stdoe: &OutDest) -> Result<Self, Self::Error> {
         match stdoe {
-            Stdoe::Pipe | Stdoe::Capture => Ok(Self::piped()),
-            Stdoe::Null => Ok(Self::null()),
-            Stdoe::Inherit => Ok(Self::inherit()),
-            Stdoe::File(file) => Ok(file.try_clone()?.into()),
+            OutDest::Pipe | OutDest::Capture => Ok(Self::piped()),
+            OutDest::Null => Ok(Self::null()),
+            OutDest::Inherit => Ok(Self::inherit()),
+            OutDest::File(file) => Ok(file.try_clone()?.into()),
         }
     }
 }

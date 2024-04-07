@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
-use nu_protocol::{engine::Closure, ListStream, RawStream, Stdoe};
+use nu_protocol::{engine::Closure, ListStream, OutDest, RawStream};
 use std::thread;
 
 #[derive(Clone)]
@@ -72,7 +72,7 @@ impl Command for Do {
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
-        let mut callee_stack = caller_stack.captures_to_stack_preserve_stdoe(block.captures);
+        let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
         let block = engine_state.get_block(block.block_id);
 
         bind_args_to(&mut callee_stack, &block.signature, rest, call.head)?;
@@ -191,7 +191,7 @@ impl Command for Do {
                 metadata,
                 trim_end_newline,
             }) if ignore_program_errors
-                && !matches!(caller_stack.stdout(), Stdoe::Pipe | Stdoe::Capture) =>
+                && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
             {
                 Ok(PipelineData::ExternalStream {
                     stdout,

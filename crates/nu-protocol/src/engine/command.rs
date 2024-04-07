@@ -1,4 +1,4 @@
-use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature, Stdoe};
+use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
 
@@ -134,7 +134,7 @@ pub trait Command: Send + Sync + CommandClone {
         }
     }
 
-    fn stdio_redirect(&self) -> (Option<Stdoe>, Option<Stdoe>) {
+    fn stdio_redirect(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
     }
 }
