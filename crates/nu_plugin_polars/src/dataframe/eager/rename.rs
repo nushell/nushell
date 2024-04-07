@@ -86,8 +86,7 @@ impl PluginCommand for RenameDF {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -109,8 +108,7 @@ impl PluginCommand for RenameDF {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -193,14 +191,14 @@ fn command_lazy(
     to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(RenameDF {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::test::test_polars_plugin_command;
+
+    use super::*;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&RenameDF)
+    }
+}

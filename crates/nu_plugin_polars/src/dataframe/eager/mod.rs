@@ -72,6 +72,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
     vec![
         Box::new(AppendDF),
         Box::new(CastDF),
+        Box::new(ColumnsDF),
         Box::new(DataTypes),
         Box::new(DropDF),
         Box::new(DropDuplicates),
@@ -85,7 +86,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(FirstDF),
         Box::new(LastDF),
         Box::new(ListDF),
-        Box::new(ColumnsDF),
         Box::new(RenameDF),
         Box::new(SampleDF),
         Box::new(ShapeDF),
