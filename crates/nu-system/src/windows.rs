@@ -1074,3 +1074,23 @@ impl ProcessInfo {
         self.memory_info.private_usage
     }
 }
+
+/// Generate a path to be used for a local socket specific to this `nu` process, described by the
+/// given `unique_id`, which should be unique to the purpose of the socket.
+pub fn make_local_socket_path(unique_id: &str) -> PathBuf {
+    // Windows uses the "\\.\pipe\" filesystem
+    let mut base = PathBuf::from(r"\\.\pipe");
+    let socket_name = format!("nu.{}.{}", std::process::id(), unique_id);
+    base.push(socket_name);
+    base
+}
+
+#[test]
+fn make_local_socket_path_correct_filesystem() {
+    let path = make_local_socket_path("test");
+    assert!(
+        path.starts_with(r"\\.\pipe\"),
+        "incorrect path: {}",
+        path.display()
+    );
+}

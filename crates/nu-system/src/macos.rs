@@ -423,3 +423,13 @@ fn mach_ticktime() -> f64 {
         1.0
     }
 }
+
+/// Generate a path to be used for a local socket specific to this `nu` process, described by the
+/// given `unique_id`, which should be unique to the purpose of the socket.
+pub fn make_local_socket_path(unique_id: &str) -> PathBuf {
+    // macOS doesn't have a user-local temp, really, just use the global one
+    let mut base = std::env::temp_dir();
+    let socket_name = format!("nu.{}.{}.sock", std::process::id(), unique_id);
+    base.push(socket_name);
+    base
+}
