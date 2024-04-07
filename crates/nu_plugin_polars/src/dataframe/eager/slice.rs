@@ -50,8 +50,7 @@ impl PluginCommand for SliceDF {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -76,7 +75,7 @@ fn command(
     let offset: i64 = call.req(0)?;
     let size: usize = call.req(1)?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let res = df.as_ref().slice(offset, size);
     let res = NuDataFrame::new(false, res);
@@ -84,14 +83,13 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, res)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(SliceDF {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&SliceDF)
+    }
+}
