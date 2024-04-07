@@ -103,8 +103,7 @@ impl PluginCommand for Summary {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -179,7 +178,7 @@ fn command(
     labels.append(&mut quantiles_labels);
     labels.push(Some("max".to_string()));
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let names = ChunkedArray::<StringType>::from_slice_options("descriptor", &labels).into_series();
 
@@ -276,19 +275,19 @@ fn command(
         inner: vec![],
     })?;
 
-    let df = NuDataFrame::new(false, polars_df);
+    let df = NuDataFrame::new(df.from_lazy, polars_df);
 
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo = fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(Summary {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::test::test_polars_plugin_command;
+
+    use super::*;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&Summary)
+    }
+}
