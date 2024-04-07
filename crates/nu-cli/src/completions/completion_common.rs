@@ -7,19 +7,18 @@ use nu_protocol::{
     Span,
 };
 use nu_utils::get_ls_colors;
-use std::ffi::OsStr;
 use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PathBuiltFromString {
     parts: Vec<String>,
     isdir: bool,
 }
 
 fn complete_rec(
-    partial: &[String],
+    partial: &[&str],
     built: &PathBuiltFromString,
     cwd: &Path,
     options: &CompletionOptions,
@@ -33,7 +32,7 @@ fn complete_rec(
         built_path.push(part);
     }
 
-    if partial.first().is_some_and(|s| s == "..") {
+    if partial.first().is_some_and(|&s| s == "..") {
         let mut built = built.clone();
         built.parts.push("..".to_string());
         return complete_rec(&partial[1..], &built, cwd, options, dir, isdir);
@@ -132,79 +131,56 @@ pub fn complete_item(
             };
             get_ls_colors(ls_colors_env_str)
         });
+
+    let mut cwd = cwd_pathbuf.clone();
+    let mut prefix_len = 0;
     let mut original_cwd = OriginalCwd::None;
-    let mut components_vec: Vec<Component> = Path::new(&partial).components().collect();
 
-    match partial.rsplit_once(is_separator) {
-        // last component after separator ends with '.'
-        // it cannot be a CurDir component because this is a partial path by definition
-        Some((_, last)) => {
-            // If it's just a dot, components() nerfs it altogether
-            if last == "." {
-                components_vec.push(Component::Normal(OsStr::new(last)));
-            } else if last.ends_with('.') {
-                components_vec.pop();
-                components_vec.push(Component::Normal(OsStr::new(last)));
-            }
-        }
-        // the partial itself is one component ending with a '.'
-        None if partial.ends_with('.') => {
-            components_vec.pop();
-            components_vec.push(Component::Normal(OsStr::new(&partial)));
-        }
-        _ => {}
-    }
-
-    let mut components = components_vec.into_iter().peekable();
-
-    let cwd = match components.peek().cloned() {
+    let mut components = Path::new(&partial).components().peekable();
+    match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
             components.next();
             if let Some(Component::RootDir) = components.peek().cloned() {
                 components.next();
             };
+            cwd = [c, Component::RootDir].iter().collect();
+            prefix_len = c.as_os_str().len();
             original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
-            [c, Component::RootDir].iter().collect()
         }
         Some(c @ Component::RootDir) => {
             components.next();
             // This is kind of a hack. When joining an empty string with the rest,
             // we add the slash automagically
+            cwd = PathBuf::from(c.as_os_str());
+            prefix_len = 1;
             original_cwd = OriginalCwd::Prefix(String::new());
-            PathBuf::from(c.as_os_str())
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
             components.next();
+            cwd = home_dir().unwrap_or(cwd_pathbuf);
+            prefix_len = 1;
             original_cwd = OriginalCwd::Home;
-            home_dir().unwrap_or(cwd_pathbuf)
         }
         Some(Component::CurDir) => {
             components.next();
-            original_cwd = OriginalCwd::Local;
-            cwd_pathbuf
+            prefix_len = 1;
+            original_cwd = OriginalCwd::Local
         }
-        _ => cwd_pathbuf,
+        _ => {}
     };
 
-    let mut partial = vec![];
-
-    for component in components {
-        match component {
-            Component::Prefix(..) | Component::RootDir => unreachable!(),
-            Component::ParentDir => {
-                partial.push("..".to_string());
-            }
-            _ => partial.push(component.as_os_str().to_string_lossy().into_owned()),
-        }
-    }
+    let after_prefix = &partial[prefix_len..];
+    let partial: Vec<_> = after_prefix
+        .strip_prefix(is_separator)
+        .unwrap_or(after_prefix)
+        .split(is_separator)
+        .filter(|s| !s.is_empty())
+        .collect();
 
     complete_rec(
         partial.as_slice(),
-        &PathBuiltFromString {
-            parts: vec![],
-            isdir: false,
-        },
+        &PathBuiltFromString::default(),
         &cwd,
         options,
         want_directory,
