@@ -25,9 +25,11 @@ impl Cache {
         })
     }
 
+    /// Removes an item from the plugin cache.
+    /// The maybe_engine parameter is required outside of testing
     pub fn remove(
         &self,
-        engine: &EngineInterface,
+        maybe_engine: Option<&EngineInterface>,
         uuid: &Uuid,
     ) -> Result<Option<PolarsPluginObject>, ShellError> {
         let mut lock = self.lock()?;
@@ -35,17 +37,22 @@ impl Cache {
         plugin_debug!("PolarsPlugin: removing {uuid} from cache: {removed:?}");
         // Once there are no more entries in the cache
         // we can turn plugin gc back on
-        if lock.is_empty() {
-            plugin_debug!("PolarsPlugin: Cache is empty enabling GC");
-            engine.set_gc_disabled(false).map_err(LabeledError::from)?;
-        }
+        match maybe_engine {
+            Some(engine) if lock.is_empty() => {
+                plugin_debug!("PolarsPlugin: Cache is empty enabling GC");
+                engine.set_gc_disabled(false).map_err(LabeledError::from)?;
+            }
+            _ => (),
+        };
         drop(lock);
         Ok(removed)
     }
 
+    /// Inserts an item into the plugin cache.
+    /// The maybe_engine parameter is required outside of testing
     pub fn insert(
         &self,
-        engine: &EngineInterface,
+        maybe_engine: Option<&EngineInterface>,
         uuid: Uuid,
         value: PolarsPluginObject,
     ) -> Result<Option<PolarsPluginObject>, ShellError> {
@@ -54,10 +61,13 @@ impl Cache {
         // turn off plugin gc the first time an entry is added to the cache
         // as we don't want the plugin to be garbage collected if there
         // is any live data
-        if lock.is_empty() {
-            plugin_debug!("PolarsPlugin: Cache has values disabling GC");
-            engine.set_gc_disabled(true).map_err(LabeledError::from)?;
-        }
+        match maybe_engine {
+            Some(engine) if lock.is_empty() => {
+                plugin_debug!("PolarsPlugin: Cache has values disabling GC");
+                engine.set_gc_disabled(true).map_err(LabeledError::from)?;
+            }
+            _ => (),
+        };
         let result = lock.insert(uuid, value);
         drop(lock);
         Ok(result)
@@ -94,9 +104,11 @@ pub trait Cacheable: Sized + Clone {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError>;
 
     fn cache(self, plugin: &PolarsPlugin, engine: &EngineInterface) -> Result<Self, ShellError> {
-        plugin
-            .cache
-            .insert(engine, self.cache_id().to_owned(), self.to_cache_value()?)?;
+        plugin.cache.insert(
+            Some(engine),
+            self.cache_id().to_owned(),
+            self.to_cache_value()?,
+        )?;
         Ok(self)
     }
 

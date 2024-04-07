@@ -97,6 +97,16 @@ impl PolarsPluginObject {
             Self::NuWhen(_) => PolarsPluginType::NuWhen,
         }
     }
+
+    pub fn id(&self) -> Uuid {
+        match self {
+            PolarsPluginObject::NuDataFrame(df) => df.id,
+            PolarsPluginObject::NuLazyFrame(lf) => lf.id,
+            PolarsPluginObject::NuExpression(e) => e.id,
+            PolarsPluginObject::NuLazyGroupBy(lg) => lg.id,
+            PolarsPluginObject::NuWhen(w) => w.id,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

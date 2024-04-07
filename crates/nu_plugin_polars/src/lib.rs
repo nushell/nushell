@@ -29,6 +29,8 @@ macro_rules! plugin_debug {
 #[derive(Default)]
 pub struct PolarsPlugin {
     pub(crate) cache: Cache,
+    /// For testing purposes only
+    pub(crate) disable_cache_drop: bool,
 }
 
 impl Plugin for PolarsPlugin {
@@ -46,8 +48,10 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
-        let id = CustomValueType::try_from_custom_value(custom_value)?.id();
-        let _ = self.cache.remove(engine, &id);
+        if !self.disable_cache_drop {
+            let id = CustomValueType::try_from_custom_value(custom_value)?.id();
+            let _ = self.cache.remove(Some(engine), &id);
+        }
         Ok(())
     }
 
@@ -168,5 +172,32 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuWhen(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
         };
         Ok(result?)
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use crate::values::PolarsPluginObject;
+    use nu_plugin_test_support::PluginTest;
+    use nu_protocol::ShellError;
+
+    pub fn test_polars_plugin_command(command: &impl PluginCommand) -> Result<(), ShellError> {
+        let mut plugin = PolarsPlugin::default();
+        plugin.disable_cache_drop = true;
+        let examples = command.examples();
+
+        // we need to cache values in the examples
+        for example in &examples {
+            if let Some(ref result) = example.result {
+                let obj = PolarsPluginObject::try_from_value(&plugin, result)?;
+                let id = obj.id();
+                plugin.cache.insert(None, id, obj).unwrap();
+            }
+        }
+
+        PluginTest::new("polars", plugin.into())?.test_examples(&examples)?;
+
+        Ok(())
     }
 }

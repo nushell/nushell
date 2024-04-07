@@ -73,8 +73,7 @@ impl PluginCommand for AppendDF {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -105,8 +104,7 @@ impl PluginCommand for AppendDF {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -136,13 +134,12 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use nu_plugin_test_support::PluginTest;
-
     use super::*;
+    use crate::test::test_polars_plugin_command;
 
     #[test]
-    #[ignore = "work in progress"]
     fn test_examples() -> Result<(), ShellError> {
-        PluginTest::new("polars", PolarsPlugin::default().into())?.test_command_examples(&AppendDF)
+        test_polars_plugin_command(&AppendDF)?;
+        Ok(())
     }
 }
