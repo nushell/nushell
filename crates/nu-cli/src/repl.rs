@@ -364,6 +364,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_partial_completions(config.partial_completions)
         .with_ansi_colors(config.use_ansi_coloring)
         .with_cursor_config(cursor_config);
+
     perf(
         "reedline builder",
         start_time,
@@ -385,6 +386,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     } else {
         line_editor.disable_hints()
     };
+
     perf(
         "reedline coloring/style_computer",
         start_time,
@@ -401,8 +403,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             report_error_new(engine_state, &e);
             Reedline::create()
         });
+
     perf(
-        "reedline menus",
+        "reedline adding menus",
         start_time,
         file!(),
         line!(),
@@ -424,6 +427,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     } else {
         line_editor
     };
+
     perf(
         "reedline buffer_editor",
         start_time,
@@ -440,6 +444,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 warn!("Failed to sync history: {}", e);
             }
         }
+
         perf(
             "sync_history",
             start_time,
@@ -453,6 +458,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = std::time::Instant::now();
     // Changing the line editor based on the found keybindings
     line_editor = setup_keybindings(engine_state, line_editor);
+
     perf(
         "keybindings",
         start_time,
@@ -476,6 +482,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         &mut Stack::with_parent(stack_arc.clone()),
         nu_prompt,
     );
+
     perf(
         "update_prompt",
         start_time,
@@ -501,6 +508,16 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     let mut stack = Stack::unwrap_unique(stack_arc);
 
+    perf(
+        "line_editor setup",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    let line_editor_input_time = std::time::Instant::now();
     match input {
         Ok(Signal::Success(s)) => {
             let hostname = System::host_name();
@@ -512,6 +529,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             if history_supports_meta {
                 prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor);
             }
+
+            // For pre_exec_hook
+            start_time = Instant::now();
 
             // Right before we start running the code the user gave us, fire the `pre_execution`
             // hook
@@ -533,17 +553,37 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 }
             }
 
+            perf(
+                "pre_execution_hook",
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                use_color,
+            );
+
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
             repl.cursor_pos = line_editor.current_insertion_point();
             repl.buffer = line_editor.current_buffer_contents().to_string();
             drop(repl);
 
             if shell_integration {
+                start_time = Instant::now();
+
                 run_ansi_sequence(PRE_EXECUTE_MARKER);
+
+                perf(
+                    "pre_execute_marker ansi escape sequence",
+                    start_time,
+                    file!(),
+                    line!(),
+                    column!(),
+                    use_color,
+                );
             }
 
             // Actual command execution logic starts from here
-            let start_time = Instant::now();
+            start_time = Instant::now();
 
             match parse_operation(s.clone(), engine_state, &stack) {
                 Ok(operation) => match operation {
@@ -558,6 +598,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                             line_editor,
                             shell_integration,
                             *entry_num,
+                            use_color,
                         )
                     }
                     // as the name implies, we do nothing in this case
@@ -585,7 +626,18 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             }
 
             if shell_integration {
+                start_time = Instant::now();
+
                 do_shell_integration_finalize_command(hostname, engine_state, &mut stack);
+
+                perf(
+                    "shell_integration_finalize ansi escape sequences",
+                    start_time,
+                    file!(),
+                    line!(),
+                    column!(),
+                    use_color,
+                );
             }
 
             flush_engine_state_repl_buffer(engine_state, &mut line_editor);
@@ -593,13 +645,35 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
             if shell_integration {
+                start_time = Instant::now();
+
                 run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
+
+                perf(
+                    "command_finished_marker ansi escape sequence",
+                    start_time,
+                    file!(),
+                    line!(),
+                    column!(),
+                    use_color,
+                );
             }
         }
         Ok(Signal::CtrlD) => {
             // When exiting clear to a new line
             if shell_integration {
+                start_time = Instant::now();
+
                 run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
+
+                perf(
+                    "command_finished_marker ansi escape sequence",
+                    start_time,
+                    file!(),
+                    line!(),
+                    column!(),
+                    use_color,
+                );
             }
             println!();
             return (false, stack, line_editor);
@@ -614,13 +688,24 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 // Alternatively only allow that expected failures let the REPL loop
             }
             if shell_integration {
+                start_time = Instant::now();
+
                 run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
+
+                perf(
+                    "command_finished_marker ansi escape sequence",
+                    start_time,
+                    file!(),
+                    line!(),
+                    column!(),
+                    use_color,
+                );
             }
         }
     }
     perf(
         "processing line editor input",
-        start_time,
+        line_editor_input_time,
         file!(),
         line!(),
         column!(),
@@ -628,7 +713,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     );
 
     perf(
-        "finished repl loop",
+        "time between prompts in line editor loop",
         loop_start_time,
         file!(),
         line!(),
@@ -825,6 +910,7 @@ fn do_run_cmd(
     line_editor: Reedline,
     shell_integration: bool,
     entry_num: usize,
+    use_color: bool,
 ) -> Reedline {
     trace!("eval source: {}", s);
 
@@ -850,6 +936,7 @@ fn do_run_cmd(
     }
 
     if shell_integration {
+        let start_time = Instant::now();
         if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
             match cwd.coerce_into_string() {
                 Ok(path) => {
@@ -872,6 +959,15 @@ fn do_run_cmd(
                 }
             }
         }
+
+        perf(
+            "set title with command ansi escape sequence",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 
     eval_source(
