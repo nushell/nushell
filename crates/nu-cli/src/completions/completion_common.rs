@@ -27,15 +27,18 @@ fn complete_rec(
 ) -> Vec<PathBuiltFromString> {
     let mut completions = vec![];
 
+    if let Some((&base, rest)) = partial.split_first() {
+        if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
+            let mut built = built.clone();
+            built.parts.push(base.to_string());
+            built.isdir = true;
+            return complete_rec(rest, &built, cwd, options, dir, isdir);
+        }
+    }
+
     let mut built_path = cwd.to_path_buf();
     for part in &built.parts {
         built_path.push(part);
-    }
-
-    if partial.first().is_some_and(|&s| s == "..") {
-        let mut built = built.clone();
-        built.parts.push("..".to_string());
-        return complete_rec(&partial[1..], &built, cwd, options, dir, isdir);
     }
 
     let Ok(result) = built_path.read_dir() else {
@@ -44,12 +47,12 @@ fn complete_rec(
 
     for entry in result.filter_map(|e| e.ok()) {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
-        let path = entry.path();
+        let entry_isdir = entry.path().is_dir();
         let mut built = built.clone();
         built.parts.push(entry_name.clone());
-        built.isdir = path.is_dir();
+        built.isdir = entry_isdir;
 
-        if !dir || path.is_dir() {
+        if !dir || entry_isdir {
             match partial.split_first() {
                 Some((base, rest)) => {
                     if matches(base, &entry_name, options) {
@@ -75,8 +78,6 @@ enum OriginalCwd {
     None,
     Home,
     Prefix(String),
-    // referencing a single local file
-    Local,
 }
 
 impl OriginalCwd {
@@ -85,7 +86,6 @@ impl OriginalCwd {
             Self::None => {}
             Self::Home => p.parts.insert(0, "~".to_string()),
             Self::Prefix(s) => p.parts.insert(0, s.clone()),
-            Self::Local => p.parts.insert(0, ".".to_string()),
         };
 
         let mut ret = p.parts.join(MAIN_SEPARATOR_STR);
@@ -161,11 +161,6 @@ pub fn complete_item(
             cwd = home_dir().unwrap_or(cwd_pathbuf);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
-        }
-        Some(Component::CurDir) => {
-            components.next();
-            prefix_len = 1;
-            original_cwd = OriginalCwd::Local
         }
         _ => {}
     };
