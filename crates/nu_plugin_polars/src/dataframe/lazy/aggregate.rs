@@ -74,8 +74,7 @@ impl PluginCommand for LazyAggregate {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -112,8 +111,7 @@ impl PluginCommand for LazyAggregate {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -200,23 +198,13 @@ fn get_col_name(expr: &Expr) -> Option<String> {
     }
 }
 
-// todo - fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::expressions::{ExprAlias, ExprMax, ExprMin, ExprSum};
-//     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(LazyAggregate {}),
-//             Box::new(ToLazyGroupBy {}),
-//             Box::new(ExprAlias {}),
-//             Box::new(ExprMin {}),
-//             Box::new(ExprMax {}),
-//             Box::new(ExprSum {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyAggregate)
+    }
+}
