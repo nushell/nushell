@@ -1,6 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame};
 use crate::values::{to_pipeline_data, CustomValueSupport, NuLazyFrame};
-use crate::{values::PolarsPluginObject, PolarsPlugin};
+use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -54,8 +54,7 @@ impl PluginCommand for LazyFetch {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -68,15 +67,10 @@ impl PluginCommand for LazyFetch {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let rows: i64 = call.req(0)?;
+        let value = input.into_value(call.head);
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
 
-        let lazy: NuLazyFrame =
-            match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
-                PolarsPluginObject::NuDataFrame(df) => Ok::<NuLazyFrame, LabeledError>(df.lazy()),
-                PolarsPluginObject::NuLazyFrame(lazy) => Ok(lazy),
-                _ => return Err(LabeledError::new("A Dataframe or LazyFrame is required")),
-            }?;
-
-        let eager: NuDataFrame = lazy
+        let mut eager: NuDataFrame = lazy
             .to_polars()
             .fetch(rows as usize)
             .map_err(|e| ShellError::GenericError {
@@ -88,18 +82,19 @@ impl PluginCommand for LazyFetch {
             })?
             .into();
 
+        // mark this as not from lazy so it doesn't get converted back to a lazy frame
+        eager.from_lazy = false;
         to_pipeline_data(plugin, engine, call.head, eager).map_err(LabeledError::from)
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazyFetch {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyFetch)
+    }
+}
