@@ -48,53 +48,53 @@ impl PluginCommand for LazyExplode {
                 description: "Explode the specified dataframe",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars explode hobbies | polars collect",
                 result: Some(
-                   NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "id".to_string(), 
-                        vec![
-                            Value::test_int(1),
-                            Value::test_int(1),
-                            Value::test_int(2),
-                            Value::test_int(2),
-                        ]),
-                    Column::new(
-                        "name".to_string(), 
-                        vec![
-                            Value::test_string("Mercy"),
-                            Value::test_string("Mercy"),
-                            Value::test_string("Bob"),
-                            Value::test_string("Bob"),
-                        ]),
-                    Column::new(
-                        "hobbies".to_string(), 
-                        vec![
-                            Value::test_string("Cycling"),
-                            Value::test_string("Knitting"),
-                            Value::test_string("Skiing"),
-                            Value::test_string("Football"),
-                        ]),
-                   ], None).expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
-                    )
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "id".to_string(), 
+                            vec![
+                                Value::test_int(1),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(2),
+                            ]),
+                        Column::new(
+                            "name".to_string(), 
+                            vec![
+                                Value::test_string("Mercy"),
+                                Value::test_string("Mercy"),
+                                Value::test_string("Bob"),
+                                Value::test_string("Bob"),
+                            ]),
+                        Column::new(
+                            "hobbies".to_string(), 
+                            vec![
+                                Value::test_string("Cycling"),
+                                Value::test_string("Knitting"),
+                                Value::test_string("Skiing"),
+                                Value::test_string("Football"),
+                            ]),
+                    ], None)
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                )
             },
             Example {
                 description: "Select a column and explode the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars select (polars col hobbies | polars explode)",
                 result: Some(
-                   NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "hobbies".to_string(), 
-                        vec![
-                            Value::test_string("Cycling"),
-                            Value::test_string("Knitting"),
-                            Value::test_string("Skiing"),
-                            Value::test_string("Football"),
-                        ]),
-                   ], None).expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
-                    ),
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "hobbies".to_string(), 
+                            vec![
+                                Value::test_string("Cycling"),
+                                Value::test_string("Knitting"),
+                                Value::test_string("Skiing"),
+                                Value::test_string("Football"),
+                            ]), 
+                    ], None)
+                   .expect("simple df for test should not fail")
+                   .into_value(Span::test_data()),
+                ),
             },
         ]
     }
@@ -163,28 +163,13 @@ pub(crate) fn explode_expr(
     let expr: NuExpression = expr.to_polars().explode().into();
     to_pipeline_data(plugin, engine, call.head, expr)
 }
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::{build_test_engine_state, test_dataframe_example};
-//     use super::*;
-//     use crate::dataframe::lazy::aggregate::LazyAggregate;
-//     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-//
-//     #[test]
-//     fn test_examples_dataframe() {
-//         let mut engine_state = build_test_engine_state(vec![Box::new(LazyExplode {})]);
-//         test_dataframe_example(&mut engine_state, &LazyExplode.examples()[0]);
-//     }
-//
-//     #[ignore]
-//     #[test]
-//     fn test_examples_expression() {
-//         let mut engine_state = build_test_engine_state(vec![
-//             Box::new(LazyExplode {}),
-//             Box::new(LazyAggregate {}),
-//             Box::new(ToLazyGroupBy {}),
-//         ]);
-//         test_dataframe_example(&mut engine_state, &LazyExplode.examples()[1]);
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyExplode)
+    }
+}

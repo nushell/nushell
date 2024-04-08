@@ -60,8 +60,7 @@ impl PluginCommand for LazyFillNA {
                         None,
                     )
                     .expect("Df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -82,8 +81,7 @@ impl PluginCommand for LazyFillNA {
                         None,
                     )
                     .expect("Df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -179,14 +177,13 @@ fn cmd_expr(
     to_pipeline_data(plugin, engine, call.head, expr)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazyFillNA {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyFillNA)
+    }
+}
