@@ -8,12 +8,11 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     env,
-    ffi::OsStr,
-    fmt::Write,
-    io::{BufReader, BufWriter, Read, Write as WriteTrait},
+    ffi::{OsStr, OsString},
+    io::{BufReader, BufWriter},
     ops::Deref,
     path::Path,
-    process::{Child, ChildStdout, Command as CommandSys, Stdio},
+    process::{Child, Command as CommandSys},
     sync::{
         mpsc::{self, TrySendError},
         Arc, Mutex,
@@ -34,9 +33,17 @@ use std::os::unix::process::CommandExt;
 use std::os::windows::process::CommandExt;
 
 pub use self::interface::{PluginRead, PluginWrite};
-use self::{command::render_examples, gc::PluginGc};
+use self::{
+    command::render_examples,
+    communication_mode::{
+        ClientCommunicationIo, CommunicationMode, PreparedServerCommunication,
+        ServerCommunicationIo,
+    },
+    gc::PluginGc,
+};
 
 mod command;
+mod communication_mode;
 mod context;
 mod declaration;
 mod gc;
@@ -84,12 +91,45 @@ pub trait PluginEncoder: Encoder<PluginInput> + Encoder<PluginOutput> {
     fn name(&self) -> &str;
 }
 
-fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
-    log::trace!("Starting plugin: {path:?}, shell = {shell:?}");
+#[cfg(unix)]
+fn quote_arg(arg: impl AsRef<OsStr>) -> OsString {
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+    let arg_bytes = arg.as_ref().as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(arg_bytes.len() + 10 /* just a guess */);
+    out.push(b'"');
+    for &byte in arg_bytes {
+        if byte == b'"' {
+            // Add backslash escape
+            out.push(b'\\');
+        }
+        out.push(byte);
+    }
+    out.push(b'"');
+    OsString::from_vec(out)
+}
 
-    // There is only one mode supported at the moment, but the idea is that future
-    // communication methods could be supported if desirable
-    let mut input_arg = Some("--stdio");
+#[cfg(windows)]
+fn quote_arg(arg: impl AsRef<OsStr>) -> OsString {
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+    let arg = arg.as_ref();
+    // Windows uses wide characters (ideally UTF-16) for native strings
+    let mut out: Vec<u16> = Vec::with_capacity(arg.len() + 10 /* just a guess */);
+    out.push(b'"' as u16);
+    for &wide_ch in arg.encode_wide() {
+        if wide_ch == b'"' as u16 {
+            // Add backslash escape
+            out.push(b'\\' as u16);
+        }
+        out.push(wide_ch);
+    }
+    out.push(b'"' as u16);
+    OsString::from_wide(&out)
+}
+
+fn create_command(path: &Path, shell: Option<&Path>, mode: &CommunicationMode) -> CommandSys {
+    log::trace!("Starting plugin: {path:?}, shell = {shell:?}, mode = {mode:?}");
+
+    let mut mode_args = Some(mode.args());
 
     let mut process = match (path.extension(), shell) {
         (_, Some(shell)) => {
@@ -112,10 +152,12 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
                     process.arg(command_switch);
                     // If `command_switch` is set, we need to pass the path + arg as one argument
                     // e.g. sh -c "nu_plugin_inc --stdio"
-                    let mut combined = path.as_os_str().to_owned();
-                    if let Some(arg) = input_arg.take() {
-                        combined.push(OsStr::new(" "));
-                        combined.push(OsStr::new(arg));
+                    let mut combined = quote_arg(path.as_os_str());
+                    if let Some(args) = mode_args.take() {
+                        for arg in args {
+                            combined.push(OsStr::new(" "));
+                            combined.push(quote_arg(arg));
+                        }
                     }
                     process.arg(combined);
 
@@ -133,13 +175,13 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
         (None, None) => std::process::Command::new(path),
     };
 
-    // Pass input_arg, unless we consumed it already
-    if let Some(input_arg) = input_arg {
-        process.arg(input_arg);
+    // Pass mode_args, unless we consumed it already
+    if let Some(mode_args) = mode_args {
+        process.args(mode_args);
     }
 
-    // Both stdout and stdin are piped so we can receive information from the plugin
-    process.stdout(Stdio::piped()).stdin(Stdio::piped());
+    // Setup I/O according to the communication mode
+    mode.setup_command_io(&mut process);
 
     // The plugin should be run in a new process group to prevent Ctrl-C from stopping it
     #[cfg(unix)]
@@ -158,27 +200,43 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
 
 fn make_plugin_interface(
     mut child: Child,
+    comm: PreparedServerCommunication,
     source: Arc<PluginSource>,
     gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {
-    let stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad {
-            msg: "Plugin missing stdin writer".into(),
-        })?;
+    match comm.connect(&mut child)? {
+        ServerCommunicationIo::Stdio(stdin, stdout) => make_plugin_interface_with_streams(
+            stdout,
+            stdin,
+            move || {
+                let _ = child.wait();
+            },
+            source,
+            gc,
+        ),
+        ServerCommunicationIo::LocalSocket { read, write } => make_plugin_interface_with_streams(
+            read,
+            write,
+            move || {
+                let _ = child.wait();
+            },
+            source,
+            gc,
+        ),
+    }
+}
 
-    let mut stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad {
-            msg: "Plugin missing stdout writer".into(),
-        })?;
+fn make_plugin_interface_with_streams(
+    mut reader: impl std::io::Read + Send + 'static,
+    writer: impl std::io::Write + Send + 'static,
+    after_close: impl FnOnce() -> () + Send + 'static,
+    source: Arc<PluginSource>,
+    gc: Option<PluginGc>,
+) -> Result<PluginInterface, ShellError> {
+    let encoder = get_plugin_encoding(&mut reader)?;
 
-    let encoder = get_plugin_encoding(&mut stdout)?;
-
-    let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
-    let writer = BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, stdin);
+    let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+    let writer = BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, writer);
 
     let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(writer), encoder));
     manager.set_garbage_collector(gc);
@@ -198,10 +256,10 @@ fn make_plugin_interface(
             if let Err(err) = manager.consume_all((reader, encoder)) {
                 log::warn!("Error in PluginInterfaceManager: {err}");
             }
-            // If the loop has ended, drop the manager so everyone disconnects and then wait for the
-            // child to exit
+            // If the loop has ended, drop the manager so everyone disconnects and then run
+            // after_close
             drop(manager);
-            let _ = child.wait();
+            after_close();
         })
         .map_err(|err| ShellError::PluginFailedToLoad {
             msg: format!("Failed to spawn thread for plugin: {err}"),
@@ -412,9 +470,7 @@ pub trait Plugin: Sync {
 /// }
 /// ```
 pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static) {
-    let mut args = env::args().skip(1);
-    let number_of_args = args.len();
-    let first_arg = args.next();
+    let args: Vec<OsString> = env::args_os().skip(1).collect();
 
     // Determine the plugin name, for errors
     let exe = std::env::current_exe().ok();
@@ -430,18 +486,26 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
         })
         .unwrap_or_else(|| "(unknown)".into());
 
-    if number_of_args == 0
-        || first_arg
-            .as_ref()
-            .is_some_and(|arg| arg == "-h" || arg == "--help")
-    {
+    if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
         print_help(plugin, encoder);
         std::process::exit(0)
     }
 
-    // Must pass --stdio for plugin execution. Any other arg is an error to give us options in the
-    // future.
-    if number_of_args > 1 || !first_arg.is_some_and(|arg| arg == "--stdio") {
+    // Implement different communication modes:
+    let mode = if args[0] == "--stdio" && args.len() == 1 {
+        // --stdio always supported.
+        CommunicationMode::Stdio
+    } else if args[0] == "--local-socket" && args.len() == 2 {
+        #[cfg(feature = "local-socket")]
+        {
+            CommunicationMode::LocalSocket((&args[1]).into())
+        }
+        #[cfg(not(feature = "local-socket"))]
+        {
+            eprintln!("{plugin_name}: local socket mode is not supported");
+            std::process::exit(1);
+        }
+    } else {
         eprintln!(
             "{}: This plugin must be run from within Nushell.",
             env::current_exe()
@@ -453,34 +517,38 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
             version of nushell you are using."
         );
         std::process::exit(1)
-    }
-
-    // tell nushell encoding.
-    //
-    //                         1 byte
-    // encoding format: |  content-length  | content    |
-    let mut stdout = std::io::stdout();
-    {
-        let encoding = encoder.name();
-        let length = encoding.len() as u8;
-        let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
-        encoding_content.insert(0, length);
-        stdout
-            .write_all(&encoding_content)
-            .expect("Failed to tell nushell my encoding");
-        stdout
-            .flush()
-            .expect("Failed to tell nushell my encoding when flushing stdout");
-    }
+    };
 
     let encoder_clone = encoder.clone();
 
-    let result = serve_plugin_io(
-        plugin,
-        &plugin_name,
-        move || (std::io::stdin().lock(), encoder_clone),
-        move || (std::io::stdout(), encoder),
-    );
+    let result = match mode.connect_as_client() {
+        Ok(ClientCommunicationIo::Stdio(stdin, mut stdout)) => {
+            tell_nushell_encoding(&mut stdout, &encoder).expect("failed to tell nushell encoding");
+            serve_plugin_io(
+                plugin,
+                &plugin_name,
+                move || (stdin.lock(), encoder_clone),
+                move || (stdout, encoder),
+            )
+        }
+        #[cfg(feature = "local-socket")]
+        Ok(ClientCommunicationIo::LocalSocket { read, mut write }) => {
+            tell_nushell_encoding(&mut write, &encoder).expect("failed to tell nushell encoding");
+
+            let read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, read);
+            let write = Mutex::new(BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, write));
+            serve_plugin_io(
+                plugin,
+                &plugin_name,
+                move || (read, encoder_clone),
+                move || (write, encoder),
+            )
+        }
+        Err(err) => {
+            eprintln!("{plugin_name}: failed to connect: {err}");
+            std::process::exit(1);
+        }
+    };
 
     match result {
         Ok(()) => (),
@@ -491,6 +559,22 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
         }
         Err(_) => std::process::exit(1),
     }
+}
+
+fn tell_nushell_encoding(
+    writer: &mut impl std::io::Write,
+    encoder: &impl PluginEncoder,
+) -> Result<(), std::io::Error> {
+    // tell nushell encoding.
+    //
+    //                         1 byte
+    // encoding format: |  content-length  | content    |
+    let encoding = encoder.name();
+    let length = encoding.len() as u8;
+    let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
+    encoding_content.insert(0, length);
+    writer.write_all(&encoding_content)?;
+    writer.flush()
 }
 
 /// An error from [`serve_plugin_io()`]
@@ -765,6 +849,8 @@ fn custom_value_op(
 }
 
 fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
+    use std::fmt::Write;
+
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
 
@@ -831,7 +917,9 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     println!("{help}")
 }
 
-pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {
+pub fn get_plugin_encoding(
+    child_stdout: &mut impl std::io::Read,
+) -> Result<EncodingType, ShellError> {
     let mut length_buf = [0u8; 1];
     child_stdout
         .read_exact(&mut length_buf)

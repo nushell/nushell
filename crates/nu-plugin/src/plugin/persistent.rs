@@ -1,4 +1,7 @@
-use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
+use super::{
+    communication_mode::CommunicationMode, create_command, gc::PluginGc, make_plugin_interface,
+    PluginInterface, PluginSource,
+};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
@@ -99,13 +102,23 @@ impl PersistentPlugin {
         gc_config: &PluginGcConfig,
     ) -> Result<RunningPlugin, ShellError> {
         let source_file = self.identity.filename();
-        let mut plugin_cmd = create_command(source_file, self.identity.shell());
+
+        // FIXME: This should be decided based on plugin support, not the compiled feature
+        #[cfg(feature = "local-socket")]
+        let mode = CommunicationMode::local_socket(source_file);
+        #[cfg(not(feature = "local-socket"))]
+        let mode = CommunicationMode::Stdio;
+
+        let mut plugin_cmd = create_command(source_file, self.identity.shell(), &mode);
 
         // We need the current environment variables for `python` based plugins
         // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         plugin_cmd.envs(envs);
 
         let program_name = plugin_cmd.get_program().to_os_string().into_string();
+
+        // Before running the command, prepare communication
+        let comm = mode.serve()?;
 
         // Run the plugin command
         let child = plugin_cmd.spawn().map_err(|err| {
@@ -129,8 +142,12 @@ impl PersistentPlugin {
         let gc = PluginGc::new(gc_config.clone(), &self)?;
 
         let pid = child.id();
-        let interface =
-            make_plugin_interface(child, Arc::new(PluginSource::new(self)), Some(gc.clone()))?;
+        let interface = make_plugin_interface(
+            child,
+            comm,
+            Arc::new(PluginSource::new(self)),
+            Some(gc.clone()),
+        )?;
 
         Ok(RunningPlugin { pid, interface, gc })
     }

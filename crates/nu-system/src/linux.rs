@@ -228,18 +228,3 @@ impl ProcessInfo {
         self.curr_proc.stat().map(|p| p.vsize).unwrap_or_default()
     }
 }
-
-/// Generate a path to be used for a local socket specific to this `nu` process, described by the
-/// given `unique_id`, which should be unique to the purpose of the socket.
-pub fn make_local_socket_path(unique_id: &str) -> PathBuf {
-    // Prefer to put it in XDG_RUNTIME_DIR if set, since that's user-local
-    let mut base = if let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR") {
-        PathBuf::from(runtime_dir)
-    } else {
-        // Use std::env::temp_dir(), since on Android this is probably not `/tmp`
-        std::env::temp_dir()
-    };
-    let socket_name = format!("nu.{}.{}.sock", std::process::id(), unique_id);
-    base.push(socket_name);
-    base
-}

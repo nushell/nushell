@@ -16,7 +16,3 @@ pub use self::linux::*;
 pub use self::macos::*;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;
-
-/// Cross-platform tests
-#[cfg(test)]
-mod tests;
