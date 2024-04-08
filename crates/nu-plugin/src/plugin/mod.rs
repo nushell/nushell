@@ -115,7 +115,7 @@ fn quote_arg(arg: impl AsRef<OsStr>) -> OsString {
     // Windows uses wide characters (ideally UTF-16) for native strings
     let mut out: Vec<u16> = Vec::with_capacity(arg.len() + 10 /* just a guess */);
     out.push(b'"' as u16);
-    for &wide_ch in arg.encode_wide() {
+    for wide_ch in arg.encode_wide() {
         if wide_ch == b'"' as u16 {
             // Add backslash escape
             out.push(b'\\' as u16);
