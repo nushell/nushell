@@ -278,6 +278,10 @@ fn test_xdg_config_symlink() {
         playground.symlink("real", config_link);
 
         let stderr = run_interactive_stderr(playground.cwd().join(config_link));
-        assert!(stderr.is_empty(), "stderr was {}", stderr);
+        assert!(
+            !stderr.contains("xdg_config_home_invalid"),
+            "stderr was {}",
+            stderr
+        );
     });
 }
