@@ -176,7 +176,6 @@ fn command_lazy(
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    eprintln!("command lazy!!");
     let vals: Vec<Value> = call.rest(0)?;
     let value = Value::list(vals, call.head);
     let expressions = NuExpression::extract_exprs(plugin, value)?;
