@@ -279,19 +279,6 @@ fn main() -> Result<()> {
         load_standard_library(&mut engine_state)?;
     }
 
-    start_time = std::time::Instant::now();
-    if parsed_nu_cli_args.lsp {
-        perf(
-            "lsp starting",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
-    }
-
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -360,7 +347,7 @@ fn main() -> Result<()> {
         PipelineData::ExternalStream {
             stdout: Some(RawStream::new(
                 Box::new(BufferedReader::new(buf_reader)),
-                Some(ctrlc),
+                Some(ctrlc.clone()),
                 redirect_stdin.span,
                 None,
             )),
@@ -396,7 +383,32 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    if let Some(commands) = parsed_nu_cli_args.commands.clone() {
+    start_time = std::time::Instant::now();
+    if parsed_nu_cli_args.lsp {
+        perf(
+            "lsp starting",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut stack = nu_protocol::engine::Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut stack,
+                #[cfg(feature = "plugin")]
+                parsed_nu_cli_args.plugin_file,
+                parsed_nu_cli_args.config_file,
+                parsed_nu_cli_args.env_file,
+                false,
+            );
+        }
+
+        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)
+    } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
             parsed_nu_cli_args,
