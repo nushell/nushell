@@ -1,8 +1,14 @@
+use std::cmp::Ordering;
+
+use nu_plugin::EngineInterface;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::{
+    values::{CustomValueSupport, NuDataFrame, PolarsPluginCustomValue},
+    PolarsPlugin,
+};
 
 use super::NuLazyFrame;
 
@@ -62,5 +68,19 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
 
     fn internal(&self) -> &Option<Self::PolarsPluginObjectType> {
         &self.lazyframe
+    }
+
+    fn custom_value_partial_cmp(
+        &self,
+        plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        other_value: Value,
+    ) -> Result<Option<Ordering>, ShellError> {
+        // to compare, we need to convert to NuDataframe
+        let df = NuLazyFrame::try_from_custom_value(plugin, self)?;
+        let df = df.collect(other_value.span())?;
+        let other = NuDataFrame::try_from_value_coerce(plugin, &other_value, other_value.span())?;
+        let res = df.is_equal(&other);
+        Ok(res)
     }
 }

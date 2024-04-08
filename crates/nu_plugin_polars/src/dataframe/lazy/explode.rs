@@ -90,7 +90,7 @@ impl PluginCommand for LazyExplode {
                                 Value::test_string("Knitting"),
                                 Value::test_string("Skiing"),
                                 Value::test_string("Football"),
-                            ]), 
+                            ]),
                     ], None)
                    .expect("simple df for test should not fail")
                    .into_value(Span::test_data()),

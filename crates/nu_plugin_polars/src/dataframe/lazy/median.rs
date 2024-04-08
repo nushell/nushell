@@ -62,8 +62,7 @@ impl PluginCommand for LazyMedian {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -78,8 +77,7 @@ impl PluginCommand for LazyMedian {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -97,7 +95,7 @@ impl PluginCommand for LazyMedian {
             PolarsPluginObject::NuDataFrame(df) => command(plugin, engine, call, df.lazy()),
             PolarsPluginObject::NuLazyFrame(lazy) => command(plugin, engine, call, lazy),
             PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr.to_polars().is_not_null().into();
+                let expr: NuExpression = expr.to_polars().median().into();
                 to_pipeline_data(plugin, engine, call.head, expr)
             }
             _ => Err(cant_convert_err(
@@ -132,14 +130,14 @@ fn command(
     let lazy = NuLazyFrame::new(lazy.from_eager, polars_lazy);
     to_pipeline_data(plugin, engine, call.head, lazy)
 }
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazyMedian {})])
-//     }
-// }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyMedian)
+    }
+}
