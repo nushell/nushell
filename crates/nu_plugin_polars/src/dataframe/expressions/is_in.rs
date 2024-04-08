@@ -76,8 +76,7 @@ impl PluginCommand for ExprIsIn {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -101,8 +100,7 @@ impl PluginCommand for ExprIsIn {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -190,22 +188,13 @@ fn command_df(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::eager::WithColumn;
-//     use crate::dataframe::expressions::alias::ExprAlias;
-//     use crate::dataframe::expressions::col::ExprCol;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(ExprIsIn {}),
-//             Box::new(ExprAlias {}),
-//             Box::new(ExprCol {}),
-//             Box::new(WithColumn {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ExprIsIn)
+    }
+}
