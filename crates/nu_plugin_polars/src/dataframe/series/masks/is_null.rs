@@ -63,8 +63,7 @@ impl PluginCommand for IsNull {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -119,27 +118,13 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use crate::dataframe::lazy::aggregate::LazyAggregate;
-//     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-//     use crate::dataframe::test_dataframe::{build_test_engine_state, test_dataframe_example};
-//
-//     #[test]
-//     fn test_examples_dataframe() {
-//         let mut engine_state = build_test_engine_state(vec![Box::new(IsNull {})]);
-//         test_dataframe_example(&mut engine_state, &IsNull.examples()[0]);
-//     }
-//
-//     #[test]
-//     fn test_examples_expression() {
-//         let mut engine_state = build_test_engine_state(vec![
-//             Box::new(IsNull {}),
-//             Box::new(LazyAggregate {}),
-//             Box::new(ToLazyGroupBy {}),
-//         ]);
-//         test_dataframe_example(&mut engine_state, &IsNull.examples()[1]);
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&IsNull)
+    }
+}
