@@ -1,10 +1,9 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    values::CustomValueSupport,
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     Cacheable, PolarsPlugin,
 };
 
-use super::super::values::NuLazyFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
@@ -62,12 +61,28 @@ impl PluginCommand for LazyCollect {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)?;
-        let eager = lazy.collect(call.head)?;
-        Ok(PipelineData::Value(
-            eager.cache(plugin, engine)?.into_value(call.head),
-            None,
-        ))
+        let value = input.into_value(call.head);
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                let eager = lazy.collect(call.head)?;
+                Ok(PipelineData::Value(
+                    eager.cache(plugin, engine)?.into_value(call.head),
+                    None,
+                ))
+            }
+            PolarsPluginObject::NuDataFrame(df) => {
+                // just return the dataframe, add to cache again to be safe
+                Ok(PipelineData::Value(
+                    df.cache(plugin, engine)?.into_value(call.head),
+                    None,
+                ))
+            }
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuLazyFrame, PolarsPluginType::NuDataFrame],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
 }
 
