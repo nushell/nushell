@@ -229,7 +229,7 @@ fn make_plugin_interface(
 fn make_plugin_interface_with_streams(
     mut reader: impl std::io::Read + Send + 'static,
     writer: impl std::io::Write + Send + 'static,
-    after_close: impl FnOnce() -> () + Send + 'static,
+    after_close: impl FnOnce() + Send + 'static,
     source: Arc<PluginSource>,
     gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {

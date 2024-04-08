@@ -201,7 +201,7 @@ impl Drop for PreparedServerCommunication {
             PreparedServerCommunication::Stdio => (),
             PreparedServerCommunication::LocalSocket { path, .. } => {
                 // Just try to remove the socket file, it's ok if this fails
-                let _ = std::fs::remove_file(&path);
+                let _ = std::fs::remove_file(path);
             }
         }
     }
