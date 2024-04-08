@@ -109,8 +109,7 @@ impl PluginCommand for LazyJoin {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -170,8 +169,7 @@ impl PluginCommand for LazyJoin {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -231,7 +229,7 @@ impl PluginCommand for LazyJoin {
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
         let value = input.into_value(call.head);
-        let lazy = NuLazyFrame::try_from_value(plugin, &value)?;
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
 
@@ -250,14 +248,13 @@ impl PluginCommand for LazyJoin {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazyJoin {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyJoin)
+    }
+}
