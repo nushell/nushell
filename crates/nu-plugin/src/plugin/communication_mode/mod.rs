@@ -23,19 +23,18 @@ impl CommunicationMode {
     /// Generate a new local socket communication mode based on the given plugin exe path.
     #[cfg(feature = "local-socket")]
     pub fn local_socket(plugin_exe: &std::path::Path) -> CommunicationMode {
-        use std::time::{SystemTime, UNIX_EPOCH};
+        use std::hash::{Hash, Hasher};
+        use std::time::SystemTime;
 
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+        // Generate the unique ID based on the plugin path and the current time. The actual
+        // algorithm here is not very important, we just want this to be relatively unique very
+        // briefly. Using the default hasher in the stdlib means zero extra dependencies.
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
 
-        let plugin_exe_name = plugin_exe
-            .file_name()
-            .map(|s| s.to_string_lossy())
-            .unwrap_or_else(|| std::borrow::Cow::Borrowed("unknown_plugin"));
+        plugin_exe.hash(&mut hasher);
+        SystemTime::now().hash(&mut hasher);
 
-        let unique_id = format!("{}.{}", plugin_exe_name, timestamp);
+        let unique_id = format!("{:016x}", hasher.finish());
 
         CommunicationMode::LocalSocket(local_socket::make_local_socket_path(&unique_id))
     }

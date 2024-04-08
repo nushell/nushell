@@ -5,6 +5,8 @@ pub(crate) mod tests;
 
 /// Generate a path to be used for a local socket specific to this `nu` process, described by the
 /// given `unique_id`, which should be unique to the purpose of the socket.
+///
+/// Note that the length of a socket path is limited on many unix platforms.
 #[cfg(unix)]
 pub fn make_local_socket_path(unique_id: &str) -> PathBuf {
     // Prefer to put it in XDG_RUNTIME_DIR if set, since that's user-local

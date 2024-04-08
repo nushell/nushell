@@ -3715,6 +3715,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 })?;
 
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
+                    log::warn!("Error getting signatures: {err:?}");
                     ParseError::LabeledError(
                         "Error getting signatures".into(),
                         err.to_string(),
