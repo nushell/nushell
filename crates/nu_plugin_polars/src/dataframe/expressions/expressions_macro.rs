@@ -2,8 +2,8 @@
 /// All of these expressions have an identical body and only require
 /// to have a change in the name, description and expression function
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::CustomValueSupport;
-use crate::{Cacheable, PolarsPlugin};
+use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
@@ -51,33 +51,20 @@ macro_rules! expr_command {
                 let expr = NuExpression::try_from_pipeline(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
                 let expr: NuExpression = expr.to_polars().$func().into();
-
-                Ok(PipelineData::Value(
-                    expr.cache(plugin, engine)
-                        .map_err(LabeledError::from)?
-                        .into_value(call.head),
-                    None,
-                ))
+                to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
             }
         }
 
-        // todo - fix tests
-        // #[cfg(test)]
-        // mod $test {
-        //     use super::super::super::test_dataframe::test_dataframe;
-        //     use super::*;
-        //     use crate::dataframe::lazy::aggregate::LazyAggregate;
-        //     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-        //
-        //     #[test]
-        //     fn test_examples() {
-        //         test_dataframe(vec![
-        //             Box::new($command {}),
-        //             Box::new(LazyAggregate {}),
-        //             Box::new(ToLazyGroupBy {}),
-        //         ])
-        //     }
-        // }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident, $ddof: expr) => {
@@ -108,33 +95,20 @@ macro_rules! expr_command {
                 let expr = NuExpression::try_from_pipeline(input, call.head)
                     .map_err(LabeledError::from)?;
                 let expr: NuExpression = expr.into_polars().$func($ddof).into();
-
-                Ok(PipelineData::Value(
-                    expr.insert_cache(engine)?
-                        .map_err(LabeledError::from)
-                        .into_value(call.head),
-                    None,
-                ))
+                to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
             }
         }
 
-        // todo fix tests
-        // #[cfg(test)]
-        // mod $test {
-        //     use super::super::super::test_dataframe::test_dataframe;
-        //     use super::*;
-        //     use crate::dataframe::lazy::aggregate::LazyAggregate;
-        //     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-        //
-        //     #[test]
-        //     fn test_examples() {
-        //         test_dataframe(vec![
-        //             Box::new($command {}),
-        //             Box::new(LazyAggregate {}),
-        //             Box::new(ToLazyGroupBy {}),
-        //         ])
-        //     }
-        // }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 }
 
@@ -184,9 +158,9 @@ macro_rules! lazy_expr_command {
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
                 let value = input.into_value(call.head);
-                if NuDataFrame::can_downcast(&value) {
-                    let lazy =
-                        NuLazyFrame::try_from_value(plugin, &value).map_err(LabeledError::from)?;
+                if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
+                    let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
+                        .map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
                         lazy.from_eager,
                         lazy.to_polars()
@@ -200,56 +174,26 @@ macro_rules! lazy_expr_command {
                             })
                             .map_err(LabeledError::from)?,
                     );
-
-                    Ok(PipelineData::Value(
-                        lazy.cache(plugin, engine)?.into_value(call.head),
-                        None,
-                    ))
+                    to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
                 } else {
                     let expr =
                         NuExpression::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let expr: NuExpression = expr.to_polars().$func().into();
-
-                    Ok(PipelineData::Value(
-                        expr.cache(plugin, engine)
-                            .map_err(LabeledError::from)?
-                            .into_value(call.head),
-                        None,
-                    ))
+                    to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
                 }
             }
         }
 
-        // todo - fix tests
-        //     #[cfg(test)]
-        //     mod $test {
-        //         use super::super::super::test_dataframe::{
-        //             build_test_engine_state, test_dataframe_example,
-        //         };
-        //         use super::*;
-        //         use crate::dataframe::lazy::aggregate::LazyAggregate;
-        //         use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-        //
-        //         #[test]
-        //         fn test_examples_dataframe() {
-        //             // the first example should be a for the dataframe case
-        //             let example = &$command.examples()[0];
-        //             let mut engine_state = build_test_engine_state(vec![Box::new($command {})]);
-        //             test_dataframe_example(&mut engine_state, &example)
-        //         }
-        //
-        //         #[test]
-        //         fn test_examples_expressions() {
-        //             // the second example should be a for the dataframe case
-        //             let example = &$command.examples()[1];
-        //             let mut engine_state = build_test_engine_state(vec![
-        //                 Box::new($command {}),
-        //                 Box::new(LazyAggregate {}),
-        //                 Box::new(ToLazyGroupBy {}),
-        //             ]);
-        //             test_dataframe_example(&mut engine_state, &example)
-        //         }
-        //     }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident, $ddof: expr) => {
@@ -293,9 +237,9 @@ macro_rules! lazy_expr_command {
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
                 let value = input.into_value(call.head);
-                if NuDataFrame::can_downcast(&value) {
-                    let lazy =
-                        NuLazyFrame::try_from_value(plugin, &value).map_err(LabeledError::from)?;
+                if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
+                    let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
+                        .map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
                         lazy.from_eager,
                         lazy.to_polars()
@@ -309,57 +253,25 @@ macro_rules! lazy_expr_command {
                             })
                             .map_err(LabeledError::from)?,
                     );
-
-                    Ok(PipelineData::Value(
-                        lazy.cache(plugin, engine)
-                            .map_err(LabeledError::from)?
-                            .into_value(call.head),
-                        None,
-                    ))
+                    to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
                 } else {
                     let expr = NuExpression::try_from_value(plugin, &value)?;
                     let expr: NuExpression = expr.to_polars().$func($ddof).into();
-
-                    Ok(PipelineData::Value(
-                        expr.cache(plugin, engine)
-                            .map_err(LabeledError::from)?
-                            .into_value(call.head),
-                        None,
-                    ))
+                    to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
                 }
             }
         }
 
-        // todo - fix tests
-        // #[cfg(test)]
-        // mod $test {
-        //     use super::super::super::test_dataframe::{
-        //         build_test_engine_state, test_dataframe_example,
-        //     };
-        //     use super::*;
-        //     use crate::dataframe::lazy::aggregate::LazyAggregate;
-        //     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-        //
-        //     #[test]
-        //     fn test_examples_dataframe() {
-        //         // the first example should be a for the dataframe case
-        //         let example = &$command.examples()[0];
-        //         let mut engine_state = build_test_engine_state(vec![Box::new($command {})]);
-        //         test_dataframe_example(&mut engine_state, &example)
-        //     }
-        //
-        //     #[test]
-        //     fn test_examples_expressions() {
-        //         // the second example should be a for the dataframe case
-        //         let example = &$command.examples()[1];
-        //         let mut engine_state = build_test_engine_state(vec![
-        //             Box::new($command {}),
-        //             Box::new(LazyAggregate {}),
-        //             Box::new(ToLazyGroupBy {}),
-        //         ]);
-        //         test_dataframe_example(&mut engine_state, &example)
-        //     }
-        // }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 }
 
@@ -442,8 +354,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
         Example {
@@ -467,8 +378,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
     ],
@@ -495,8 +405,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
         Example {
@@ -520,8 +429,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
     ],
@@ -548,8 +456,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
         Example {
@@ -573,8 +480,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
     ],
@@ -601,8 +507,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
         Example {
@@ -626,8 +531,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
     ],
@@ -654,8 +558,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
         Example {
@@ -679,8 +582,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
     ],
@@ -709,8 +611,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
         Example {
@@ -734,8 +635,7 @@ lazy_expr_command!(
                     None
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         },
     ],

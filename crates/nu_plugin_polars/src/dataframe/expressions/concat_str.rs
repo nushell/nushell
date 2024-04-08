@@ -70,8 +70,7 @@ impl PluginCommand for ExprConcatStr {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -97,22 +96,14 @@ impl PluginCommand for ExprConcatStr {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::eager::WithColumn;
-//     use crate::dataframe::expressions::alias::ExprAlias;
-//     use crate::dataframe::expressions::col::ExprCol;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(ExprConcatStr {}),
-//             Box::new(ExprAlias {}),
-//             Box::new(ExprCol {}),
-//             Box::new(WithColumn {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::test::test_polars_plugin_command;
+
+    use super::*;
+
+    #[test]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&ExprConcatStr)
+    }
+}

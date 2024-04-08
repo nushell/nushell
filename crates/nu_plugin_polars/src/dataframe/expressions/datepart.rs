@@ -64,8 +64,7 @@ impl PluginCommand for ExprDatePart {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -95,8 +94,7 @@ impl PluginCommand for ExprDatePart {
                         Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -155,26 +153,13 @@ impl PluginCommand for ExprDatePart {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::eager::ToNu;
-//     use crate::dataframe::eager::WithColumn;
-//     use crate::dataframe::expressions::ExprAlias;
-//     use crate::dataframe::expressions::ExprCol;
-//     use crate::dataframe::series::AsDateTime;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(ExprDatePart {}),
-//             Box::new(ExprCol {}),
-//             Box::new(ToNu {}),
-//             Box::new(AsDateTime {}),
-//             Box::new(WithColumn {}),
-//             Box::new(ExprAlias {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ExprDatePart)
+    }
+}
