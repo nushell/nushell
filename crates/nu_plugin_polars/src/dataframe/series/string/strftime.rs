@@ -54,8 +54,7 @@ impl PluginCommand for StrFTime {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                .into_value(Span::test_data()),
             ),
         }]
     }
@@ -105,14 +104,14 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::super::super::IntoDatetime;
-//     use super::super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(StrFTime {}), Box::new(IntoDatetime {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    #[ignore = "need the into command to run"]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&StrFTime)
+    }
+}
