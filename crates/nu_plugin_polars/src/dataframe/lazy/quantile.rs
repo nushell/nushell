@@ -61,8 +61,7 @@ impl PluginCommand for LazyQuantile {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -70,7 +69,7 @@ impl PluginCommand for LazyQuantile {
                 example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars expr-quantile 0.5)"#,
+    | polars agg (polars col b | polars quantile 0.5)"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -86,8 +85,7 @@ impl PluginCommand for LazyQuantile {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -150,14 +148,13 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, lazy)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(LazyQuantile {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyQuantile)
+    }
+}
