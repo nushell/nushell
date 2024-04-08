@@ -114,18 +114,11 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         _engine: &EngineInterface,
         other_value: Value,
     ) -> Result<Option<Ordering>, ShellError> {
-        if let Ok(df) = NuDataFrame::try_from_custom_value(plugin, self) {
-            if let Value::Custom { val, .. } = other_value {
-                Ok(val
-                    .as_any()
-                    .downcast_ref::<NuDataFrameCustomValue>()
-                    .and_then(|other| NuDataFrame::try_from_custom_value(plugin, other).ok())
-                    .and_then(|ref other| df.is_equal(other)))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
+        eprintln!("custom_value_partial_cmp called");
+        let df = NuDataFrame::try_from_custom_value(plugin, self)?;
+        let other = NuDataFrame::try_from_value_coerce(plugin, &other_value, other_value.span())?;
+        let res = df.is_equal(&other);
+        eprintln!("are equal: {:?}", res);
+        Ok(res)
     }
 }

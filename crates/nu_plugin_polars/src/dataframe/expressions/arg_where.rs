@@ -73,7 +73,6 @@ mod test {
     use crate::test::test_polars_plugin_command;
 
     #[test]
-    #[ignore = "still broken"]
     fn test_examples() -> Result<(), nu_protocol::ShellError> {
         test_polars_plugin_command(&ExprArgWhere)
     }

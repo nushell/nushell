@@ -426,18 +426,30 @@ impl NuDataFrame {
                 .column(name)
                 .expect("already checked that name in other");
 
+            // Casting needed to compare other numeric types with nushell numeric type.
+            // In nushell we only have i64 integer numeric types and any array created
+            // with nushell untagged primitives will be of type i64
             let self_series = match self_series.dtype() {
-                // Casting needed to compare other numeric types with nushell numeric type.
-                // In nushell we only have i64 integer numeric types and any array created
-                // with nushell untagged primitives will be of type i64
-                DataType::UInt32 | DataType::Int32 => match self_series.cast(&DataType::Int64) {
-                    Ok(series) => series,
-                    Err(_) => return None,
-                },
+                DataType::UInt32 | DataType::Int32 if *other_series.dtype() == DataType::Int64 => {
+                    match self_series.cast(&DataType::Int64) {
+                        Ok(series) => series,
+                        Err(_) => return None,
+                    }
+                }
                 _ => self_series.clone(),
             };
 
-            if !self_series.equals(other_series) {
+            let other_series = match other_series.dtype() {
+                DataType::UInt32 | DataType::Int32 if *self_series.dtype() == DataType::Int64 => {
+                    match other_series.cast(&DataType::Int64) {
+                        Ok(series) => series,
+                        Err(_) => return None,
+                    }
+                }
+                _ => other_series.clone(),
+            };
+
+            if !self_series.equals(&other_series) {
                 return None;
             }
         }
