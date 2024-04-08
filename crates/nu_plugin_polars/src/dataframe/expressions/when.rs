@@ -88,8 +88,7 @@ impl PluginCommand for ExprWhen {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -133,25 +132,13 @@ impl PluginCommand for ExprWhen {
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use crate::dataframe::eager::{ToNu, WithColumn};
-//     use crate::dataframe::expressions::otherwise::ExprOtherwise;
-//     use crate::dataframe::expressions::{ExprAlias, ExprCol};
-//
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![
-//             Box::new(WithColumn {}),
-//             Box::new(ExprCol {}),
-//             Box::new(ExprAlias {}),
-//             Box::new(ExprWhen {}),
-//             Box::new(ExprOtherwise {}),
-//             Box::new(ToNu {}),
-//         ])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&ExprWhen)
+    }
+}
