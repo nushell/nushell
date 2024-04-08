@@ -2,8 +2,8 @@
 /// All of these commands have an identical body and only require
 /// to have a change in the name, description and function
 use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
-use crate::values::CustomValueSupport;
-use crate::{Cacheable, PolarsPlugin};
+use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
@@ -44,28 +44,24 @@ macro_rules! lazy_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)
+                let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
                 let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().$func());
-
-                Ok(PipelineData::Value(
-                    lazy.cache(plugin, engine)?.into_value(call.head),
-                    None,
-                ))
+                to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
             }
         }
 
-        // fix tests
-        // #[cfg(test)]
-        // mod $test {
-        //     use super::super::super::test_dataframe::test_dataframe;
-        //     use super::*;
-        //
-        //     #[test]
-        //     fn test_examples() {
-        //         test_dataframe(vec![Box::new($command {})])
-        //     }
-        // }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+            use nu_protocol::ShellError;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident, $ddot: expr) => {
@@ -93,30 +89,24 @@ macro_rules! lazy_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let lazy =
-                    NuLazyFrame::try_from_pipeline(input, call.head).map_err(LabeledError::from)?;
+                let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
+                    .map_err(LabeledError::from)?;
                 let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddot));
-
-                Ok(PipelineData::Value(
-                    lazy.insert_cache(engine)?
-                        .into_value(call.head)
-                        .map_err(LabeledError::from)?,
-                    None,
-                ))
+                to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
             }
         }
 
-        // todo - fix tests
-        // #[cfg(test)]
-        // mod $test {
-        //     use super::super::super::test_dataframe::test_dataframe;
-        //     use super::*;
-        //
-        //     #[test]
-        //     fn test_examples() {
-        //         test_dataframe(vec![Box::new($command {})])
-        //     }
-        // }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+            use nu_protocol::ShellError;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident?, $test: ident) => {
@@ -153,7 +143,7 @@ macro_rules! lazy_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let lazy = NuLazyFrame::try_from_pipeline(plugin, input, call.head)
+                let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
 
                 let lazy = NuLazyFrame::new(
@@ -170,24 +160,21 @@ macro_rules! lazy_command {
                         .map_err(LabeledError::from)?,
                 );
 
-                Ok(PipelineData::Value(
-                    lazy.cache(plugin, engine)?.into_value(call.head),
-                    None,
-                ))
+                to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
             }
         }
 
-        // todo - fix tests
-        // #[cfg(test)]
-        // mod $test {
-        //     use super::super::super::test_dataframe::test_dataframe;
-        //     use super::*;
-        //
-        //     #[test]
-        //     fn test_examples() {
-        //         test_dataframe(vec![Box::new($command {})])
-        //     }
-        // }
+        #[cfg(test)]
+        mod $test {
+            use super::*;
+            use crate::test::test_polars_plugin_command;
+            use nu_protocol::ShellError;
+
+            #[test]
+            fn test_examples() -> Result<(), ShellError> {
+                test_polars_plugin_command(&$command)
+            }
+        }
     };
 }
 
@@ -215,8 +202,7 @@ lazy_command!(
                 None
             )
             .expect("simple df for test should not fail")
-            .base_value(Span::test_data())
-            .expect("rendering base value should not fail"),
+            .into_value(Span::test_data()),
         ),
     },],
     reverse,

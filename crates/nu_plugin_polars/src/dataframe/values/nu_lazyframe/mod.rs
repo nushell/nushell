@@ -7,7 +7,7 @@ use super::{
     PolarsPluginType,
 };
 use core::fmt;
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{record, PipelineData, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -102,6 +102,17 @@ impl NuLazyFrame {
                 &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
             )),
         }
+    }
+
+    /// This differs from try_from_pipeline as it will attempt to coerce the type into a NuDataFrame.
+    /// So, if the pipeline type is a NuLazyFrame it will be collected and returned as NuDataFrame.
+    pub fn try_from_pipeline_coerce(
+        plugin: &PolarsPlugin,
+        input: PipelineData,
+        span: Span,
+    ) -> Result<Self, ShellError> {
+        let value = input.into_value(span);
+        Self::try_from_value_coerce(plugin, &value)
     }
 }
 
