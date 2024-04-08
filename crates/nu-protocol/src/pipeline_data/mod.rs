@@ -215,7 +215,7 @@ impl PipelineData {
     ///
     /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
     /// and `PipelineData::Empty` will be returned.
-    pub fn write_to_io_streams(
+    pub fn write_to_out_dests(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -234,9 +234,9 @@ impl PipelineData {
             ) => {
                 fn needs_redirect(
                     stream: Option<RawStream>,
-                    io_stream: &OutDest,
+                    out_dest: &OutDest,
                 ) -> Result<RawStream, Option<RawStream>> {
-                    match (stream, io_stream) {
+                    match (stream, out_dest) {
                         (Some(stream), OutDest::Pipe | OutDest::Capture) => Err(Some(stream)),
                         (Some(stream), _) => Ok(stream),
                         (None, _) => Err(None),

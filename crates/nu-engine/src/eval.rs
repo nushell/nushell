@@ -441,7 +441,7 @@ fn eval_element_with_input_inner<D: DebugContext>(
     let data = if matches!(stack.pipe_stdout(), Some(OutDest::File(_)))
         && !matches!(stack.pipe_stderr(), Some(OutDest::Pipe))
     {
-        data.write_to_io_streams(engine_state, stack)?
+        data.write_to_out_dests(engine_state, stack)?
     } else {
         data
     };
