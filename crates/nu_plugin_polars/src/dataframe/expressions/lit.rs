@@ -56,21 +56,18 @@ impl PluginCommand for ExprLit {
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let literal: Value = call.req(0)?;
-
         let expr = NuExpression::try_from_value(plugin, &literal)?;
         to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
     }
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//     use crate::dataframe::eager::ToNu;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(ExprLit {}), Box::new(ToNu {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), nu_protocol::ShellError> {
+        test_polars_plugin_command(&ExprLit)
+    }
+}
