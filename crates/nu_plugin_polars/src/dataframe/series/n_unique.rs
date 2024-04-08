@@ -55,8 +55,7 @@ impl PluginCommand for NUnique {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .base_value(Span::test_data())
-                    .expect("rendering base value should not fail"),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -124,27 +123,13 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::test_dataframe::{build_test_engine_state, test_dataframe_example};
-//     use super::*;
-//     use crate::dataframe::lazy::aggregate::LazyAggregate;
-//     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-//
-//     #[test]
-//     fn test_examples_dataframe() {
-//         let mut engine_state = build_test_engine_state(vec![Box::new(NUnique {})]);
-//         test_dataframe_example(&mut engine_state, &NUnique.examples()[0]);
-//     }
-//
-//     #[test]
-//     fn test_examples_expression() {
-//         let mut engine_state = build_test_engine_state(vec![
-//             Box::new(NUnique {}),
-//             Box::new(LazyAggregate {}),
-//             Box::new(ToLazyGroupBy {}),
-//         ]);
-//         test_dataframe_example(&mut engine_state, &NUnique.examples()[1]);
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&NUnique)
+    }
+}
