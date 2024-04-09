@@ -29,8 +29,14 @@ interprocess = { version = "1.2.1", optional = true }
 default = ["local-socket"]
 local-socket = ["interprocess"]
 
+[target.'cfg(target_family = "unix")'.dependencies]
+# For setting the process group ID (`set_foreground()`)
+nix = { workspace = true, default-features = false, features = ["process"] }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true, features = [
   # For setting process creation flags
   "Win32_System_Threading",
+  # For attaching to the console (`set_foreground()`)
+  "Win32_System_Console",
 ] }

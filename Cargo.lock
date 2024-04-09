@@ -3184,6 +3184,7 @@ dependencies = [
  "interprocess",
  "log",
  "miette",
+ "nix",
  "nu-engine",
  "nu-protocol",
  "rmp-serde",

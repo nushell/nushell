@@ -797,6 +797,53 @@ impl EngineInterface {
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
     }
+
+    /// Change whether the plugin process is in the foreground. This is necessary for terminal UI
+    /// apps to work properly, so that they can receive input and signals from the terminal.
+    ///
+    /// Plugins always start in the background (`false`). This should be reset back to false when
+    /// releasing control of the terminal again, otherwise the plugin may be terminated by signals
+    /// such as the interrupt signal (ctrl-c) erroneously.
+    ///
+    /// The exact implementation is operating system-specific. On Unix, this sets the process group
+    /// ID of the plugin to that of `nu` itself if `foreground` is `true`, and leaves the group if
+    /// set to `false`. On Windows, this attaches to the console of `nu` if `true` and detaches
+    /// from the console if `false`.
+    pub fn set_foreground(&self, foreground: bool) -> Result<(), ShellError> {
+        #[cfg(unix)]
+        {
+            use nix::unistd::Pid;
+            let new_pgid = if foreground {
+                Pid::parent()
+            } else {
+                Pid::from_raw(0)
+            };
+            nix::unistd::setpgid(Pid::this(), new_pgid).map_err(|err| ShellError::IOError {
+                msg: err.to_string(),
+            })?;
+        }
+        #[cfg(windows)]
+        {
+            // SAFETY: These should generally be safe to call. Nothing is mentioned about
+            // multithreading or memory safety issues in the docs, and they don't use any pointers.
+            // They are probably just marked unsafe by default in the `windows` crate.
+            //
+            // https://learn.microsoft.com/en-us/windows/console/attachconsole
+            // https://learn.microsoft.com/en-us/windows/console/freeconsole
+            let result = unsafe {
+                if foreground {
+                    // dword(-1) = parent process
+                    windows::Win32::System::Console::AttachConsole(u32::MAX)
+                } else {
+                    windows::Win32::System::Console::FreeConsole()
+                }
+            };
+            result.map_err(|err| ShellError::IOError {
+                msg: err.to_string(),
+            })?;
+        }
+        Ok(())
+    }
 }
 
 impl Interface for EngineInterface {
