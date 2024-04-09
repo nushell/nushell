@@ -110,7 +110,6 @@ mod test {
     use crate::test::test_polars_plugin_command;
 
     #[test]
-    #[ignore = "need the into command to run"]
     fn test_examples() -> Result<(), ShellError> {
         test_polars_plugin_command(&StrFTime)
     }
