@@ -19,9 +19,9 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     }
 }
 
-fn collect_list_stream(mut stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
+fn collect_list_stream(stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
     let mut records = vec![];
-    for item in stream.by_ref() {
+    for item in stream {
         records.push(item);
     }
 
@@ -67,7 +67,7 @@ fn collect_external_stream(
         data.push(value);
     }
     if let Some(exit_code) = exit_code {
-        let list = exit_code.collect::<Vec<_>>();
+        let list = exit_code.into_iter().collect::<Vec<_>>();
         let val = Value::list(list, span);
 
         columns.push(String::from("exit_code"));

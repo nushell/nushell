@@ -161,7 +161,10 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
     }
     test.add(StreamMessage::End(7));
 
-    let header = PipelineDataHeader::ListStream(ListStreamInfo { id: 7 });
+    let header = PipelineDataHeader::ListStream(ListStreamInfo {
+        id: 7,
+        span: Span::test_data(),
+    });
 
     let pipe = manager.read_pipeline_data(header, None)?;
     assert!(
@@ -221,7 +224,10 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
             is_binary: true,
             known_size: None,
         }),
-        exit_code: Some(ListStreamInfo { id: 14 }),
+        exit_code: Some(ListStreamInfo {
+            id: 14,
+            span: Span::test_data(),
+        }),
         trim_end_newline: true,
     });
 
@@ -273,7 +279,10 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
             }
             assert_eq!(iterations, count, "stderr length");
 
-            assert_eq!(vec![Value::test_int(1)], exit_code.collect::<Vec<_>>());
+            assert_eq!(
+                vec![Value::test_int(1)],
+                exit_code.into_iter().collect::<Vec<_>>()
+            );
         }
         _ => panic!("unexpected PipelineData: {pipe:?}"),
     }
@@ -285,29 +294,12 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
 }
 
 #[test]
-fn read_pipeline_data_ctrlc() -> Result<(), ShellError> {
-    let manager = TestInterfaceManager::new(&TestCase::new());
-    let header = PipelineDataHeader::ListStream(ListStreamInfo { id: 0 });
-    let ctrlc = Default::default();
-    match manager.read_pipeline_data(header, Some(&ctrlc))? {
-        PipelineData::ListStream(
-            ListStream {
-                ctrlc: stream_ctrlc,
-                ..
-            },
-            _,
-        ) => {
-            assert!(Arc::ptr_eq(&ctrlc, &stream_ctrlc.expect("ctrlc not set")));
-            Ok(())
-        }
-        _ => panic!("Unexpected PipelineData, should have been ListStream"),
-    }
-}
-
-#[test]
 fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&TestCase::new());
-    let header = PipelineDataHeader::ListStream(ListStreamInfo { id: 0 });
+    let header = PipelineDataHeader::ListStream(ListStreamInfo {
+        id: 0,
+        span: Span::test_data(),
+    });
     match manager.read_pipeline_data(header, None)? {
         PipelineData::ListStream(_, meta) => match meta {
             Some(PipelineMetadata { data_source }) => match data_source {
@@ -404,7 +396,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
 
     // Set up pipeline data for a list stream
     let pipe = PipelineData::ListStream(
-        ListStream::from_stream(values.clone().into_iter(), Span::test_data(), None),
+        ListStream::new(values.clone().into_iter(), Span::test_data(), None),
         None,
     );
 
@@ -474,7 +466,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
             span,
             None,
         )),
-        exit_code: Some(ListStream::from_stream(
+        exit_code: Some(ListStream::new(
             std::iter::once(exit_code.clone()),
             Span::test_data(),
             None,

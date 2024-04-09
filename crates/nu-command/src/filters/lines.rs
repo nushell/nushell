@@ -52,10 +52,8 @@ impl Command for Lines {
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, metadata) => {
-                let span = stream.span();
-                let iter = stream
-                    .into_iter()
-                    .filter_map(move |value| {
+                let stream = stream.modify(|iter| {
+                    iter.filter_map(move |value| {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
                             Some(
@@ -73,11 +71,10 @@ impl Command for Lines {
                             None
                         }
                     })
-                    .flatten();
+                    .flatten()
+                });
 
-                Ok(iter
-                    .into_pipeline_data(span, engine_state.ctrlc.clone())
-                    .set_metadata(metadata))
+                Ok(PipelineData::ListStream(stream, metadata))
             }
             PipelineData::Value(val, ..) => {
                 match val {

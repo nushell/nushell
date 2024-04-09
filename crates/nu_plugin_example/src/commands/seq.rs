@@ -50,12 +50,11 @@ impl PluginCommand for Seq {
         call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let head = call.head;
         let first: i64 = call.req(0)?;
         let last: i64 = call.req(1)?;
-        let span = call.head;
-        let iter = (first..=last).map(move |number| Value::int(number, span));
-        let list_stream = ListStream::from_stream(iter, span, None);
-        Ok(PipelineData::ListStream(list_stream, None))
+        let iter = (first..=last).map(move |number| Value::int(number, head));
+        Ok(ListStream::new(iter, head, None).into())
     }
 }
 

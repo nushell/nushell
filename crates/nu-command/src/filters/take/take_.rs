@@ -74,9 +74,10 @@ impl Command for Take {
                     }),
                 }
             }
-            PipelineData::ListStream(stream, metadata) => Ok(stream
-                .take(rows_desired)
-                .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+                stream.modify(|iter| iter.take(rows_desired)),
+                metadata,
+            )),
             PipelineData::ExternalStream { span, .. } => {
                 Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),

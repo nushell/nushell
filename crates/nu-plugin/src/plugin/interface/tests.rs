@@ -56,7 +56,10 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo { id: 0 }),
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         None,
     )?;
 
@@ -109,7 +112,10 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo { id: 0 }),
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         None,
     )?;
 
@@ -395,7 +401,10 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineDataHeader::ListStream(ListStreamInfo { id: 6 }),
+            input: PipelineDataHeader::ListStream(ListStreamInfo {
+                id: 6,
+                span: Span::test_data(),
+            }),
         }),
     ))?;
 
@@ -534,7 +543,10 @@ fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_dat
 
     manager.consume(PluginInput::EngineCallResponse(
         0,
-        EngineCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo { id: 0 })),
+        EngineCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
 
     for i in 0..2 {

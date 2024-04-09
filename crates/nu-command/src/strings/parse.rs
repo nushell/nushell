@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
-use nu_protocol::ListStream;
+use nu_protocol::{ListStream, ValueIterator};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -187,46 +187,36 @@ fn operate(
                 }
             }
 
-            Ok(PipelineData::ListStream(
-                ListStream::from_stream(parsed.into_iter(), head, ctrlc),
-                None,
-            ))
+            Ok(ListStream::new(parsed.into_iter(), head, ctrlc).into())
         }
-        PipelineData::ListStream(stream, ..) => Ok(PipelineData::ListStream(
-            ListStream::from_stream(
-                ParseStreamer {
-                    span: head,
-                    excess: Vec::new(),
-                    regex: regex_pattern,
-                    columns,
-                    stream: stream.stream,
-                    ctrlc: ctrlc.clone(),
-                },
-                head,
+        PipelineData::ListStream(stream, ..) => Ok(stream
+            .modify(|stream| ParseStreamer {
+                span: head,
+                excess: Vec::new(),
+                regex: regex_pattern,
+                columns,
+                stream,
                 ctrlc,
-            ),
-            None,
-        )),
+            })
+            .into()),
 
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
 
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
-        } => Ok(PipelineData::ListStream(
-            ListStream::from_stream(
-                ParseStreamerExternal {
-                    span: head,
-                    excess: Vec::new(),
-                    regex: regex_pattern,
-                    columns,
-                    stream: stream.stream,
-                },
-                head,
-                ctrlc,
-            ),
-            None,
-        )),
+        } => Ok(ListStream::new(
+            ParseStreamerExternal {
+                span: head,
+                excess: Vec::new(),
+                regex: regex_pattern,
+                columns,
+                stream: stream.stream,
+            },
+            head,
+            ctrlc,
+        )
+        .into()),
     }
 }
 
@@ -301,7 +291,7 @@ pub struct ParseStreamer {
     excess: Vec<Value>,
     regex: Regex,
     columns: Vec<String>,
-    stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    stream: ValueIterator,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 

@@ -78,10 +78,7 @@ fn dice(
         Value::int(thread_rng.gen_range(1..sides + 1) as i64, span)
     });
 
-    Ok(PipelineData::ListStream(
-        ListStream::from_stream(iter, span, engine_state.ctrlc.clone()),
-        None,
-    ))
+    Ok(ListStream::new(iter, span, engine_state.ctrlc.clone()).into())
 }
 
 #[cfg(test)]

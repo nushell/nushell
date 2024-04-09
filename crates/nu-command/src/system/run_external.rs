@@ -163,8 +163,6 @@ impl ExternalCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
 
-        let ctrlc = engine_state.ctrlc.clone();
-
         #[allow(unused_mut)]
         let (cmd, mut reader) = self.create_process(&input, false, head)?;
 
@@ -431,7 +429,7 @@ impl ExternalCommand {
                     (
                         Some(RawStream::new(
                             Box::new(ByteLines::new(combined)),
-                            ctrlc.clone(),
+                            engine_state.ctrlc.clone(),
                             head,
                             None,
                         )),
@@ -439,11 +437,21 @@ impl ExternalCommand {
                     )
                 } else {
                     let stdout = child.as_mut().stdout.take().map(|out| {
-                        RawStream::new(Box::new(ByteLines::new(out)), ctrlc.clone(), head, None)
+                        RawStream::new(
+                            Box::new(ByteLines::new(out)),
+                            engine_state.ctrlc.clone(),
+                            head,
+                            None,
+                        )
                     });
 
                     let stderr = child.as_mut().stderr.take().map(|err| {
-                        RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, None)
+                        RawStream::new(
+                            Box::new(ByteLines::new(err)),
+                            engine_state.ctrlc.clone(),
+                            head,
+                            None,
+                        )
                     });
 
                     if matches!(self.err, OutDest::Pipe) {
@@ -505,16 +513,16 @@ impl ExternalCommand {
                     })
                     .err_span(head)?;
 
-                let exit_code_receiver = ValueReceiver::new(exit_code_rx);
+                let exit_code = Some(ListStream::new(
+                    ValueReceiver::new(exit_code_rx),
+                    head,
+                    None,
+                ));
 
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr,
-                    exit_code: Some(ListStream::from_stream(
-                        Box::new(exit_code_receiver),
-                        head,
-                        ctrlc.clone(),
-                    )),
+                    exit_code,
                     span: head,
                     metadata: None,
                     trim_end_newline: true,

@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, PipelineData,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    engine::Closure, Config, LabeledError, PipelineData, PluginSignature, ShellError, Span,
+    Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
@@ -337,16 +337,13 @@ impl InterfaceManager for EngineInterfaceManager {
                 Ok(data)
             }
             PipelineData::ListStream(stream, meta) => {
-                let span = stream.span();
-                let ctrlc = stream.ctrlc.clone();
-                Ok(stream
-                    .map(|mut value| {
-                        let span = value.span();
-                        PluginCustomValue::deserialize_custom_values_in(&mut value)
-                            .map(|()| value)
-                            .unwrap_or_else(|err| Value::error(err, span))
-                    })
-                    .into_pipeline_data_with_metadata(span, ctrlc, meta))
+                let stream = stream.map(|mut value| {
+                    let span = value.span();
+                    PluginCustomValue::deserialize_custom_values_in(&mut value)
+                        .map(|()| value)
+                        .unwrap_or_else(|err| Value::error(err, span))
+                });
+                Ok(PipelineData::ListStream(stream, meta))
             }
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }
@@ -915,16 +912,13 @@ impl Interface for EngineInterface {
                 Ok(data)
             }
             PipelineData::ListStream(stream, meta) => {
-                let span = stream.span();
-                let ctrlc = stream.ctrlc.clone();
-                Ok(stream
-                    .map(|mut value| {
-                        let span = value.span();
-                        PluginCustomValue::serialize_custom_values_in(&mut value)
-                            .map(|_| value)
-                            .unwrap_or_else(|err| Value::error(err, span))
-                    })
-                    .into_pipeline_data_with_metadata(span, ctrlc, meta))
+                let stream = stream.map(|mut value| {
+                    let span = value.span();
+                    PluginCustomValue::serialize_custom_values_in(&mut value)
+                        .map(|_| value)
+                        .unwrap_or_else(|err| Value::error(err, span))
+                });
+                Ok(PipelineData::ListStream(stream, meta))
             }
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }

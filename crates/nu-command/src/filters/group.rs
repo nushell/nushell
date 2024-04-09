@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::ValueIterator;
 
 #[derive(Clone)]
 pub struct Group;
@@ -71,7 +72,7 @@ impl Command for Group {
 
 struct EachGroupIterator {
     group_size: usize,
-    input: Box<dyn Iterator<Item = Value> + Send>,
+    input: ValueIterator,
     span: Span,
 }
 

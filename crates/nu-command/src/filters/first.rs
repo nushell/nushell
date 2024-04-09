@@ -156,18 +156,16 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(mut stream, metadata) => {
+        PipelineData::ListStream(stream, metadata) => {
             if return_single_element {
-                if let Some(v) = stream.next() {
+                if let Some(v) = stream.into_iter().next() {
                     Ok(v.into_pipeline_data())
                 } else {
                     Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
-                let span = stream.span();
-                Ok(stream.take(rows).into_pipeline_data_with_metadata(
-                    span,
-                    engine_state.ctrlc.clone(),
+                Ok(PipelineData::ListStream(
+                    stream.modify(|iter| iter.take(rows)),
                     metadata,
                 ))
             }

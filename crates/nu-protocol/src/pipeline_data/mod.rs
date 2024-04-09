@@ -1,10 +1,12 @@
+pub mod list_stream;
 mod metadata;
 mod out_dest;
-mod stream;
+mod raw_stream;
 
+pub use list_stream::{ListStream, ValueIterator};
 pub use metadata::*;
 pub use out_dest::*;
-pub use stream::*;
+pub use raw_stream::*;
 
 use crate::{
     ast::{Call, PathMember},
@@ -76,7 +78,7 @@ impl PipelineData {
         PipelineData::ExternalStream {
             stdout: None,
             stderr: None,
-            exit_code: Some(ListStream::from_stream(
+            exit_code: Some(ListStream::new(
                 [Value::int(exit_code, Span::unknown())].into_iter(),
                 Span::unknown(),
                 None,
@@ -119,7 +121,7 @@ impl PipelineData {
     /// PipelineData doesn't always have a Span, but we can try!
     pub fn span(&self) -> Option<Span> {
         match self {
-            PipelineData::ListStream(..) => None,
+            PipelineData::ListStream(stream, ..) => Some(stream.span()),
             PipelineData::ExternalStream { span, .. } => Some(*span),
             PipelineData::Value(v, _) => Some(v.span()),
             PipelineData::Empty => None,
@@ -132,7 +134,7 @@ impl PipelineData {
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
             PipelineData::Value(v, ..) => v.with_span(span),
             PipelineData::ListStream(s, ..) => Value::list(
-                s.collect(),
+                s.into_iter().collect(),
                 span, // FIXME?
             ),
             PipelineData::ExternalStream {
@@ -404,52 +406,54 @@ impl PipelineData {
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
-        match self {
-            PipelineData::Value(value, metadata) => match value {
-                Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
-                    ListStream::from_stream(vals.into_iter(), span, None),
-                    metadata,
-                ))),
-                Value::Binary { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
-                    ListStream::from_stream(
-                        val.into_iter().map(move |x| Value::int(x as i64, span)),
-                        span,
-                        None,
+        Ok(PipelineIterator(match self {
+            PipelineData::Value(value, ..) => {
+                let val_span = value.span();
+                match value {
+                    Value::List { vals, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(vals.into_iter(), val_span, None).into_iter(),
                     ),
-                    metadata,
-                ))),
-                Value::Range { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
-                        ListStream::from_stream(val.into_range_iter(value.span(), None), span, None),
-                        metadata,
-                    )))
-                ,
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::OnlySupportsThisInputType {
+                    Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(
+                            val.into_iter().map(move |x| Value::int(x as i64, val_span)),
+                            val_span,
+                            None,
+                        )
+                        .into_iter(),
+                    ),
+                    Value::Range { val, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(val.into_range_iter(value.span(), None), val_span, None)
+                            .into_iter(),
+                    ),
+                    // Propagate errors by explicitly matching them before the final case.
+                    Value::Error { error, .. } => return Err(*error),
+                    other => {
+                        return Err(ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "list, binary, raw data or range".into(),
+                            wrong_type: other.get_type().to_string(),
+                            dst_span: span,
+                            src_span: val_span,
+                        })
+                    }
+                }
+            }
+            PipelineData::ListStream(stream, ..) => {
+                PipelineIteratorInner::ListStream(stream.into_iter())
+            }
+            PipelineData::Empty => {
+                return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary, raw data or range".into(),
-                    wrong_type: other.get_type().to_string(),
+                    wrong_type: "null".into(),
                     dst_span: span,
-                    src_span: other.span(),
-                }),
-            },
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary, raw data or range".into(),
-                wrong_type: "null".into(),
-                dst_span: span,
-                src_span: span,
-            }),
-            other => Ok(PipelineIterator(other)),
-        }
-    }
-
-    pub fn into_interruptible_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineIterator {
-        let mut iter = self.into_iter();
-
-        if let PipelineIterator(PipelineData::ListStream(s, ..)) = &mut iter {
-            s.ctrlc = ctrlc;
-        }
-
-        iter
+                    src_span: span,
+                })
+            }
+            PipelineData::ExternalStream {
+                stdout: Some(stdout),
+                ..
+            } => PipelineIteratorInner::ExternalStream(stdout),
+            PipelineData::ExternalStream { stdout: None, .. } => PipelineIteratorInner::Empty,
+        }))
     }
 
     pub fn collect_string(self, separator: &str, config: &Config) -> Result<String, ShellError> {
@@ -518,9 +522,8 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => {
-                Value::list(stream.collect(), head).follow_cell_path(cell_path, insensitive)
-            }
+            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
+                .follow_cell_path(cell_path, insensitive),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
@@ -534,17 +537,16 @@ impl PipelineData {
     }
 
     pub fn upsert_cell_path(
-        &mut self,
+        self,
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
         head: Span,
     ) -> Result<(), ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => {
-                Value::list(stream.collect(), head).upsert_cell_path(cell_path, callback)
-            }
-            PipelineData::Value(v, ..) => v.upsert_cell_path(cell_path, callback),
+            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
+                .upsert_cell_path(cell_path, callback),
+            PipelineData::Value(mut v, ..) => v.upsert_cell_path(cell_path, callback),
             _ => Ok(()),
         }
     }
@@ -578,8 +580,7 @@ impl PipelineData {
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => {
-                let span = stream.span();
-                Ok(stream.map(f).into_pipeline_data(span, ctrlc))
+                Ok(PipelineData::ListStream(stream.map(f), None))
             }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
@@ -629,8 +630,7 @@ impl PipelineData {
                 }
             }
             PipelineData::ListStream(stream, ..) => {
-                let span = stream.span();
-                Ok(stream.flat_map(f).into_pipeline_data(span, ctrlc))
+                Ok(stream.modify(|iter| iter.flat_map(f)).into())
             }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
             PipelineData::ExternalStream {
@@ -687,10 +687,7 @@ impl PipelineData {
                     }
                 }
             }
-            PipelineData::ListStream(stream, ..) => {
-                let span = stream.span();
-                Ok(stream.filter(f).into_pipeline_data(span, ctrlc))
-            }
+            PipelineData::ListStream(stream, ..) => Ok(stream.modify(|iter| iter.filter(f)).into()),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -774,7 +771,6 @@ impl PipelineData {
 
             match exit_code {
                 Some(exit_code_stream) => {
-                    let ctrlc = exit_code_stream.ctrlc.clone();
                     let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
                     if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                         // if exit_code is not 0, it indicates error occurred, return back Err.
@@ -786,11 +782,7 @@ impl PipelineData {
                         PipelineData::ExternalStream {
                             stdout: None,
                             stderr,
-                            exit_code: Some(ListStream::from_stream(
-                                exit_code.into_iter(),
-                                span,
-                                ctrlc,
-                            )),
+                            exit_code: Some(ListStream::new(exit_code.into_iter(), span, None)),
                             span,
                             metadata,
                             trim_end_newline,
@@ -961,7 +953,14 @@ impl PipelineData {
     }
 }
 
-pub struct PipelineIterator(PipelineData);
+enum PipelineIteratorInner {
+    Empty,
+    Value(Value),
+    ListStream(list_stream::IntoIter),
+    ExternalStream(RawStream),
+}
+
+pub struct PipelineIterator(PipelineIteratorInner);
 
 impl IntoIterator for PipelineData {
     type Item = Value;
@@ -969,23 +968,29 @@ impl IntoIterator for PipelineData {
     type IntoIter = PipelineIterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        match self {
-            PipelineData::Value(value, metadata) => {
+        PipelineIterator(match self {
+            PipelineData::Value(value, ..) => {
                 let span = value.span();
                 match value {
-                    Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
-                        ListStream::from_stream(vals.into_iter(), span, None),
-                        metadata,
-                    )),
-                    Value::Range { val, .. } => PipelineIterator(PipelineData::ListStream(
-                        ListStream::from_stream(val.into_range_iter(span, None), span, None),
-                        metadata,
-                    )),
-                    x => PipelineIterator(PipelineData::Value(x, metadata)),
+                    Value::List { vals, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(vals.into_iter(), span, None).into_iter(),
+                    ),
+                    Value::Range { val, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(val.into_range_iter(span, None), span, None).into_iter(),
+                    ),
+                    x => PipelineIteratorInner::Value(x),
                 }
             }
-            x => PipelineIterator(x),
-        }
+            PipelineData::ListStream(stream, ..) => {
+                PipelineIteratorInner::ListStream(stream.into_iter())
+            }
+            PipelineData::ExternalStream {
+                stdout: Some(stdout),
+                ..
+            } => PipelineIteratorInner::ExternalStream(stdout),
+            PipelineData::ExternalStream { stdout: None, .. } => PipelineIteratorInner::Empty,
+            PipelineData::Empty => PipelineIteratorInner::Empty,
+        })
     }
 }
 
@@ -1089,15 +1094,11 @@ impl Iterator for PipelineIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
-            PipelineData::Empty => None,
-            PipelineData::Value(Value::Nothing { .. }, ..) => None,
-            PipelineData::Value(v, ..) => Some(std::mem::take(v)),
-            PipelineData::ListStream(stream, ..) => stream.next(),
-            PipelineData::ExternalStream { stdout: None, .. } => None,
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => stream.next().map(|x| match x {
+            PipelineIteratorInner::Empty => None,
+            PipelineIteratorInner::Value(Value::Nothing { .. }, ..) => None,
+            PipelineIteratorInner::Value(v, ..) => Some(std::mem::take(v)),
+            PipelineIteratorInner::ListStream(stream, ..) => stream.next(),
+            PipelineIteratorInner::ExternalStream(stream) => stream.next().map(|x| match x {
                 Ok(x) => x,
                 Err(err) => Value::error(
                     err,
@@ -1150,10 +1151,7 @@ where
     <I::IntoIter as Iterator>::Item: Into<Value>,
 {
     fn into_pipeline_data(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData {
-        PipelineData::ListStream(
-            ListStream::from_stream(self.into_iter().map(Into::into), span, ctrlc),
-            None,
-        )
+        ListStream::new(self.into_iter().map(Into::into), span, ctrlc).into()
     }
 
     fn into_pipeline_data_with_metadata(
@@ -1163,7 +1161,7 @@ where
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
         PipelineData::ListStream(
-            ListStream::from_stream(self.into_iter().map(Into::into), span, ctrlc),
+            ListStream::new(self.into_iter().map(Into::into), span, ctrlc),
             metadata.into(),
         )
     }

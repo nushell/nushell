@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::ValueIterator;
 
 #[derive(Clone)]
 pub struct Window;
@@ -136,7 +137,7 @@ impl Command for Window {
 
 struct EachWindowIterator {
     group_size: usize,
-    input: Box<dyn Iterator<Item = Value> + Send>,
+    input: ValueIterator,
     span: Span,
     previous: Option<Vec<Value>>,
     stride: usize,

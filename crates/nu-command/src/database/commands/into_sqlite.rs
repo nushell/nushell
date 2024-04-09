@@ -203,8 +203,8 @@ fn action(
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Value, ShellError> {
     match input {
-        PipelineData::ListStream(list_stream, _) => {
-            insert_in_transaction(list_stream.stream, span, table, ctrl_c)
+        PipelineData::ListStream(stream, _) => {
+            insert_in_transaction(stream.into_iter(), span, table, ctrl_c)
         }
         PipelineData::Value(
             Value::List {

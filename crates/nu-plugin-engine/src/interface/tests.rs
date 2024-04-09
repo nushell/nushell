@@ -52,7 +52,10 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo { id: 0 }),
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         None,
     )?;
 
@@ -105,7 +108,10 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo { id: 0 }),
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         None,
     )?;
 
@@ -331,7 +337,10 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
 
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo { id: 0 })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
 
     for i in 0..2 {
@@ -372,7 +381,10 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     // Check list streams, external streams
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo { id: 0 })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
     manager.consume(PluginOutput::CallResponse(
         1,
@@ -388,7 +400,10 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
                 is_binary: false,
                 known_size: None,
             }),
-            exit_code: Some(ListStreamInfo { id: 3 }),
+            exit_code: Some(ListStreamInfo {
+                id: 3,
+                span: Span::test_data(),
+            }),
             trim_end_newline: false,
         })),
     ))?;
@@ -448,7 +463,10 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
                 span: Span::test_data(),
             },
             positional: vec![],
-            input: PipelineDataHeader::ListStream(ListStreamInfo { id: 2 }),
+            input: PipelineDataHeader::ListStream(ListStreamInfo {
+                id: 2,
+                span: Span::test_data(),
+            }),
             redirect_stdout: false,
             redirect_stderr: false,
         },

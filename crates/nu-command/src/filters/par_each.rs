@@ -197,6 +197,7 @@ impl Command for ParEach {
             }
             PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
                 let vec = stream
+                    .into_iter()
                     .enumerate()
                     .par_bridge()
                     .map(move |(index, value)| {
