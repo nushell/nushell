@@ -255,8 +255,8 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     command
         .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
-    // TODO: consider adding custom plugin path for tests to
-    // not interfere with user local environment
+    // Ensure that the user's config doesn't interfere with the tests
+    command.arg("--no-config-file");
     if !with_std {
         command.arg("--no-std-lib");
     }
@@ -264,6 +264,9 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .arg(format!("-c {}", escape_quote_string(commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    // Uncomment to debug the command being run:
+    // println!("=== command\n{command:?}\n");
 
     let process = match command.spawn() {
         Ok(child) => child,
@@ -293,8 +296,12 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
     });
 
     let temp = tempdir().expect("couldn't create a temporary directory");
-    let temp_plugin_file = temp.path().join("plugin.nu");
-    std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
+    let [temp_config_file, temp_env_config_file, temp_plugin_file] =
+        ["config.nu", "env.nu", "plugin.nu"].map(|name| {
+            let temp_file = temp.path().join(name);
+            std::fs::File::create(&temp_file).expect("couldn't create temporary config file");
+            temp_file
+        });
 
     crate::commands::ensure_plugins_built();
 
@@ -320,6 +327,10 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
     let process = match setup_command(&executable_path, &target_cwd)
         .arg("--commands")
         .arg(commands)
+        .arg("--config")
+        .arg(temp_config_file)
+        .arg("--env-config")
+        .arg(temp_env_config_file)
         .arg("--plugin-config")
         .arg(temp_plugin_file)
         .stdout(Stdio::piped())

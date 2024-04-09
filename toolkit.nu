@@ -107,7 +107,7 @@ export def test [
 export def "test stdlib" [
     --extra-args: string = ''
 ] {
-    cargo run -- -c $"
+    cargo run -- --no-config-file -c $"
         use crates/nu-std/testing.nu
         testing run-tests --path crates/nu-std ($extra_args)
     "
