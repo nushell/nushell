@@ -979,6 +979,24 @@ fn interface_get_help() -> Result<(), ShellError> {
 }
 
 #[test]
+fn interface_get_span_contents() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::value(Value::test_binary(b"test string"))
+    });
+
+    let contents = interface.get_span_contents(Span::test_data())?;
+
+    assert_eq!(b"test string", &contents[..]);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.engine();

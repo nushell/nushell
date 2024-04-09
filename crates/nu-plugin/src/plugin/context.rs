@@ -3,7 +3,7 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Spanned, Value,
+    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
 use std::{
     borrow::Cow,
@@ -32,6 +32,8 @@ pub trait PluginExecutionContext: Send + Sync {
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
     /// Get help for the current command
     fn get_help(&self) -> Result<Spanned<String>, ShellError>;
+    /// Get the contents of a [`Span`]
+    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -148,6 +150,14 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             false,
         )
         .into_spanned(self.call.head))
+    }
+
+    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+        Ok(self
+            .engine_state
+            .get_span_contents(span)
+            .to_vec()
+            .into_spanned(self.call.head))
     }
 
     fn eval_closure(
@@ -268,6 +278,12 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     fn get_help(&self) -> Result<Spanned<String>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_help not implemented on bogus".into(),
+        })
+    }
+
+    fn get_span_contents(&self, _span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_span_contents not implemented on bogus".into(),
         })
     }
 
