@@ -12,7 +12,7 @@ mod id;
 pub mod io;
 mod lev_distance;
 mod module;
-mod pipeline_data;
+mod pipeline;
 #[cfg(feature = "plugin")]
 mod plugin;
 pub mod process;
@@ -33,7 +33,7 @@ pub use example::*;
 pub use id::*;
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
-pub use pipeline_data::*;
+pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
 pub use signature::*;
