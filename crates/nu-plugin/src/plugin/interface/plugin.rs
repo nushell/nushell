@@ -1180,6 +1180,13 @@ pub(crate) fn handle_engine_call(
                 help.item, help.span,
             )))
         }
+        EngineCall::GetSpanContents(span) => {
+            let contents = context.get_span_contents(span)?;
+            Ok(EngineCallResponse::value(Value::binary(
+                contents.item,
+                contents.span,
+            )))
+        }
         EngineCall::EvalClosure {
             closure,
             positional,
