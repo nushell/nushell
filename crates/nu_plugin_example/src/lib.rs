@@ -21,6 +21,7 @@ impl Plugin for ExamplePlugin {
             // Engine interface demos
             Box::new(Config),
             Box::new(Env),
+            Box::new(ViewSpan),
             Box::new(DisableGc),
             // Stream demos
             Box::new(CollectExternal),

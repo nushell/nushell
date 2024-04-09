@@ -14,6 +14,15 @@ fn source_file_relative_to_file() {
 }
 
 #[test]
+fn source_file_relative_to_config() {
+    let actual = nu!("
+        nu --config tests/parsing/samples/source_file_relative.nu --commands ''
+        ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
 fn source_const_file() {
     let actual = nu!(cwd: "tests/parsing/samples",
     "

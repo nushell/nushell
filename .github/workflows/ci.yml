@@ -130,6 +130,9 @@ jobs:
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
+      - name: Ensure that Cargo.toml MSRV and rust-toolchain.toml use the same version
+        run: nu .github/workflows/check-msrv.nu
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
