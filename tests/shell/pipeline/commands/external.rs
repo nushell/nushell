@@ -375,7 +375,7 @@ mod nu_commands {
     #[test]
     fn echo_internally_externally() {
         let actual = nu!(r#"
-        nu -c "echo 'foo'"
+        nu -n -c "echo 'foo'"
         "#);
 
         assert_eq!(actual.out, "foo");
@@ -385,7 +385,7 @@ mod nu_commands {
     fn failed_with_proper_exit_code() {
         Playground::setup("external failed", |dirs, _sandbox| {
             let actual = nu!(cwd: dirs.test(), r#"
-            nu -c "cargo build | complete | get exit_code"
+            nu -n -c "cargo build | complete | get exit_code"
             "#);
 
             // cargo for non rust project's exit code is 101.
@@ -396,7 +396,7 @@ mod nu_commands {
     #[test]
     fn better_arg_quoting() {
         let actual = nu!(r#"
-        nu -c "\# '"
+        nu -n -c "\# '"
         "#);
 
         assert_eq!(actual.out, "");
@@ -405,7 +405,7 @@ mod nu_commands {
     #[test]
     fn command_list_arg_test() {
         let actual = nu!("
-        nu ...['-c' 'version']
+        nu ...['-n' '-c' 'version']
         ");
 
         assert!(actual.out.contains("version"));
@@ -416,7 +416,7 @@ mod nu_commands {
     #[test]
     fn command_cell_path_arg_test() {
         let actual = nu!("
-        nu ...([ '-c' 'version' ])
+        nu ...([ '-n' '-c' 'version' ])
         ");
 
         assert!(actual.out.contains("version"));
@@ -431,7 +431,7 @@ mod nu_script {
     #[test]
     fn run_nu_script() {
         let actual = nu!(cwd: "tests/fixtures/formats", "
-        nu script.nu
+        nu -n script.nu
         ");
 
         assert_eq!(actual.out, "done");
@@ -440,7 +440,7 @@ mod nu_script {
     #[test]
     fn run_nu_script_multiline() {
         let actual = nu!(cwd: "tests/fixtures/formats", "
-        nu script_multiline.nu
+        nu -n script_multiline.nu
         ");
 
         assert_eq!(actual.out, "23");
