@@ -73,3 +73,16 @@ fn test_an_example_with_the_wrong_result() -> Result<(), ShellError> {
     assert!(result.is_err());
     Ok(())
 }
+
+#[test]
+fn test_requiring_nu_cmd_lang_commands() -> Result<(), ShellError> {
+    use nu_protocol::Span;
+
+    let result = PluginTest::new("hello", HelloPlugin.into())?
+        .eval("do { let greeting = hello; $greeting }")?
+        .into_value(Span::test_data());
+
+    assert_eq!(Value::test_string("Hello, World!"), result);
+
+    Ok(())
+}

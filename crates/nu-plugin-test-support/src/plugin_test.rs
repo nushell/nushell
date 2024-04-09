@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
 use nu_ansi_term::Style;
+use nu_cmd_lang::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
@@ -36,7 +37,7 @@ impl PluginTest {
         name: &str,
         plugin: Arc<impl Plugin + Send + 'static>,
     ) -> Result<PluginTest, ShellError> {
-        let mut engine_state = EngineState::new();
+        let mut engine_state = create_default_context();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let reg_plugin = fake_register(&mut working_set, name, plugin)?;

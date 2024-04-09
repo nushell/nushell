@@ -118,6 +118,7 @@ pub(crate) fn run_commands(
         &mut stack,
         input,
         parsed_nu_cli_args.table_mode,
+        parsed_nu_cli_args.no_newline.is_some(),
     );
     perf(
         "evaluate_commands",

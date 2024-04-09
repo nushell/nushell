@@ -15,6 +15,7 @@ pub fn evaluate_commands(
     stack: &mut Stack,
     input: PipelineData,
     table_mode: Option<Value>,
+    no_newline: bool,
 ) -> Result<Option<i64>> {
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {
@@ -60,7 +61,13 @@ pub fn evaluate_commands(
             if let Some(t_mode) = table_mode {
                 config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
             }
-            crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
+            crate::eval_file::print_table_or_error(
+                engine_state,
+                stack,
+                pipeline_data,
+                &mut config,
+                no_newline,
+            )
         }
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);
