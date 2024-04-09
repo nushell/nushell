@@ -1,15 +1,13 @@
-use super::list_stream;
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, ListStream, OutDest, PipelineMetadata, Range, RawStream, ShellError,
+    format_error, ByteStream, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
     Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
-    io::{self, Cursor, Read, Write},
+    io::Write,
     sync::{atomic::AtomicBool, Arc},
-    thread,
 };
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
@@ -45,63 +43,33 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// Nushell.
 #[derive(Debug)]
 pub enum PipelineData {
+    Empty,
     Value(Value, Option<PipelineMetadata>),
     ListStream(ListStream, Option<PipelineMetadata>),
-    ExternalStream {
-        stdout: Option<RawStream>,
-        stderr: Option<RawStream>,
-        exit_code: Option<ListStream>,
-        span: Span,
-        metadata: Option<PipelineMetadata>,
-        trim_end_newline: bool,
-    },
-    Empty,
+    ByteStream(ByteStream, Option<PipelineMetadata>),
 }
 
 impl PipelineData {
-    pub fn new_with_metadata(metadata: Option<PipelineMetadata>, span: Span) -> PipelineData {
-        PipelineData::Value(Value::nothing(span), metadata)
-    }
-
-    /// create a `PipelineData::ExternalStream` with proper exit_code
-    ///
-    /// It's useful to break running without raising error at user level.
-    pub fn new_external_stream_with_only_exit_code(exit_code: i64) -> PipelineData {
-        PipelineData::ExternalStream {
-            stdout: None,
-            stderr: None,
-            exit_code: Some(ListStream::new(
-                [Value::int(exit_code, Span::unknown())].into_iter(),
-                Span::unknown(),
-                None,
-            )),
-            span: Span::unknown(),
-            metadata: None,
-            trim_end_newline: false,
-        }
-    }
-
     pub fn empty() -> PipelineData {
         PipelineData::Empty
     }
 
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         match self {
-            PipelineData::ListStream(_, x) => x.clone(),
-            PipelineData::ExternalStream { metadata: x, .. } => x.clone(),
-            PipelineData::Value(_, x) => x.clone(),
             PipelineData::Empty => None,
+            PipelineData::Value(_, meta)
+            | PipelineData::ListStream(_, meta)
+            | PipelineData::ByteStream(_, meta) => meta.clone(),
         }
     }
 
     pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
         match &mut self {
-            PipelineData::ListStream(_, x) => *x = metadata,
-            PipelineData::ExternalStream { metadata: x, .. } => *x = metadata,
-            PipelineData::Value(_, x) => *x = metadata,
             PipelineData::Empty => {}
+            PipelineData::Value(_, meta)
+            | PipelineData::ListStream(_, meta)
+            | PipelineData::ByteStream(_, meta) => *meta = metadata,
         }
-
         self
     }
 
@@ -113,93 +81,19 @@ impl PipelineData {
     /// PipelineData doesn't always have a Span, but we can try!
     pub fn span(&self) -> Option<Span> {
         match self {
-            PipelineData::ListStream(stream, ..) => Some(stream.span()),
-            PipelineData::ExternalStream { span, .. } => Some(*span),
-            PipelineData::Value(v, _) => Some(v.span()),
             PipelineData::Empty => None,
+            PipelineData::Value(value, ..) => Some(value.span()),
+            PipelineData::ListStream(stream, ..) => Some(stream.span()),
+            PipelineData::ByteStream(stream, ..) => Some(stream.span()),
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         match self {
-            PipelineData::Empty => Value::nothing(span),
-            PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
-            PipelineData::Value(v, ..) => v.with_span(span),
-            PipelineData::ListStream(s, ..) => Value::list(
-                s.into_iter().collect(),
-                span, // FIXME?
-            ),
-            PipelineData::ExternalStream {
-                stdout: None,
-                exit_code,
-                ..
-            } => {
-                // Make sure everything has finished
-                if let Some(exit_code) = exit_code {
-                    let _: Vec<_> = exit_code.into_iter().collect();
-                }
-                Value::nothing(span)
-            }
-            PipelineData::ExternalStream {
-                stdout: Some(mut s),
-                exit_code,
-                trim_end_newline,
-                ..
-            } => {
-                let mut items = vec![];
-
-                for val in &mut s {
-                    match val {
-                        Ok(val) => {
-                            items.push(val);
-                        }
-                        Err(e) => {
-                            return Value::error(e, span);
-                        }
-                    }
-                }
-
-                // Make sure everything has finished
-                if let Some(exit_code) = exit_code {
-                    let _: Vec<_> = exit_code.into_iter().collect();
-                }
-
-                // NOTE: currently trim-end-newline only handles for string output.
-                // For binary, user might need origin data.
-                if s.is_binary {
-                    let mut output = vec![];
-                    for item in items {
-                        match item.coerce_into_binary() {
-                            Ok(item) => {
-                                output.extend(item);
-                            }
-                            Err(err) => {
-                                return Value::error(err, span);
-                            }
-                        }
-                    }
-
-                    Value::binary(
-                        output, span, // FIXME?
-                    )
-                } else {
-                    let mut output = String::new();
-                    for item in items {
-                        match item.coerce_into_string() {
-                            Ok(s) => output.push_str(&s),
-                            Err(err) => {
-                                return Value::error(err, span);
-                            }
-                        }
-                    }
-                    if trim_end_newline {
-                        output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len())
-                    }
-                    Value::string(
-                        output, span, // FIXME?
-                    )
-                }
-            }
+            PipelineData::Empty => Ok(Value::nothing(span)),
+            PipelineData::Value(value, ..) => Ok(value.with_span(span)),
+            PipelineData::ListStream(stream, ..) => Ok(stream.into_value()),
+            PipelineData::ByteStream(stream, ..) => stream.into_value(),
         }
     }
 
@@ -216,98 +110,27 @@ impl PipelineData {
         stack: &mut Stack,
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
-            (
-                PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                },
-                _,
-            ) => {
-                fn needs_redirect(
-                    stream: Option<RawStream>,
-                    out_dest: &OutDest,
-                ) -> Result<RawStream, Option<RawStream>> {
-                    match (stream, out_dest) {
-                        (Some(stream), OutDest::Pipe | OutDest::Capture) => Err(Some(stream)),
-                        (Some(stream), _) => Ok(stream),
-                        (None, _) => Err(None),
-                    }
-                }
-
-                let (stdout, stderr) = match (
-                    needs_redirect(stdout, stack.stdout()),
-                    needs_redirect(stderr, stack.stderr()),
-                ) {
-                    (Ok(stdout), Ok(stderr)) => {
-                        // We need to redirect both stdout and stderr
-
-                        // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
-                        let err_thread = {
-                            let err = stack.stderr().clone();
-                            std::thread::Builder::new()
-                                .spawn(move || consume_child_output(stderr, &err))
-                        };
-
-                        consume_child_output(stdout, stack.stdout())?;
-
-                        match err_thread?.join() {
-                            Ok(result) => result?,
-                            Err(err) => {
-                                return Err(ShellError::GenericError {
-                                    error: "Error consuming external command stderr".into(),
-                                    msg: format! {"{err:?}"},
-                                    span: Some(span),
-                                    help: None,
-                                    inner: Vec::new(),
-                                })
-                            }
-                        }
-
-                        (None, None)
-                    }
-                    (Ok(stdout), Err(stderr)) => {
-                        // single output stream, we can consume directly
-                        consume_child_output(stdout, stack.stdout())?;
-                        (None, stderr)
-                    }
-                    (Err(stdout), Ok(stderr)) => {
-                        // single output stream, we can consume directly
-                        consume_child_output(stderr, stack.stderr())?;
-                        (stdout, None)
-                    }
-                    (Err(stdout), Err(stderr)) => (stdout, stderr),
-                };
-
-                Ok(PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                })
+            (PipelineData::ByteStream(stream, ..), stdout) => {
+                stream.write_to_out_dests(stdout, stack.stderr())?;
+                Ok(PipelineData::Empty)
             }
             (data, OutDest::Pipe | OutDest::Capture) => Ok(data),
-            (PipelineData::Empty, _) => Ok(PipelineData::Empty),
-            (PipelineData::Value(_, _), OutDest::Null) => Ok(PipelineData::Empty),
-            (PipelineData::ListStream(stream, _), OutDest::Null) => {
+            (PipelineData::Empty, ..) => Ok(PipelineData::Empty),
+            (PipelineData::Value(..), OutDest::Null) => Ok(PipelineData::Empty),
+            (PipelineData::ListStream(stream, ..), OutDest::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(value, _), OutDest::File(file)) => {
+            (PipelineData::Value(value, ..), OutDest::File(file)) => {
                 let bytes = value_to_bytes(value)?;
-                let mut file = file.try_clone()?;
+                let mut file = file.as_ref();
                 file.write_all(&bytes)?;
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::ListStream(stream, _), OutDest::File(file)) => {
-                let mut file = file.try_clone()?;
+            (PipelineData::ListStream(stream, ..), OutDest::File(file)) => {
+                let mut file = file.as_ref();
                 // use BufWriter here?
                 for value in stream {
                     let bytes = value_to_bytes(value)?;
@@ -317,10 +140,7 @@ impl PipelineData {
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
-            (
-                data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
-                OutDest::Inherit,
-            ) => {
+            (data @ (PipelineData::Value(..) | PipelineData::ListStream(..)), OutDest::Inherit) => {
                 let config = engine_state.get_config();
 
                 if let Some(decl_id) = engine_state.table_decl_id {
@@ -343,54 +163,11 @@ impl PipelineData {
 
     pub fn drain(self) -> Result<(), ShellError> {
         match self {
-            PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
-            PipelineData::Value(_, _) => Ok(()),
-            PipelineData::ListStream(stream, _) => stream.drain(),
-            PipelineData::ExternalStream { stdout, stderr, .. } => {
-                if let Some(stdout) = stdout {
-                    stdout.drain()?;
-                }
-
-                if let Some(stderr) = stderr {
-                    stderr.drain()?;
-                }
-
-                Ok(())
-            }
             PipelineData::Empty => Ok(()),
-        }
-    }
-
-    pub fn drain_with_exit_code(self) -> Result<i64, ShellError> {
-        match self {
-            PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
-            PipelineData::Value(_, _) => Ok(0),
-            PipelineData::ListStream(stream, _) => {
-                stream.drain()?;
-                Ok(0)
-            }
-            PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code,
-                ..
-            } => {
-                if let Some(stdout) = stdout {
-                    stdout.drain()?;
-                }
-
-                if let Some(stderr) = stderr {
-                    stderr.drain()?;
-                }
-
-                if let Some(exit_code) = exit_code {
-                    let result = drain_exit_code(exit_code)?;
-                    Ok(result)
-                } else {
-                    Ok(0)
-                }
-            }
-            PipelineData::Empty => Ok(0),
+            PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
+            PipelineData::Value(..) => Ok(()),
+            PipelineData::ListStream(stream, ..) => stream.drain(),
+            PipelineData::ByteStream(stream, ..) => stream.drain(),
         }
     }
 
@@ -434,41 +211,28 @@ impl PipelineData {
             }
             PipelineData::Empty => {
                 return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "list, binary, raw data or range".into(),
+                    exp_input_type: "list, binary, range, or byte stream".into(),
                     wrong_type: "null".into(),
                     dst_span: span,
                     src_span: span,
                 })
             }
-            PipelineData::ExternalStream {
-                stdout: Some(stdout),
-                ..
-            } => PipelineIteratorInner::ExternalStream(stdout),
-            PipelineData::ExternalStream { stdout: None, .. } => PipelineIteratorInner::Empty,
+            PipelineData::ByteStream(stream, ..) => {
+                if let Some(values) = stream.values() {
+                    PipelineIteratorInner::ByteStream(values)
+                } else {
+                    PipelineIteratorInner::Empty
+                }
+            }
         }))
     }
 
     pub fn collect_string(self, separator: &str, config: &Config) -> Result<String, ShellError> {
         match self {
             PipelineData::Empty => Ok(String::new()),
-            PipelineData::Value(v, ..) => Ok(v.to_expanded_string(separator, config)),
-            PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(String::new()),
-            PipelineData::ExternalStream {
-                stdout: Some(s),
-                trim_end_newline,
-                ..
-            } => {
-                let mut output = String::new();
-
-                for val in s {
-                    output.push_str(&val?.coerce_into_string()?);
-                }
-                if trim_end_newline {
-                    output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
-                }
-                Ok(output)
-            }
+            PipelineData::Value(value, ..) => Ok(value.to_expanded_string(separator, config)),
+            PipelineData::ListStream(stream, ..) => Ok(stream.into_string(separator, config)),
+            PipelineData::ByteStream(stream, ..) => stream.into_string(),
         }
     }
 
@@ -483,26 +247,18 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Ok((String::new(), span, None)),
             PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
-            PipelineData::Value(val, _) => Err(ShellError::TypeMismatch {
+            PipelineData::Value(val, ..) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
                 span: val.span(),
             }),
-            PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch {
+            PipelineData::ListStream(..) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
                 span,
             }),
-            PipelineData::ExternalStream {
-                stdout: None,
-                metadata,
-                span,
-                ..
-            } => Ok((String::new(), span, metadata)),
-            PipelineData::ExternalStream {
-                stdout: Some(stdout),
-                metadata,
-                span,
-                ..
-            } => Ok((stdout.into_string()?.item, span, metadata)),
+            PipelineData::ByteStream(stream, metadata) => {
+                let span = stream.span();
+                Ok((stream.into_string()?, span, metadata))
+            }
         }
     }
 
@@ -521,9 +277,9 @@ impl PipelineData {
                 type_name: "empty pipeline".to_string(),
                 span: head,
             }),
-            PipelineData::ExternalStream { span, .. } => Err(ShellError::IncompatiblePathAccess {
-                type_name: "external stream".to_string(),
-                span,
+            PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+                type_name: "byte stream".to_string(),
+                span: stream.span(),
             }),
         }
     }
@@ -559,21 +315,15 @@ impl PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 Ok(PipelineData::ListStream(stream.map(f), None))
             }
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                trim_end_newline,
-                ..
-            } => {
-                let collected = stream.into_bytes()?;
-
-                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
-                    if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len());
+            PipelineData::ByteStream(stream, ..) => {
+                // TODO: is this behavior desired / correct ?
+                let span = stream.span();
+                match String::from_utf8(stream.into_bytes()?) {
+                    Ok(mut str) => {
+                        str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
+                        Ok(f(Value::string(str, span)).into_pipeline_data())
                     }
-                    Ok(f(Value::string(st, collected.span)).into_pipeline_data())
-                } else {
-                    Ok(f(Value::binary(collected.item, collected.span)).into_pipeline_data())
+                    Err(err) => Ok(f(Value::binary(err.into_bytes(), span)).into_pipeline_data()),
                 }
             }
         }
@@ -609,26 +359,19 @@ impl PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.modify(|iter| iter.flat_map(f)).into())
             }
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                span,
-                trim_end_newline,
-                ..
-            } => {
-                let collected = stream.into_bytes()?;
-
-                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
-                    if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
+            PipelineData::ByteStream(stream, ..) => {
+                // TODO: is this behavior desired / correct ?
+                let span = stream.span();
+                match String::from_utf8(stream.into_bytes()?) {
+                    Ok(mut str) => {
+                        str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
+                        Ok(f(Value::string(str, span))
+                            .into_iter()
+                            .into_pipeline_data(span, ctrlc))
                     }
-                    Ok(f(Value::string(st, collected.span))
+                    Err(err) => Ok(f(Value::binary(err.into_bytes(), span))
                         .into_iter()
-                        .into_pipeline_data(span, ctrlc))
-                } else {
-                    Ok(f(Value::binary(collected.item, collected.span))
-                        .into_iter()
-                        .into_pipeline_data(span, ctrlc))
+                        .into_pipeline_data(span, ctrlc)),
                 }
             }
         }
@@ -665,124 +408,25 @@ impl PipelineData {
                 }
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.modify(|iter| iter.filter(f)).into()),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                trim_end_newline,
-                ..
-            } => {
-                let collected = stream.into_bytes()?;
-
-                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
-                    if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
+            PipelineData::ByteStream(stream, ..) => {
+                // TODO: is this behavior desired / correct ?
+                let span = stream.span();
+                let value = match String::from_utf8(stream.into_bytes()?) {
+                    Ok(mut str) => {
+                        str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
+                        Value::string(str, span)
                     }
-                    let v = Value::string(st, collected.span);
-
-                    if f(&v) {
-                        Ok(v.into_pipeline_data())
-                    } else {
-                        Ok(PipelineData::new_with_metadata(None, collected.span))
-                    }
+                    Err(err) => Value::binary(err.into_bytes(), span),
+                };
+                if f(&value) {
+                    Ok(value.into_pipeline_data())
                 } else {
-                    let v = Value::binary(collected.item, collected.span);
-
-                    if f(&v) {
-                        Ok(v.into_pipeline_data())
-                    } else {
-                        Ok(PipelineData::new_with_metadata(None, collected.span))
-                    }
+                    Ok(Value::nothing(span).into_pipeline_data())
                 }
             }
         }
     }
 
-    /// Try to catch the external stream exit status and detect if it failed.
-    ///
-    /// This is useful for external commands with semicolon, we can detect errors early to avoid
-    /// commands after the semicolon running.
-    ///
-    /// Returns `self` and a flag that indicates if the external stream run failed. If `self` is
-    /// not [`PipelineData::ExternalStream`], the flag will be `false`.
-    ///
-    /// Currently this will consume an external stream to completion.
-    pub fn check_external_failed(self) -> (Self, bool) {
-        let mut failed_to_run = false;
-        // Only need ExternalStream without redirecting output.
-        // It indicates we have no more commands to execute currently.
-        if let PipelineData::ExternalStream {
-            stdout: None,
-            stderr,
-            mut exit_code,
-            span,
-            metadata,
-            trim_end_newline,
-        } = self
-        {
-            let exit_code = exit_code.take();
-
-            // Note:
-            // In run-external's implementation detail, the result sender thread
-            // send out stderr message first, then stdout message, then exit_code.
-            //
-            // In this clause, we already make sure that `stdout` is None
-            // But not the case of `stderr`, so if `stderr` is not None
-            // We need to consume stderr message before reading external commands' exit code.
-            //
-            // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
-            // So we consume stderr stream and rebuild it.
-            let stderr = stderr.map(|stderr_stream| {
-                let stderr_ctrlc = stderr_stream.ctrlc.clone();
-                let stderr_span = stderr_stream.span;
-                let stderr_bytes = stderr_stream
-                    .into_bytes()
-                    .map(|bytes| bytes.item)
-                    .unwrap_or_default();
-                RawStream::new(
-                    Box::new(std::iter::once(Ok(stderr_bytes))),
-                    stderr_ctrlc,
-                    stderr_span,
-                    None,
-                )
-            });
-
-            match exit_code {
-                Some(exit_code_stream) => {
-                    let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
-                    if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                        // if exit_code is not 0, it indicates error occurred, return back Err.
-                        if *code != 0 {
-                            failed_to_run = true;
-                        }
-                    }
-                    (
-                        PipelineData::ExternalStream {
-                            stdout: None,
-                            stderr,
-                            exit_code: Some(ListStream::new(exit_code.into_iter(), span, None)),
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        failed_to_run,
-                    )
-                }
-                None => (
-                    PipelineData::ExternalStream {
-                        stdout: None,
-                        stderr,
-                        exit_code: None,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    },
-                    failed_to_run,
-                ),
-            }
-        } else {
-            (self, false)
-        }
-    }
     /// Try to convert Value from Value::Range to Value::List.
     /// This is useful to expand Value::Range into array notation, specifically when
     /// converting `to json` or `to nuon`.
@@ -837,36 +481,27 @@ impl PipelineData {
         stack: &mut Stack,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<i64, ShellError> {
-        // If the table function is in the declarations, then we can use it
-        // to create the table value that will be printed in the terminal
-
-        let config = engine_state.get_config();
-
-        if let PipelineData::ExternalStream {
-            stdout: stream,
-            stderr: stderr_stream,
-            exit_code,
-            ..
-        } = self
-        {
-            return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
-        }
-
-        if let Some(decl_id) = engine_state.table_decl_id {
-            let command = engine_state.get_decl(decl_id);
-            if command.get_block_id().is_some() {
-                return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
-            }
-
-            let call = Call::new(Span::new(0, 0));
-            let table = command.run(engine_state, stack, &call, self)?;
-            table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+    ) -> Result<(), ShellError> {
+        if let PipelineData::ByteStream(stream, ..) = self {
+            stream.print()?;
         } else {
-            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
-        };
-
-        Ok(0)
+            let config = engine_state.get_config();
+            // If the table function is in the declarations, then we can use it
+            // to create the table value that will be printed in the terminal
+            if let Some(decl_id) = engine_state.table_decl_id {
+                let command = engine_state.get_decl(decl_id);
+                if command.get_block_id().is_some() {
+                    self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+                } else {
+                    let call = Call::new(Span::new(0, 0));
+                    let table = command.run(engine_state, stack, &call, self)?;
+                    table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+                }
+            } else {
+                self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+            }
+        }
+        Ok(())
     }
 
     /// Consume and print self data immediately.
@@ -880,19 +515,14 @@ impl PipelineData {
         engine_state: &EngineState,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<i64, ShellError> {
-        if let PipelineData::ExternalStream {
-            stdout: stream,
-            stderr: stderr_stream,
-            exit_code,
-            ..
-        } = self
-        {
-            print_if_stream(stream, stderr_stream, to_stderr, exit_code)
+    ) -> Result<(), ShellError> {
+        if let PipelineData::ByteStream(stream, ..) = self {
+            stream.print()?;
         } else {
             let config = engine_state.get_config();
-            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
+            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         }
+        Ok(())
     }
 
     fn write_all_and_flush(
@@ -901,7 +531,7 @@ impl PipelineData {
         config: &Config,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<i64, ShellError> {
+    ) -> Result<(), ShellError> {
         for item in self {
             let mut is_err = false;
             let mut out = if let Value::Error { error, .. } = item {
@@ -926,15 +556,15 @@ impl PipelineData {
             }
         }
 
-        Ok(0)
+        Ok(())
     }
 }
 
 enum PipelineIteratorInner {
     Empty,
     Value(Value),
-    ListStream(list_stream::IntoIter),
-    ExternalStream(RawStream),
+    ListStream(crate::list_stream::IntoIter),
+    ByteStream(crate::byte_stream::Values),
 }
 
 pub struct PipelineIterator(PipelineIteratorInner);
@@ -946,6 +576,7 @@ impl IntoIterator for PipelineData {
 
     fn into_iter(self) -> Self::IntoIter {
         PipelineIterator(match self {
+            PipelineData::Empty => PipelineIteratorInner::Empty,
             PipelineData::Value(value, ..) => {
                 let span = value.span();
                 match value {
@@ -961,109 +592,12 @@ impl IntoIterator for PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 PipelineIteratorInner::ListStream(stream.into_iter())
             }
-            PipelineData::ExternalStream {
-                stdout: Some(stdout),
-                ..
-            } => PipelineIteratorInner::ExternalStream(stdout),
-            PipelineData::ExternalStream { stdout: None, .. } => PipelineIteratorInner::Empty,
-            PipelineData::Empty => PipelineIteratorInner::Empty,
+            PipelineData::ByteStream(stream, ..) => stream.values().map_or(
+                PipelineIteratorInner::Empty,
+                PipelineIteratorInner::ByteStream,
+            ),
         })
     }
-}
-
-pub fn print_if_stream(
-    stream: Option<RawStream>,
-    stderr_stream: Option<RawStream>,
-    to_stderr: bool,
-    exit_code: Option<ListStream>,
-) -> Result<i64, ShellError> {
-    if let Some(stderr_stream) = stderr_stream {
-        thread::Builder::new()
-            .name("stderr consumer".to_string())
-            .spawn(move || {
-                let RawStream {
-                    stream,
-                    leftover,
-                    ctrlc,
-                    ..
-                } = stderr_stream;
-                let mut stderr = std::io::stderr();
-                let _ = stderr.write_all(&leftover);
-                drop(leftover);
-                for bytes in stream {
-                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                        break;
-                    }
-                    match bytes {
-                        Ok(bytes) => {
-                            let _ = stderr.write_all(&bytes);
-                        }
-                        Err(err) => {
-                            // we don't have access to EngineState, but maybe logging the debug
-                            // impl is better than nothing
-                            eprintln!("Error in stderr stream: {err:?}");
-                            break;
-                        }
-                    }
-                }
-            })?;
-    }
-
-    if let Some(stream) = stream {
-        for s in stream {
-            let s_live = s?;
-            let bin_output = s_live.coerce_into_binary()?;
-
-            if !to_stderr {
-                stdout_write_all_and_flush(&bin_output)?
-            } else {
-                stderr_write_all_and_flush(&bin_output)?
-            }
-        }
-    }
-
-    // Make sure everything has finished
-    if let Some(exit_code) = exit_code {
-        return drain_exit_code(exit_code);
-    }
-
-    Ok(0)
-}
-
-fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
-    let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
-    match exit_codes.pop() {
-        #[cfg(unix)]
-        Some(Value::Error { error, .. }) => Err(*error),
-        Some(Value::Int { val, .. }) => Ok(val),
-        _ => Ok(0),
-    }
-}
-
-/// Only call this if `output_stream` is not `OutDest::Pipe` or `OutDest::Capture`.
-fn consume_child_output(child_output: RawStream, output_stream: &OutDest) -> io::Result<()> {
-    let mut output = ReadRawStream::new(child_output);
-    match output_stream {
-        OutDest::Pipe | OutDest::Capture => {
-            // The point of `consume_child_output` is to redirect output *right now*,
-            // but OutDest::Pipe means to redirect output
-            // into an OS pipe for *future use* (as input for another command).
-            // So, this branch makes no sense, and will simply drop `output` instead of draining it.
-            // This could trigger a `SIGPIPE` for the external command,
-            // since there will be no reader for its pipe.
-            debug_assert!(false)
-        }
-        OutDest::Null => {
-            io::copy(&mut output, &mut io::sink())?;
-        }
-        OutDest::Inherit => {
-            io::copy(&mut output, &mut io::stdout())?;
-        }
-        OutDest::File(file) => {
-            io::copy(&mut output, &mut file.try_clone()?)?;
-        }
-    }
-    Ok(())
 }
 
 impl Iterator for PipelineIterator {
@@ -1075,7 +609,7 @@ impl Iterator for PipelineIterator {
             PipelineIteratorInner::Value(Value::Nothing { .. }, ..) => None,
             PipelineIteratorInner::Value(v, ..) => Some(std::mem::take(v)),
             PipelineIteratorInner::ListStream(stream, ..) => stream.next(),
-            PipelineIteratorInner::ExternalStream(stream) => stream.next().map(|x| match x {
+            PipelineIteratorInner::ByteStream(stream) => stream.next().map(|x| match x {
                 Ok(x) => x,
                 Err(err) => Value::error(
                     err,
@@ -1163,41 +697,4 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         value => value.coerce_into_string()?.into_bytes(),
     };
     Ok(bytes)
-}
-
-struct ReadRawStream {
-    iter: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>>>,
-    cursor: Option<Cursor<Vec<u8>>>,
-}
-
-impl ReadRawStream {
-    fn new(stream: RawStream) -> Self {
-        debug_assert!(stream.leftover.is_empty());
-        Self {
-            iter: stream.stream,
-            cursor: Some(Cursor::new(Vec::new())),
-        }
-    }
-}
-
-impl Read for ReadRawStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        while let Some(cursor) = self.cursor.as_mut() {
-            let read = cursor.read(buf)?;
-            if read > 0 {
-                return Ok(read);
-            } else {
-                match self.iter.next().transpose() {
-                    Ok(next) => {
-                        self.cursor = next.map(Cursor::new);
-                    }
-                    Err(err) => {
-                        // temporary hack
-                        return Err(io::Error::new(io::ErrorKind::Other, err));
-                    }
-                }
-            }
-        }
-        Ok(0)
-    }
 }
