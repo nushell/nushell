@@ -10,7 +10,7 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.74.1"
+rust-version = "1.75.0"
 version = "0.92.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
