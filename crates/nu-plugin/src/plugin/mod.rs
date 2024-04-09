@@ -214,15 +214,17 @@ fn make_plugin_interface(
             source,
             gc,
         ),
-        ServerCommunicationIo::LocalSocket { read, write } => make_plugin_interface_with_streams(
-            read,
-            write,
-            move || {
-                let _ = child.wait();
-            },
-            source,
-            gc,
-        ),
+        ServerCommunicationIo::LocalSocket { read_out, write_in } => {
+            make_plugin_interface_with_streams(
+                read_out,
+                write_in,
+                move || {
+                    let _ = child.wait();
+                },
+                source,
+                gc,
+            )
+        }
     }
 }
 
@@ -532,11 +534,15 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
             )
         }
         #[cfg(feature = "local-socket")]
-        Ok(ClientCommunicationIo::LocalSocket { read, mut write }) => {
-            tell_nushell_encoding(&mut write, &encoder).expect("failed to tell nushell encoding");
+        Ok(ClientCommunicationIo::LocalSocket {
+            read_in,
+            mut write_out,
+        }) => {
+            tell_nushell_encoding(&mut write_out, &encoder)
+                .expect("failed to tell nushell encoding");
 
-            let read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, read);
-            let write = Mutex::new(BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, write));
+            let read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, read_in);
+            let write = Mutex::new(BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, write_out));
             serve_plugin_io(
                 plugin,
                 &plugin_name,
@@ -545,7 +551,7 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
             )
         }
         Err(err) => {
-            eprintln!("{plugin_name}: failed to connect: {err}");
+            eprintln!("{plugin_name}: failed to connect: {err:?}");
             std::process::exit(1);
         }
     };

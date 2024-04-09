@@ -5,10 +5,13 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use nu_protocol::ShellError;
 
 #[cfg(feature = "local-socket")]
-use interprocess::local_socket::{LocalSocketListener, LocalSocketStream};
+use interprocess::local_socket::LocalSocketListener;
 
 #[cfg(feature = "local-socket")]
 mod local_socket;
+
+#[cfg(feature = "local-socket")]
+use local_socket::*;
 
 #[derive(Debug, Clone)]
 pub(crate) enum CommunicationMode {
@@ -16,7 +19,7 @@ pub(crate) enum CommunicationMode {
     Stdio,
     /// Communicate using an operating system-specific local socket.
     #[cfg(feature = "local-socket")]
-    LocalSocket(std::path::PathBuf),
+    LocalSocket(std::ffi::OsString),
 }
 
 impl CommunicationMode {
@@ -36,7 +39,7 @@ impl CommunicationMode {
 
         let unique_id = format!("{:016x}", hasher.finish());
 
-        CommunicationMode::LocalSocket(local_socket::make_local_socket_path(&unique_id))
+        CommunicationMode::LocalSocket(make_local_socket_name(&unique_id))
     }
 
     pub fn args(&self) -> Vec<&OsStr> {
@@ -72,14 +75,14 @@ impl CommunicationMode {
             CommunicationMode::Stdio => Ok(PreparedServerCommunication::Stdio),
             // For sockets: we need to create the server so that the child won't fail to connect.
             #[cfg(feature = "local-socket")]
-            CommunicationMode::LocalSocket(path) => {
-                let listener = LocalSocketListener::bind(path.as_path()).map_err(|err| {
+            CommunicationMode::LocalSocket(name) => {
+                let listener = LocalSocketListener::bind(name.as_os_str()).map_err(|err| {
                     ShellError::IOError {
                         msg: format!("failed to open socket for plugin: {err}"),
                     }
                 })?;
                 Ok(PreparedServerCommunication::LocalSocket {
-                    path: path.clone(),
+                    name: name.clone(),
                     listener,
                 })
             }
@@ -93,18 +96,20 @@ impl CommunicationMode {
                 std::io::stdout(),
             )),
             #[cfg(feature = "local-socket")]
-            CommunicationMode::LocalSocket(path) => {
+            CommunicationMode::LocalSocket(name) => {
                 // Connect to the specified socket.
                 let get_socket = || {
-                    LocalSocketStream::connect(path.as_path()).map_err(|err| ShellError::IOError {
-                        msg: format!("failed to connect to socket: {err}"),
-                    })
+                    use interprocess::local_socket as ls;
+                    ls::LocalSocketStream::connect(name.as_os_str())
+                        .map_err(|err| ShellError::IOError {
+                            msg: format!("failed to connect to socket: {err}"),
+                        })
+                        .map(LocalSocketStream::from)
                 };
-                // Reverse order from the server: write first (plugin output), then read (plugin
-                // input)
-                let write = get_socket()?;
-                let read = get_socket()?;
-                Ok(ClientCommunicationIo::LocalSocket { read, write })
+                // Reverse order from the server: read in, write out
+                let read_in = get_socket()?;
+                let write_out = get_socket()?;
+                Ok(ClientCommunicationIo::LocalSocket { read_in, write_out })
             }
         }
     }
@@ -114,7 +119,8 @@ pub(crate) enum PreparedServerCommunication {
     Stdio,
     #[cfg(feature = "local-socket")]
     LocalSocket {
-        path: std::path::PathBuf,
+        #[cfg_attr(windows, allow(dead_code))] // not used on Windows
+        name: std::ffi::OsString,
         listener: LocalSocketListener,
     },
 }
@@ -162,7 +168,7 @@ impl PreparedServerCommunication {
                                 break;
                             }
                             Err(err) => {
-                                if err.kind() != std::io::ErrorKind::WouldBlock {
+                                if !is_would_block_err(&err) {
                                     // `WouldBlock` is ok, just means it's not ready yet, but some other
                                     // kind of error should be reported
                                     return Err(err.into());
@@ -178,7 +184,7 @@ impl PreparedServerCommunication {
                         }
                     }
                     if let Some(stream) = result {
-                        Ok(stream)
+                        Ok(LocalSocketStream(stream))
                     } else {
                         // The process may have exited
                         Err(ShellError::PluginFailedToLoad {
@@ -186,9 +192,10 @@ impl PreparedServerCommunication {
                         })
                     }
                 };
-                let read = get_socket()?;
-                let write = get_socket()?;
-                Ok(ServerCommunicationIo::LocalSocket { read, write })
+                // Input stream always comes before output
+                let write_in = get_socket()?;
+                let read_out = get_socket()?;
+                Ok(ServerCommunicationIo::LocalSocket { read_out, write_in })
             }
         }
     }
@@ -197,11 +204,12 @@ impl PreparedServerCommunication {
 impl Drop for PreparedServerCommunication {
     fn drop(&mut self) {
         match self {
-            PreparedServerCommunication::Stdio => (),
-            PreparedServerCommunication::LocalSocket { path, .. } => {
+            #[cfg(all(unix, feature = "local-socket"))]
+            PreparedServerCommunication::LocalSocket { name: path, .. } => {
                 // Just try to remove the socket file, it's ok if this fails
                 let _ = std::fs::remove_file(path);
             }
+            _ => (),
         }
     }
 }
@@ -210,8 +218,8 @@ pub(crate) enum ServerCommunicationIo {
     Stdio(ChildStdin, ChildStdout),
     #[cfg(feature = "local-socket")]
     LocalSocket {
-        read: LocalSocketStream,
-        write: LocalSocketStream,
+        read_out: LocalSocketStream,
+        write_in: LocalSocketStream,
     },
 }
 
@@ -219,7 +227,7 @@ pub(crate) enum ClientCommunicationIo {
     Stdio(Stdin, Stdout),
     #[cfg(feature = "local-socket")]
     LocalSocket {
-        read: LocalSocketStream,
-        write: LocalSocketStream,
+        read_in: LocalSocketStream,
+        write_out: LocalSocketStream,
     },
 }
