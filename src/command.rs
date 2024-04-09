@@ -97,6 +97,7 @@ pub(crate) fn parse_commandline_args(
             let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
+            let no_newline = call.get_named_arg("no-newline");
 
             // ide flags
             let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
@@ -190,6 +191,7 @@ pub(crate) fn parse_commandline_args(
                 ide_check,
                 ide_ast,
                 table_mode,
+                no_newline,
             });
         }
     }
@@ -224,6 +226,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
+    pub(crate) no_newline: Option<Spanned<String>>,
     pub(crate) include_path: Option<Spanned<String>>,
     pub(crate) lsp: bool,
     pub(crate) ide_goto_def: Option<Value>,
@@ -270,6 +273,7 @@ impl Command for Nu {
                 "the table mode to use. rounded is default.",
                 Some('m'),
             )
+            .switch("no-newline", "print the result for --commands(-c) without a newline", None)
             .switch(
                 "no-config-file",
                 "start with no config file and no env file",
