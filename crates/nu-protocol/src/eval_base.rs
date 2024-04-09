@@ -4,7 +4,7 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
+    Config, Range, Record, ShellError, Span, Value, VarId,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -271,18 +271,13 @@ pub trait Eval {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
-                let mut parts = vec![];
-                for expr in exprs {
-                    parts.push(Self::eval::<D>(state, mut_state, expr)?);
-                }
-
                 let config = Self::get_config(state, mut_state);
+                let str = exprs
+                    .iter()
+                    .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
+                    .collect::<Result<String, _>>()?;
 
-                parts
-                    .into_iter()
-                    .into_pipeline_data(None)
-                    .collect_string("", &config)
-                    .map(|x| Value::string(x, expr.span))
+                Ok(Value::string(str, expr.span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern, quoted) => {

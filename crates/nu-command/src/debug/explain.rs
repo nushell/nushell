@@ -34,16 +34,14 @@ impl Command for Explain {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         // This was all delightfully stolen from benchmark :)
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
-        let ctrlc = engine_state.ctrlc.clone();
         let mut stack = stack.captures_to_stack(capture_block.captures);
-
-        let elements = get_pipeline_elements(engine_state, &mut stack, block, call.head);
-
-        Ok(elements.into_pipeline_data(ctrlc))
+        let elements = get_pipeline_elements(engine_state, &mut stack, block, head);
+        Ok(Value::list(elements, head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

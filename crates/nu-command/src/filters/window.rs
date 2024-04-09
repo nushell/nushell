@@ -110,6 +110,7 @@ impl Command for Window {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
@@ -123,13 +124,13 @@ impl Command for Window {
         let each_group_iterator = EachWindowIterator {
             group_size: group_size.item,
             input: Box::new(input.into_iter()),
-            span: call.head,
+            span: head,
             previous: None,
             stride,
             remainder,
         };
 
-        Ok(each_group_iterator.into_pipeline_data_with_metadata(metadata, ctrlc))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(head, ctrlc, metadata))
     }
 }
 

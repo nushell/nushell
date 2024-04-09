@@ -188,7 +188,7 @@ fn operate(
             }
 
             Ok(PipelineData::ListStream(
-                ListStream::from_stream(parsed.into_iter(), ctrlc),
+                ListStream::from_stream(parsed.into_iter(), head, ctrlc),
                 None,
             ))
         }
@@ -202,6 +202,7 @@ fn operate(
                     stream: stream.stream,
                     ctrlc: ctrlc.clone(),
                 },
+                head,
                 ctrlc,
             ),
             None,
@@ -221,6 +222,7 @@ fn operate(
                     columns,
                     stream: stream.stream,
                 },
+                head,
                 ctrlc,
             ),
             None,

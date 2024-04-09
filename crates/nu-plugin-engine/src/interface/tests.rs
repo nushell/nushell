@@ -681,7 +681,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         [Value::test_custom_value(Box::new(
             test_plugin_custom_value(),
         ))]
-        .into_pipeline_data(None),
+        .into_pipeline_data(Span::test_data(), None),
     )?;
 
     let value = data
@@ -855,7 +855,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
                 positional: vec![],
                 named: vec![],
             },
-            input: values.clone().into_pipeline_data(None),
+            input: values.clone().into_pipeline_data(Span::test_data(), None),
         }),
         None,
     )?;
@@ -1131,7 +1131,10 @@ fn interface_prepare_pipeline_data_accepts_normal_streams() -> Result<(), ShellE
     let interface = TestCase::new().plugin("test").get_interface();
     let values = normal_values(&interface);
     let state = CurrentCallState::default();
-    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None), &state)?;
+    let data = interface.prepare_pipeline_data(
+        values.clone().into_pipeline_data(Span::test_data(), None),
+        &state,
+    )?;
 
     let mut count = 0;
     for (expected_value, actual_value) in values.iter().zip(data) {
@@ -1191,7 +1194,10 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
     let interface = TestCase::new().plugin("test").get_interface();
     let values = bad_custom_values();
     let state = CurrentCallState::default();
-    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None), &state)?;
+    let data = interface.prepare_pipeline_data(
+        values.clone().into_pipeline_data(Span::test_data(), None),
+        &state,
+    )?;
 
     let mut count = 0;
     for value in data {

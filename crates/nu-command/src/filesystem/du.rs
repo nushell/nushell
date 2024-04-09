@@ -119,7 +119,7 @@ impl Command for Du {
                 };
                 Ok(
                     du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone())?
-                        .into_pipeline_data(engine_state.ctrlc.clone()),
+                        .into_pipeline_data(tag, engine_state.ctrlc.clone()),
                 )
             }
             Some(paths) => {
@@ -145,7 +145,7 @@ impl Command for Du {
                 Ok(result_iters
                     .into_iter()
                     .flatten()
-                    .into_pipeline_data(engine_state.ctrlc.clone()))
+                    .into_pipeline_data(tag, engine_state.ctrlc.clone()))
             }
         }
     }

@@ -176,6 +176,7 @@ impl Command for Do {
                     )),
                     exit_code: Some(ListStream::from_stream(
                         exit_code.into_iter(),
+                        span,
                         exit_code_ctrlc,
                     )),
                     span,
@@ -206,6 +207,7 @@ impl Command for Do {
                 Ok(PipelineData::empty())
             }
             Ok(PipelineData::ListStream(ls, metadata)) if ignore_shell_errors => {
+                let span = ls.span();
                 // check if there is a `Value::Error` in given list stream first.
                 let mut values = vec![];
                 let ctrlc = ls.ctrlc.clone();
@@ -217,7 +219,7 @@ impl Command for Do {
                     }
                 }
                 Ok(PipelineData::ListStream(
-                    ListStream::from_stream(values.into_iter(), ctrlc),
+                    ListStream::from_stream(values.into_iter(), span, ctrlc),
                     metadata,
                 ))
             }

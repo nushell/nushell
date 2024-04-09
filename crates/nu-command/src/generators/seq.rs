@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::ListStream;
 
 #[derive(Clone)]
 pub struct Seq;
@@ -122,13 +123,14 @@ pub fn run_seq(
     if !contains_decimals {
         // integers only
         Ok(PipelineData::ListStream(
-            nu_protocol::ListStream::from_stream(
+            ListStream::from_stream(
                 IntSeq {
                     count: first as i64,
                     step: step as i64,
                     last: last as i64,
                     span,
                 },
+                span,
                 engine_state.ctrlc.clone(),
             ),
             None,
@@ -136,7 +138,7 @@ pub fn run_seq(
     } else {
         // floats
         Ok(PipelineData::ListStream(
-            nu_protocol::ListStream::from_stream(
+            ListStream::from_stream(
                 FloatSeq {
                     first,
                     step,
@@ -144,6 +146,7 @@ pub fn run_seq(
                     index: 0,
                     span,
                 },
+                span,
                 engine_state.ctrlc.clone(),
             ),
             None,

@@ -381,7 +381,7 @@ fn handle_table_command(
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(vals.into_iter(), ctrlc);
+            let stream = ListStream::from_stream(vals.into_iter(), span, ctrlc);
             input.data = PipelineData::Empty;
 
             handle_row_stream(input, cfg, stream, metadata)
@@ -409,7 +409,8 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(val.into_range_iter(span, ctrlc.clone()), ctrlc);
+            let stream =
+                ListStream::from_stream(val.into_range_iter(span, ctrlc.clone()), span, ctrlc);
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }
@@ -571,6 +572,7 @@ fn handle_row_stream(
                     }
                     _ => x,
                 }),
+                input.call.head,
                 ctrlc,
             )
         }
@@ -612,6 +614,7 @@ fn handle_row_stream(
                     }
                     _ => x,
                 }),
+                input.call.head,
                 ctrlc,
             )
         }

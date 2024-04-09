@@ -246,7 +246,7 @@ fn upsert(
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
                 let mut closure = ClosureEval::new(engine_state, stack, val);
                 Ok(stream
@@ -265,7 +265,7 @@ fn upsert(
                             value
                         }
                     })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else {
                 Ok(stream
                     .map(move |mut value| {
@@ -277,7 +277,7 @@ fn upsert(
                             value
                         }
                     })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

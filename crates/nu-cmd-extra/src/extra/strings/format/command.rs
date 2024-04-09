@@ -239,7 +239,7 @@ fn format(
             }
 
             Ok(PipelineData::ListStream(
-                ListStream::from_stream(list.into_iter(), None),
+                ListStream::from_stream(list.into_iter(), head_span, None),
                 None,
             ))
         }

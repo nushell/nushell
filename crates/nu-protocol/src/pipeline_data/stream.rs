@@ -184,6 +184,7 @@ impl Iterator for RawStream {
 pub struct ListStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    span: Span,
     first_guard: bool,
 }
 
@@ -192,6 +193,10 @@ impl ListStream {
         self.map(|x: Value| x.to_expanded_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
@@ -205,10 +210,12 @@ impl ListStream {
 
     pub fn from_stream(
         input: impl Iterator<Item = Value> + Send + 'static,
+        span: Span,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> ListStream {
         ListStream {
             stream: Box::new(input),
+            span,
             ctrlc,
             first_guard: true,
         }

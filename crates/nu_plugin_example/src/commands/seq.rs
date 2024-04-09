@@ -54,7 +54,7 @@ impl PluginCommand for Seq {
         let last: i64 = call.req(1)?;
         let span = call.head;
         let iter = (first..=last).map(move |number| Value::int(number, span));
-        let list_stream = ListStream::from_stream(iter, None);
+        let list_stream = ListStream::from_stream(iter, span, None);
         Ok(PipelineData::ListStream(list_stream, None))
     }
 }

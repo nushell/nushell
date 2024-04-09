@@ -88,7 +88,7 @@ impl Command for For {
         let span = value.span();
         match value {
             Value::List { vals, .. } => {
-                for (idx, x) in ListStream::from_stream(vals.into_iter(), ctrlc).enumerate() {
+                for (idx, x) in ListStream::from_stream(vals.into_iter(), span, ctrlc).enumerate() {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.

@@ -127,7 +127,7 @@ with 'transpose' first."#
                             }
                         }
                     })
-                    .into_pipeline_data(engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
             }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
@@ -159,7 +159,7 @@ with 'transpose' first."#
                             }
                         }
                     })
-                    .into_pipeline_data(engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).

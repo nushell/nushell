@@ -101,7 +101,7 @@ impl Command for Skip {
             _ => Ok(input
                 .into_iter_strict(call.head)?
                 .skip(n)
-                .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                .into_pipeline_data_with_metadata(input_span, ctrlc, metadata)),
         }
     }
 }

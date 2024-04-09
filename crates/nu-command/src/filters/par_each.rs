@@ -159,7 +159,7 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(engine_state.ctrlc.clone())
+                        apply_order(vec).into_pipeline_data(span, engine_state.ctrlc.clone())
                     })),
                     Value::Range { val, .. } => Ok(create_pool(max_threads)?.install(|| {
                         let ctrlc = engine_state.ctrlc.clone();
@@ -186,7 +186,7 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(ctrlc)
+                        apply_order(vec).into_pipeline_data(span, ctrlc)
                     })),
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
@@ -216,7 +216,7 @@ impl Command for ParEach {
                     })
                     .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(engine_state.ctrlc.clone())
+                apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
             })),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
@@ -241,7 +241,7 @@ impl Command for ParEach {
                     })
                     .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(engine_state.ctrlc.clone())
+                apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
             })),
         }
         .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.ctrlc.clone()))

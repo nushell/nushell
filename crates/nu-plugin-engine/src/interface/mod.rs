@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, ListStream,
-    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
@@ -592,14 +592,16 @@ impl InterfaceManager for PluginInterfaceManager {
                 })?;
                 Ok(data)
             }
-            PipelineData::ListStream(ListStream { stream, ctrlc, .. }, meta) => {
+            PipelineData::ListStream(stream, meta) => {
+                let span = stream.span();
+                let ctrlc = stream.ctrlc.clone();
                 let source = self.state.source.clone();
                 Ok(stream
                     .map(move |mut value| {
                         let _ = PluginCustomValueWithSource::add_source_in(&mut value, &source);
                         value
                     })
-                    .into_pipeline_data_with_metadata(meta, ctrlc))
+                    .into_pipeline_data_with_metadata(span, ctrlc, meta))
             }
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }
@@ -1076,7 +1078,9 @@ impl Interface for PluginInterface {
                 state.prepare_value(&mut value, &self.state.source)?;
                 Ok(PipelineData::Value(value, meta))
             }
-            PipelineData::ListStream(ListStream { stream, ctrlc, .. }, meta) => {
+            PipelineData::ListStream(stream, meta) => {
+                let span = stream.span();
+                let ctrlc = stream.ctrlc.clone();
                 let source = self.state.source.clone();
                 let state = state.clone();
                 Ok(stream
@@ -1087,7 +1091,7 @@ impl Interface for PluginInterface {
                             Err(err) => Value::error(err, value.span()),
                         }
                     })
-                    .into_pipeline_data_with_metadata(meta, ctrlc))
+                    .into_pipeline_data_with_metadata(span, ctrlc, meta))
             }
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }

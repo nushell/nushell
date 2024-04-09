@@ -3,7 +3,7 @@
 use nu_plugin_protocol::{
     ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, RawStreamInfo, StreamMessage,
 };
-use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
+use nu_protocol::{ListStream, PipelineData, RawStream, ShellError, Span};
 use std::{
     io::Write,
     sync::{
@@ -183,7 +183,10 @@ pub trait InterfaceManager {
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                PipelineData::ListStream(ListStream::from_stream(reader, ctrlc.cloned()), None)
+                PipelineData::ListStream(
+                    ListStream::from_stream(reader, Span::unknown(), ctrlc.cloned()),
+                    None,
+                )
             }
             PipelineDataHeader::ExternalStream(info) => {
                 let handle = self.stream_manager().get_handle();
@@ -203,7 +206,9 @@ pub trait InterfaceManager {
                         .map(|list_info| {
                             handle
                                 .read_stream(list_info.id, self.get_interface())
-                                .map(|reader| ListStream::from_stream(reader, ctrlc.cloned()))
+                                .map(|reader| {
+                                    ListStream::from_stream(reader, Span::unknown(), ctrlc.cloned())
+                                })
                         })
                         .transpose()?,
                     span: info.span,

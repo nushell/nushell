@@ -463,7 +463,7 @@ fn rm(
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(span, ctrlc)
         .print_not_formatted(engine_state, false, true)?;
 
     Ok(PipelineData::empty())

@@ -443,9 +443,10 @@ fn find_with_rest_and_highlight(
                         invert,
                     )
                 }),
+            span,
             ctrlc.clone(),
         )
-        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+        .into_pipeline_data_with_metadata(span, ctrlc, metadata)),
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
@@ -496,7 +497,7 @@ fn find_with_rest_and_highlight(
                     Err(e) => return Err(e),
                 };
             }
-            Ok(output.into_pipeline_data(ctrlc))
+            Ok(output.into_pipeline_data(span, ctrlc))
         }
     }
 }

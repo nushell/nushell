@@ -660,7 +660,7 @@ Operating system commands:
         let ctrlc = engine_state.ctrlc.clone();
 
         if list {
-            return generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring);
+            return Ok(generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring));
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -694,7 +694,7 @@ Operating system commands:
         let ctrlc = working_set.permanent().ctrlc.clone();
 
         if list {
-            return generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring);
+            return Ok(generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring));
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -833,8 +833,8 @@ fn generate_ansi_code_list(
     ctrlc: Option<Arc<AtomicBool>>,
     call_span: Span,
     use_ansi_coloring: bool,
-) -> Result<PipelineData, ShellError> {
-    return Ok(CODE_LIST
+) -> PipelineData {
+    CODE_LIST
         .iter()
         .enumerate()
         .map(move |(i, ansi_code)| {
@@ -865,7 +865,7 @@ fn generate_ansi_code_list(
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(ctrlc));
+        .into_pipeline_data(call_span, ctrlc)
 }
 
 fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {

@@ -100,6 +100,7 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let metadata = input.metadata();
         let number_or_range = extract_int_or_range(engine_state, stack, call)?;
 
@@ -115,7 +116,7 @@ impl Command for DropNth {
                 return Err(ShellError::UnsupportedInput {
                     msg: "float range".into(),
                     input: "value originates from here".into(),
-                    msg_span: call.head,
+                    msg_span: head,
                     input_span: number_or_range.span,
                 });
             }
@@ -129,7 +130,7 @@ impl Command for DropNth {
                     return Err(ShellError::UnsupportedInput {
                         msg: "drop nth accepts only positive ints".into(),
                         input: "value originates from here".into(),
-                        msg_span: call.head,
+                        msg_span: head,
                         input_span: number_or_range.span,
                     });
                 }
@@ -139,7 +140,7 @@ impl Command for DropNth {
                         msg: "The upper bound needs to be equal or larger to the lower bound"
                             .into(),
                         input: "value originates from here".into(),
-                        msg_span: call.head,
+                        msg_span: head,
                         input_span: number_or_range.span,
                     });
                 }
@@ -154,8 +155,9 @@ impl Command for DropNth {
                             .into_iter()
                             .take(start)
                             .into_pipeline_data_with_metadata(
-                                metadata,
+                                head,
                                 engine_state.ctrlc.clone(),
+                                metadata,
                             ))
                     }
                 };
@@ -175,7 +177,7 @@ impl Command for DropNth {
             rows,
             current: 0,
         }
-        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+        .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

@@ -144,7 +144,7 @@ fn values(
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
                     Ok(cols) => Ok(cols
                         .into_iter()
-                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                     Err(err) => Err(err),
                 },
                 Value::Custom { val, .. } => {
@@ -152,15 +152,14 @@ fn values(
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols
                             .into_iter()
-                            .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                            .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                         Err(err) => Err(err),
                     }
                 }
                 Value::Record { val, .. } => Ok(val
-                    .values()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                    .into_owned()
+                    .into_values()
+                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                 Value::LazyRecord { val, .. } => {
                     let record = match val.collect()? {
                         Value::Record { val, .. } => val,
@@ -173,7 +172,7 @@ fn values(
                     Ok(record
                         .into_owned()
                         .into_values()
-                        .into_pipeline_data_with_metadata(metadata, ctrlc))
+                        .into_pipeline_data_with_metadata(head, ctrlc, metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
@@ -190,7 +189,7 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                 Err(err) => Err(err),
             }
         }

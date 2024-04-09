@@ -404,7 +404,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
 
     // Set up pipeline data for a list stream
     let pipe = PipelineData::ListStream(
-        ListStream::from_stream(values.clone().into_iter(), None),
+        ListStream::from_stream(values.clone().into_iter(), Span::test_data(), None),
         None,
     );
 
@@ -476,6 +476,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
         )),
         exit_code: Some(ListStream::from_stream(
             std::iter::once(exit_code.clone()),
+            Span::test_data(),
             None,
         )),
         span,

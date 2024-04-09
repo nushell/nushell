@@ -52,6 +52,7 @@ impl Command for Lines {
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, metadata) => {
+                let span = stream.span();
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
@@ -75,7 +76,7 @@ impl Command for Lines {
                     .flatten();
 
                 Ok(iter
-                    .into_pipeline_data(engine_state.ctrlc.clone())
+                    .into_pipeline_data(span, engine_state.ctrlc.clone())
                     .set_metadata(metadata))
             }
             PipelineData::Value(val, ..) => {
@@ -97,7 +98,7 @@ impl Command for Lines {
                 ..
             } => Ok(RawStreamLinesAdapter::new(stream, head, skip_empty)
                 .map(move |x| x.unwrap_or_else(|err| Value::error(err, head)))
-                .into_pipeline_data(ctrlc)
+                .into_pipeline_data(head, ctrlc)
                 .set_metadata(metadata)),
         }
     }
