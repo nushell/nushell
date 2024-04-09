@@ -274,6 +274,17 @@ fn run_in_noninteractive_mode() {
 }
 
 #[test]
+fn run_with_no_newline() {
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .args(["--no-newline", "-c", "\"hello world\""])
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!("hello world", String::from_utf8_lossy(&child_output.stdout)); // with no newline
+    assert!(child_output.stderr.is_empty());
+}
+
+#[test]
 fn main_script_can_have_subcommands1() {
     Playground::setup("main_subcommands", |dirs, sandbox| {
         sandbox.mkdir("main_subcommands");
