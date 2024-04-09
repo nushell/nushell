@@ -3,7 +3,7 @@ use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Expr, Expression},
-    DataSource, IoStream, PipelineMetadata, RawStream,
+    DataSource, OutDest, PipelineMetadata, RawStream,
 };
 use std::{
     fs::File,
@@ -261,8 +261,8 @@ impl Command for Save {
         ]
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Capture), Some(IoStream::Capture))
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }
 
