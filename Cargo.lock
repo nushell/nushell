@@ -3243,6 +3243,7 @@ dependencies = [
  "fancy-regex",
  "indexmap",
  "nu-cmd-lang",
+ "nu-command",
  "nu-engine",
  "nu-parser",
  "nu-plugin",

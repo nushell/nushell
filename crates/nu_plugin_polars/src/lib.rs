@@ -178,6 +178,7 @@ impl Plugin for PolarsPlugin {
 pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
+    use nu_command::IntoDatetime;
     use nu_plugin_test_support::PluginTest;
     use nu_protocol::ShellError;
 
@@ -197,7 +198,9 @@ pub mod test {
             }
         }
 
-        PluginTest::new("polars", plugin.into())?.test_examples(&examples)?;
+        PluginTest::new("polars", plugin.into())?
+            .add_decl(Box::new(IntoDatetime))?
+            .test_examples(&examples)?;
 
         Ok(())
     }
