@@ -12,7 +12,7 @@ pub(crate) mod tests;
 pub fn make_local_socket_name(unique_id: &str) -> OsString {
     // Prefer to put it in XDG_RUNTIME_DIR if set, since that's user-local
     let mut base = if let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR") {
-        PathBuf::from(runtime_dir)
+        std::path::PathBuf::from(runtime_dir)
     } else {
         // Use std::env::temp_dir() for portability, especially since on Android this is probably
         // not `/tmp`
