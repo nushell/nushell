@@ -47,7 +47,7 @@ fn ignore_shell_errors_works_for_external_with_semicolon() {
 
 #[test]
 fn ignore_program_errors_works_for_external_with_semicolon() {
-    let actual = nu!(r#"do -p { nu -c 'exit 1' }; "text""#);
+    let actual = nu!(r#"do -p { nu -n -c 'exit 1' }; "text""#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "text");

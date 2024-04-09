@@ -243,7 +243,7 @@ fn run_in_login_mode() {
 #[test]
 fn run_in_not_login_mode() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["-c", "echo $nu.is-login"])
+        .args(["-n", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
 
@@ -254,7 +254,7 @@ fn run_in_not_login_mode() {
 #[test]
 fn run_in_interactive_mode() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["-i", "-c", "echo $nu.is-interactive"])
+        .args(["-n", "-i", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
 
@@ -265,7 +265,7 @@ fn run_in_interactive_mode() {
 #[test]
 fn run_in_noninteractive_mode() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["-c", "echo $nu.is-interactive"])
+        .args(["-n", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
 
