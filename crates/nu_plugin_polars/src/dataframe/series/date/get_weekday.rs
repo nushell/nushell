@@ -3,13 +3,16 @@ use crate::{
     PolarsPlugin,
 };
 
-use super::super::super::values::{Column, NuDataFrame};
+use super::super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
 };
-use polars::prelude::{DatetimeMethods, IntoSeries};
+use polars::{
+    prelude::{DatetimeMethods, IntoSeries, NamedFrom},
+    series::Series,
+};
 
 #[derive(Clone)]
 pub struct GetWeekDay;
@@ -41,16 +44,9 @@ impl PluginCommand for GetWeekDay {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-weekday"#,
             result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "0".to_string(),
-                        vec![Value::test_int(2), Value::test_int(2)],
-                    )],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .base_value(Span::test_data())
-                .expect("rendering base value should not fail"),
+                NuDataFrame::try_from_series(Series::new("0", &[2i8, 2]), Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
             ),
         }]
     }
@@ -89,15 +85,13 @@ fn command(
     to_pipeline_data(plugin, engine, call.head, df)
 }
 
-// todo: fix tests
-// #[cfg(test)]
-// mod test {
-//     use super::super::super::super::super::IntoDatetime;
-//     use super::super::super::super::test_dataframe::test_dataframe;
-//     use super::*;
-//
-//     #[test]
-//     fn test_examples() {
-//         test_dataframe(vec![Box::new(GetWeekDay {}), Box::new(IntoDatetime {})])
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&GetWeekDay)
+    }
+}
