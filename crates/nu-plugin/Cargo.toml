@@ -37,6 +37,4 @@ nix = { workspace = true, default-features = false, features = ["process"] }
 windows = { workspace = true, features = [
   # For setting process creation flags
   "Win32_System_Threading",
-  # For attaching to the console (`set_foreground()`)
-  "Win32_System_Console",
 ] }
