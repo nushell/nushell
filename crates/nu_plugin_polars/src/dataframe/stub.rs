@@ -30,22 +30,13 @@ impl PluginCommand for PolarsCmd {
     fn run(
         &self,
         _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        // todo - find a replacmeent for get_full_help
-        // Ok(Value::string(
-        //     get_full_help(
-        //         &PolarsCmd.signature(),
-        //         &PolarsCmd.examples(),
-        //         engine_state,
-        //         stack,
-        //         self.is_parser_keyword(),
-        //     ),
-        //     call.head,
-        // )
-        // .into_pipeline_data())
-        Ok(PipelineData::Value(Value::nothing(call.head), None))
+        Ok(PipelineData::Value(
+            Value::string(engine.get_help()?, call.head),
+            None,
+        ))
     }
 }
