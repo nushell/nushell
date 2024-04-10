@@ -167,9 +167,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.81"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0952808a6c2afd1aa8947271f3a60f1a6763c7b912d210184c5149b5cf147247"
+checksum = "f538837af36e6f6a9be0faa67f9a314f8119e4e4b5867c6ab40ed60360142519"
 
 [[package]]
 name = "arboard"
@@ -503,11 +503,6 @@ name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-checksum = "7f30e7476521f6f8af1a1c4c0b8cc94f0bee37d91763d0ca2665f299b6cd8aec"
-=======
-checksum = "7ff69b9dd49fd426c69a0db9fc04dd934cdb6645ff000864d98f7e2af8830eaa"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 
 [[package]]
 name = "byte-unit"
@@ -621,18 +616,8 @@ dependencies = [
 [[package]]
 name = "cc"
 version = "1.0.92"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-version = "1.0.83"
-=======
-version = "1.0.90"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2678b2e3449475e95b0aa6f9b506a28e61b3dc8996592b983695e8ebb58a8b41"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
-=======
-checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 dependencies = [
  "jobserver",
  "libc",
@@ -772,10 +757,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap_lex"
-version = "0.7.0"
+name = "clap_derive"
+version = "4.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
 checksum = "528131438037fd55894f62d6e9f068b8f45ac57ffa77517819645d10aed04f64"
 dependencies = [
  "heck 0.5.0",
@@ -785,18 +769,9 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "clap_lex"
 version = "0.7.0"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-name = "clap_lex"
-version = "0.6.0"
-=======
-name = "clap_derive"
-version = "4.5.4"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
 checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
@@ -822,6 +797,15 @@ name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
+
+[[package]]
+name = "colorz"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc2a5df6ee18d52a36920c93a7736761c6fcffa72b9d960fd9133dd8d57c5184"
+dependencies = [
+ "supports-color 2.1.0",
+]
 
 [[package]]
 name = "comfy-table"
@@ -1318,9 +1302,9 @@ checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.33"
+version = "0.8.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7268b386296a025e474d5140678f75d6de9493ae55a5d709eeb9dd08149945e1"
+checksum = "b45de904aa0b010bce2ab45264d0631681847fa7b6f2eaa7dab7619943bc4f59"
 dependencies = [
  "cfg-if",
 ]
@@ -1681,21 +1665,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-<<<<<<< HEAD
 version = "0.2.14"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-version = "0.2.12"
-=======
-version = "0.2.13"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
 checksum = "94b22e06ecb0110981051723910cbf0b5f5e09a2062dd7663334ee79a9d1286c"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-checksum = "190092ea657667030ac6a35e305e62fc4dd69fd98ac98631e5d3a2b1575a12b5"
-=======
-checksum = "a06fddc2749e0528d2813f95e050e87e52c8cbbae56223b9babf73b3e53b0cc6"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -1755,41 +1727,10 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "h2"
-version = "0.3.26"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-name = "h2"
-version = "0.3.24"
-=======
-name = "glob-match"
-version = "0.2.1"
->>>>>>> c8b70cf3d (Inprog move to Tango)
-source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
-checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
-||||||| parent of c8b70cf3d (Inprog move to Tango)
-checksum = "bb2c4422095b67ee78da96fbb51a4cc413b3b25883c7717ff7ca1ab31022c9c9"
-=======
-checksum = "9985c9503b412198aa4197559e9a318524ebc4519c229bfa05a535828c950b9d"
-
-[[package]]
-name = "goblin"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f27c1b4369c2cd341b5de549380158b105a04c331be5db9110eef7b6d2742134"
-dependencies = [
- "log",
- "plain",
- "scroll",
-]
-
-[[package]]
 name = "h2"
 version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
->>>>>>> c8b70cf3d (Inprog move to Tango)
 dependencies = [
  "bytes",
  "fnv",
@@ -3900,6 +3841,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
+name = "plain"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
+
+[[package]]
 name = "planus"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4545,9 +4492,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.35"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef"
+checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
 dependencies = [
  "proc-macro2",
 ]
@@ -5546,6 +5493,16 @@ dependencies = [
 
 [[package]]
 name = "supports-color"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6398cde53adc3c4557306a96ce67b302968513830a77a95b2b17305d9719a89"
+dependencies = [
+ "is-terminal",
+ "is_ci",
+]
+
+[[package]]
+name = "supports-color"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9829b314621dfc575df4e409e79f9d6a66a3bd707ab73f23cb4aa3a854ac854f"
@@ -5659,7 +5616,7 @@ dependencies = [
 [[package]]
 name = "tango-bench"
 version = "0.4.0"
-source = "git+https://github.com/bazhenov/tango.git?branch=dev#51f4e8414e4aabefda987baa2f26fa8a7c72110f"
+source = "git+https://github.com/bazhenov/tango.git?branch=dev#b3ef0be53705a4fde11e014a8ee0c5dffaf8bbab"
 dependencies = [
  "anyhow",
  "clap",
@@ -5778,9 +5735,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.34"
+version = "0.3.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8248b6521bb14bc45b4067159b9b6ad792e2d6d754d6c41fb50e29fefe38749"
+checksum = "ef89ece63debf11bc32d1ed8d078ac870cbeb44da02afb02a9ff135ae7ca0582"
 dependencies = [
  "deranged",
  "itoa",
@@ -5801,9 +5758,9 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.17"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ba3a3ef41e6672a2f0f001392bb5dcd3ff0a9992d618ca761a11c3121547774"
+checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
 dependencies = [
  "num-conv",
  "time-core",
