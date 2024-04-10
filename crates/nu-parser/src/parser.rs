@@ -1349,53 +1349,54 @@ fn strip_underscores(token: &[u8]) -> String {
 pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let token = working_set.get_span_contents(span);
 
-    fn extract_int(
-        working_set: &mut StateWorkingSet,
-        token: &str,
-        span: Span,
-        radix: u32,
-    ) -> Expression {
-        if let Ok(num) = i64::from_str_radix(token, radix) {
-            Expression {
+    fn parse_int_with_base(token: &[u8], span: Span, radix: u32) -> Result<Expression, ParseError> {
+        let token = strip_underscores(token);
+        if let Ok(num) = i64::from_str_radix(&token, radix) {
+            Ok(Expression {
                 expr: Expr::Int(num),
                 span,
                 ty: Type::Int,
                 custom_completion: None,
-            }
+            })
         } else {
-            working_set.error(ParseError::InvalidLiteral(
+            Err(ParseError::InvalidLiteral(
                 format!("invalid digits for radix {}", radix),
                 "int".into(),
                 span,
-            ));
-
-            garbage(span)
+            ))
         }
     }
-
-    let token = strip_underscores(token);
 
     if token.is_empty() {
         working_set.error(ParseError::Expected("int", span));
         return garbage(span);
     }
 
-    if let Some(num) = token.strip_prefix("0b") {
-        extract_int(working_set, num, span, 2)
-    } else if let Some(num) = token.strip_prefix("0o") {
-        extract_int(working_set, num, span, 8)
-    } else if let Some(num) = token.strip_prefix("0x") {
-        extract_int(working_set, num, span, 16)
-    } else if let Ok(num) = token.parse::<i64>() {
-        Expression {
-            expr: Expr::Int(num),
-            span,
-            ty: Type::Int,
-            custom_completion: None,
-        }
+    let res = if let Some(num) = token.strip_prefix(b"0b") {
+        parse_int_with_base(num, span, 2)
+    } else if let Some(num) = token.strip_prefix(b"0o") {
+        parse_int_with_base(num, span, 8)
+    } else if let Some(num) = token.strip_prefix(b"0x") {
+        parse_int_with_base(num, span, 16)
     } else {
-        working_set.error(ParseError::Expected("int", span));
-        garbage(span)
+        let token = strip_underscores(token);
+        match token.parse::<i64>() {
+            Ok(num) => Ok(Expression {
+                expr: Expr::Int(num),
+                span,
+                ty: Type::Int,
+                custom_completion: None,
+            }),
+            Err(_) => Err(ParseError::Expected("int", span)),
+        }
+    };
+
+    match res {
+        Ok(expr) => expr,
+        Err(err) => {
+            working_set.error(err);
+            garbage(span)
+        }
     }
 }
 
