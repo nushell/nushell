@@ -10,5 +10,5 @@ fn timeit_show_stdout() {
 fn timeit_show_stderr() {
     let actual = nu!(" with-env {FOO: bar, FOO2: baz} { let t = timeit { nu --testbin echo_env_mixed out-err FOO FOO2 } }");
     assert!(actual.out.contains("bar"));
-    assert!(actual.out.contains("baz"));
+    assert!(actual.err.contains("baz"));
 }
