@@ -96,7 +96,7 @@ lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.5"
 lsp-types = "0.95.0"
 mach2 = "0.4"
-md5 = { version = "0.10", package = "md-5"}
+md5 = { version = "0.10", package = "md-5" }
 miette = "7.2"
 mime = "0.3"
 mime_guess = "2.0"
@@ -212,7 +212,7 @@ nix = { workspace = true, default-features = false, features = [
 nu-test-support = { path = "./crates/nu-test-support", version = "0.92.2" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
-divan = "0.1.14"
+tango-bench = { git = "https://github.com/bazhenov/tango", branch = "dev" }
 pretty_assertions = "1.4"
 rstest = { workspace = true, default-features = false }
 serial_test = "3.0"
