@@ -8,19 +8,22 @@ use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
-use nu_protocol::{eval_const::create_nu_constant, PipelineData, Span, NU_VARIABLE_ID};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    report_error_new, PipelineData,
+};
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
     entire_start_time: std::time::Instant,
-) -> Result<(), miette::ErrReport> {
+) {
     trace!("run_commands");
-    let mut stack = nu_protocol::engine::Stack::new();
+    let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -102,12 +105,8 @@ pub(crate) fn run_commands(
     // Before running commands, set up the startup time
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = create_nu_constant(engine_state, commands.span)?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
-
     let start_time = std::time::Instant::now();
-    let ret_val = evaluate_commands(
+    let result = evaluate_commands(
         commands,
         engine_state,
         &mut stack,
@@ -124,23 +123,22 @@ pub(crate) fn run_commands(
         use_color,
     );
 
-    match ret_val {
-        Ok(Some(exit_code)) => std::process::exit(exit_code as i32),
-        Ok(None) => Ok(()),
-        Err(e) => Err(e),
+    if let Err(err) = result {
+        report_error_new(engine_state, &err);
+        std::process::exit(err.exit_code())
     }
 }
 
 pub(crate) fn run_file(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
     script_name: String,
     args_to_script: Vec<String>,
     input: PipelineData,
-) -> Result<(), miette::ErrReport> {
+) {
     trace!("run_file");
-    let mut stack = nu_protocol::engine::Stack::new();
+    let mut stack = Stack::new();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -200,12 +198,8 @@ pub(crate) fn run_file(
         );
     }
 
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = create_nu_constant(engine_state, input.span().unwrap_or_else(Span::unknown))?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
-
     let start_time = std::time::Instant::now();
-    let ret_val = evaluate_file(
+    let result = evaluate_file(
         script_name,
         &args_to_script,
         engine_state,
@@ -221,35 +215,19 @@ pub(crate) fn run_file(
         use_color,
     );
 
-    let start_time = std::time::Instant::now();
-    let last_exit_code = stack.get_env_var(&*engine_state, "LAST_EXIT_CODE");
-    if let Some(last_exit_code) = last_exit_code {
-        let value = last_exit_code.as_int();
-        if let Ok(value) = value {
-            if value != 0 {
-                std::process::exit(value as i32);
-            }
-        }
+    if let Err(err) = result {
+        report_error_new(engine_state, &err);
+        std::process::exit(err.exit_code())
     }
-    perf(
-        "get exit code",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    ret_val
 }
 
 pub(crate) fn run_repl(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
-    let mut stack = nu_protocol::engine::Stack::new();
+    let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
     if parsed_nu_cli_args.no_config_file.is_none() {

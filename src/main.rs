@@ -27,15 +27,14 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
-    PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
+    engine::EngineState, eval_const::create_nu_constant, report_error_new, ByteStream,
+    PipelineData, ShellError, Span, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
-    io::BufReader,
     path::PathBuf,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
@@ -347,21 +346,10 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
-        let stdin = std::io::stdin();
-        let buf_reader = BufReader::new(stdin);
-
-        PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(
-                Box::new(BufferedReader::new(buf_reader)),
-                Some(ctrlc.clone()),
-                redirect_stdin.span,
-                None,
-            )),
-            stderr: None,
-            exit_code: None,
-            span: redirect_stdin.span,
-            metadata: None,
-            trim_end_newline: false,
+        if !engine_state.is_interactive {
+            PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
+        } else {
+            PipelineData::empty()
         }
     } else {
         trace!("not redirecting stdin");
@@ -453,7 +441,7 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)
+        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
@@ -473,6 +461,8 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
+        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
     }
+
+    Ok(())
 }
