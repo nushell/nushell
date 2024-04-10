@@ -16,6 +16,7 @@ use nu_protocol::{
     IN_VARIABLE_ID,
 };
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     num::ParseIntError,
     str,
@@ -1339,11 +1340,34 @@ fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8
         .collect()
 }
 
-fn strip_underscores(token: &[u8]) -> String {
-    String::from_utf8_lossy(token)
-        .chars()
-        .filter(|c| *c != '_')
-        .collect()
+/// Strip underscores for numeric literals
+fn strip_underscores(token: &[u8]) -> Cow<[u8]> {
+    if let Some(first_underscore) = token.iter().position(|b| *b == b'_') {
+        // We assume that we parse numbers (with reasonable len) and only shortly hold the
+        // allocation, thus allocate the same size for the owned case.
+        let mut owned = Vec::with_capacity(token.len());
+        owned.extend_from_slice(&token[..first_underscore]);
+        owned.extend(token[first_underscore + 1..].iter().filter(|b| **b != b'_'));
+
+        Cow::Owned(owned)
+    } else {
+        Cow::Borrowed(token)
+    }
+}
+
+/// Failed to reinterpet bytes as an ASCII string slice
+struct AsciiError;
+
+/// Alternative to `str::from_utf8` if you only care about ASCII characters
+///
+/// This also allows to shortcircuit following checks if you only expect ASCII characters.
+fn parse_ascii_as_str(maybe_ascii: &[u8]) -> Result<&str, AsciiError> {
+    if maybe_ascii.is_ascii() {
+        // Safe as all ASCII characters are valid UTF-8
+        Ok(unsafe { std::str::from_utf8_unchecked(maybe_ascii) })
+    } else {
+        Err(AsciiError)
+    }
 }
 
 pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -1351,20 +1375,21 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
 
     fn parse_int_with_base(token: &[u8], span: Span, radix: u32) -> Result<Expression, ParseError> {
         let token = strip_underscores(token);
-        if let Ok(num) = i64::from_str_radix(&token, radix) {
-            Ok(Expression {
-                expr: Expr::Int(num),
-                span,
-                ty: Type::Int,
-                custom_completion: None,
-            })
-        } else {
-            Err(ParseError::InvalidLiteral(
-                format!("invalid digits for radix {}", radix),
-                "int".into(),
-                span,
-            ))
+        if let Ok(token) = parse_ascii_as_str(&token) {
+            if let Ok(num) = i64::from_str_radix(token, radix) {
+                return Ok(Expression {
+                    expr: Expr::Int(num),
+                    span,
+                    ty: Type::Int,
+                    custom_completion: None,
+                });
+            }
         }
+        Err(ParseError::InvalidLiteral(
+            format!("invalid digits for radix {}", radix),
+            "int".into(),
+            span,
+        ))
     }
 
     if token.is_empty() {
@@ -1380,15 +1405,18 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
         parse_int_with_base(num, span, 16)
     } else {
         let token = strip_underscores(token);
-        match token.parse::<i64>() {
-            Ok(num) => Ok(Expression {
-                expr: Expr::Int(num),
-                span,
-                ty: Type::Int,
-                custom_completion: None,
-            }),
-            Err(_) => Err(ParseError::Expected("int", span)),
-        }
+        parse_ascii_as_str(&token)
+            .map_err(|_| ParseError::Expected("int", span))
+            .and_then(|s| {
+                s.parse::<i64>()
+                    .map(|num| Expression {
+                        expr: Expr::Int(num),
+                        span,
+                        ty: Type::Int,
+                        custom_completion: None,
+                    })
+                    .map_err(|_| ParseError::Expected("int", span))
+            })
     };
 
     match res {
@@ -1402,20 +1430,22 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
 
 pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let token = working_set.get_span_contents(span);
+    // TODO: we should probably disallow underscores in the special IEEE754 strings
+    // e.g. `N_a_N` should not parse as a float
     let token = strip_underscores(token);
 
-    if let Ok(x) = token.parse::<f64>() {
-        Expression {
-            expr: Expr::Float(x),
-            span,
-            ty: Type::Float,
-            custom_completion: None,
+    if let Ok(token) = parse_ascii_as_str(&token) {
+        if let Ok(x) = token.parse::<f64>() {
+            return Expression {
+                expr: Expr::Float(x),
+                span,
+                ty: Type::Float,
+                custom_completion: None,
+            };
         }
-    } else {
-        working_set.error(ParseError::Expected("float", span));
-
-        garbage(span)
     }
+    working_set.error(ParseError::Expected("float", span));
+    garbage(span)
 }
 
 pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -2335,6 +2365,10 @@ pub fn parse_unit_value<'res>(
         let lhs = strip_underscores(&bytes[..lhs_len]);
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
+        let Ok(lhs) = parse_ascii_as_str(&lhs) else {
+            // We don't expect non-ASCII chars in a number
+            return None;
+        };
         if lhs.ends_with('$') {
             // If `parse_unit_value` has higher precedence over `parse_range`,
             // a variable with the name of a unit could otherwise not be used as the end of a range.
