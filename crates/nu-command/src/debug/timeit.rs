@@ -53,13 +53,12 @@ impl Command for TimeIt {
                 eval_block(engine_state, stack, block, input)?
             } else {
                 let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-                eval_expression_with_input(engine_state, stack, command_to_run, input)
-                    .map(|res| res.0)?
+                eval_expression_with_input(engine_state, stack, command_to_run, input)?
             }
         } else {
             PipelineData::empty()
         }
-        .into_value(call.head);
+        .into_value(call.head)?;
 
         let end_time = Instant::now();
 

@@ -57,7 +57,7 @@ fn let_pipeline_redirects_internals() {
 fn let_pipeline_redirects_externals() {
     let actual = nu!(r#"let x = nu --testbin cococo 'bar'; $x | str length"#);
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual.out, "4");
 }
 
 #[test]

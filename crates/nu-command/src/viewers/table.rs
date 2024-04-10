@@ -6,7 +6,8 @@ use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
 use nu_protocol::{
-    Config, DataSource, ListStream, PipelineMetadata, RawStream, TableMode, ValueIterator,
+    io::ReadResultIterator, ByteStream, Config, DataSource, ListStream, PipelineMetadata,
+    TableMode, ValueIterator,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
@@ -14,8 +15,12 @@ use nu_table::{
 };
 use nu_utils::get_ls_colors;
 use std::{
-    collections::VecDeque, io::IsTerminal, path::PathBuf, str::FromStr, sync::atomic::AtomicBool,
-    sync::Arc, time::Instant,
+    collections::VecDeque,
+    io::{Cursor, IsTerminal},
+    path::PathBuf,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Instant,
 };
 use terminal_size::{Height, Width};
 use url::Url;
@@ -360,25 +365,16 @@ fn handle_table_command(
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
-        PipelineData::ExternalStream { .. } => Ok(input.data),
+        PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let bytes = format!("{}\n", nu_pretty_hex::pretty_hex(&val)).into_bytes();
+            let bytes = {
+                let mut str = nu_pretty_hex::pretty_hex(&val);
+                str.push('\n');
+                str.into_bytes()
+            };
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = RawStream::new(
-                Box::new([Ok(bytes)].into_iter()),
-                ctrlc,
-                input.call.head,
-                None,
-            );
-
-            Ok(PipelineData::ExternalStream {
-                stdout: Some(stream),
-                stderr: None,
-                exit_code: None,
-                span: input.call.head,
-                metadata: None,
-                trim_end_newline: false,
-            })
+            let stream = ByteStream::read(Cursor::new(bytes), input.call.head, ctrlc);
+            Ok(PipelineData::ByteStream(stream, None))
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
@@ -613,16 +609,8 @@ fn handle_row_stream(
         ctrlc.clone(),
         cfg,
     );
-    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, None);
-
-    Ok(PipelineData::ExternalStream {
-        stdout: Some(stream),
-        stderr: None,
-        exit_code: None,
-        span: input.call.head,
-        metadata: None,
-        trim_end_newline: false,
-    })
+    let stream = ByteStream::read(ReadResultIterator::new(paginator), input.call.head, None);
+    Ok(PipelineData::ByteStream(stream, None))
 }
 
 fn make_clickable_link(

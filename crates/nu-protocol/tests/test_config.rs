@@ -52,7 +52,7 @@ fn filesize_format_auto_metric_false() {
 
 #[test]
 fn fancy_default_errors() {
-    let actual = nu!(nu_repl_code(&[
+    let code = nu_repl_code(&[
         r#"def force_error [x] {
         error make {
             msg: "oh no!"
@@ -62,8 +62,10 @@ fn fancy_default_errors() {
             }
         }
     }"#,
-        r#"force_error "My error""#
-    ]));
+        r#"force_error "My error""#,
+    ]);
+
+    let actual = nu!(format!("try {{ {code}; null }}"));
 
     assert_eq!(
         actual.err,
@@ -73,7 +75,7 @@ fn fancy_default_errors() {
 
 #[test]
 fn narratable_errors() {
-    let actual = nu!(nu_repl_code(&[
+    let code = nu_repl_code(&[
         r#"$env.config = { error_style: "plain" }"#,
         r#"def force_error [x] {
         error make {
@@ -85,7 +87,9 @@ fn narratable_errors() {
         }
     }"#,
         r#"force_error "my error""#,
-    ]));
+    ]);
+
+    let actual = nu!(format!("try {{ {code}; null }}"));
 
     assert_eq!(
         actual.err,

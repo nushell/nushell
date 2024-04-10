@@ -75,7 +75,7 @@ MessagePack: https://msgpack.org/
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value_span = input.span().unwrap_or(call.head);
-        let value = input.into_value(value_span);
+        let value = input.into_value(value_span)?;
         let mut out = vec![];
 
         write_value(&mut out, &value, 0)?;

@@ -82,27 +82,31 @@ fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
 }
 
 fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError> {
-    let mut bytes = vec![];
-    let mut values = input.into_iter();
+    if let PipelineData::ByteStream(stream, ..) = input {
+        stream.into_bytes()
+    } else {
+        let mut bytes = vec![];
+        let mut values = input.into_iter();
 
-    loop {
-        match values.next() {
-            Some(Value::Binary { val: b, .. }) => {
-                bytes.extend_from_slice(&b);
+        loop {
+            match values.next() {
+                Some(Value::Binary { val: b, .. }) => {
+                    bytes.extend_from_slice(&b);
+                }
+                Some(x) => {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "Expected binary from pipeline".to_string(),
+                        input: "value originates from here".into(),
+                        msg_span: span,
+                        input_span: x.span(),
+                    })
+                }
+                None => break,
             }
-            Some(x) => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Expected binary from pipeline".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: span,
-                    input_span: x.span(),
-                })
-            }
-            None => break,
         }
-    }
 
-    Ok(bytes)
+        Ok(bytes)
+    }
 }
 
 fn from_xlsx(

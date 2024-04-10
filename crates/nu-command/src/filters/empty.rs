@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use std::io::Read;
 
 pub fn empty(
     engine_state: &EngineState,
@@ -36,29 +37,26 @@ pub fn empty(
     } else {
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::ExternalStream { stdout, .. } => match stdout {
-                Some(s) => {
-                    let bytes = s.into_bytes();
-
-                    match bytes {
-                        Ok(s) => {
-                            if negate {
-                                Ok(Value::bool(!s.item.is_empty(), head).into_pipeline_data())
-                            } else {
-                                Ok(Value::bool(s.item.is_empty(), head).into_pipeline_data())
-                            }
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                match stream.reader() {
+                    Some(reader) => {
+                        let is_empty = reader.bytes().next().transpose().err_span(span)?.is_none();
+                        if negate {
+                            Ok(Value::bool(!is_empty, head).into_pipeline_data())
+                        } else {
+                            Ok(Value::bool(is_empty, head).into_pipeline_data())
                         }
-                        Err(err) => Err(err),
+                    }
+                    None => {
+                        if negate {
+                            Ok(Value::bool(false, head).into_pipeline_data())
+                        } else {
+                            Ok(Value::bool(true, head).into_pipeline_data())
+                        }
                     }
                 }
-                None => {
-                    if negate {
-                        Ok(Value::bool(false, head).into_pipeline_data())
-                    } else {
-                        Ok(Value::bool(true, head).into_pipeline_data())
-                    }
-                }
-            },
+            }
             PipelineData::ListStream(s, ..) => {
                 let empty = s.into_iter().next().is_none();
                 if negate {

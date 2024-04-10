@@ -190,7 +190,7 @@ fn insert(
                         let value = value.unwrap_or(Value::nothing(head));
                         let new_value = ClosureEvalOnce::new(engine_state, stack, val)
                             .run_with_value(value.clone())?
-                            .into_value(head);
+                            .into_value(head)?;
 
                         pre_elems.push(new_value);
                         if !end_of_stream {
@@ -261,8 +261,8 @@ fn insert(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
-            type_name: "external stream".to_string(),
+        PipelineData::ByteStream(..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: "byte stream".to_string(),
             span: head,
         }),
     }
@@ -284,7 +284,7 @@ fn insert_value_by_closure(
         value.clone()
     };
 
-    let new_value = closure.run_with_value(value_at_path)?.into_value(span);
+    let new_value = closure.run_with_value(value_at_path)?.into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 
@@ -304,7 +304,7 @@ fn insert_single_value_by_closure(
         value.clone()
     };
 
-    let new_value = closure.run_with_value(value_at_path)?.into_value(span);
+    let new_value = closure.run_with_value(value_at_path)?.into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 

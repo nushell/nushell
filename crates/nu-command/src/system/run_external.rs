@@ -1,16 +1,16 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_protocol::{ast::Expr, did_you_mean, ListStream, NuGlob, OutDest, RawStream};
+use nu_protocol::{ast::Expr, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, Read, Write},
+    io::Write,
     path::{Path, PathBuf},
     process::{Command as CommandSys, Stdio},
-    sync::{mpsc, Arc},
+    sync::Arc,
     thread,
 };
 
@@ -164,7 +164,7 @@ impl ExternalCommand {
         let head = self.name.span;
 
         #[allow(unused_mut)]
-        let (cmd, mut reader) = self.create_process(&input, false, head)?;
+        let (cmd, mut reader, input) = self.create_process(input, false, head)?;
 
         #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
         let child = ForegroundChild::spawn(cmd);
@@ -381,9 +381,7 @@ impl ExternalCommand {
                             .name("external stdin worker".to_string())
                             .spawn(move || {
                                 let input = match input {
-                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => {
-                                        Ok(input)
-                                    }
+                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => input,
                                     input => {
                                         let stack = &mut stack.start_capture();
                                         // Attempt to render the input as a table before piping it to the external.
@@ -397,146 +395,44 @@ impl ExternalCommand {
                                             stack,
                                             &Call::new(head),
                                             input,
-                                        )
+                                        )?
                                     }
                                 };
 
-                                if let Ok(input) = input {
+                                if let PipelineData::ByteStream(stream, ..) = input {
+                                    if let Some(mut reader) = stream.reader() {
+                                        std::io::copy(&mut reader, &mut stdin_write)?;
+                                    }
+                                } else {
                                     for value in input.into_iter() {
-                                        let buf = match value {
-                                            Value::String { val, .. } => val.into_bytes(),
-                                            Value::Binary { val, .. } => val,
-                                            _ => return Err(()),
-                                        };
-                                        if stdin_write.write(&buf).is_err() {
-                                            return Ok(());
-                                        }
+                                        let buf = value.coerce_into_binary()?;
+                                        stdin_write.write_all(&buf)?;
                                     }
                                 }
 
-                                Ok(())
+                                Ok::<_, ShellError>(())
                             })
                             .err_span(head)?;
                     }
                 }
 
-                #[cfg(unix)]
-                let commandname = self.name.item.clone();
-                let span = self.name.span;
-                let (exit_code_tx, exit_code_rx) = mpsc::channel();
+                let child =
+                    ChildProcess::new(child, reader, matches!(self.err, OutDest::Pipe), head)?;
 
-                let (stdout, stderr) = if let Some(combined) = reader {
-                    (
-                        Some(RawStream::new(
-                            Box::new(ByteLines::new(combined)),
-                            engine_state.ctrlc.clone(),
-                            head,
-                            None,
-                        )),
-                        None,
-                    )
-                } else {
-                    let stdout = child.as_mut().stdout.take().map(|out| {
-                        RawStream::new(
-                            Box::new(ByteLines::new(out)),
-                            engine_state.ctrlc.clone(),
-                            head,
-                            None,
-                        )
-                    });
-
-                    let stderr = child.as_mut().stderr.take().map(|err| {
-                        RawStream::new(
-                            Box::new(ByteLines::new(err)),
-                            engine_state.ctrlc.clone(),
-                            head,
-                            None,
-                        )
-                    });
-
-                    if matches!(self.err, OutDest::Pipe) {
-                        (stderr, stdout)
-                    } else {
-                        (stdout, stderr)
-                    }
-                };
-
-                // Create a thread to wait for an exit code.
-                thread::Builder::new()
-                    .name("exit code waiter".into())
-                    .spawn(move || match child.as_mut().wait() {
-                        Err(err) => Err(ShellError::ExternalCommand {
-                            label: "External command exited with error".into(),
-                            help: err.to_string(),
-                            span,
-                        }),
-                        Ok(x) => {
-                            #[cfg(unix)]
-                            {
-                                use nix::sys::signal::Signal;
-                                use nu_ansi_term::{Color, Style};
-                                use std::os::unix::process::ExitStatusExt;
-
-                                if x.core_dumped() {
-                                    let cause = x
-                                        .signal()
-                                        .and_then(|sig| {
-                                            Signal::try_from(sig).ok().map(Signal::as_str)
-                                        })
-                                        .unwrap_or("Something went wrong");
-
-                                    let style = Style::new().bold().on(Color::Red);
-                                    let message = format!(
-                                        "{cause}: child process '{commandname}' core dumped"
-                                    );
-                                    eprintln!("{}", style.paint(&message));
-                                    let _ = exit_code_tx.send(Value::error(
-                                        ShellError::ExternalCommand {
-                                            label: "core dumped".into(),
-                                            help: message,
-                                            span: head,
-                                        },
-                                        head,
-                                    ));
-                                    return Ok(());
-                                }
-                            }
-                            if let Some(code) = x.code() {
-                                let _ = exit_code_tx.send(Value::int(code as i64, head));
-                            } else if x.success() {
-                                let _ = exit_code_tx.send(Value::int(0, head));
-                            } else {
-                                let _ = exit_code_tx.send(Value::int(-1, head));
-                            }
-                            Ok(())
-                        }
-                    })
-                    .err_span(head)?;
-
-                let exit_code = Some(ListStream::new(
-                    ValueReceiver::new(exit_code_rx),
-                    head,
+                Ok(PipelineData::ByteStream(
+                    ByteStream::child(child, head),
                     None,
-                ));
-
-                Ok(PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span: head,
-                    metadata: None,
-                    trim_end_newline: true,
-                })
+                ))
             }
         }
     }
 
     pub fn create_process(
         &self,
-        input: &PipelineData,
+        input: PipelineData,
         use_cmd: bool,
         span: Span,
-    ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
+    ) -> Result<(CommandSys, Option<PipeReader>, PipelineData), ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
                 self.spawn_cmd_command(d)
@@ -578,13 +474,20 @@ impl ExternalCommand {
             None
         };
 
-        // If there is an input from the pipeline. The stdin from the process
-        // is piped so it can be used to send the input information
-        if !input.is_nothing() {
-            process.stdin(Stdio::piped());
-        }
+        let (input, stdin) = {
+            match input {
+                PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
+                    Ok(pipe) => (PipelineData::Empty, pipe),
+                    Err(stream) => (PipelineData::ByteStream(stream, metadata), Stdio::piped()),
+                },
+                PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
+                input => (input, Stdio::piped()),
+            }
+        };
 
-        Ok((process, reader))
+        process.stdin(stdin);
+
+        Ok((process, reader, input))
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
@@ -761,54 +664,6 @@ fn remove_quotes(input: String) -> String {
             .replace(r#"\""#, "\""),
         (Some('\''), true) => chars.collect::<String>().replacen('\'', "", 1),
         _ => input,
-    }
-}
-
-struct ByteLines<R: Read>(BufReader<R>);
-
-impl<R: Read> ByteLines<R> {
-    fn new(read: R) -> Self {
-        Self(BufReader::new(read))
-    }
-}
-
-impl<R: Read> Iterator for ByteLines<R> {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = Vec::new();
-        // `read_until` will never stop reading unless `\n` or EOF is encountered,
-        // so let's limit the number of bytes using `take` as the Rust docs suggest.
-        let capacity = self.0.capacity() as u64;
-        let mut reader = (&mut self.0).take(capacity);
-        match reader.read_until(b'\n', &mut buf) {
-            Ok(0) => None,
-            Ok(_) => Some(Ok(buf)),
-            Err(e) => Some(Err(e.into())),
-        }
-    }
-}
-
-// Receiver used for the ListStream
-// It implements iterator so it can be used as a ListStream
-struct ValueReceiver {
-    rx: mpsc::Receiver<Value>,
-}
-
-impl ValueReceiver {
-    pub fn new(rx: mpsc::Receiver<Value>) -> Self {
-        Self { rx }
-    }
-}
-
-impl Iterator for ValueReceiver {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.rx.recv() {
-            Ok(v) => Some(v),
-            Err(_) => None,
-        }
     }
 }
 

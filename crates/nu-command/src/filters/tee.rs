@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_protocol::{engine::Closure, OutDest, RawStream};
+use nu_protocol::{engine::Closure, OutDest};
 use std::{sync::mpsc, thread};
 
 #[derive(Clone)]
@@ -83,92 +83,95 @@ use it in your pipeline."#
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         match input {
-            // Handle external streams specially, to make sure they pass through
-            PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code,
-                span,
-                metadata,
-                trim_end_newline,
-            } => {
-                let known_size = if use_stderr {
-                    stderr.as_ref().and_then(|s| s.known_size)
-                } else {
-                    stdout.as_ref().and_then(|s| s.known_size)
-                };
+            PipelineData::ByteStream(..) => todo!(),
+            // // Handle external streams specially, to make sure they pass through
+            // PipelineData::ExternalStream {
+            //     stdout,
+            //     stderr,
+            //     exit_code,
+            //     span,
+            //     metadata,
+            //     trim_end_newline,
+            // } => {
+            //     let known_size = if use_stderr {
+            //         stderr.as_ref().and_then(|s| s.known_size)
+            //     } else {
+            //         stdout.as_ref().and_then(|s| s.known_size)
+            //     };
 
-                let with_stream = move |rx: mpsc::Receiver<Result<Vec<u8>, ShellError>>| {
-                    let iter = rx.into_iter();
-                    let input_from_channel = PipelineData::ExternalStream {
-                        stdout: Some(RawStream::new(
-                            Box::new(iter),
-                            closure_engine_state.ctrlc.clone(),
-                            span,
-                            known_size,
-                        )),
-                        stderr: None,
-                        exit_code: None,
-                        span,
-                        metadata: metadata_clone,
-                        trim_end_newline,
-                    };
-                    let result = eval_block_with_early_return(
-                        &closure_engine_state,
-                        &mut closure_stack,
-                        closure_engine_state.get_block(block_id),
-                        input_from_channel,
-                    );
-                    // Make sure to drain any iterator produced to avoid unexpected behavior
-                    result.and_then(|data| data.drain())
-                };
+            //     let with_stream = move |rx: mpsc::Receiver<Result<Vec<u8>, ShellError>>| {
+            //         let iter = rx.into_iter();
+            //         let input_from_channel = PipelineData::ExternalStream {
+            //             stdout: Some(RawStream::new(
+            //                 Box::new(iter),
+            //                 closure_engine_state.ctrlc.clone(),
+            //                 span,
+            //                 known_size,
+            //             )),
+            //             stderr: None,
+            //             exit_code: None,
+            //             span,
+            //             metadata: metadata_clone,
+            //             trim_end_newline,
+            //         };
+            //         let result = eval_block_with_early_return(
+            //             &closure_engine_state,
+            //             &mut closure_stack,
+            //             closure_engine_state.get_block(block_id),
+            //             input_from_channel,
+            //         );
+            //         // Make sure to drain any iterator produced to avoid unexpected behavior
+            //         result.and_then(|data| data.drain())
+            //     };
 
-                if use_stderr {
-                    let stderr = stderr
-                        .map(|stderr| {
-                            let iter = tee(stderr.stream, with_stream).err_span(head)?;
-                            Ok::<_, ShellError>(RawStream::new(
-                                Box::new(iter.map(flatten_result)),
-                                stderr.ctrlc,
-                                stderr.span,
-                                stderr.known_size,
-                            ))
-                        })
-                        .transpose()?;
-                    Ok(PipelineData::ExternalStream {
-                        stdout,
-                        stderr,
-                        exit_code,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    })
-                } else {
-                    let stdout = stdout
-                        .map(|stdout| {
-                            let iter = tee(stdout.stream, with_stream).err_span(head)?;
-                            Ok::<_, ShellError>(RawStream::new(
-                                Box::new(iter.map(flatten_result)),
-                                stdout.ctrlc,
-                                stdout.span,
-                                stdout.known_size,
-                            ))
-                        })
-                        .transpose()?;
-                    Ok(PipelineData::ExternalStream {
-                        stdout,
-                        stderr,
-                        exit_code,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    })
-                }
-            }
-            // --stderr is not allowed if the input is not an external stream
+            //     if use_stderr {
+            //         let stderr = stderr
+            //             .map(|stderr| {
+            //                 let iter = tee(stderr.stream, with_stream)
+            //                     .map_err(|e| e.into_spanned(head))?;
+            //                 Ok::<_, ShellError>(RawStream::new(
+            //                     Box::new(iter.map(flatten_result)),
+            //                     stderr.ctrlc,
+            //                     stderr.span,
+            //                     stderr.known_size,
+            //                 ))
+            //             })
+            //             .transpose()?;
+            //         Ok(PipelineData::ExternalStream {
+            //             stdout,
+            //             stderr,
+            //             exit_code,
+            //             span,
+            //             metadata,
+            //             trim_end_newline,
+            //         })
+            //     } else {
+            //         let stdout = stdout
+            //             .map(|stdout| {
+            //                 let iter = tee(stdout.stream, with_stream)
+            //                     .map_err(|e| e.into_spanned(head))?;
+            //                 Ok::<_, ShellError>(RawStream::new(
+            //                     Box::new(iter.map(flatten_result)),
+            //                     stdout.ctrlc,
+            //                     stdout.span,
+            //                     stdout.known_size,
+            //                 ))
+            //             })
+            //             .transpose()?;
+            //         Ok(PipelineData::ExternalStream {
+            //             stdout,
+            //             stderr,
+            //             exit_code,
+            //             span,
+            //             metadata,
+            //             trim_end_newline,
+            //         })
+            //     }
+            // }
+            // --stderr is not allowed if the input is not an external command
             _ if use_stderr => Err(ShellError::UnsupportedInput {
-                msg: "--stderr can only be used on external streams".into(),
-                input: "the input to `tee` is not an external stream".into(),
+                msg: "--stderr can only be used on external commands".into(),
+                input: "the input to `tee` is not an external commands".into(),
                 msg_span: head,
                 input_span: input.span().unwrap_or(head),
             }),
@@ -211,10 +214,6 @@ fn panic_error() -> ShellError {
     ShellError::NushellFailed {
         msg: "A panic occurred on a thread spawned by `tee`".into(),
     }
-}
-
-fn flatten_result<T, E>(result: Result<Result<T, E>, E>) -> Result<T, E> {
-    result.unwrap_or_else(Err)
 }
 
 /// Copies the iterator to a channel on another thread. If an error is produced on that thread,

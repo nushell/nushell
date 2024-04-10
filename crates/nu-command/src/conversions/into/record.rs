@@ -108,7 +108,7 @@ fn into_record(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let input = input.into_value(call.head);
+    let input = input.into_value(call.head)?;
     let input_type = input.get_type();
     let span = input.span();
     let res = match input {

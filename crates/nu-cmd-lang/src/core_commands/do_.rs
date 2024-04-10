@@ -101,6 +101,11 @@ impl Command for Do {
                 });
                 Ok(PipelineData::ListStream(stream, metadata))
             }
+            Err(
+                ShellError::NonZeroExitCode { .. }
+                | ShellError::ExternalCommandSignaled { .. }
+                | ShellError::ExternalCommandCoreDumped { .. },
+            ) if ignore_program_errors => Ok(PipelineData::Empty),
             r => r,
         }
     }
