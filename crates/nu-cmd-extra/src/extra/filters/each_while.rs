@@ -79,36 +79,38 @@ impl Command for EachWhile {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
                 Ok(input
                     .into_iter()
-                    .map_while(move |value| match closure.run_with_value(value) {
-                        Ok(data) => {
-                            let value = data.into_value(head);
-                            (!value.is_nothing()).then_some(value)
-                        }
-                        Err(_) => None,
-                    })
-                    .fuse()
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
-            }
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => {
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(stream
-                    .into_iter()
                     .map_while(move |value| {
-                        let value = value.ok()?;
-                        match closure.run_with_value(value) {
-                            Ok(data) => {
-                                let value = data.into_value(head);
-                                (!value.is_nothing()).then_some(value)
-                            }
+                        match closure
+                            .run_with_value(value)
+                            .and_then(|data| data.into_value(head))
+                        {
+                            Ok(value) => (!value.is_nothing()).then_some(value),
                             Err(_) => None,
                         }
                     })
                     .fuse()
                     .into_pipeline_data(head, engine_state.ctrlc.clone()))
+            }
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                if let Some(values) = stream.values() {
+                    let mut closure = ClosureEval::new(engine_state, stack, closure);
+                    Ok(values
+                        .map_while(move |value| {
+                            let value = value.ok()?;
+                            match closure
+                                .run_with_value(value)
+                                .and_then(|data| data.into_value(span))
+                            {
+                                Ok(value) => (!value.is_nothing()).then_some(value),
+                                Err(_) => None,
+                            }
+                        })
+                        .fuse()
+                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                } else {
+                    Ok(PipelineData::Empty)
+                }
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
