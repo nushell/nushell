@@ -500,9 +500,21 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
+<<<<<<< HEAD
 version = "3.15.4"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+version = "3.14.0"
+=======
+version = "3.16.0"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "7ff69b9dd49fd426c69a0db9fc04dd934cdb6645ff000864d98f7e2af8830eaa"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+checksum = "7f30e7476521f6f8af1a1c4c0b8cc94f0bee37d91763d0ca2665f299b6cd8aec"
+=======
+checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 
 [[package]]
 name = "byte-unit"
@@ -615,9 +627,21 @@ dependencies = [
 
 [[package]]
 name = "cc"
+<<<<<<< HEAD
 version = "1.0.90"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+version = "1.0.83"
+=======
+version = "1.0.92"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
+=======
+checksum = "2678b2e3449475e95b0aa6f9b506a28e61b3dc8996592b983695e8ebb58a8b41"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 dependencies = [
  "jobserver",
  "libc",
@@ -757,9 +781,18 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "clap_derive"
 version = "4.5.4"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+name = "clap_lex"
+version = "0.6.0"
+=======
+name = "clap_lex"
+version = "0.7.0"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "528131438037fd55894f62d6e9f068b8f45ac57ffa77517819645d10aed04f64"
 dependencies = [
  "heck 0.5.0",
@@ -773,6 +806,11 @@ name = "clap_lex"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
+=======
+checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 
 [[package]]
 name = "clipboard-win"
@@ -799,6 +837,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+<<<<<<< HEAD
 name = "colorz"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -808,6 +847,21 @@ dependencies = [
 ]
 
 [[package]]
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+=======
+name = "comfy-table"
+version = "7.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b34115915337defe99b2aff5c2ce6771e5fbc4079f4b506301f5cf394c8452f7"
+dependencies = [
+ "crossterm",
+ "strum",
+ "strum_macros 0.26.2",
+ "unicode-width",
+]
+
+[[package]]
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 name = "compact_str"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1217,9 +1271,9 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "downcast-rs"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
 name = "dtoa"
@@ -1653,9 +1707,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.13"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06fddc2749e0528d2813f95e050e87e52c8cbbae56223b9babf73b3e53b0cc6"
+checksum = "94b22e06ecb0110981051723910cbf0b5f5e09a2062dd7663334ee79a9d1286c"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -2833,7 +2887,7 @@ dependencies = [
  "polars-plan",
  "polars-utils",
  "serde",
- "sqlparser",
+ "sqlparser 0.39.0",
 ]
 
 [[package]]
@@ -3277,6 +3331,34 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "semver",
+]
+
+[[package]]
+name = "nu_plugin_polars"
+version = "0.92.2"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "fancy-regex",
+ "indexmap",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-plugin",
+ "nu-plugin-test-support",
+ "nu-protocol",
+ "num",
+ "polars",
+ "polars-arrow",
+ "polars-io",
+ "polars-ops",
+ "polars-plan",
+ "polars-utils",
+ "serde",
+ "sqlparser 0.43.1",
+ "typetag",
+ "uuid",
 ]
 
 [[package]]
@@ -3798,6 +3880,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
@@ -3805,6 +3888,11 @@ name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+checksum = "2900ede94e305130c13ddd391e0ab7cbaeb783945ae07a279c268cb05109c6cb"
+=======
+checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 
 [[package]]
 name = "planus"
@@ -3914,6 +4002,7 @@ dependencies = [
  "bytemuck",
  "chrono",
  "chrono-tz",
+ "comfy-table",
  "either",
  "hashbrown 0.14.3",
  "indexmap",
@@ -4171,7 +4260,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "sqlparser",
+ "sqlparser 0.39.0",
 ]
 
 [[package]]
@@ -5057,9 +5146,9 @@ dependencies = [
 
 [[package]]
 name = "serde_repr"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b2e6b945e9d3df726b65d6ee24060aff8e3533d431f677a9695db04eff9dfdb"
+checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5304,6 +5393,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sqlparser"
+version = "0.43.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f95c4bae5aba7cd30bd506f7140026ade63cff5afd778af8854026f9606bf5d4"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "stability"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5438,6 +5536,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
+<<<<<<< HEAD
  "syn 2.0.58",
 ]
 
@@ -5449,6 +5548,11 @@ checksum = "d6398cde53adc3c4557306a96ce67b302968513830a77a95b2b17305d9719a89"
 dependencies = [
  "is-terminal",
  "is_ci",
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+ "syn 2.0.48",
+=======
+ "syn 2.0.58",
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 ]
 
 [[package]]
@@ -5538,9 +5642,21 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
+<<<<<<< HEAD
 version = "0.30.8"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+version = "0.30.5"
+=======
+version = "0.30.9"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "4b1a378e48fb3ce3a5cf04359c456c9c98ff689bcf1c1bc6e6a31f247686f275"
+||||||| parent of efc1cfa93 (Move dataframes support to a plugin (#12220))
+checksum = "1fb4f3438c8f6389c864e61221cbc97e9bca98b4daf39a5beb7bea660f528bb2"
+=======
+checksum = "e9a84fe4cfc513b41cb2596b624e561ec9e7e1c4b46328e496ed56a53514ef2a"
+>>>>>>> efc1cfa93 (Move dataframes support to a plugin (#12220))
 dependencies = [
  "cfg-if",
  "core-foundation-sys",
@@ -6198,6 +6314,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
 dependencies = [
  "getrandom",
+ "serde",
 ]
 
 [[package]]
