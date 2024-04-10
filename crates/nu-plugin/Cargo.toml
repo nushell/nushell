@@ -13,6 +13,7 @@ bench = false
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.92.2" }
 nu-protocol = { path = "../nu-protocol", version = "0.92.2" }
+nu-system = { path = "../nu-system", version = "0.92.2" }
 
 bincode = "1.3"
 rmp-serde = "1.1"
@@ -30,7 +31,7 @@ default = ["local-socket"]
 local-socket = ["interprocess"]
 
 [target.'cfg(target_family = "unix")'.dependencies]
-# For setting the process group ID (`set_foreground()`)
+# For setting the process group ID (EnterForeground / LeaveForeground)
 nix = { workspace = true, default-features = false, features = ["process"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]

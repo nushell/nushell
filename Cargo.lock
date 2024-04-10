@@ -3187,6 +3187,7 @@ dependencies = [
  "nix",
  "nu-engine",
  "nu-protocol",
+ "nu-system",
  "rmp-serde",
  "semver",
  "serde",

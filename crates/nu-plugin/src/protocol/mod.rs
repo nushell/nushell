@@ -463,6 +463,10 @@ pub enum EngineCall<D> {
     AddEnvVar(String, Value),
     /// Get help for the current command
     GetHelp,
+    /// Move the plugin into the foreground for terminal interaction
+    EnterForeground,
+    /// Move the plugin out of the foreground once terminal interaction has finished
+    LeaveForeground,
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -491,6 +495,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetCurrentDir => "GetCurrentDir",
             EngineCall::AddEnvVar(..) => "AddEnvVar",
             EngineCall::GetHelp => "GetHelp",
+            EngineCall::EnterForeground => "EnterForeground",
+            EngineCall::LeaveForeground => "LeaveForeground",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
@@ -509,6 +515,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
             EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
             EngineCall::GetHelp => EngineCall::GetHelp,
+            EngineCall::EnterForeground => EngineCall::EnterForeground,
+            EngineCall::LeaveForeground => EngineCall::LeaveForeground,
             EngineCall::EvalClosure {
                 closure,
                 positional,

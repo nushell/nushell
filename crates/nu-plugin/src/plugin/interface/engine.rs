@@ -646,6 +646,43 @@ impl EngineInterface {
         }
     }
 
+    /// Returns a guard that will keep the plugin in the foreground as long as the guard is alive.
+    ///
+    /// Moving the plugin to the foreground is necessary for plugins that need to receive input and
+    /// signals directly from the terminal.
+    ///
+    /// The exact implementation is operating system-specific. On Unix, this ensures that the
+    /// plugin process becomes part of the process group controlling the terminal.
+    pub fn enter_foreground(&self) -> Result<ForegroundGuard, ShellError> {
+        match self.engine_call(EngineCall::EnterForeground)? {
+            EngineCallResponse::Error(error) => Err(error),
+            EngineCallResponse::PipelineData(PipelineData::Value(
+                Value::Int { val: pgrp, .. },
+                _,
+            )) => {
+                set_pgrp_from_enter_foreground(pgrp)?;
+                Ok(ForegroundGuard(Some(self.clone())))
+            }
+            EngineCallResponse::PipelineData(PipelineData::Empty) => {
+                Ok(ForegroundGuard(Some(self.clone())))
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::SetForeground".into(),
+            }),
+        }
+    }
+
+    /// Internal: for exiting the foreground after `enter_foreground()`. Called from the guard.
+    fn leave_foreground(&self) -> Result<(), ShellError> {
+        match self.engine_call(EngineCall::LeaveForeground)? {
+            EngineCallResponse::Error(error) => Err(error),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
+            }),
+        }
+    }
+
     /// Ask the engine to evaluate a closure. Input to the closure is passed as a stream, and the
     /// output is available as a stream.
     ///
@@ -797,37 +834,6 @@ impl EngineInterface {
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
     }
-
-    /// Change whether the plugin process is in the foreground. This is necessary for terminal UI
-    /// apps to work properly, so that they can receive input and signals from the terminal.
-    ///
-    /// Plugins always start in the background (`false`). This should be reset back to false when
-    /// releasing control of the terminal again, otherwise the plugin may be terminated by signals
-    /// such as the interrupt signal (ctrl-c) erroneously.
-    ///
-    /// The exact implementation is operating system-specific. On Unix, this sets the process group
-    /// ID of the plugin to that of `nu` itself if `foreground` is `true`, and leaves the group if
-    /// set to `false`.
-    pub fn set_foreground(&self, foreground: bool) -> Result<(), ShellError> {
-        #[cfg(unix)]
-        {
-            use nix::unistd::Pid;
-            let new_pgid = if foreground {
-                Pid::parent()
-            } else {
-                Pid::from_raw(0)
-            };
-            nix::unistd::setpgid(Pid::this(), new_pgid).map_err(|err| ShellError::IOError {
-                msg: err.to_string(),
-            })?;
-        }
-        #[cfg(windows)]
-        {
-            // We don't need to do anything on Windows. TUI apps work fine.
-            let _ = foreground;
-        }
-        Ok(())
-    }
 }
 
 impl Interface for EngineInterface {
@@ -873,4 +879,70 @@ impl Interface for EngineInterface {
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }
     }
+}
+
+/// Keeps the plugin in the foreground as long as it is alive.
+///
+/// Use [`.leave()`] to leave the foreground without ignoring the error.
+pub struct ForegroundGuard(Option<EngineInterface>);
+
+impl ForegroundGuard {
+    // Should be called only once
+    fn leave_internal(&mut self) -> Result<(), ShellError> {
+        if let Some(interface) = self.0.take() {
+            // On Unix, we need to put ourselves back in our own process group
+            #[cfg(unix)]
+            {
+                use nix::unistd::{setpgid, Pid};
+                // This should always succeed, frankly, but handle the error just in case
+                setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| ShellError::IOError {
+                    msg: err.to_string(),
+                })?;
+            }
+            interface.leave_foreground()?;
+        }
+        Ok(())
+    }
+
+    /// Leave the foreground. In contrast to dropping the guard, this preserves the error (if any).
+    pub fn leave(mut self) -> Result<(), ShellError> {
+        let result = self.leave_internal();
+        std::mem::forget(self);
+        result
+    }
+}
+
+impl Drop for ForegroundGuard {
+    fn drop(&mut self) {
+        let _ = self.leave_internal();
+    }
+}
+
+#[cfg(unix)]
+fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
+    use nix::unistd::{setpgid, Pid};
+    if let Ok(pgrp) = pgrp.try_into() {
+        setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| ShellError::GenericError {
+            error: "Failed to set process group for foreground".into(),
+            msg: "".into(),
+            span: None,
+            help: Some(err.to_string()),
+            inner: vec![],
+        })
+    } else {
+        Err(ShellError::NushellFailed {
+            msg: "Engine returned an invalid process group ID".into(),
+        })
+    }
+}
+
+#[cfg(not(unix))]
+fn set_pgrp_from_enter_foreground(_pgrp: i64) -> Result<(), ShellError> {
+    Err(ShellError::NushellFailed {
+        msg: concat!(
+            "EnterForeground asked plugin to join process group, but not supported on ",
+            cfg!(target_os)
+        )
+        .into(),
+    })
 }

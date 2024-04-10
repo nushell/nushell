@@ -49,6 +49,7 @@ mod declaration;
 mod gc;
 mod interface;
 mod persistent;
+mod process;
 mod source;
 
 pub use command::{create_plugin_signature, PluginCommand, SimplePluginCommand};
@@ -202,6 +203,7 @@ fn make_plugin_interface(
     mut child: Child,
     comm: PreparedServerCommunication,
     source: Arc<PluginSource>,
+    pid: Option<u32>,
     gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {
     match comm.connect(&mut child)? {
@@ -212,6 +214,7 @@ fn make_plugin_interface(
                 let _ = child.wait();
             },
             source,
+            pid,
             gc,
         ),
         ServerCommunicationIo::LocalSocket { read_out, write_in } => {
@@ -222,6 +225,7 @@ fn make_plugin_interface(
                     let _ = child.wait();
                 },
                 source,
+                pid,
                 gc,
             )
         }
@@ -233,6 +237,7 @@ fn make_plugin_interface_with_streams(
     writer: impl std::io::Write + Send + 'static,
     after_close: impl FnOnce() + Send + 'static,
     source: Arc<PluginSource>,
+    pid: Option<u32>,
     gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {
     let encoder = get_plugin_encoding(&mut reader)?;
@@ -240,7 +245,8 @@ fn make_plugin_interface_with_streams(
     let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
     let writer = BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, writer);
 
-    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(writer), encoder));
+    let mut manager =
+        PluginInterfaceManager::new(source.clone(), pid, (Mutex::new(writer), encoder));
     manager.set_garbage_collector(gc);
 
     let interface = manager.get_interface();

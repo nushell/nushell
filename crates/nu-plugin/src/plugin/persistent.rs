@@ -37,8 +37,6 @@ struct MutableState {
 
 #[derive(Debug)]
 struct RunningPlugin {
-    /// Process ID of the running plugin
-    pid: u32,
     /// Interface (which can be cloned) to the running plugin
     interface: PluginInterface,
     /// Garbage collector for the plugin
@@ -146,10 +144,11 @@ impl PersistentPlugin {
             child,
             comm,
             Arc::new(PluginSource::new(self)),
+            Some(pid),
             Some(gc.clone()),
         )?;
 
-        Ok(RunningPlugin { pid, interface, gc })
+        Ok(RunningPlugin { interface, gc })
     }
 }
 
@@ -172,7 +171,7 @@ impl RegisteredPlugin for PersistentPlugin {
         self.mutable
             .lock()
             .ok()
-            .and_then(|r| r.running.as_ref().map(|r| r.pid))
+            .and_then(|r| r.running.as_ref().and_then(|r| r.interface.pid()))
     }
 
     fn stop(&self) -> Result<(), ShellError> {

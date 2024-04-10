@@ -5,7 +5,7 @@ use super::{
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
 };
 use crate::{
-    plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
+    plugin::{context::PluginExecutionContext, gc::PluginGc, process::PluginProcess, PluginSource},
     protocol::{
         CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
         PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
@@ -62,6 +62,8 @@ impl std::ops::Deref for Context {
 struct PluginInterfaceState {
     /// The source to be used for custom values coming from / going to the plugin
     source: Arc<PluginSource>,
+    /// The plugin process being managed
+    process: Option<PluginProcess>,
     /// Sequence for generating plugin call ids
     plugin_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
@@ -149,6 +151,7 @@ pub struct PluginInterfaceManager {
 impl PluginInterfaceManager {
     pub fn new(
         source: Arc<PluginSource>,
+        pid: Option<u32>,
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
         let (subscription_tx, subscription_rx) = mpsc::channel();
@@ -156,6 +159,7 @@ impl PluginInterfaceManager {
         PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
                 source,
+                process: pid.map(PluginProcess::new),
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
@@ -603,6 +607,11 @@ pub struct PluginInterface {
 }
 
 impl PluginInterface {
+    /// Get the process ID for the plugin, if known.
+    pub fn pid(&self) -> Option<u32> {
+        self.state.process.as_ref().map(|p| p.pid())
+    }
+
     /// Write the protocol info. This should be done after initialization
     pub fn hello(&self) -> Result<(), ShellError> {
         self.write(PluginInput::Hello(ProtocolInfo::default()))?;
@@ -800,8 +809,9 @@ impl PluginInterface {
         state: &CurrentCallState,
         context: Option<&mut (dyn PluginExecutionContext + '_)>,
     ) -> Result<(), ShellError> {
-        let resp =
-            handle_engine_call(engine_call, context).unwrap_or_else(EngineCallResponse::Error);
+        let process = self.state.process.as_ref();
+        let resp = handle_engine_call(engine_call, context, process)
+            .unwrap_or_else(EngineCallResponse::Error);
         // Handle stream
         let mut writer = None;
         let resp = resp
@@ -1135,6 +1145,7 @@ impl CurrentCallState {
 pub(crate) fn handle_engine_call(
     call: EngineCall<PipelineData>,
     context: Option<&mut (dyn PluginExecutionContext + '_)>,
+    process: Option<&PluginProcess>,
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
     let call_name = call.name();
 
@@ -1180,6 +1191,8 @@ pub(crate) fn handle_engine_call(
                 help.item, help.span,
             )))
         }
+        EngineCall::EnterForeground => set_foreground(process, context, true),
+        EngineCall::LeaveForeground => set_foreground(process, context, false),
         EngineCall::EvalClosure {
             closure,
             positional,
@@ -1189,5 +1202,41 @@ pub(crate) fn handle_engine_call(
         } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
+    }
+}
+
+/// Implements enter/exit foreground
+fn set_foreground(
+    process: Option<&PluginProcess>,
+    context: &mut dyn PluginExecutionContext,
+    enter: bool,
+) -> Result<EngineCallResponse<PipelineData>, ShellError> {
+    if let Some(process) = process {
+        if let Some(ref pipeline_externals_state) = context.pipeline_externals_state() {
+            if enter {
+                let pgrp = process.enter_foreground(context.span(), pipeline_externals_state)?;
+                Ok(pgrp.map_or_else(EngineCallResponse::empty, |id| {
+                    EngineCallResponse::value(Value::int(id as i64, context.span()))
+                }))
+            } else {
+                process.exit_foreground()?;
+                Ok(EngineCallResponse::empty())
+            }
+        } else {
+            // This should always be present on a real context
+            Err(ShellError::NushellFailed {
+                msg: "missing required pipeline_externals_state from context \
+                            for entering foreground"
+                    .into(),
+            })
+        }
+    } else {
+        Err(ShellError::GenericError {
+            error: "Can't manage plugin process to enter foreground".into(),
+            msg: "the process ID for this plugin is unknown".into(),
+            span: Some(context.span()),
+            help: Some("the plugin may be running in a test".into()),
+            inner: vec![],
+        })
     }
 }

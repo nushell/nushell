@@ -128,7 +128,7 @@ impl<I, O> TestCase<I, O> {
 impl TestCase<PluginOutput, PluginInput> {
     /// Create a new [`PluginInterfaceManager`] that writes to this test case.
     pub(crate) fn plugin(&self, name: &str) -> PluginInterfaceManager {
-        PluginInterfaceManager::new(PluginSource::new_fake(name).into(), self.clone())
+        PluginInterfaceManager::new(PluginSource::new_fake(name).into(), None, self.clone())
     }
 }
 
