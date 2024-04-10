@@ -68,7 +68,7 @@ features = [
 	"to_dummies",
 ]
 optional = false
-version = "0.37"
+version = "0.38"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.92.2" }
