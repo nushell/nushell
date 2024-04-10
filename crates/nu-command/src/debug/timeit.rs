@@ -47,6 +47,7 @@ impl Command for TimeIt {
         // reset outdest, so the command can write to stdout and stderr.
         let mut eval_stack = stack.clone().reset_out_dest();
         if let Some(command_to_run) = command_to_run {
+            let stack = &mut stack.push_redirection(None, None);
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);
