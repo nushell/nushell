@@ -44,14 +44,16 @@ impl Command for TimeIt {
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
 
+        // reset outdest, so the command can write to stdout and stderr.
+        let mut eval_stack = stack.clone().reset_out_dest();
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);
-                eval_block(engine_state, stack, block, input)?
+                eval_block(engine_state, &mut eval_stack, block, input)?
             } else {
                 let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-                eval_expression_with_input(engine_state, stack, command_to_run, input)
+                eval_expression_with_input(engine_state, &mut eval_stack, command_to_run, input)
                     .map(|res| res.0)?
             }
         } else {

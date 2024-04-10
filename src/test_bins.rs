@@ -70,7 +70,7 @@ pub fn echo_env_mixed() {
 }
 
 /// Cross platform echo using println!()
-/// Example: nu --testbin echo a b c
+/// Example: nu --testbin cococo a b c
 /// a b c
 pub fn cococo() {
     let args: Vec<String> = args();

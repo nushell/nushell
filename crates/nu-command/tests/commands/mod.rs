@@ -113,6 +113,7 @@ mod ucp;
 #[cfg(unix)]
 mod ulimit;
 
+mod debug;
 mod umkdir;
 mod uname;
 mod uniq;
