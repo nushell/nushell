@@ -11,7 +11,7 @@ use crate::protocol::{
 };
 use nu_protocol::{
     engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
-    PluginSignature, ShellError, Spanned, Value,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
@@ -679,6 +679,22 @@ impl EngineInterface {
             EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
+            }),
+        }
+    }
+
+    /// Get the contents of a [`Span`] from the engine.
+    ///
+    /// This method returns `Vec<u8>` as it's possible for the matched span to not be a valid UTF-8
+    /// string, perhaps because it sliced through the middle of a UTF-8 byte sequence, as the
+    /// offsets are byte-indexed. Use [`String::from_utf8_lossy()`] for display if necessary.
+    pub fn get_span_contents(&self, span: Span) -> Result<Vec<u8>, ShellError> {
+        match self.engine_call(EngineCall::GetSpanContents(span))? {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::Binary { val, .. }, _)) => {
+                Ok(val)
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetSpanContents".into(),
             }),
         }
     }

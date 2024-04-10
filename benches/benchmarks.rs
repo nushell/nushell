@@ -85,6 +85,7 @@ fn bench_command_with_custom_stack_and_engine(
                 &mut stack.clone(),
                 PipelineData::empty(),
                 None,
+                false,
             )
             .unwrap();
         })
@@ -104,6 +105,7 @@ fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
         &mut stack,
         PipelineData::empty(),
         None,
+        false,
     )
     .unwrap();
 
@@ -263,6 +265,7 @@ mod eval_commands {
                     &mut nu_protocol::engine::Stack::new(),
                     PipelineData::empty(),
                     None,
+                    false,
                 )
                 .unwrap();
             })

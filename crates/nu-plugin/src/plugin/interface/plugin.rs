@@ -1193,6 +1193,13 @@ pub(crate) fn handle_engine_call(
         }
         EngineCall::EnterForeground => set_foreground(process, context, true),
         EngineCall::LeaveForeground => set_foreground(process, context, false),
+        EngineCall::GetSpanContents(span) => {
+            let contents = context.get_span_contents(span)?;
+            Ok(EngineCallResponse::value(Value::binary(
+                contents.item,
+                contents.span,
+            )))
+        }
         EngineCall::EvalClosure {
             closure,
             positional,

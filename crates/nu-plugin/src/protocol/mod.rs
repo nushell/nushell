@@ -467,6 +467,8 @@ pub enum EngineCall<D> {
     EnterForeground,
     /// Move the plugin out of the foreground once terminal interaction has finished
     LeaveForeground,
+    /// Get the contents of a span. Response is a binary which may not parse to UTF-8
+    GetSpanContents(Span),
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -497,6 +499,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetHelp => "GetHelp",
             EngineCall::EnterForeground => "EnterForeground",
             EngineCall::LeaveForeground => "LeaveForeground",
+            EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
@@ -517,6 +520,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetHelp => EngineCall::GetHelp,
             EngineCall::EnterForeground => EngineCall::EnterForeground,
             EngineCall::LeaveForeground => EngineCall::LeaveForeground,
+            EngineCall::GetSpanContents(span) => EngineCall::GetSpanContents(span),
             EngineCall::EvalClosure {
                 closure,
                 positional,

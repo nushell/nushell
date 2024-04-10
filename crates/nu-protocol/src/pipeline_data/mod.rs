@@ -1,9 +1,9 @@
-mod io_stream;
 mod metadata;
+mod out_dest;
 mod stream;
 
-pub use io_stream::*;
 pub use metadata::*;
+pub use out_dest::*;
 pub use stream::*;
 
 use crate::{
@@ -208,14 +208,14 @@ impl PipelineData {
         }
     }
 
-    /// Writes all values or redirects all output to the current stdio streams in `stack`.
+    /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
     ///
-    /// For [`IoStream::Pipe`] and [`IoStream::Capture`], this will return the `PipelineData` as is
+    /// For [`OutDest::Pipe`] and [`OutDest::Capture`], this will return the `PipelineData` as is
     /// without consuming input and without writing anything.
     ///
-    /// For the other [`IoStream`]s, the given `PipelineData` will be completely consumed
+    /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
     /// and `PipelineData::Empty` will be returned.
-    pub fn write_to_io_streams(
+    pub fn write_to_out_dests(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -234,10 +234,10 @@ impl PipelineData {
             ) => {
                 fn needs_redirect(
                     stream: Option<RawStream>,
-                    io_stream: &IoStream,
+                    out_dest: &OutDest,
                 ) -> Result<RawStream, Option<RawStream>> {
-                    match (stream, io_stream) {
-                        (Some(stream), IoStream::Pipe | IoStream::Capture) => Err(Some(stream)),
+                    match (stream, out_dest) {
+                        (Some(stream), OutDest::Pipe | OutDest::Capture) => Err(Some(stream)),
                         (Some(stream), _) => Ok(stream),
                         (None, _) => Err(None),
                     }
@@ -296,22 +296,22 @@ impl PipelineData {
                     trim_end_newline,
                 })
             }
-            (data, IoStream::Pipe | IoStream::Capture) => Ok(data),
+            (data, OutDest::Pipe | OutDest::Capture) => Ok(data),
             (PipelineData::Empty, _) => Ok(PipelineData::Empty),
-            (PipelineData::Value(_, _), IoStream::Null) => Ok(PipelineData::Empty),
-            (PipelineData::ListStream(stream, _), IoStream::Null) => {
+            (PipelineData::Value(_, _), OutDest::Null) => Ok(PipelineData::Empty),
+            (PipelineData::ListStream(stream, _), OutDest::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(value, _), IoStream::File(file)) => {
+            (PipelineData::Value(value, _), OutDest::File(file)) => {
                 let bytes = value_to_bytes(value)?;
                 let mut file = file.try_clone()?;
                 file.write_all(&bytes)?;
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::ListStream(stream, _), IoStream::File(file)) => {
+            (PipelineData::ListStream(stream, _), OutDest::File(file)) => {
                 let mut file = file.try_clone()?;
                 // use BufWriter here?
                 for value in stream {
@@ -324,7 +324,7 @@ impl PipelineData {
             }
             (
                 data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
-                IoStream::Inherit,
+                OutDest::Inherit,
             ) => {
                 let config = engine_state.get_config();
 
@@ -1036,26 +1036,26 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     }
 }
 
-/// Only call this if `output_stream` is not `IoStream::Pipe` or `IoStream::Capture`.
-fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io::Result<()> {
+/// Only call this if `output_stream` is not `OutDest::Pipe` or `OutDest::Capture`.
+fn consume_child_output(child_output: RawStream, output_stream: &OutDest) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {
-        IoStream::Pipe | IoStream::Capture => {
+        OutDest::Pipe | OutDest::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
-            // but IoStream::Pipe means to redirect output
+            // but OutDest::Pipe means to redirect output
             // into an OS pipe for *future use* (as input for another command).
             // So, this branch makes no sense, and will simply drop `output` instead of draining it.
             // This could trigger a `SIGPIPE` for the external command,
             // since there will be no reader for its pipe.
             debug_assert!(false)
         }
-        IoStream::Null => {
+        OutDest::Null => {
             io::copy(&mut output, &mut io::sink())?;
         }
-        IoStream::Inherit => {
+        OutDest::Inherit => {
             io::copy(&mut output, &mut io::stdout())?;
         }
-        IoStream::File(file) => {
+        OutDest::File(file) => {
             io::copy(&mut output, &mut file.try_clone()?)?;
         }
     }
