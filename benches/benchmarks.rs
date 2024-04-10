@@ -211,7 +211,7 @@ fn bench_record_flat_access(n: i32) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
         &format!("record_flat_access_{n}"),
-        &"$record.col_0 | ignore",
+        "$record.col_0 | ignore",
         stack,
         engine,
     )
@@ -243,7 +243,7 @@ fn bench_table_get(n: i32) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
         &format!("table_get_{n}"),
-        &"$table | get bar | math sum | ignore",
+        "$table | get bar | math sum | ignore",
         stack,
         engine,
     )
@@ -254,7 +254,7 @@ fn bench_table_select(n: i32) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
         &format!("table_select_{n}"),
-        &"$table | select foo baz | ignore",
+        "$table | select foo baz | ignore",
         stack,
         engine,
     )
@@ -350,7 +350,7 @@ fn encode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let encoder = Rc::new(EncodingType::try_from_bytes(b"json").unwrap());
 
     [benchmark_fn(
-        &format!("encode_json_{}_{}", row_cnt, col_cnt),
+        format!("encode_json_{}_{}", row_cnt, col_cnt),
         move |b| {
             let encoder = encoder.clone();
             let test_data = test_data.clone();
@@ -370,7 +370,7 @@ fn encode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let encoder = Rc::new(EncodingType::try_from_bytes(b"msgpack").unwrap());
 
     [benchmark_fn(
-        &format!("encode_msgpack_{}_{}", row_cnt, col_cnt),
+        format!("encode_msgpack_{}_{}", row_cnt, col_cnt),
         move |b| {
             let encoder = encoder.clone();
             let test_data = test_data.clone();
@@ -392,10 +392,9 @@ fn decode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     encoder.encode(&test_data, &mut res).unwrap();
 
     [benchmark_fn(
-        &format!("decode_json_{}_{}", row_cnt, col_cnt),
+        format!("decode_json_{}_{}", row_cnt, col_cnt),
         move |b| {
             let res = res.clone();
-            let encoder = encoder.clone();
             b.iter(move || {
                 let mut binary_data = std::io::Cursor::new(res.clone());
                 binary_data.set_position(0);
@@ -416,10 +415,9 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     encoder.encode(&test_data, &mut res).unwrap();
 
     [benchmark_fn(
-        &format!("decode_msgpack_{}_{}", row_cnt, col_cnt),
+        format!("decode_msgpack_{}_{}", row_cnt, col_cnt),
         move |b| {
             let res = res.clone();
-            let encoder = encoder.clone();
             b.iter(move || {
                 let mut binary_data = std::io::Cursor::new(res.clone());
                 binary_data.set_position(0);
