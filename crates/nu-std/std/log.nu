@@ -135,7 +135,7 @@ def parse-int-level [
 }
 
 def current-log-level [] {
-    let env_level = ($env.NU_log-level? | default (log-level).INFO)
+    let env_level = ($env.NU_LOG_LEVEL? | default (log-level).INFO)
 
     try {
         $env_level | into int
