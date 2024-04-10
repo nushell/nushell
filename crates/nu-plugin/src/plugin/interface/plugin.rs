@@ -1219,7 +1219,7 @@ fn set_foreground(
     enter: bool,
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
     if let Some(process) = process {
-        if let Some(ref pipeline_externals_state) = context.pipeline_externals_state() {
+        if let Some(pipeline_externals_state) = context.pipeline_externals_state() {
             if enter {
                 let pgrp = process.enter_foreground(context.span(), pipeline_externals_state)?;
                 Ok(pgrp.map_or_else(EngineCallResponse::empty, |id| {
