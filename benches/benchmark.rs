@@ -71,6 +71,7 @@ fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
         &mut stack,
         PipelineData::empty(),
         None,
+        false,
     )
     .unwrap();
 
@@ -112,6 +113,7 @@ fn bench_command(
                     &mut stack,
                     PipelineData::empty(),
                     None,
+                    false,
                 )
                 .unwrap(),
             );
