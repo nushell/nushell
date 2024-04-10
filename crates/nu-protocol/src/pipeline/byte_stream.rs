@@ -156,6 +156,13 @@ impl ByteStream {
         }
     }
 
+    pub fn into_child(self) -> Result<ChildProcess, Self> {
+        match self.stream {
+            ByteStreamSource::Child(child) => Ok(*child),
+            _ => Err(self),
+        }
+    }
+
     pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
         // todo!() ctrlc
         match self.stream {

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStreamSource, OutDest};
+use nu_protocol::OutDest;
 
 #[derive(Clone)]
 pub struct Complete;
@@ -33,7 +33,7 @@ impl Command for Complete {
         let head = call.head;
         match input {
             PipelineData::ByteStream(stream, ..) => {
-                let ByteStreamSource::Child(child) = stream.into_source() else {
+                let Ok(child) = stream.into_child() else {
                     return Err(ShellError::GenericError {
                         error: "Complete only works with external commands".into(),
                         msg: "complete only works on external commands".into(),
