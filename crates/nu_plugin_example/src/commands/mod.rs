@@ -24,13 +24,13 @@ pub use env::Env;
 pub use view_span::ViewSpan;
 
 // Stream demos
-mod collect_external;
+mod collect_bytes;
 mod for_each;
 mod generate;
 mod seq;
 mod sum;
 
-pub use collect_external::CollectExternal;
+pub use collect_bytes::CollectBytes;
 pub use for_each::ForEach;
 pub use generate::Generate;
 pub use seq::Seq;

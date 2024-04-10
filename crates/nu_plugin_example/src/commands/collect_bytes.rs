@@ -1,22 +1,23 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, RawStream, Signature, Type, Value,
+    io::ReadResultIterator, ByteStream, Category, Example, LabeledError, PipelineData, Signature,
+    Type, Value,
 };
 
 use crate::ExamplePlugin;
 
-/// `<list<string>> | example collect-external`
-pub struct CollectExternal;
+/// `<list<string>> | example collect-bytes`
+pub struct CollectBytes;
 
-impl PluginCommand for CollectExternal {
+impl PluginCommand for CollectBytes {
     type Plugin = ExamplePlugin;
 
     fn name(&self) -> &str {
-        "example collect-external"
+        "example collect-bytes"
     }
 
     fn usage(&self) -> &str {
-        "Example transformer to raw external stream"
+        "Example transformer to byte stream"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -34,7 +35,7 @@ impl PluginCommand for CollectExternal {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "[a b] | example collect-external",
+            example: "[a b] | example collect-bytes",
             description: "collect strings into one stream",
             result: Some(Value::test_string("ab")),
         }]
@@ -47,26 +48,19 @@ impl PluginCommand for CollectExternal {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let stream = input.into_iter().map(|value| {
-            value
-                .as_str()
-                .map(|str| str.as_bytes())
-                .or_else(|_| value.as_binary())
-                .map(|bin| bin.to_vec())
-        });
-        Ok(PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(Box::new(stream), None, call.head, None)),
-            stderr: None,
-            exit_code: None,
-            span: call.head,
-            metadata: None,
-            trim_end_newline: false,
-        })
+        Ok(PipelineData::ByteStream(
+            ByteStream::read(
+                ReadResultIterator::new(input.into_iter().map(Value::coerce_into_binary)),
+                call.head,
+                None,
+            ),
+            None,
+        ))
     }
 }
 
 #[test]
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
-    PluginTest::new("example", ExamplePlugin.into())?.test_command_examples(&CollectExternal)
+    PluginTest::new("example", ExamplePlugin.into())?.test_command_examples(&CollectBytes)
 }

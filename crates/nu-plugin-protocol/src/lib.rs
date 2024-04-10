@@ -22,7 +22,7 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
+    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature,
     ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
@@ -82,32 +82,20 @@ pub enum PipelineDataHeader {
     ///
     /// Items are sent via [`StreamData`]
     ListStream(ListStreamInfo),
-    /// Initiate [`nu_protocol::PipelineData::ExternalStream`].
+    /// Initiate [`nu_protocol::PipelineData::ByteStream`].
     ///
     /// Items are sent via [`StreamData`]
-    ExternalStream(ExternalStreamInfo),
+    ByteStream(ByteStreamInfo),
 }
 
 impl PipelineDataHeader {
     /// Return a list of stream IDs embedded in the header
-    pub fn stream_ids(&self) -> Vec<StreamId> {
+    pub fn stream_id(&self) -> Option<StreamId> {
         match self {
-            PipelineDataHeader::Empty => vec![],
-            PipelineDataHeader::Value(_) => vec![],
-            PipelineDataHeader::ListStream(info) => vec![info.id],
-            PipelineDataHeader::ExternalStream(info) => {
-                let mut out = vec![];
-                if let Some(stdout) = &info.stdout {
-                    out.push(stdout.id);
-                }
-                if let Some(stderr) = &info.stderr {
-                    out.push(stderr.id);
-                }
-                if let Some(exit_code) = &info.exit_code {
-                    out.push(exit_code.id);
-                }
-                out
-            }
+            PipelineDataHeader::Empty => None,
+            PipelineDataHeader::Value(_) => None,
+            PipelineDataHeader::ListStream(info) => Some(info.id),
+            PipelineDataHeader::ByteStream(info) => Some(info.id),
         }
     }
 }
@@ -119,32 +107,11 @@ pub struct ListStreamInfo {
     pub span: Span,
 }
 
-/// Additional information about external streams
+/// Additional information about byte streams
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct ExternalStreamInfo {
-    pub span: Span,
-    pub stdout: Option<RawStreamInfo>,
-    pub stderr: Option<RawStreamInfo>,
-    pub exit_code: Option<ListStreamInfo>,
-    pub trim_end_newline: bool,
-}
-
-/// Additional information about raw (byte) streams
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct RawStreamInfo {
+pub struct ByteStreamInfo {
     pub id: StreamId,
-    pub is_binary: bool,
-    pub known_size: Option<u64>,
-}
-
-impl RawStreamInfo {
-    pub fn new(id: StreamId, stream: &RawStream) -> Self {
-        RawStreamInfo {
-            id,
-            is_binary: stream.is_binary,
-            known_size: stream.known_size,
-        }
-    }
+    pub span: Span,
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.
@@ -380,7 +347,7 @@ impl PluginCallResponse<PipelineData> {
                 PipelineData::Empty => false,
                 PipelineData::Value(..) => false,
                 PipelineData::ListStream(..) => true,
-                PipelineData::ExternalStream { .. } => true,
+                PipelineData::ByteStream(..) => true,
             },
             _ => false,
         }

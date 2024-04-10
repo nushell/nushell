@@ -6,11 +6,12 @@ use super::{
     Interface, InterfaceManager, PluginRead, PluginWrite,
 };
 use nu_plugin_protocol::{
-    ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput,
-    RawStreamInfo, StreamData, StreamMessage,
+    ByteStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput, StreamData,
+    StreamMessage,
 };
 use nu_protocol::{
-    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
+    ByteStream, ByteStreamSource, DataSource, ListStream, PipelineData, PipelineMetadata,
+    ShellError, Span, Value,
 };
 use std::{path::Path, sync::Arc};
 
@@ -140,9 +141,9 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let header = PipelineDataHeader::Value(value.clone());
 
     match manager.read_pipeline_data(header, None)? {
-        PipelineData::Value(read_value, _) => assert_eq!(value, read_value),
-        PipelineData::ListStream(_, _) => panic!("unexpected ListStream"),
-        PipelineData::ExternalStream { .. } => panic!("unexpected ExternalStream"),
+        PipelineData::Value(read_value, ..) => assert_eq!(value, read_value),
+        PipelineData::ListStream(..) => panic!("unexpected ListStream"),
+        PipelineData::ByteStream(..) => panic!("unexpected ByteStream"),
         PipelineData::Empty => panic!("unexpected Empty"),
     }
 
@@ -188,47 +189,25 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
 }
 
 #[test]
-fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
+fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let mut manager = TestInterfaceManager::new(&test);
 
     let iterations = 100;
     let out_pattern = b"hello".to_vec();
-    let err_pattern = vec![5, 4, 3, 2];
 
-    test.add(StreamMessage::Data(14, Value::test_int(1).into()));
     for _ in 0..iterations {
         test.add(StreamMessage::Data(
             12,
             StreamData::Raw(Ok(out_pattern.clone())),
         ));
-        test.add(StreamMessage::Data(
-            13,
-            StreamData::Raw(Ok(err_pattern.clone())),
-        ));
     }
     test.add(StreamMessage::End(12));
-    test.add(StreamMessage::End(13));
-    test.add(StreamMessage::End(14));
 
     let test_span = Span::new(10, 13);
-    let header = PipelineDataHeader::ExternalStream(ExternalStreamInfo {
+    let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
+        id: 12,
         span: test_span,
-        stdout: Some(RawStreamInfo {
-            id: 12,
-            is_binary: false,
-            known_size: Some((out_pattern.len() * iterations) as u64),
-        }),
-        stderr: Some(RawStreamInfo {
-            id: 13,
-            is_binary: true,
-            known_size: None,
-        }),
-        exit_code: Some(ListStreamInfo {
-            id: 14,
-            span: Span::test_data(),
-        }),
-        trim_end_newline: true,
     });
 
     let pipe = manager.read_pipeline_data(header, None)?;
@@ -237,52 +216,28 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
     manager.consume_all()?;
 
     match pipe {
-        PipelineData::ExternalStream {
-            stdout,
-            stderr,
-            exit_code,
-            span,
-            metadata,
-            trim_end_newline,
-        } => {
-            let stdout = stdout.expect("stdout is None");
-            let stderr = stderr.expect("stderr is None");
-            let exit_code = exit_code.expect("exit_code is None");
-            assert_eq!(test_span, span);
+        PipelineData::ByteStream(stream, metadata) => {
+            assert_eq!(test_span, stream.span());
             assert!(
                 metadata.is_some(),
                 "expected metadata to be Some due to prepare_pipeline_data()"
             );
-            assert!(trim_end_newline);
 
-            assert!(!stdout.is_binary);
-            assert!(stderr.is_binary);
-
-            assert_eq!(
-                Some((out_pattern.len() * iterations) as u64),
-                stdout.known_size
-            );
-            assert_eq!(None, stderr.known_size);
-
-            // check the streams
-            let mut count = 0;
-            for chunk in stdout.stream {
-                assert_eq!(out_pattern, chunk?);
-                count += 1;
+            match stream.into_source() {
+                ByteStreamSource::Read(mut read) => {
+                    let mut buf = Vec::new();
+                    read.read_to_end(&mut buf)?;
+                    let iter = buf.chunks_exact(out_pattern.len());
+                    assert_eq!(iter.len(), iterations);
+                    for chunk in iter {
+                        assert_eq!(out_pattern, chunk)
+                    }
+                }
+                ByteStreamSource::File(..) => panic!("unexpected byte stream source: file"),
+                ByteStreamSource::Child(..) => {
+                    panic!("unexpected byte stream source: child")
+                }
             }
-            assert_eq!(iterations, count, "stdout length");
-            let mut count = 0;
-
-            for chunk in stderr.stream {
-                assert_eq!(err_pattern, chunk?);
-                count += 1;
-            }
-            assert_eq!(iterations, count, "stderr length");
-
-            assert_eq!(
-                vec![Value::test_int(1)],
-                exit_code.into_iter().collect::<Vec<_>>()
-            );
         }
         _ => panic!("unexpected PipelineData: {pipe:?}"),
     }
@@ -436,120 +391,51 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
 }
 
 #[test]
-fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
+fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = TestInterfaceManager::new(&test);
     let interface = manager.get_interface();
 
-    let stdout_bufs = vec![
-        b"hello".to_vec(),
-        b"world".to_vec(),
-        b"these are tests".to_vec(),
-    ];
-    let stdout_len = stdout_bufs.iter().map(|b| b.len() as u64).sum::<u64>();
-    let stderr_bufs = vec![b"error messages".to_vec(), b"go here".to_vec()];
-    let exit_code = Value::test_int(7);
-
+    let expected = "hello\nworld\nthese are tests";
     let span = Span::new(400, 500);
 
-    // Set up pipeline data for an external stream
-    let pipe = PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(stdout_bufs.clone().into_iter().map(Ok)),
-            None,
-            span,
-            Some(stdout_len),
-        )),
-        stderr: Some(RawStream::new(
-            Box::new(stderr_bufs.clone().into_iter().map(Ok)),
-            None,
-            span,
-            None,
-        )),
-        exit_code: Some(ListStream::new(
-            std::iter::once(exit_code.clone()),
-            Span::test_data(),
-            None,
-        )),
-        span,
-        metadata: None,
-        trim_end_newline: true,
-    };
+    // Set up pipeline data for a byte stream
+    let data = PipelineData::ByteStream(
+        ByteStream::read(std::io::Cursor::new(expected), span, None),
+        None,
+    );
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
+    let (header, writer) = interface.init_write_pipeline_data(data, &())?;
 
     let info = match header {
-        PipelineDataHeader::ExternalStream(info) => info,
+        PipelineDataHeader::ByteStream(info) => info,
         _ => panic!("unexpected header: {header:?}"),
     };
 
     writer.write()?;
 
-    let stdout_info = info.stdout.as_ref().expect("stdout info is None");
-    let stderr_info = info.stderr.as_ref().expect("stderr info is None");
-    let exit_code_info = info.exit_code.as_ref().expect("exit code info is None");
-
     assert_eq!(span, info.span);
-    assert!(info.trim_end_newline);
-
-    assert_eq!(Some(stdout_len), stdout_info.known_size);
-    assert_eq!(None, stderr_info.known_size);
 
     // Now make sure the stream messages have been written
-    let mut stdout_iter = stdout_bufs.into_iter();
-    let mut stderr_iter = stderr_bufs.into_iter();
-    let mut exit_code_iter = std::iter::once(exit_code);
+    let mut actual = Vec::new();
+    let mut ended = false;
 
-    let mut stdout_ended = false;
-    let mut stderr_ended = false;
-    let mut exit_code_ended = false;
-
-    // There's no specific order these messages must come in with respect to how the streams are
-    // interleaved, but all of the data for each stream must be in its original order, and the
-    // End must come after all Data
     for msg in test.written() {
         match msg {
             PluginOutput::Data(id, data) => {
-                if id == stdout_info.id {
-                    let result: Result<Vec<u8>, ShellError> =
-                        data.try_into().expect("wrong data in stdout stream");
-                    assert_eq!(
-                        stdout_iter.next().expect("too much data in stdout"),
-                        result.expect("unexpected error in stdout stream")
-                    );
-                } else if id == stderr_info.id {
-                    let result: Result<Vec<u8>, ShellError> =
-                        data.try_into().expect("wrong data in stderr stream");
-                    assert_eq!(
-                        stderr_iter.next().expect("too much data in stderr"),
-                        result.expect("unexpected error in stderr stream")
-                    );
-                } else if id == exit_code_info.id {
-                    let code: Value = data.try_into().expect("wrong data in stderr stream");
-                    assert_eq!(
-                        exit_code_iter.next().expect("too much data in stderr"),
-                        code
-                    );
+                if id == info.id {
+                    let data: Result<Vec<u8>, ShellError> =
+                        data.try_into().expect("wrong data in stream");
+
+                    let data = data.expect("unexpected error in stream");
+                    actual.extend(data);
                 } else {
                     panic!("unrecognized stream id: {id}");
                 }
             }
             PluginOutput::End(id) => {
-                if id == stdout_info.id {
-                    assert!(!stdout_ended, "double End of stdout");
-                    assert!(stdout_iter.next().is_none(), "unexpected end of stdout");
-                    stdout_ended = true;
-                } else if id == stderr_info.id {
-                    assert!(!stderr_ended, "double End of stderr");
-                    assert!(stderr_iter.next().is_none(), "unexpected end of stderr");
-                    stderr_ended = true;
-                } else if id == exit_code_info.id {
-                    assert!(!exit_code_ended, "double End of exit_code");
-                    assert!(
-                        exit_code_iter.next().is_none(),
-                        "unexpected end of exit_code"
-                    );
-                    exit_code_ended = true;
+                if id == info.id {
+                    ended = true;
                 } else {
                     panic!("unrecognized stream id: {id}");
                 }
@@ -558,9 +444,8 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
         }
     }
 
-    assert!(stdout_ended, "stdout did not End");
-    assert!(stderr_ended, "stderr did not End");
-    assert!(exit_code_ended, "exit_code did not End");
+    assert_eq!(expected.as_bytes(), actual);
+    assert!(ended, "stream did not End");
 
     Ok(())
 }

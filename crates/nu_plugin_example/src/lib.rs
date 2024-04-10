@@ -24,7 +24,7 @@ impl Plugin for ExamplePlugin {
             Box::new(ViewSpan),
             Box::new(DisableGc),
             // Stream demos
-            Box::new(CollectExternal),
+            Box::new(CollectBytes),
             Box::new(ForEach),
             Box::new(Generate),
             Box::new(Seq),

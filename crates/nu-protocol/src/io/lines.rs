@@ -1,18 +1,18 @@
 use crate::{IntoSpanned, ShellError, Span, Value};
 use std::{
-    io::{self, BufRead},
+    io::{self, BufRead, BufReader, Read},
     sync::{atomic::AtomicBool, Arc},
 };
 
-struct ByteLines<R: BufRead>(R);
+pub struct ByteLines<R: Read>(BufReader<R>);
 
-impl<R: BufRead> ByteLines<R> {
+impl<R: Read> ByteLines<R> {
     pub fn new(read: R) -> Self {
-        Self(read)
+        Self(BufReader::new(read))
     }
 }
 
-impl<R: BufRead> Iterator for ByteLines<R> {
+impl<R: Read> Iterator for ByteLines<R> {
     type Item = io::Result<Vec<u8>>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -38,13 +38,13 @@ impl<R: BufRead> Iterator for ByteLines<R> {
     }
 }
 
-pub struct Lines<R: BufRead> {
+pub struct Lines<R: Read> {
     lines: ByteLines<R>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl<R: BufRead> Lines<R> {
+impl<R: Read> Lines<R> {
     pub fn new(reader: R, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> Self {
         Self {
             lines: ByteLines::new(reader),
@@ -58,7 +58,7 @@ impl<R: BufRead> Lines<R> {
     }
 }
 
-impl<R: BufRead> Iterator for Lines<R> {
+impl<R: Read> Iterator for Lines<R> {
     type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -74,13 +74,13 @@ impl<R: BufRead> Iterator for Lines<R> {
     }
 }
 
-pub struct Values<R: BufRead> {
+pub struct Values<R: Read> {
     lines: ByteLines<R>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl<R: BufRead> Values<R> {
+impl<R: Read> Values<R> {
     pub fn new(reader: R, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> Self {
         Self {
             lines: ByteLines::new(reader),
@@ -94,7 +94,7 @@ impl<R: BufRead> Values<R> {
     }
 }
 
-impl<R: BufRead> Iterator for Values<R> {
+impl<R: Read> Iterator for Values<R> {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
