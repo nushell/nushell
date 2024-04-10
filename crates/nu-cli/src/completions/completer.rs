@@ -96,9 +96,8 @@ impl NuCompleter {
             PipelineData::empty(),
         );
 
-        match result {
-            Ok(pd) => {
-                let value = pd.into_value(span);
+        match result.and_then(|data| data.into_value(span)) {
+            Ok(value) => {
                 if let Value::List { vals, .. } = value {
                     let result =
                         map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);

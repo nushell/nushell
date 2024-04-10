@@ -4,7 +4,7 @@ use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token,
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    print_if_stream, report_error, report_error_new, PipelineData, ShellError, Span, Value,
+    report_error, report_error_new, PipelineData, ShellError, Span, Value,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -208,9 +208,43 @@ pub fn eval_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> bool {
+) -> i32 {
     let start_time = std::time::Instant::now();
 
+    let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
+        Ok(true) => 0,
+        Ok(false) => 1,
+        Err(err) => {
+            report_error_new(engine_state, &err);
+            err.exit_code()
+        }
+    };
+
+    stack.add_env_var(
+        "LAST_EXIT_CODE".to_string(),
+        Value::int(exit_code.into(), Span::unknown()),
+    );
+
+    perf(
+        &format!("eval_source {}", &fname),
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        engine_state.get_config().use_ansi_coloring,
+    );
+
+    exit_code
+}
+
+fn evaluate_source(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    source: &[u8],
+    fname: &str,
+    input: PipelineData,
+    allow_return: bool,
+) -> Result<bool, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -224,104 +258,47 @@ pub fn eval_source(
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            set_last_exit_code(stack, 1);
             report_error(&working_set, err);
-            return false;
+            return Ok(false);
         }
 
         (output, working_set.render())
     };
 
-    if let Err(err) = engine_state.merge_delta(delta) {
-        set_last_exit_code(stack, 1);
-        report_error_new(engine_state, &err);
-        return false;
-    }
+    engine_state.merge_delta(delta)?;
 
-    let b = if allow_return {
+    let data = if allow_return {
         eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
     } else {
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
-    };
+    }?;
 
-    match b {
-        Ok(pipeline_data) => {
-            let config = engine_state.get_config();
-            let result;
-            if let PipelineData::ExternalStream {
-                stdout: stream,
-                stderr: stderr_stream,
-                exit_code,
-                ..
-            } = pipeline_data
-            {
-                result = print_if_stream(stream, stderr_stream, false, exit_code);
-            } else if let Some(hook) = config.hooks.display_output.clone() {
-                match eval_hook(
-                    engine_state,
-                    stack,
-                    Some(pipeline_data),
-                    vec![],
-                    &hook,
-                    "display_output",
-                ) {
-                    Err(err) => {
-                        result = Err(err);
-                    }
-                    Ok(val) => {
-                        result = val.print(engine_state, stack, false, false);
-                    }
-                }
-            } else {
-                result = pipeline_data.print(engine_state, stack, true, false);
-            }
+    if let PipelineData::ByteStream(stream, ..) = data {
+        stream.print()?;
+    } else {
+        let display_hook = engine_state.get_config().hooks.display_output.clone();
 
-            match result {
-                Err(err) => {
-                    let working_set = StateWorkingSet::new(engine_state);
+        if let Some(hook) = display_hook {
+            let data = eval_hook(
+                engine_state,
+                stack,
+                Some(data),
+                vec![],
+                &hook,
+                "display_output",
+            )?;
+            data.print(engine_state, stack, false, false)
+        } else {
+            data.print(engine_state, stack, true, false)
+        }?;
 
-                    report_error(&working_set, &err);
-
-                    return false;
-                }
-                Ok(exit_code) => {
-                    set_last_exit_code(stack, exit_code);
-                }
-            }
-
-            // reset vt processing, aka ansi because illbehaved externals can break it
-            #[cfg(windows)]
-            {
-                let _ = enable_vt_processing();
-            }
-        }
-        Err(err) => {
-            set_last_exit_code(stack, 1);
-
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &err);
-
-            return false;
+        // reset vt processing, aka ansi because illbehaved externals can break it
+        #[cfg(windows)]
+        {
+            let _ = enable_vt_processing();
         }
     }
-    perf(
-        &format!("eval_source {}", &fname),
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
-    );
-
-    true
-}
-
-fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
-    stack.add_env_var(
-        "LAST_EXIT_CODE".to_string(),
-        Value::int(exit_code, Span::unknown()),
-    );
+    Ok(true)
 }
 
 #[cfg(test)]
