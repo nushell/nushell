@@ -1,5 +1,6 @@
 use std::{fs::File, path::PathBuf};
 
+use nu_path::expand_path_with;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
@@ -43,24 +44,26 @@ impl PluginCommand for ToParquet {
     fn run(
         &self,
         plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, call, input).map_err(LabeledError::from)
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
 fn command(
     plugin: &PolarsPlugin,
+    engine: &EngineInterface,
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(0)?;
+    let file_path = expand_path_with(&file_name.item, engine.get_current_dir()?, true);
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
+    let file = File::create(file_path).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
         msg: e.to_string(),
         span: Some(file_name.span),
@@ -112,7 +115,7 @@ pub mod test {
                 tmp_dir
                     .path()
                     .to_str()
-                    .expect("shold be able to get path")
+                    .expect("should be able to get path")
                     .to_owned(),
                 Span::test_data(),
             ),

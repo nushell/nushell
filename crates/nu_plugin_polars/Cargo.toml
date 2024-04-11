@@ -19,6 +19,7 @@ bench = false
 [dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.92.2" }
 nu-plugin = { path = "../nu-plugin", version = "0.92.2" }
+nu-path = { path = "../nu-path", version = "0.92.2" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
