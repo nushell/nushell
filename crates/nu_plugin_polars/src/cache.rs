@@ -3,19 +3,28 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
+use chrono::{DateTime, FixedOffset, Local};
 use nu_plugin::EngineInterface;
-use nu_protocol::{LabeledError, ShellError};
+use nu_protocol::{LabeledError, ShellError, Span};
 use uuid::Uuid;
 
 use crate::{plugin_debug, values::PolarsPluginObject, PolarsPlugin};
 
+#[derive(Debug, Clone)]
+pub struct CacheValue {
+    pub uuid: Uuid,
+    pub value: PolarsPluginObject,
+    pub created: DateTime<FixedOffset>,
+    pub span: Span,
+}
+
 #[derive(Default)]
 pub struct Cache {
-    cache: Mutex<HashMap<Uuid, PolarsPluginObject>>,
+    cache: Mutex<HashMap<Uuid, CacheValue>>,
 }
 
 impl Cache {
-    fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, PolarsPluginObject>>, ShellError> {
+    fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, CacheValue>>, ShellError> {
         self.cache.lock().map_err(|e| ShellError::GenericError {
             error: format!("error acquiring cache lock: {e}"),
             msg: "".into(),
@@ -31,7 +40,7 @@ impl Cache {
         &self,
         maybe_engine: Option<&EngineInterface>,
         uuid: &Uuid,
-    ) -> Result<Option<PolarsPluginObject>, ShellError> {
+    ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = self.lock()?;
         let removed = lock.remove(uuid);
         plugin_debug!("PolarsPlugin: removing {uuid} from cache: {removed:?}");
@@ -55,7 +64,8 @@ impl Cache {
         maybe_engine: Option<&EngineInterface>,
         uuid: Uuid,
         value: PolarsPluginObject,
-    ) -> Result<Option<PolarsPluginObject>, ShellError> {
+        span: Span,
+    ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = self.lock()?;
         plugin_debug!("PolarsPlugin: Inserting {uuid} into cache: {value:?}");
         // turn off plugin gc the first time an entry is added to the cache
@@ -68,12 +78,18 @@ impl Cache {
             }
             _ => (),
         };
-        let result = lock.insert(uuid, value);
+        let cache_value = CacheValue {
+            uuid,
+            value,
+            created: Local::now().into(),
+            span,
+        };
+        let result = lock.insert(uuid, cache_value);
         drop(lock);
         Ok(result)
     }
 
-    pub fn get(&self, uuid: &Uuid) -> Result<Option<PolarsPluginObject>, ShellError> {
+    pub fn get(&self, uuid: &Uuid) -> Result<Option<CacheValue>, ShellError> {
         let lock = self.lock()?;
         let result = lock.get(uuid).cloned();
         drop(lock);
@@ -82,12 +98,11 @@ impl Cache {
 
     pub fn process_entries<F, T>(&self, mut func: F) -> Result<Vec<T>, ShellError>
     where
-        F: FnMut((&Uuid, &PolarsPluginObject)) -> Result<T, ShellError>,
+        F: FnMut((&Uuid, &CacheValue)) -> Result<T, ShellError>,
     {
         let lock = self.lock()?;
         let mut vals: Vec<T> = Vec::new();
         for entry in lock.iter() {
-            eprintln!("entry: {:?}", entry);
             let val = func(entry)?;
             vals.push(val);
         }
@@ -103,18 +118,24 @@ pub trait Cacheable: Sized + Clone {
 
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError>;
 
-    fn cache(self, plugin: &PolarsPlugin, engine: &EngineInterface) -> Result<Self, ShellError> {
+    fn cache(
+        self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        span: Span,
+    ) -> Result<Self, ShellError> {
         plugin.cache.insert(
             Some(engine),
             self.cache_id().to_owned(),
             self.to_cache_value()?,
+            span,
         )?;
         Ok(self)
     }
 
     fn get_cached(plugin: &PolarsPlugin, id: &Uuid) -> Result<Option<Self>, ShellError> {
         if let Some(cache_value) = plugin.cache.get(id)? {
-            Ok(Some(Self::from_cache_value(cache_value)?))
+            Ok(Some(Self::from_cache_value(cache_value.value)?))
         } else {
             Ok(None)
         }
