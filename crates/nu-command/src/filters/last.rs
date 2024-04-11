@@ -70,22 +70,26 @@ impl Command for Last {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
+        let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
 
         // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
         // It has the same issue.
         let return_single_element = rows.is_none();
-        let rows_desired: usize = match rows {
-            Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
-            Some(x) => x as usize,
-            None => 1,
+        let rows = if let Some(rows) = rows {
+            if rows.item < 0 {
+                return Err(ShellError::NeedsPositiveValue { span: rows.span });
+            } else {
+                rows.item as usize
+            }
+        } else {
+            1
         };
 
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         // early exit for `last 0`
-        if rows_desired == 0 {
+        if rows == 0 {
             return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
         }
 
@@ -97,7 +101,7 @@ impl Command for Last {
                 let mut buf = VecDeque::<_>::new();
 
                 for row in iterator {
-                    if buf.len() == rows_desired {
+                    if buf.len() == rows {
                         buf.pop_front();
                     }
 
@@ -129,7 +133,7 @@ impl Command for Last {
                             Ok(vals
                                 .into_iter()
                                 .rev()
-                                .take(rows_desired)
+                                .take(rows)
                                 .rev()
                                 .into_pipeline_data_with_metadata(metadata, ctrlc))
                         }
@@ -145,8 +149,7 @@ impl Command for Last {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             }
                         } else {
-                            let slice: Vec<u8> =
-                                val.into_iter().rev().take(rows_desired).rev().collect();
+                            let slice: Vec<u8> = val.into_iter().rev().take(rows).rev().collect();
                             Ok(PipelineData::Value(
                                 Value::binary(slice, val_span),
                                 metadata,

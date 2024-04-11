@@ -79,23 +79,28 @@ fn first_helper(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
+    let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
     // return a single element and otherwise we return a single list. We should probably
     // remove `rows` so that `first` always returns a single element; getting a list of
     // the first N elements is covered by `take`
     let return_single_element = rows.is_none();
-    let rows_desired: usize = match rows {
-        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
-        Some(x) => x as usize,
-        None => 1,
+    let rows = if let Some(rows) = rows {
+        if rows.item < 0 {
+            return Err(ShellError::NeedsPositiveValue { span: rows.span });
+        } else {
+            rows.item as usize
+        }
+    } else {
+        1
     };
 
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
     // early exit for `first 0`
-    if rows_desired == 0 {
+    if rows == 0 {
         return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
     }
 
@@ -113,7 +118,7 @@ fn first_helper(
                     } else {
                         Ok(vals
                             .into_iter()
-                            .take(rows_desired)
+                            .take(rows)
                             .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }
                 }
@@ -128,7 +133,7 @@ fn first_helper(
                             ))
                         }
                     } else {
-                        let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
+                        let slice: Vec<u8> = val.into_iter().take(rows).collect();
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
                     }
                 }
@@ -142,7 +147,7 @@ fn first_helper(
                         }
                     } else {
                         Ok(iter
-                            .take(rows_desired)
+                            .take(rows)
                             .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }
                 }
@@ -165,7 +170,7 @@ fn first_helper(
                 }
             } else {
                 Ok(ls
-                    .take(rows_desired)
+                    .take(rows)
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
             }
         }
