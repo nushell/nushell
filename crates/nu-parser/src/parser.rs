@@ -5765,7 +5765,9 @@ fn discover_captures_in_pipeline(
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
     for element in &pipeline.elements {
+        log::warn!("before discover pipeline element: {element:?}, output: {output:?}");
         discover_captures_in_pipeline_element(working_set, element, seen, seen_blocks, output)?;
+        log::warn!("after discover pipeline element: {element:?}, output: {output:?}");
     }
 
     Ok(())
@@ -5904,6 +5906,7 @@ pub fn discover_captures_in_expr(
             if let Some(block_id) = decl.get_block_id() {
                 match seen_blocks.get(&block_id) {
                     Some(capture_list) => {
+                        log::warn!("success capture list");
                         // Push captures onto the outer closure that aren't created by that outer closure
                         for capture in capture_list {
                             if !seen.contains(&capture.0) {
@@ -5914,6 +5917,7 @@ pub fn discover_captures_in_expr(
                     None => {
                         let block = working_set.get_block(block_id);
                         if !block.captures.is_empty() {
+                            log::warn!("not empty?");
                             for capture in &block.captures {
                                 if !seen.contains(capture) {
                                     output.push((*capture, call.head));
@@ -5935,6 +5939,7 @@ pub fn discover_captures_in_expr(
 
                                 result
                             };
+                            log::warn!("result for sub call block: {result:?}");
                             // Push captures onto the outer closure that aren't created by that outer closure
                             for capture in &result {
                                 if !seen.contains(&capture.0) {
@@ -6297,6 +6302,11 @@ pub fn parse(
         // by our working set delta. If we ever tried to modify the permanent state, we'd
         // panic (again, in theory, this shouldn't be possible)
         let block = working_set.get_block(block_id);
+        log::warn!(
+            "more info: {captures:?}, {:?}, {:?}",
+            block.span,
+            block.captures
+        );
         let block_captures_empty = block.captures.is_empty();
         if !captures.is_empty() && block_captures_empty {
             let block = working_set.get_block_mut(block_id);
