@@ -2236,7 +2236,8 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    if bytes.len() < 6
+    // Sniff if we start with a year and are at least a date
+    if bytes.len() < 10
         || !bytes[0].is_ascii_digit()
         || !bytes[1].is_ascii_digit()
         || !bytes[2].is_ascii_digit()
@@ -2247,9 +2248,13 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(span);
     }
 
-    let token = String::from_utf8_lossy(bytes).to_string();
+    // Only ASCII chars are used in a valid RFC3339 date
+    let Ok(token) = parse_ascii_as_str(bytes) else {
+        working_set.error(ParseError::Expected("datetime", span));
+        return garbage(span);
+    };
 
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&token) {
+    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(token) {
         return Expression {
             expr: Expr::DateTime(datetime),
             span,
@@ -2259,25 +2264,36 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     }
 
     // Just the date
-    let just_date = token.clone() + "T00:00:00+00:00";
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&just_date) {
-        return Expression {
-            expr: Expr::DateTime(datetime),
-            span,
-            ty: Type::Date,
-            custom_completion: None,
-        };
+    // Guaranteed to be 10 bytes long
+    // 2024-04-11
+    if token.len() == 10 {
+        let just_date = token.to_owned() + "T00:00:00+00:00";
+        if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&just_date) {
+            return Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            };
+        }
     }
 
     // Date and time, assume UTC
-    let datetime = token + "+00:00";
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&datetime) {
-        return Expression {
-            expr: Expr::DateTime(datetime),
-            span,
-            ty: Type::Date,
-            custom_completion: None,
-        };
+    // Either 19 bytes
+    // 2024-04-11T00:00:00
+    // or with fractional seconds
+    // where at least 21 bytes are required and the bytes[19] is a `.`
+    // 2024-04-11T00:00:00.0
+    if token.len() == 19 || (token.len() > 20 && token.as_bytes()[19] == b'.') {
+        let datetime = token.to_owned() + "+00:00";
+        if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&datetime) {
+            return Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            };
+        }
     }
 
     working_set.error(ParseError::Expected("datetime", span));
