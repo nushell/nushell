@@ -119,41 +119,32 @@ impl Command for Last {
                 }
             }
             PipelineData::Value(val, _) => {
-                let val_span = val.span();
-
+                let span = val.span();
                 match val {
-                    Value::List { vals, .. } => {
+                    Value::List { mut vals, .. } => {
                         if return_single_element {
-                            if let Some(v) = vals.last() {
-                                Ok(v.clone().into_pipeline_data())
+                            if let Some(v) = vals.last_mut() {
+                                Ok(std::mem::take(v).into_pipeline_data())
                             } else {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             }
                         } else {
-                            Ok(vals
-                                .into_iter()
-                                .rev()
-                                .take(rows)
-                                .rev()
-                                .into_pipeline_data_with_metadata(metadata, ctrlc))
+                            let i = vals.len().saturating_sub(rows);
+                            vals.drain(..i);
+                            Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                         }
                     }
-                    Value::Binary { val, .. } => {
+                    Value::Binary { mut val, .. } => {
                         if return_single_element {
-                            if let Some(b) = val.last() {
-                                Ok(PipelineData::Value(
-                                    Value::int(*b as i64, val_span),
-                                    metadata,
-                                ))
+                            if let Some(&val) = val.last() {
+                                Ok(Value::int(val.into(), span).into_pipeline_data())
                             } else {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             }
                         } else {
-                            let slice: Vec<u8> = val.into_iter().rev().take(rows).rev().collect();
-                            Ok(PipelineData::Value(
-                                Value::binary(slice, val_span),
-                                metadata,
-                            ))
+                            let i = val.len().saturating_sub(rows);
+                            val.drain(..i);
+                            Ok(Value::binary(val, span).into_pipeline_data())
                         }
                     }
                     // Propagate errors by explicitly matching them before the final case.
