@@ -126,8 +126,8 @@ impl Command for Last {
                 match val {
                     Value::List { mut vals, .. } => {
                         if return_single_element {
-                            if let Some(v) = vals.last_mut() {
-                                Ok(std::mem::take(v).into_pipeline_data())
+                            if let Some(v) = vals.pop() {
+                                Ok(v.into_pipeline_data())
                             } else {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             }
@@ -139,7 +139,7 @@ impl Command for Last {
                     }
                     Value::Binary { mut val, .. } => {
                         if return_single_element {
-                            if let Some(&val) = val.last() {
+                            if let Some(val) = val.pop() {
                                 Ok(Value::int(val.into(), span).into_pipeline_data())
                             } else {
                                 Err(ShellError::AccessEmptyContent { span: head })
