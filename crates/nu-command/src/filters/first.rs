@@ -108,33 +108,28 @@ fn first_helper(
         PipelineData::Value(val, _) => {
             let span = val.span();
             match val {
-                Value::List { vals, .. } => {
+                Value::List { mut vals, .. } => {
                     if return_single_element {
-                        if vals.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(val) = vals.first_mut() {
+                            Ok(std::mem::take(val).into_pipeline_data())
                         } else {
-                            Ok(vals[0].clone().into_pipeline_data())
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        Ok(vals
-                            .into_iter()
-                            .take(rows)
-                            .into_pipeline_data_with_metadata(metadata, ctrlc))
+                        vals.truncate(rows);
+                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                     }
                 }
-                Value::Binary { val, .. } => {
+                Value::Binary { mut val, .. } => {
                     if return_single_element {
-                        if val.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(&val) = val.first() {
+                            Ok(Value::int(val.into(), span).into_pipeline_data())
                         } else {
-                            Ok(PipelineData::Value(
-                                Value::int(val[0] as i64, span),
-                                metadata,
-                            ))
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        let slice: Vec<u8> = val.into_iter().take(rows).collect();
-                        Ok(PipelineData::Value(Value::binary(slice, span), metadata))
+                        val.truncate(rows);
+                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(metadata))
                     }
                 }
                 Value::Range { val, .. } => {
