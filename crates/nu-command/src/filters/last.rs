@@ -98,7 +98,7 @@ impl Command for Last {
                 let iterator = input.into_iter_strict(head)?;
 
                 // only keep last `rows_desired` rows in memory
-                let mut buf = VecDeque::<_>::new();
+                let mut buf = VecDeque::new();
 
                 for row in iterator {
                     if buf.len() == rows {
@@ -110,12 +110,12 @@ impl Command for Last {
 
                 if return_single_element {
                     if let Some(last) = buf.pop_back() {
-                        Ok(last.into_pipeline_data_with_metadata(metadata))
+                        Ok(last.into_pipeline_data())
                     } else {
-                        Ok(PipelineData::empty().set_metadata(metadata))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     }
                 } else {
-                    Ok(buf.into_pipeline_data_with_metadata(metadata, ctrlc))
+                    Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
                 }
             }
             PipelineData::Value(val, _) => {
