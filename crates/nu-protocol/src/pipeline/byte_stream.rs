@@ -209,16 +209,16 @@ impl ByteStream {
         Ok(())
     }
 
-    pub fn print(self) -> Result<(), ShellError> {
+    fn print_to(self, mut dest: impl Write) -> Result<(), ShellError> {
         let span = self.span;
         let ctrlc = self.ctrlc.as_deref();
 
         match self.stream {
             ByteStreamSource::Read(mut read) => {
-                copy_with_interrupt(&mut read, &mut io::stdout(), span, ctrlc)?;
+                copy_with_interrupt(&mut read, &mut dest, span, ctrlc)?;
             }
             ByteStreamSource::File(mut file) => {
-                copy_with_interrupt(&mut file, &mut io::stdout(), span, ctrlc)?;
+                copy_with_interrupt(&mut file, &mut dest, span, ctrlc)?;
             }
             ByteStreamSource::Child(mut child) => {
                 match (child.stdout.take(), child.stderr.take()) {
@@ -231,7 +231,7 @@ impl ByteStream {
                                 })
                                 .err_span(span);
 
-                            copy_with_interrupt(&mut stdout, &mut io::stdout(), span, ctrlc)?;
+                            copy_with_interrupt(&mut stdout, &mut dest, span, ctrlc)?;
 
                             if let Ok(result) = err_thread?.join() {
                                 result?;
@@ -245,7 +245,7 @@ impl ByteStream {
                     }
                     (Some(mut stdout), None) => {
                         // single output stream, we can consume directly
-                        copy_with_interrupt(&mut stdout, &mut io::stdout(), span, ctrlc)?;
+                        copy_with_interrupt(&mut stdout, &mut dest, span, ctrlc)?;
                     }
                     (None, Some(mut stderr)) => {
                         // single output stream, we can consume directly
@@ -257,6 +257,14 @@ impl ByteStream {
             }
         }
         Ok(())
+    }
+
+    pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
+        if to_stderr {
+            self.print_to(io::stderr())
+        } else {
+            self.print_to(io::stdout())
+        }
     }
 
     pub fn write_to(self, dest: &mut impl Write) -> Result<(), ShellError> {

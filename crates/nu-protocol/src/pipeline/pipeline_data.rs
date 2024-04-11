@@ -1,8 +1,7 @@
 use crate::{
     ast::{Call, PathMember},
-    engine::{EngineState, Stack, StateWorkingSet},
-    format_error, ByteStream, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
-    Span, Value,
+    engine::{EngineState, Stack},
+    ByteStream, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -112,22 +111,19 @@ impl PipelineData {
         match (self, stack.stdout()) {
             (PipelineData::ByteStream(stream, ..), stdout) => {
                 stream.write_to_out_dests(stdout, stack.stderr())?;
-                Ok(PipelineData::Empty)
             }
-            (data, OutDest::Pipe | OutDest::Capture) => Ok(data),
-            (PipelineData::Empty, ..) => Ok(PipelineData::Empty),
-            (PipelineData::Value(..), OutDest::Null) => Ok(PipelineData::Empty),
+            (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
+            (PipelineData::Empty, ..) => {}
+            (PipelineData::Value(..), OutDest::Null) => {}
             (PipelineData::ListStream(stream, ..), OutDest::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
-                Ok(PipelineData::Empty)
             }
             (PipelineData::Value(value, ..), OutDest::File(file)) => {
                 let bytes = value_to_bytes(value)?;
                 let mut file = file.as_ref();
                 file.write_all(&bytes)?;
                 file.flush()?;
-                Ok(PipelineData::Empty)
             }
             (PipelineData::ListStream(stream, ..), OutDest::File(file)) => {
                 let mut file = file.as_ref();
@@ -138,27 +134,12 @@ impl PipelineData {
                     file.write_all(b"\n")?;
                 }
                 file.flush()?;
-                Ok(PipelineData::Empty)
             }
             (data @ (PipelineData::Value(..) | PipelineData::ListStream(..)), OutDest::Inherit) => {
-                let config = engine_state.get_config();
-
-                if let Some(decl_id) = engine_state.table_decl_id {
-                    let command = engine_state.get_decl(decl_id);
-                    if command.get_block_id().is_some() {
-                        data.write_all_and_flush(engine_state, config, false, false)?;
-                    } else {
-                        let call = Call::new(Span::unknown());
-                        let stack = &mut stack.start_capture();
-                        let table = command.run(engine_state, stack, &call, data)?;
-                        table.write_all_and_flush(engine_state, config, false, false)?;
-                    }
-                } else {
-                    data.write_all_and_flush(engine_state, config, false, false)?;
-                };
-                Ok(PipelineData::Empty)
+                data.print(engine_state, stack, false, false)?;
             }
         }
+        Ok(PipelineData::Empty)
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
@@ -483,22 +464,21 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<(), ShellError> {
         if let PipelineData::ByteStream(stream, ..) = self {
-            stream.print()?;
+            stream.print(to_stderr)?;
         } else {
-            let config = engine_state.get_config();
             // If the table function is in the declarations, then we can use it
             // to create the table value that will be printed in the terminal
             if let Some(decl_id) = engine_state.table_decl_id {
                 let command = engine_state.get_decl(decl_id);
                 if command.get_block_id().is_some() {
-                    self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+                    self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
                 } else {
                     let call = Call::new(Span::new(0, 0));
                     let table = command.run(engine_state, stack, &call, self)?;
-                    table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+                    table.write_all_and_flush(engine_state, no_newline, to_stderr)?;
                 }
             } else {
-                self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+                self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
             }
         }
         Ok(())
@@ -517,10 +497,9 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<(), ShellError> {
         if let PipelineData::ByteStream(stream, ..) = self {
-            stream.print()?;
+            stream.print(to_stderr)?;
         } else {
-            let config = engine_state.get_config();
-            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+            self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
         }
         Ok(())
     }
@@ -528,19 +507,13 @@ impl PipelineData {
     fn write_all_and_flush(
         self,
         engine_state: &EngineState,
-        config: &Config,
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<(), ShellError> {
+        let config = engine_state.get_config();
         for item in self {
-            let mut is_err = false;
             let mut out = if let Value::Error { error, .. } = item {
-                let working_set = StateWorkingSet::new(engine_state);
-                // Value::Errors must always go to stderr, not stdout.
-                is_err = true;
-                format_error(&working_set, &*error)
-            } else if no_newline {
-                item.to_expanded_string("", config)
+                return Err(*error);
             } else {
                 item.to_expanded_string("\n", config)
             };
@@ -549,10 +522,10 @@ impl PipelineData {
                 out.push('\n');
             }
 
-            if !to_stderr && !is_err {
-                stdout_write_all_and_flush(out)?
-            } else {
+            if to_stderr {
                 stderr_write_all_and_flush(out)?
+            } else {
+                stdout_write_all_and_flush(out)?
             }
         }
 

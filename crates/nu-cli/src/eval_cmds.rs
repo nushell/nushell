@@ -1,13 +1,11 @@
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
-    ast::Call,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    report_error, Config, PipelineData, ShellError, Span, Spanned, Value, NU_VARIABLE_ID,
+    report_error, PipelineData, ShellError, Spanned, Value, NU_VARIABLE_ID,
 };
-use nu_utils::stdout_write_all_and_flush;
 use std::sync::Arc;
 
 /// Run a command (or commands) given to us by the user
@@ -61,46 +59,6 @@ pub fn evaluate_commands(
         Arc::make_mut(&mut engine_state.config).table_mode =
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
-    let config = engine_state.get_config();
 
-    match data {
-        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
-        PipelineData::ByteStream(stream, ..) => stream.print(),
-        PipelineData::Empty => Ok(()),
-        data => {
-            if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
-                let command = engine_state.get_decl(decl_id);
-                if command.get_block_id().is_some() {
-                    print_data(data, config, no_newline)
-                } else {
-                    let call = Call::new(Span::new(0, 0));
-                    let table = command.run(engine_state, stack, &call, data)?;
-                    print_data(table, config, no_newline)
-                }
-            } else {
-                print_data(data, config, no_newline)
-            }
-        }
-    }
-}
-
-pub(crate) fn print_data(
-    pipeline_data: PipelineData,
-    config: &Config,
-    no_newline: bool,
-) -> Result<(), ShellError> {
-    for item in pipeline_data {
-        if let Value::Error { error, .. } = item {
-            return Err(*error);
-        }
-
-        let mut out = item.to_expanded_string("\n", config);
-        if !no_newline {
-            out.push('\n');
-        }
-        if let Err(err) = stdout_write_all_and_flush(out) {
-            eprintln!("{err}")
-        }
-    }
-    Ok(())
+    data.print(engine_state, stack, no_newline, false)
 }

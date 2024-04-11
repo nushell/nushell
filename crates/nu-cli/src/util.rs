@@ -274,7 +274,7 @@ fn evaluate_source(
     }?;
 
     if let PipelineData::ByteStream(stream, ..) = data {
-        stream.print()?;
+        stream.print(false)?;
     } else {
         let display_hook = engine_state.get_config().hooks.display_output.clone();
 
