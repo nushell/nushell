@@ -608,7 +608,17 @@ where
 
     // Handle each Run plugin call on a thread
     thread::scope(|scope| {
-        let run = |engine, call_info| {
+        let run = |engine: EngineInterface, call_info| {
+            if let Err(e) = engine
+                .get_current_dir()
+                .map_err(LabeledError::from)
+                .and_then(|dir| {
+                    std::env::set_current_dir(dir).map_err(|e| LabeledError::new(e.to_string()))
+                })
+            {
+                eprintln!("Error setting current working directory: {e}");
+            }
+
             let CallInfo { name, call, input } = call_info;
             let result = if let Some(command) = commands.get(&name) {
                 command.run(plugin, &engine, &call, input)
