@@ -73,6 +73,7 @@ fn command(
     let file_name: Spanned<PathBuf> = call.req(0)?;
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
+    eprintln!("filename: {:?}", &file_name.item);
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
@@ -83,6 +84,7 @@ fn command(
         help: None,
         inner: vec![],
     })?;
+    eprintln!("file: {:?}", file);
 
     let writer = CsvWriter::new(&mut file);
 
@@ -124,10 +126,58 @@ fn command(
             inner: vec![],
         })?;
 
+    eprintln!("file: {:?}", file);
+
     let file_value = Value::string(format!("saved {:?}", &file_name.item), file_name.span);
 
     Ok(PipelineData::Value(
         Value::list(vec![file_value], call.head),
         None,
     ))
+}
+
+#[cfg(test)]
+pub mod test {
+    use nu_plugin_test_support::PluginTest;
+    use nu_protocol::{Span, Value};
+    use uuid::Uuid;
+
+    use crate::PolarsPlugin;
+
+    #[test]
+    pub fn test_to_csv() -> Result<(), Box<dyn std::error::Error>> {
+        let tmp_dir = tempfile::tempdir()?;
+        let mut tmp_file = tmp_dir.path().to_owned();
+        tmp_file.push(format!("{}.csv", Uuid::new_v4()));
+        let tmp_file_str = tmp_file.to_str().expect("should be able to get file path");
+
+        let cmd = format!(
+            "[[a b]; [1 2] [3 4]] | polars into-df | polars to-csv {}",
+            tmp_file_str
+        );
+        println!("cmd: {}", cmd);
+        let mut plugin_test = PluginTest::new("polars", PolarsPlugin::default().into())?;
+        plugin_test.engine_state_mut().add_env_var(
+            "PWD".to_string(),
+            Value::string(
+                tmp_dir
+                    .path()
+                    .to_str()
+                    .expect("shold be able to get path")
+                    .to_owned(),
+                Span::test_data(),
+            ),
+        );
+        let pipeline_data = plugin_test.eval(&cmd)?;
+
+        assert!(tmp_file.exists());
+
+        let value = pipeline_data.into_value(Span::test_data());
+        let list = value.as_list()?;
+        assert_eq!(list.len(), 1);
+        let msg = list.first().expect("should have a value").as_str()?;
+        assert_eq!(msg, format!("saved \"{}\"", tmp_file_str));
+
+        Ok(())
+    }
 }

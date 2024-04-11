@@ -85,3 +85,48 @@ fn command(
         None,
     ))
 }
+
+#[cfg(test)]
+pub mod test {
+    use nu_plugin_test_support::PluginTest;
+    use nu_protocol::{Span, Value};
+    use uuid::Uuid;
+
+    use crate::PolarsPlugin;
+
+    #[test]
+    pub fn test_to_parquet() -> Result<(), Box<dyn std::error::Error>> {
+        let tmp_dir = tempfile::tempdir()?;
+        let mut tmp_file = tmp_dir.path().to_owned();
+        tmp_file.push(format!("{}.parquet", Uuid::new_v4()));
+        let tmp_file_str = tmp_file.to_str().expect("should be able to get file path");
+
+        let cmd = format!(
+            "[[a b]; [1 2] [3 4]] | polars into-df | polars to-parquet {}",
+            tmp_file_str
+        );
+        let mut plugin_test = PluginTest::new("polars", PolarsPlugin::default().into())?;
+        plugin_test.engine_state_mut().add_env_var(
+            "PWD".to_string(),
+            Value::string(
+                tmp_dir
+                    .path()
+                    .to_str()
+                    .expect("shold be able to get path")
+                    .to_owned(),
+                Span::test_data(),
+            ),
+        );
+        let pipeline_data = plugin_test.eval(&cmd)?;
+
+        assert!(tmp_file.exists());
+
+        let value = pipeline_data.into_value(Span::test_data());
+        let list = value.as_list()?;
+        assert_eq!(list.len(), 1);
+        let msg = list.first().expect("should have a value").as_str()?;
+        assert_eq!(msg, format!("saved \"{}\"", tmp_file_str));
+
+        Ok(())
+    }
+}

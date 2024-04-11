@@ -76,3 +76,4 @@ nu-engine = { path = "../nu-engine", version = "0.92.2" }
 nu-parser = { path = "../nu-parser", version = "0.92.2" }
 nu-command = { path = "../nu-command", version = "0.92.2" }
 nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.92.2" }
+tempfile.workspace = true
