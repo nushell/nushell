@@ -3258,6 +3258,7 @@ dependencies = [
  "polars-utils",
  "serde",
  "sqlparser 0.43.1",
+ "tempfile",
  "typetag",
  "uuid",
 ]
