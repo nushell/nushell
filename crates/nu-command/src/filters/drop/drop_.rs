@@ -62,8 +62,8 @@ impl Command for Drop {
                 description: "Remove the last row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | drop 1",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "a" =>  Value::test_int(1),
-                    "b" =>  Value::test_int(2),
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
                 })])),
             },
         ]
