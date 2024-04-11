@@ -101,7 +101,7 @@ fn first_helper(
 
     // early exit for `first 0`
     if rows == 0 {
-        return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
+        return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
     }
 
     match input {
