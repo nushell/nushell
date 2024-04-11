@@ -72,7 +72,7 @@ impl PluginCommand for LastDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
             let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
             command(plugin, engine, call, df).map_err(|e| e.into())

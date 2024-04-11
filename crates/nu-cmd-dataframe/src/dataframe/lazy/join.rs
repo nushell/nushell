@@ -219,7 +219,7 @@ impl Command for LazyJoin {
         let suffix: Option<String> = call.get_flag(engine_state, stack, "suffix")?;
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value(value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.into_polars();

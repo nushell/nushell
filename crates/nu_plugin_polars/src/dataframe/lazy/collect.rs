@@ -61,7 +61,7 @@ impl PluginCommand for LazyCollect {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuLazyFrame(lazy) => {
                 let mut eager = lazy.collect(call.head)?;

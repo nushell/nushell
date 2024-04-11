@@ -84,7 +84,7 @@ impl PolarsPluginObject {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         Self::try_from_value(plugin, &value)
     }
 
@@ -242,7 +242,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
 /// Handles the ability for a PolarsObjectType implementations to convert between
 /// their respective CustValue type.
 /// PolarsPluginObjectType's (NuDataFrame, NuLazyFrame) should
-/// implement this trait.  
+/// implement this trait.
 pub trait CustomValueSupport: Cacheable {
     type CV: PolarsPluginCustomValue<PolarsPluginObjectType = Self> + CustomValue + 'static;
 
@@ -301,7 +301,7 @@ pub trait CustomValueSupport: Cacheable {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         Self::try_from_value(plugin, &value)
     }
 

@@ -82,7 +82,7 @@ impl Command for LazyFillNA {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let fill: Value = call.req(engine_state, stack, 0)?;
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
 
         if NuExpression::can_downcast(&value) {
             let expr = NuExpression::try_from_value(value)?;

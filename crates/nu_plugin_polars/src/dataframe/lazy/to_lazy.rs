@@ -82,7 +82,7 @@ mod tests {
         let plugin: Arc<PolarsPlugin> = PolarsPlugin::new_test_mode().into();
         let mut plugin_test = PluginTest::new("polars", Arc::clone(&plugin))?;
         let pipeline_data = plugin_test.eval("[[a b]; [6 2] [1 4] [4 1]] | polars into-lazy")?;
-        let value = pipeline_data.into_value(Span::test_data());
+        let value = pipeline_data.into_value(Span::test_data())?;
         let df = NuLazyFrame::try_from_value(&plugin, &value)?;
         assert!(!df.from_eager);
         Ok(())

@@ -138,7 +138,7 @@ impl PluginCommand for ToLazyGroupBy {
             })?;
         }
 
-        let pipeline_value = input.into_value(call.head);
+        let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         command(plugin, engine, call, lazy, expressions).map_err(LabeledError::from)
     }

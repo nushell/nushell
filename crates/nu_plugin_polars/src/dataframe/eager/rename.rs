@@ -120,7 +120,7 @@ impl PluginCommand for RenameDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value).map_err(LabeledError::from)? {
             PolarsPluginObject::NuDataFrame(df) => {
                 command_eager(plugin, engine, call, df).map_err(LabeledError::from)
