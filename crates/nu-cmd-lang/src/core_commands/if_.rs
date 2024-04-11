@@ -112,10 +112,9 @@ impl Command for If {
                     eval_block(engine_state, stack, block, input)
                 } else {
                     eval_expression_with_input(engine_state, stack, else_expr, input)
-                        .map(|res| res.0)
                 }
             } else {
-                eval_expression_with_input(engine_state, stack, else_case, input).map(|res| res.0)
+                eval_expression_with_input(engine_state, stack, else_case, input)
             }
         } else {
             Ok(PipelineData::empty())

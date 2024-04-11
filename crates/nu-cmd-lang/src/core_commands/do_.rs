@@ -1,6 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
-use nu_protocol::{engine::Closure, ListStream, OutDest, RawStream};
-use std::thread;
+use nu_protocol::{engine::Closure, ByteStreamSource, OutDest};
 
 #[derive(Clone)]
 pub struct Do;
@@ -38,11 +37,6 @@ impl Command for Do {
                 Some('p'),
             )
             .switch(
-                "capture-errors",
-                "catch errors as the closure runs, and return them",
-                Some('c'),
-            )
-            .switch(
                 "env",
                 "keep the environment defined inside the command",
                 None,
@@ -70,7 +64,6 @@ impl Command for Do {
             || call.has_flag(engine_state, caller_stack, "ignore-shell-errors")?;
         let ignore_program_errors = ignore_all_errors
             || call.has_flag(engine_state, caller_stack, "ignore-program-errors")?;
-        let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
         let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
@@ -86,115 +79,14 @@ impl Command for Do {
         }
 
         match result {
-            Ok(PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code,
-                span,
-                metadata,
-                trim_end_newline,
-            }) if capture_errors => {
-                // Use a thread to receive stdout message.
-                // Or we may get a deadlock if child process sends out too much bytes to stderr.
-                //
-                // For example: in normal linux system, stderr pipe's limit is 65535 bytes.
-                // if child process sends out 65536 bytes, the process will be hanged because no consumer
-                // consumes the first 65535 bytes
-                // So we need a thread to receive stdout message, then the current thread can continue to consume
-                // stderr messages.
-                let stdout_handler = stdout
-                    .map(|stdout_stream| {
-                        thread::Builder::new()
-                            .name("stderr redirector".to_string())
-                            .spawn(move || {
-                                let ctrlc = stdout_stream.ctrlc.clone();
-                                let span = stdout_stream.span;
-                                RawStream::new(
-                                    Box::new(std::iter::once(
-                                        stdout_stream.into_bytes().map(|s| s.item),
-                                    )),
-                                    ctrlc,
-                                    span,
-                                    None,
-                                )
-                            })
-                            .err_span(head)
-                    })
-                    .transpose()?;
-
-                // Intercept stderr so we can return it in the error if the exit code is non-zero.
-                // The threading issues mentioned above dictate why we also need to intercept stdout.
-                let mut stderr_ctrlc = None;
-                let stderr_msg = match stderr {
-                    None => "".to_string(),
-                    Some(stderr_stream) => {
-                        stderr_ctrlc.clone_from(&stderr_stream.ctrlc);
-                        stderr_stream.into_string().map(|s| s.item)?
-                    }
-                };
-
-                let stdout = if let Some(handle) = stdout_handler {
-                    match handle.join() {
-                        Err(err) => {
-                            return Err(ShellError::ExternalCommand {
-                                label: "Fail to receive external commands stdout message"
-                                    .to_string(),
-                                help: format!("{err:?}"),
-                                span,
-                            });
-                        }
-                        Ok(res) => Some(res),
-                    }
-                } else {
-                    None
-                };
-
-                let exit_code: Vec<Value> = match exit_code {
-                    None => vec![],
-                    Some(exit_code_stream) => exit_code_stream.into_iter().collect(),
-                };
-                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                    if *code != 0 {
-                        return Err(ShellError::ExternalCommand {
-                            label: "External command failed".to_string(),
-                            help: stderr_msg,
-                            span,
-                        });
-                    }
-                }
-
-                Ok(PipelineData::ExternalStream {
-                    stdout,
-                    stderr: Some(RawStream::new(
-                        Box::new(std::iter::once(Ok(stderr_msg.into_bytes()))),
-                        stderr_ctrlc,
-                        span,
-                        None,
-                    )),
-                    exit_code: Some(ListStream::new(exit_code.into_iter(), span, None)),
-                    span,
-                    metadata,
-                    trim_end_newline,
-                })
-            }
-            Ok(PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code: _,
-                span,
-                metadata,
-                trim_end_newline,
-            }) if ignore_program_errors
-                && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
+            Ok(PipelineData::ByteStream(mut stream, metadata))
+                if ignore_program_errors
+                    && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
             {
-                Ok(PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code: None,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                })
+                if let ByteStreamSource::Child(child) = stream.source_mut() {
+                    child.set_exit_code(0)
+                }
+                Ok(PipelineData::ByteStream(stream, metadata))
             }
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
                 Ok(PipelineData::empty())
@@ -238,11 +130,6 @@ impl Command for Do {
             Example {
                 description: "Run the closure and ignore external program errors",
                 example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
-                result: None,
-            },
-            Example {
-                description: "Abort the pipeline if a program returns a non-zero exit code",
-                example: r#"do --capture-errors { nu --commands 'exit 1' } | myscarycommand"#,
                 result: None,
             },
             Example {

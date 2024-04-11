@@ -70,15 +70,8 @@ impl Command for While {
                             Err(err) => {
                                 return Err(err);
                             }
-                            Ok(pipeline) => {
-                                let exit_code = pipeline.drain_with_exit_code()?;
-                                if exit_code != 0 {
-                                    return Ok(
-                                        PipelineData::new_external_stream_with_only_exit_code(
-                                            exit_code,
-                                        ),
-                                    );
-                                }
+                            Ok(data) => {
+                                data.drain()?;
                             }
                         }
                     } else {

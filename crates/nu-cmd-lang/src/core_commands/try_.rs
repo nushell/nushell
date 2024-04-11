@@ -60,18 +60,7 @@ impl Command for Try {
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack, eval_block)
             }
-            // external command may fail to run
-            Ok(pipeline) => {
-                let (pipeline, external_failed) = pipeline.check_external_failed();
-                if external_failed {
-                    let exit_code = pipeline.drain_with_exit_code()?;
-                    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(exit_code, call.head));
-                    let err_value = Value::nothing(call.head);
-                    handle_catch(err_value, catch_block, engine_state, stack, eval_block)
-                } else {
-                    Ok(pipeline)
-                }
-            }
+            Ok(data) => Ok(data),
         }
     }
 

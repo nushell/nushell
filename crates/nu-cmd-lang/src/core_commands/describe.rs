@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, PipelineMetadata};
+use nu_protocol::{engine::StateWorkingSet, ByteStreamSource, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -162,59 +162,30 @@ fn run(
     let head = call.head;
 
     let description: Value = match input {
-        PipelineData::ExternalStream {
-            ref stdout,
-            ref stderr,
-            ref exit_code,
-            ..
-        } => {
+        PipelineData::ByteStream(stream, ..) => {
             if options.detailed {
+                let origin = match stream.source() {
+                    ByteStreamSource::Read(_) => "unknown",
+                    ByteStreamSource::File(_) => "file",
+                    ByteStreamSource::Child(_) => "external",
+                };
+
+                stream.drain()?;
+
                 Value::record(
-                    record!(
-                        "type" => Value::string("stream", head),
-                        "origin" => Value::string("external", head),
-                        "stdout" => match stdout {
-                            Some(_) => Value::record(
-                                    record!(
-                                        "type" => Value::string("stream", head),
-                                        "origin" => Value::string("external", head),
-                                        "subtype" => Value::string("any", head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
-                        "stderr" => match stderr {
-                            Some(_) => Value::record(
-                                    record!(
-                                        "type" => Value::string("stream", head),
-                                        "origin" => Value::string("external", head),
-                                        "subtype" => Value::string("any", head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
-                        "exit_code" => match exit_code {
-                            Some(_) => Value::record(
-                                    record!(
-                                        "type" => Value::string("stream", head),
-                                        "origin" => Value::string("external", head),
-                                        "subtype" => Value::string("int", head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
+                    record! {
+                        "type" => Value::string("byte stream", head),
+                        "origin" => Value::string(origin, head),
                         "metadata" => metadata_to_value(metadata, head),
-                    ),
+                    },
                     head,
                 )
             } else {
-                Value::string("raw input", head)
+                stream.drain()?;
+                Value::string("byte stream", head)
             }
         }
-        PipelineData::ListStream(_, _) => {
+        PipelineData::ListStream(stream, ..) => {
             if options.detailed {
                 Value::record(
                     record!(
@@ -224,7 +195,7 @@ fn run(
                            if options.no_collect {
                             Value::string("any", head)
                            } else {
-                            describe_value(input.into_value(head), head, engine_state, )
+                            describe_value(stream.into_value(), head, engine_state)
                            }
                         },
                         "metadata" => metadata_to_value(metadata, head),
@@ -234,20 +205,19 @@ fn run(
             } else if options.no_collect {
                 Value::string("stream", head)
             } else {
-                let value = input.into_value(head);
+                let value = stream.into_value();
                 let base_description = value.get_type().to_string();
-
                 Value::string(format!("{} (stream)", base_description), head)
             }
         }
-        _ => {
-            let value = input.into_value(head);
+        PipelineData::Value(value, ..) => {
             if !options.detailed {
                 Value::string(value.get_type().to_string(), head)
             } else {
                 describe_value(value, head, engine_state)
             }
         }
+        PipelineData::Empty => Value::string(Type::Nothing.to_string(), head),
     };
 
     Ok(description.into_pipeline_data())
