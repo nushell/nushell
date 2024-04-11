@@ -96,7 +96,7 @@ lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.5"
 lsp-types = "0.95.0"
 mach2 = "0.4"
-md5 = { version = "0.10", package = "md-5"}
+md5 = { version = "0.10", package = "md-5" }
 miette = "7.2"
 mime = "0.3"
 mime_guess = "2.0"
@@ -274,8 +274,12 @@ debug = true
 # to analyze performance with tooling like linux perf
 [profile.ci]
 inherits = "dev"
-strip = false
-debug = false
+strip = "none"
+debug = 0
+debug-assertion = false
+lto = "off"
+panic = "abort"
+codegen-units = 16
 
 # Main nu binary
 [[bin]]
