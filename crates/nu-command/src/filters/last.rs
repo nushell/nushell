@@ -85,7 +85,6 @@ impl Command for Last {
             1
         };
 
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         // early exit for `last 0`
@@ -97,10 +96,14 @@ impl Command for Last {
             PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
                 let iterator = input.into_iter_strict(head)?;
 
-                // only keep last `rows_desired` rows in memory
+                // only keep the last `rows` in memory
                 let mut buf = VecDeque::new();
 
                 for row in iterator {
+                    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+                        return Err(ShellError::InterruptedByUser { span: Some(head) });
+                    }
+
                     if buf.len() == rows {
                         buf.pop_front();
                     }

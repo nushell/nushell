@@ -96,7 +96,6 @@ fn first_helper(
         1
     };
 
-    let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
     // early exit for `first 0`
@@ -133,6 +132,7 @@ fn first_helper(
                     }
                 }
                 Value::Range { val, .. } => {
+                    let ctrlc = engine_state.ctrlc.clone();
                     let mut iter = val.into_range_iter(span, ctrlc.clone());
                     if return_single_element {
                         if let Some(v) = iter.next() {
@@ -166,7 +166,7 @@ fn first_helper(
             } else {
                 Ok(ls
                     .take(rows)
-                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
             }
         }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
