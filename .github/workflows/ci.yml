@@ -52,14 +52,14 @@ jobs:
 
         # If changing these settings also change toolkit.nu
       - name: Clippy
-        run: cargo clippy --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
+        run: cargo clippy --workspace --profile ci ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
 
         # In tests we don't have to deny unwrap
       - name: Clippy of tests
-        run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+        run: cargo clippy --tests --workspace --profile ci ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
 
       - name: Clippy of benchmarks
-        run: cargo clippy --benches --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+        run: cargo clippy --benches --workspace --profile ci ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
 
   tests:
     strategy:
