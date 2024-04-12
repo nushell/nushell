@@ -1,4 +1,5 @@
 use crate::tests::{fail_test, run_test, run_test_with_env, TestResult};
+use nu_test_support::{nu, nu_repl_code};
 use std::collections::HashMap;
 
 use super::run_test_contains;
@@ -817,4 +818,14 @@ fn record_missing_value() -> TestResult {
 #[test]
 fn def_requires_body_closure() -> TestResult {
     fail_test("def a [] (echo 4)", "expected definition body closure")
+}
+
+#[test]
+fn not_panic_with_recursive_call() {
+    let result = nu!(nu_repl_code(&[
+        "def px [] { if true { 3 } else { px } }",
+        "let x = 1",
+        "$x | px",
+    ]));
+    assert_eq!(result.out, "3");
 }

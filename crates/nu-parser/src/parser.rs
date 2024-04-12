@@ -5765,9 +5765,7 @@ fn discover_captures_in_pipeline(
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
     for element in &pipeline.elements {
-        log::warn!("before discover pipeline element: {element:?}, output: {output:?}");
         discover_captures_in_pipeline_element(working_set, element, seen, seen_blocks, output)?;
-        log::warn!("after discover pipeline element: {element:?}, output: {output:?}");
     }
 
     Ok(())
@@ -6302,13 +6300,20 @@ pub fn parse(
         // by our working set delta. If we ever tried to modify the permanent state, we'd
         // panic (again, in theory, this shouldn't be possible)
         let block = working_set.get_block(block_id);
-        log::warn!(
-            "more info: {captures:?}, {:?}, {:?}",
-            block.span,
-            block.captures
-        );
         let block_captures_empty = block.captures.is_empty();
-        if !captures.is_empty() && block_captures_empty {
+        // need to check block_id >= working_set.permanent_state.num_blocks()
+        // to avoid mutate a block that is in the permanent state.
+        // this can happened if user defines a function with recursive call, and
+        // use it as global variable, e.g:
+        // def px [] { if { true } else { px } };    # the block px is saved in permanent state.
+        // let x = 3
+        // $x | px
+        // If we don't guard for `block_id`, it will change captures of `px`, which is
+        // already saved in permanent state
+        if !captures.is_empty()
+            && block_captures_empty
+            && block_id >= working_set.permanent_state.num_blocks()
+        {
             let block = working_set.get_block_mut(block_id);
             block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();
         }
