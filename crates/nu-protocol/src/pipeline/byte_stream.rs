@@ -1,6 +1,6 @@
 use crate::{
     io::{convert_file, copy_with_interrupt},
-    process::ChildProcess,
+    process::{ChildPipe, ChildProcess},
     ErrSpan, OutDest, PipelineData, ShellError, Span, Value,
 };
 use std::{
@@ -23,10 +23,10 @@ impl ByteStreamSource {
         match self {
             ByteStreamSource::Read(read) => Some(ByteStreamSourceReader::Read(read)),
             ByteStreamSource::File(file) => Some(ByteStreamSourceReader::File(file)),
-            ByteStreamSource::Child(mut child) => child
-                .stdout
-                .take()
-                .map(|stdout| ByteStreamSourceReader::File(convert_file(stdout))),
+            ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
+                ChildPipe::Pipe(pipe) => ByteStreamSourceReader::File(convert_file(pipe)),
+                ChildPipe::Tee(tee) => ByteStreamSourceReader::Read(tee),
+            }),
         }
     }
 }
@@ -138,7 +138,7 @@ impl ByteStream {
             ByteStreamSource::File(file) => Ok(file.into()),
             ByteStreamSource::Child(child) => {
                 if let ChildProcess {
-                    stdout: Some(stdout),
+                    stdout: Some(ChildPipe::Pipe(stdout)),
                     stderr,
                     ..
                 } = *child
@@ -222,16 +222,34 @@ impl ByteStream {
             }
             ByteStreamSource::Child(mut child) => {
                 match (child.stdout.take(), child.stderr.take()) {
-                    (Some(mut stdout), Some(mut stderr)) => {
+                    (Some(stdout), Some(stderr)) => {
                         thread::scope(|s| {
                             // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
                             let err_thread = thread::Builder::new()
-                                .spawn_scoped(s, move || {
-                                    copy_with_interrupt(&mut stderr, &mut io::stderr(), span, ctrlc)
+                                .spawn_scoped(s, move || match stderr {
+                                    ChildPipe::Pipe(mut pipe) => copy_with_interrupt(
+                                        &mut pipe,
+                                        &mut io::stderr(),
+                                        span,
+                                        ctrlc,
+                                    ),
+                                    ChildPipe::Tee(mut tee) => copy_with_interrupt(
+                                        &mut tee,
+                                        &mut io::stderr(),
+                                        span,
+                                        ctrlc,
+                                    ),
                                 })
                                 .err_span(span);
 
-                            copy_with_interrupt(&mut stdout, &mut dest, span, ctrlc)?;
+                            match stdout {
+                                ChildPipe::Pipe(mut pipe) => {
+                                    copy_with_interrupt(&mut pipe, &mut dest, span, ctrlc)
+                                }
+                                ChildPipe::Tee(mut tee) => {
+                                    copy_with_interrupt(&mut tee, &mut dest, span, ctrlc)
+                                }
+                            }?;
 
                             if let Ok(result) = err_thread?.join() {
                                 result?;
@@ -304,12 +322,24 @@ impl ByteStream {
                         // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
                         thread::scope(|s| {
                             let err_thread = thread::Builder::new()
-                                .spawn_scoped(s, || {
-                                    write_to_out_dest(err, stderr, false, span, ctrlc)
+                                .spawn_scoped(s, || match err {
+                                    ChildPipe::Pipe(pipe) => {
+                                        write_to_out_dest(pipe, stderr, false, span, ctrlc)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        write_to_out_dest(tee, stderr, false, span, ctrlc)
+                                    }
                                 })
                                 .err_span(span);
 
-                            write_to_out_dest(out, stdout, true, span, ctrlc)?;
+                            match out {
+                                ChildPipe::Pipe(pipe) => {
+                                    write_to_out_dest(pipe, stdout, true, span, ctrlc)
+                                }
+                                ChildPipe::Tee(tee) => {
+                                    write_to_out_dest(tee, stdout, true, span, ctrlc)
+                                }
+                            }?;
 
                             if let Ok(result) = err_thread?.join() {
                                 result?;

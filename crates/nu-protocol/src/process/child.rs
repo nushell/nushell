@@ -71,10 +71,36 @@ impl ExitStatusFuture {
     }
 }
 
+pub enum ChildPipe {
+    Pipe(PipeReader),
+    Tee(Box<dyn Read + Send + 'static>),
+}
+
+impl Debug for ChildPipe {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ChildPipe").finish()
+    }
+}
+
+impl From<PipeReader> for ChildPipe {
+    fn from(pipe: PipeReader) -> Self {
+        Self::Pipe(pipe)
+    }
+}
+
+impl Read for ChildPipe {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            ChildPipe::Pipe(pipe) => pipe.read(buf),
+            ChildPipe::Tee(tee) => tee.read(buf),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ChildProcess {
-    pub stdout: Option<PipeReader>,
-    pub stderr: Option<PipeReader>,
+    pub stdout: Option<ChildPipe>,
+    pub stderr: Option<ChildPipe>,
     exit_status: ExitStatusFuture,
     span: Span,
     trim_end_newline: bool,
@@ -118,8 +144,8 @@ impl ChildProcess {
         span: Span,
     ) -> Self {
         Self {
-            stdout,
-            stderr,
+            stdout: stdout.map(Into::into),
+            stderr: stderr.map(Into::into),
             exit_status: ExitStatusFuture::Running(exit_status),
             span,
             trim_end_newline: false,
@@ -304,14 +330,20 @@ impl ChildProcess {
     }
 }
 
-fn collect_bytes(mut pipe: PipeReader) -> io::Result<Vec<u8>> {
+fn collect_bytes(pipe: ChildPipe) -> io::Result<Vec<u8>> {
     let mut buf = Vec::new();
-    pipe.read_to_end(&mut buf)?;
+    match pipe {
+        ChildPipe::Pipe(mut pipe) => pipe.read_to_end(&mut buf),
+        ChildPipe::Tee(mut tee) => tee.read_to_end(&mut buf),
+    }?;
     Ok(buf)
 }
 
-fn consume_pipe(mut pipe: PipeReader) -> io::Result<()> {
-    io::copy(&mut pipe, &mut io::sink())?;
+fn consume_pipe(pipe: ChildPipe) -> io::Result<()> {
+    match pipe {
+        ChildPipe::Pipe(mut pipe) => io::copy(&mut pipe, &mut io::sink()),
+        ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::sink()),
+    }?;
     Ok(())
 }
 
@@ -321,7 +353,7 @@ pub struct ProcessOutput {
     pub exit_status: ExitStatus,
 }
 
-pub struct Lines(crate::io::Lines<BufReader<PipeReader>>);
+pub struct Lines(crate::io::Lines<BufReader<ChildPipe>>);
 
 impl Iterator for Lines {
     type Item = Result<Vec<u8>, ShellError>;
@@ -331,7 +363,7 @@ impl Iterator for Lines {
     }
 }
 
-pub struct Values(crate::io::Values<BufReader<PipeReader>>);
+pub struct Values(crate::io::Values<BufReader<ChildPipe>>);
 
 impl Iterator for Values {
     type Item = Result<Value, ShellError>;

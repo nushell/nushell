@@ -5,6 +5,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Expr, Expression},
     io::copy_with_interrupt,
+    process::ChildPipe,
     ByteStreamSource, DataSource, OutDest, PipelineMetadata,
 };
 use std::{
@@ -142,15 +143,23 @@ impl Command for Save {
                                             let ctrlc = ctrlc.clone();
                                             thread::Builder::new()
                                                 .name("stderr redirector".to_string())
-                                                .spawn(move || {
-                                                    stream_to_file(
-                                                        stderr,
+                                                .spawn(move || match stderr {
+                                                    ChildPipe::Pipe(pipe) => stream_to_file(
+                                                        pipe,
                                                         None,
                                                         ctrlc,
                                                         stderr_file,
                                                         span,
                                                         progress,
-                                                    )
+                                                    ),
+                                                    ChildPipe::Tee(tee) => stream_to_file(
+                                                        tee,
+                                                        None,
+                                                        ctrlc,
+                                                        stderr_file,
+                                                        span,
+                                                        progress,
+                                                    ),
                                                 })
                                         }
                                         None => thread::Builder::new()
@@ -164,7 +173,14 @@ impl Command for Save {
                                     .transpose()
                                     .err_span(span)?;
 
-                                let res = stream_to_file(stdout, None, ctrlc, file, span, progress);
+                                let res = match stdout {
+                                    ChildPipe::Pipe(pipe) => {
+                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                    }
+                                };
                                 if let Some(h) = handler {
                                     h.join().map_err(|err| ShellError::ExternalCommand {
                                         label: "Fail to receive external commands stderr message"
@@ -175,17 +191,35 @@ impl Command for Save {
                                 }
                                 res?;
                             }
-                            (None, Some(mut stderr)) => match stderr_file {
-                                Some(stderr_file) => stream_to_file(
-                                    stderr,
-                                    None,
-                                    ctrlc,
-                                    stderr_file,
-                                    span,
-                                    progress,
-                                )?,
+                            (None, Some(stderr)) => match stderr_file {
+                                Some(stderr_file) => match stderr {
+                                    ChildPipe::Pipe(pipe) => stream_to_file(
+                                        pipe,
+                                        None,
+                                        ctrlc,
+                                        stderr_file,
+                                        span,
+                                        progress,
+                                    ),
+                                    ChildPipe::Tee(tee) => stream_to_file(
+                                        tee,
+                                        None,
+                                        ctrlc,
+                                        stderr_file,
+                                        span,
+                                        progress,
+                                    ),
+                                }?,
                                 None => {
-                                    io::copy(&mut stderr, &mut io::sink()).err_span(span)?;
+                                    match stderr {
+                                        ChildPipe::Pipe(mut pipe) => {
+                                            io::copy(&mut pipe, &mut io::sink())
+                                        }
+                                        ChildPipe::Tee(mut tee) => {
+                                            io::copy(&mut tee, &mut io::sink())
+                                        }
+                                    }
+                                    .err_span(span)?;
                                 }
                             },
                             (None, None) => {}
