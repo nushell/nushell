@@ -318,14 +318,14 @@ pub fn cache_and_to_value(
         // if it was from a lazy value, make it lazy again
         PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
             let df = df.lazy();
-            Ok(df.cache(plugin, engine)?.into_value(span))
+            Ok(df.cache(plugin, engine, span)?.into_value(span))
         }
         // if it was from an eager value, make it eager again
         PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
             let lf = lf.collect(span)?;
-            Ok(lf.cache(plugin, engine)?.into_value(span))
+            Ok(lf.cache(plugin, engine, span)?.into_value(span))
         }
-        _ => Ok(cv.cache(plugin, engine)?.into_value(span)),
+        _ => Ok(cv.cache(plugin, engine, span)?.into_value(span)),
     }
 }
 
