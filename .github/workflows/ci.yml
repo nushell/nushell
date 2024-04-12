@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-13, ubuntu-20.04]
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         feature: [default, dataframe]
         include:
           # linux CI cannot handle clipboard feature
@@ -83,7 +83,7 @@ jobs:
         exclude:
           - platform: windows-latest
             feature: dataframe
-          - platform: macos-13
+          - platform: macos-latest
             feature: dataframe
 
     runs-on: ${{ matrix.platform }}
@@ -114,7 +114,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-20.04, macos-13, windows-latest]
+        platform: [ubuntu-20.04, macos-latest, windows-latest]
         py:
           - py
 
@@ -165,7 +165,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-13, ubuntu-20.04]
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
 
     runs-on: ${{ matrix.platform }}
 
