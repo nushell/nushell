@@ -207,6 +207,8 @@ impl ForegroundGuard {
     fn reset_internal(&mut self) {
         #[cfg(unix)]
         {
+            log::trace!("Leaving the foreground group");
+
             let (pgrp, pcnt) = self.pipeline_state.as_ref();
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 // Clean up if we are the last one around

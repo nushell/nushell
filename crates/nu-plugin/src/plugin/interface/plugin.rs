@@ -295,9 +295,10 @@ impl PluginInterfaceManager {
                         })?;
 
                 // Generate the state needed to handle engine calls
-                let current_call_state = CurrentCallState {
+                let mut current_call_state = CurrentCallState {
                     context_tx: None,
                     keep_plugin_custom_values_tx: Some(state.keep_plugin_custom_values.0.clone()),
+                    entered_foreground: false,
                 };
 
                 let handler = move || {
@@ -314,7 +315,7 @@ impl PluginInterfaceManager {
                                 if let Err(err) = interface.handle_engine_call(
                                     engine_call_id,
                                     engine_call,
-                                    &current_call_state,
+                                    &mut current_call_state,
                                     context.as_deref_mut(),
                                 ) {
                                     log::warn!(
@@ -680,6 +681,7 @@ impl PluginInterface {
         let state = CurrentCallState {
             context_tx: Some(context_tx),
             keep_plugin_custom_values_tx: Some(keep_plugin_custom_values.0.clone()),
+            entered_foreground: false,
         };
 
         // Prepare the call with the state.
@@ -774,12 +776,22 @@ impl PluginInterface {
         &self,
         rx: mpsc::Receiver<ReceivedPluginCallMessage>,
         mut context: Option<&mut (dyn PluginExecutionContext + '_)>,
-        state: CurrentCallState,
+        mut state: CurrentCallState,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
         // Handle message from receiver
         for msg in rx {
             match msg {
                 ReceivedPluginCallMessage::Response(resp) => {
+                    if state.entered_foreground {
+                        // Make the plugin leave the foreground on return, even if it's a stream
+                        if let Some(context) = context.as_deref_mut() {
+                            if let Err(err) =
+                                set_foreground(self.state.process.as_ref(), context, false)
+                            {
+                                log::warn!("Failed to leave foreground state on exit: {err:?}");
+                            }
+                        }
+                    }
                     if resp.has_stream() {
                         // If the response has a stream, we need to register the context
                         if let Some(context) = context {
@@ -797,7 +809,7 @@ impl PluginInterface {
                     self.handle_engine_call(
                         engine_call_id,
                         engine_call,
-                        &state,
+                        &mut state,
                         context.as_deref_mut(),
                     )?;
                 }
@@ -814,11 +826,11 @@ impl PluginInterface {
         &self,
         engine_call_id: EngineCallId,
         engine_call: EngineCall<PipelineData>,
-        state: &CurrentCallState,
+        state: &mut CurrentCallState,
         context: Option<&mut (dyn PluginExecutionContext + '_)>,
     ) -> Result<(), ShellError> {
         let process = self.state.process.as_ref();
-        let resp = handle_engine_call(engine_call, context, process)
+        let resp = handle_engine_call(engine_call, state, context, process)
             .unwrap_or_else(EngineCallResponse::Error);
         // Handle stream
         let mut writer = None;
@@ -1065,6 +1077,9 @@ pub struct CurrentCallState {
     /// Sender for a channel that retains plugin custom values that need to stay alive for the
     /// duration of a plugin call.
     keep_plugin_custom_values_tx: Option<mpsc::Sender<PluginCustomValue>>,
+    /// The plugin call entered the foreground: this should be cleaned up automatically when the
+    /// plugin call returns.
+    entered_foreground: bool,
 }
 
 impl CurrentCallState {
@@ -1152,6 +1167,7 @@ impl CurrentCallState {
 /// Handle an engine call.
 pub(crate) fn handle_engine_call(
     call: EngineCall<PipelineData>,
+    state: &mut CurrentCallState,
     context: Option<&mut (dyn PluginExecutionContext + '_)>,
     process: Option<&PluginProcess>,
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
@@ -1199,8 +1215,16 @@ pub(crate) fn handle_engine_call(
                 help.item, help.span,
             )))
         }
-        EngineCall::EnterForeground => set_foreground(process, context, true),
-        EngineCall::LeaveForeground => set_foreground(process, context, false),
+        EngineCall::EnterForeground => {
+            let resp = set_foreground(process, context, true)?;
+            state.entered_foreground = true;
+            Ok(resp)
+        }
+        EngineCall::LeaveForeground => {
+            let resp = set_foreground(process, context, false)?;
+            state.entered_foreground = false;
+            Ok(resp)
+        }
         EngineCall::GetSpanContents(span) => {
             let contents = context.get_span_contents(span)?;
             Ok(EngineCallResponse::value(Value::binary(
