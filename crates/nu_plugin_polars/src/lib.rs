@@ -180,7 +180,7 @@ pub mod test {
     use crate::values::PolarsPluginObject;
     use nu_command::IntoDatetime;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::ShellError;
+    use nu_protocol::{ShellError, Span};
 
     pub fn test_polars_plugin_command(command: &impl PluginCommand) -> Result<(), ShellError> {
         let mut plugin = PolarsPlugin::default();
@@ -193,7 +193,10 @@ pub mod test {
                 // if it's a polars plugin object, try to cache it
                 if let Ok(obj) = PolarsPluginObject::try_from_value(&plugin, result) {
                     let id = obj.id();
-                    plugin.cache.insert(None, id, obj).unwrap();
+                    plugin
+                        .cache
+                        .insert(None, id, obj, Span::test_data())
+                        .unwrap();
                 }
             }
         }
