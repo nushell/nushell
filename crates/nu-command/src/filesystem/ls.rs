@@ -105,16 +105,11 @@ impl Command for Ls {
         };
 
         let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let input_pattern_arg = if call.positional_len() == 0 {
+        let input_pattern_arg = if pattern_arg.is_empty() {
             None
         } else {
             Some(pattern_arg)
         };
-        // let input_pattern_arg = if pattern_arg.is_empty() {
-        //     None
-        // } else {
-        //     Some(pattern_arg)
-        // };
         match input_pattern_arg {
             None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
                 .into_pipeline_data_with_metadata(
