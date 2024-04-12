@@ -3669,7 +3669,6 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     let get_envs = || {
         let stack = Stack::new().capture();
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack)
-            .map(|e| e.into_iter().collect::<Vec<_>>())
     };
 
     let error = arguments.and_then(|(path, path_span)| {

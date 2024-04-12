@@ -2,13 +2,12 @@ use super::{
     communication_mode::CommunicationMode, create_command, gc::PluginGc, make_plugin_interface,
     PluginInterface, PluginSource,
 };
-use crate::protocol::Feature;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
 };
 use std::{
-    ffi::OsStr,
+    collections::HashMap,
     sync::{Arc, Mutex},
 };
 
@@ -41,6 +40,7 @@ struct MutableState {
 #[derive(Debug, Clone, Copy)]
 enum PreferredCommunicationMode {
     Stdio,
+    #[cfg(feature = "local-socket")]
     LocalSocket,
 }
 
@@ -69,15 +69,10 @@ impl PersistentPlugin {
     ///
     /// Will call `envs` to get environment variables to spawn the plugin if the plugin needs to be
     /// spawned.
-    pub(crate) fn get<E, K, V>(
+    pub(crate) fn get(
         self: Arc<Self>,
-        envs: impl FnOnce() -> Result<E, ShellError>,
-    ) -> Result<PluginInterface, ShellError>
-    where
-        E: AsRef<[(K, V)]>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
+        envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
+    ) -> Result<PluginInterface, ShellError> {
         let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
             msg: format!(
                 "plugin `{}` mutex poisoned, probably panic during spawn",
@@ -98,7 +93,7 @@ impl PersistentPlugin {
             // TODO: We should probably store the envs somewhere, in case we have to launch without
             // envs (e.g. from a custom value)
             let envs = envs()?;
-            let result = self.clone().spawn(envs.as_ref(), &mut mutable);
+            let result = self.clone().spawn(&envs, &mut mutable);
 
             // Check if we were using an alternate communication mode and may need to fall back to
             // stdio.
@@ -113,7 +108,7 @@ impl PersistentPlugin {
                     mutable.preferred_mode);
                 // Reset to stdio and try again, but this time don't catch any error
                 mutable.preferred_mode = Some(PreferredCommunicationMode::Stdio);
-                self.clone().spawn(envs.as_ref(), &mut mutable)?;
+                self.clone().spawn(&envs, &mut mutable)?;
             }
 
             Ok(mutable
@@ -130,7 +125,7 @@ impl PersistentPlugin {
     /// Run the plugin command, then set up and set `mutable.running` to the new running plugin.
     fn spawn(
         self: Arc<Self>,
-        envs: &[(impl AsRef<OsStr>, impl AsRef<OsStr>)],
+        envs: &HashMap<String, String>,
         mutable: &mut MutableState,
     ) -> Result<(), ShellError> {
         // Make sure `running` is set to None to begin
@@ -156,7 +151,7 @@ impl PersistentPlugin {
 
         // We need the current environment variables for `python` based plugins
         // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
-        plugin_cmd.envs(envs.iter().map(|(k, v)| (k.as_ref(), v.as_ref())));
+        plugin_cmd.envs(envs);
 
         let program_name = plugin_cmd.get_program().to_os_string().into_string();
 
@@ -199,7 +194,7 @@ impl PersistentPlugin {
         if mutable.preferred_mode.is_none()
             && interface
                 .protocol_info()?
-                .supports_feature(&Feature::LocalSocket)
+                .supports_feature(&crate::protocol::Feature::LocalSocket)
         {
             log::trace!(
                 "{}: Attempting to upgrade to local socket mode",
@@ -311,9 +306,7 @@ impl GetPlugin for PersistentPlugin {
                 })
                 .transpose()?;
 
-            Ok(envs
-                .map(|e| e.into_iter().collect::<Vec<_>>())
-                .unwrap_or(vec![]))
+            Ok(envs.unwrap_or_default())
         })
     }
 }

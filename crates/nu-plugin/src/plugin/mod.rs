@@ -217,6 +217,7 @@ fn make_plugin_interface(
             pid,
             gc,
         ),
+        #[cfg(feature = "local-socket")]
         ServerCommunicationIo::LocalSocket { read_out, write_in } => {
             make_plugin_interface_with_streams(
                 read_out,
@@ -277,15 +278,10 @@ fn make_plugin_interface_with_streams(
 }
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
-pub fn get_signature<E, K, V>(
+pub fn get_signature(
     plugin: Arc<PersistentPlugin>,
-    envs: impl FnOnce() -> Result<E, ShellError>,
-) -> Result<Vec<PluginSignature>, ShellError>
-where
-    E: AsRef<[(K, V)]>,
-    K: AsRef<OsStr>,
-    V: AsRef<OsStr>,
-{
+    envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
+) -> Result<Vec<PluginSignature>, ShellError> {
     plugin.get(envs)?.get_signature()
 }
 
