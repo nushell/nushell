@@ -149,7 +149,7 @@ impl PreparedServerCommunication {
             PreparedServerCommunication::LocalSocket { listener, .. } => {
                 use std::time::{Duration, Instant};
 
-                const RETRY_PERIOD: Duration = Duration::from_millis(10);
+                const RETRY_PERIOD: Duration = Duration::from_millis(1);
                 const TIMEOUT: Duration = Duration::from_secs(10);
 
                 let start = Instant::now();
