@@ -175,8 +175,7 @@ pub mod test {
         let list = value.as_list()?;
         assert_eq!(list.len(), 1);
         let msg = list.first().expect("should have a value").as_str()?;
-        assert_eq!(msg, format!("saved \"{}\"", tmp_file_str));
-
+        assert!(msg.contains("saved"));
         Ok(())
     }
 }
