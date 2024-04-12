@@ -196,22 +196,21 @@ impl PersistentPlugin {
         // If our current preferred mode is None, check to see if the plugin might support another
         // mode. If so, retry spawn() with that mode
         #[cfg(feature = "local-socket")]
-        if mutable.preferred_mode.is_none() {
-            if interface
+        if mutable.preferred_mode.is_none()
+            && interface
                 .protocol_info()?
                 .supports_feature(&Feature::LocalSocket)
-            {
-                log::trace!(
-                    "{}: Attempting to upgrade to local socket mode",
-                    self.identity.name()
-                );
-                // Stop the GC we just created from tracking so that we don't accidentally try to
-                // stop the new plugin
-                gc.stop_tracking();
-                // Set the mode and try again
-                mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
-                return self.spawn(envs, mutable);
-            }
+        {
+            log::trace!(
+                "{}: Attempting to upgrade to local socket mode",
+                self.identity.name()
+            );
+            // Stop the GC we just created from tracking so that we don't accidentally try to
+            // stop the new plugin
+            gc.stop_tracking();
+            // Set the mode and try again
+            mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
+            return self.spawn(envs, mutable);
         }
 
         mutable.running = Some(RunningPlugin { interface, gc });

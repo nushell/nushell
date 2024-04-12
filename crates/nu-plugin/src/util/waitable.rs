@@ -74,6 +74,12 @@ impl<T: Clone + Send> Waitable<T> {
     }
 }
 
+impl<T: Clone + Send> Default for Waitable<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[test]
 fn set_from_other_thread() -> Result<(), ShellError> {
     use std::sync::Arc;

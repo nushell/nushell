@@ -92,21 +92,15 @@ pub enum Feature {
 impl Feature {
     /// True if the feature is considered to be compatible with another feature.
     pub fn is_compatible_with(&self, other: &Feature) -> bool {
-        match (self, other) {
-            (Feature::LocalSocket, Feature::LocalSocket) => true,
-            _ => false,
-        }
+        matches!((self, other), (Feature::LocalSocket, Feature::LocalSocket))
     }
 }
 
 /// Protocol features compiled into this version of `nu-plugin`.
 pub fn default_features() -> Vec<Feature> {
-    #[allow(unused_mut)]
-    let mut features = vec![];
-
-    // Only available if compiled with the `local-socket` feature flag (enabled by default).
-    #[cfg(feature = "local-socket")]
-    features.push(Feature::LocalSocket);
-
-    features
+    vec![
+        // Only available if compiled with the `local-socket` feature flag (enabled by default).
+        #[cfg(feature = "local-socket")]
+        Feature::LocalSocket,
+    ]
 }
