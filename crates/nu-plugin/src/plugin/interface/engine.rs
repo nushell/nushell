@@ -472,6 +472,15 @@ impl EngineInterface {
         })
     }
 
+    /// Returns `true` if the plugin is communicating on stdio. When this is the case, stdin and
+    /// stdout should not be used by the plugin for other purposes.
+    ///
+    /// If the plugin can not be used without access to stdio, an error should be presented to the
+    /// user instead.
+    pub fn is_using_stdio(&self) -> bool {
+        self.state.writer.is_stdout()
+    }
+
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
     /// provided on request only.
     ///

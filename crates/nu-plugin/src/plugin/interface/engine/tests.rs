@@ -22,6 +22,15 @@ use std::{
 };
 
 #[test]
+fn is_using_stdio_is_false_for_test() {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.get_interface();
+
+    assert!(!interface.is_using_stdio());
+}
+
+#[test]
 fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {
     let mut test = TestCase::new();
     let mut manager = test.engine();
