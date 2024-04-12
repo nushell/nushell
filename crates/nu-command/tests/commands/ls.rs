@@ -751,12 +751,6 @@ fn list_with_multiple_path() {
 
         // report errors if one path not exists
         let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
-        assert!(actual.out.contains("f1.txt"));
-        assert!(actual.err.contains("directory not found"));
-        assert!(actual.status.success());
-
-        // failed if all path not exists
-        let actual = nu!(cwd: dirs.test(), "ls asdf aaaa");
         assert!(actual.err.contains("directory not found"));
         assert!(!actual.status.success());
     })

@@ -2,7 +2,6 @@ use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
-use nu_protocol::report_error_new;
 use nu_protocol::NuGlob;
 use serde::Deserialize;
 use std::path::Path;
@@ -121,7 +120,6 @@ impl Command for Du {
             }
             Some(paths) => {
                 let mut result_iters = vec![];
-                let mut errors = vec![];
                 for p in paths {
                     let args = DuArgs {
                         path: Some(p),
@@ -131,25 +129,12 @@ impl Command for Du {
                         max_depth,
                         min_size,
                     };
-                    match du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone()) {
-                        Ok(iter) => result_iters.push(iter),
-                        Err(e) => errors.push(e),
-                    }
-                }
-                // if no results available, need to report all errors and return Err
-                // or else return Error along with items.
-                if result_iters.is_empty() {
-                    if !errors.is_empty() {
-                        let last_error = errors.pop().expect("Already check errors is not empty");
-                        for e in &errors {
-                            report_error_new(engine_state, e)
-                        }
-                        return Err(last_error);
-                    }
-                } else {
-                    for e in &errors {
-                        report_error_new(engine_state, e)
-                    }
+                    result_iters.push(du_for_one_pattern(
+                        args,
+                        &current_dir,
+                        tag,
+                        engine_state.ctrlc.clone(),
+                    )?)
                 }
 
                 // chain all iterators on result.

@@ -93,13 +93,6 @@ fn du_with_multiple_path() {
 
     // report errors if one path not exists
     let actual = nu!(cwd: "tests/fixtures", "du cp asdf | get path | path basename");
-    assert!(actual.out.contains("cp"));
-    assert!(actual.err.contains("directory not found"));
-    assert!(actual.status.success());
-
-    // failed if all path not exists
-    let actual = nu!(cwd: "tests/fixtures", "du asdfa asdfa");
-    assert!(!actual.out.contains("cp"));
     assert!(actual.err.contains("directory not found"));
     assert!(!actual.status.success());
 }

@@ -4,7 +4,6 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
-use nu_protocol::report_error_new;
 use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 
@@ -106,11 +105,16 @@ impl Command for Ls {
         };
 
         let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let input_pattern_arg = if pattern_arg.is_empty() {
+        let input_pattern_arg = if call.positional_len() == 0 {
             None
         } else {
             Some(pattern_arg)
         };
+        // let input_pattern_arg = if pattern_arg.is_empty() {
+        //     None
+        // } else {
+        //     Some(pattern_arg)
+        // };
         match input_pattern_arg {
             None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
                 .into_pipeline_data_with_metadata(
@@ -121,29 +125,15 @@ impl Command for Ls {
                 )),
             Some(pattern) => {
                 let mut result_iters = vec![];
-                let mut errors = vec![];
                 for pat in pattern {
-                    match ls_for_one_pattern(Some(pat), args, ctrl_c.clone(), cwd.clone()) {
-                        Ok(it) => result_iters.push(it),
-                        Err(e) => errors.push(e),
-                    }
+                    result_iters.push(ls_for_one_pattern(
+                        Some(pat),
+                        args,
+                        ctrl_c.clone(),
+                        cwd.clone(),
+                    )?)
                 }
 
-                // if no results available, need to report all errors and return Err
-                // or else return Error along with items.
-                if result_iters.is_empty() {
-                    if !errors.is_empty() {
-                        let last_error = errors.pop().expect("Already check errors is not empty");
-                        for e in &errors {
-                            report_error_new(engine_state, e)
-                        }
-                        return Err(last_error);
-                    }
-                } else {
-                    for e in &errors {
-                        report_error_new(engine_state, e)
-                    }
-                }
                 // Here nushell needs to use
                 // use `flatten` to chain all iterators into one.
                 Ok(result_iters
