@@ -229,7 +229,7 @@ fn from_avro(
 ) -> Result<Value, ShellError> {
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
-    let r = File::open(&file_path).map_err(|e| ShellError::GenericError {
+    let r = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
         span: Some(file_span),
@@ -288,7 +288,7 @@ fn from_ipc(
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
-        let r = File::open(&file_path).map_err(|e| ShellError::GenericError {
+        let r = File::open(file_path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
             span: Some(file_span),
@@ -324,7 +324,7 @@ fn from_json(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    let file = File::open(&file_path).map_err(|e| ShellError::GenericError {
+    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
         span: Some(file_span),
@@ -370,7 +370,7 @@ fn from_jsonl(
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
-    let file = File::open(&file_path).map_err(|e| ShellError::GenericError {
+    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
         span: Some(file_span),
@@ -474,7 +474,7 @@ fn from_csv(
 
         cache_and_to_value(plugin, engine, call.head, df)
     } else {
-        let csv_reader = CsvReader::from_path(&file_path)
+        let csv_reader = CsvReader::from_path(file_path)
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),
