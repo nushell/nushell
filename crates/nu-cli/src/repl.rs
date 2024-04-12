@@ -573,7 +573,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 run_ansi_sequence(PRE_EXECUTE_MARKER);
 
                 perf(
-                    "pre_execute_marker ansi escape sequence",
+                    "pre_execute_marker (133;C) ansi escape sequence",
                     start_time,
                     file!(),
                     line!(),
@@ -583,12 +583,27 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             }
 
             // Actual command execution logic starts from here
-            start_time = Instant::now();
+            let cmd_execution_start_time = Instant::now();
 
             match parse_operation(s.clone(), engine_state, &stack) {
                 Ok(operation) => match operation {
                     ReplOperation::AutoCd { cwd, target, span } => {
                         do_auto_cd(target, cwd, &mut stack, engine_state, span);
+
+                        if shell_integration {
+                            start_time = Instant::now();
+
+                            run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
+
+                            perf(
+                                "post_execute_marker (133;D) ansi escape sequences",
+                                start_time,
+                                file!(),
+                                line!(),
+                                column!(),
+                                use_color,
+                            );
+                        }
                     }
                     ReplOperation::RunCommand(cmd) => {
                         line_editor = do_run_cmd(
@@ -599,14 +614,29 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                             shell_integration,
                             *entry_num,
                             use_color,
-                        )
+                        );
+
+                        if shell_integration {
+                            start_time = Instant::now();
+
+                            run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
+
+                            perf(
+                                "post_execute_marker (133;D) ansi escape sequences",
+                                start_time,
+                                file!(),
+                                line!(),
+                                column!(),
+                                use_color,
+                            );
+                        }
                     }
                     // as the name implies, we do nothing in this case
                     ReplOperation::DoNothing => {}
                 },
                 Err(ref e) => error!("Error parsing operation: {e}"),
             }
-            let cmd_duration = start_time.elapsed();
+            let cmd_duration = cmd_execution_start_time.elapsed();
 
             stack.add_env_var(
                 "CMD_DURATION_MS".into(),
@@ -991,7 +1021,6 @@ fn do_shell_integration_finalize_command(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) {
-    run_ansi_sequence(&get_command_finished_marker(stack, engine_state));
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
         match cwd.coerce_into_string() {
             Ok(path) => {
