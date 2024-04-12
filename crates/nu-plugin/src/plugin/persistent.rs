@@ -134,7 +134,10 @@ impl PersistentPlugin {
         mutable: &mut MutableState,
     ) -> Result<(), ShellError> {
         // Make sure `running` is set to None to begin
-        mutable.running = None;
+        if let Some(running) = mutable.running.take() {
+            // Stop the GC if there was a running plugin
+            running.gc.stop_tracking();
+        }
 
         let source_file = self.identity.filename();
 
@@ -202,7 +205,10 @@ impl PersistentPlugin {
                     "{}: Attempting to upgrade to local socket mode",
                     self.identity.name()
                 );
+                // Stop the GC we just created from tracking so that we don't accidentally try to
+                // stop the new plugin
                 gc.stop_tracking();
+                // Set the mode and try again
                 mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
                 return self.spawn(envs, mutable);
             }
