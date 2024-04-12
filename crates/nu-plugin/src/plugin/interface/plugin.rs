@@ -12,7 +12,7 @@ use crate::{
         PluginOutput, ProtocolInfo, StreamId, StreamMessage,
     },
     sequence::Sequence,
-    util::with_custom_values_in,
+    util::{with_custom_values_in, Waitable},
 };
 use nu_protocol::{
     ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, ListStream,
@@ -64,6 +64,8 @@ struct PluginInterfaceState {
     source: Arc<PluginSource>,
     /// The plugin process being managed
     process: Option<PluginProcess>,
+    /// Protocol version info, set after `Hello` received
+    protocol_info: Waitable<Arc<ProtocolInfo>>,
     /// Sequence for generating plugin call ids
     plugin_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
@@ -80,12 +82,14 @@ impl std::fmt::Debug for PluginInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginInterfaceState")
             .field("source", &self.source)
+            .field("protocol_info", &self.protocol_info)
             .field("plugin_call_id_sequence", &self.plugin_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
             .field(
                 "plugin_call_subscription_sender",
                 &self.plugin_call_subscription_sender,
             )
+            .field("error", &self.error)
             .finish_non_exhaustive()
     }
 }
@@ -134,8 +138,6 @@ pub struct PluginInterfaceManager {
     state: Arc<PluginInterfaceState>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
-    /// Protocol version info, set after `Hello` received
-    protocol_info: Option<ProtocolInfo>,
     /// State related to plugin calls
     plugin_call_states: BTreeMap<PluginCallId, PluginCallState>,
     /// Receiver for plugin call subscriptions
@@ -160,6 +162,7 @@ impl PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
                 source,
                 process: pid.map(PluginProcess::new),
+                protocol_info: Waitable::new(),
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
@@ -167,7 +170,6 @@ impl PluginInterfaceManager {
                 writer: Box::new(writer),
             }),
             stream_manager: StreamManager::new(),
-            protocol_info: None,
             plugin_call_states: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
             plugin_call_input_streams: BTreeMap::new(),
@@ -457,12 +459,13 @@ impl InterfaceManager for PluginInterfaceManager {
 
         match input {
             PluginOutput::Hello(info) => {
+                let info = Arc::new(info);
+                self.state.protocol_info.set(info.clone())?;
+
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
-                    self.protocol_info = Some(info);
                     Ok(())
                 } else {
-                    self.protocol_info = None;
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
                             "Plugin `{}` is compiled for nushell version {}, \
@@ -474,7 +477,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     })
                 }
             }
-            _ if self.protocol_info.is_none() => {
+            _ if !self.state.protocol_info.is_set() => {
                 // Must send protocol info first
                 Err(ShellError::PluginFailedToLoad {
                     msg: format!(
@@ -610,6 +613,11 @@ impl PluginInterface {
     /// Get the process ID for the plugin, if known.
     pub fn pid(&self) -> Option<u32> {
         self.state.process.as_ref().map(|p| p.pid())
+    }
+
+    /// Get the protocol info for the plugin. Will block to receive `Hello` if not received yet.
+    pub fn protocol_info(&self) -> Result<Arc<ProtocolInfo>, ShellError> {
+        self.state.protocol_info.get()
     }
 
     /// Write the protocol info. This should be done after initialization

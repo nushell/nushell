@@ -3669,6 +3669,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     let get_envs = || {
         let stack = Stack::new().capture();
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack)
+            .map(|e| e.into_iter().collect::<Vec<_>>())
     };
 
     let error = arguments.and_then(|(path, path_span)| {
@@ -3687,7 +3688,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
         // Add it to the working set
         let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
+            Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
         });
 
         // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
@@ -3713,6 +3714,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                         spans[0],
                     )
                 })?;
+
+                plugin.set_gc_config(&gc_config);
 
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
                     log::warn!("Error getting signatures: {err:?}");

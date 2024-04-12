@@ -282,7 +282,7 @@ pub fn get_signature<E, K, V>(
     envs: impl FnOnce() -> Result<E, ShellError>,
 ) -> Result<Vec<PluginSignature>, ShellError>
 where
-    E: IntoIterator<Item = (K, V)>,
+    E: AsRef<[(K, V)]>,
     K: AsRef<OsStr>,
     V: AsRef<OsStr>,
 {

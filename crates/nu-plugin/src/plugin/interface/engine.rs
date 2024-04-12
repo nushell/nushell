@@ -4,10 +4,13 @@ use super::{
     stream::{StreamManager, StreamManagerHandle},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, Sequence,
 };
-use crate::protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
-    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-    ProtocolInfo,
+use crate::{
+    protocol::{
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
+        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        PluginOutput, ProtocolInfo,
+    },
+    util::Waitable,
 };
 use nu_protocol::{
     engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
@@ -47,6 +50,8 @@ mod tests;
 
 /// Internal shared state between the manager and each interface.
 struct EngineInterfaceState {
+    /// Protocol version info, set after `Hello` received
+    protocol_info: Waitable<Arc<ProtocolInfo>>,
     /// Sequence for generating engine call ids
     engine_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
@@ -61,6 +66,7 @@ struct EngineInterfaceState {
 impl std::fmt::Debug for EngineInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EngineInterfaceState")
+            .field("protocol_info", &self.protocol_info)
             .field("engine_call_id_sequence", &self.engine_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
             .field(
@@ -91,8 +97,6 @@ pub struct EngineInterfaceManager {
         mpsc::Receiver<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
-    /// Protocol version info, set after `Hello` received
-    protocol_info: Option<ProtocolInfo>,
 }
 
 impl EngineInterfaceManager {
@@ -102,6 +106,7 @@ impl EngineInterfaceManager {
 
         EngineInterfaceManager {
             state: Arc::new(EngineInterfaceState {
+                protocol_info: Waitable::new(),
                 engine_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
@@ -112,7 +117,6 @@ impl EngineInterfaceManager {
             engine_call_subscriptions: BTreeMap::new(),
             engine_call_subscription_receiver: subscription_rx,
             stream_manager: StreamManager::new(),
-            protocol_info: None,
         }
     }
 
@@ -228,12 +232,13 @@ impl InterfaceManager for EngineInterfaceManager {
 
         match input {
             PluginInput::Hello(info) => {
+                let info = Arc::new(info);
+                self.state.protocol_info.set(info.clone())?;
+
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
-                    self.protocol_info = Some(info);
                     Ok(())
                 } else {
-                    self.protocol_info = None;
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
                             "Plugin is compiled for nushell version {}, \
@@ -243,7 +248,7 @@ impl InterfaceManager for EngineInterfaceManager {
                     })
                 }
             }
-            _ if self.protocol_info.is_none() => {
+            _ if !self.state.protocol_info.is_set() => {
                 // Must send protocol info first
                 Err(ShellError::PluginFailedToLoad {
                     msg: "Failed to receive initial Hello message. This engine might be too old"
