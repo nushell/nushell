@@ -211,6 +211,31 @@ impl PersistentPlugin {
         mutable.running = Some(RunningPlugin { interface, gc });
         Ok(())
     }
+
+    fn stop_internal(&self, reset: bool) -> Result<(), ShellError> {
+        let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
+            msg: format!(
+                "plugin `{}` mutable mutex poisoned, probably panic during spawn",
+                self.identity.name()
+            ),
+        })?;
+
+        // If the plugin is running, stop its GC, so that the GC doesn't accidentally try to stop
+        // a future plugin
+        if let Some(ref running) = mutable.running {
+            running.gc.stop_tracking();
+        }
+
+        // We don't try to kill the process or anything, we just drop the RunningPlugin. It should
+        // exit soon after
+        mutable.running = None;
+
+        // If this is a reset, we should also reset other learned attributes like preferred_mode
+        if reset {
+            mutable.preferred_mode = None;
+        }
+        Ok(())
+    }
 }
 
 impl RegisteredPlugin for PersistentPlugin {
@@ -236,23 +261,11 @@ impl RegisteredPlugin for PersistentPlugin {
     }
 
     fn stop(&self) -> Result<(), ShellError> {
-        let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
-            msg: format!(
-                "plugin `{}` mutable mutex poisoned, probably panic during spawn",
-                self.identity.name()
-            ),
-        })?;
+        self.stop_internal(false)
+    }
 
-        // If the plugin is running, stop its GC, so that the GC doesn't accidentally try to stop
-        // a future plugin
-        if let Some(ref running) = mutable.running {
-            running.gc.stop_tracking();
-        }
-
-        // We don't try to kill the process or anything, we just drop the RunningPlugin. It should
-        // exit soon after
-        mutable.running = None;
-        Ok(())
+    fn reset(&self) -> Result<(), ShellError> {
+        self.stop_internal(true)
     }
 
     fn set_gc_config(&self, gc_config: &PluginGcConfig) {

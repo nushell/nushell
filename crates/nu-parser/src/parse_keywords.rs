@@ -3706,7 +3706,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 //
                 // The user would expect that `register` would always run the binary to get new
                 // signatures, in case it was replaced with an updated binary
-                plugin.stop().map_err(|err| {
+                plugin.reset().map_err(|err| {
                     ParseError::LabeledError(
                         "Failed to restart plugin to get new signatures".into(),
                         err.to_string(),
