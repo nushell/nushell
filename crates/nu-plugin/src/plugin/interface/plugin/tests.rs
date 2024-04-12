@@ -1288,8 +1288,8 @@ fn prepare_custom_value_sends_to_keep_channel_if_drop_notify() -> Result<(), She
     let source = Arc::new(PluginSource::new_fake("test"));
     let (tx, rx) = mpsc::channel();
     let state = CurrentCallState {
-        context_tx: None,
         keep_plugin_custom_values_tx: Some(tx),
+        ..Default::default()
     };
     // Try with a custom val that has drop check set
     let mut drop_val = PluginCustomValue::serialize_from_custom_value(&DropCustomVal, span)?
