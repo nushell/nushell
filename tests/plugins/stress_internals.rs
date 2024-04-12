@@ -57,7 +57,7 @@ fn test_failing_local_socket_fallback() {
     let mut count_stdio = 0;
     let mut count_local_socket = 0;
 
-    for line in result.err.split("\n") {
+    for line in result.err.split('\n') {
         if line.contains("--stdio") {
             count_stdio += 1;
         }
