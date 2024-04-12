@@ -362,7 +362,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -4551,8 +4551,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65ebc241ed0ccea0bbbd775a55a76f0dd9971ef084589dea938751a03ffedc14"
+source = "git+https://github.com/nushell/reedline?branch=main#46f410bfdce0b64c3d94fdc0271886f30d64b151"
 dependencies = [
  "arboard",
  "chrono",
