@@ -86,7 +86,6 @@ fn command(
         help: None,
         inner: vec![],
     })?;
-    eprintln!("file: {:?}", file);
 
     let writer = CsvWriter::new(&mut file);
 
@@ -127,8 +126,6 @@ fn command(
             help: None,
             inner: vec![],
         })?;
-
-    eprintln!("file: {:?}", file);
 
     let file_value = Value::string(format!("saved {:?}", &file_name.item), file_name.span);
 
