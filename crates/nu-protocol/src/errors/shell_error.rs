@@ -473,7 +473,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An error happened while tryin to create a range.
+    /// An error happened while trying to create a range.
     ///
     /// This can happen in various unexpected situations, for example if the range would loop forever (as would be the case with a 0-increment).
     ///

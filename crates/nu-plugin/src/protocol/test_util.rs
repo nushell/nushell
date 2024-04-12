@@ -23,6 +23,10 @@ impl CustomValue for TestCustomValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 pub(crate) fn test_plugin_custom_value() -> PluginCustomValue {

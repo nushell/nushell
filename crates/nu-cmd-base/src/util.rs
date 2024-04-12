@@ -1,9 +1,8 @@
 use nu_protocol::{
-    ast::RangeInclusion,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error, Range, ShellError, Span, Value,
 };
-use std::path::PathBuf;
+use std::{ops::Bound, path::PathBuf};
 
 pub fn get_init_cwd() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| {
@@ -24,35 +23,21 @@ pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
-    let start = match &range.from {
-        Value::Int { val, .. } => isize::try_from(*val).unwrap_or_default(),
-        Value::Nothing { .. } => 0,
-        _ => {
-            return Err(|msg, span| ShellError::TypeMismatch {
-                err_message: msg.to_string(),
-                span,
-            })
+    match range {
+        Range::IntRange(range) => {
+            let start = range.start().try_into().unwrap_or(0);
+            let end = match range.end() {
+                Bound::Included(v) => v as isize,
+                Bound::Excluded(v) => (v - 1) as isize,
+                Bound::Unbounded => isize::MAX,
+            };
+            Ok((start, end))
         }
-    };
-
-    let end = match &range.to {
-        Value::Int { val, .. } => {
-            if matches!(range.inclusion, RangeInclusion::Inclusive) {
-                isize::try_from(*val).unwrap_or(isize::max_value())
-            } else {
-                isize::try_from(*val).unwrap_or(isize::max_value()) - 1
-            }
-        }
-        Value::Nothing { .. } => isize::max_value(),
-        _ => {
-            return Err(|msg, span| ShellError::TypeMismatch {
-                err_message: msg.to_string(),
-                span,
-            })
-        }
-    };
-
-    Ok((start, end))
+        Range::FloatRange(_) => Err(|msg, span| ShellError::TypeMismatch {
+            err_message: msg.to_string(),
+            span,
+        }),
+    }
 }
 
 const HELP_MSG: &str = "Nushell's config file can be found with the command: $nu.config-path. \

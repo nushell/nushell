@@ -11,7 +11,7 @@ use crate::{
 };
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginExample, PluginSignature, ShellError, Signature, Span, Spanned, Value,
+    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::HashMap,
@@ -783,49 +783,6 @@ fn interface_write_signature() -> Result<(), ShellError> {
 }
 
 #[test]
-fn interface_write_signature_custom_value() -> Result<(), ShellError> {
-    let test = TestCase::new();
-    let interface = test.engine().interface_for_context(38);
-    let signatures = vec![PluginSignature::new(
-        Signature::build("test command"),
-        vec![PluginExample {
-            example: "test command".into(),
-            description: "a test".into(),
-            result: Some(Value::test_custom_value(Box::new(
-                expected_test_custom_value(),
-            ))),
-        }],
-    )];
-    interface.write_signature(signatures.clone())?;
-
-    let written = test.next_written().expect("nothing written");
-
-    match written {
-        PluginOutput::CallResponse(id, response) => {
-            assert_eq!(38, id, "id");
-            match response {
-                PluginCallResponse::Signature(sigs) => {
-                    assert_eq!(1, sigs.len(), "sigs.len");
-
-                    let sig = &sigs[0];
-                    assert_eq!(1, sig.examples.len(), "sig.examples.len");
-
-                    assert_eq!(
-                        Some(Value::test_int(expected_test_custom_value().0 as i64)),
-                        sig.examples[0].result,
-                    );
-                }
-                _ => panic!("unexpected response: {response:?}"),
-            }
-        }
-        _ => panic!("unexpected message written: {written:?}"),
-    }
-
-    assert!(!test.has_unconsumed_write());
-    Ok(())
-}
-
-#[test]
 fn interface_write_engine_call_registers_subscription() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     assert!(
@@ -1022,6 +979,24 @@ fn interface_get_help() -> Result<(), ShellError> {
 }
 
 #[test]
+fn interface_get_span_contents() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::value(Value::test_binary(b"test string"))
+    });
+
+    let contents = interface.get_span_contents(Span::test_data())?;
+
+    assert_eq!(b"test string", &contents[..]);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.engine();
@@ -1085,10 +1060,13 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
 fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), ShellError> {
     let interface = TestCase::new().engine().get_interface();
 
-    let data = interface.prepare_pipeline_data(PipelineData::Value(
-        Value::test_custom_value(Box::new(expected_test_custom_value())),
-        None,
-    ))?;
+    let data = interface.prepare_pipeline_data(
+        PipelineData::Value(
+            Value::test_custom_value(Box::new(expected_test_custom_value())),
+            None,
+        ),
+        &(),
+    )?;
 
     let value = data
         .into_iter()
@@ -1117,6 +1095,7 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
             expected_test_custom_value(),
         ))]
         .into_pipeline_data(None),
+        &(),
     )?;
 
     let value = data
@@ -1161,6 +1140,10 @@ impl CustomValue for CantSerialize {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[test]
@@ -1171,6 +1154,7 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
     let span = Span::new(40, 60);
     let data = interface.prepare_pipeline_data(
         [Value::custom(Box::new(CantSerialize::BadVariant), span)].into_pipeline_data(None),
+        &(),
     )?;
 
     let value = data

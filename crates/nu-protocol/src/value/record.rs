@@ -2,9 +2,9 @@ use std::ops::RangeBounds;
 
 use crate::{ShellError, Span, Value};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct Record {
     inner: Vec<(String, Value)>,
 }
@@ -256,6 +256,104 @@ impl Record {
         Drain {
             iter: self.inner.drain(range),
         }
+    }
+
+    /// Sort the record by its columns.
+    ///
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "c" => Value::test_string("foo"),
+    ///     "b" => Value::test_int(42),
+    ///     "a" => Value::test_nothing(),
+    /// );
+    ///
+    /// rec.sort_cols();
+    ///
+    /// assert_eq!(
+    ///     Value::test_record(rec),
+    ///     Value::test_record(record!(
+    ///         "a" => Value::test_nothing(),
+    ///         "b" => Value::test_int(42),
+    ///         "c" => Value::test_string("foo"),
+    ///     ))
+    /// );
+    /// ```
+    pub fn sort_cols(&mut self) {
+        self.inner.sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
+    }
+}
+
+impl Serialize for Record {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.len()))?;
+        for (k, v) in self {
+            map.serialize_entry(k, v)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Record {
+    /// Special deserialization implementation that turns a map-pattern into a [`Record`]
+    ///
+    /// Denies duplicate keys
+    ///
+    /// ```rust
+    /// use serde_json::{from_str, Result};
+    /// use nu_protocol::{Record, Value, record};
+    ///
+    /// // A `Record` in json is a Record with a packed `Value`
+    /// // The `Value` record has a single key indicating its type and the inner record describing
+    /// // its representation of value and the associated `Span`
+    /// let ok = r#"{"a": {"Int": {"val": 42, "span": {"start": 0, "end": 0}}},
+    ///              "b": {"Int": {"val": 37, "span": {"start": 0, "end": 0}}}}"#;
+    /// let ok_rec: Record = from_str(ok).unwrap();
+    /// assert_eq!(Value::test_record(ok_rec),
+    ///            Value::test_record(record!{"a" => Value::test_int(42),
+    ///                                       "b" => Value::test_int(37)}));
+    /// // A repeated key will lead to a deserialization error
+    /// let bad = r#"{"a": {"Int": {"val": 42, "span": {"start": 0, "end": 0}}},
+    ///               "a": {"Int": {"val": 37, "span": {"start": 0, "end": 0}}}}"#;
+    /// let bad_rec: Result<Record> = from_str(bad);
+    /// assert!(bad_rec.is_err());
+    /// ```
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(RecordVisitor)
+    }
+}
+
+struct RecordVisitor;
+
+impl<'de> Visitor<'de> for RecordVisitor {
+    type Value = Record;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a nushell `Record` mapping string keys/columns to nushell `Value`")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        let mut record = Record::with_capacity(map.size_hint().unwrap_or(0));
+
+        while let Some((key, value)) = map.next_entry::<String, Value>()? {
+            if record.insert(key, value).is_some() {
+                return Err(serde::de::Error::custom(
+                    "invalid entry, duplicate keys are not allowed for `Record`",
+                ));
+            }
+        }
+
+        Ok(record)
     }
 }
 

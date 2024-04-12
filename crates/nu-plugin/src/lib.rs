@@ -67,7 +67,6 @@ mod plugin;
 mod protocol;
 mod sequence;
 mod serializers;
-mod util;
 
 pub use plugin::{
     serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, PluginRead, PluginWrite,
@@ -88,6 +87,8 @@ pub use plugin::{
 pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
 #[doc(hidden)]
 pub use serializers::EncodingType;
+#[doc(hidden)]
+pub mod util;
 
 // Used by external benchmarks.
 #[doc(hidden)]
