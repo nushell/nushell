@@ -135,32 +135,32 @@ fn with_operator(
         Operator::Comparison(Comparison::Equal) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::eq)
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::NotEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::neq)
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::GreaterThan) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::gt)
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::GreaterThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::gt_eq)
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::LessThan) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt)
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         Operator::Comparison(Comparison::LessThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt_eq)
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         _ => Err(ShellError::OperatorMismatch {
             op_span,
@@ -185,7 +185,7 @@ where
 {
     let expr: NuExpression = f(left.as_ref().clone(), right.as_ref().clone()).into();
 
-    Ok(expr.cache(plugin, engine)?.into_value(span))
+    Ok(expr.cache(plugin, engine, span)?.into_value(span))
 }
 
 impl PolarsPluginCustomValue for NuExpressionCustomValue {

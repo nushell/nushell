@@ -54,7 +54,7 @@ impl PluginCommand for ToLazyFrame {
         let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
         let lazy = NuLazyFrame::from_dataframe(df);
         Ok(PipelineData::Value(
-            lazy.cache(plugin, engine)?.into_value(call.head),
+            lazy.cache(plugin, engine, call.head)?.into_value(call.head),
             None,
         ))
     }

@@ -81,7 +81,7 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
         Ok(df
             .compute_with_value(plugin, lhs_span, operator.item, operator.span, &right)?
-            .cache(plugin, engine)?
+            .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span))
     }
 
@@ -105,7 +105,9 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
         let column = df.column(&column_name.item, self_span)?;
-        Ok(column.cache(plugin, engine)?.into_value(self_span))
+        Ok(column
+            .cache(plugin, engine, self_span)?
+            .into_value(self_span))
     }
 
     fn custom_value_partial_cmp(
