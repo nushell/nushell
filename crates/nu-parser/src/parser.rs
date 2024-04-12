@@ -6301,7 +6301,8 @@ pub fn parse(
         // need to check block_id >= working_set.permanent_state.num_blocks()
         // to avoid mutate a block that is in the permanent state.
         // this can happened if user defines a function with recursive call
-        // and pipe a variable to the comand, e.g:
+        // and pipe a variable to the command, e.g:
+        :xa
         // def px [] { if { true } else { px } };    # the block px is saved in permanent state.
         // let x = 3
         // $x | px
