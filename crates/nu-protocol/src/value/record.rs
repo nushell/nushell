@@ -1,4 +1,4 @@
-use std::ops::RangeBounds;
+use std::{iter::FusedIterator, ops::RangeBounds};
 
 use crate::{ShellError, Span, Value};
 
@@ -409,6 +409,8 @@ impl ExactSizeIterator for IntoIter {
     }
 }
 
+impl FusedIterator for IntoIter {}
+
 impl IntoIterator for Record {
     type Item = (String, Value);
 
@@ -448,6 +450,8 @@ impl<'a> ExactSizeIterator for Iter<'a> {
         self.iter.len()
     }
 }
+
+impl FusedIterator for Iter<'_> {}
 
 impl<'a> IntoIterator for &'a Record {
     type Item = (&'a String, &'a Value);
@@ -489,6 +493,8 @@ impl<'a> ExactSizeIterator for IterMut<'a> {
     }
 }
 
+impl FusedIterator for IterMut<'_> {}
+
 impl<'a> IntoIterator for &'a mut Record {
     type Item = (&'a String, &'a mut Value);
 
@@ -529,6 +535,8 @@ impl<'a> ExactSizeIterator for Columns<'a> {
     }
 }
 
+impl FusedIterator for Columns<'_> {}
+
 pub struct IntoColumns {
     iter: std::vec::IntoIter<(String, Value)>,
 }
@@ -556,6 +564,8 @@ impl ExactSizeIterator for IntoColumns {
         self.iter.len()
     }
 }
+
+impl FusedIterator for IntoColumns {}
 
 pub struct Values<'a> {
     iter: std::slice::Iter<'a, (String, Value)>,
@@ -585,6 +595,8 @@ impl<'a> ExactSizeIterator for Values<'a> {
     }
 }
 
+impl FusedIterator for Values<'_> {}
+
 pub struct IntoValues {
     iter: std::vec::IntoIter<(String, Value)>,
 }
@@ -613,6 +625,8 @@ impl ExactSizeIterator for IntoValues {
     }
 }
 
+impl FusedIterator for IntoValues {}
+
 pub struct Drain<'a> {
     iter: std::vec::Drain<'a, (String, Value)>,
 }
@@ -640,6 +654,8 @@ impl ExactSizeIterator for Drain<'_> {
         self.iter.len()
     }
 }
+
+impl FusedIterator for Drain<'_> {}
 
 #[macro_export]
 macro_rules! record {
