@@ -1282,7 +1282,7 @@ pub(crate) fn handle_engine_call(
             state.entered_foreground = false;
             Ok(resp)
         }
-        EngineCall::GetSpanContents(span) => {
+        EngineCall::GetSpanIdContents(span) => {
             let contents = context.get_span_contents(span)?;
             Ok(EngineCallResponse::value(Value::binary(
                 contents.item,

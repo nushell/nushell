@@ -6,6 +6,7 @@ use std::{
     fmt::Display,
     sync::{atomic::AtomicBool, Arc},
 };
+use std::future::Future;
 
 use crate::{ast::RangeInclusion, ShellError, FutureSpanId, Value};
 
@@ -480,15 +481,8 @@ mod float_range {
         ctrlc: Option<Arc<AtomicBool>>,
     }
 
-impl RangeIterator {
-    pub fn new(range: Range, ctrlc: Option<Arc<AtomicBool>>, span: FutureSpanId) -> RangeIterator {
-        let moves_up = range.moves_up();
-        let is_end_inclusive = range.is_end_inclusive();
-
-        let start = match range.from {
-            Value::Nothing { .. } => Value::int(0, span),
-            x => x,
-        };
+    impl Iterator for Iter {
+        type Item = f64;
 
         fn next(&mut self) -> Option<Self::Item> {
             if let Some(iter) = self.iter {

@@ -3,7 +3,7 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, FutureSpanId, Spanned, Value,
 };
 use std::{
     borrow::Cow,
@@ -37,7 +37,7 @@ pub trait PluginExecutionContext: Send + Sync {
     /// Get help for the current command
     fn get_help(&self) -> Result<Spanned<String>, ShellError>;
     /// Get the contents of a [`Span`]
-    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError>;
+    fn get_span_contents(&self, span: FutureSpanId) -> Result<Spanned<Vec<u8>>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -148,10 +148,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         .into_spanned(self.call.head))
     }
 
-    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+    fn get_span_contents(&self, span: FutureSpanId) -> Result<Spanned<Vec<u8>>, ShellError> {
         Ok(self
             .engine_state
-            .get_span_contents(span)
+            .get_span_id_contents(span)
             .to_vec()
             .into_spanned(self.call.head))
     }
@@ -285,7 +285,7 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         })
     }
 
-    fn get_span_contents(&self, _span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+    fn get_span_contents(&self, _span: FutureSpanId) -> Result<Spanned<Vec<u8>>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_span_contents not implemented on bogus".into(),
         })

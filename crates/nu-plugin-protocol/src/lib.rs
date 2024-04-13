@@ -171,7 +171,7 @@ impl<D> PluginCall<D> {
     }
 
     /// The span associated with the call.
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<FutureSpanId> {
         match self {
             PluginCall::Signature => None,
             PluginCall::Run(CallInfo { call, .. }) => Some(call.head),
@@ -502,7 +502,7 @@ pub enum EngineCall<D> {
     /// Move the plugin out of the foreground once terminal interaction has finished
     LeaveForeground,
     /// Get the contents of a span. Response is a binary which may not parse to UTF-8
-    GetSpanContents(Span),
+    GetSpanIdContents(FutureSpanId),
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -533,7 +533,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetHelp => "GetHelp",
             EngineCall::EnterForeground => "EnterForeground",
             EngineCall::LeaveForeground => "LeaveForeground",
-            EngineCall::GetSpanContents(_) => "GetSpanContents",
+            EngineCall::GetSpanIdContents(_) => "GetSpanIdContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
@@ -554,7 +554,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetHelp => EngineCall::GetHelp,
             EngineCall::EnterForeground => EngineCall::EnterForeground,
             EngineCall::LeaveForeground => EngineCall::LeaveForeground,
-            EngineCall::GetSpanContents(span) => EngineCall::GetSpanContents(span),
+            EngineCall::GetSpanIdContents(span) => EngineCall::GetSpanIdContents(span),
             EngineCall::EvalClosure {
                 closure,
                 positional,

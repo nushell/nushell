@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    PluginSignature, ShellError, FutureSpanId, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
@@ -714,13 +714,13 @@ impl EngineInterface {
     /// This method returns `Vec<u8>` as it's possible for the matched span to not be a valid UTF-8
     /// string, perhaps because it sliced through the middle of a UTF-8 byte sequence, as the
     /// offsets are byte-indexed. Use [`String::from_utf8_lossy()`] for display if necessary.
-    pub fn get_span_contents(&self, span: Span) -> Result<Vec<u8>, ShellError> {
-        match self.engine_call(EngineCall::GetSpanContents(span))? {
+    pub fn get_span_id_contents(&self, span_id: FutureSpanId) -> Result<Vec<u8>, ShellError> {
+        match self.engine_call(EngineCall::GetSpanIdContents(span_id))? {
             EngineCallResponse::PipelineData(PipelineData::Value(Value::Binary { val, .. }, _)) => {
                 Ok(val)
             }
             _ => Err(ShellError::PluginFailedToDecode {
-                msg: "Received unexpected response type for EngineCall::GetSpanContents".into(),
+                msg: "Received unexpected response type for EngineCall::GetSpanIdContents".into(),
             }),
         }
     }
