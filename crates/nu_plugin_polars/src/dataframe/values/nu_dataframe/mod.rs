@@ -300,8 +300,7 @@ impl NuDataFrame {
         self.columns(Span::unknown())
             .unwrap_or_default() // just assume there isn't an index
             .iter()
-            .find(|col| col.name() == "index")
-            .is_some()
+            .any(|col| col.name() == "index")
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
