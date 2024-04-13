@@ -33,6 +33,24 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    match dir.as_ref().read_dir() {
+        Err(_) => {
+            // this might produce a friendlier error message
+            match have_permission_by_metadata(dir) {
+                PermissionResult::PermissionOk => {
+                    // handle false positive, metadata said we should be able to read but we
+                    // actually tried to do that and failed (could be SELinux or similar in effect)
+                    PermissionResult::PermissionDenied("Folder is unable to be read")
+                }
+                result => result,
+            }
+        }
+        Ok(_) => PermissionResult::PermissionOk,
+    }
+}
+
+#[cfg(unix)]
+fn have_permission_by_metadata(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().metadata() {
         Ok(metadata) => {
             let mode = Mode::from_bits_truncate(metadata.mode() as mode_t);
