@@ -3246,6 +3246,7 @@ dependencies = [
  "nu-command",
  "nu-engine",
  "nu-parser",
+ "nu-path",
  "nu-plugin",
  "nu-plugin-test-support",
  "nu-protocol",
@@ -3258,6 +3259,7 @@ dependencies = [
  "polars-utils",
  "serde",
  "sqlparser 0.43.1",
+ "tempfile",
  "typetag",
  "uuid",
 ]
