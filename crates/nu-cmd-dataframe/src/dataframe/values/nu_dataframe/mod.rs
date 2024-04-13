@@ -11,9 +11,14 @@ use indexmap::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
-use polars_utils::total_ord::TotalEq;
+use polars_utils::total_ord::{TotalEq, TotalHash};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    fmt::Display,
+    hash::{Hash, Hasher},
+};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -28,6 +33,15 @@ impl DataFrameValue {
 
     fn get_value(&self) -> Value {
         self.0.clone()
+    }
+}
+
+impl TotalHash for DataFrameValue {
+    fn tot_hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        (*self).hash(state)
     }
 }
 
@@ -50,7 +64,7 @@ impl PartialEq for DataFrameValue {
 }
 impl Eq for DataFrameValue {}
 
-impl std::hash::Hash for DataFrameValue {
+impl Hash for DataFrameValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.0 {
             Value::Nothing { .. } => 0.hash(state),
