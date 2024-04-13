@@ -250,7 +250,17 @@ impl InterfaceManager for EngineInterfaceManager {
                         .into(),
                 })
             }
-            PluginInput::Stream(message) => self.consume_stream_message(message),
+            // Stream messages
+            PluginInput::Data(..)
+            | PluginInput::End(..)
+            | PluginInput::Drop(..)
+            | PluginInput::Ack(..) => {
+                self.consume_stream_message(input.try_into().map_err(|msg| {
+                    ShellError::NushellFailed {
+                        msg: format!("Failed to convert message {msg:?} to StreamMessage"),
+                    }
+                })?)
+            }
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input

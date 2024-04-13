@@ -66,7 +66,14 @@ impl InterfaceManager for TestInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         match input {
-            PluginInput::Stream(msg) => self.consume_stream_message(msg),
+            PluginInput::Data(..)
+            | PluginInput::End(..)
+            | PluginInput::Drop(..)
+            | PluginInput::Ack(..) => self.consume_stream_message(
+                input
+                    .try_into()
+                    .expect("failed to convert message to StreamMessage"),
+            ),
             _ => unimplemented!(),
         }
     }
@@ -414,7 +421,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
     // Now make sure the stream messages have been written
     for value in values {
         match test.next_written().expect("unexpected end of stream") {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
+            PluginOutput::Data(id, data) => {
                 assert_eq!(info.id, id, "Data id");
                 match data {
                     StreamData::List(read_value) => assert_eq!(value, read_value, "Data value"),
@@ -426,7 +433,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
     }
 
     match test.next_written().expect("unexpected end of stream") {
-        PluginOutput::Stream(StreamMessage::End(id)) => {
+        PluginOutput::End(id) => {
             assert_eq!(info.id, id, "End id");
         }
         other => panic!("unexpected output: {other:?}"),
@@ -510,7 +517,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
     // End must come after all Data
     for msg in test.written() {
         match msg {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
+            PluginOutput::Data(id, data) => {
                 if id == stdout_info.id {
                     let result: Result<Vec<u8>, ShellError> =
                         data.try_into().expect("wrong data in stdout stream");
@@ -535,7 +542,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
                     panic!("unrecognized stream id: {id}");
                 }
             }
-            PluginOutput::Stream(StreamMessage::End(id)) => {
+            PluginOutput::End(id) => {
                 if id == stdout_info.id {
                     assert!(!stdout_ended, "double End of stdout");
                     assert!(stdout_iter.next().is_none(), "unexpected end of stdout");
