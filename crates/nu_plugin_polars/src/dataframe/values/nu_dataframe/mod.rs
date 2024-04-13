@@ -10,8 +10,14 @@ use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
-use polars_utils::total_ord::TotalEq;
-use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher, sync::Arc};
+use polars_utils::total_ord::{TotalEq, TotalHash};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    sync::Arc,
+};
 use uuid::Uuid;
 
 use crate::{Cacheable, PolarsPlugin};
@@ -39,6 +45,15 @@ impl DataFrameValue {
     }
 }
 
+impl TotalHash for DataFrameValue {
+    fn tot_hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        (*self).hash(state)
+    }
+}
+
 impl Display for DataFrameValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.get_type())
@@ -58,7 +73,7 @@ impl PartialEq for DataFrameValue {
 }
 impl Eq for DataFrameValue {}
 
-impl std::hash::Hash for DataFrameValue {
+impl Hash for DataFrameValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.0 {
             Value::Nothing { .. } => 0.hash(state),
