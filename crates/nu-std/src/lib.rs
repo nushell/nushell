@@ -70,9 +70,9 @@ use std pwd
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
-        // Add a placeholder file to the stack of scripts being processed.
+        // Add a placeholder file to the stack of files being processed.
         let placeholder = [NU_STDLIB_VIRTUAL_DIR, "placeholder"].iter().collect();
-        working_set.scripts.push(placeholder);
+        working_set.files.push(placeholder);
 
         let block = parse(
             &mut working_set,
@@ -81,8 +81,8 @@ use std pwd
             false,
         );
 
-        // Remove the placeholder file from the stack of scripts being processed.
-        working_set.scripts.pop();
+        // Remove the placeholder file from the stack of files being processed.
+        working_set.files.pop();
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);

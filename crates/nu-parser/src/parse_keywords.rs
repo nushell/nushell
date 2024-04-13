@@ -1831,11 +1831,12 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
-/// If importing the script `path` would cause a circular import, returns true and adds a ParseError to the WorkingSet.
+/// Returns whether importing the file `path` would cause a circular import.
+/// When this function returns true, it also adds a ParseError to the working set, as a side effect.
 fn is_circular_import(ws: &mut StateWorkingSet, path: &ParserPath, path_span: &Span) -> bool {
-    if let Some(i) = ws.scripts.iter().rposition(|p| p == path.path()) {
+    if let Some(i) = ws.files.iter().rposition(|p| p == path.path()) {
         let mut files: Vec<String> = ws
-            .scripts
+            .files
             .split_off(i)
             .iter()
             .map(|p| p.to_string_lossy().to_string())
@@ -1895,15 +1896,15 @@ fn parse_module_file(
         return Some(module_id);
     }
 
-    // Add the file to the stack of scripts being processed.
-    working_set.scripts.push(path.path_buf());
+    // Add the file to the stack of files being processed.
+    working_set.files.push(path.path_buf());
 
     // Parse the module
     let (block, module, module_comments) =
         parse_module_block(working_set, new_span, module_name.as_bytes());
 
-    // Remove the file from the stack of scripts being processed.
-    working_set.scripts.pop();
+    // Remove the file from the stack of files being processed.
+    working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
     let module_id = working_set.add_module(&module_name, module, module_comments);
@@ -3389,8 +3390,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     }
 
                     if let Some(contents) = path.read(working_set) {
-                        // Add the file to the stack of scripts being processed.
-                        working_set.scripts.push(path.clone().path_buf());
+                        // Add the file to the stack of files being processed.
+                        working_set.files.push(path.clone().path_buf());
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
@@ -3401,8 +3402,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             scoped,
                         );
 
-                        // Remove the file from the stack of scripts being processed.
-                        working_set.scripts.pop();
+                        // Remove the file from the stack of files being processed.
+                        working_set.files.pop();
 
                         // Save the block into the working set
                         let block_id = working_set.add_block(block);
@@ -3788,9 +3789,9 @@ pub fn find_in_dirs(
         dirs_var_name: &str,
     ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(path) = working_set.scripts.last() {
-            // `script_stack` contains absolute paths to scripts, so `path` always has a parent
-            path.parent().expect("script path has a parent")
+        let actual_cwd = if let Some(path) = working_set.files.last() {
+            // `files` are absolute paths, so `path` always has a parent
+            path.parent().expect("Absolute path to files always has a parent")
         } else {
             Path::new(cwd)
         };
@@ -3853,9 +3854,9 @@ pub fn find_in_dirs(
         dirs_env: &str,
     ) -> Option<PathBuf> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(path) = working_set.scripts.last() {
-            // `script_stack` contains absolute paths to scripts, so `path` always has a parent
-            path.parent().expect("script path has a parent")
+        let actual_cwd = if let Some(path) = working_set.files.last() {
+            // `files` are absolute paths, so `path` always has a parent
+            path.parent().expect("Absolute path to files always has a parent")
         } else {
             Path::new(cwd)
         };

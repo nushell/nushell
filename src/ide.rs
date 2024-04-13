@@ -67,7 +67,7 @@ fn read_in_file<'a>(
             std::process::exit(1);
         });
 
-    engine_state.script = Some(PathBuf::from(file_path));
+    engine_state.file = Some(PathBuf::from(file_path));
 
     let working_set = StateWorkingSet::new(engine_state);
 

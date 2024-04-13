@@ -98,8 +98,8 @@ pub struct EngineState {
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
-    // Path to the script Nushell is currently running, if any.
-    pub script: Option<PathBuf>,
+    // Path to the file Nushell is currently evaluating, or None if we're in an interactive session.
+    pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
@@ -161,7 +161,7 @@ impl EngineState {
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
-            script: None,
+            file: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),

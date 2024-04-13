@@ -77,7 +77,7 @@ pub fn evaluate_file(
             );
             std::process::exit(1);
         });
-    engine_state.script = Some(file_path.clone());
+    engine_state.file = Some(file_path.clone());
 
     let parent = file_path.parent().unwrap_or_else(|| {
         let working_set = StateWorkingSet::new(engine_state);
@@ -106,7 +106,7 @@ pub fn evaluate_file(
 
     let source_filename = file_path
         .file_name()
-        .expect("internal error: script missing filename");
+        .expect("internal error: missing filename");
 
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", file_path_str);
@@ -118,7 +118,7 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    // Look for blocks whose name starts with "main" and replace it with the script filename.
+    // Look for blocks whose name starts with "main" and replace it with the filename.
     for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
@@ -133,9 +133,9 @@ pub fn evaluate_file(
         .merge_delta(working_set.delta)
         .expect("merging delta into engine_state should succeed");
 
-    // Check if the script contains a main command.
+    // Check if the file contains a main command.
     if engine_state.find_decl(b"main", &[]).is_some() {
-        // Evaluate the script, but don't run main yet.
+        // Evaluate the file, but don't run main yet.
         let pipeline_data =
             eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty());
         let pipeline_data = match pipeline_data {
@@ -151,8 +151,8 @@ pub fn evaluate_file(
             std::process::exit(1);
         });
 
-        // Print the pipeline output of the script.
-        // The pipeline output of a script is the pipeline output of its last command.
+        // Print the pipeline output of the file.
+        // The pipeline output of a file is the pipeline output of its last command.
         let result = pipeline_data.print(engine_state, stack, true, false);
         match result {
             Err(err) => {

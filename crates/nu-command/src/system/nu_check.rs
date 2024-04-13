@@ -112,8 +112,8 @@ impl Command for NuCheck {
                         Err(error) => return Err(error),
                     };
 
-                    // Add the file to the stack of scripts being processed.
-                    working_set.scripts.push(path.clone());
+                    // Add the file to the stack pf files being evaluated.
+                    working_set.files.push(path.clone());
 
                     let result = if as_module || path.is_dir() {
                         parse_file_or_dir_module(
@@ -127,8 +127,8 @@ impl Command for NuCheck {
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                     };
 
-                    // Remove the file from the stack of scripts being processed.
-                    working_set.scripts.pop();
+                    // Remove the file to the stack pf files being evaluated.
+                    working_set.files.pop();
 
                     result
                 } else {

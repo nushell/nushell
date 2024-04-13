@@ -26,10 +26,10 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
-    /// Absolute paths to scripts that are being processed.
-    /// The script currently being processed is on the top of the stack.
-    /// Circular import/sourcing is prevented by checking the stack before processing.
-    pub scripts: Vec<PathBuf>,
+    /// Absolute paths to files that are being evaluated.
+    /// Files are arranged as a stack. The file currently being evaluated is on the top of the stack.
+    /// Circular import/source is prevented by checking the stack before evaluation.
+    pub files: Vec<PathBuf>,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
@@ -38,17 +38,17 @@ pub struct StateWorkingSet<'a> {
 
 impl<'a> StateWorkingSet<'a> {
     pub fn new(permanent_state: &'a EngineState) -> Self {
-        // Initialize the script stack with the top-level script.
+        // Initialize the file stack with the top-level file.
         let mut scripts = vec![];
-        if let Some(script) = permanent_state.script.clone() {
-            scripts.push(script);
+        if let Some(file) = permanent_state.file.clone() {
+            scripts.push(file);
         }
 
         Self {
             delta: StateDelta::new(permanent_state),
             permanent_state,
             external_commands: vec![],
-            scripts,
+            files,
             search_predecls: true,
             parse_errors: vec![],
             parse_warnings: vec![],

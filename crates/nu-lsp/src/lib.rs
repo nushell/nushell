@@ -250,7 +250,7 @@ impl LanguageServer {
     ) -> Option<(&Rope, &PathBuf, StateWorkingSet<'a>)> {
         let (file, path) = self.rope(file_url)?;
 
-        engine_state.script = Some(path.to_owned());
+        engine_state.file = Some(path.to_owned());
 
         let working_set = StateWorkingSet::new(engine_state);
 
