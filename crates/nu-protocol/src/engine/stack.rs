@@ -606,7 +606,7 @@ mod test {
 
     use super::Stack;
 
-    const ZERO_SPAN: FutureSpanId = FutureSpanId { start: 0, end: 0 };
+    const ZERO_SPAN: FutureSpanId = FutureSpanId::unknown();
     fn string_value(s: &str) -> Value {
         Value::String {
             val: s.to_string(),

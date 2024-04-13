@@ -1096,7 +1096,7 @@ mod engine_state_tests {
         let mut working_set = StateWorkingSet::new(&engine_state);
         working_set.add_variable(
             varname.as_bytes().into(),
-            FutureSpanId { start: 0, end: 1 },
+            FutureSpanId::unknown(),
             Type::Int,
             false,
         );

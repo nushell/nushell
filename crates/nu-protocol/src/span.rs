@@ -1,3 +1,4 @@
+use crate::engine::UNKNOWN_SPAN_ID;
 use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
@@ -85,6 +86,7 @@ impl<T> IntoSpanned for T {
 pub struct FutureSpanId {
     pub start: usize,
     pub end: usize,
+    pub id: SpanId,
 }
 
 impl From<FutureSpanId> for SourceSpan {
@@ -100,11 +102,19 @@ impl FutureSpanId {
             "Can't create a Span whose end < start, start={start}, end={end}"
         );
 
-        FutureSpanId { start, end }
+        FutureSpanId {
+            start,
+            end,
+            id: UNKNOWN_SPAN_ID,
+        }
     }
 
     pub const fn unknown() -> FutureSpanId {
-        FutureSpanId { start: 0, end: 0 }
+        FutureSpanId {
+            start: 0,
+            end: 0,
+            id: UNKNOWN_SPAN_ID,
+        }
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -131,6 +141,7 @@ impl FutureSpanId {
         FutureSpanId {
             start: self.end,
             end: self.end,
+            id: self.id,
         }
     }
 
