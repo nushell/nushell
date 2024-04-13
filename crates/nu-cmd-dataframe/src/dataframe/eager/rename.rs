@@ -1,13 +1,8 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+use crate::dataframe::{
+    utils::extract_strings,
+    values::{Column, NuDataFrame, NuLazyFrame},
 };
-
-use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
-
-use super::super::values::{Column, NuDataFrame};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct RenameDF;

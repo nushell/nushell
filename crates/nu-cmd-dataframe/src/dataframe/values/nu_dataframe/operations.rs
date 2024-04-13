@@ -1,11 +1,9 @@
+use super::{
+    between_values::{between_dataframes, compute_between_series, compute_series_single_value},
+    NuDataFrame,
+};
 use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
 use polars::prelude::{DataFrame, Series};
-
-use super::between_values::{
-    between_dataframes, compute_between_series, compute_series_single_value,
-};
-
-use super::NuDataFrame;
 
 pub enum Axis {
     Row,
@@ -22,7 +20,7 @@ impl NuDataFrame {
     ) -> Result<Value, ShellError> {
         let rhs_span = right.span();
         match right {
-            Value::CustomValue { val: rhs, .. } => {
+            Value::Custom { val: rhs, .. } => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
                     ShellError::DowncastNotPossible {
                         msg: "Unable to create dataframe".to_string(),

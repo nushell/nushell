@@ -1,35 +1,46 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, LabeledError, PipelineData, PluginExample, PluginSignature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 /// `<list> | example sum`
 pub struct Sum;
 
 impl PluginCommand for Sum {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example sum")
-            .usage("Example stream consumer for a list of values")
-            .search_terms(vec!["example".into()])
+    fn name(&self) -> &str {
+        "example sum"
+    }
+
+    fn usage(&self) -> &str {
+        "Example stream consumer for a list of values"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![
                 (Type::List(Type::Int.into()), Type::Int),
                 (Type::List(Type::Float.into()), Type::Float),
             ])
-            .plugin_examples(vec![PluginExample {
-                example: "seq 1 5 | example sum".into(),
-                description: "sum values from 1 to 5".into(),
-                result: Some(Value::test_int(15)),
-            }])
             .category(Category::Experimental)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["example"]
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "example seq 1 5 | example sum",
+            description: "sum values from 1 to 5",
+            result: Some(Value::test_int(15)),
+        }]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
@@ -87,4 +98,10 @@ impl IntOrFloat {
             IntOrFloat::Float(v) => Value::float(v, span),
         }
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", ExamplePlugin.into())?.test_command_examples(&Sum)
 }

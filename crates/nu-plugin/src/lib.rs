@@ -10,15 +10,15 @@
 //! over stdin and stdout using a standardizes serialization framework to exchange
 //! the typed data that Nushell commands utilize natively.
 //!
-//! A typical plugin application will define a struct that implements the [Plugin]
-//! trait and then, in it's main method, pass that [Plugin] to the [serve_plugin]
+//! A typical plugin application will define a struct that implements the [`Plugin`]
+//! trait and then, in its main method, pass that [`Plugin`] to the [`serve_plugin()`]
 //! function, which will handle all of the input and output serialization when
 //! invoked by Nushell.
 //!
 //! ```rust,no_run
 //! use nu_plugin::{EvaluatedCall, MsgPackSerializer, serve_plugin};
-//! use nu_plugin::{Plugin, PluginCommand, SimplePluginCommand, EngineInterface};
-//! use nu_protocol::{PluginSignature, LabeledError, Value};
+//! use nu_plugin::{EngineInterface, Plugin, PluginCommand, SimplePluginCommand};
+//! use nu_protocol::{LabeledError, Signature, Value};
 //!
 //! struct MyPlugin;
 //! struct MyCommand;
@@ -32,7 +32,15 @@
 //! impl SimplePluginCommand for MyCommand {
 //!     type Plugin = MyPlugin;
 //!
-//!     fn signature(&self) -> PluginSignature {
+//!     fn name(&self) -> &str {
+//!         "my-command"
+//!     }
+//!
+//!     fn usage(&self) -> &str {
+//!         todo!();
+//!     }
+//!
+//!     fn signature(&self) -> Signature {
 //!         todo!();
 //!     }
 //!
@@ -59,22 +67,31 @@ mod plugin;
 mod protocol;
 mod sequence;
 mod serializers;
-mod util;
 
 pub use plugin::{
-    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, SimplePluginCommand,
+    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, PluginRead, PluginWrite,
+    SimplePluginCommand,
 };
 pub use protocol::EvaluatedCall;
 pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 // Used by other nu crates.
 #[doc(hidden)]
-pub use plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+pub use plugin::{
+    create_plugin_signature, get_signature, serve_plugin_io, EngineInterfaceManager, GetPlugin,
+    Interface, InterfaceManager, PersistentPlugin, PluginDeclaration,
+    PluginExecutionCommandContext, PluginExecutionContext, PluginInterface, PluginInterfaceManager,
+    PluginSource, ServePluginError,
+};
+#[doc(hidden)]
+pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
 #[doc(hidden)]
 pub use serializers::EncodingType;
+#[doc(hidden)]
+pub mod util;
 
 // Used by external benchmarks.
 #[doc(hidden)]
 pub use plugin::Encoder;
 #[doc(hidden)]
-pub use protocol::{PluginCallResponse, PluginOutput};
+pub use protocol::PluginCallResponse;

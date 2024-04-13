@@ -1,39 +1,51 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, LabeledError, ListStream, PipelineData, PluginExample, PluginSignature, SyntaxShape,
-    Type, Value,
+    Category, Example, LabeledError, ListStream, PipelineData, Signature, SyntaxShape, Type, Value,
 };
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 /// `example seq <first> <last>`
 pub struct Seq;
 
 impl PluginCommand for Seq {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example seq")
-            .usage("Example stream generator for a list of values")
-            .search_terms(vec!["example".into()])
+    fn name(&self) -> &str {
+        "example seq"
+    }
+
+    fn usage(&self) -> &str {
+        "Example stream generator for a list of values"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("first", SyntaxShape::Int, "first number to generate")
             .required("last", SyntaxShape::Int, "last number to generate")
             .input_output_type(Type::Nothing, Type::List(Type::Int.into()))
-            .plugin_examples(vec![PluginExample {
-                example: "example seq 1 3".into(),
-                description: "generate a sequence from 1 to 3".into(),
-                result: Some(Value::test_list(vec![
-                    Value::test_int(1),
-                    Value::test_int(2),
-                    Value::test_int(3),
-                ])),
-            }])
             .category(Category::Experimental)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["example"]
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "example seq 1 3",
+            description: "generate a sequence from 1 to 3",
+            result: Some(Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ])),
+        }]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: PipelineData,
@@ -45,4 +57,10 @@ impl PluginCommand for Seq {
         let list_stream = ListStream::from_stream(iter, None);
         Ok(PipelineData::ListStream(list_stream, None))
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", ExamplePlugin.into())?.test_command_examples(&Seq)
 }

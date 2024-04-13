@@ -1,20 +1,17 @@
-use std::io::Result;
-
+use super::{
+    default_color_list, default_int_list, ConfigOption, HelpExample, HelpManual, Shortcode,
+    ViewCommand,
+};
+use crate::{
+    nu_common::collect_input,
+    views::{Orientation, RecordView},
+};
 use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-
-use crate::{
-    nu_common::collect_input,
-    views::{Orientation, RecordView},
-};
-
-use super::{
-    default_color_list, default_int_list, ConfigOption, HelpExample, HelpManual, Shortcode,
-    ViewCommand,
-};
+use std::io::Result;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableCmd {

@@ -1,11 +1,5 @@
-use crate::dataframe::values::{Column, NuDataFrame};
-
-use super::super::values::NuLazyFrame;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct LazyCollect;
@@ -61,7 +55,7 @@ impl Command for LazyCollect {
     ) -> Result<PipelineData, ShellError> {
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let eager = lazy.collect(call.head)?;
-        let value = Value::custom_value(Box::new(eager), call.head);
+        let value = Value::custom(Box::new(eager), call.head);
 
         Ok(PipelineData::Value(value, None))
     }

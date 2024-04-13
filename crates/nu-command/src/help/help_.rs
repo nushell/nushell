@@ -1,16 +1,10 @@
-use crate::help::help_aliases;
-use crate::help::help_commands;
-use crate::help::help_modules;
+use crate::help::{help_aliases, help_commands, help_modules};
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::span;
 use nu_utils::IgnoreCaseExt;
+
 #[derive(Clone)]
 pub struct Help;
 
@@ -122,7 +116,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
             },
             Example {
                 description: "show help for single sub-command, alias, or module",
-                example: "help str lpad",
+                example: "help str join",
                 result: None,
             },
             Example {
@@ -186,7 +180,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::record(record, record_span));
+            matches.push(Value::record(*record, record_span));
         }
     }
 

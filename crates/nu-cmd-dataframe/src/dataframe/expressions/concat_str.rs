@@ -1,10 +1,6 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use polars::prelude::concat_str;
 
 #[derive(Clone)]

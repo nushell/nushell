@@ -1,11 +1,11 @@
+use nu_engine::command_prelude::*;
+use nu_protocol::{
+    ast::{Expr, Expression, RecordItem},
+    engine::StateWorkingSet,
+    Range, Unit,
+};
 use std::sync::Arc;
 
-use nu_protocol::ast::{Call, Expr, Expression, RecordItem};
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
-    Signature, Span, Type, Unit, Value,
-};
 #[derive(Clone)]
 pub struct FromNuon;
 
@@ -292,7 +292,7 @@ fn convert_to_value(
             };
 
             Ok(Value::range(
-                Range::new(expr.span, from, next, to, &operator)?,
+                Range::new(from, next, to, operator.inclusion, expr.span)?,
                 expr.span,
             ))
         }

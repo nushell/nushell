@@ -1,18 +1,25 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{record, Category, LabeledError, PluginSignature, SyntaxShape, Value};
+use nu_protocol::{record, Category, LabeledError, Signature, SyntaxShape, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 pub struct Two;
 
 impl SimplePluginCommand for Two {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
+    fn name(&self) -> &str {
+        "example two"
+    }
+
+    fn usage(&self) -> &str {
+        "Plugin test example 2. Returns list of records"
+    }
+
+    fn signature(&self) -> Signature {
         // The signature defines the usage of the command inside Nu, and also automatically
         // generates its help page.
-        PluginSignature::build("example two")
-            .usage("PluginSignature test 2 for plugin. Returns list of records")
+        Signature::build(self.name())
             .required("a", SyntaxShape::Int, "required integer value")
             .required("b", SyntaxShape::String, "required string value")
             .switch("flag", "a flag for the signature", Some('f'))
@@ -24,7 +31,7 @@ impl SimplePluginCommand for Two {
 
     fn run(
         &self,
-        plugin: &Example,
+        plugin: &ExamplePlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,

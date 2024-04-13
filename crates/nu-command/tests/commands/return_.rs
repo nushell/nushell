@@ -18,7 +18,7 @@ fn early_return_if_false() {
 fn return_works_in_script_without_def_main() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        "nu early_return.nu"
+        "nu -n early_return.nu"
     ));
 
     assert!(actual.err.is_empty());
@@ -28,7 +28,7 @@ fn return_works_in_script_without_def_main() {
 fn return_works_in_script_with_def_main() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        pipeline("nu early_return_outside_main.nu")
+        pipeline("nu -n early_return_outside_main.nu")
     );
     assert!(actual.err.is_empty());
 }

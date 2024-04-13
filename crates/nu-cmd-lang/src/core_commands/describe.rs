@@ -1,9 +1,7 @@
-use nu_engine::CallExt;
+use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack, StateWorkingSet},
-    record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Record,
-    ShellError, Signature, Type, Value,
+    engine::{Closure, StateWorkingSet},
+    PipelineMetadata,
 };
 
 #[derive(Clone)]
@@ -283,7 +281,7 @@ fn describe_value(
     options: Options,
 ) -> Result<Value, ShellError> {
     Ok(match value {
-        Value::CustomValue { val, .. } => Value::record(
+        Value::Custom { val, .. } => Value::record(
             record!(
                 "type" => Value::string("custom", head),
                 "subtype" => Value::string(val.type_name(), head),
@@ -319,7 +317,7 @@ fn describe_value(
                 record!(
                     "type" => Value::string("record", head),
                     "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(val, head),
+                    "columns" => Value::record(*val, head),
                 ),
                 head,
             )
@@ -410,7 +408,7 @@ fn describe_value(
                         )?);
                     }
 
-                    record.push("columns", Value::record(val, head));
+                    record.push("columns", Value::record(*val, head));
                 } else {
                     let cols = val.column_names();
                     record.push("length", Value::int(cols.len() as i64, head));

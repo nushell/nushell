@@ -13,11 +13,12 @@
 //! (`NoopDebugger` is placed in its place inside `EngineState`.) After deactivating, you can call
 //! `Debugger::report()` to get some output from the debugger, if necessary.
 
-use crate::ast::{Block, PipelineElement};
-use crate::engine::EngineState;
-use crate::{PipelineData, ShellError, Span, Value};
-use std::fmt::Debug;
-use std::ops::DerefMut;
+use crate::{
+    ast::{Block, PipelineElement},
+    engine::EngineState,
+    PipelineData, ShellError, Span, Value,
+};
+use std::{fmt::Debug, ops::DerefMut};
 
 /// Trait used for static dispatch of `eval_xxx()` evaluator calls
 ///

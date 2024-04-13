@@ -1,12 +1,6 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{get_eval_block, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Filter;
@@ -62,7 +56,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let eval_block = get_eval_block(&engine_state);
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -84,7 +78,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }
                     }
 
-                    match eval_block(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -126,7 +120,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }
                     }
 
-                    match eval_block(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -159,7 +153,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     }
                 }
 
-                Ok(match eval_block(
+                Ok(match eval_block_with_early_return(
                     &engine_state,
                     &mut stack,
                     &block,

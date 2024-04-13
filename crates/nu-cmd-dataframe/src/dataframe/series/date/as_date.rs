@@ -1,11 +1,6 @@
-use super::super::super::values::NuDataFrame;
+use crate::dataframe::values::NuDataFrame;
+use nu_engine::command_prelude::*;
 
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
-};
 use polars::prelude::{IntoSeries, StringMethods};
 
 #[derive(Clone)]

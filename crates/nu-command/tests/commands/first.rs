@@ -51,7 +51,7 @@ fn gets_first_row_when_no_amount_given() {
 fn gets_first_row_as_list_when_amount_given() {
     let actual = nu!("[1, 2, 3] | first 1 | describe");
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual.out, "list<int>");
 }
 
 #[test]

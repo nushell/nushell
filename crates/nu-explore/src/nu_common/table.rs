@@ -1,13 +1,11 @@
+use crate::nu_common::NuConfig;
 use nu_color_config::StyleComputer;
 use nu_protocol::{Record, Span, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
 };
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-
-use crate::nu_common::NuConfig;
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub fn try_build_table(
     ctrlc: Option<Arc<AtomicBool>>,
@@ -18,7 +16,7 @@ pub fn try_build_table(
     let span = value.span();
     match value {
         Value::List { vals, .. } => try_build_list(vals, ctrlc, config, span, style_computer),
-        Value::Record { val, .. } => try_build_map(val, span, style_computer, ctrlc, config),
+        Value::Record { val, .. } => try_build_map(*val, span, style_computer, ctrlc, config),
         val if matches!(val, Value::String { .. }) => {
             nu_value_to_string_clean(&val, config, style_computer).0
         }

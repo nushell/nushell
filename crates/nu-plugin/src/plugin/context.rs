@@ -1,20 +1,21 @@
+use crate::util::MutableCow;
+use nu_engine::{get_eval_block_with_early_return, get_full_help};
+use nu_protocol::{
+    ast::Call,
+    engine::{Closure, EngineState, Redirection, Stack},
+    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+};
 use std::{
     borrow::Cow,
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
 };
 
-use nu_engine::get_eval_block_with_early_return;
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Spanned, Value,
-};
-
-use crate::util::MutableCow;
-
 /// Object safe trait for abstracting operations required of the plugin context.
-pub(crate) trait PluginExecutionContext: Send + Sync {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginExecutionContext: Send + Sync {
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
     /// Get engine configuration
@@ -29,6 +30,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError>;
     /// Set an environment variable
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
+    /// Get help for the current command
+    fn get_help(&self) -> Result<Spanned<String>, ShellError>;
+    /// Get the contents of a [`Span`]
+    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -43,7 +48,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
 }
 
 /// The execution context of a plugin command. Can be borrowed.
-pub(crate) struct PluginExecutionCommandContext<'a> {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
@@ -131,6 +139,27 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         Ok(())
     }
 
+    fn get_help(&self) -> Result<Spanned<String>, ShellError> {
+        let decl = self.engine_state.get_decl(self.call.decl_id);
+
+        Ok(get_full_help(
+            &decl.signature(),
+            &decl.examples(),
+            &self.engine_state,
+            &mut self.stack.clone(),
+            false,
+        )
+        .into_spanned(self.call.head))
+    }
+
+    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+        Ok(self
+            .engine_state
+            .get_span_contents(span)
+            .to_vec()
+            .into_spanned(self.call.head))
+    }
+
     fn eval_closure(
         &self,
         closure: Spanned<Closure>,
@@ -159,13 +188,13 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             .reset_pipes();
 
         let stdout = if redirect_stdout {
-            Some(Redirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(OutDest::Capture))
         } else {
             None
         };
 
         let stderr = if redirect_stderr {
-            Some(Redirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(OutDest::Capture))
         } else {
             None
         };
@@ -243,6 +272,18 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     fn add_env_var(&mut self, _name: String, _value: Value) -> Result<(), ShellError> {
         Err(ShellError::NushellFailed {
             msg: "add_env_var not implemented on bogus".into(),
+        })
+    }
+
+    fn get_help(&self) -> Result<Spanned<String>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_help not implemented on bogus".into(),
+        })
+    }
+
+    fn get_span_contents(&self, _span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_span_contents not implemented on bogus".into(),
         })
     }
 

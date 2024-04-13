@@ -90,9 +90,9 @@ impl NuLazyFrame {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         if self.from_eager {
             let df = self.collect(span)?;
-            Ok(Value::custom_value(Box::new(df), span))
+            Ok(Value::custom(Box::new(df), span))
         } else {
-            Ok(Value::custom_value(Box::new(self), span))
+            Ok(Value::custom(Box::new(self), span))
         }
     }
 
@@ -141,7 +141,7 @@ impl NuLazyFrame {
     pub fn get_lazy_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(Self {
                     lazy: expr.lazy.clone(),
                     from_eager: false,
@@ -164,7 +164,7 @@ impl NuLazyFrame {
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::Custom { val, .. } = value {
             val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false

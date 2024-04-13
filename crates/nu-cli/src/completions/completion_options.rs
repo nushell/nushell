@@ -1,8 +1,7 @@
-use std::fmt::Display;
-
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_parser::trim_quotes_str;
 use nu_protocol::CompletionAlgorithm;
+use std::fmt::Display;
 
 #[derive(Copy, Clone)]
 pub enum SortBy {
@@ -96,7 +95,6 @@ impl std::error::Error for InvalidMatchAlgorithm {}
 pub struct CompletionOptions {
     pub case_sensitive: bool,
     pub positional: bool,
-    pub sort_by: SortBy,
     pub match_algorithm: MatchAlgorithm,
 }
 
@@ -105,7 +103,6 @@ impl Default for CompletionOptions {
         Self {
             case_sensitive: true,
             positional: true,
-            sort_by: SortBy::Ascending,
             match_algorithm: MatchAlgorithm::Prefix,
         }
     }

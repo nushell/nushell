@@ -1,11 +1,5 @@
-use super::super::values::NuLazyFrame;
-use crate::dataframe::values::{Column, NuDataFrame};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct LazyFetch;

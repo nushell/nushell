@@ -2,7 +2,7 @@ use std::{any::Any, sync::Arc};
 
 use crate::{PluginGcConfig, PluginIdentity, ShellError};
 
-/// Trait for plugins registered in the [`EngineState`](crate::EngineState).
+/// Trait for plugins registered in the [`EngineState`](crate::engine::EngineState).
 pub trait RegisteredPlugin: Send + Sync {
     /// The identity of the plugin - its filename, shell, and friendly name.
     fn identity(&self) -> &PluginIdentity;

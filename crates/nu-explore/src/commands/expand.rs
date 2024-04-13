@@ -1,17 +1,14 @@
-use std::{io::Result, vec};
-
+use super::{HelpManual, Shortcode, ViewCommand};
+use crate::{
+    nu_common::{self, collect_input},
+    views::Preview,
+};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-
-use crate::{
-    nu_common::{self, collect_input},
-    views::Preview,
-};
-
-use super::{HelpManual, Shortcode, ViewCommand};
+use std::{io::Result, vec};
 
 #[derive(Default, Clone)]
 pub struct ExpandCmd;

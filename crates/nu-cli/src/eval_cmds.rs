@@ -2,12 +2,10 @@ use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::Stack;
-use nu_protocol::report_error;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    PipelineData, Spanned, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, PipelineData, Spanned, Value,
 };
 
 /// Run a command (or commands) given to us by the user
@@ -17,6 +15,7 @@ pub fn evaluate_commands(
     stack: &mut Stack,
     input: PipelineData,
     table_mode: Option<Value>,
+    no_newline: bool,
 ) -> Result<Option<i64>> {
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {
@@ -62,7 +61,13 @@ pub fn evaluate_commands(
             if let Some(t_mode) = table_mode {
                 config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
             }
-            crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
+            crate::eval_file::print_table_or_error(
+                engine_state,
+                stack,
+                pipeline_data,
+                &mut config,
+                no_newline,
+            )
         }
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);

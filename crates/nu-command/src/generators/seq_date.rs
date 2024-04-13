@@ -1,12 +1,6 @@
-use chrono::naive::NaiveDate;
-use chrono::{Duration, Local};
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use chrono::{Duration, Local, NaiveDate};
+use nu_engine::command_prelude::*;
+
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -342,7 +336,17 @@ pub fn run_seq_dates(
             }
         }
         ret.push(Value::string(date_string, call_span));
-        next += step_size;
+        if let Some(n) = next.checked_add_signed(step_size) {
+            next = n;
+        } else {
+            return Err(ShellError::GenericError {
+                error: "date overflow".into(),
+                msg: "adding the increment overflowed".into(),
+                span: Some(call_span),
+                help: None,
+                inner: vec![],
+            });
+        }
 
         if is_out_of_range(next) {
             break;

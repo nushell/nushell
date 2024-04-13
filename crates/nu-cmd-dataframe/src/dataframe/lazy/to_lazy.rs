@@ -1,13 +1,5 @@
-use crate::dataframe::values::NuSchema;
-
-use super::super::values::{NuDataFrame, NuLazyFrame};
-
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use crate::dataframe::values::{NuDataFrame, NuLazyFrame, NuSchema};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct ToLazyFrame;
@@ -55,8 +47,7 @@ impl Command for ToLazyFrame {
 
         let df = NuDataFrame::try_from_iter(input.into_iter(), maybe_schema)?;
         let lazy = NuLazyFrame::from_dataframe(df);
-        let value = Value::custom_value(Box::new(lazy), call.head);
-
+        let value = Value::custom(Box::new(lazy), call.head);
         Ok(PipelineData::Value(value, None))
     }
 }

@@ -335,7 +335,7 @@ fn const_captures_in_closures_work() {
     assert_eq!(actual.out, "hello world");
 }
 
-#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brough by `overlay use`"]
+#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brought by `overlay use`"]
 #[test]
 fn complex_const_overlay_use_hide() {
     let inp = &[MODULE_SETUP, "overlay use spam", "$X"];

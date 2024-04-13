@@ -275,3 +275,9 @@ fn select_single_row_with_variable() {
     assert_eq!(actual.out, "[[a]; [3]]".to_string());
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn select_with_negative_number_errors_out() {
+    let actual = nu!("[1 2 3] | select (-2)");
+    assert!(actual.err.contains("negative number"));
+}

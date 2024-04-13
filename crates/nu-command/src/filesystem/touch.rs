@@ -1,14 +1,11 @@
-use std::path::Path;
-use std::{fs::OpenOptions, time::SystemTime};
-
 use filetime::FileTime;
+use nu_engine::{command_prelude::*, current_dir};
+use nu_path::expand_path_with;
+use nu_protocol::NuGlob;
 
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
+use std::{fs::OpenOptions, path::Path, time::SystemTime};
+
+use super::util::get_rest_for_glob_pattern;
 
 #[derive(Clone)]
 pub struct Touch;
@@ -25,7 +22,11 @@ impl Command for Touch {
     fn signature(&self) -> Signature {
         Signature::build("touch")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest("files", SyntaxShape::Filepath, "The file(s) to create.")
+            .rest(
+                "files",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Filepath]),
+                "The file(s) to create."
+            )
             .named(
                 "reference",
                 SyntaxShape::String,
@@ -65,7 +66,7 @@ impl Command for Touch {
         let mut change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let reference: Option<Spanned<String>> = call.get_flag(engine_state, stack, "reference")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
-        let files: Vec<String> = call.rest(engine_state, stack, 0)?;
+        let files: Vec<Spanned<NuGlob>> = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
         if files.is_empty() {
             return Err(ShellError::MissingParameter {
@@ -112,8 +113,10 @@ impl Command for Touch {
                 })?;
         }
 
-        for (index, item) in files.into_iter().enumerate() {
-            let path = Path::new(&item);
+        let cwd = current_dir(engine_state, stack)?;
+
+        for (index, glob) in files.into_iter().enumerate() {
+            let path = expand_path_with(glob.item.as_ref(), &cwd, glob.item.is_expand());
 
             // If --no-create is passed and the file/dir does not exist there's nothing to do
             if no_create && !path.exists() {
@@ -126,7 +129,7 @@ impl Command for Touch {
                     .write(true)
                     .create(true)
                     .truncate(false)
-                    .open(path)
+                    .open(&path)
                 {
                     return Err(ShellError::CreateNotPossible {
                         msg: format!("Failed to create file: {err}"),
@@ -139,7 +142,7 @@ impl Command for Touch {
             }
 
             if change_mtime {
-                if let Err(err) = filetime::set_file_mtime(&item, FileTime::from_system_time(mtime))
+                if let Err(err) = filetime::set_file_mtime(&path, FileTime::from_system_time(mtime))
                 {
                     return Err(ShellError::ChangeModifiedTimeNotPossible {
                         msg: format!("Failed to change the modified time: {err}"),
@@ -152,7 +155,7 @@ impl Command for Touch {
             }
 
             if change_atime {
-                if let Err(err) = filetime::set_file_atime(&item, FileTime::from_system_time(atime))
+                if let Err(err) = filetime::set_file_atime(&path, FileTime::from_system_time(atime))
                 {
                     return Err(ShellError::ChangeAccessTimeNotPossible {
                         msg: format!("Failed to change the access time: {err}"),

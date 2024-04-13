@@ -8,18 +8,18 @@ mod tests;
 #[cfg(test)]
 pub(crate) mod test_util;
 
-use std::collections::HashMap;
-
-pub use evaluated_call::EvaluatedCall;
 use nu_protocol::{
     ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature, RawStream,
     ShellError, Span, Spanned, Value,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
 #[cfg(test)]
 pub use protocol_info::Protocol;
 pub use protocol_info::ProtocolInfo;
-use serde::{Deserialize, Serialize};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
@@ -192,7 +192,10 @@ impl CustomValueOp {
 }
 
 /// Any data sent to the plugin
+///
+/// Note: exported for internal use, not public.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[doc(hidden)]
 pub enum PluginInput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
@@ -233,7 +236,7 @@ impl From<StreamMessage> for PluginInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StreamData {
     List(Value),
-    Raw(Result<Vec<u8>, ShellError>),
+    Raw(Result<Vec<u8>, LabeledError>),
 }
 
 impl From<Value> for StreamData {
@@ -242,9 +245,15 @@ impl From<Value> for StreamData {
     }
 }
 
+impl From<Result<Vec<u8>, LabeledError>> for StreamData {
+    fn from(value: Result<Vec<u8>, LabeledError>) -> Self {
+        StreamData::Raw(value)
+    }
+}
+
 impl From<Result<Vec<u8>, ShellError>> for StreamData {
     fn from(value: Result<Vec<u8>, ShellError>) -> Self {
-        StreamData::Raw(value)
+        value.map_err(LabeledError::from).into()
     }
 }
 
@@ -261,16 +270,24 @@ impl TryFrom<StreamData> for Value {
     }
 }
 
-impl TryFrom<StreamData> for Result<Vec<u8>, ShellError> {
+impl TryFrom<StreamData> for Result<Vec<u8>, LabeledError> {
     type Error = ShellError;
 
-    fn try_from(data: StreamData) -> Result<Result<Vec<u8>, ShellError>, ShellError> {
+    fn try_from(data: StreamData) -> Result<Result<Vec<u8>, LabeledError>, ShellError> {
         match data {
             StreamData::Raw(value) => Ok(value),
             StreamData::List(_) => Err(ShellError::PluginFailedToDecode {
                 msg: "expected raw stream data, found list data".into(),
             }),
         }
+    }
+}
+
+impl TryFrom<StreamData> for Result<Vec<u8>, ShellError> {
+    type Error = ShellError;
+
+    fn try_from(value: StreamData) -> Result<Result<Vec<u8>, ShellError>, ShellError> {
+        Result::<Vec<u8>, LabeledError>::try_from(value).map(|res| res.map_err(ShellError::from))
     }
 }
 
@@ -353,7 +370,7 @@ pub enum PluginOption {
     GcDisabled(bool),
 }
 
-/// This is just a serializable version of [std::cmp::Ordering], and can be converted 1:1
+/// This is just a serializable version of [`std::cmp::Ordering`], and can be converted 1:1
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Ordering {
     Less,
@@ -444,6 +461,10 @@ pub enum EngineCall<D> {
     GetCurrentDir,
     /// Set an environment variable in the caller's scope
     AddEnvVar(String, Value),
+    /// Get help for the current command
+    GetHelp,
+    /// Get the contents of a span. Response is a binary which may not parse to UTF-8
+    GetSpanContents(Span),
     /// Evaluate a closure with stream input/output
     EvalClosure {
         /// The closure to call.
@@ -471,6 +492,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetEnvVars => "GetEnvs",
             EngineCall::GetCurrentDir => "GetCurrentDir",
             EngineCall::AddEnvVar(..) => "AddEnvVar",
+            EngineCall::GetHelp => "GetHelp",
+            EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
     }
@@ -488,6 +511,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetEnvVars => EngineCall::GetEnvVars,
             EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
             EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
+            EngineCall::GetHelp => EngineCall::GetHelp,
+            EngineCall::GetSpanContents(span) => EngineCall::GetSpanContents(span),
             EngineCall::EvalClosure {
                 closure,
                 positional,
@@ -505,7 +530,7 @@ impl<D> EngineCall<D> {
     }
 }
 
-/// The response to an [EngineCall]. The type parameter determines the output type for pipeline
+/// The response to an [`EngineCall`]. The type parameter determines the output type for pipeline
 /// data.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EngineCallResponse<D> {

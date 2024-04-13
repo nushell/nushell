@@ -3,9 +3,11 @@ use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{Config, Span};
+use nu_protocol::{
+    ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem},
+    engine::{EngineState, Stack, StateWorkingSet},
+    Config, Span,
+};
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
 

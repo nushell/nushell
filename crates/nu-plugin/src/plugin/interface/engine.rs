@@ -1,37 +1,33 @@
 //! Interface used by the plugin to communicate with the engine.
 
+use super::{
+    stream::{StreamManager, StreamManagerHandle},
+    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, Sequence,
+};
+use crate::protocol::{
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
+    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
+    ProtocolInfo,
+};
+use nu_protocol::{
+    engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
+    PluginSignature, ShellError, Span, Spanned, Value,
+};
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::{mpsc, Arc},
 };
-
-use nu_protocol::{
-    engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
-    PluginSignature, ShellError, Spanned, Value,
-};
-
-use crate::{
-    protocol::{
-        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
-        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
-        ProtocolInfo,
-    },
-    PluginOutput,
-};
-
-use super::{
-    stream::{StreamManager, StreamManagerHandle},
-    Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
-};
-use crate::sequence::Sequence;
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
 ///
 /// With each call, an [`EngineInterface`] is included that can be provided to the plugin code
 /// and should be used to send the response. The interface sent includes the [`PluginCallId`] for
 /// sending associated messages with the correct context.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) enum ReceivedPluginCall {
+#[doc(hidden)]
+pub enum ReceivedPluginCall {
     Signature {
         engine: EngineInterface,
     },
@@ -76,8 +72,11 @@ impl std::fmt::Debug for EngineInterfaceState {
 }
 
 /// Manages reading and dispatching messages for [`EngineInterface`]s.
+///
+/// This is not a public API.
 #[derive(Debug)]
-pub(crate) struct EngineInterfaceManager {
+#[doc(hidden)]
+pub struct EngineInterfaceManager {
     /// Shared state
     state: Arc<EngineInterfaceState>,
     /// Channel to send received PluginCalls to. This is removed after `Goodbye` is received.
@@ -378,7 +377,7 @@ impl EngineInterface {
     ) -> Result<PipelineDataWriter<Self>, ShellError> {
         match result {
             Ok(data) => {
-                let (header, writer) = match self.init_write_pipeline_data(data) {
+                let (header, writer) = match self.init_write_pipeline_data(data, &()) {
                     Ok(tup) => tup,
                     // If we get an error while trying to construct the pipeline data, send that
                     // instead
@@ -404,16 +403,8 @@ impl EngineInterface {
     /// Any custom values in the examples will be rendered using `to_base_value()`.
     pub(crate) fn write_signature(
         &self,
-        mut signature: Vec<PluginSignature>,
+        signature: Vec<PluginSignature>,
     ) -> Result<(), ShellError> {
-        // Render any custom values in the examples to plain values so that the engine doesn't
-        // have to keep custom values around just to render the help pages.
-        for sig in signature.iter_mut() {
-            for value in sig.examples.iter_mut().flat_map(|e| e.result.as_mut()) {
-                PluginCustomValue::render_to_base_value_in(value)?;
-            }
-        }
-
         let response = PluginCallResponse::Signature(signature);
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
@@ -439,7 +430,7 @@ impl EngineInterface {
         let mut writer = None;
 
         let call = call.map_data(|input| {
-            let (input_header, input_writer) = self.init_write_pipeline_data(input)?;
+            let (input_header, input_writer) = self.init_write_pipeline_data(input, &())?;
             writer = Some(input_writer);
             Ok(input_header)
         })?;
@@ -630,6 +621,47 @@ impl EngineInterface {
         }
     }
 
+    /// Get the help string for the current command.
+    ///
+    /// This returns the same string as passing `--help` would, and can be used for the top-level
+    /// command in a command group that doesn't do anything on its own (e.g. `query`).
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError};
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface) -> Result<(), ShellError> {
+    /// eprintln!("{}", engine.get_help()?);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_help(&self) -> Result<String, ShellError> {
+        match self.engine_call(EngineCall::GetHelp)? {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+                Ok(val)
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetHelp".into(),
+            }),
+        }
+    }
+
+    /// Get the contents of a [`Span`] from the engine.
+    ///
+    /// This method returns `Vec<u8>` as it's possible for the matched span to not be a valid UTF-8
+    /// string, perhaps because it sliced through the middle of a UTF-8 byte sequence, as the
+    /// offsets are byte-indexed. Use [`String::from_utf8_lossy()`] for display if necessary.
+    pub fn get_span_contents(&self, span: Span) -> Result<Vec<u8>, ShellError> {
+        match self.engine_call(EngineCall::GetSpanContents(span))? {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::Binary { val, .. }, _)) => {
+                Ok(val)
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetSpanContents".into(),
+            }),
+        }
+    }
+
     /// Ask the engine to evaluate a closure. Input to the closure is passed as a stream, and the
     /// output is available as a stream.
     ///
@@ -785,6 +817,7 @@ impl EngineInterface {
 
 impl Interface for EngineInterface {
     type Output = PluginOutput;
+    type DataContext = ();
 
     fn write(&self, output: PluginOutput) -> Result<(), ShellError> {
         log::trace!("to engine: {:?}", output);
@@ -803,7 +836,11 @@ impl Interface for EngineInterface {
         &self.stream_manager_handle
     }
 
-    fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
+    fn prepare_pipeline_data(
+        &self,
+        mut data: PipelineData,
+        _context: &(),
+    ) -> Result<PipelineData, ShellError> {
         // Serialize custom values in the pipeline data
         match data {
             PipelineData::Value(ref mut value, _) => {

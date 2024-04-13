@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block, redirect_env, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Collect;
@@ -46,7 +40,7 @@ impl Command for Collect {
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let mut stack_captures =
-            stack.captures_to_stack_preserve_stdio(capture_block.captures.clone());
+            stack.captures_to_stack_preserve_out_dest(capture_block.captures.clone());
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);

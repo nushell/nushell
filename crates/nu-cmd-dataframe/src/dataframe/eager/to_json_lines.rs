@@ -1,14 +1,8 @@
-use std::{fs::File, io::BufWriter, path::PathBuf};
+use crate::dataframe::values::NuDataFrame;
+use nu_engine::command_prelude::*;
 
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
 use polars::prelude::{JsonWriter, SerWriter};
-
-use super::super::values::NuDataFrame;
+use std::{fs::File, io::BufWriter, path::PathBuf};
 
 #[derive(Clone)]
 pub struct ToJsonLines;

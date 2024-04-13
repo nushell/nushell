@@ -1,11 +1,6 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, ShellError::DatetimeParseError,
-    ShellError::PipelineEmpty, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -43,7 +38,7 @@ impl Command for SubCommand {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(PipelineEmpty { dst_span: head });
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(move |value| helper(value, head), engine_state.ctrlc.clone())
     }
@@ -117,7 +112,7 @@ fn helper(val: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
-            DatetimeParseError {
+            ShellError::DatetimeParseError {
                 msg: val.to_debug_string(),
                 span: head,
             },

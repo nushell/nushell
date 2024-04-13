@@ -1,20 +1,19 @@
-use std::collections::HashMap;
-use std::io::{self, Result};
-
+use super::{HelpExample, HelpManual, ViewCommand};
+use crate::{
+    nu_common::{collect_input, NuSpan},
+    pager::{Frame, Transition, ViewInfo},
+    views::{Layout, Preview, RecordView, View, ViewConfig},
+};
 use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
     record, Value,
 };
 use ratatui::layout::Rect;
-
-use crate::{
-    nu_common::{collect_input, NuSpan},
-    pager::{Frame, Transition, ViewInfo},
-    views::{Layout, Preview, RecordView, View, ViewConfig},
+use std::{
+    collections::HashMap,
+    io::{self, Result},
 };
-
-use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
@@ -105,7 +104,7 @@ impl ViewCommand for HelpCmd {
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
-        self.input_command = args.trim().to_owned();
+        args.trim().clone_into(&mut self.input_command);
 
         Ok(())
     }

@@ -5,14 +5,15 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::str;
-use std::sync::Arc;
+use std::{str, sync::Arc};
+
+use super::base::{SemanticSuggestion, SuggestionKind};
 
 #[derive(Clone)]
 pub struct NuCompleter {
@@ -24,8 +25,12 @@ impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
         Self {
             engine_state,
-            stack: stack.reset_stdio().capture(),
+            stack: stack.reset_out_dest().capture(),
         }
+    }
+
+    pub fn fetch_completions_at(&mut self, line: &str, pos: usize) -> Vec<SemanticSuggestion> {
+        self.completion_helper(line, pos)
     }
 
     // Process the completion for a given completer
@@ -37,7 +42,7 @@ impl NuCompleter {
         new_span: Span,
         offset: usize,
         pos: usize,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let config = self.engine_state.get_config();
 
         let options = CompletionOptions {
@@ -62,7 +67,7 @@ impl NuCompleter {
         spans: &[String],
         offset: usize,
         span: Span,
-    ) -> Option<Vec<Suggestion>> {
+    ) -> Option<Vec<SemanticSuggestion>> {
         let block = self.engine_state.get_block(block_id);
         let mut callee_stack = self
             .stack
@@ -107,7 +112,7 @@ impl NuCompleter {
         None
     }
 
-    fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+    fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<SemanticSuggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         // TODO: Callers should be trimming the line themselves
@@ -397,6 +402,9 @@ impl NuCompleter {
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         self.completion_helper(line, pos)
+            .into_iter()
+            .map(|s| s.suggestion)
+            .collect()
     }
 }
 
@@ -454,20 +462,23 @@ pub fn map_value_completions<'a>(
     list: impl Iterator<Item = &'a Value>,
     span: Span,
     offset: usize,
-) -> Vec<Suggestion> {
+) -> Vec<SemanticSuggestion> {
     list.filter_map(move |x| {
         // Match for string values
         if let Ok(s) = x.coerce_string() {
-            return Some(Suggestion {
-                value: s,
-                description: None,
-                style: None,
-                extra: None,
-                span: reedline::Span {
-                    start: span.start - offset,
-                    end: span.end - offset,
+            return Some(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: s,
+                    description: None,
+                    style: None,
+                    extra: None,
+                    span: reedline::Span {
+                        start: span.start - offset,
+                        end: span.end - offset,
+                    },
+                    append_whitespace: false,
                 },
-                append_whitespace: false,
+                kind: Some(SuggestionKind::Type(x.get_type())),
             });
         }
 
@@ -516,7 +527,10 @@ pub fn map_value_completions<'a>(
                 }
             });
 
-            return Some(suggestion);
+            return Some(SemanticSuggestion {
+                suggestion,
+                kind: Some(SuggestionKind::Type(x.get_type())),
+            });
         }
 
         None
@@ -568,13 +582,13 @@ mod completer_tests {
             // Test whether the result begins with the expected value
             result
                 .iter()
-                .for_each(|x| assert!(x.value.starts_with(begins_with)));
+                .for_each(|x| assert!(x.suggestion.value.starts_with(begins_with)));
 
             // Test whether the result contains all the expected values
             assert_eq!(
                 result
                     .iter()
-                    .map(|x| expected_values.contains(&x.value.as_str()))
+                    .map(|x| expected_values.contains(&x.suggestion.value.as_str()))
                     .filter(|x| *x)
                     .count(),
                 expected_values.len(),

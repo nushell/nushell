@@ -1,12 +1,6 @@
+use nu_engine::{command_prelude::*, eval_block};
+use nu_protocol::{debugger::WithoutDebug, engine::Closure};
 use std::collections::HashMap;
-
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
 
 #[derive(Clone)]
 pub struct WithEnv;
@@ -85,7 +79,7 @@ fn with_env(
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack_preserve_stdio(capture_block.captures);
+    let mut stack = stack.captures_to_stack_preserve_out_dest(capture_block.captures);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 
@@ -95,7 +89,7 @@ fn with_env(
                 // single row([[X W]; [Y Z]])
                 match &table[0] {
                     Value::Record { val, .. } => {
-                        for (k, v) in val {
+                        for (k, v) in &**val {
                             env.insert(k.to_string(), v.clone());
                         }
                     }
@@ -123,7 +117,7 @@ fn with_env(
         }
         // when get object by `open x.json` or `from json`
         Value::Record { val, .. } => {
-            for (k, v) in val {
+            for (k, v) in &**val {
                 env.insert(k.clone(), v.clone());
             }
         }

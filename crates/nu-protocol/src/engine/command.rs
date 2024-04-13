@@ -1,8 +1,8 @@
-use crate::{ast::Call, Alias, BlockId, Example, IoStream, PipelineData, ShellError, Signature};
+use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CommandType {
     Builtin,
     Custom,
@@ -134,7 +134,7 @@ pub trait Command: Send + Sync + CommandClone {
         }
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
     }
 }

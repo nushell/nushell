@@ -1,21 +1,17 @@
-use std::sync::Arc;
-
 use crate::util::eval_source;
-use log::info;
-use log::trace;
+use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
-use nu_engine::eval_block;
-use nu_engine::{convert_env_values, current_dir};
+use nu_engine::{convert_env_values, current_dir, eval_block};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, ShellError, Span, Value,
+    report_error, Config, PipelineData, ShellError, Span, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
+use std::sync::Arc;
 
 /// Entry point for evaluating a file.
 ///
@@ -198,6 +194,7 @@ pub(crate) fn print_table_or_error(
     stack: &mut Stack,
     mut pipeline_data: PipelineData,
     config: &mut Config,
+    no_newline: bool,
 ) -> Option<i64> {
     let exit_code = match &mut pipeline_data {
         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
@@ -216,7 +213,7 @@ pub(crate) fn print_table_or_error(
     if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
         let command = engine_state.get_decl(decl_id);
         if command.get_block_id().is_some() {
-            print_or_exit(pipeline_data, engine_state, config);
+            print_or_exit(pipeline_data, engine_state, config, no_newline);
         } else {
             // The final call on table command, it's ok to set redirect_output to false.
             let call = Call::new(Span::new(0, 0));
@@ -224,7 +221,7 @@ pub(crate) fn print_table_or_error(
 
             match table {
                 Ok(table) => {
-                    print_or_exit(table, engine_state, config);
+                    print_or_exit(table, engine_state, config, no_newline);
                 }
                 Err(error) => {
                     let working_set = StateWorkingSet::new(engine_state);
@@ -234,7 +231,7 @@ pub(crate) fn print_table_or_error(
             }
         }
     } else {
-        print_or_exit(pipeline_data, engine_state, config);
+        print_or_exit(pipeline_data, engine_state, config, no_newline);
     }
 
     // Make sure everything has finished
@@ -251,7 +248,12 @@ pub(crate) fn print_table_or_error(
     }
 }
 
-fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
+fn print_or_exit(
+    pipeline_data: PipelineData,
+    engine_state: &mut EngineState,
+    config: &Config,
+    no_newline: bool,
+) {
     for item in pipeline_data {
         if let Value::Error { error, .. } = item {
             let working_set = StateWorkingSet::new(engine_state);
@@ -261,7 +263,10 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
             std::process::exit(1);
         }
 
-        let out = item.to_expanded_string("\n", config) + "\n";
+        let mut out = item.to_expanded_string("\n", config);
+        if !no_newline {
+            out.push('\n');
+        }
         let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{err}"));
     }
 }

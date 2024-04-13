@@ -1,8 +1,11 @@
-use super::cached_file::CachedFile;
-use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath};
-use crate::ast::Block;
-use crate::Module;
-
+use crate::{
+    ast::Block,
+    engine::{
+        usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
+        VirtualPath,
+    },
+    Module,
+};
 use std::sync::Arc;
 
 #[cfg(feature = "plugin")]

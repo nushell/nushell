@@ -61,6 +61,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub max_external_completion_results: i64,
+    pub recursion_limit: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
@@ -133,6 +134,7 @@ impl Default for Config {
             completion_algorithm: CompletionAlgorithm::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
+            recursion_limit: 50,
             external_completer: None,
             use_ls_colors_completions: true,
 
@@ -172,9 +174,16 @@ impl Default for Config {
 }
 
 impl Value {
-    pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
+    /// Parse the given [`Value`] as a configuration record, and recover encountered mistakes
+    ///
+    /// If any given (sub)value is detected as impossible, this value will be restored to the value
+    /// in `existing_config`, thus mutates `self`.
+    ///
+    /// Returns a new [`Config`] (that is in a valid state) and if encountered the [`ShellError`]
+    /// containing all observed inner errors.
+    pub fn parse_as_config(&mut self, existing_config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
-        let mut config = config.clone();
+        let mut config = existing_config.clone();
 
         // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
         // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all
@@ -745,6 +754,19 @@ impl Value {
                             &[key],
                             value,
                             &mut errors);
+                    }
+                    "recursion_limit" => {
+                        if let Value::Int { val, internal_span } = value {
+                            if val > &mut 1 {
+                                config.recursion_limit = *val;
+                            } else {
+                                report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                                *value = Value::Int { val: 50, internal_span: *internal_span };
+                            }
+                        } else {
+                            report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                            *value = Value::Int { val: 50, internal_span: value.span() };
+                        }
                     }
                     // Catch all
                     _ => {

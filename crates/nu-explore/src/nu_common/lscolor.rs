@@ -1,12 +1,10 @@
-use std::fs::symlink_metadata;
-
+use super::NuText;
 use lscolors::LsColors;
 use nu_ansi_term::{Color, Style};
 use nu_engine::env_to_string;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_utils::get_ls_colors;
-
-use super::NuText;
+use std::fs::symlink_metadata;
 
 pub fn create_lscolors(engine_state: &EngineState, stack: &Stack) -> LsColors {
     let colors = stack

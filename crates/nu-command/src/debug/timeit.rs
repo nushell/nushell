@@ -1,11 +1,4 @@
-use nu_engine::{get_eval_block, get_eval_expression_with_input};
-
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression_with_input};
 use std::time::Instant;
 
 #[derive(Clone)]
@@ -51,6 +44,8 @@ impl Command for TimeIt {
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
 
+        // reset outdest, so the command can write to stdout and stderr.
+        let stack = &mut stack.push_redirection(None, None);
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);

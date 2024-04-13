@@ -1,5 +1,13 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
+use crate::{
+    plugin::Encoder,
+    protocol::{
+        ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, RawStreamInfo, StreamMessage,
+    },
+    sequence::Sequence,
+};
+use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
 use std::{
     io::Write,
     sync::{
@@ -9,24 +17,13 @@ use std::{
     thread,
 };
 
-use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
-
-use crate::{
-    plugin::Encoder,
-    protocol::{
-        ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, RawStreamInfo, StreamMessage,
-    },
-    sequence::Sequence,
-};
-
 mod stream;
 
 mod engine;
-pub use engine::EngineInterface;
-pub(crate) use engine::{EngineInterfaceManager, ReceivedPluginCall};
+pub use engine::{EngineInterface, EngineInterfaceManager, ReceivedPluginCall};
 
 mod plugin;
-pub(crate) use plugin::{PluginInterface, PluginInterfaceManager};
+pub use plugin::{PluginInterface, PluginInterfaceManager};
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
@@ -45,7 +42,10 @@ const LIST_STREAM_HIGH_PRESSURE: i32 = 100;
 const RAW_STREAM_HIGH_PRESSURE: i32 = 50;
 
 /// Read input/output from the stream.
-pub(crate) trait PluginRead<T> {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginRead<T> {
     /// Returns `Ok(None)` on end of stream.
     fn read(&mut self) -> Result<Option<T>, ShellError>;
 }
@@ -72,7 +72,10 @@ where
 /// Write input/output to the stream.
 ///
 /// The write should be atomic, without interference from other threads.
-pub(crate) trait PluginWrite<T>: Send + Sync {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginWrite<T>: Send + Sync {
     fn write(&self, data: &T) -> Result<(), ShellError>;
 
     /// Flush any internal buffers, if applicable.
@@ -136,7 +139,10 @@ where
 ///
 /// There is typically one [`InterfaceManager`] consuming input from a background thread, and
 /// managing shared state.
-pub(crate) trait InterfaceManager {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait InterfaceManager {
     /// The corresponding interface type.
     type Interface: Interface + 'static;
 
@@ -218,9 +224,15 @@ pub(crate) trait InterfaceManager {
 /// [`EngineInterface`] for the API from the plugin side to the engine.
 ///
 /// There can be multiple copies of the interface managed by a single [`InterfaceManager`].
-pub(crate) trait Interface: Clone + Send {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait Interface: Clone + Send {
     /// The output message type, which must be capable of encapsulating a [`StreamMessage`].
     type Output: From<StreamMessage>;
+
+    /// Any context required to construct [`PipelineData`]. Can be `()` if not needed.
+    type DataContext;
 
     /// Write an output message.
     fn write(&self, output: Self::Output) -> Result<(), ShellError>;
@@ -236,7 +248,11 @@ pub(crate) trait Interface: Clone + Send {
 
     /// Prepare [`PipelineData`] to be written. This is called by `init_write_pipeline_data()` as
     /// a hook so that values that need special handling can be taken care of.
-    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError>;
+    fn prepare_pipeline_data(
+        &self,
+        data: PipelineData,
+        context: &Self::DataContext,
+    ) -> Result<PipelineData, ShellError>;
 
     /// Initialize a write for [`PipelineData`]. This returns two parts: the header, which can be
     /// embedded in the particular message that references the stream, and a writer, which will
@@ -249,6 +265,7 @@ pub(crate) trait Interface: Clone + Send {
     fn init_write_pipeline_data(
         &self,
         data: PipelineData,
+        context: &Self::DataContext,
     ) -> Result<(PipelineDataHeader, PipelineDataWriter<Self>), ShellError> {
         // Allocate a stream id and a writer
         let new_stream = |high_pressure_mark: i32| {
@@ -260,7 +277,7 @@ pub(crate) trait Interface: Clone + Send {
                     .write_stream(id, self.clone(), high_pressure_mark)?;
             Ok::<_, ShellError>((id, writer))
         };
-        match self.prepare_pipeline_data(data)? {
+        match self.prepare_pipeline_data(data, context)? {
             PipelineData::Value(value, _) => {
                 Ok((PipelineDataHeader::Value(value), PipelineDataWriter::None))
             }
@@ -338,7 +355,7 @@ where
 /// [`PipelineDataWriter::write()`] to write all of the data contained within the streams.
 #[derive(Default)]
 #[must_use]
-pub(crate) enum PipelineDataWriter<W: WriteStreamMessage> {
+pub enum PipelineDataWriter<W: WriteStreamMessage> {
     #[default]
     None,
     ListStream(StreamWriter<W>, ListStream),

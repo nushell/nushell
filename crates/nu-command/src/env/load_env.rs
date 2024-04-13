@@ -1,9 +1,4 @@
-use nu_engine::{current_dir, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, current_dir};
 
 #[derive(Clone)]
 pub struct LoadEnv;
@@ -58,7 +53,7 @@ impl Command for LoadEnv {
             }
             None => match input {
                 PipelineData::Value(Value::Record { val, .. }, ..) => {
-                    for (env_var, rhs) in val {
+                    for (env_var, rhs) in *val {
                         let env_var_ = env_var.as_str();
                         if ["FILE_PWD", "CURRENT_FILE"].contains(&env_var_) {
                             return Err(ShellError::AutomaticEnvVarSetManually {
@@ -70,7 +65,7 @@ impl Command for LoadEnv {
                         if env_var == "PWD" {
                             let cwd = current_dir(engine_state, stack)?;
                             let rhs = rhs.coerce_into_string()?;
-                            let rhs = nu_path::expand_path_with(rhs, cwd);
+                            let rhs = nu_path::expand_path_with(rhs, cwd, true);
                             stack.add_env_var(
                                 env_var,
                                 Value::string(rhs.to_string_lossy(), call.head),

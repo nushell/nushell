@@ -20,11 +20,12 @@ use crate::{
     logger::{configure, logger},
 };
 use command::gather_commandline_args;
-use log::Level;
+use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
+use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
     PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
@@ -35,7 +36,7 @@ use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
     io::BufReader,
-    path::Path,
+    path::PathBuf,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -94,7 +95,11 @@ fn main() -> Result<()> {
 
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
         if !xdg_config_home.is_empty() {
-            if nushell_config_path != Path::new(&xdg_config_home).join("nushell") {
+            if nushell_config_path
+                != canonicalize_with(&xdg_config_home, &init_cwd)
+                    .unwrap_or(PathBuf::from(&xdg_config_home))
+                    .join("nushell")
+            {
                 report_error_new(
                     &engine_state,
                     &ShellError::InvalidXdgConfig {
@@ -233,6 +238,7 @@ fn main() -> Result<()> {
         );
     }
 
+    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
@@ -243,6 +249,14 @@ fn main() -> Result<()> {
 
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
+    perf(
+        "NU_LIB_DIRS setup",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     // First, set up env vars as strings only
@@ -265,7 +279,16 @@ fn main() -> Result<()> {
         load_standard_library(&mut engine_state)?;
     }
 
+    start_time = std::time::Instant::now();
     if parsed_nu_cli_args.lsp {
+        perf(
+            "lsp starting",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
         return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
     }
 
@@ -330,6 +353,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+        trace!("redirecting stdin");
         let stdin = std::io::stdin();
         let buf_reader = BufReader::new(stdin);
 
@@ -347,6 +371,7 @@ fn main() -> Result<()> {
             trim_end_newline: false,
         }
     } else {
+        trace!("not redirecting stdin");
         PipelineData::empty()
     };
     perf(
@@ -358,9 +383,18 @@ fn main() -> Result<()> {
         use_color,
     );
 
+    start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
     let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    perf(
+        "create_nu_constant",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

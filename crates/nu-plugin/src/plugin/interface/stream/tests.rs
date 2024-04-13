@@ -3,18 +3,46 @@ use std::{
         atomic::{AtomicBool, Ordering::Relaxed},
         mpsc, Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-use nu_protocol::{ShellError, Value};
-
-use crate::protocol::{StreamData, StreamMessage};
-
 use super::{StreamManager, StreamReader, StreamWriter, StreamWriterSignal, WriteStreamMessage};
+use crate::protocol::{StreamData, StreamMessage};
+use nu_protocol::{ShellError, Value};
 
 // Should be long enough to definitely complete any quick operation, but not so long that tests are
 // slow to complete. 10 ms is a pretty long time
 const WAIT_DURATION: Duration = Duration::from_millis(10);
+
+// Maximum time to wait for a condition to be true
+const MAX_WAIT_DURATION: Duration = Duration::from_millis(500);
+
+/// Wait for a condition to be true, or panic if the duration exceeds MAX_WAIT_DURATION
+#[track_caller]
+fn wait_for_condition(mut cond: impl FnMut() -> bool, message: &str) {
+    // Early check
+    if cond() {
+        return;
+    }
+
+    let start = Instant::now();
+    loop {
+        std::thread::sleep(Duration::from_millis(10));
+
+        if cond() {
+            return;
+        }
+
+        let elapsed = Instant::now().saturating_duration_since(start);
+        if elapsed > MAX_WAIT_DURATION {
+            panic!(
+                "{message}: Waited {:.2}sec, which is more than the maximum of {:.2}sec",
+                elapsed.as_secs_f64(),
+                MAX_WAIT_DURATION.as_secs_f64(),
+            );
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 struct TestSink(Vec<StreamMessage>);
@@ -75,7 +103,8 @@ fn list_reader_recv_wrong_type() -> Result<(), ShellError> {
 #[test]
 fn reader_recv_raw_messages() -> Result<(), ShellError> {
     let (tx, rx) = mpsc::channel();
-    let mut reader = StreamReader::new(0, rx, TestSink::default());
+    let mut reader =
+        StreamReader::<Result<Vec<u8>, ShellError>, _>::new(0, rx, TestSink::default());
 
     tx.send(Ok(Some(StreamData::Raw(Ok(vec![10, 20])))))
         .unwrap();
@@ -301,8 +330,7 @@ fn signal_wait_for_drain_blocks_on_unacknowledged() -> Result<(), ShellError> {
         for _ in 0..100 {
             signal.notify_acknowledged()?;
         }
-        std::thread::sleep(WAIT_DURATION);
-        assert!(spawned.is_finished(), "blocked at end");
+        wait_for_condition(|| spawned.is_finished(), "blocked at end");
         spawned.join().unwrap()
     })
 }
@@ -322,8 +350,7 @@ fn signal_wait_for_drain_unblocks_on_dropped() -> Result<(), ShellError> {
         std::thread::sleep(WAIT_DURATION);
         assert!(!spawned.is_finished(), "didn't block");
         signal.set_dropped()?;
-        std::thread::sleep(WAIT_DURATION);
-        assert!(spawned.is_finished(), "still blocked at end");
+        wait_for_condition(|| spawned.is_finished(), "still blocked at end");
         spawned.join().unwrap()
     })
 }
@@ -432,7 +459,7 @@ fn stream_manager_write_scenario() -> Result<(), ShellError> {
     let expected_values = vec![b"hello".to_vec(), b"world".to_vec(), b"test".to_vec()];
 
     for value in &expected_values {
-        writable.write(Ok(value.clone()))?;
+        writable.write(Ok::<_, ShellError>(value.clone()))?;
     }
 
     // Now try signalling ack

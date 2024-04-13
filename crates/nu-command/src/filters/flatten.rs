@@ -1,12 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct Flatten;
@@ -170,7 +164,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                 match value {
                     Value::Record { val, .. } => {
                         if need_flatten {
-                            for (col, val) in val {
+                            for (col, val) in *val {
                                 if out.contains_key(&col) {
                                     out.insert(format!("{column}_{col}"), val);
                                 } else {
@@ -178,9 +172,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 }
                             }
                         } else if out.contains_key(&column) {
-                            out.insert(format!("{column}_{column}"), Value::record(val, span));
+                            out.insert(format!("{column}_{column}"), Value::record(*val, span));
                         } else {
-                            out.insert(column, Value::record(val, span));
+                            out.insert(column, Value::record(*val, span));
                         }
                     }
                     Value::List { vals, .. } => {

@@ -1,20 +1,22 @@
-mod io_stream;
 mod metadata;
+mod out_dest;
 mod stream;
 
-pub use io_stream::*;
 pub use metadata::*;
+pub use out_dest::*;
 pub use stream::*;
 
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, ShellError, Span, Value,
+    format_error, Config, Range, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::io::{self, Cursor, Read, Write};
-use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
+use std::{
+    io::{self, Cursor, Read, Write},
+    sync::{atomic::AtomicBool, Arc},
+    thread,
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -206,14 +208,14 @@ impl PipelineData {
         }
     }
 
-    /// Writes all values or redirects all output to the current stdio streams in `stack`.
+    /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
     ///
-    /// For [`IoStream::Pipe`] and [`IoStream::Capture`], this will return the `PipelineData` as is
+    /// For [`OutDest::Pipe`] and [`OutDest::Capture`], this will return the `PipelineData` as is
     /// without consuming input and without writing anything.
     ///
-    /// For the other [`IoStream`]s, the given `PipelineData` will be completely consumed
+    /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
     /// and `PipelineData::Empty` will be returned.
-    pub fn write_to_io_streams(
+    pub fn write_to_out_dests(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -232,10 +234,10 @@ impl PipelineData {
             ) => {
                 fn needs_redirect(
                     stream: Option<RawStream>,
-                    io_stream: &IoStream,
+                    out_dest: &OutDest,
                 ) -> Result<RawStream, Option<RawStream>> {
-                    match (stream, io_stream) {
-                        (Some(stream), IoStream::Pipe | IoStream::Capture) => Err(Some(stream)),
+                    match (stream, out_dest) {
+                        (Some(stream), OutDest::Pipe | OutDest::Capture) => Err(Some(stream)),
                         (Some(stream), _) => Ok(stream),
                         (None, _) => Err(None),
                     }
@@ -294,22 +296,22 @@ impl PipelineData {
                     trim_end_newline,
                 })
             }
-            (data, IoStream::Pipe | IoStream::Capture) => Ok(data),
+            (data, OutDest::Pipe | OutDest::Capture) => Ok(data),
             (PipelineData::Empty, _) => Ok(PipelineData::Empty),
-            (PipelineData::Value(_, _), IoStream::Null) => Ok(PipelineData::Empty),
-            (PipelineData::ListStream(stream, _), IoStream::Null) => {
+            (PipelineData::Value(_, _), OutDest::Null) => Ok(PipelineData::Empty),
+            (PipelineData::ListStream(stream, _), OutDest::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(value, _), IoStream::File(file)) => {
+            (PipelineData::Value(value, _), OutDest::File(file)) => {
                 let bytes = value_to_bytes(value)?;
                 let mut file = file.try_clone()?;
                 file.write_all(&bytes)?;
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
-            (PipelineData::ListStream(stream, _), IoStream::File(file)) => {
+            (PipelineData::ListStream(stream, _), OutDest::File(file)) => {
                 let mut file = file.try_clone()?;
                 // use BufWriter here?
                 for value in stream {
@@ -322,7 +324,7 @@ impl PipelineData {
             }
             (
                 data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
-                IoStream::Inherit,
+                OutDest::Inherit,
             ) => {
                 let config = engine_state.get_config();
 
@@ -402,7 +404,7 @@ impl PipelineData {
     /// It returns Err if the `self` cannot be converted to an iterator.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
         match self {
-            PipelineData::Value(val, metadata) => match val {
+            PipelineData::Value(value, metadata) => match value {
                 Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
                     ListStream::from_stream(vals.into_iter(), None),
                     metadata,
@@ -414,13 +416,11 @@ impl PipelineData {
                     ),
                     metadata,
                 ))),
-                Value::Range { val, .. } => match val.into_range_iter(None) {
-                    Ok(iter) => Ok(PipelineIterator(PipelineData::ListStream(
-                        ListStream::from_stream(iter, None),
+                Value::Range { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
+                        ListStream::from_stream(val.into_range_iter(value.span(), None), None),
                         metadata,
-                    ))),
-                    Err(error) => Err(error),
-                },
+                    )))
+                ,
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
@@ -558,8 +558,21 @@ impl PipelineData {
         F: FnMut(Value) -> Value + 'static + Send,
     {
         match self {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .map(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => match f(value) {
+                        Value::Error { error, .. } => Err(*error),
+                        v => Ok(v.into_pipeline_data()),
+                    },
+                }
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
@@ -580,34 +593,35 @@ impl PipelineData {
                     Ok(f(Value::binary(collected.item, collected.span)).into_pipeline_data())
                 }
             }
-
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())?
-                .map(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => match f(v) {
-                Value::Error { error, .. } => Err(*error),
-                v => Ok(v.into_pipeline_data()),
-            },
         }
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U: 'static, F>(
+    pub fn flat_map<U, F>(
         self,
         mut f: F,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
-        U: IntoIterator<Item = Value>,
+        U: IntoIterator<Item = Value> + 'static,
         <U as IntoIterator>::IntoIter: 'static + Send,
         F: FnMut(Value) -> U + 'static + Send,
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().flat_map(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .flat_map(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => Ok(f(value).into_iter().into_pipeline_data(ctrlc)),
+                }
             }
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.flat_map(f).into_pipeline_data(ctrlc))
@@ -633,11 +647,6 @@ impl PipelineData {
                         .into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())?
-                .flat_map(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
 
@@ -652,8 +661,24 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let span = value.span();
+                match value {
+                    Value::List { vals, .. } => {
+                        Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+                    }
+                    Value::Range { val, .. } => Ok(val
+                        .into_range_iter(span, ctrlc.clone())
+                        .filter(f)
+                        .into_pipeline_data(ctrlc)),
+                    value => {
+                        if f(&value) {
+                            Ok(value.into_pipeline_data())
+                        } else {
+                            Ok(Value::nothing(span).into_pipeline_data())
+                        }
+                    }
+                }
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
@@ -685,28 +710,19 @@ impl PipelineData {
                     }
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
-                .into_range_iter(ctrlc.clone())?
-                .filter(f)
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(v, ..) => {
-                if f(&v) {
-                    Ok(v.into_pipeline_data())
-                } else {
-                    Ok(Value::nothing(v.span()).into_pipeline_data())
-                }
-            }
         }
     }
 
-    /// Try to catch external stream exit status and detect if it runs to failed.
+    /// Try to catch the external stream exit status and detect if it failed.
     ///
-    /// This is useful to commands with semicolon, we can detect errors early to avoid
-    /// commands after semicolon running.
+    /// This is useful for external commands with semicolon, we can detect errors early to avoid
+    /// commands after the semicolon running.
     ///
-    /// Returns self and a flag indicates if the external stream runs to failed.
-    /// If `self` is not Pipeline::ExternalStream, the flag will be false.
-    pub fn is_external_failed(self) -> (Self, bool) {
+    /// Returns `self` and a flag that indicates if the external stream run failed. If `self` is
+    /// not [`PipelineData::ExternalStream`], the flag will be `false`.
+    ///
+    /// Currently this will consume an external stream to completion.
+    pub fn check_external_failed(self) -> (Self, bool) {
         let mut failed_to_run = false;
         // Only need ExternalStream without redirecting output.
         // It indicates we have no more commands to execute currently.
@@ -789,47 +805,43 @@ impl PipelineData {
     /// converting `to json` or `to nuon`.
     /// `1..3 | to XX -> [1,2,3]`
     pub fn try_expand_range(self) -> Result<PipelineData, ShellError> {
-        let input = match self {
-            PipelineData::Value(v, metadata) => match v {
-                Value::Range { val, .. } => {
-                    let span = val.to.span();
-                    match (&val.to, &val.from) {
-                        (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
-                            if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
-                                return Err(ShellError::GenericError {
-                                    error: "Cannot create range".into(),
-                                    msg: "Infinity is not allowed when converting to json".into(),
-                                    span: Some(span),
-                                    help: Some("Consider removing infinity".into()),
-                                    inner: vec![],
-                                });
+        match self {
+            PipelineData::Value(v, metadata) => {
+                let span = v.span();
+                match v {
+                    Value::Range { val, .. } => {
+                        match val {
+                            Range::IntRange(range) => {
+                                if range.is_unbounded() {
+                                    return Err(ShellError::GenericError {
+                                        error: "Cannot create range".into(),
+                                        msg: "Unbounded ranges are not allowed when converting to this format".into(),
+                                        span: Some(span),
+                                        help: Some("Consider using ranges with valid start and end point.".into()),
+                                        inner: vec![],
+                                    });
+                                }
+                            }
+                            Range::FloatRange(range) => {
+                                if range.is_unbounded() {
+                                    return Err(ShellError::GenericError {
+                                        error: "Cannot create range".into(),
+                                        msg: "Unbounded ranges are not allowed when converting to this format".into(),
+                                        span: Some(span),
+                                        help: Some("Consider using ranges with valid start and end point.".into()),
+                                        inner: vec![],
+                                    });
+                                }
                             }
                         }
-                        (Value::Int { val, .. }, _) => {
-                            if *val == i64::MAX || *val == i64::MIN {
-                                return Err(ShellError::GenericError {
-                                    error: "Cannot create range".into(),
-                                    msg: "Unbounded ranges are not allowed when converting to json"
-                                        .into(),
-                                    span: Some(span),
-                                    help: Some(
-                                        "Consider using ranges with valid start and end point."
-                                            .into(),
-                                    ),
-                                    inner: vec![],
-                                });
-                            }
-                        }
-                        _ => (),
+                        let range_values: Vec<Value> = val.into_range_iter(span, None).collect();
+                        Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
-                    let range_values: Vec<Value> = val.into_range_iter(None)?.collect();
-                    PipelineData::Value(Value::list(range_values, span), None)
+                    x => Ok(PipelineData::Value(x, metadata)),
                 }
-                x => PipelineData::Value(x, metadata),
-            },
-            _ => self,
-        };
-        Ok(input)
+            }
+            _ => Ok(self),
+        }
     }
 
     /// Consume and print self data immediately.
@@ -876,7 +888,7 @@ impl PipelineData {
 
     /// Consume and print self data immediately.
     ///
-    /// Unlike [print] does not call `table` to format data and just prints it
+    /// Unlike [`.print()`] does not call `table` to format data and just prints it
     /// one element on a line
     /// * `no_newline` controls if we need to attach newline character to output.
     /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
@@ -944,26 +956,17 @@ impl IntoIterator for PipelineData {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            PipelineData::Value(v, metadata) => {
-                let span = v.span();
-                match v {
+            PipelineData::Value(value, metadata) => {
+                let span = value.span();
+                match value {
                     Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
                         ListStream::from_stream(vals.into_iter(), None),
                         metadata,
                     )),
-                    Value::Range { val, .. } => match val.into_range_iter(None) {
-                        Ok(iter) => PipelineIterator(PipelineData::ListStream(
-                            ListStream::from_stream(iter, None),
-                            metadata,
-                        )),
-                        Err(error) => PipelineIterator(PipelineData::ListStream(
-                            ListStream::from_stream(
-                                std::iter::once(Value::error(error, span)),
-                                None,
-                            ),
-                            metadata,
-                        )),
-                    },
+                    Value::Range { val, .. } => PipelineIterator(PipelineData::ListStream(
+                        ListStream::from_stream(val.into_range_iter(span, None), None),
+                        metadata,
+                    )),
                     x => PipelineIterator(PipelineData::Value(x, metadata)),
                 }
             }
@@ -1033,26 +1036,26 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     }
 }
 
-/// Only call this if `output_stream` is not `IoStream::Pipe` or `IoStream::Capture`.
-fn consume_child_output(child_output: RawStream, output_stream: &IoStream) -> io::Result<()> {
+/// Only call this if `output_stream` is not `OutDest::Pipe` or `OutDest::Capture`.
+fn consume_child_output(child_output: RawStream, output_stream: &OutDest) -> io::Result<()> {
     let mut output = ReadRawStream::new(child_output);
     match output_stream {
-        IoStream::Pipe | IoStream::Capture => {
+        OutDest::Pipe | OutDest::Capture => {
             // The point of `consume_child_output` is to redirect output *right now*,
-            // but IoStream::Pipe means to redirect output
+            // but OutDest::Pipe means to redirect output
             // into an OS pipe for *future use* (as input for another command).
             // So, this branch makes no sense, and will simply drop `output` instead of draining it.
             // This could trigger a `SIGPIPE` for the external command,
             // since there will be no reader for its pipe.
             debug_assert!(false)
         }
-        IoStream::Null => {
+        OutDest::Null => {
             io::copy(&mut output, &mut io::sink())?;
         }
-        IoStream::Inherit => {
+        OutDest::Inherit => {
             io::copy(&mut output, &mut io::stdout())?;
         }
-        IoStream::File(file) => {
+        OutDest::File(file) => {
             io::copy(&mut output, &mut file.try_clone()?)?;
         }
     }
