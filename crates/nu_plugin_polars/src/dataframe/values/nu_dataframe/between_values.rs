@@ -797,7 +797,7 @@ fn add_string_to_series(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::Span;
+    use nu_protocol::FutureSpanId;
     use polars::{prelude::NamedFrom, series::Series};
 
     use crate::{dataframe::values::NuDataFrame, values::CustomValueSupport};
