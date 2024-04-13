@@ -8,8 +8,8 @@ use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, Example, IntoSpanned as _, LabeledError, PipelineData, ShellError, Span,
-    Value,
+    report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
+    ShellError, Span, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -349,18 +349,14 @@ impl PluginTest {
 
     /// This implements custom value comparison with `plugin.custom_value_to_base_value()` to behave
     /// as similarly as possible to comparison in the engine.
-    ///
-    /// For non custom values, a clone of a value is returned.
-    pub fn base_value(&self, value: &Value) -> Result<Value, ShellError> {
-        match value {
-            Value::Custom { val, .. } => {
-                let mut serialized =
-                    PluginCustomValue::serialize_from_custom_value(val.as_ref(), value.span())?;
-                serialized.set_source(Some(self.source.clone()));
-                let persistent = self.source.persistent(None)?.get_plugin(None)?;
-                Ok(persistent.custom_value_to_base_value(serialized.into_spanned(value.span()))?)
-            }
-            _ => Ok(value.clone()),
-        }
+    pub fn custom_value_to_base_value(
+        &self,
+        val: &dyn CustomValue,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let mut serialized = PluginCustomValue::serialize_from_custom_value(val, span)?;
+        serialized.set_source(Some(self.source.clone()));
+        let persistent = self.source.persistent(None)?.get_plugin(None)?;
+        persistent.custom_value_to_base_value(serialized.into_spanned(span))
     }
 }
