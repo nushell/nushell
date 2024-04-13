@@ -65,75 +65,54 @@ impl Command for GroupBy {
                 description: "Group using a block which is evaluated against each input value",
                 example: "[foo.txt bar.csv baz.txt] | group-by { path parse | get extension }",
                 result: Some(Value::test_record(record! {
-                    "txt" =>  Value::test_list(
-                            vec![
-                                Value::test_string("foo.txt"),
-                                Value::test_string("baz.txt"),
-                            ],
-                        ),
-                    "csv" => Value::test_list(
-                            vec![Value::test_string("bar.csv")],
-                        ),
+                    "txt" => Value::test_list(vec![
+                        Value::test_string("foo.txt"),
+                        Value::test_string("baz.txt"),
+                    ]),
+                    "csv" => Value::test_list(vec![Value::test_string("bar.csv")]),
                 })),
             },
             Example {
                 description: "You can also group by raw values by leaving out the argument",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
                 result: Some(Value::test_record(record! {
-                    "1" =>  Value::test_list(
-                            vec![
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                            ],
-                        ),
-                    "3" =>  Value::test_list(
-                            vec![Value::test_string("3"), Value::test_string("3")],
-                        ),
-                    "2" => Value::test_list(
-                            vec![Value::test_string("2")],
-                        ),
+                    "1" => Value::test_list(vec![
+                        Value::test_string("1"),
+                        Value::test_string("1"),
+                        Value::test_string("1"),
+                        Value::test_string("1"),
+                    ]),
+                    "3" => Value::test_list(vec![
+                        Value::test_string("3"),
+                        Value::test_string("3"),
+                    ]),
+                    "2" => Value::test_list(vec![Value::test_string("2")]),
                 })),
             },
             Example {
                 description: "You can also output a table instead of a record",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("1"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                ]
-                            )
-                        }
-                    ),
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("3"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("3"),
-                                    Value::test_string("3"),
-                                ]
-                            )
-                        }
-                    ),
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("2"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("2"),
-                                ]
-                            )
-                        }
-                    ),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("1"),
+                        "items" => Value::test_list(vec![
+                            Value::test_string("1"),
+                            Value::test_string("1"),
+                            Value::test_string("1"),
+                            Value::test_string("1"),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("3"),
+                        "items" => Value::test_list(vec![
+                            Value::test_string("3"),
+                            Value::test_string("3"),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("2"),
+                        "items" => Value::test_list(vec![Value::test_string("2")]),
+                    }),
                 ])),
             },
         ]
