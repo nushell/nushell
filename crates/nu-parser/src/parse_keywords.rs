@@ -1833,9 +1833,9 @@ pub fn parse_module_block(
 
 /// Returns whether importing the file `path` would cause a circular import.
 /// When this function returns true, it also adds a ParseError to the working set, as a side effect.
-fn is_circular_import(ws: &mut StateWorkingSet, path: &ParserPath, path_span: &Span) -> bool {
-    if let Some(i) = ws.files.iter().rposition(|p| p == path.path()) {
-        let mut files: Vec<String> = ws
+fn is_circular_import(working_set: &mut StateWorkingSet, path: &ParserPath, path_span: &Span) -> bool {
+    if let Some(i) = working_set.files.iter().rposition(|p| p == path.path()) {
+        let mut files: Vec<String> = working_set
             .files
             .split_off(i)
             .iter()
@@ -1844,7 +1844,7 @@ fn is_circular_import(ws: &mut StateWorkingSet, path: &ParserPath, path_span: &S
         files.push(path.path().to_string_lossy().to_string());
 
         let msg = files.join("\nuses ");
-        ws.error(ParseError::CircularImport(msg, *path_span));
+        working_set.error(ParseError::CircularImport(msg, *path_span));
         return true;
     }
     false
