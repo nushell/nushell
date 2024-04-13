@@ -131,34 +131,3 @@ pub fn get_rest_for_glob_pattern(
 
     Ok(output)
 }
-
-/// Get optional arguments from given `call` with position `pos`.
-///
-/// It's similar to `call.opt`, except that it always returns NuGlob.
-pub fn opt_for_glob_pattern(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    pos: usize,
-) -> Result<Option<Spanned<NuGlob>>, ShellError> {
-    if let Some(expr) = call.positional_nth(pos) {
-        let eval_expression = get_eval_expression(engine_state);
-        let result = eval_expression(engine_state, stack, expr)?;
-        let result_span = result.span();
-        let result = match result {
-            Value::String { val, .. }
-                if matches!(
-                    &expr.expr,
-                    Expr::FullCellPath(_) | Expr::StringInterpolation(_)
-                ) =>
-            {
-                // should quote if given input type is not glob.
-                Value::glob(val, expr.ty != Type::Glob, result_span)
-            }
-            other => other,
-        };
-        FromValue::from_value(result).map(Some)
-    } else {
-        Ok(None)
-    }
-}
