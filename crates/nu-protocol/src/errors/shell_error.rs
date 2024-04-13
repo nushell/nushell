@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, FutureSpanId, Spanned,
-    Value, ActualSpan
+    ast::Operator, engine::StateWorkingSet, format_error, ActualSpan, FutureSpanId, LabeledError,
+    ParseError, Spanned, Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors

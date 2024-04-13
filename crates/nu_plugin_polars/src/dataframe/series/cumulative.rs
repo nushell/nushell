@@ -4,7 +4,7 @@ use super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Spanned,
     SyntaxShape, Type, Value,
 };
 use polars::prelude::{DataType, IntoSeries};
@@ -17,7 +17,7 @@ enum CumulativeType {
 }
 
 impl CumulativeType {
-    fn from_str(roll_type: &str, span: Span) -> Result<Self, ShellError> {
+    fn from_str(roll_type: &str, span: FutureSpanId) -> Result<Self, ShellError> {
         match roll_type {
             "min" => Ok(Self::Min),
             "max" => Ok(Self::Max),
@@ -85,7 +85,7 @@ impl PluginCommand for Cumulative {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }

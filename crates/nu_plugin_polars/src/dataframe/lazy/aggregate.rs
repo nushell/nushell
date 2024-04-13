@@ -6,8 +6,8 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 use polars::{datatypes::DataType, prelude::Expr};
 
@@ -74,7 +74,7 @@ impl PluginCommand for LazyAggregate {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -111,7 +111,7 @@ impl PluginCommand for LazyAggregate {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
         ]

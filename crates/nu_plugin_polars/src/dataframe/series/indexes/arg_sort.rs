@@ -4,7 +4,7 @@ use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Type, Value,
 };
 use polars::prelude::{IntoSeries, SortOptions};
 
@@ -62,7 +62,7 @@ impl PluginCommand for ArgSort {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -83,7 +83,7 @@ impl PluginCommand for ArgSort {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
         ]

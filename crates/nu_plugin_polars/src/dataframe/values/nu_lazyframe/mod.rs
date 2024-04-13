@@ -7,7 +7,7 @@ use super::{
     PolarsPluginType,
 };
 use core::fmt;
-use nu_protocol::{record, PipelineData, ShellError, Span, Value};
+use nu_protocol::{record, FutureSpanId, PipelineData, ShellError, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -54,7 +54,7 @@ impl NuLazyFrame {
         (*self.lazy).clone()
     }
 
-    pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
+    pub fn collect(self, span: FutureSpanId) -> Result<NuDataFrame, ShellError> {
         self.to_polars()
             .collect()
             .map_err(|e| ShellError::GenericError {
@@ -109,7 +109,7 @@ impl NuLazyFrame {
     pub fn try_from_pipeline_coerce(
         plugin: &PolarsPlugin,
         input: PipelineData,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value_coerce(plugin, &value)
@@ -153,7 +153,7 @@ impl CustomValueSupport for NuLazyFrame {
         PolarsPluginType::NuLazyFrame
     }
 
-    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+    fn base_value(self, span: FutureSpanId) -> Result<Value, ShellError> {
         let optimized_plan = self
             .lazy
             .describe_optimized_plan()

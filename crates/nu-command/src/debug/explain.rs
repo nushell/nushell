@@ -1,7 +1,8 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_protocol::{
     ast::{Argument, Block, Expr, Expression},
-    engine::Closure, GetSpan
+    engine::Closure,
+    GetSpan,
 };
 
 #[derive(Clone)]

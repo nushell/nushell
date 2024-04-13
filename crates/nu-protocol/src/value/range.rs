@@ -6,9 +6,8 @@ use std::{
     fmt::Display,
     sync::{atomic::AtomicBool, Arc},
 };
-use std::future::Future;
 
-use crate::{ast::RangeInclusion, ShellError, FutureSpanId, Value};
+use crate::{ast::RangeInclusion, FutureSpanId, ShellError, Value};
 
 mod int_range {
     use std::{
@@ -20,7 +19,7 @@ mod int_range {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{ast::RangeInclusion, ShellError, FutureSpanId, Value};
+    use crate::{ast::RangeInclusion, FutureSpanId, ShellError, Value};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
@@ -243,7 +242,7 @@ mod float_range {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, FutureSpanId, Value};
+    use crate::{ast::RangeInclusion, FutureSpanId, IntRange, Range, ShellError, Value};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct FloatRange {

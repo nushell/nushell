@@ -8,7 +8,8 @@ use super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, Signature, SyntaxShape, Type,
+    Value,
 };
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
@@ -61,7 +62,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -90,7 +91,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -109,7 +110,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -128,7 +129,7 @@ impl PluginCommand for ToDataFrame {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -150,9 +151,9 @@ impl PluginCommand for ToDataFrame {
                             Series::from_any_values_and_dtype("c", &vals, &dtype, false)
                                 .expect("List series should not fail")
                         }
-                    ], Span::test_data())
+                    ], FutureSpanId::test_data())
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -162,9 +163,9 @@ impl PluginCommand for ToDataFrame {
                         Series::new("a", [1u8, 2]),
                         Series::new("b", ["foo", "bar"]),
                         Series::new("c", [3i64, 3]),
-                    ], Span::test_data())
+                    ], FutureSpanId::test_data())
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             }
         ]

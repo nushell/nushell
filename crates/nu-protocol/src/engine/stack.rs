@@ -3,7 +3,7 @@ use crate::{
         EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
         DEFAULT_OVERLAY_NAME,
     },
-    OutDest, ShellError, FutureSpanId, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    FutureSpanId, OutDest, ShellError, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},

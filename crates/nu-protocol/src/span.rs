@@ -1,7 +1,7 @@
-use std::ops::Deref;
+use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
-use crate::SpanId;
+use std::ops::Deref;
 
 pub trait GetSpan {
     // TODO SPAN: This needs to return ActualSpan

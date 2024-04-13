@@ -8,7 +8,7 @@ use nu_path::expand_path_with;
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Spanned,
     SyntaxShape, Type, Value,
 };
 
@@ -161,7 +161,7 @@ fn from_parquet(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
-    file_span: Span,
+    file_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     if call.has_flag("lazy")? {
         let file: String = call.req(0)?;
@@ -225,7 +225,7 @@ fn from_avro(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
-    file_span: Span,
+    file_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -262,7 +262,7 @@ fn from_ipc(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
-    file_span: Span,
+    file_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     if call.has_flag("lazy")? {
         let file: String = call.req(0)?;
@@ -323,7 +323,7 @@ fn from_json(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
-    file_span: Span,
+    file_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
@@ -364,7 +364,7 @@ fn from_jsonl(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
-    file_span: Span,
+    file_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
     let maybe_schema = call
@@ -408,7 +408,7 @@ fn from_csv(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
-    file_span: Span,
+    file_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;

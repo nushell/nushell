@@ -8,7 +8,7 @@ use super::NuExpression;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
     ast::{Comparison, Math, Operator},
-    CustomValue, ShellError, Span, Type, Value,
+    CustomValue, FutureSpanId, ShellError, Type, Value,
 };
 use polars::prelude::Expr;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub struct NuExpressionCustomValue {
 // CustomValue implementation for NuDataFrame
 #[typetag::serde]
 impl CustomValue for NuExpressionCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         let cloned = self.clone();
         Value::custom(Box::new(cloned), span)
     }
@@ -35,7 +35,7 @@ impl CustomValue for NuExpressionCustomValue {
         TYPE_NAME.into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             "NuExpressionCustomValue: custom_value_to_base_value should've been called",
             span,
@@ -58,9 +58,9 @@ impl CustomValue for NuExpressionCustomValue {
 fn compute_with_value(
     (plugin, engine): (&PolarsPlugin, &EngineInterface),
     left: &NuExpression,
-    lhs_span: Span,
+    lhs_span: FutureSpanId,
     operator: Operator,
-    op: Span,
+    op: FutureSpanId,
     right: &Value,
 ) -> Result<Value, ShellError> {
     let rhs_span = right.span();
@@ -109,9 +109,9 @@ fn with_operator(
     operator: Operator,
     left: &NuExpression,
     right: &NuExpression,
-    lhs_span: Span,
-    rhs_span: Span,
-    op_span: Span,
+    lhs_span: FutureSpanId,
+    rhs_span: FutureSpanId,
+    op_span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     match operator {
         Operator::Math(Math::Plus) => {
@@ -177,7 +177,7 @@ fn apply_arithmetic<F>(
     engine: &EngineInterface,
     left: &NuExpression,
     right: &NuExpression,
-    span: Span,
+    span: FutureSpanId,
     f: F,
 ) -> Result<Value, ShellError>
 where
@@ -195,7 +195,7 @@ impl PolarsPluginCustomValue for NuExpressionCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         engine: &nu_plugin::EngineInterface,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
         right: Value,
     ) -> Result<Value, ShellError> {
@@ -216,7 +216,7 @@ impl PolarsPluginCustomValue for NuExpressionCustomValue {
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
         let expr = NuExpression::try_from_custom_value(plugin, self)?;
-        expr.base_value(Span::unknown())
+        expr.base_value(FutureSpanId::unknown())
     }
 
     fn id(&self) -> &Uuid {

@@ -6,7 +6,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Type, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -60,7 +60,7 @@ impl PluginCommand for IsNotNull {
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {

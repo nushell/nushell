@@ -8,8 +8,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
-    Config, FromValue, GetSpan, IntoPipelineData, OutDest, PipelineData, ShellError, FutureSpanId, Spanned, Type,
-    Value, VarId, ENV_VARIABLE_ID,
+    Config, FromValue, FutureSpanId, GetSpan, IntoPipelineData, OutDest, PipelineData, ShellError,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 

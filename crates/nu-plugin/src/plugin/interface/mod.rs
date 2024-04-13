@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
-    PluginSignature, ShellError, FutureSpanId, Spanned, Value,
+    engine::Closure, Config, FutureSpanId, IntoInterruptiblePipelineData, LabeledError, ListStream,
+    PipelineData, PluginSignature, ShellError, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},

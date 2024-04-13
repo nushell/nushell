@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use nu_plugin::EngineInterface;
-use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, FutureSpanId, ShellError, Spanned, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,7 +22,7 @@ pub struct NuDataFrameCustomValue {
 // CustomValue implementation for NuDataFrame
 #[typetag::serde]
 impl CustomValue for NuDataFrameCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -30,7 +30,7 @@ impl CustomValue for NuDataFrameCustomValue {
         "NuDataFrameCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             "NuDataFrameValue: custom_value_to_base_value should've been called",
             span,
@@ -67,14 +67,14 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
-        df.base_value(Span::unknown())
+        df.base_value(FutureSpanId::unknown())
     }
 
     fn custom_value_operation(
         &self,
         plugin: &crate::PolarsPlugin,
         engine: &nu_plugin::EngineInterface,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
         right: Value,
     ) -> Result<Value, ShellError> {
@@ -89,7 +89,7 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         &self,
         plugin: &PolarsPlugin,
         _engine: &EngineInterface,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         index: Spanned<usize>,
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
@@ -100,7 +100,7 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         &self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
-        self_span: Span,
+        self_span: FutureSpanId,
         column_name: Spanned<String>,
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;

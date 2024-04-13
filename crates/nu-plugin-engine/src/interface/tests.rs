@@ -17,8 +17,8 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PluginSignature,
-    ShellError, FutureSpanId, Spanned, Value,
+    CustomValue, FutureSpanId, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PluginSignature, ShellError, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::{

@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, ListStream,
-    PipelineData, PluginSignature, ShellError, FutureSpanId, Spanned, Value,
+    ast::Operator, CustomValue, FutureSpanId, IntoInterruptiblePipelineData, IntoSpanned,
+    ListStream, PipelineData, PluginSignature, ShellError, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
@@ -1027,7 +1027,10 @@ impl PluginInterface {
         // Note: the protocol is always designed to have a span with the custom value, but this
         // operation doesn't support one.
         drop(self.write_plugin_call(
-            PluginCall::CustomValueOp(value.into_spanned(FutureSpanId::unknown()), CustomValueOp::Dropped),
+            PluginCall::CustomValueOp(
+                value.into_spanned(FutureSpanId::unknown()),
+                CustomValueOp::Dropped,
+            ),
             None,
         )?);
         Ok(())

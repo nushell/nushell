@@ -1,7 +1,7 @@
 use crate::{
     ast::Expression,
     engine::{EngineState, StateWorkingSet},
-    GetSpan, OutDest, FutureSpanId, SpanId
+    FutureSpanId, GetSpan, OutDest, SpanId,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;

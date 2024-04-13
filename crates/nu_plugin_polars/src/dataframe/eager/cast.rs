@@ -7,7 +7,7 @@ use crate::{
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
+    record, Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
 use polars::prelude::*;
@@ -58,10 +58,10 @@ impl PluginCommand for CastDF {
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars cast u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
-                        "a" => Value::string("u8", Span::test_data()),
-                        "b" => Value::string("i64", Span::test_data()),
+                        "a" => Value::string("u8", FutureSpanId::test_data()),
+                        "b" => Value::string("i64", FutureSpanId::test_data()),
                     },
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {
@@ -70,10 +70,10 @@ impl PluginCommand for CastDF {
                     "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
-                        "a" => Value::string("u8", Span::test_data()),
-                        "b" => Value::string("i64", Span::test_data()),
+                        "a" => Value::string("u8", FutureSpanId::test_data()),
+                        "b" => Value::string("i64", FutureSpanId::test_data()),
                     },
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )),
             },
             Example {

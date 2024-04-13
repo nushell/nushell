@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Spanned,
     SyntaxShape, Type, Value,
 };
 
@@ -110,7 +110,7 @@ impl PluginCommand for MeltDF {
                     ),
                 ], None)
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }
@@ -186,7 +186,7 @@ fn command(
 fn check_column_datatypes<T: AsRef<str>>(
     df: &polars::prelude::DataFrame,
     cols: &[T],
-    col_span: Span,
+    col_span: FutureSpanId,
 ) -> Result<(), ShellError> {
     if cols.is_empty() {
         return Err(ShellError::GenericError {

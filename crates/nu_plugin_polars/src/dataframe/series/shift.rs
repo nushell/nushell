@@ -8,8 +8,8 @@ use super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 use polars_plan::prelude::lit;
@@ -57,7 +57,7 @@ impl PluginCommand for Shift {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }

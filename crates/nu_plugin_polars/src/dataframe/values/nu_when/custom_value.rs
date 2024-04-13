@@ -1,7 +1,7 @@
 use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuWhen;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ pub struct NuWhenCustomValue {
 // CustomValue implementation for NuWhen
 #[typetag::serde]
 impl CustomValue for NuWhenCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -23,7 +23,7 @@ impl CustomValue for NuWhenCustomValue {
         "NuWhenCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             "NuWhenCustomValue: custom_value_to_base_value should've been called",
             span,
@@ -52,7 +52,7 @@ impl PolarsPluginCustomValue for NuWhenCustomValue {
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
         let when = NuWhen::try_from_custom_value(plugin, self)?;
-        when.base_value(Span::unknown())
+        when.base_value(FutureSpanId::unknown())
     }
 
     fn id(&self) -> &Uuid {

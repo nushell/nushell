@@ -1,7 +1,7 @@
 use super::{operations::Axis, NuDataFrame};
 use nu_protocol::{
     ast::{Boolean, Comparison, Math, Operator},
-    span, ShellError, Span, Spanned, Value,
+    span, FutureSpanId, ShellError, Spanned, Value,
 };
 use num::Zero;
 use polars::prelude::{
@@ -176,7 +176,7 @@ fn compare_series<'s, F>(
     lhs: &'s Series,
     rhs: &'s Series,
     name: &'s str,
-    span: Span,
+    span: FutureSpanId,
     f: F,
 ) -> Result<Series, ShellError>
 where
@@ -444,7 +444,7 @@ fn compute_series_i64<F>(
     series: &Series,
     val: i64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
@@ -488,7 +488,7 @@ fn compute_casted_i64<F>(
     casted: Result<&ChunkedArray<Int64Type>, PolarsError>,
     val: i64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
@@ -513,7 +513,7 @@ fn compute_series_float<F>(
     series: &Series,
     val: f64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
@@ -557,7 +557,7 @@ fn compute_casted_f64<F>(
     casted: Result<&ChunkedArray<Float64Type>, PolarsError>,
     val: f64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
@@ -582,7 +582,7 @@ fn compare_series_i64<F>(
     series: &Series,
     val: i64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
@@ -647,7 +647,7 @@ fn compare_casted_i64<F>(
     casted: Result<&ChunkedArray<Int64Type>, PolarsError>,
     val: i64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
@@ -672,7 +672,7 @@ fn compare_series_float<F>(
     series: &Series,
     val: f64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
@@ -716,7 +716,7 @@ fn compare_casted_f64<F>(
     casted: Result<&ChunkedArray<Float64Type>, PolarsError>,
     val: f64,
     f: F,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<NuDataFrame, ShellError>
 where
     F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
@@ -737,7 +737,11 @@ where
     }
 }
 
-fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<NuDataFrame, ShellError> {
+fn contains_series_pat(
+    series: &Series,
+    pat: &str,
+    span: FutureSpanId,
+) -> Result<NuDataFrame, ShellError> {
     let casted = series.str();
     match casted {
         Ok(casted) => {
@@ -767,7 +771,11 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<NuDataF
     }
 }
 
-fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<NuDataFrame, ShellError> {
+fn add_string_to_series(
+    series: &Series,
+    pat: &str,
+    span: FutureSpanId,
+) -> Result<NuDataFrame, ShellError> {
     let casted = series.str();
     match casted {
         Ok(casted) => {
@@ -797,92 +805,92 @@ mod test {
     #[test]
     fn test_compute_between_series_comparisons() {
         let series = Series::new("c", &[1, 2]);
-        let df = NuDataFrame::try_from_series_vec(vec![series], Span::test_data())
+        let df = NuDataFrame::try_from_series_vec(vec![series], FutureSpanId::test_data())
             .expect("should be able to create a simple dataframe");
 
         let c0 = df
-            .column("c", Span::test_data())
+            .column("c", FutureSpanId::test_data())
             .expect("should be able to get column c");
 
         let c0_series = c0
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be able to get series");
 
-        let c0_value = c0.into_value(Span::test_data());
+        let c0_value = c0.into_value(FutureSpanId::test_data());
 
         let c1 = df
-            .column("c", Span::test_data())
+            .column("c", FutureSpanId::test_data())
             .expect("should be able to get column c");
 
         let c1_series = c1
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be able to get series");
 
-        let c1_value = c1.into_value(Span::test_data());
+        let c1_value = c1.into_value(FutureSpanId::test_data());
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::NotEqual),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
         let result = result
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be convert to a series");
         assert_eq!(result, Series::new("neq_c_c", &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::Equal),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
         let result = result
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be convert to a series");
         assert_eq!(result, Series::new("eq_c_c", &[true, true]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::LessThan),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
         let result = result
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be convert to a series");
         assert_eq!(result, Series::new("lt_c_c", &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::LessThanOrEqual),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
         let result = result
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be convert to a series");
         assert_eq!(result, Series::new("lte_c_c", &[true, true]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::GreaterThan),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
         let result = result
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be convert to a series");
         assert_eq!(result, Series::new("gt_c_c", &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::GreaterThanOrEqual),
-            span: Span::test_data(),
+            span: FutureSpanId::test_data(),
         };
         let result = compute_between_series(op, &c0_value, &c0_series, &c1_value, &c1_series)
             .expect("compare should not fail");
         let result = result
-            .as_series(Span::test_data())
+            .as_series(FutureSpanId::test_data())
             .expect("should be convert to a series");
         assert_eq!(result, Series::new("gte_c_c", &[true, true]));
     }

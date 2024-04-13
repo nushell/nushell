@@ -4,7 +4,7 @@ use super::super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Type,
 };
 use polars::{
     prelude::{DatetimeMethods, IntoSeries, NamedFrom},
@@ -41,9 +41,12 @@ impl PluginCommand for GetYear {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-year"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[2020i32, 2020]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0", &[2020i32, 2020]),
+                    FutureSpanId::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }

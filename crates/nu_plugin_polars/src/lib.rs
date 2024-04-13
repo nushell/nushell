@@ -181,7 +181,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, ShellError, Span};
+    use nu_protocol::{engine::Command, ShellError, FutureSpanId};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode
@@ -212,7 +212,7 @@ pub mod test {
                     let id = obj.id();
                     plugin
                         .cache
-                        .insert(None, id, obj, Span::test_data())
+                        .insert(None, id, obj, FutureSpanId::test_data())
                         .unwrap();
                 }
             }

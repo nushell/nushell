@@ -1,5 +1,5 @@
 use super::Pipeline;
-use crate::{engine::EngineState, OutDest, Signature, FutureSpanId, Type, VarId};
+use crate::{engine::EngineState, FutureSpanId, OutDest, Signature, Type, VarId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

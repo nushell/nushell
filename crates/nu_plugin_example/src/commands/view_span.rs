@@ -46,7 +46,7 @@ impl SimplePluginCommand for ViewSpan {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        let contents = engine.get_span_contents(input.span())?;
+        let contents = engine.get_span_id_contents(input.span())?;
         Ok(Value::string(String::from_utf8_lossy(&contents), call.head))
     }
 }

@@ -1,4 +1,4 @@
-use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
+use nu_protocol::{ast::Operator, FutureSpanId, ShellError, Spanned, Value};
 use polars::prelude::{DataFrame, Series};
 
 use crate::values::CustomValueSupport;
@@ -19,9 +19,9 @@ impl NuDataFrame {
     pub fn compute_with_value(
         &self,
         plugin: &PolarsPlugin,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: Operator,
-        op_span: Span,
+        op_span: FutureSpanId,
         right: &Value,
     ) -> Result<NuDataFrame, ShellError> {
         let rhs_span = right.span();
@@ -114,7 +114,7 @@ impl NuDataFrame {
         &self,
         other: &NuDataFrame,
         axis: Axis,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<NuDataFrame, ShellError> {
         match axis {
             Axis::Row => {

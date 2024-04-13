@@ -9,7 +9,7 @@ pub use stream::*;
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
-    format_error, Config, Range, ShellError, FutureSpanId, Value,
+    format_error, Config, FutureSpanId, Range, ShellError, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{

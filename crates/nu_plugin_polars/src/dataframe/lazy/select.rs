@@ -6,7 +6,8 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, Signature, SyntaxShape, Type,
+    Value,
 };
 #[derive(Clone)]
 pub struct LazySelect;
@@ -49,7 +50,7 @@ impl PluginCommand for LazySelect {
                     None,
                 )
                 .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }

@@ -3,7 +3,8 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, FutureSpanId, Spanned, Value,
+    Config, FutureSpanId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Spanned,
+    Value,
 };
 use std::{
     borrow::Cow,

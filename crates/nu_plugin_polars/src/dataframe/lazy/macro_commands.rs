@@ -5,7 +5,9 @@ use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, FutureSpanId, LabeledError, PipelineData, Signature, Type, Value,
+};
 
 macro_rules! lazy_command {
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident) => {
@@ -205,7 +207,7 @@ lazy_command!(
                 None
             )
             .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
+            .into_value(FutureSpanId::test_data()),
         ),
     },],
     reverse,

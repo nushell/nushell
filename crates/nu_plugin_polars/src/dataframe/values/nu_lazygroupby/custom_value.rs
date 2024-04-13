@@ -1,7 +1,7 @@
 use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
 
 use super::NuLazyGroupBy;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -14,7 +14,7 @@ pub struct NuLazyGroupByCustomValue {
 
 #[typetag::serde]
 impl CustomValue for NuLazyGroupByCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -22,7 +22,7 @@ impl CustomValue for NuLazyGroupByCustomValue {
         "NuLazyGroupByCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             "NuLazyGroupByCustomValue: custom_value_to_base_value should've been called",
             span,
@@ -50,7 +50,7 @@ impl PolarsPluginCustomValue for NuLazyGroupByCustomValue {
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
-        NuLazyGroupBy::try_from_custom_value(plugin, self)?.base_value(Span::unknown())
+        NuLazyGroupBy::try_from_custom_value(plugin, self)?.base_value(FutureSpanId::unknown())
     }
 
     fn id(&self) -> &Uuid {

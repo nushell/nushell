@@ -1,6 +1,6 @@
 mod custom_value;
 
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{record, FutureSpanId, ShellError, Value};
 use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
@@ -89,7 +89,7 @@ impl NuExpression {
         f(expr, other).into()
     }
 
-    pub fn to_value(&self, span: Span) -> Result<Value, ShellError> {
+    pub fn to_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         expr_to_value(self.as_ref(), span)
     }
 
@@ -138,7 +138,7 @@ impl ExtractedExpr {
     }
 }
 
-pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
+pub fn expr_to_value(expr: &Expr, span: FutureSpanId) -> Result<Value, ShellError> {
     match expr {
         Expr::Alias(expr, alias) => Ok(Value::record(
             record! {
@@ -405,7 +405,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type SubPlan are not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: FutureSpanId::unknown(),
         }),
         // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
         // I am not sure what we can meaningfully do with this at this time.
@@ -413,7 +413,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type Selector to Nu Values is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: FutureSpanId::unknown(),
         }),
     }
 }
@@ -493,7 +493,7 @@ impl CustomValueSupport for NuExpression {
         }
     }
 
-    fn base_value(self, _span: Span) -> Result<Value, ShellError> {
-        self.to_value(Span::unknown())
+    fn base_value(self, _span: FutureSpanId) -> Result<Value, ShellError> {
+        self.to_value(FutureSpanId::unknown())
     }
 }

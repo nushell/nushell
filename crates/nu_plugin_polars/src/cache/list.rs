@@ -40,7 +40,7 @@ impl PluginCommand for ListDF {
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let vals = plugin.cache.process_entries(|(key, value)| {
-            let span_contents = engine.get_span_contents(value.span)?;
+            let span_contents = engine.get_span_id_contents(value.span)?;
             let span_contents = String::from_utf8_lossy(&span_contents);
             match &value.value {
                 PolarsPluginObject::NuDataFrame(df) => Ok(Some(Value::record(

@@ -5,8 +5,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -57,7 +57,7 @@ impl PluginCommand for LazyFillNA {
                         None,
                     )
                     .expect("Df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
             Example {
@@ -78,7 +78,7 @@ impl PluginCommand for LazyFillNA {
                         None,
                     )
                     .expect("Df for test should not fail")
-                    .into_value(Span::test_data()),
+                    .into_value(FutureSpanId::test_data()),
                 ),
             },
         ]
@@ -128,7 +128,7 @@ fn cmd_df(
     call: &EvaluatedCall,
     frame: NuDataFrame,
     fill: Value,
-    val_span: Span,
+    val_span: FutureSpanId,
 ) -> Result<PipelineData, ShellError> {
     let columns = frame.columns(val_span)?;
     let dataframe = columns

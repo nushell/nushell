@@ -1,7 +1,7 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{record, FutureSpanId, ShellError, Value};
 use polars::prelude::LazyGroupBy;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -81,12 +81,15 @@ impl CustomValueSupport for NuLazyGroupBy {
         PolarsPluginType::NuLazyGroupBy
     }
 
-    fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+    fn base_value(
+        self,
+        _span: nu_protocol::FutureSpanId,
+    ) -> Result<nu_protocol::Value, ShellError> {
         Ok(Value::record(
             record! {
-                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", Span::unknown())
+                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", FutureSpanId::unknown())
             },
-            Span::unknown(),
+            FutureSpanId::unknown(),
         ))
     }
 }

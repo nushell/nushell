@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use nu_plugin::EngineInterface;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,7 +22,7 @@ pub struct NuLazyFrameCustomValue {
 // CustomValue implementation for NuDataFrame
 #[typetag::serde]
 impl CustomValue for NuLazyFrameCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+    fn clone_value(&self, span: nu_protocol::FutureSpanId) -> Value {
         Value::custom(Box::new(self.clone()), span)
     }
 
@@ -30,7 +30,7 @@ impl CustomValue for NuLazyFrameCustomValue {
         "NuLazyFrameCustomValue".into()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         Ok(Value::string(
             "NuLazyFrameCustomValue: custom_value_to_base_value should've been called",
             span,
@@ -59,7 +59,7 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         _engine: &nu_plugin::EngineInterface,
     ) -> Result<Value, ShellError> {
         let lazy = NuLazyFrame::try_from_custom_value(plugin, self)?;
-        lazy.base_value(Span::unknown())
+        lazy.base_value(FutureSpanId::unknown())
     }
 
     fn id(&self) -> &Uuid {

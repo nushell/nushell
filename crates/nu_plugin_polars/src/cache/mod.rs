@@ -10,7 +10,7 @@ use std::{
 use chrono::{DateTime, FixedOffset, Local};
 pub use list::ListDF;
 use nu_plugin::{EngineInterface, PluginCommand};
-use nu_protocol::{LabeledError, ShellError, Span};
+use nu_protocol::{LabeledError, ShellError, FutureSpanId};
 use uuid::Uuid;
 
 use crate::{plugin_debug, values::PolarsPluginObject, PolarsPlugin};
@@ -20,7 +20,7 @@ pub struct CacheValue {
     pub uuid: Uuid,
     pub value: PolarsPluginObject,
     pub created: DateTime<FixedOffset>,
-    pub span: Span,
+    pub span: FutureSpanId,
     pub reference_count: i16,
 }
 
@@ -87,7 +87,7 @@ impl Cache {
         maybe_engine: Option<&EngineInterface>,
         uuid: Uuid,
         value: PolarsPluginObject,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = self.lock()?;
         plugin_debug!("PolarsPlugin: Inserting {uuid} into cache: {value:?}");
@@ -151,7 +151,7 @@ pub trait Cacheable: Sized + Clone {
         self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         plugin.cache.insert(
             Some(engine),

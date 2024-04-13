@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, Span};
+use nu_protocol::{FutureSpanId, ShellError};
 
 pub mod eager;
 pub mod expressions;
@@ -8,7 +8,7 @@ pub mod stub;
 mod utils;
 pub mod values;
 
-pub fn missing_flag_error(flag: &str, span: Span) -> ShellError {
+pub fn missing_flag_error(flag: &str, span: FutureSpanId) -> ShellError {
     ShellError::GenericError {
         error: format!("Missing flag: {flag}"),
         msg: "".into(),

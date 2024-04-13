@@ -1,5 +1,5 @@
 use crate::ExternalCommand;
-use nu_protocol::{OutDest, FutureSpanId, Spanned};
+use nu_protocol::{FutureSpanId, OutDest, Spanned};
 use std::{collections::HashMap, path::PathBuf};
 
 pub(crate) fn gen_command(

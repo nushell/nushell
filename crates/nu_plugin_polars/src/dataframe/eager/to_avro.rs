@@ -121,7 +121,7 @@ fn command(
 #[cfg(test)]
 pub mod test {
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{FutureSpanId, Value};
     use uuid::Uuid;
 
     use crate::PolarsPlugin;
@@ -146,14 +146,14 @@ pub mod test {
                     .to_str()
                     .expect("should be able to get path")
                     .to_owned(),
-                Span::test_data(),
+                FutureSpanId::test_data(),
             ),
         );
         let pipeline_data = plugin_test.eval(&cmd)?;
 
         assert!(tmp_file.exists());
 
-        let value = pipeline_data.into_value(Span::test_data());
+        let value = pipeline_data.into_value(FutureSpanId::test_data());
         let list = value.as_list()?;
         assert_eq!(list.len(), 1);
         let msg = list.first().expect("should have a value").as_str()?;

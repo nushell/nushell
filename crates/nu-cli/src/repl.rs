@@ -903,7 +903,10 @@ fn do_auto_cd(
         return;
     }
 
-    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), FutureSpanId::unknown()));
+    stack.add_env_var(
+        "OLDPWD".into(),
+        Value::string(cwd.clone(), FutureSpanId::unknown()),
+    );
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
@@ -941,7 +944,10 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
-    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, FutureSpanId::unknown()));
+    stack.add_env_var(
+        "LAST_EXIT_CODE".into(),
+        Value::int(0, FutureSpanId::unknown()),
+    );
 }
 
 ///

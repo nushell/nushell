@@ -13,7 +13,9 @@ pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 use nu_plugin::EngineInterface;
-use nu_protocol::{ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::Operator, CustomValue, FutureSpanId, PipelineData, ShellError, Spanned, Value,
+};
 pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 use uuid::Uuid;
@@ -82,7 +84,7 @@ impl PolarsPluginObject {
     pub fn try_from_pipeline(
         plugin: &PolarsPlugin,
         input: PipelineData,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(plugin, &value)
@@ -154,7 +156,7 @@ impl CustomValueType {
             Err(ShellError::CantConvert {
                 to_type: "physical type".into(),
                 from_type: "value".into(),
-                span: Span::unknown(),
+                span: FutureSpanId::unknown(),
                 help: None,
             })
         }
@@ -193,7 +195,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
         &self,
         _plugin: &PolarsPlugin,
         _engine: &EngineInterface,
-        _lhs_span: Span,
+        _lhs_span: FutureSpanId,
         operator: Spanned<Operator>,
         _right: Value,
     ) -> Result<Value, ShellError> {
@@ -207,7 +209,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
         &self,
         _plugin: &PolarsPlugin,
         _engine: &EngineInterface,
-        self_span: Span,
+        self_span: FutureSpanId,
         _index: Spanned<usize>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::IncompatiblePathAccess {
@@ -220,7 +222,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
         &self,
         _plugin: &PolarsPlugin,
         _engine: &EngineInterface,
-        self_span: Span,
+        self_span: FutureSpanId,
         _column_name: Spanned<String>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::IncompatiblePathAccess {
@@ -254,9 +256,9 @@ pub trait CustomValueSupport: Cacheable {
 
     fn custom_value(self) -> Self::CV;
 
-    fn base_value(self, span: Span) -> Result<Value, ShellError>;
+    fn base_value(self, span: FutureSpanId) -> Result<Value, ShellError>;
 
-    fn into_value(self, span: Span) -> Value {
+    fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self.custom_value()), span)
     }
 
@@ -299,7 +301,7 @@ pub trait CustomValueSupport: Cacheable {
     fn try_from_pipeline(
         plugin: &PolarsPlugin,
         input: PipelineData,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Self, ShellError> {
         let value = input.into_value(span);
         Self::try_from_value(plugin, &value)
@@ -321,7 +323,7 @@ pub trait CustomValueSupport: Cacheable {
         self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         match self.to_cache_value()? {
             // if it was from a lazy value, make it lazy again
@@ -345,7 +347,7 @@ pub trait CustomValueSupport: Cacheable {
         self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<PipelineData, ShellError> {
         Ok(PipelineData::Value(
             self.cache_and_to_value(plugin, engine, span)?,

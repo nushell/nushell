@@ -3,7 +3,7 @@ use crate::PolarsPlugin;
 use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -32,7 +32,7 @@ impl PluginCommand for ColumnsDF {
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars columns",
             result: Some(Value::list(
                 vec![Value::test_string("a"), Value::test_string("b")],
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }

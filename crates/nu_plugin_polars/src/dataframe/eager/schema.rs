@@ -2,7 +2,8 @@ use crate::{values::PolarsPluginObject, PolarsPlugin};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -35,10 +36,10 @@ impl PluginCommand for SchemaCmd {
             example: r#"[[a b]; [1 "foo"] [3 "bar"]] | polars into-df | polars schema"#,
             result: Some(Value::record(
                 record! {
-                    "a" => Value::string("i64", Span::test_data()),
-                    "b" => Value::string("str", Span::test_data()),
+                    "a" => Value::string("i64", FutureSpanId::test_data()),
+                    "b" => Value::string("str", FutureSpanId::test_data()),
                 },
-                Span::test_data(),
+                FutureSpanId::test_data(),
             )),
         }]
     }
@@ -51,7 +52,10 @@ impl PluginCommand for SchemaCmd {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         if call.has_flag("datatype-list")? {
-            Ok(PipelineData::Value(datatype_list(Span::unknown()), None))
+            Ok(PipelineData::Value(
+                datatype_list(FutureSpanId::unknown()),
+                None,
+            ))
         } else {
             command(plugin, engine, call, input).map_err(LabeledError::from)
         }
@@ -85,7 +89,7 @@ fn command(
     }
 }
 
-fn datatype_list(span: Span) -> Value {
+fn datatype_list(span: FutureSpanId) -> Value {
     let types: Vec<Value> = [
         ("null", ""),
         ("bool", ""),
