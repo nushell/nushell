@@ -296,6 +296,13 @@ impl NuDataFrame {
         }
     }
 
+    pub fn has_index(&self) -> bool {
+        self.columns(Span::unknown())
+            .unwrap_or_default() // just assume there isn't an index
+            .iter()
+            .any(|col| col.name() == "index")
+    }
+
     // Print is made out a head and if the dataframe is too large, then a tail
     pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
@@ -304,7 +311,7 @@ impl NuDataFrame {
         if df.height() > size {
             let sample_size = size / 2;
             let mut values = self.head(Some(sample_size), span)?;
-            conversion::add_separator(&mut values, df, span);
+            conversion::add_separator(&mut values, df, self.has_index(), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
             let mut tail_values = self.tail(Some(tail_size), span)?;
@@ -323,7 +330,6 @@ impl NuDataFrame {
     pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
         let values = self.to_rows(0, to_row, span)?;
-
         Ok(values)
     }
 
@@ -334,7 +340,6 @@ impl NuDataFrame {
         let from_row = to_row.saturating_sub(size);
 
         let values = self.to_rows(from_row, to_row, span)?;
-
         Ok(values)
     }
 
@@ -368,11 +373,14 @@ impl NuDataFrame {
             .map(|col| (col.name().to_string(), col.into_iter()))
             .collect::<Vec<(String, std::vec::IntoIter<Value>)>>();
 
+        let has_index = self.has_index();
         let values = (0..size)
             .map(|i| {
                 let mut record = Record::new();
 
-                record.push("index", Value::int((i + from_row) as i64, span));
+                if !has_index {
+                    record.push("index", Value::int((i + from_row) as i64, span));
+                }
 
                 for (name, col) in &mut iterators {
                     record.push(name.clone(), col.next().unwrap_or(Value::nothing(span)));
