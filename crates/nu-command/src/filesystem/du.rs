@@ -101,7 +101,11 @@ impl Command for Du {
         let current_dir = current_dir(engine_state, stack)?;
 
         let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let paths = if paths.is_empty() { None } else { Some(paths) };
+        let paths = if call.rest_iter(0).count() == 0 {
+            None
+        } else {
+            Some(paths)
+        };
 
         match paths {
             None => {

@@ -105,7 +105,7 @@ impl Command for Ls {
         };
 
         let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let input_pattern_arg = if pattern_arg.is_empty() {
+        let input_pattern_arg = if call.rest_iter(0).count() == 0 {
             None
         } else {
             Some(pattern_arg)

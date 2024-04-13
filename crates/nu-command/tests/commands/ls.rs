@@ -753,5 +753,9 @@ fn list_with_multiple_path() {
         let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
         assert!(actual.err.contains("directory not found"));
         assert!(!actual.status.success());
+
+        // ls with spreading empty list should returns nothing.
+        let actual = nu!(cwd: dirs.test(), "ls ...[] | length");
+        assert_eq!(actual.out, "0");
     })
 }
