@@ -8,7 +8,7 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
-    Config, FromValue, IntoPipelineData, IoStream, PipelineData, ShellError, Span, Spanned, Type,
+    Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
@@ -302,8 +302,8 @@ pub fn eval_expression_with_input<D: DebugContext>(
     // If input is PipelineData::ExternalStream,
     // then `might_consume_external_result` will consume `stderr` if `stdout` is `None`.
     // This should not happen if the user wants to capture stderr.
-    if !matches!(stack.stdout(), IoStream::Pipe | IoStream::Capture)
-        && matches!(stack.stderr(), IoStream::Capture)
+    if !matches!(stack.stdout(), OutDest::Pipe | OutDest::Capture)
+        && matches!(stack.stderr(), OutDest::Capture)
     {
         Ok((input, false))
     } else {
@@ -320,7 +320,7 @@ fn eval_redirection<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     target: &RedirectionTarget,
-    next_out: Option<IoStream>,
+    next_out: Option<OutDest>,
 ) -> Result<Redirection, ShellError> {
     match target {
         RedirectionTarget::File { expr, append, .. } => {
@@ -337,7 +337,7 @@ fn eval_redirection<D: DebugContext>(
             }
             Ok(Redirection::file(options.create(true).open(path)?))
         }
-        RedirectionTarget::Pipe { .. } => Ok(Redirection::Pipe(next_out.unwrap_or(IoStream::Pipe))),
+        RedirectionTarget::Pipe { .. } => Ok(Redirection::Pipe(next_out.unwrap_or(OutDest::Pipe))),
     }
 }
 
@@ -345,7 +345,7 @@ fn eval_element_redirection<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     element_redirection: Option<&PipelineRedirection>,
-    pipe_redirection: (Option<IoStream>, Option<IoStream>),
+    pipe_redirection: (Option<OutDest>, Option<OutDest>),
 ) -> Result<(Option<Redirection>, Option<Redirection>), ShellError> {
     let (next_out, next_err) = pipe_redirection;
 
@@ -363,7 +363,7 @@ fn eval_element_redirection<D: DebugContext>(
                 target,
             } => {
                 let stderr = eval_redirection::<D>(engine_state, stack, target, None)?;
-                if matches!(stderr, Redirection::Pipe(IoStream::Pipe)) {
+                if matches!(stderr, Redirection::Pipe(OutDest::Pipe)) {
                     // e>| redirection, don't override current stack `stdout`
                     Ok((
                         None,
@@ -438,10 +438,10 @@ fn eval_element_with_input_inner<D: DebugContext>(
         }
     }
 
-    let data = if matches!(stack.pipe_stdout(), Some(IoStream::File(_)))
-        && !matches!(stack.pipe_stderr(), Some(IoStream::Pipe))
+    let data = if matches!(stack.pipe_stdout(), Some(OutDest::File(_)))
+        && !matches!(stack.pipe_stderr(), Some(OutDest::Pipe))
     {
-        data.write_to_io_streams(engine_state, stack)?
+        data.write_to_out_dests(engine_state, stack)?
     } else {
         data
     };
@@ -496,12 +496,12 @@ pub fn eval_block<D: DebugContext>(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
-            let (next_out, next_err) = next.stdio_redirect(engine_state);
+            let (next_out, next_err) = next.pipe_redirection(engine_state);
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
                 element.redirection.as_ref(),
-                (next_out.or(Some(IoStream::Pipe)), next_err),
+                (next_out.or(Some(OutDest::Pipe)), next_err),
             )?;
             let stack = &mut stack.push_redirection(stdout, stderr);
             let (output, failed) =

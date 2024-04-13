@@ -116,13 +116,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))
         }
-        Value::Range { val, .. } => {
-            format!(
-                "{}..{}",
-                local_into_string(val.from, ", ", config),
-                local_into_string(val.to, ", ", config)
-            )
-        }
+        Value::Range { val, .. } => val.to_string(),
         Value::String { val, .. } => val,
         Value::Glob { val, .. } => val,
         Value::List { vals: val, .. } => val

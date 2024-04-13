@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::IoStream;
+use nu_protocol::OutDest;
 use std::thread;
 
 #[derive(Clone)]
@@ -118,7 +118,7 @@ impl Command for Complete {
         }]
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Capture), Some(IoStream::Capture))
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }

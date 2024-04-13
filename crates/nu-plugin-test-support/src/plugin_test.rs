@@ -1,13 +1,15 @@
 use std::{cmp::Ordering, convert::Infallible, sync::Arc};
 
 use nu_ansi_term::Style;
+use nu_cmd_lang::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, Example, LabeledError, PipelineData, ShellError, Span, Value,
+    report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
+    ShellError, Span, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -36,7 +38,7 @@ impl PluginTest {
         name: &str,
         plugin: Arc<impl Plugin + Send + 'static>,
     ) -> Result<PluginTest, ShellError> {
-        let mut engine_state = EngineState::new();
+        let mut engine_state = create_default_context();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let reg_plugin = fake_register(&mut working_set, name, plugin)?;
@@ -337,17 +339,24 @@ impl PluginTest {
                 // All equal, and same length
                 Ok(true)
             }
-            (Value::Range { val: a_rng, .. }, Value::Range { val: b_rng, .. }) => {
-                Ok(a_rng.inclusion == b_rng.inclusion
-                    && self.value_eq(&a_rng.from, &b_rng.from)?
-                    && self.value_eq(&a_rng.to, &b_rng.to)?
-                    && self.value_eq(&a_rng.incr, &b_rng.incr)?)
-            }
             // Must collect lazy records to compare.
             (Value::LazyRecord { val: a_val, .. }, _) => self.value_eq(&a_val.collect()?, b),
             (_, Value::LazyRecord { val: b_val, .. }) => self.value_eq(a, &b_val.collect()?),
             // Fall back to regular eq.
             _ => Ok(a == b),
         }
+    }
+
+    /// This implements custom value comparison with `plugin.custom_value_to_base_value()` to behave
+    /// as similarly as possible to comparison in the engine.
+    pub fn custom_value_to_base_value(
+        &self,
+        val: &dyn CustomValue,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let mut serialized = PluginCustomValue::serialize_from_custom_value(val, span)?;
+        serialized.set_source(Some(self.source.clone()));
+        let persistent = self.source.persistent(None)?.get_plugin(None)?;
+        persistent.custom_value_to_base_value(serialized.into_spanned(span))
     }
 }

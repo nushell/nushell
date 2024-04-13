@@ -80,7 +80,7 @@ impl Command for LazyMake {
             }
         }
 
-        let stack = stack.clone().reset_stdio().capture();
+        let stack = stack.clone().reset_out_dest().capture();
 
         Ok(Value::lazy_record(
             Box::new(NuLazyRecord {

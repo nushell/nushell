@@ -25,6 +25,7 @@ use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
+use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
     PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
@@ -35,7 +36,7 @@ use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
     io::BufReader,
-    path::Path,
+    path::PathBuf,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -94,7 +95,11 @@ fn main() -> Result<()> {
 
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
         if !xdg_config_home.is_empty() {
-            if nushell_config_path != Path::new(&xdg_config_home).join("nushell") {
+            if nushell_config_path
+                != canonicalize_with(&xdg_config_home, &init_cwd)
+                    .unwrap_or(PathBuf::from(&xdg_config_home))
+                    .join("nushell")
+            {
                 report_error_new(
                     &engine_state,
                     &ShellError::InvalidXdgConfig {

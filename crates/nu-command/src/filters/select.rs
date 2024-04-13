@@ -71,7 +71,15 @@ produce a table, a list will produce a list, and a record will produce a record.
                     };
                     new_columns.push(cv.clone());
                 }
-                Value::Int { val, .. } => {
+                Value::Int { val, internal_span } => {
+                    if val < 0 {
+                        return Err(ShellError::CantConvert {
+                            to_type: "cell path".into(),
+                            from_type: "negative number".into(),
+                            span: internal_span,
+                            help: None,
+                        });
+                    }
                     let cv = CellPath {
                         members: vec![PathMember::Int {
                             val: val as usize,

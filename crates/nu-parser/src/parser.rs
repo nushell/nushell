@@ -3041,7 +3041,8 @@ pub fn parse_input_output_types(
         full_span.end -= 1;
     }
 
-    let (tokens, parse_error) = lex_signature(bytes, full_span.start, &[b','], &[], true);
+    let (tokens, parse_error) =
+        lex_signature(bytes, full_span.start, &[b'\n', b'\r', b','], &[], true);
 
     if let Some(parse_error) = parse_error {
         working_set.parse_errors.push(parse_error);

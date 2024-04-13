@@ -24,7 +24,11 @@ jobs:
         # Pinning to Ubuntu 20.04 because building on newer Ubuntu versions causes linux-gnu
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
-        platform: [windows-latest, macos-latest, ubuntu-20.04]
+        #
+        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
+        # instead of 14 GB) which is too little for us right now. Revisit when `dfr` commands are
+        # removed and we're only building the `polars` plugin instead
+        platform: [windows-latest, macos-13, ubuntu-20.04]
         feature: [default, dataframe]
         include:
           - feature: default
@@ -34,7 +38,7 @@ jobs:
         exclude:
           - platform: windows-latest
             feature: dataframe
-          - platform: macos-latest
+          - platform: macos-13
             feature: dataframe
 
     runs-on: ${{ matrix.platform }}
@@ -130,6 +134,9 @@ jobs:
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
+      - name: Ensure that Cargo.toml MSRV and rust-toolchain.toml use the same version
+        run: nu .github/workflows/check-msrv.nu
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -158,7 +165,11 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-20.04]
+        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
+        # instead of 14 GB) which is too little for us right now.
+        #
+        # Failure occuring with clippy for rust 1.77.2
+        platform: [windows-latest, macos-13, ubuntu-20.04]
 
     runs-on: ${{ matrix.platform }}
 
