@@ -33,7 +33,7 @@ where
 #[test]
 fn find_custom_values() {
     use nu_plugin_protocol::test_util::test_plugin_custom_value;
-    use nu_protocol::{engine::Closure, record, LazyRecord, Span};
+    use nu_protocol::{engine::Closure, record, LazyRecord, FutureSpanId};
 
     #[derive(Debug, Clone)]
     struct Lazy;
@@ -50,11 +50,11 @@ fn find_custom_values() {
             })
         }
 
-        fn span(&self) -> Span {
-            Span::test_data()
+        fn span(&self) -> FutureSpanId {
+            FutureSpanId::test_data()
         }
 
-        fn clone_value(&self, span: Span) -> Value {
+        fn clone_value(&self, span: FutureSpanId) -> Value {
             Value::lazy_record(Box::new(self.clone()), span)
         }
     }
