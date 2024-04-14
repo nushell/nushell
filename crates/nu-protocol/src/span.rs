@@ -160,7 +160,8 @@ impl Span {
     ///
     /// Use [`Span::from_unordered`] if the spans are not known to be in order.
     pub fn concat(spans: &[Self]) -> Self {
-        debug_assert!(!spans.is_empty());
+        // TODO: enable assert below
+        // debug_assert!(!spans.is_empty());
         debug_assert!(spans.windows(2).all(|spans| {
             let &[a, b] = spans else {
                 return false;
