@@ -196,8 +196,14 @@ export def ellie [] {
 }
 
 # Return the current working directory
-export def pwd [] {
-    $env.PWD
+export def pwd [
+    --physical (-P) # resolve symbolic links
+] {
+    if $physical {
+        $env.PWD | path expand
+    } else {
+        $env.PWD
+    }
 }
 
 # repeat anything a bunch of times, yielding a list of *n* times the input

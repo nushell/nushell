@@ -20,6 +20,7 @@ impl Command for Cd {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .switch("physical", "use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
             .optional("path", SyntaxShape::Directory, "The path to change to.")
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
@@ -36,6 +37,7 @@ impl Command for Cd {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let physical = call.has_flag(engine_state, stack, "physical")?;
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
 
@@ -71,24 +73,35 @@ impl Command for Cd {
                         (cwd.to_string_lossy().to_string(), v.span)
                     }
                 } else {
+                    // Trim whitespace from the end of path.
                     let path_no_whitespace =
                         &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-                    let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
-                        Ok(p) => {
-                            if !p.is_dir() {
+                    // If `--physical` is specified, canonicalize the path; otherwise expand the path.
+                    let path = if physical {
+                        if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
+                            if !path.is_dir() {
                                 return Err(ShellError::NotADirectory { span: v.span });
                             };
-                            p
-                        }
-
-                        // if canonicalize failed, let's check to see if it's abbreviated
-                        Err(_) => {
+                            path
+                        } else {
                             return Err(ShellError::DirectoryNotFound {
                                 dir: path_no_whitespace.to_string(),
                                 span: v.span,
                             });
                         }
+                    } else {
+                        let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
+                        if !path.exists() {
+                            return Err(ShellError::DirectoryNotFound {
+                                dir: path_no_whitespace.to_string(),
+                                span: v.span,
+                            });
+                        };
+                        if !path.is_dir() {
+                            return Err(ShellError::NotADirectory { span: v.span });
+                        };
+                        path
                     };
                     (path.to_string_lossy().to_string(), v.span)
                 }
