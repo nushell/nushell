@@ -1,12 +1,17 @@
 use log::trace;
 use nu_ansi_term::Style;
-use nu_color_config::{get_matching_brackets_style, get_shape_color};
-use nu_engine::env;
+use nu_color_config::{
+    color_record_to_nustyle, default_shape_color, get_matching_brackets_style,
+    lookup_ansi_color_style,
+};
+use nu_engine::{env, eval_block, eval_expression};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem},
+    cli_error::CliError,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, Span,
+    Config, IntoPipelineData, Span, Value,
 };
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
@@ -15,6 +20,60 @@ pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
     pub stack: Arc<Stack>,
     pub config: Config,
+}
+
+impl NuHighlighter {
+    fn get_shape_color(&self, shape: String, conf: &Config, val: &Value) -> Style {
+        fn get_style_simple(shape: String, v: &Value) -> Style {
+            match v {
+                Value::Record { .. } => color_record_to_nustyle(v),
+                Value::String { val, .. } => lookup_ansi_color_style(val),
+                _ => default_shape_color(shape),
+            }
+        }
+        match conf.color_config.get(shape.as_str()) {
+            Some(color) => {
+                // Shapes do not use color_config closures, currently.
+                match color {
+                    Value::Closure { val: closure, .. } => {
+                        let block = self.engine_state.get_block(closure.block_id).clone();
+                        // Because captures_to_stack() clones, we don't need to use with_env() here
+                        // (contrast with_env() usage in `each` or `do`).
+                        let mut stack = self.stack.captures_to_stack(closure.captures.clone());
+
+                        // Support 1-argument blocks as well as 0-argument blocks.
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, val.clone());
+                            }
+                        }
+
+                        // Run the block.
+                        match eval_block::<WithoutDebug>(
+                            &self.engine_state,
+                            &mut stack,
+                            &block,
+                            val.clone().into_pipeline_data(),
+                        ) {
+                            Ok(v) => get_style_simple(shape, &v.into_value(color.span())),
+                            // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
+                            // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
+                            // currently hook closure errors behave roughly the same.
+                            Err(e) => {
+                                eprintln!(
+                                    "Error: {:?}",
+                                    CliError(&e, &StateWorkingSet::new(&self.engine_state))
+                                );
+                                Style::default()
+                            }
+                        }
+                    }
+                    _ => get_style_simple(shape, color),
+                }
+            }
+            None => default_shape_color(shape),
+        }
+    }
 }
 
 impl Highlighter for NuHighlighter {
@@ -30,7 +89,7 @@ impl Highlighter for NuHighlighter {
             // Highlighting externals has a config point because of concerns that using which to resolve
             // externals may slow down things too much.
             if highlight_resolved_externals {
-                for (span, shape) in shapes.iter_mut() {
+                for (span, shape, _) in shapes.iter_mut() {
                     if *shape == FlatShape::External {
                         let str_contents =
                             working_set.get_span_contents(Span::new(span.start, span.end));
@@ -98,7 +157,11 @@ impl Highlighter for NuHighlighter {
                         let start = part.start - $span.start;
                         let end = part.end - $span.start;
                         let text = (&next_token[start..end]).to_string();
-                        let mut style = get_shape_color($shape.to_string(), &self.config);
+                        let mut style = self.get_shape_color(
+                            $shape.to_string(),
+                            &self.config,
+                            &Value::string(next_token.clone(), $span),
+                        );
                         if *highlight {
                             style = get_matching_brackets_style(style, &self.config);
                         }
@@ -107,29 +170,46 @@ impl Highlighter for NuHighlighter {
                 }};
             }
 
-            let mut add_colored_token = |shape: &FlatShape, text: String| {
-                output.push((get_shape_color(shape.to_string(), &self.config), text));
-            };
+            let mut add_colored_token =
+                |(span, shape, expr): &(Span, FlatShape, Option<&Expression>), text: String| {
+                    output.push((
+                        self.get_shape_color(
+                            shape.to_string(),
+                            &self.config,
+                            &expr
+                                .map(|e| {
+                                    eval_expression::<WithoutDebug>(
+                                        &self.engine_state,
+                                        &mut Stack::new(),
+                                        e,
+                                    )
+                                    .expect("can't fail eval")
+                                })
+                                .unwrap_or_else(|| Value::string(text.clone(), *span)),
+                        ),
+                        text,
+                    ));
+                };
 
             match shape.1 {
-                FlatShape::Garbage => add_colored_token(&shape.1, next_token),
-                FlatShape::Nothing => add_colored_token(&shape.1, next_token),
-                FlatShape::Binary => add_colored_token(&shape.1, next_token),
-                FlatShape::Bool => add_colored_token(&shape.1, next_token),
-                FlatShape::Int => add_colored_token(&shape.1, next_token),
-                FlatShape::Float => add_colored_token(&shape.1, next_token),
-                FlatShape::Range => add_colored_token(&shape.1, next_token),
-                FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
-                FlatShape::External => add_colored_token(&shape.1, next_token),
-                FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
-                FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
-                FlatShape::Keyword => add_colored_token(&shape.1, next_token),
-                FlatShape::Literal => add_colored_token(&shape.1, next_token),
-                FlatShape::Operator => add_colored_token(&shape.1, next_token),
-                FlatShape::Signature => add_colored_token(&shape.1, next_token),
-                FlatShape::String => add_colored_token(&shape.1, next_token),
-                FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
-                FlatShape::DateTime => add_colored_token(&shape.1, next_token),
+                FlatShape::Garbage => add_colored_token(shape, next_token),
+                FlatShape::Nothing => add_colored_token(shape, next_token),
+                FlatShape::Binary => add_colored_token(shape, next_token),
+                FlatShape::Bool => add_colored_token(shape, next_token),
+                FlatShape::Int => add_colored_token(shape, next_token),
+                FlatShape::Float => add_colored_token(shape, next_token),
+                FlatShape::Range => add_colored_token(shape, next_token),
+                FlatShape::InternalCall(_) => add_colored_token(shape, next_token),
+                FlatShape::External => add_colored_token(shape, next_token),
+                FlatShape::ExternalResolved => add_colored_token(shape, next_token),
+                FlatShape::ExternalArg => add_colored_token(shape, next_token),
+                FlatShape::Keyword => add_colored_token(shape, next_token),
+                FlatShape::Literal => add_colored_token(shape, next_token),
+                FlatShape::Operator => add_colored_token(shape, next_token),
+                FlatShape::Signature => add_colored_token(shape, next_token),
+                FlatShape::String => add_colored_token(shape, next_token),
+                FlatShape::StringInterpolation => add_colored_token(shape, next_token),
+                FlatShape::DateTime => add_colored_token(shape, next_token),
                 FlatShape::List => {
                     add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
@@ -147,19 +227,19 @@ impl Highlighter for NuHighlighter {
                     add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
 
-                FlatShape::Filepath => add_colored_token(&shape.1, next_token),
-                FlatShape::Directory => add_colored_token(&shape.1, next_token),
-                FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
+                FlatShape::Filepath => add_colored_token(shape, next_token),
+                FlatShape::Directory => add_colored_token(shape, next_token),
+                FlatShape::GlobPattern => add_colored_token(shape, next_token),
                 FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
-                    add_colored_token(&shape.1, next_token)
+                    add_colored_token(shape, next_token)
                 }
-                FlatShape::Flag => add_colored_token(&shape.1, next_token),
-                FlatShape::Pipe => add_colored_token(&shape.1, next_token),
-                FlatShape::And => add_colored_token(&shape.1, next_token),
-                FlatShape::Or => add_colored_token(&shape.1, next_token),
-                FlatShape::Redirection => add_colored_token(&shape.1, next_token),
-                FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
-                FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
+                FlatShape::Flag => add_colored_token(shape, next_token),
+                FlatShape::Pipe => add_colored_token(shape, next_token),
+                FlatShape::And => add_colored_token(shape, next_token),
+                FlatShape::Or => add_colored_token(shape, next_token),
+                FlatShape::Redirection => add_colored_token(shape, next_token),
+                FlatShape::Custom(..) => add_colored_token(shape, next_token),
+                FlatShape::MatchPattern => add_colored_token(shape, next_token),
             }
             last_seen_span = shape.0.end;
         }

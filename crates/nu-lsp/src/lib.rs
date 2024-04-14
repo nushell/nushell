@@ -219,7 +219,7 @@ impl LanguageServer {
         let offset = working_set.get_span_for_filename(&file_path)?.start;
         let location = location + offset;
 
-        for (span, shape) in flattened {
+        for (span, shape, _) in flattened {
             if location >= span.start && location < span.end {
                 match &shape {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
