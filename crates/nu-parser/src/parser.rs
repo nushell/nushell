@@ -6302,7 +6302,7 @@ pub fn parse(
         // to avoid mutate a block that is in the permanent state.
         // this can happened if user defines a function with recursive call
         // and pipe a variable to the command, e.g:
-        // def px [] { if { true } else { px } };    # the block px is saved in permanent state.
+        // def px [] { if true { 42 } else { px } };    # the block px is saved in permanent state.
         // let x = 3
         // $x | px
         // If we don't guard for `block_id`, it will change captures of `px`, which is
