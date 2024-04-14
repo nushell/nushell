@@ -152,9 +152,12 @@ fn main() -> Result<()> {
     let db = nu_command::open_connection_in_memory_custom()?;
     #[cfg(feature = "sqlite")]
     db.last_insert_rowid();
-
-    let (args_to_nushell, script_name, args_to_script, args_to_commands) =
-        gather_commandline_args();
+// ( script_name, args_to_script, args_to_commands)
+    let commandline_args = gather_commandline_args();
+    let args_to_nushell = commandline_args.args_to_nushell;
+    let script_name = commandline_args.script_name;
+    let args_to_script = commandline_args.args_to_script;
+    let args_to_commands = commandline_args.args_to_commands;
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
 

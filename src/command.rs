@@ -7,7 +7,14 @@ use nu_protocol::{
 };
 use nu_utils::stdout_write_all_and_flush;
 
-pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>, Vec<String>) {
+pub struct CommandlineArgs {
+    pub args_to_nushell: Vec<String>,
+    pub script_name: String,
+    pub args_to_script: Vec<String>,
+    pub args_to_commands: Vec<String>,
+}
+
+pub(crate) fn gather_commandline_args() -> CommandlineArgs {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
     // then it'll be the script name
     // then the args to the script
@@ -61,12 +68,12 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>, Ve
     } else {
         Vec::default()
     };
-    (
+    return CommandlineArgs { 
         args_to_nushell,
         script_name,
         args_to_script,
         args_to_commands,
-    )
+     }
 }
 
 pub(crate) fn parse_commandline_args(
