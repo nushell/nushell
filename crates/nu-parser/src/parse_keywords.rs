@@ -1873,7 +1873,10 @@ fn parse_module_file(
     }
 
     // Add the file to the stack of files being processed.
-    working_set.files.push(path.path_buf(), path_span).ok()?;
+    if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
+        working_set.error(e);
+        return None;
+    }
 
     // Parse the module
     let (block, module, module_comments) =
@@ -3362,7 +3365,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
                     if let Some(contents) = path.read(working_set) {
                         // Add the file to the stack of files being processed.
-                        if let Err(_) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                            working_set.error(e);
                             return garbage_pipeline(spans);
                         }
 
