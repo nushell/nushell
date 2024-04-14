@@ -1,7 +1,7 @@
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
-use nu_parser::parse;
+use nu_parser::{parse, escape_for_script_arg};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -37,10 +37,12 @@ pub fn evaluate_commands(
 
         let mut commands = commands.item.clone();
         if !args_to_commands.is_empty() {
-            // Should args_to_commands be escaped in case some of them have spaces??
-            // It would be easier if https://github.com/nushell/nushell/issues/12343 could be addressed first.
+             let args_to_commands: Vec<String> = args_to_commands
+                .into_iter()
+                .map(|a| escape_for_script_arg(&a))
+                .collect();
             commands = format!(
-                "def --wrapped wrapped_commands [...args] {{ {} }}; wrapped_commands {}",
+                "def --wrapped main [...args] {{ {} }}; main {}",
                 commands,
                 args_to_commands.join(" "),
             )
