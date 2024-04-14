@@ -309,15 +309,13 @@ fn nested_suggestions(
 // Extracts the recursive value (e.g: $var.a.b.c)
 fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
     // Go to next sublevel
-    if let Some(next_sublevel) = sublevels.first() {
+    if let Some((sublevel, next_sublevels)) = sublevels.split_first() {
         let span = val.span();
         match val {
             Value::Record { val, .. } => {
-                if let Some((_, value)) =
-                    val.iter().find(|(key, _)| key.as_bytes() == next_sublevel)
-                {
+                if let Some((_, value)) = val.iter().find(|(key, _)| key.as_bytes() == sublevel) {
                     // If matches try to fetch recursively the next
-                    recursive_value(value, &sublevels[1..])
+                    recursive_value(value, next_sublevels)
                 } else {
                     // Current sublevel value not found
                     Err(span)
@@ -325,9 +323,9 @@ fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
             }
             Value::LazyRecord { val, .. } => {
                 for col in val.column_names() {
-                    if col.as_bytes() == *next_sublevel {
+                    if col.as_bytes() == *sublevel {
                         let val = val.get_column_value(col).map_err(|_| span)?;
-                        return recursive_value(&val, &sublevels[1..]);
+                        return recursive_value(&val, next_sublevels);
                     }
                 }
 
@@ -336,9 +334,9 @@ fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
             }
             Value::List { vals, .. } => {
                 for col in get_columns(vals.as_slice()) {
-                    if col.as_bytes() == *next_sublevel {
+                    if col.as_bytes() == *sublevel {
                         let val = val.get_data_by_key(&col).ok_or(span)?;
-                        return recursive_value(&val, &sublevels[1..]);
+                        return recursive_value(&val, next_sublevels);
                     }
                 }
 
