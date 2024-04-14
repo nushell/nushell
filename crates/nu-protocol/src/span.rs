@@ -119,7 +119,7 @@ impl Span {
         }
     }
 
-    /// Returns the minimal [`Span`] that encompases both of the given spans.
+    /// Returns the minimal [`Span`] that encompasses both of the given spans.
     ///
     /// The two `Spans` can overlap in the middle,
     /// but must otherwise be in order by satisfying:
@@ -138,7 +138,7 @@ impl Span {
         }
     }
 
-    /// Returns the minimal [`Span`] that encompases both of the given spans.
+    /// Returns the minimal [`Span`] that encompasses both of the given spans.
     ///
     /// The spans need not be in order or have any relationship.
     ///
@@ -152,7 +152,7 @@ impl Span {
 
     /// Returns the minimal [`Span`] that encompasses all of the spans in the given slice.
     ///
-    /// The spans are assummed to be in order, that is, all consecutive spans must satisfy:
+    /// The spans are assumed to be in order, that is, all consecutive spans must satisfy:
     /// - `spans[i].start <= spans[i + 1].start`
     /// - `spans[i].end <= spans[i + 1].end`
     ///
