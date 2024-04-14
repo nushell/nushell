@@ -154,8 +154,7 @@ impl Iterator for UpdateCellIterator {
                 let span = val.span();
                 match val {
                     Value::Record { val, .. } => Some(Value::record(
-                        val.clone()
-                            .into_owned()
+                        val.into_owned()
                             .into_iter()
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(&col) => (col, val),

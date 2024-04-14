@@ -304,7 +304,7 @@ fn describe_value(
             head,
         ),
         Value::Record { val, .. } => {
-            let mut val = Record::clone(&val);
+            let mut val = val.into_owned();
             for (_k, v) in val.iter_mut() {
                 *v = compact_primitive_description(describe_value(
                     std::mem::take(v),
