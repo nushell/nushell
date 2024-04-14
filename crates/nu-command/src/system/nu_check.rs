@@ -121,7 +121,12 @@ impl Command for NuCheck {
                             call.head,
                         )
                     } else {
+                        // Unlike `parse_file_or_dir_module`, `parse_file_script` parses the content directly,
+                        // without adding the file to the stack. Therefore we need to handle this manually.
+                        // We know the file stack is empty, so the unwrap is safe.
+                        working_set.files.push(path.clone(), path_span).unwrap();
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
+                        // The working set is not merged, so no need to pop the file from the stack.
                     };
 
                     result
