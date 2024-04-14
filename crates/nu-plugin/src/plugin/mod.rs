@@ -8,7 +8,7 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     env,
-    ffi::{OsStr, OsString},
+    ffi::OsString,
     io::{BufReader, BufWriter},
     ops::Deref,
     path::Path,
@@ -92,94 +92,40 @@ pub trait PluginEncoder: Encoder<PluginInput> + Encoder<PluginOutput> {
     fn name(&self) -> &str;
 }
 
-#[cfg(unix)]
-fn quote_arg(arg: impl AsRef<OsStr>) -> OsString {
-    use std::os::unix::ffi::{OsStrExt, OsStringExt};
-    let arg_bytes = arg.as_ref().as_bytes();
-    let mut out: Vec<u8> = Vec::with_capacity(arg_bytes.len() + 10 /* just a guess */);
-    out.push(b'"');
-    for &byte in arg_bytes {
-        if byte == b'"' {
-            // Add backslash escape
-            out.push(b'\\');
-        }
-        out.push(byte);
-    }
-    out.push(b'"');
-    OsString::from_vec(out)
-}
-
-#[cfg(windows)]
-fn quote_arg(arg: impl AsRef<OsStr>) -> OsString {
-    use std::os::windows::ffi::{OsStrExt, OsStringExt};
-    let arg = arg.as_ref();
-    // Windows uses wide characters (ideally UTF-16) for native strings
-    let mut out: Vec<u16> = Vec::with_capacity(arg.len() + 10 /* just a guess */);
-    out.push(b'"' as u16);
-    for wide_ch in arg.encode_wide() {
-        if wide_ch == b'"' as u16 {
-            // Add backslash escape
-            out.push(b'\\' as u16);
-        }
-        out.push(wide_ch);
-    }
-    out.push(b'"' as u16);
-    OsString::from_wide(&out)
-}
-
-fn create_command(path: &Path, shell: Option<&Path>, mode: &CommunicationMode) -> CommandSys {
+fn create_command(path: &Path, mut shell: Option<&Path>, mode: &CommunicationMode) -> CommandSys {
     log::trace!("Starting plugin: {path:?}, shell = {shell:?}, mode = {mode:?}");
 
-    let mut mode_args = Some(mode.args());
+    let mut shell_args = vec![];
 
-    let mut process = match (path.extension(), shell) {
-        (_, Some(shell)) => {
-            let mut process = std::process::Command::new(shell);
-            process.arg(path);
-
-            process
-        }
-        (Some(extension), None) => {
-            let (shell, command_switch) = match extension.to_str() {
-                Some("cmd") | Some("bat") => (Some("cmd"), Some("/c")),
-                Some("sh") => (Some("sh"), Some("-c")),
-                Some("py") => (Some("python"), None),
-                _ => (None, None),
-            };
-
-            match (shell, command_switch) {
-                (Some(shell), Some(command_switch)) => {
-                    let mut process = std::process::Command::new(shell);
-                    process.arg(command_switch);
-                    // If `command_switch` is set, we need to pass the path + arg as one argument
-                    // e.g. sh -c "nu_plugin_inc --stdio"
-                    let mut combined = quote_arg(path.as_os_str());
-                    if let Some(args) = mode_args.take() {
-                        for arg in args {
-                            combined.push(OsStr::new(" "));
-                            combined.push(quote_arg(arg));
-                        }
-                    }
-                    process.arg(combined);
-
-                    process
-                }
-                (Some(shell), None) => {
-                    let mut process = std::process::Command::new(shell);
-                    process.arg(path);
-
-                    process
-                }
-                _ => std::process::Command::new(path),
+    if shell.is_none() {
+        // We only have to do this for things that are not executable by Rust's Command API on
+        // Windows. They do handle bat/cmd files for us, helpfully.
+        //
+        // Also include anything that wouldn't be executable with a shebang, like JAR files.
+        shell = match path.extension().and_then(|e| e.to_str()) {
+            Some("sh") => Some(Path::new("sh")),
+            Some("nu") => Some(Path::new("nu")),
+            Some("py") => Some(Path::new("python")),
+            Some("rb") => Some(Path::new("ruby")),
+            Some("jar") => {
+                shell_args.push("-jar");
+                Some(Path::new("java"))
             }
-        }
-        (None, None) => std::process::Command::new(path),
+            _ => None,
+        };
+    }
+
+    let mut process = if let Some(shell) = shell {
+        let mut process = std::process::Command::new(shell);
+        process.args(shell_args);
+        process.arg(path);
+
+        process
+    } else {
+        std::process::Command::new(path)
     };
 
-    // Pass mode_args, unless we consumed it already
-    if let Some(mode_args) = mode_args {
-        process.args(mode_args);
-    }
+    process.args(mode.args());
 
     // Setup I/O according to the communication mode
     mode.setup_command_io(&mut process);
