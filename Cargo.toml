@@ -97,7 +97,7 @@ lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.5"
 lsp-types = "0.95.0"
 mach2 = "0.4"
-md5 = { version = "0.10", package = "md-5"}
+md5 = { version = "0.10", package = "md-5" }
 miette = "7.2"
 mime = "0.3"
 mime_guess = "2.0"
@@ -287,7 +287,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`

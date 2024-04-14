@@ -51,7 +51,7 @@ fn requests_more_rows_than_table_has() {
 fn gets_last_row_as_list_when_amount_given() {
     let actual = nu!("[1, 2, 3] | last 1 | describe");
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual.out, "list<int>");
 }
 
 #[test]

@@ -10,8 +10,14 @@ use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
-use polars_utils::total_ord::TotalEq;
-use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher, sync::Arc};
+use polars_utils::total_ord::{TotalEq, TotalHash};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    sync::Arc,
+};
 use uuid::Uuid;
 
 use crate::{Cacheable, PolarsPlugin};
@@ -39,6 +45,15 @@ impl DataFrameValue {
     }
 }
 
+impl TotalHash for DataFrameValue {
+    fn tot_hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        (*self).hash(state)
+    }
+}
+
 impl Display for DataFrameValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.get_type())
@@ -58,7 +73,7 @@ impl PartialEq for DataFrameValue {
 }
 impl Eq for DataFrameValue {}
 
-impl std::hash::Hash for DataFrameValue {
+impl Hash for DataFrameValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.0 {
             Value::Nothing { .. } => 0.hash(state),
@@ -147,7 +162,9 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::Custom { .. } => return Self::try_from_value(plugin, &value),
+                Value::Custom { .. } => {
+                    return Self::try_from_value_coerce(plugin, &value, value.span());
+                }
                 Value::List { vals, .. } => {
                     let record = vals
                         .into_iter()
@@ -157,9 +174,11 @@ impl NuDataFrame {
 
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
-                Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, *record, &maybe_schema)?
-                }
+                Value::Record { val: record, .. } => conversion::insert_record(
+                    &mut column_values,
+                    record.into_owned(),
+                    &maybe_schema,
+                )?,
                 _ => {
                     let key = "0".to_string();
                     conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
@@ -296,6 +315,13 @@ impl NuDataFrame {
         }
     }
 
+    pub fn has_index(&self) -> bool {
+        self.columns(Span::unknown())
+            .unwrap_or_default() // just assume there isn't an index
+            .iter()
+            .any(|col| col.name() == "index")
+    }
+
     // Print is made out a head and if the dataframe is too large, then a tail
     pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
@@ -304,7 +330,7 @@ impl NuDataFrame {
         if df.height() > size {
             let sample_size = size / 2;
             let mut values = self.head(Some(sample_size), span)?;
-            conversion::add_separator(&mut values, df, span);
+            conversion::add_separator(&mut values, df, self.has_index(), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
             let mut tail_values = self.tail(Some(tail_size), span)?;
@@ -323,7 +349,6 @@ impl NuDataFrame {
     pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
         let values = self.to_rows(0, to_row, span)?;
-
         Ok(values)
     }
 
@@ -334,7 +359,6 @@ impl NuDataFrame {
         let from_row = to_row.saturating_sub(size);
 
         let values = self.to_rows(from_row, to_row, span)?;
-
         Ok(values)
     }
 
@@ -368,11 +392,14 @@ impl NuDataFrame {
             .map(|col| (col.name().to_string(), col.into_iter()))
             .collect::<Vec<(String, std::vec::IntoIter<Value>)>>();
 
+        let has_index = self.has_index();
         let values = (0..size)
             .map(|i| {
                 let mut record = Record::new();
 
-                record.push("index", Value::int((i + from_row) as i64, span));
+                if !has_index {
+                    record.push("index", Value::int((i + from_row) as i64, span));
+                }
 
                 for (name, col) in &mut iterators {
                     record.push(name.clone(), col.next().unwrap_or(Value::nothing(span)));

@@ -1,9 +1,11 @@
-use super::util::opt_for_glob_pattern;
+use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
 use nu_protocol::NuGlob;
 use serde::Deserialize;
+use std::path::Path;
+use std::sync::{atomic::AtomicBool, Arc};
 
 #[derive(Clone)]
 pub struct Du;
@@ -33,7 +35,7 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional(
+            .rest(
                 "path",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Starting directory.",
@@ -93,81 +95,59 @@ impl Command for Du {
                 });
             }
         }
+        let all = call.has_flag(engine_state, stack, "all")?;
+        let deref = call.has_flag(engine_state, stack, "deref")?;
+        let exclude = call.get_flag(engine_state, stack, "exclude")?;
         let current_dir = current_dir(engine_state, stack)?;
 
-        let args = DuArgs {
-            path: opt_for_glob_pattern(engine_state, stack, call, 0)?,
-            all: call.has_flag(engine_state, stack, "all")?,
-            deref: call.has_flag(engine_state, stack, "deref")?,
-            exclude: call.get_flag(engine_state, stack, "exclude")?,
-            max_depth,
-            min_size,
+        let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let paths = if call.rest_iter(0).count() == 0 {
+            None
+        } else {
+            Some(paths)
         };
 
-        let exclude = args.exclude.map_or(Ok(None), move |x| {
-            Pattern::new(x.item.as_ref())
-                .map(Some)
-                .map_err(|e| ShellError::InvalidGlobPattern {
-                    msg: e.msg.into(),
-                    span: x.span,
-                })
-        })?;
-
-        let include_files = args.all;
-        let mut paths = match args.path {
-            Some(p) => nu_engine::glob_from(&p, &current_dir, call.head, None),
-            // The * pattern should never fail.
-            None => nu_engine::glob_from(
-                &Spanned {
-                    item: NuGlob::Expand("*".into()),
-                    span: Span::unknown(),
-                },
-                &current_dir,
-                call.head,
-                None,
-            ),
-        }
-        .map(|f| f.1)?
-        .filter(move |p| {
-            if include_files {
-                true
-            } else {
-                matches!(p, Ok(f) if f.is_dir())
+        match paths {
+            None => {
+                let args = DuArgs {
+                    path: None,
+                    all,
+                    deref,
+                    exclude,
+                    max_depth,
+                    min_size,
+                };
+                Ok(
+                    du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone())?
+                        .into_pipeline_data(engine_state.ctrlc.clone()),
+                )
             }
-        });
-
-        let all = args.all;
-        let deref = args.deref;
-        let max_depth = args.max_depth.map(|f| f.item as u64);
-        let min_size = args.min_size.map(|f| f.item as u64);
-
-        let params = DirBuilder {
-            tag,
-            min: min_size,
-            deref,
-            exclude,
-            all,
-        };
-
-        let mut output: Vec<Value> = vec![];
-        for p in paths.by_ref() {
-            match p {
-                Ok(a) => {
-                    if a.is_dir() {
-                        output.push(
-                            DirInfo::new(a, &params, max_depth, engine_state.ctrlc.clone()).into(),
-                        );
-                    } else if let Ok(v) = FileInfo::new(a, deref, tag) {
-                        output.push(v.into());
-                    }
+            Some(paths) => {
+                let mut result_iters = vec![];
+                for p in paths {
+                    let args = DuArgs {
+                        path: Some(p),
+                        all,
+                        deref,
+                        exclude: exclude.clone(),
+                        max_depth,
+                        min_size,
+                    };
+                    result_iters.push(du_for_one_pattern(
+                        args,
+                        &current_dir,
+                        tag,
+                        engine_state.ctrlc.clone(),
+                    )?)
                 }
-                Err(e) => {
-                    output.push(Value::error(e, tag));
-                }
+
+                // chain all iterators on result.
+                Ok(result_iters
+                    .into_iter()
+                    .flatten()
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
             }
         }
-
-        Ok(output.into_pipeline_data(engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -177,6 +157,75 @@ impl Command for Du {
             result: None,
         }]
     }
+}
+
+fn du_for_one_pattern(
+    args: DuArgs,
+    current_dir: &Path,
+    call_span: Span,
+    ctrl_c: Option<Arc<AtomicBool>>,
+) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
+    let exclude = args.exclude.map_or(Ok(None), move |x| {
+        Pattern::new(x.item.as_ref())
+            .map(Some)
+            .map_err(|e| ShellError::InvalidGlobPattern {
+                msg: e.msg.into(),
+                span: x.span,
+            })
+    })?;
+
+    let include_files = args.all;
+    let mut paths = match args.path {
+        Some(p) => nu_engine::glob_from(&p, current_dir, call_span, None),
+        // The * pattern should never fail.
+        None => nu_engine::glob_from(
+            &Spanned {
+                item: NuGlob::Expand("*".into()),
+                span: Span::unknown(),
+            },
+            current_dir,
+            call_span,
+            None,
+        ),
+    }
+    .map(|f| f.1)?
+    .filter(move |p| {
+        if include_files {
+            true
+        } else {
+            matches!(p, Ok(f) if f.is_dir())
+        }
+    });
+
+    let all = args.all;
+    let deref = args.deref;
+    let max_depth = args.max_depth.map(|f| f.item as u64);
+    let min_size = args.min_size.map(|f| f.item as u64);
+
+    let params = DirBuilder {
+        tag: call_span,
+        min: min_size,
+        deref,
+        exclude,
+        all,
+    };
+
+    let mut output: Vec<Value> = vec![];
+    for p in paths.by_ref() {
+        match p {
+            Ok(a) => {
+                if a.is_dir() {
+                    output.push(DirInfo::new(a, &params, max_depth, ctrl_c.clone()).into());
+                } else if let Ok(v) = FileInfo::new(a, deref, call_span) {
+                    output.push(v.into());
+                }
+            }
+            Err(e) => {
+                output.push(Value::error(e, call_span));
+            }
+        }
+    }
+    Ok(output.into_iter())
 }
 
 #[cfg(test)]

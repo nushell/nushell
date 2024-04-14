@@ -8,7 +8,8 @@ use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, Example, LabeledError, PipelineData, ShellError, Span, Value,
+    report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
+    ShellError, Span, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -318,8 +319,8 @@ impl PluginTest {
                 // reorder cols and vals to make more logically compare.
                 // more general, if two record have same col and values,
                 // the order of cols shouldn't affect the equal property.
-                let mut a_rec = a_rec.clone();
-                let mut b_rec = b_rec.clone();
+                let mut a_rec = a_rec.clone().into_owned();
+                let mut b_rec = b_rec.clone().into_owned();
                 a_rec.sort_cols();
                 b_rec.sort_cols();
 
@@ -344,5 +345,18 @@ impl PluginTest {
             // Fall back to regular eq.
             _ => Ok(a == b),
         }
+    }
+
+    /// This implements custom value comparison with `plugin.custom_value_to_base_value()` to behave
+    /// as similarly as possible to comparison in the engine.
+    pub fn custom_value_to_base_value(
+        &self,
+        val: &dyn CustomValue,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let mut serialized = PluginCustomValue::serialize_from_custom_value(val, span)?;
+        serialized.set_source(Some(self.source.clone()));
+        let persistent = self.source.persistent(None)?.get_plugin(None)?;
+        persistent.custom_value_to_base_value(serialized.into_spanned(span))
     }
 }

@@ -118,6 +118,7 @@ fn getcol(
                     })
                 }
                 Value::Record { val, .. } => Ok(val
+                    .into_owned()
                     .into_iter()
                     .map(move |(x, _)| Value::string(x, head))
                     .into_pipeline_data(ctrlc)

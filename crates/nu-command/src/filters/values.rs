@@ -157,7 +157,9 @@ fn values(
                     }
                 }
                 Value::Record { val, .. } => Ok(val
-                    .into_values()
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>()
                     .into_pipeline_data_with_metadata(metadata, ctrlc)),
                 Value::LazyRecord { val, .. } => {
                     let record = match val.collect()? {
@@ -169,6 +171,7 @@ fn values(
                         })?,
                     };
                     Ok(record
+                        .into_owned()
                         .into_values()
                         .into_pipeline_data_with_metadata(metadata, ctrlc))
                 }

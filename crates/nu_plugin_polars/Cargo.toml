@@ -19,20 +19,21 @@ bench = false
 [dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
 nu-plugin = { path = "../nu-plugin", version = "0.92.3" }
+nu-path = { path = "../nu-path", version = "0.92.3" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
-chrono-tz = "0.8"
+chrono-tz = "0.9"
 fancy-regex = { workspace = true }
 indexmap = { version = "2.2" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
-sqlparser = { version = "0.43"}
-polars-io = { version = "0.37", features = ["avro"]}
-polars-arrow = { version = "0.37"}
-polars-ops = { version = "0.37"}
-polars-plan = { version = "0.37", features = ["regex"]}
-polars-utils = { version = "0.37"}
+sqlparser = { version = "0.45"}
+polars-io = { version = "0.38", features = ["avro"]}
+polars-arrow = { version = "0.38"}
+polars-ops = { version = "0.38"}
+polars-plan = { version = "0.38", features = ["regex"]}
+polars-utils = { version = "0.38"}
 typetag = "0.2"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 
@@ -68,7 +69,7 @@ features = [
 	"to_dummies",
 ]
 optional = false
-version = "0.37"
+version = "0.38"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.92.3" }
@@ -76,3 +77,4 @@ nu-engine = { path = "../nu-engine", version = "0.92.3" }
 nu-parser = { path = "../nu-parser", version = "0.92.3" }
 nu-command = { path = "../nu-command", version = "0.92.3" }
 nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.92.3" }
+tempfile.workspace = true
