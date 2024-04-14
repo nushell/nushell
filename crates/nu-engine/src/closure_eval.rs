@@ -10,6 +10,42 @@ use std::{
     sync::Arc,
 };
 
+/// [`ClosureEval`] is used to repeatedly evaluate a closure with different values/inputs.
+///
+/// [`ClosureEval`] has a builder API.
+/// It is first created via [`ClosureEval::new`],
+/// then has arguments added via [`ClosureEval::add_arg`],
+/// and then can be run using [`ClosureEval::run_with_input`].
+///
+/// ```no_run
+/// # use nu_protocol::{PipelineData, Value};
+/// # use nu_engine::ClosureEval;
+/// # let engine_state = unimplemented!();
+/// # let stack = unimplemented!();
+/// # let closure = unimplemented!();
+/// let mut closure = ClosureEval::new(engine_state, stack, closure);
+/// let iter = Vec::<Value>::new()
+///     .into_iter()
+///     .map(move |value| closure.add_arg(value).run_with_input(PipelineData::Empty));
+/// ```
+///
+/// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.
+/// In this case, use [`ClosureEval::run_with_value`]:
+///
+/// ```no_run
+/// # use nu_protocol::{PipelineData, Value};
+/// # use nu_engine::ClosureEval;
+/// # let engine_state = unimplemented!();
+/// # let stack = unimplemented!();
+/// # let closure = unimplemented!();
+/// let mut closure = ClosureEval::new(engine_state, stack, closure);
+/// let iter = Vec::<Value>::new()
+///     .into_iter()
+///     .map(move |value| closure.run_with_value(value));
+/// ```
+///
+/// Environment isolation and other cleanup is handled by [`ClosureEval`],
+/// so nothing needs to be done following [`ClosureEval::run_with_input`] or [`ClosureEval::run_with_value`].
 pub struct ClosureEval {
     engine_state: EngineState,
     stack: Stack,
@@ -21,6 +57,7 @@ pub struct ClosureEval {
 }
 
 impl ClosureEval {
+    /// Create a new [`ClosureEval`].
     pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
         let engine_state = engine_state.clone();
         let stack = stack.captures_to_stack(closure.captures);
@@ -52,23 +89,65 @@ impl ClosureEval {
         }
     }
 
+    /// Add an argument [`Value`] to the closure.
+    ///
+    /// Multiple [`add_arg`](Self::add_arg) calls can be chained together,
+    /// but make sure that arguments are added based on their positional order.
     pub fn add_arg(&mut self, value: Value) -> &mut Self {
         self.try_add_arg(Cow::Owned(value));
         self
     }
 
+    /// Run the closure, passing the given [`PipelineData`] as input.
+    ///
+    /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(&mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
         self.arg_index = 0;
         self.stack.with_env(&self.env_vars, &self.env_hidden);
         (self.eval)(&self.engine_state, &mut self.stack, &self.block, input)
     }
 
+    /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
+    ///
+    /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
+    /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data())`.
     pub fn run_with_value(&mut self, value: Value) -> Result<PipelineData, ShellError> {
         self.try_add_arg(Cow::Borrowed(&value));
         self.run_with_input(value.into_pipeline_data())
     }
 }
 
+/// [`ClosureEvalOnce`] is used to evaluate a closure a single time.
+///
+/// [`ClosureEvalOnce`] has a builder API.
+/// It is first created via [`ClosureEvalOnce::new`],
+/// then has arguments added via [`ClosureEvalOnce::add_arg`],
+/// and then can be run using [`ClosureEvalOnce::run_with_input`].
+///
+/// ```no_run
+/// # use nu_protocol::{ListStream, PipelineData, PipelineIterator};
+/// # use nu_engine::ClosureEvalOnce;
+/// # let engine_state = unimplemented!();
+/// # let stack = unimplemented!();
+/// # let closure = unimplemented!();
+/// # let value = unimplemented!();
+/// let result = ClosureEvalOnce::new(engine_state, stack, closure)
+///     .add_arg(value)
+///     .run_with_input(PipelineData::Empty);
+/// ```
+///
+/// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.
+/// In this case, use [`ClosureEvalOnce::run_with_value`]:
+///
+/// ```no_run
+/// # use nu_protocol::{PipelineData, PipelineIterator};
+/// # use nu_engine::ClosureEvalOnce;
+/// # let engine_state = unimplemented!();
+/// # let stack = unimplemented!();
+/// # let closure = unimplemented!();
+/// # let value = unimplemented!();
+/// let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value);
+/// ```
 pub struct ClosureEvalOnce<'a> {
     engine_state: &'a EngineState,
     stack: Stack,
@@ -77,6 +156,7 @@ pub struct ClosureEvalOnce<'a> {
 }
 
 impl<'a> ClosureEvalOnce<'a> {
+    /// Create a new [`ClosureEvalOnce`].
     pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
         let block = engine_state.get_block(closure.block_id);
         Self {
@@ -99,16 +179,27 @@ impl<'a> ClosureEvalOnce<'a> {
         }
     }
 
+    /// Add an argument [`Value`] to the closure.
+    ///
+    /// Multiple [`add_arg`](Self::add_arg) calls can be chained together,
+    /// but make sure that arguments are added based on their positional order.
     pub fn add_arg(mut self, value: Value) -> Self {
         self.try_add_arg(Cow::Owned(value));
         self
     }
 
+    /// Run the closure, passing the given [`PipelineData`] as input.
+    ///
+    /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
         let eval = get_eval_block_with_early_return(self.engine_state);
         eval(self.engine_state, &mut self.stack, self.block, input)
     }
 
+    /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
+    ///
+    /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
+    /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data())`.
     pub fn run_with_value(mut self, value: Value) -> Result<PipelineData, ShellError> {
         self.try_add_arg(Cow::Borrowed(&value));
         self.run_with_input(value.into_pipeline_data())
