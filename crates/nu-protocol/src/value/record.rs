@@ -151,7 +151,7 @@ impl Record {
     ///
     /// fn remove_foo_recursively(val: &mut Value) {
     ///     if let Value::Record {val, ..} = val {
-    ///         val.retain_mut(keep_non_foo);
+    ///         val.to_mut().retain_mut(keep_non_foo);
     ///     }
     /// }
     ///

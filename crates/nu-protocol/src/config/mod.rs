@@ -201,13 +201,13 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut(|key, value| {
+            val.to_mut().retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
                     "ls" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "use_ls_colors" => {
@@ -236,7 +236,7 @@ impl Value {
                     }
                     "rm" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "always_trash" => {
@@ -263,7 +263,7 @@ impl Value {
                     "history" => {
                         let history = &mut config.history;
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
@@ -305,7 +305,7 @@ impl Value {
                     }
                     "completions" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "quick" => {
@@ -326,7 +326,7 @@ impl Value {
                                     }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
-                                            val.retain_mut(|key3, value|
+                                            val.to_mut().retain_mut(|key3, value|
                                                 {
                                                     let span = value.span();
                                                     match key3 {
@@ -393,7 +393,7 @@ impl Value {
                     }
                     "cursor_shape" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
@@ -426,7 +426,7 @@ impl Value {
                     }
                     "table" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "mode" => {
@@ -451,7 +451,7 @@ impl Value {
                                         }
                                         Value::Record { val, .. } => {
                                             let mut invalid = false;
-                                            val.retain(|key3, value| {
+                                            val.to_mut().retain(|key3, value| {
                                                 match key3 {
                                                     "left" => {
                                                         match value.as_int() {
@@ -546,7 +546,7 @@ impl Value {
                     }
                     "filesize" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                 "metric" => {
@@ -719,7 +719,7 @@ impl Value {
                     },
                     "datetime_format" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value|
+                            val.to_mut().retain_mut(|key2, value|
                                 {
                                 let span = value.span();
                                 match key2 {

@@ -86,6 +86,7 @@ impl Command for Items {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(v, ..) => match v {
                 Value::Record { val, .. } => Ok(val
+                    .into_owned()
                     .into_iter()
                     .map_while(run_for_each_item)
                     .into_pipeline_data(ctrlc)),
@@ -99,6 +100,7 @@ impl Command for Items {
                         })?,
                     };
                     Ok(record
+                        .into_owned()
                         .into_iter()
                         .map_while(run_for_each_item)
                         .into_pipeline_data(ctrlc))

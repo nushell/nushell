@@ -1038,7 +1038,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
             if path.len() == 2 {
                 let key = path[1];
 
-                record.insert(key, value);
+                record.to_mut().insert(key, value);
             } else {
                 let mut hm2: HashMap<String, Value> = HashMap::new();
                 for (k, v) in record.iter() {

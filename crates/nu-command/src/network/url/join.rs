@@ -92,6 +92,7 @@ impl Command for SubCommand {
                 match value {
                     Value::Record { val, .. } => {
                         let url_components = val
+                            .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
                                 url.add_component(k, v, span, engine_state)
@@ -179,6 +180,7 @@ impl UrlComponents {
             return match value {
                 Value::Record { val, .. } => {
                     let mut qs = val
+                        .into_owned()
                         .into_iter()
                         .map(|(k, v)| match v.coerce_into_string() {
                             Ok(val) => Ok(format!("{k}={val}")),
