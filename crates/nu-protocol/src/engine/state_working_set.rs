@@ -10,7 +10,7 @@ use crate::{
 use core::panic;
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -26,10 +26,7 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
-    /// Absolute paths to files that are being evaluated.
-    /// Files are arranged as a stack. The file currently being evaluated is on the top of the stack.
-    /// Circular import/source is prevented by checking the stack before evaluation.
-    pub files: Vec<PathBuf>,
+    pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
@@ -39,9 +36,10 @@ pub struct StateWorkingSet<'a> {
 impl<'a> StateWorkingSet<'a> {
     pub fn new(permanent_state: &'a EngineState) -> Self {
         // Initialize the file stack with the top-level file.
-        let mut scripts = vec![];
+        let mut files = FileStack::new();
         if let Some(file) = permanent_state.file.clone() {
-            scripts.push(file);
+            // We know the stack is empty, so the unwrap is safe.
+            files.push(file, Span::unknown()).unwrap();
         }
 
         Self {
@@ -1103,5 +1101,54 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
             }
         }
         Err(miette::MietteError::OutOfBounds)
+    }
+}
+
+/// Files being evaluated, arranged as a stack.
+///
+/// The current active file is on the top of the stack.
+/// When a file source/import another file, the new file is pushed onto the stack.
+/// Attempting to add files that are already in the stack (circular source/import) results in an error.
+pub struct FileStack(Vec<PathBuf>);
+
+impl FileStack {
+    /// Creates an empty stack.
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    /// Adds a file to the stack.
+    ///
+    /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
+    /// Note that paths are compared without canonicalization, so the same file may be added twice under different paths.
+    pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
+        // Check for circular import.
+        if let Some(i) = self.0.iter().rposition(|p| p == &path) {
+            let filenames: Vec<String> = self.0[i..]
+                .iter()
+                .chain(std::iter::once(&path))
+                .map(|p| p.to_string_lossy().to_string())
+                .collect();
+            let msg = filenames.join("\nuses ");
+            return Err(ParseError::CircularImport(msg, span));
+        }
+
+        self.0.push(path);
+        Ok(())
+    }
+
+    /// Removes a file from the stack and returns its path, or None if the stack is empty.
+    pub fn pop(&mut self) -> Option<PathBuf> {
+        self.0.pop()
+    }
+
+    /// Returns the active file (that is, the file on the top of the stack), or None if the stack is empty.
+    pub fn top(&self) -> Option<&Path> {
+        self.0.last().map(PathBuf::as_path)
+    }
+
+    /// Returns the parent directory of the active file, or None if the stack is empty or the active file doesn't have a parent.
+    pub fn current_working_directory(&self) -> Option<&Path> {
+        self.0.last().map(|path| path.parent()).flatten()
     }
 }

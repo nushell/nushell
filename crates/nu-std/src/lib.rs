@@ -4,7 +4,7 @@ use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet, VirtualPath},
-    report_error, PipelineData,
+    report_error, PipelineData, Span,
 };
 use std::path::PathBuf;
 
@@ -53,7 +53,7 @@ pub fn load_standard_library(
         let source = format!(
             r#"
 # Define the `std` module
-module {std_dir}
+module std
 
 # Prelude
 use std dirs [
@@ -70,9 +70,14 @@ use std pwd
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
-        // Add a placeholder file to the stack of files being processed.
-        let placeholder = [NU_STDLIB_VIRTUAL_DIR, "placeholder"].iter().collect();
-        working_set.files.push(placeholder);
+        // Add a placeholder file to the stack of files being evaluated.
+        // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
+        let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
+        // `unwrap()` is safe because we assume the placeholder name is unique.
+        working_set
+            .files
+            .push(placeholder, Span::unknown())
+            .unwrap();
 
         let block = parse(
             &mut working_set,
@@ -81,7 +86,7 @@ use std pwd
             false,
         );
 
-        // Remove the placeholder file from the stack of files being processed.
+        // Remove the placeholder file from the stack of files being evaluated.
         working_set.files.pop();
 
         if let Some(err) = working_set.parse_errors.first() {

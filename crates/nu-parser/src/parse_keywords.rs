@@ -1831,25 +1831,6 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
-/// Returns whether importing the file `path` would cause a circular import.
-/// When this function returns true, it also adds a ParseError to the working set, as a side effect.
-fn is_circular_import(working_set: &mut StateWorkingSet, path: &ParserPath, path_span: &Span) -> bool {
-    if let Some(i) = working_set.files.iter().rposition(|p| p == path.path()) {
-        let mut files: Vec<String> = working_set
-            .files
-            .split_off(i)
-            .iter()
-            .map(|p| p.to_string_lossy().to_string())
-            .collect();
-        files.push(path.path().to_string_lossy().to_string());
-
-        let msg = files.join("\nuses ");
-        working_set.error(ParseError::CircularImport(msg, *path_span));
-        return true;
-    }
-    false
-}
-
 /// Parse a module from a file.
 ///
 /// The module name is inferred from the stem of the file, unless specified in `name_override`.
@@ -1859,11 +1840,6 @@ fn parse_module_file(
     path_span: Span,
     name_override: Option<String>,
 ) -> Option<ModuleId> {
-    // Check for circular module imports.
-    if is_circular_import(working_set, &path, &path_span) {
-        return None;
-    }
-
     // Infer the module name from the stem of the file, unless overridden.
     let module_name = if let Some(name) = name_override {
         name
@@ -1897,7 +1873,7 @@ fn parse_module_file(
     }
 
     // Add the file to the stack of files being processed.
-    working_set.files.push(path.path_buf());
+    working_set.files.push(path.path_buf(), path_span).ok()?;
 
     // Parse the module
     let (block, module, module_comments) =
@@ -3384,14 +3360,11 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
-                    // Check for circular source.
-                    if is_circular_import(working_set, &path, &spans[1]) {
-                        return garbage_pipeline(spans);
-                    }
-
                     if let Some(contents) = path.read(working_set) {
                         // Add the file to the stack of files being processed.
-                        working_set.files.push(path.clone().path_buf());
+                        if let Err(_) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                            return garbage_pipeline(spans);
+                        }
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
@@ -3789,12 +3762,10 @@ pub fn find_in_dirs(
         dirs_var_name: &str,
     ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(path) = working_set.files.last() {
-            // `files` are absolute paths, so `path` always has a parent
-            path.parent().expect("Absolute path to files always has a parent")
-        } else {
-            Path::new(cwd)
-        };
+        let actual_cwd = working_set
+            .files
+            .current_working_directory()
+            .unwrap_or(Path::new(cwd));
 
         // Try if we have an existing virtual path
         if let Some(virtual_path) = working_set.find_virtual_path(filename) {
@@ -3854,12 +3825,10 @@ pub fn find_in_dirs(
         dirs_env: &str,
     ) -> Option<PathBuf> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(path) = working_set.files.last() {
-            // `files` are absolute paths, so `path` always has a parent
-            path.parent().expect("Absolute path to files always has a parent")
-        } else {
-            Path::new(cwd)
-        };
+        let actual_cwd = working_set
+            .files
+            .current_working_directory()
+            .unwrap_or(Path::new(cwd));
 
         if let Ok(p) = canonicalize_with(filename, actual_cwd) {
             Some(p)
