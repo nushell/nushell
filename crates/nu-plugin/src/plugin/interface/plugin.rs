@@ -480,7 +480,17 @@ impl InterfaceManager for PluginInterfaceManager {
                     ),
                 })
             }
-            PluginOutput::Stream(message) => self.consume_stream_message(message),
+            // Stream messages
+            PluginOutput::Data(..)
+            | PluginOutput::End(..)
+            | PluginOutput::Drop(..)
+            | PluginOutput::Ack(..) => {
+                self.consume_stream_message(input.try_into().map_err(|msg| {
+                    ShellError::NushellFailed {
+                        msg: format!("Failed to convert message {msg:?} to StreamMessage"),
+                    }
+                })?)
+            }
             PluginOutput::Option(option) => match option {
                 PluginOption::GcDisabled(disabled) => {
                     // Turn garbage collection off/on.

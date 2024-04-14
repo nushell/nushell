@@ -5,7 +5,7 @@ use crate::{
         test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
         CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, ExternalStreamInfo,
         ListStreamInfo, PipelineDataHeader, PluginCall, PluginCustomValue, PluginInput, Protocol,
-        ProtocolInfo, RawStreamInfo, StreamData, StreamMessage,
+        ProtocolInfo, RawStreamInfo, StreamData,
     },
     EvaluatedCall, PluginCallResponse, PluginOutput,
 };
@@ -278,7 +278,7 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
     assert!(manager.protocol_info.is_none());
 
     let error = manager
-        .consume(PluginInput::Stream(StreamMessage::Drop(0)))
+        .consume(PluginInput::Drop(0))
         .expect_err("consume before Hello should cause an error");
 
     assert!(format!("{error:?}").contains("Hello"));
@@ -381,13 +381,10 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
     ))?;
 
     for i in 0..10 {
-        manager.consume(PluginInput::Stream(StreamMessage::Data(
-            6,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginInput::Data(6, Value::test_int(i).into()))?;
     }
 
-    manager.consume(PluginInput::Stream(StreamMessage::End(6)))?;
+    manager.consume(PluginInput::End(6))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -522,13 +519,10 @@ fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_dat
     ))?;
 
     for i in 0..2 {
-        manager.consume(PluginInput::Stream(StreamMessage::Data(
-            0,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginInput::Data(0, Value::test_int(i).into()))?;
     }
 
-    manager.consume(PluginInput::Stream(StreamMessage::End(0)))?;
+    manager.consume(PluginInput::End(0))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -710,20 +704,20 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
 
     for number in [3, 4, 5] {
         match test.next_written().expect("missing stream Data message") {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
+            PluginOutput::Data(id, data) => {
                 assert_eq!(info.id, id, "Data id");
                 match data {
                     StreamData::List(val) => assert_eq!(number, val.as_int()?),
                     _ => panic!("expected List data: {data:?}"),
                 }
             }
-            message => panic!("expected Stream(Data(..)): {message:?}"),
+            message => panic!("expected Data(..): {message:?}"),
         }
     }
 
     match test.next_written().expect("missing stream End message") {
-        PluginOutput::Stream(StreamMessage::End(id)) => assert_eq!(info.id, id, "End id"),
-        message => panic!("expected Stream(Data(..)): {message:?}"),
+        PluginOutput::End(id) => assert_eq!(info.id, id, "End id"),
+        message => panic!("expected Data(..): {message:?}"),
     }
 
     assert!(!test.has_unconsumed_write());

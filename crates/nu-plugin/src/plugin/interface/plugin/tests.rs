@@ -310,7 +310,7 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
     assert!(manager.protocol_info.is_none());
 
     let error = manager
-        .consume(PluginOutput::Stream(StreamMessage::Drop(0)))
+        .consume(PluginOutput::Drop(0))
         .expect_err("consume before Hello should cause an error");
 
     assert!(format!("{error:?}").contains("Hello"));
@@ -331,13 +331,10 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
     ))?;
 
     for i in 0..2 {
-        manager.consume(PluginOutput::Stream(StreamMessage::Data(
-            0,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginOutput::Data(0, Value::test_int(i).into()))?;
     }
 
-    manager.consume(PluginOutput::Stream(StreamMessage::End(0)))?;
+    manager.consume(PluginOutput::End(0))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -454,12 +451,9 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
     })?;
 
     for i in 0..2 {
-        manager.consume(PluginOutput::Stream(StreamMessage::Data(
-            2,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginOutput::Data(2, Value::test_int(i).into()))?;
     }
-    manager.consume(PluginOutput::Stream(StreamMessage::End(2)))?;
+    manager.consume(PluginOutput::End(2))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -889,7 +883,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             .next_written()
             .expect("failed to get Data stream message")
         {
-            PluginInput::Stream(StreamMessage::Data(id, data)) => {
+            PluginInput::Data(id, data) => {
                 assert_eq!(info.id, id, "id");
                 match data {
                     StreamData::List(data_value) => {
@@ -906,10 +900,10 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
         .next_written()
         .expect("failed to get End stream message")
     {
-        PluginInput::Stream(StreamMessage::End(id)) => {
+        PluginInput::End(id) => {
             assert_eq!(info.id, id, "id");
         }
-        message => panic!("expected Stream(End(_)) message: {message:?}"),
+        message => panic!("expected End(_) message: {message:?}"),
     }
 
     Ok(())

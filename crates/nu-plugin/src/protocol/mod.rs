@@ -208,11 +208,14 @@ pub enum PluginInput {
     /// Response to an [`EngineCall`]. The ID should be the same one sent with the engine call this
     /// is responding to
     EngineCallResponse(EngineCallId, EngineCallResponse<PipelineDataHeader>),
-    /// Stream control or data message. Untagged to keep them as small as possible.
-    ///
-    /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
-    #[serde(untagged)]
-    Stream(StreamMessage),
+    /// See [`StreamMessage::Data`].
+    Data(StreamId, StreamData),
+    /// See [`StreamMessage::End`].
+    End(StreamId),
+    /// See [`StreamMessage::Drop`].
+    Drop(StreamId),
+    /// See [`StreamMessage::Ack`].
+    Ack(StreamId),
 }
 
 impl TryFrom<PluginInput> for StreamMessage {
@@ -220,7 +223,10 @@ impl TryFrom<PluginInput> for StreamMessage {
 
     fn try_from(msg: PluginInput) -> Result<StreamMessage, PluginInput> {
         match msg {
-            PluginInput::Stream(stream_msg) => Ok(stream_msg),
+            PluginInput::Data(id, data) => Ok(StreamMessage::Data(id, data)),
+            PluginInput::End(id) => Ok(StreamMessage::End(id)),
+            PluginInput::Drop(id) => Ok(StreamMessage::Drop(id)),
+            PluginInput::Ack(id) => Ok(StreamMessage::Ack(id)),
             _ => Err(msg),
         }
     }
@@ -228,7 +234,12 @@ impl TryFrom<PluginInput> for StreamMessage {
 
 impl From<StreamMessage> for PluginInput {
     fn from(stream_msg: StreamMessage) -> PluginInput {
-        PluginInput::Stream(stream_msg)
+        match stream_msg {
+            StreamMessage::Data(id, data) => PluginInput::Data(id, data),
+            StreamMessage::End(id) => PluginInput::End(id),
+            StreamMessage::Drop(id) => PluginInput::Drop(id),
+            StreamMessage::Ack(id) => PluginInput::Ack(id),
+        }
     }
 }
 
@@ -420,11 +431,14 @@ pub enum PluginOutput {
         id: EngineCallId,
         call: EngineCall<PipelineDataHeader>,
     },
-    /// Stream control or data message. Untagged to keep them as small as possible.
-    ///
-    /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
-    #[serde(untagged)]
-    Stream(StreamMessage),
+    /// See [`StreamMessage::Data`].
+    Data(StreamId, StreamData),
+    /// See [`StreamMessage::End`].
+    End(StreamId),
+    /// See [`StreamMessage::Drop`].
+    Drop(StreamId),
+    /// See [`StreamMessage::Ack`].
+    Ack(StreamId),
 }
 
 impl TryFrom<PluginOutput> for StreamMessage {
@@ -432,7 +446,10 @@ impl TryFrom<PluginOutput> for StreamMessage {
 
     fn try_from(msg: PluginOutput) -> Result<StreamMessage, PluginOutput> {
         match msg {
-            PluginOutput::Stream(stream_msg) => Ok(stream_msg),
+            PluginOutput::Data(id, data) => Ok(StreamMessage::Data(id, data)),
+            PluginOutput::End(id) => Ok(StreamMessage::End(id)),
+            PluginOutput::Drop(id) => Ok(StreamMessage::Drop(id)),
+            PluginOutput::Ack(id) => Ok(StreamMessage::Ack(id)),
             _ => Err(msg),
         }
     }
@@ -440,7 +457,12 @@ impl TryFrom<PluginOutput> for StreamMessage {
 
 impl From<StreamMessage> for PluginOutput {
     fn from(stream_msg: StreamMessage) -> PluginOutput {
-        PluginOutput::Stream(stream_msg)
+        match stream_msg {
+            StreamMessage::Data(id, data) => PluginOutput::Data(id, data),
+            StreamMessage::End(id) => PluginOutput::End(id),
+            StreamMessage::Drop(id) => PluginOutput::Drop(id),
+            StreamMessage::Ack(id) => PluginOutput::Ack(id),
+        }
     }
 }
 
