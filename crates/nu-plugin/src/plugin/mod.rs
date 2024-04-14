@@ -103,7 +103,15 @@ fn create_command(path: &Path, mut shell: Option<&Path>, mode: &CommunicationMod
         //
         // Also include anything that wouldn't be executable with a shebang, like JAR files.
         shell = match path.extension().and_then(|e| e.to_str()) {
-            Some("sh") => Some(Path::new("sh")),
+            Some("sh") => {
+                if cfg!(unix) {
+                    // We don't want to override what might be in the shebang if this is Unix, since
+                    // some scripts will have a shebang specifying bash even if they're .sh
+                    None
+                } else {
+                    Some(Path::new("sh"))
+                }
+            }
             Some("nu") => Some(Path::new("nu")),
             Some("py") => Some(Path::new("python")),
             Some("rb") => Some(Path::new("ruby")),
