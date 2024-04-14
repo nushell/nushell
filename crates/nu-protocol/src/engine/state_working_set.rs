@@ -38,8 +38,9 @@ impl<'a> StateWorkingSet<'a> {
         // Initialize the file stack with the top-level file.
         let mut files = FileStack::new();
         if let Some(file) = permanent_state.file.clone() {
-            // We know the stack is empty, so the unwrap is safe.
-            files.push(file, Span::unknown()).unwrap();
+            files
+                .push(file, Span::unknown())
+                .expect("pushing files on an empty stack is safe");
         }
 
         Self {
@@ -1109,6 +1110,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
 /// The current active file is on the top of the stack.
 /// When a file source/import another file, the new file is pushed onto the stack.
 /// Attempting to add files that are already in the stack (circular source/import) results in an error.
+#[derive(Debug, Default)]
 pub struct FileStack(Vec<PathBuf>);
 
 impl FileStack {
@@ -1149,6 +1151,6 @@ impl FileStack {
 
     /// Returns the parent directory of the active file, or None if the stack is empty or the active file doesn't have a parent.
     pub fn current_working_directory(&self) -> Option<&Path> {
-        self.0.last().map(|path| path.parent()).flatten()
+        self.0.last().and_then(|path| path.parent())
     }
 }

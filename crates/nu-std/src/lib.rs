@@ -50,8 +50,7 @@ pub fn load_standard_library(
         }
 
         let std_dir = std_dir.to_string_lossy().to_string();
-        let source = format!(
-            r#"
+        let source = r#"
 # Define the `std` module
 module std
 
@@ -65,19 +64,17 @@ use std dirs [
     dexit
 ]
 use std pwd
-"#
-        );
+"#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
         let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
-        // `unwrap()` is safe because we assume the placeholder name is unique.
         working_set
             .files
             .push(placeholder, Span::unknown())
-            .unwrap();
+            .expect("placeholder name is unique");
 
         let block = parse(
             &mut working_set,
