@@ -152,7 +152,6 @@ fn main() -> Result<()> {
     let db = nu_command::open_connection_in_memory_custom()?;
     #[cfg(feature = "sqlite")]
     db.last_insert_rowid();
-// ( script_name, args_to_script, args_to_commands)
     let commandline_args = gather_commandline_args();
     let args_to_nushell = commandline_args.args_to_nushell;
     let script_name = commandline_args.script_name;

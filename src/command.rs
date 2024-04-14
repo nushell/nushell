@@ -68,12 +68,12 @@ pub(crate) fn gather_commandline_args() -> CommandlineArgs {
     } else {
         Vec::default()
     };
-    return CommandlineArgs { 
+    CommandlineArgs {
         args_to_nushell,
         script_name,
         args_to_script,
         args_to_commands,
-     }
+    }
 }
 
 pub(crate) fn parse_commandline_args(
