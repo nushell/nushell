@@ -108,6 +108,10 @@ pub fn eval_config_contents(
         let config_filename = config_path.to_string_lossy();
 
         if let Ok(contents) = std::fs::read(&config_path) {
+            // Set the current active file to the config file.
+            let prev_file = engine_state.file.take();
+            engine_state.file = Some(config_path.clone());
+
             eval_source(
                 engine_state,
                 stack,
@@ -116,6 +120,9 @@ pub fn eval_config_contents(
                 PipelineData::empty(),
                 false,
             );
+
+            // Restore the current active file.
+            engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
             match nu_engine::env::current_dir(engine_state, stack) {
