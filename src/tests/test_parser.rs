@@ -828,4 +828,26 @@ fn not_panic_with_recursive_call() {
         "$x | px",
     ]));
     assert_eq!(result.out, "3");
+
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return false } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "$x | px"
+    ]));
+    assert_eq!(result.out, "false");
+
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return false } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "def foo [] { $x }",
+        "foo | px"
+    ]));
+    assert_eq!(result.out, "false");
+
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return false } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "do {|| $x } | px"
+    ]));
+    assert_eq!(result.out, "false");
 }
