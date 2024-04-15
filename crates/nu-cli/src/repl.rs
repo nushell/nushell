@@ -874,8 +874,6 @@ fn do_auto_cd(
                 },
             );
         }
-        let path = nu_path::canonicalize_with(path, &cwd)
-            .expect("internal error: cannot canonicalize known path");
         path.to_string_lossy().to_string()
     };
 
