@@ -85,6 +85,16 @@ fn with_env(
 
     match &variable {
         Value::List { vals: table, .. } => {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated argument type".into(),
+                    msg: "providing the variables to `with-env` as a list or single row table has been deprecated".into(),
+                    span: Some(variable.span()),
+                    help: Some("use the record form instead".into()),
+                    inner: vec![],
+                },
+            );
             if table.len() == 1 {
                 // single row([[X W]; [Y Z]])
                 match &table[0] {
