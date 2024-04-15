@@ -22,7 +22,7 @@ use dt.nu [datetime-diff, pretty-print-duration]
 # # Example
 # - adding some dummy paths to an empty PATH
 # ```nushell
-# >_ with-env [PATH []] {
+# >_ with-env { PATH: [] } {
 #     std path add "foo"
 #     std path add "bar" "baz"
 #     std path add "fooo" --append
