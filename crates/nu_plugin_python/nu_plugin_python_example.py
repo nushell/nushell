@@ -133,6 +133,13 @@ def process_call(id, plugin_call):
     span = plugin_call["Run"]["call"]["head"]
 
     # Creates a Value of type List that will be encoded and sent to Nushell
+    f = lambda x, y: {
+        "Int": {
+            "val": x * y,
+            "span": span
+        }
+    }
+
     value = {
         "Value": {
             "List": {
@@ -140,15 +147,9 @@ def process_call(id, plugin_call):
                     {
                         "Record": {
                             "val": {
-                                "cols": ["one", "two", "three"],
-                                "vals": [
-                                    {
-                                        "Int": {
-                                            "val": x * y,
-                                            "span": span
-                                        }
-                                    } for y in [0, 1, 2]
-                                ]
+                                "one": f(x, 0),
+                                "two": f(x, 1),
+                                "three": f(x, 2),
                             },
                             "span": span
                         }

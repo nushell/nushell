@@ -15,8 +15,20 @@ use nu_protocol::{
 };
 use std::{
     collections::HashMap,
-    sync::mpsc::{self, TryRecvError},
+    sync::{
+        mpsc::{self, TryRecvError},
+        Arc,
+    },
 };
+
+#[test]
+fn is_using_stdio_is_false_for_test() {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.get_interface();
+
+    assert!(!interface.is_using_stdio());
+}
 
 #[test]
 fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {
@@ -247,8 +259,9 @@ fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
     manager.consume(PluginInput::Hello(info.clone()))?;
 
     let set_info = manager
+        .state
         .protocol_info
-        .as_ref()
+        .try_get()?
         .expect("protocol info not set");
     assert_eq!(info.version, set_info.version);
     Ok(())
@@ -275,7 +288,7 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
     let mut manager = TestCase::new().engine();
 
     // hello not set
-    assert!(manager.protocol_info.is_none());
+    assert!(!manager.state.protocol_info.is_set());
 
     let error = manager
         .consume(PluginInput::Drop(0))
@@ -285,10 +298,17 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
     Ok(())
 }
 
+fn set_default_protocol_info(manager: &mut EngineInterfaceManager) -> Result<(), ShellError> {
+    manager
+        .state
+        .protocol_info
+        .set(Arc::new(ProtocolInfo::default()))
+}
+
 #[test]
 fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -307,7 +327,7 @@ fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError
 #[test]
 fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -327,7 +347,7 @@ fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<
 #[test]
 fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -361,7 +381,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), Sh
 #[test]
 fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -403,7 +423,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
 #[test]
 fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -469,7 +489,7 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
 fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> Result<(), ShellError>
 {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -509,7 +529,7 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
 fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data(
 ) -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = fake_engine_call(&mut manager, 0);
 

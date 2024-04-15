@@ -13,6 +13,7 @@ bench = false
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.92.3" }
 nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
+nu-system = { path = "../nu-system", version = "0.92.3" }
 nu-utils = { path = "../nu-utils", version = "0.92.3" }
 
 bincode = "1.3"
@@ -24,6 +25,15 @@ miette = { workspace = true }
 semver = "1.0"
 typetag = "0.2"
 thiserror = "1.0"
+interprocess = { version = "1.2.1", optional = true }
+
+[features]
+default = ["local-socket"]
+local-socket = ["interprocess"]
+
+[target.'cfg(target_family = "unix")'.dependencies]
+# For setting the process group ID (EnterForeground / LeaveForeground)
+nix = { workspace = true, default-features = false, features = ["process"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true, features = [

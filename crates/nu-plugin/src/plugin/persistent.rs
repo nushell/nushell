@@ -1,10 +1,13 @@
-use super::{create_command, gc::PluginGc, make_plugin_interface, PluginInterface, PluginSource};
+use super::{
+    communication_mode::CommunicationMode, create_command, gc::PluginGc, make_plugin_interface,
+    PluginInterface, PluginSource,
+};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
 };
 use std::{
-    ffi::OsStr,
+    collections::HashMap,
     sync::{Arc, Mutex},
 };
 
@@ -28,14 +31,21 @@ pub struct PersistentPlugin {
 struct MutableState {
     /// Reference to the plugin if running
     running: Option<RunningPlugin>,
+    /// Plugin's preferred communication mode (if known)
+    preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum PreferredCommunicationMode {
+    Stdio,
+    #[cfg(feature = "local-socket")]
+    LocalSocket,
+}
+
 #[derive(Debug)]
 struct RunningPlugin {
-    /// Process ID of the running plugin
-    pid: u32,
     /// Interface (which can be cloned) to the running plugin
     interface: PluginInterface,
     /// Garbage collector for the plugin
@@ -49,6 +59,7 @@ impl PersistentPlugin {
             identity,
             mutable: Mutex::new(MutableState {
                 running: None,
+                preferred_mode: None,
                 gc_config,
             }),
         }
@@ -58,15 +69,10 @@ impl PersistentPlugin {
     ///
     /// Will call `envs` to get environment variables to spawn the plugin if the plugin needs to be
     /// spawned.
-    pub(crate) fn get<E, K, V>(
+    pub(crate) fn get(
         self: Arc<Self>,
-        envs: impl FnOnce() -> Result<E, ShellError>,
-    ) -> Result<PluginInterface, ShellError>
-    where
-        E: IntoIterator<Item = (K, V)>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
+        envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
+    ) -> Result<PluginInterface, ShellError> {
         let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
             msg: format!(
                 "plugin `{}` mutex poisoned, probably panic during spawn",
@@ -78,34 +84,79 @@ impl PersistentPlugin {
             // It exists, so just clone the interface
             Ok(running.interface.clone())
         } else {
-            // Try to spawn, and then store the spawned plugin if we were successful.
+            // Try to spawn. On success, `mutable.running` should have been set to the new running
+            // plugin by `spawn()` so we just then need to clone the interface from there.
             //
             // We hold the lock the whole time to prevent others from trying to spawn and ending
             // up with duplicate plugins
             //
             // TODO: We should probably store the envs somewhere, in case we have to launch without
             // envs (e.g. from a custom value)
-            let new_running = self.clone().spawn(envs()?, &mutable.gc_config)?;
-            let interface = new_running.interface.clone();
-            mutable.running = Some(new_running);
-            Ok(interface)
+            let envs = envs()?;
+            let result = self.clone().spawn(&envs, &mut mutable);
+
+            // Check if we were using an alternate communication mode and may need to fall back to
+            // stdio.
+            if result.is_err()
+                && !matches!(
+                    mutable.preferred_mode,
+                    Some(PreferredCommunicationMode::Stdio)
+                )
+            {
+                log::warn!("{}: Trying again with stdio communication because mode {:?} failed with {result:?}",
+                    self.identity.name(),
+                    mutable.preferred_mode);
+                // Reset to stdio and try again, but this time don't catch any error
+                mutable.preferred_mode = Some(PreferredCommunicationMode::Stdio);
+                self.clone().spawn(&envs, &mut mutable)?;
+            }
+
+            Ok(mutable
+                .running
+                .as_ref()
+                .ok_or_else(|| ShellError::NushellFailed {
+                    msg: "spawn() succeeded but didn't set interface".into(),
+                })?
+                .interface
+                .clone())
         }
     }
 
-    /// Run the plugin command, then set up and return [`RunningPlugin`].
+    /// Run the plugin command, then set up and set `mutable.running` to the new running plugin.
     fn spawn(
         self: Arc<Self>,
-        envs: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-        gc_config: &PluginGcConfig,
-    ) -> Result<RunningPlugin, ShellError> {
+        envs: &HashMap<String, String>,
+        mutable: &mut MutableState,
+    ) -> Result<(), ShellError> {
+        // Make sure `running` is set to None to begin
+        if let Some(running) = mutable.running.take() {
+            // Stop the GC if there was a running plugin
+            running.gc.stop_tracking();
+        }
+
         let source_file = self.identity.filename();
-        let mut plugin_cmd = create_command(source_file, self.identity.shell());
+
+        // Determine the mode to use based on the preferred mode
+        let mode = match mutable.preferred_mode {
+            // If not set, we try stdio first and then might retry if another mode is supported
+            Some(PreferredCommunicationMode::Stdio) | None => CommunicationMode::Stdio,
+            // Local socket only if enabled
+            #[cfg(feature = "local-socket")]
+            Some(PreferredCommunicationMode::LocalSocket) => {
+                CommunicationMode::local_socket(source_file)
+            }
+        };
+
+        let mut plugin_cmd = create_command(source_file, self.identity.shell(), &mode);
 
         // We need the current environment variables for `python` based plugins
         // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         plugin_cmd.envs(envs);
 
         let program_name = plugin_cmd.get_program().to_os_string().into_string();
+
+        // Before running the command, prepare communication
+        let comm = mode.serve()?;
 
         // Run the plugin command
         let child = plugin_cmd.spawn().map_err(|err| {
@@ -126,13 +177,64 @@ impl PersistentPlugin {
         })?;
 
         // Start the plugin garbage collector
-        let gc = PluginGc::new(gc_config.clone(), &self)?;
+        let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
 
         let pid = child.id();
-        let interface =
-            make_plugin_interface(child, Arc::new(PluginSource::new(self)), Some(gc.clone()))?;
+        let interface = make_plugin_interface(
+            child,
+            comm,
+            Arc::new(PluginSource::new(self.clone())),
+            Some(pid),
+            Some(gc.clone()),
+        )?;
 
-        Ok(RunningPlugin { pid, interface, gc })
+        // If our current preferred mode is None, check to see if the plugin might support another
+        // mode. If so, retry spawn() with that mode
+        #[cfg(feature = "local-socket")]
+        if mutable.preferred_mode.is_none()
+            && interface
+                .protocol_info()?
+                .supports_feature(&crate::protocol::Feature::LocalSocket)
+        {
+            log::trace!(
+                "{}: Attempting to upgrade to local socket mode",
+                self.identity.name()
+            );
+            // Stop the GC we just created from tracking so that we don't accidentally try to
+            // stop the new plugin
+            gc.stop_tracking();
+            // Set the mode and try again
+            mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
+            return self.spawn(envs, mutable);
+        }
+
+        mutable.running = Some(RunningPlugin { interface, gc });
+        Ok(())
+    }
+
+    fn stop_internal(&self, reset: bool) -> Result<(), ShellError> {
+        let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
+            msg: format!(
+                "plugin `{}` mutable mutex poisoned, probably panic during spawn",
+                self.identity.name()
+            ),
+        })?;
+
+        // If the plugin is running, stop its GC, so that the GC doesn't accidentally try to stop
+        // a future plugin
+        if let Some(ref running) = mutable.running {
+            running.gc.stop_tracking();
+        }
+
+        // We don't try to kill the process or anything, we just drop the RunningPlugin. It should
+        // exit soon after
+        mutable.running = None;
+
+        // If this is a reset, we should also reset other learned attributes like preferred_mode
+        if reset {
+            mutable.preferred_mode = None;
+        }
+        Ok(())
     }
 }
 
@@ -155,27 +257,15 @@ impl RegisteredPlugin for PersistentPlugin {
         self.mutable
             .lock()
             .ok()
-            .and_then(|r| r.running.as_ref().map(|r| r.pid))
+            .and_then(|r| r.running.as_ref().and_then(|r| r.interface.pid()))
     }
 
     fn stop(&self) -> Result<(), ShellError> {
-        let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
-            msg: format!(
-                "plugin `{}` mutable mutex poisoned, probably panic during spawn",
-                self.identity.name()
-            ),
-        })?;
+        self.stop_internal(false)
+    }
 
-        // If the plugin is running, stop its GC, so that the GC doesn't accidentally try to stop
-        // a future plugin
-        if let Some(ref running) = mutable.running {
-            running.gc.stop_tracking();
-        }
-
-        // We don't try to kill the process or anything, we just drop the RunningPlugin. It should
-        // exit soon after
-        mutable.running = None;
-        Ok(())
+    fn reset(&self) -> Result<(), ShellError> {
+        self.stop_internal(true)
     }
 
     fn set_gc_config(&self, gc_config: &PluginGcConfig) {
@@ -214,11 +304,12 @@ pub trait GetPlugin: RegisteredPlugin {
 impl GetPlugin for PersistentPlugin {
     fn get_plugin(
         self: Arc<Self>,
-        context: Option<(&EngineState, &mut Stack)>,
+        mut context: Option<(&EngineState, &mut Stack)>,
     ) -> Result<PluginInterface, ShellError> {
         self.get(|| {
             // Get envs from the context if provided.
             let envs = context
+                .as_mut()
                 .map(|(engine_state, stack)| {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python
@@ -228,7 +319,7 @@ impl GetPlugin for PersistentPlugin {
                 })
                 .transpose()?;
 
-            Ok(envs.into_iter().flatten())
+            Ok(envs.unwrap_or_default())
         })
     }
 }

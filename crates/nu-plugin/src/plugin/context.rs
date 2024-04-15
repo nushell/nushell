@@ -8,7 +8,10 @@ use nu_protocol::{
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU32},
+        Arc,
+    },
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
@@ -16,8 +19,12 @@ use std::{
 /// This is not a public API.
 #[doc(hidden)]
 pub trait PluginExecutionContext: Send + Sync {
+    /// A span pointing to the command being executed
+    fn span(&self) -> Span;
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
+    /// The pipeline externals state, for tracking the foreground process group, if present
+    fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>>;
     /// Get engine configuration
     fn get_config(&self) -> Result<Config, ShellError>;
     /// Get plugin configuration
@@ -75,8 +82,16 @@ impl<'a> PluginExecutionCommandContext<'a> {
 }
 
 impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
+    fn span(&self) -> Span {
+        self.call.head
+    }
+
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
         self.engine_state.ctrlc.as_ref()
+    }
+
+    fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
+        Some(&self.engine_state.pipeline_externals_state)
     }
 
     fn get_config(&self) -> Result<Config, ShellError> {
@@ -237,7 +252,15 @@ pub(crate) struct PluginExecutionBogusContext;
 
 #[cfg(test)]
 impl PluginExecutionContext for PluginExecutionBogusContext {
+    fn span(&self) -> Span {
+        Span::test_data()
+    }
+
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
+        None
+    }
+
+    fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
         None
     }
 

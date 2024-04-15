@@ -3687,7 +3687,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
         // Add it to the working set
         let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
+            Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
         });
 
         // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
@@ -3706,7 +3706,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 //
                 // The user would expect that `register` would always run the binary to get new
                 // signatures, in case it was replaced with an updated binary
-                plugin.stop().map_err(|err| {
+                plugin.reset().map_err(|err| {
                     ParseError::LabeledError(
                         "Failed to restart plugin to get new signatures".into(),
                         err.to_string(),
@@ -3714,7 +3714,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 })?;
 
+                plugin.set_gc_config(&gc_config);
+
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
+                    log::warn!("Error getting signatures: {err:?}");
                     ParseError::LabeledError(
                         "Error getting signatures".into(),
                         err.to_string(),

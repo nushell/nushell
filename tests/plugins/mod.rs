@@ -5,3 +5,4 @@ mod env;
 mod formats;
 mod register;
 mod stream;
+mod stress_internals;
