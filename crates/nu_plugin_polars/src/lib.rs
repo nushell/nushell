@@ -182,12 +182,18 @@ pub mod test {
     use nu_plugin_test_support::PluginTest;
     use nu_protocol::{ShellError, Span};
 
-    pub fn test_polars_plugin_command(command: &impl PluginCommand) -> Result<(), ShellError> {
-        let plugin = PolarsPlugin {
-            disable_cache_drop: true,
-            ..PolarsPlugin::default()
-        };
+    impl PolarsPlugin {
+        /// Creates a new polars plugin in test mode
+        pub fn new_test_mode() -> Self {
+            PolarsPlugin {
+                disable_cache_drop: true,
+                ..PolarsPlugin::default()
+            }
+        }
+    }
 
+    pub fn test_polars_plugin_command(command: &impl PluginCommand) -> Result<(), ShellError> {
+        let plugin = PolarsPlugin::new_test_mode();
         let examples = command.examples();
 
         // we need to cache values in the examples
