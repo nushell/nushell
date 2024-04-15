@@ -95,7 +95,7 @@ fn with_env(
                     }
                     x => {
                         return Err(ShellError::CantConvert {
-                            to_type: "string list or single row".into(),
+                            to_type: "record".into(),
                             from_type: x.get_type().to_string(),
                             span: call
                                 .positional_nth(1)
@@ -129,7 +129,7 @@ fn with_env(
         }
         x => {
             return Err(ShellError::CantConvert {
-                to_type: "string list or single row".into(),
+                to_type: "record".into(),
                 from_type: x.get_type().to_string(),
                 span: call
                     .positional_nth(1)
