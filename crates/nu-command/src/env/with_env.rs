@@ -111,7 +111,13 @@ fn with_env(
                     if row.len() == 2 {
                         env.insert(row[0].coerce_string()?, row[1].clone());
                     }
-                    // TODO: else error?
+                    if row.len() == 1 {
+                        return Err(ShellError::IncorrectValue {
+                            msg: format!("Missing value for $env.{}", row[0].coerce_string()?),
+                            val_span: row[0].span(),
+                            call_span: call.head,
+                        });
+                    }
                 }
             }
         }
