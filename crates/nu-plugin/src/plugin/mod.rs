@@ -11,6 +11,7 @@ use std::{
     ffi::OsString,
     io::{BufReader, BufWriter},
     ops::Deref,
+    panic::AssertUnwindSafe,
     path::Path,
     process::{Child, Command as CommandSys},
     sync::{
@@ -557,6 +558,9 @@ pub enum ServePluginError {
     /// A thread spawning error occurred.
     #[error("{0}")]
     ThreadSpawnError(#[source] std::io::Error),
+    /// A panic occurred.
+    #[error("a panic occurred in a plugin thread")]
+    Panicked,
 }
 
 impl From<ShellError> for ServePluginError {
@@ -655,23 +659,32 @@ where
     // Handle each Run plugin call on a thread
     thread::scope(|scope| {
         let run = |engine, call_info| {
-            let CallInfo { name, call, input } = call_info;
-            let result = if let Some(command) = commands.get(&name) {
-                command.run(plugin, &engine, &call, input)
-            } else {
-                Err(
-                    LabeledError::new(format!("Plugin command not found: `{name}`")).with_label(
-                        format!("plugin `{plugin_name}` doesn't have this command"),
-                        call.head,
-                    ),
-                )
-            };
-            let write_result = engine
-                .write_response(result)
-                .and_then(|writer| writer.write())
-                .try_to_report(&engine);
-            if let Err(err) = write_result {
-                let _ = error_tx.send(err);
+            // SAFETY: It should be okay to use `AssertUnwindSafe` here, because we don't use any
+            // of the references after we catch the unwind, and immediately exit.
+            let unwind_result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                let CallInfo { name, call, input } = call_info;
+                let result = if let Some(command) = commands.get(&name) {
+                    command.run(plugin, &engine, &call, input)
+                } else {
+                    Err(
+                        LabeledError::new(format!("Plugin command not found: `{name}`"))
+                            .with_label(
+                                format!("plugin `{plugin_name}` doesn't have this command"),
+                                call.head,
+                            ),
+                    )
+                };
+                let write_result = engine
+                    .write_response(result)
+                    .and_then(|writer| writer.write())
+                    .try_to_report(&engine);
+                if let Err(err) = write_result {
+                    let _ = error_tx.send(err);
+                }
+            }));
+            if unwind_result.is_err() {
+                // Exit after unwind if a panic occurred
+                std::process::exit(1);
             }
         };
 
