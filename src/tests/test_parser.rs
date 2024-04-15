@@ -850,4 +850,10 @@ fn not_panic_with_recursive_call() {
         "do {|| $x } | px"
     ]));
     assert_eq!(result.out, "false");
+
+    let result = nu!(
+        cwd: "tests/parsing/samples",
+        "nu recursive_func_with_alias.nu"
+    );
+    assert!(result.status.success());
 }
