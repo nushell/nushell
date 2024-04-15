@@ -2236,7 +2236,7 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    // Sniff if we start with a year and are at least a date
+    // Sniff if we start with a year and are at least a date long
     if bytes.len() < 10
         || !bytes[0].is_ascii_digit()
         || !bytes[1].is_ascii_digit()
@@ -2254,21 +2254,24 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(span);
     };
 
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(token) {
-        return Expression {
-            expr: Expr::DateTime(datetime),
-            span,
-            ty: Type::Date,
-            custom_completion: None,
-        };
-    }
-
     // Just the date
     // Guaranteed to be 10 bytes long
     // 2024-04-11
     if token.len() == 10 {
         let just_date = token.to_owned() + "T00:00:00+00:00";
         if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&just_date) {
+            return Expression {
+                expr: Expr::DateTime(datetime),
+                span,
+                ty: Type::Date,
+                custom_completion: None,
+            };
+        }
+    } else if token.len() > 19 {
+        // Happy path for the fully qualified datetime
+        // Shortest possible version of RFC3339 has date + time with seconds and local time
+        // 2024-04-11T00:00:00Z
+        if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(token) {
             return Expression {
                 expr: Expr::DateTime(datetime),
                 span,
