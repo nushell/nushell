@@ -140,6 +140,16 @@ fn with_env(
         }
     };
 
+    // TODO: factor list of prohibited env vars into common place
+    for prohibited in ["PWD", "FILE_PWD", "CURRENT_FILE"] {
+        if env.contains_key(prohibited) {
+            return Err(ShellError::AutomaticEnvVarSetManually {
+                envvar_name: prohibited.into(),
+                span: call.head,
+            });
+        }
+    }
+
     for (k, v) in env {
         stack.add_env_var(k, v);
     }
