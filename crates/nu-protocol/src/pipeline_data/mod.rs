@@ -536,21 +536,6 @@ impl PipelineData {
         }
     }
 
-    pub fn upsert_cell_path(
-        self,
-        cell_path: &[PathMember],
-        callback: Box<dyn FnOnce(&Value) -> Value>,
-        head: Span,
-    ) -> Result<(), ShellError> {
-        match self {
-            // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .upsert_cell_path(cell_path, callback),
-            PipelineData::Value(mut v, ..) => v.upsert_cell_path(cell_path, callback),
-            _ => Ok(()),
-        }
-    }
-
     /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
     pub fn map<F>(
         self,
