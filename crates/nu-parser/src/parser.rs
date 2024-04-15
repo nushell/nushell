@@ -1445,9 +1445,8 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     trace!("parsing: range");
 
-    // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
-    //   where <next_operator> is ".."
-    //   and  <range_operator> is "..", "..=" or "..<"
+    // Range follows the following syntax: [<from>]<range_operator>[<to>]
+    //   where <range_operator> is "..", "..=" or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
     //bugbug range cannot be [..] because that looks like parent directory
@@ -1576,7 +1575,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
     };
 
     Expression {
-        expr: Expr::Range(from, next, to, range_op),
+        expr: Expr::Range(from, to, range_op),
         span,
         ty: Type::Range,
         custom_completion: None,
@@ -5991,14 +5990,11 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::Operator(_) => {}
-        Expr::Range(expr1, expr2, expr3, _) => {
-            if let Some(expr) = expr1 {
+        Expr::Range(from, to, _) => {
+            if let Some(expr) = from {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
-            if let Some(expr) = expr2 {
-                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
-            }
-            if let Some(expr) = expr3 {
+            if let Some(expr) = to {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }

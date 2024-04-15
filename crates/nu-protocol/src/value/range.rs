@@ -1,5 +1,6 @@
 //! A Range is an iterator over integers or floats.
 
+use crate::{ast::RangeInclusion, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -7,9 +8,9 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::{ast::RangeInclusion, ShellError, Span, Value};
-
 mod int_range {
+    use crate::{ast::RangeInclusion, ShellError, Value};
+    use serde::{Deserialize, Serialize};
     use std::{
         cmp::Ordering,
         fmt::Display,
@@ -17,24 +18,17 @@ mod int_range {
         sync::{atomic::AtomicBool, Arc},
     };
 
-    use serde::{Deserialize, Serialize};
-
-    use crate::{ast::RangeInclusion, ShellError, Span, Value};
-
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
         pub(crate) start: i64,
-        pub(crate) step: i64,
         pub(crate) end: Bound<i64>,
     }
 
     impl IntRange {
         pub fn new(
             start: Value,
-            next: Value,
             end: Value,
             inclusion: RangeInclusion,
-            span: Span,
         ) -> Result<Self, ShellError> {
             fn to_int(value: Value) -> Result<Option<i64>, ShellError> {
                 match value {
@@ -50,34 +44,7 @@ mod int_range {
             }
 
             let start = to_int(start)?.unwrap_or(0);
-
-            let next_span = next.span();
-            let next = to_int(next)?;
-            if next.is_some_and(|next| next == start) {
-                return Err(ShellError::CannotCreateRange { span: next_span });
-            }
-
-            let end = to_int(end)?;
-
-            let step = match (next, end) {
-                (Some(next), Some(end)) => {
-                    if (next < start) != (end < start) {
-                        return Err(ShellError::CannotCreateRange { span });
-                    }
-                    next - start
-                }
-                (Some(next), None) => next - start,
-                (None, Some(end)) => {
-                    if end < start {
-                        -1
-                    } else {
-                        1
-                    }
-                }
-                (None, None) => 1,
-            };
-
-            let end = if let Some(end) = end {
+            let end = if let Some(end) = to_int(end)? {
                 match inclusion {
                     RangeInclusion::Inclusive => Bound::Included(end),
                     RangeInclusion::RightExclusive => Bound::Excluded(end),
@@ -86,7 +53,7 @@ mod int_range {
                 Bound::Unbounded
             };
 
-            Ok(Self { start, step, end })
+            Ok(Self { start, end })
         }
 
         pub fn start(&self) -> i64 {
@@ -97,27 +64,30 @@ mod int_range {
             self.end
         }
 
-        pub fn step(&self) -> i64 {
-            self.step
-        }
-
         pub fn is_unbounded(&self) -> bool {
             self.end == Bound::Unbounded
         }
 
+        pub fn is_ascending(&self) -> bool {
+            match self.end {
+                Bound::Included(end) | Bound::Excluded(end) => self.start <= end,
+                Bound::Unbounded => true,
+            }
+        }
+
         pub fn contains(&self, value: i64) -> bool {
-            if self.step < 0 {
-                value <= self.start
-                    && match self.end {
-                        Bound::Included(end) => value >= end,
-                        Bound::Excluded(end) => value > end,
-                        Bound::Unbounded => true,
-                    }
-            } else {
+            if self.is_ascending() {
                 self.start <= value
                     && match self.end {
                         Bound::Included(end) => value <= end,
                         Bound::Excluded(end) => value < end,
+                        Bound::Unbounded => true,
+                    }
+            } else {
+                self.start >= value
+                    && match self.end {
+                        Bound::Included(end) => value >= end,
+                        Bound::Excluded(end) => value > end,
                         Bound::Unbounded => true,
                     }
             }
@@ -126,7 +96,7 @@ mod int_range {
         pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
             Iter {
                 current: Some(self.start),
-                step: self.step,
+                step: if self.is_ascending() { 1 } else { -1 },
                 end: self.end,
                 ctrlc,
             }
@@ -138,30 +108,28 @@ mod int_range {
             // Ranges are compared roughly according to their list representation.
             // Compare in order:
             // - the head element (start)
-            // - the tail elements (step)
             // - the length (end)
             self.start
                 .cmp(&other.start)
-                .then(self.step.cmp(&other.step))
                 .then_with(|| match (self.end, other.end) {
                     (Bound::Included(l), Bound::Included(r))
                     | (Bound::Excluded(l), Bound::Excluded(r)) => {
                         let ord = l.cmp(&r);
-                        if self.step < 0 {
-                            ord.reverse()
-                        } else {
+                        if self.is_ascending() {
                             ord
+                        } else {
+                            ord.reverse()
                         }
                     }
                     (Bound::Included(l), Bound::Excluded(r)) => match l.cmp(&r) {
                         Ordering::Equal => Ordering::Greater,
-                        ord if self.step < 0 => ord.reverse(),
-                        ord => ord,
+                        ord if self.is_ascending() => ord,
+                        ord => ord.reverse(),
                     },
                     (Bound::Excluded(l), Bound::Included(r)) => match l.cmp(&r) {
                         Ordering::Equal => Ordering::Less,
-                        ord if self.step < 0 => ord.reverse(),
-                        ord => ord,
+                        ord if self.is_ascending() => ord,
+                        ord => ord.reverse(),
                     },
                     (Bound::Included(_), Bound::Unbounded) => Ordering::Less,
                     (Bound::Excluded(_), Bound::Unbounded) => Ordering::Less,
@@ -180,7 +148,7 @@ mod int_range {
 
     impl PartialEq for IntRange {
         fn eq(&self, other: &Self) -> bool {
-            self.start == other.start && self.step == other.step && self.end == other.end
+            self.start == other.start && self.end == other.end
         }
     }
 
@@ -188,7 +156,6 @@ mod int_range {
 
     impl Display for IntRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // what about self.step?
             let start = self.start;
             match self.end {
                 Bound::Included(end) => write!(f, "{start}..{end}"),
@@ -233,6 +200,8 @@ mod int_range {
 }
 
 mod float_range {
+    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Value};
+    use serde::{Deserialize, Serialize};
     use std::{
         cmp::Ordering,
         fmt::Display,
@@ -240,24 +209,17 @@ mod float_range {
         sync::{atomic::AtomicBool, Arc},
     };
 
-    use serde::{Deserialize, Serialize};
-
-    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Span, Value};
-
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct FloatRange {
         pub(crate) start: f64,
-        pub(crate) step: f64,
         pub(crate) end: Bound<f64>,
     }
 
     impl FloatRange {
         pub fn new(
             start: Value,
-            next: Value,
             end: Value,
             inclusion: RangeInclusion,
-            span: Span,
         ) -> Result<Self, ShellError> {
             fn to_float(value: Value) -> Result<Option<f64>, ShellError> {
                 match value {
@@ -274,7 +236,6 @@ mod float_range {
             }
 
             // `start` must be finite (not NaN or infinity).
-            // `next` must be finite and not equal to `start`.
             // `end` must not be NaN (but can be infinite).
             //
             // TODO: better error messages for the restrictions above
@@ -286,37 +247,10 @@ mod float_range {
             }
 
             let end_span = end.span();
-            let end = to_float(end)?;
-            if end.is_some_and(f64::is_nan) {
-                return Err(ShellError::CannotCreateRange { span: end_span });
-            }
-
-            let next_span = next.span();
-            let next = to_float(next)?;
-            if next.is_some_and(|next| next == start || !next.is_finite()) {
-                return Err(ShellError::CannotCreateRange { span: next_span });
-            }
-
-            let step = match (next, end) {
-                (Some(next), Some(end)) => {
-                    if (next < start) != (end < start) {
-                        return Err(ShellError::CannotCreateRange { span });
-                    }
-                    next - start
-                }
-                (Some(next), None) => next - start,
-                (None, Some(end)) => {
-                    if end < start {
-                        -1.0
-                    } else {
-                        1.0
-                    }
-                }
-                (None, None) => 1.0,
-            };
-
-            let end = if let Some(end) = end {
-                if end.is_infinite() {
+            let end = if let Some(end) = to_float(end)? {
+                if end.is_nan() {
+                    return Err(ShellError::CannotCreateRange { span: end_span });
+                } else if end.is_infinite() {
                     Bound::Unbounded
                 } else {
                     match inclusion {
@@ -328,7 +262,7 @@ mod float_range {
                 Bound::Unbounded
             };
 
-            Ok(Self { start, step, end })
+            Ok(Self { start, end })
         }
 
         pub fn start(&self) -> f64 {
@@ -339,27 +273,30 @@ mod float_range {
             self.end
         }
 
-        pub fn step(&self) -> f64 {
-            self.step
-        }
-
         pub fn is_unbounded(&self) -> bool {
             self.end == Bound::Unbounded
         }
 
+        pub fn is_ascending(&self) -> bool {
+            match self.end {
+                Bound::Included(end) | Bound::Excluded(end) => self.start <= end,
+                Bound::Unbounded => true,
+            }
+        }
+
         pub fn contains(&self, value: f64) -> bool {
-            if self.step < 0.0 {
-                value <= self.start
-                    && match self.end {
-                        Bound::Included(end) => value >= end,
-                        Bound::Excluded(end) => value > end,
-                        Bound::Unbounded => true,
-                    }
-            } else {
+            if self.is_ascending() {
                 self.start <= value
                     && match self.end {
                         Bound::Included(end) => value <= end,
                         Bound::Excluded(end) => value < end,
+                        Bound::Unbounded => true,
+                    }
+            } else {
+                self.start >= value
+                    && match self.end {
+                        Bound::Included(end) => value >= end,
+                        Bound::Excluded(end) => value > end,
                         Bound::Unbounded => true,
                     }
             }
@@ -368,7 +305,7 @@ mod float_range {
         pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
             Iter {
                 start: self.start,
-                step: self.step,
+                step: if self.is_ascending() { 1.0 } else { -1.0 },
                 end: self.end,
                 iter: Some(0),
                 ctrlc,
@@ -390,36 +327,33 @@ mod float_range {
             // Ranges are compared roughly according to their list representation.
             // Compare in order:
             // - the head element (start)
-            // - the tail elements (step)
             // - the length (end)
-            float_cmp(self.start, other.start)
-                .then(float_cmp(self.step, other.step))
-                .then_with(|| match (self.end, other.end) {
-                    (Bound::Included(l), Bound::Included(r))
-                    | (Bound::Excluded(l), Bound::Excluded(r)) => {
-                        let ord = float_cmp(l, r);
-                        if self.step < 0.0 {
-                            ord.reverse()
-                        } else {
-                            ord
-                        }
+            float_cmp(self.start, other.start).then_with(|| match (self.end, other.end) {
+                (Bound::Included(l), Bound::Included(r))
+                | (Bound::Excluded(l), Bound::Excluded(r)) => {
+                    let ord = float_cmp(l, r);
+                    if self.is_ascending() {
+                        ord
+                    } else {
+                        ord.reverse()
                     }
-                    (Bound::Included(l), Bound::Excluded(r)) => match float_cmp(l, r) {
-                        Ordering::Equal => Ordering::Greater,
-                        ord if self.step < 0.0 => ord.reverse(),
-                        ord => ord,
-                    },
-                    (Bound::Excluded(l), Bound::Included(r)) => match float_cmp(l, r) {
-                        Ordering::Equal => Ordering::Less,
-                        ord if self.step < 0.0 => ord.reverse(),
-                        ord => ord,
-                    },
-                    (Bound::Included(_), Bound::Unbounded) => Ordering::Less,
-                    (Bound::Excluded(_), Bound::Unbounded) => Ordering::Less,
-                    (Bound::Unbounded, Bound::Included(_)) => Ordering::Greater,
-                    (Bound::Unbounded, Bound::Excluded(_)) => Ordering::Greater,
-                    (Bound::Unbounded, Bound::Unbounded) => Ordering::Equal,
-                })
+                }
+                (Bound::Included(l), Bound::Excluded(r)) => match float_cmp(l, r) {
+                    Ordering::Equal => Ordering::Greater,
+                    ord if self.is_ascending() => ord,
+                    ord => ord.reverse(),
+                },
+                (Bound::Excluded(l), Bound::Included(r)) => match float_cmp(l, r) {
+                    Ordering::Equal => Ordering::Less,
+                    ord if self.is_ascending() => ord,
+                    ord => ord.reverse(),
+                },
+                (Bound::Included(_), Bound::Unbounded) => Ordering::Less,
+                (Bound::Excluded(_), Bound::Unbounded) => Ordering::Less,
+                (Bound::Unbounded, Bound::Included(_)) => Ordering::Greater,
+                (Bound::Unbounded, Bound::Excluded(_)) => Ordering::Greater,
+                (Bound::Unbounded, Bound::Unbounded) => Ordering::Equal,
+            })
         }
     }
 
@@ -431,7 +365,7 @@ mod float_range {
 
     impl PartialEq for FloatRange {
         fn eq(&self, other: &Self) -> bool {
-            self.start == other.start && self.step == other.step && self.end == other.end
+            self.start == other.start && self.end == other.end
         }
     }
 
@@ -439,7 +373,6 @@ mod float_range {
 
     impl Display for FloatRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // what about self.step?
             let start = self.start;
             match self.end {
                 Bound::Included(end) => write!(f, "{start}..{end}"),
@@ -453,7 +386,6 @@ mod float_range {
         fn from(range: IntRange) -> Self {
             Self {
                 start: range.start as f64,
-                step: range.step as f64,
                 end: match range.end {
                     Bound::Included(b) => Bound::Included(b as f64),
                     Bound::Excluded(b) => Bound::Excluded(b as f64),
@@ -485,7 +417,7 @@ mod float_range {
 
         fn next(&mut self) -> Option<Self::Item> {
             if let Some(iter) = self.iter {
-                let current = self.start + self.step * iter as f64;
+                let current = self.start + iter as f64;
 
                 let not_end = match (self.step < 0.0, self.end) {
                     (true, Bound::Included(end)) => current >= end,
@@ -519,21 +451,12 @@ pub enum Range {
 }
 
 impl Range {
-    pub fn new(
-        start: Value,
-        next: Value,
-        end: Value,
-        inclusion: RangeInclusion,
-        span: Span,
-    ) -> Result<Self, ShellError> {
+    pub fn new(start: Value, end: Value, inclusion: RangeInclusion) -> Result<Self, ShellError> {
         // promote to float range if any Value is float
-        if matches!(start, Value::Float { .. })
-            || matches!(next, Value::Float { .. })
-            || matches!(end, Value::Float { .. })
-        {
-            FloatRange::new(start, next, end, inclusion, span).map(Self::FloatRange)
+        if matches!(start, Value::Float { .. }) || matches!(end, Value::Float { .. }) {
+            FloatRange::new(start, end, inclusion).map(Self::FloatRange)
         } else {
-            IntRange::new(start, next, end, inclusion, span).map(Self::IntRange)
+            IntRange::new(start, end, inclusion).map(Self::IntRange)
         }
     }
 

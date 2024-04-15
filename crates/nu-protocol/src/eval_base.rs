@@ -150,15 +150,9 @@ pub trait Eval {
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr.span)
             }
-            Expr::Range(from, next, to, operator) => {
+            Expr::Range(from, to, operator) => {
                 let from = if let Some(f) = from {
                     Self::eval::<D>(state, mut_state, f)?
-                } else {
-                    Value::nothing(expr.span)
-                };
-
-                let next = if let Some(s) = next {
-                    Self::eval::<D>(state, mut_state, s)?
                 } else {
                     Value::nothing(expr.span)
                 };
@@ -170,7 +164,7 @@ pub trait Eval {
                 };
 
                 Ok(Value::range(
-                    Range::new(from, next, to, operator.inclusion, expr.span)?,
+                    Range::new(from, to, operator.inclusion)?,
                     expr.span,
                 ))
             }

@@ -988,7 +988,6 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             Some(_),
-            None,
             Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
@@ -1042,7 +1041,6 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             Some(_),
-            None,
             Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
@@ -1084,7 +1082,6 @@ mod range {
         if let Expr::Range(
             Some(_),
             None,
-            None,
             RangeOperator {
                 inclusion: the_inclusion,
                 ..
@@ -1124,7 +1121,6 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             None,
-            None,
             Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
@@ -1142,9 +1138,9 @@ mod range {
     }
 
     #[rstest]
-    #[case(b"2.0..4.0..10.0", RangeInclusion::Inclusive, "float inclusive")]
-    #[case(b"2.0..4.0..=10.0", RangeInclusion::Inclusive, "float =inclusive")]
-    #[case(b"2.0..4.0..<10.0", RangeInclusion::RightExclusive, "float exclusive")]
+    #[case(b"2.0..10.0", RangeInclusion::Inclusive, "float inclusive")]
+    #[case(b"2.0..=10.0", RangeInclusion::Inclusive, "float =inclusive")]
+    #[case(b"2.0..<10.0", RangeInclusion::RightExclusive, "float exclusive")]
 
     fn parse_float_range(
         #[case] phrase: &[u8],
@@ -1164,7 +1160,6 @@ mod range {
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
         if let Expr::Range(
-            Some(_),
             Some(_),
             Some(_),
             RangeOperator {

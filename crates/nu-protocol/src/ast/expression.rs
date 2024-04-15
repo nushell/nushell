@@ -230,14 +230,9 @@ impl Expression {
             }
             Expr::Operator(_) => false,
             Expr::MatchBlock(_) => false,
-            Expr::Range(left, middle, right, ..) => {
+            Expr::Range(left, right, ..) => {
                 if let Some(left) = &left {
                     if left.has_in_variable(working_set) {
-                        return true;
-                    }
-                }
-                if let Some(middle) = &middle {
-                    if middle.has_in_variable(working_set) {
                         return true;
                     }
                 }
@@ -399,12 +394,9 @@ impl Expression {
                 }
             }
             Expr::Operator(_) => {}
-            Expr::Range(left, middle, right, ..) => {
+            Expr::Range(left, right, ..) => {
                 if let Some(left) = left {
                     left.replace_span(working_set, replaced, new_span)
-                }
-                if let Some(middle) = middle {
-                    middle.replace_span(working_set, replaced, new_span)
                 }
                 if let Some(right) = right {
                     right.replace_span(working_set, replaced, new_span)

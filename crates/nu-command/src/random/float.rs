@@ -78,7 +78,7 @@ fn float(
             let range_span = range.span;
             let range = FloatRange::from(range.item);
 
-            if range.step() < 0.0 {
+            if !range.is_ascending() {
                 return Err(ShellError::InvalidRange {
                     left_flank: range.start().to_string(),
                     right_flank: match range.end() {

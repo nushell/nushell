@@ -153,7 +153,7 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::Range(start, step, end, inclusion) => {
+                    Expr::Range(start, end, inclusion) => {
                         // TODO: Add support for floats
 
                         let start = if let Some(start) = &start {
@@ -174,17 +174,6 @@ impl Matcher for Pattern {
                             i64::MAX
                         };
 
-                        let step = if let Some(step) = step {
-                            match &step.expr {
-                                Expr::Int(step) => *step - start,
-                                _ => return false,
-                            }
-                        } else if end < start {
-                            -1
-                        } else {
-                            1
-                        };
-
                         let (start, end) = if end < start {
                             (end, start)
                         } else {
@@ -193,9 +182,9 @@ impl Matcher for Pattern {
 
                         if let Value::Int { val, .. } = &value {
                             if matches!(inclusion.inclusion, RangeInclusion::RightExclusive) {
-                                *val >= start && *val < end && ((*val - start) % step) == 0
+                                *val >= start && *val < end
                             } else {
-                                *val >= start && *val <= end && ((*val - start) % step) == 0
+                                *val >= start && *val <= end
                             }
                         } else {
                             false
