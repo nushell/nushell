@@ -52,14 +52,16 @@ impl Command for LoadEnv {
             },
         };
 
-        for (env_var, rhs) in record {
-            let env_var_ = env_var.as_str();
-            if ["FILE_PWD", "CURRENT_FILE", "PWD"].contains(&env_var_) {
+        for prohibited in ["FILE_PWD", "CURRENT_FILE", "PWD"] {
+            if record.contains(prohibited) {
                 return Err(ShellError::AutomaticEnvVarSetManually {
-                    envvar_name: env_var,
+                    envvar_name: prohibited.to_string(),
                     span: call.head,
                 });
             }
+        }
+
+        for (env_var, rhs) in record {
             stack.add_env_var(env_var, rhs);
         }
         Ok(PipelineData::empty())
