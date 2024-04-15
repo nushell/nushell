@@ -154,7 +154,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.to_debug_string(),
+                msg: value.to_abbreviated_string(&nu_protocol::Config::default()),
                 span: head_span,
             },
             head_span,
@@ -175,7 +175,7 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.to_debug_string(),
+                msg: value.to_abbreviated_string(&nu_protocol::Config::default()),
                 span,
             },
             span,

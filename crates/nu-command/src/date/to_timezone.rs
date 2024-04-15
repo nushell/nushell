@@ -116,7 +116,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
         }
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: value.to_debug_string(),
+                msg: value.to_abbreviated_string(&nu_protocol::Config::default()),
                 span: head,
             },
             head,

@@ -112,7 +112,7 @@ fn helper(val: Value, head: Span) -> Value {
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
             ShellError::DatetimeParseError {
-                msg: val.to_debug_string(),
+                msg: val.to_abbreviated_string(&nu_protocol::Config::default()),
                 span: head,
             },
             head,
