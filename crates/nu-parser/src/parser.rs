@@ -5176,13 +5176,12 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
             let mut env_vars = vec![];
             for sh in shorthand {
-                env_vars.push(sh.0);
-                env_vars.push(sh.1);
+                env_vars.push(RecordItem::Pair(sh.0, sh.1));
             }
 
             let arguments = vec![
                 Argument::Positional(Expression {
-                    expr: Expr::List(env_vars),
+                    expr: Expr::Record(env_vars),
                     span: span(&spans[..pos]),
                     ty: Type::Any,
                     custom_completion: None,
