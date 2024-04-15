@@ -267,8 +267,8 @@ mod tests {
         let word = Value::test_string("Cargo.Cargo");
         let range = Range::new(
             Value::int(1, Span::test_data()),
-            Value::nothing(Span::test_data()),
             RangeInclusion::Inclusive,
+            Value::nothing(Span::test_data()),
         )
         .expect("valid range");
 
@@ -295,8 +295,8 @@ mod tests {
         let word = Value::test_string("Cargo.Banana");
         let range = Range::new(
             Value::nothing(Span::test_data()),
-            Value::int(5, Span::test_data()),
             RangeInclusion::Inclusive,
+            Value::int(5, Span::test_data()),
         )
         .expect("valid range");
 
@@ -323,8 +323,8 @@ mod tests {
         let word = Value::test_string("123123123");
         let range = Range::new(
             Value::int(2, Span::test_data()),
-            Value::int(6, Span::test_data()),
             RangeInclusion::Inclusive,
+            Value::int(6, Span::test_data()),
         )
         .expect("valid range");
 
@@ -351,8 +351,8 @@ mod tests {
         let word = Value::test_string("123456");
         let range = Range::new(
             Value::int(2, Span::test_data()),
-            Value::int(5, Span::test_data()),
             RangeInclusion::RightExclusive,
+            Value::int(5, Span::test_data()),
         )
         .expect("valid range");
 
@@ -396,8 +396,8 @@ mod tests {
 
         let range = Range::new(
             Value::int(0, Span::test_data()),
-            Value::int(3, Span::test_data()),
             RangeInclusion::Inclusive,
+            Value::int(3, Span::test_data()),
         )
         .expect("valid range");
 
@@ -425,8 +425,8 @@ mod tests {
 
         let range = Range::new(
             Value::int(-1, Span::test_data()),
-            Value::int(3, Span::test_data()),
             RangeInclusion::Inclusive,
+            Value::int(3, Span::test_data()),
         )
         .expect("valid range");
 

@@ -153,7 +153,7 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::Range(start, end, inclusion) => {
+                    Expr::Range(start, op, end) => {
                         // TODO: Add support for floats
 
                         let start = if let Some(start) = &start {
@@ -181,7 +181,7 @@ impl Matcher for Pattern {
                         };
 
                         if let Value::Int { val, .. } = &value {
-                            if matches!(inclusion.inclusion, RangeInclusion::RightExclusive) {
+                            if matches!(op.inclusion, RangeInclusion::RightExclusive) {
                                 *val >= start && *val < end
                             } else {
                                 *val >= start && *val <= end

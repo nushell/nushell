@@ -18,8 +18,8 @@ pub enum Expr {
     Binary(Vec<u8>),
     Range(
         Option<Box<Expression>>, // from
-        Option<Box<Expression>>, // to
         RangeOperator,
+        Option<Box<Expression>>, // to
     ),
     Var(VarId),
     VarDecl(VarId),

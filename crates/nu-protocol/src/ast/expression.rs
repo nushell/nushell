@@ -230,7 +230,7 @@ impl Expression {
             }
             Expr::Operator(_) => false,
             Expr::MatchBlock(_) => false,
-            Expr::Range(left, right, ..) => {
+            Expr::Range(left, _, right) => {
                 if let Some(left) = &left {
                     if left.has_in_variable(working_set) {
                         return true;
@@ -394,7 +394,7 @@ impl Expression {
                 }
             }
             Expr::Operator(_) => {}
-            Expr::Range(left, right, ..) => {
+            Expr::Range(left, _, right) => {
                 if let Some(left) = left {
                     left.replace_span(working_set, replaced, new_span)
                 }

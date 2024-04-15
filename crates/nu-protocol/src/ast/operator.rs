@@ -109,7 +109,7 @@ impl Display for Operator {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RangeInclusion {
     Inclusive,
     RightExclusive,
@@ -119,7 +119,6 @@ pub enum RangeInclusion {
 pub struct RangeOperator {
     pub inclusion: RangeInclusion,
     pub span: Span,
-    pub next_op_span: Span,
 }
 
 impl Display for RangeOperator {

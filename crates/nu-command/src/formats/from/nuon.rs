@@ -272,7 +272,7 @@ fn convert_to_value(
             msg: "operators not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Range(from, to, operator) => {
+        Expr::Range(from, op, to) => {
             let from = if let Some(f) = from {
                 convert_to_value(*f, span, original_text)?
             } else {
@@ -285,10 +285,7 @@ fn convert_to_value(
                 Value::nothing(expr.span)
             };
 
-            Ok(Value::range(
-                Range::new(from, to, operator.inclusion)?,
-                expr.span,
-            ))
+            Ok(Value::range(Range::new(from, op.inclusion, to)?, expr.span))
         }
         Expr::Record(key_vals) => {
             let mut record = Record::with_capacity(key_vals.len());

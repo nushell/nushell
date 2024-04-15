@@ -105,7 +105,6 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     working_set.parse_errors.truncate(starting_error_count);
 
     parse_range(working_set, span);
-
     if working_set.parse_errors.len() == starting_error_count {
         return true;
     }
@@ -1446,136 +1445,79 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
     trace!("parsing: range");
 
     // Range follows the following syntax: [<from>]<range_operator>[<to>]
-    //   where <range_operator> is "..", "..=" or "..<"
-    //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
-    //     looks like parent directory)
-    //bugbug range cannot be [..] because that looks like parent directory
+    //   where <range_operator> is "..", "..=", or "..<"
+    //   and one of the <from> or <to> bounds must be present
+    //   (just '..' is not allowed since it looks like parent directory)
 
-    let contents = working_set.get_span_contents(span);
+    // TODO: current parser structure cannot handle multiple ranges in the same token:
+    // 0..(1.. | first)
 
-    let token = if let Ok(s) = String::from_utf8(contents.into()) {
-        s
-    } else {
+    let Ok(token) = std::str::from_utf8(working_set.get_span_contents(span)) else {
         working_set.error(ParseError::NonUtf8(span));
         return garbage(span);
     };
 
-    if !token.contains("..") {
+    let Some((left, right)) = token.split_once("..") else {
+        working_set.error(ParseError::Expected(
+            "one range operator ('..', '..=', or '..<')",
+            span,
+        ));
+        return garbage(span);
+    };
+
+    let op_start = token
+        .match_indices("..")
+        .next()
+        .expect("one '..' already found")
+        .0;
+
+    let (inclusion, op_str, right) = match right.as_bytes().first() {
+        Some(b'<') => (
+            RangeInclusion::RightExclusive,
+            "..<",
+            right.trim_start_matches('<'),
+        ),
+        Some(b'=') => (
+            RangeInclusion::Inclusive,
+            "..=",
+            right.trim_start_matches('='),
+        ),
+        _ => (RangeInclusion::Inclusive, "..", right),
+    };
+
+    let op_span = Span::new(span.start + op_start, span.start + op_start + op_str.len());
+
+    let from_span = if left.is_empty() {
+        // token starts with a range operator
+        None
+    } else {
+        Some(Span::new(span.start, span.start + left.len()))
+    };
+
+    let to_span = if right.is_empty() {
+        // token ends with a range operator
+        None
+    } else {
+        Some(Span::new(op_span.end, op_span.end + right.len()))
+    };
+
+    if from_span.is_none() && to_span.is_none() {
         working_set.error(ParseError::Expected("at least one range bound set", span));
         return garbage(span);
     }
 
-    // First, figure out what exact operators are used and determine their positions
-    let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
-
-    let (next_op_pos, range_op_pos) = match dotdot_pos.len() {
-        1 => (None, dotdot_pos[0]),
-        2 => (Some(dotdot_pos[0]), dotdot_pos[1]),
-        _ => {
-            working_set.error(ParseError::Expected(
-                "one range operator ('..' or '..<') and optionally one next operator ('..')",
-                span,
-            ));
-            return garbage(span);
-        }
-    };
-    // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
-    // No need to call the expensive parse_value on "((((1"
-    if dotdot_pos[0] > 0 {
-        let (_tokens, err) = lex(
-            &contents[..dotdot_pos[0]],
-            span.start,
-            &[],
-            &[b'.', b'?'],
-            true,
-        );
-        if let Some(_err) = err {
-            working_set.error(ParseError::Expected("Valid expression before ..", span));
-            return garbage(span);
-        }
-    }
-
-    let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
-        if pos == range_op_pos {
-            let op_str = "..<";
-            let op_span = Span::new(
-                span.start + range_op_pos,
-                span.start + range_op_pos + op_str.len(),
-            );
-            (RangeInclusion::RightExclusive, "..<", op_span)
-        } else {
-            working_set.error(ParseError::Expected(
-                "inclusive operator preceding second range bound",
-                span,
-            ));
-            return garbage(span);
-        }
-    } else {
-        let op_str = if token.contains("..=") { "..=" } else { ".." };
-        let op_span = Span::new(
-            span.start + range_op_pos,
-            span.start + range_op_pos + op_str.len(),
-        );
-        (RangeInclusion::Inclusive, op_str, op_span)
-    };
-
-    // Now, based on the operator positions, figure out where the bounds & next are located and
-    // parse them
-    // TODO: Actually parse the next number in the range
-    let from = if token.starts_with("..") {
-        // token starts with either next operator, or range operator -- we don't care which one
-        None
-    } else {
-        let from_span = Span::new(span.start, span.start + dotdot_pos[0]);
-        Some(Box::new(parse_value(
-            working_set,
-            from_span,
-            &SyntaxShape::Number,
-        )))
-    };
-
-    let to = if token.ends_with(range_op_str) {
-        None
-    } else {
-        let to_span = Span::new(range_op_span.end, span.end);
-        Some(Box::new(parse_value(
-            working_set,
-            to_span,
-            &SyntaxShape::Number,
-        )))
-    };
+    let from = from_span.map(|span| Box::new(parse_value(working_set, span, &SyntaxShape::Number)));
+    let to = to_span.map(|span| Box::new(parse_value(working_set, span, &SyntaxShape::Number)));
 
     trace!("-- from: {:?} to: {:?}", from, to);
 
-    if let (None, None) = (&from, &to) {
-        working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(span);
-    }
-
-    let (next, next_op_span) = if let Some(pos) = next_op_pos {
-        let next_op_span = Span::new(span.start + pos, span.start + pos + "..".len());
-        let next_span = Span::new(next_op_span.end, range_op_span.start);
-
-        (
-            Some(Box::new(parse_value(
-                working_set,
-                next_span,
-                &SyntaxShape::Number,
-            ))),
-            next_op_span,
-        )
-    } else {
-        (None, span)
-    };
-
-    let range_op = RangeOperator {
+    let op = RangeOperator {
         inclusion,
-        span: range_op_span,
-        next_op_span,
+        span: op_span,
     };
 
     Expression {
-        expr: Expr::Range(from, to, range_op),
+        expr: Expr::Range(from, op, to),
         span,
         ty: Type::Range,
         custom_completion: None,
@@ -5990,7 +5932,7 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::Operator(_) => {}
-        Expr::Range(from, to, _) => {
+        Expr::Range(from, _, to) => {
             if let Some(expr) = from {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }

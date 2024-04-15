@@ -988,11 +988,11 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             Some(_),
-            Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
                 ..
             },
+            Some(_),
         ) = element.expr.expr
         {
             assert_eq!(
@@ -1041,11 +1041,11 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             Some(_),
-            Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
                 ..
             },
+            Some(_),
         ) = element.expr.expr
         {
             assert_eq!(
@@ -1081,11 +1081,11 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             Some(_),
-            None,
             RangeOperator {
                 inclusion: the_inclusion,
                 ..
             },
+            None,
         ) = element.expr.expr
         {
             assert_eq!(
@@ -1121,11 +1121,11 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             None,
-            Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
                 ..
             },
+            Some(_),
         ) = element.expr.expr
         {
             assert_eq!(
@@ -1161,11 +1161,11 @@ mod range {
         assert!(element.redirection.is_none());
         if let Expr::Range(
             Some(_),
-            Some(_),
             RangeOperator {
                 inclusion: the_inclusion,
                 ..
             },
+            Some(_),
         ) = element.expr.expr
         {
             assert_eq!(

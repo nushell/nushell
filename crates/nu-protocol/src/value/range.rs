@@ -27,8 +27,8 @@ mod int_range {
     impl IntRange {
         pub fn new(
             start: Value,
-            end: Value,
             inclusion: RangeInclusion,
+            end: Value,
         ) -> Result<Self, ShellError> {
             fn to_int(value: Value) -> Result<Option<i64>, ShellError> {
                 match value {
@@ -218,8 +218,8 @@ mod float_range {
     impl FloatRange {
         pub fn new(
             start: Value,
-            end: Value,
             inclusion: RangeInclusion,
+            end: Value,
         ) -> Result<Self, ShellError> {
             fn to_float(value: Value) -> Result<Option<f64>, ShellError> {
                 match value {
@@ -451,12 +451,12 @@ pub enum Range {
 }
 
 impl Range {
-    pub fn new(start: Value, end: Value, inclusion: RangeInclusion) -> Result<Self, ShellError> {
+    pub fn new(start: Value, inclusion: RangeInclusion, end: Value) -> Result<Self, ShellError> {
         // promote to float range if any Value is float
         if matches!(start, Value::Float { .. }) || matches!(end, Value::Float { .. }) {
-            FloatRange::new(start, end, inclusion).map(Self::FloatRange)
+            FloatRange::new(start, inclusion, end).map(Self::FloatRange)
         } else {
-            IntRange::new(start, end, inclusion).map(Self::IntRange)
+            IntRange::new(start, inclusion, end).map(Self::IntRange)
         }
     }
 
