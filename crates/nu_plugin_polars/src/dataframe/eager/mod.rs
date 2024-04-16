@@ -10,7 +10,6 @@ mod filter_with;
 mod first;
 mod get;
 mod last;
-mod list;
 mod melt;
 mod open;
 mod query_df;
@@ -47,7 +46,6 @@ pub use filter_with::FilterWith;
 pub use first::FirstDF;
 pub use get::GetDF;
 pub use last::LastDF;
-pub use list::ListDF;
 pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
@@ -85,7 +83,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(Summary),
         Box::new(FirstDF),
         Box::new(LastDF),
-        Box::new(ListDF),
         Box::new(RenameDF),
         Box::new(SampleDF),
         Box::new(ShapeDF),

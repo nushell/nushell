@@ -1,10 +1,12 @@
+mod list;
 use std::{
     collections::HashMap,
     sync::{Mutex, MutexGuard},
 };
 
 use chrono::{DateTime, FixedOffset, Local};
-use nu_plugin::EngineInterface;
+pub use list::ListDF;
+use nu_plugin::{EngineInterface, PluginCommand};
 use nu_protocol::{LabeledError, ShellError, Span};
 use uuid::Uuid;
 
@@ -140,4 +142,8 @@ pub trait Cacheable: Sized + Clone {
             Ok(None)
         }
     }
+}
+
+pub(crate) fn cache_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
+    vec![Box::new(ListDF)]
 }

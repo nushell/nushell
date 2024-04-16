@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 
+use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
@@ -40,6 +41,7 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut lazy_commands());
         commands.append(&mut expr_commands());
         commands.append(&mut series_commands());
+        commands.append(&mut cache_commands());
         commands
     }
 
