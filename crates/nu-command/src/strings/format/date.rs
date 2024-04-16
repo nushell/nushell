@@ -153,9 +153,11 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
             }
         }
         _ => Value::error(
-            ShellError::DatetimeParseError {
-                msg: value.to_abbreviated_string(&nu_protocol::Config::default()),
-                span: head_span,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime)".into(),
+                wrong_type: value.get_type().to_string(),
+                dst_span: head_span,
+                src_span: value.span(),
             },
             head_span,
         ),
@@ -174,9 +176,11 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             }
         }
         _ => Value::error(
-            ShellError::DatetimeParseError {
-                msg: value.to_abbreviated_string(&nu_protocol::Config::default()),
-                span,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime)".into(),
+                wrong_type: value.get_type().to_string(),
+                dst_span: span,
+                src_span: val_span,
             },
             span,
         ),
