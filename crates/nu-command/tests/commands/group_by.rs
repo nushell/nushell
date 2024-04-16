@@ -53,9 +53,7 @@ fn errors_if_given_unknown_column_name() {
             "#
     )));
 
-    assert!(actual
-        .err
-        .contains("requires a table with one value for grouping"));
+    assert!(actual.err.contains("can't convert list<string> to string"));
 }
 
 #[test]
