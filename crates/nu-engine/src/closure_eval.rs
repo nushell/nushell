@@ -1,6 +1,9 @@
-use crate::{get_eval_block_with_early_return, EvalBlockWithEarlyReturnFn};
+use crate::{
+    eval_block_with_early_return, get_eval_block_with_early_return, EvalBlockWithEarlyReturnFn,
+};
 use nu_protocol::{
     ast::Block,
+    debugger::{WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvVars, Stack},
     IntoPipelineData, PipelineData, ShellError, Value,
 };
@@ -9,6 +12,14 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+
+fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
+    if debug {
+        eval_block_with_early_return::<WithDebug>
+    } else {
+        eval_block_with_early_return::<WithoutDebug>
+    }
+}
 
 /// [`ClosureEval`] is used to repeatedly evaluate a closure with different values/inputs.
 ///
@@ -75,6 +86,14 @@ impl ClosureEval {
             env_hidden,
             eval,
         }
+    }
+
+    /// Sets whether to enable debugging when evaluating the closure.
+    ///
+    /// By default, this is controlled by the [`EngineState`] used to create this [`ClosureEval`].
+    pub fn debug(&mut self, debug: bool) -> &mut Self {
+        self.eval = eval_fn(debug);
+        self
     }
 
     fn try_add_arg(&mut self, value: Cow<Value>) {
@@ -153,18 +172,29 @@ pub struct ClosureEvalOnce<'a> {
     stack: Stack,
     block: &'a Block,
     arg_index: usize,
+    eval: EvalBlockWithEarlyReturnFn,
 }
 
 impl<'a> ClosureEvalOnce<'a> {
     /// Create a new [`ClosureEvalOnce`].
     pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
         let block = engine_state.get_block(closure.block_id);
+        let eval = get_eval_block_with_early_return(engine_state);
         Self {
             engine_state,
             stack: stack.captures_to_stack(closure.captures),
             block,
             arg_index: 0,
+            eval,
         }
+    }
+
+    /// Sets whether to enable debugging when evaluating the closure.
+    ///
+    /// By default, this is controlled by the [`EngineState`] used to create this [`ClosureEvalOnce`].
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.eval = eval_fn(debug);
+        self
     }
 
     fn try_add_arg(&mut self, value: Cow<Value>) {
@@ -192,8 +222,7 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        let eval = get_eval_block_with_early_return(self.engine_state);
-        eval(self.engine_state, &mut self.stack, self.block, input)
+        (self.eval)(self.engine_state, &mut self.stack, self.block, input)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.

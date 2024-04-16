@@ -57,6 +57,7 @@ impl<'a> StyleComputer<'a> {
             // Closures are run here.
             Some(ComputableStyle::Closure(closure, span)) => {
                 let result = ClosureEvalOnce::new(self.engine_state, self.stack, closure.clone())
+                    .debug(false)
                     .run_with_value(value.clone());
 
                 match result {

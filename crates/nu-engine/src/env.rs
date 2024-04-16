@@ -377,6 +377,7 @@ fn get_converted_value(
     if let Some(conversion) = conversion {
         match conversion.as_closure() {
             Ok(closure) => ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                .debug(false)
                 .run_with_value(orig_val.clone())
                 .map(|data| ConversionResult::Ok(data.into_value(orig_val.span())))
                 .unwrap_or_else(ConversionResult::ConversionError),
