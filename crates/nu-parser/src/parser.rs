@@ -148,7 +148,12 @@ pub fn trim_quotes_str(s: &str) -> &str {
     }
 }
 
-pub fn check_call(working_set: &mut StateWorkingSet, command: Span, sig: &Signature, call: &Call) {
+pub(crate) fn check_call(
+    working_set: &mut StateWorkingSet,
+    command: Span,
+    sig: &Signature,
+    call: &Call,
+) {
     // Allow the call to pass if they pass in the help flag
     if call.named_iter().any(|(n, _, _)| n.item == "help") {
         return;
