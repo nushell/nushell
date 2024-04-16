@@ -111,9 +111,11 @@ fn helper(val: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
-            ShellError::DatetimeParseError {
-                msg: val.to_debug_string(),
-                span: head,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime), or nothing".into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: head,
+                src_span: val_span,
             },
             head,
         ),

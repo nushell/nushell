@@ -115,9 +115,11 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
         _ => Value::error(
-            ShellError::DatetimeParseError {
-                msg: value.to_debug_string(),
-                span: head,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime), or nothing".into(),
+                wrong_type: value.get_type().to_string(),
+                dst_span: head,
+                src_span: val_span,
             },
             head,
         ),
