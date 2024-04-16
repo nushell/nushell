@@ -459,7 +459,7 @@ pub fn parse_def(
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => working_set.parse_errors.push(ParseError::Expected(
+                    _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
                         arg.span,
                     )),
@@ -2957,7 +2957,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error)
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -3221,7 +3221,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error);
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
