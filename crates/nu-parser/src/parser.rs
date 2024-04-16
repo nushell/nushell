@@ -310,7 +310,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
 
     let head = if head_contents.starts_with(b"$`") {
         // the expresison is bareword interpolation, just parse as is.
-        let arg = parse_string_interpolation(working_set, head_span);
+        let arg = parse_interpolation(working_set, head_span);
         Box::new(arg)
     } else if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
         // the expression is inside external_call, so it's a subexpression
@@ -1597,7 +1597,7 @@ pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") || contents.starts_with(b"$`") {
-        parse_string_interpolation(working_set, span)
+        parse_interpolation(working_set, span)
     } else if contents.starts_with(b"$.") {
         parse_simple_cell_path(working_set, Span::new(span.start + 2, span.end))
     } else {
@@ -1708,7 +1708,11 @@ pub fn parse_brace_expr(
     }
 }
 
-pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+/// Parse interpolation, which is starts with the following:
+/// $": string interpolation with double quote
+/// $': string interpolation with single quote
+/// $`: bareword quoted interpolation
+pub fn parse_interpolation(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     #[derive(PartialEq, Eq, Debug)]
     enum InterpolationMode {
         String,
@@ -2702,7 +2706,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     // Check for bare word interpolation
     if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
-        return parse_string_interpolation(working_set, span);
+        return parse_interpolation(working_set, span);
     }
 
     let (s, err) = unescape_unquote_string(bytes, span);
