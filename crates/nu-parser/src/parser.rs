@@ -66,6 +66,11 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
 
     let b = bytes[0];
 
+    // should not startswith $`
+    if bytes.starts_with(b"$`") {
+        return false;
+    }
+
     if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
         return true;
     }
@@ -303,7 +308,11 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
 
     let head_contents = working_set.get_span_contents(head_span).to_vec();
 
-    let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
+    let head = if head_contents.starts_with(b"$`") {
+        // the expresison is bareword interpolation, just parse as is.
+        let arg = parse_string_interpolation(working_set, head_span);
+        Box::new(arg)
+    } else if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
         // the expression is inside external_call, so it's a subexpression
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
@@ -1587,7 +1596,7 @@ pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -
     trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
+    if contents.starts_with(b"$\"") || contents.starts_with(b"$'") || contents.starts_with(b"$`") {
         parse_string_interpolation(working_set, span)
     } else if contents.starts_with(b"$.") {
         parse_simple_cell_path(working_set, Span::new(span.start + 2, span.end))
@@ -1710,6 +1719,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
     let mut double_quote = false;
 
+    let mut is_string = true;
     let (start, end) = if contents.starts_with(b"$\"") {
         double_quote = true;
         let end = if contents.ends_with(b"\"") && contents.len() > 2 {
@@ -1724,6 +1734,14 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         } else {
             span.end
         };
+        (span.start + 2, end)
+    } else if contents.starts_with(b"$`") {
+        let end = if contents.ends_with(b"`") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        is_string = false;
         (span.start + 2, end)
     } else {
         (span.start, span.end)
@@ -1859,7 +1877,11 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
     }
 
     Expression {
-        expr: Expr::StringInterpolation(output),
+        expr: if is_string {
+            Expr::StringInterpolation(output)
+        } else {
+            Expr::BarewordInterpolation(output)
+        },
         span,
         ty: Type::String,
         custom_completion: None,
@@ -6053,7 +6075,7 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::String(_) => {}
-        Expr::StringInterpolation(exprs) => {
+        Expr::StringInterpolation(exprs) | Expr::BarewordInterpolation(exprs) => {
             for expr in exprs {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }

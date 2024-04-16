@@ -121,6 +121,12 @@ pub fn get_rest_for_glob_pattern(
                         // should not expand if given input type is not glob.
                         Ok(Value::glob(val, expr.ty != Type::Glob, span))
                     }
+                    Value::String { val, .. }
+                        if matches!(&expr.expr, Expr::BarewordInterpolation(_)) =>
+                    {
+                        // Always expand glob because input is a bareword.
+                        Ok(Value::glob(val, false, span))
+                    }
                     other => Ok(other),
                 }
             }

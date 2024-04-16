@@ -50,6 +50,7 @@ pub enum Expr {
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
+    BarewordInterpolation(Vec<Expression>),
     Spread(Box<Expression>),
     Nothing,
     Garbage,
@@ -86,6 +87,7 @@ impl Expr {
             | Expr::String(_)
             | Expr::CellPath(_)
             | Expr::StringInterpolation(_)
+            | Expr::BarewordInterpolation(_)
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // so we can discard the previous output by redirecting it to `Null`.

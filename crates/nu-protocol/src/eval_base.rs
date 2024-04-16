@@ -271,7 +271,7 @@ pub trait Eval {
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
-            Expr::StringInterpolation(exprs) => {
+            Expr::StringInterpolation(exprs) | Expr::BarewordInterpolation(exprs) => {
                 let mut parts = vec![];
                 for expr in exprs {
                     parts.push(Self::eval::<D>(state, mut_state, expr)?);

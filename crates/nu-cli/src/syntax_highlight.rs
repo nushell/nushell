@@ -461,7 +461,7 @@ fn find_matching_block_end_in_expr(
                 }
             }
 
-            Expr::StringInterpolation(inner_expr) => {
+            Expr::StringInterpolation(inner_expr) | Expr::BarewordInterpolation(inner_expr) => {
                 for inner_expr in inner_expr {
                     find_in_expr_or_continue!(inner_expr);
                 }

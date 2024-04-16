@@ -398,7 +398,7 @@ pub fn flatten_expression(
             }
             output
         }
-        Expr::StringInterpolation(exprs) => {
+        Expr::StringInterpolation(exprs) | Expr::BarewordInterpolation(exprs) => {
             let mut output = vec![];
             for expr in exprs {
                 output.extend(flatten_expression(working_set, expr));

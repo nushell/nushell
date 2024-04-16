@@ -301,6 +301,11 @@ fn string_interpolation_escaping() -> TestResult {
 }
 
 #[test]
+fn bareword_interpolation() -> TestResult {
+    run_test(r#"let x = 3; nu --testbin cococo $`($x)/bin`"#, "3/bin")
+}
+
+#[test]
 fn capture_multiple_commands() -> TestResult {
     run_test(
         r#"

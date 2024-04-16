@@ -364,6 +364,12 @@ fn convert_to_value(
             msg: "string interpolation not supported in nuon".into(),
             span: expr.span,
         }),
+        Expr::BarewordInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "bare word interpolation not supported in nuon".into(),
+            span: expr.span,
+        }),
         Expr::Subexpression(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

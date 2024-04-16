@@ -759,3 +759,18 @@ fn list_with_multiple_path() {
         assert_eq!(actual.out, "0");
     })
 }
+
+#[test]
+fn list_with_bareword_interpolation() {
+    Playground::setup("ls_with_bareword_interpolation", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+
+        let actual =
+            nu!(cwd: dirs.test(), format!("ls `{}/*.txt` | length", dirs.test().to_string_lossy()));
+        assert!(actual.out.contains("3"));
+    })
+}

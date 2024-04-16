@@ -256,6 +256,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Spread(_) => "spread".to_string(),
         Expr::String(_) => "string".to_string(),
         Expr::StringInterpolation(_) => "string interpolation".to_string(),
+        Expr::BarewordInterpolation(_) => "bareword interpolation".to_string(),
         Expr::Subexpression(_) => "subexpression".to_string(),
         Expr::Table(_, _) => "table".to_string(),
         Expr::UnaryNot(_) => "unary not".to_string(),
