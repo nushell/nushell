@@ -3907,6 +3907,29 @@ pub fn parse_list_expression(
     }
 }
 
+fn parse_table_row(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> Result<(Vec<Expression>, Span), Span> {
+    let list = parse_list_expression(working_set, span, &SyntaxShape::Any);
+    let Expression {
+        expr: Expr::List(list),
+        span,
+        ..
+    } = list
+    else {
+        unreachable!("the item must be a list")
+    };
+
+    list.into_iter()
+        .map(|item| match item {
+            ListItem::Item(expr) => Ok(expr),
+            ListItem::Spread(_, spread) => Err(spread.span),
+        })
+        .collect::<Result<_, _>>()
+        .map(|exprs| (exprs, span))
+}
+
 fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let inner_span = {
@@ -3944,36 +3967,20 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-    let list = parse_list_expression(working_set, first.span, &SyntaxShape::Any);
-    let head = {
-        let Expression {
-            expr: Expr::List(list),
-            ..
-        } = list
-        else {
-            unreachable!("head must be a list by now")
-        };
-
-        list.into_iter()
-            .map(|item| match item {
-                ListItem::Item(expr) => Ok(expr),
-                ListItem::Spread(_, spread) => Err(spread.span),
-            })
-            .collect::<Result<Vec<_>, _>>()
-    };
+    let head = parse_table_row(working_set, first.span);
 
     let errors = working_set.parse_errors.len();
 
     let (head, rows) = match head {
-        Ok(head) => {
+        Ok((head, _)) => {
             let rows = rest
                 .iter()
                 .fold(Vec::with_capacity(rest.len()), |mut acc, it| {
                     use std::cmp::Ordering;
-                    let text = working_set.get_span_contents(it.span).to_vec();
-                    match text.as_slice() {
+
+                    match working_set.get_span_contents(it.span) {
                         b"," => acc,
-                        _ if !&text.starts_with(b"[") => {
+                        text if !text.starts_with(b"[") => {
                             let err = ParseError::LabeledErrorWithHelp {
                                 error: String::from("Table item not list"),
                                 label: String::from("not a list"),
@@ -3984,27 +3991,8 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
                             acc
                         }
                         _ => {
-                            let list =
-                                parse_list_expression(working_set, it.span, &SyntaxShape::Any);
-                            let Expression {
-                                expr: Expr::List(list),
-                                span,
-                                ..
-                            } = list
-                            else {
-                                unreachable!("the item must be a list")
-                            };
-
-                            let list = list
-                                .into_iter()
-                                .map(|item| match item {
-                                    ListItem::Item(expr) => Ok(expr),
-                                    ListItem::Spread(_, spread) => Err(spread.span),
-                                })
-                                .collect::<Result<Vec<_>, _>>();
-
-                            match list {
-                                Ok(list) => {
+                            match parse_table_row(working_set, it.span) {
+                                Ok((list, span)) => {
                                     match list.len().cmp(&head.len()) {
                                         Ordering::Less => {
                                             let err = ParseError::MissingColumns(head.len(), span);
