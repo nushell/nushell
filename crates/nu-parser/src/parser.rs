@@ -3975,11 +3975,11 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         Ok((head, _)) => {
             let rows = rest
                 .iter()
-                .fold(Vec::with_capacity(rest.len()), |mut acc, it| {
+                .filter_map(|it| {
                     use std::cmp::Ordering;
 
                     match working_set.get_span_contents(it.span) {
-                        b"," => acc,
+                        b"," => None,
                         text if !text.starts_with(b"[") => {
                             let err = ParseError::LabeledErrorWithHelp {
                                 error: String::from("Table item not list"),
@@ -3988,44 +3988,42 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
                                 help: String::from("All table items must be lists"),
                             };
                             working_set.error(err);
-                            acc
+                            None
                         }
-                        _ => {
-                            match parse_table_row(working_set, it.span) {
-                                Ok((list, span)) => {
-                                    match list.len().cmp(&head.len()) {
-                                        Ordering::Less => {
-                                            let err = ParseError::MissingColumns(head.len(), span);
-                                            working_set.error(err);
-                                        }
-                                        Ordering::Greater => {
-                                            let span = {
-                                                let start = list[head.len()].span.start;
-                                                let end = span.end;
-                                                Span::new(start, end)
-                                            };
-                                            let err = ParseError::ExtraColumns(head.len(), span);
-                                            working_set.error(err);
-                                        }
-                                        Ordering::Equal => {}
+                        _ => match parse_table_row(working_set, it.span) {
+                            Ok((list, span)) => {
+                                match list.len().cmp(&head.len()) {
+                                    Ordering::Less => {
+                                        let err = ParseError::MissingColumns(head.len(), span);
+                                        working_set.error(err);
                                     }
-
-                                    acc.push(list);
+                                    Ordering::Greater => {
+                                        let span = {
+                                            let start = list[head.len()].span.start;
+                                            let end = span.end;
+                                            Span::new(start, end)
+                                        };
+                                        let err = ParseError::ExtraColumns(head.len(), span);
+                                        working_set.error(err);
+                                    }
+                                    Ordering::Equal => {}
                                 }
-                                Err(span) => {
-                                    let err = ParseError::LabeledError(
-                                        String::from("Cannot spread in a table row"),
-                                        String::from("invalid spread here"),
-                                        span,
-                                    );
-                                    working_set.error(err);
-                                }
+                                Some(list)
                             }
-
-                            acc
-                        }
+                            Err(span) => {
+                                let err = ParseError::LabeledError(
+                                    String::from("Cannot spread in a table row"),
+                                    String::from("invalid spread here"),
+                                    span,
+                                );
+                                working_set.error(err);
+                                None
+                            }
+                        },
                     }
-                });
+                })
+                .collect();
+
             (head, rows)
         }
         Err(span) => {
