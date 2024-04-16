@@ -302,7 +302,12 @@ fn string_interpolation_escaping() -> TestResult {
 
 #[test]
 fn bareword_interpolation() -> TestResult {
-    run_test(r#"let x = 3; nu --testbin cococo $`($x)/bin`"#, "3/bin")
+    run_test("let x = 3; nu --testbin cococo $`($x)/bin`", "3/bin")
+}
+
+#[test]
+fn bareword_interpolation_run_executable() -> TestResult {
+    fail_test("let x = 'asdf'; $`($x)`", "executable was not found")
 }
 
 #[test]

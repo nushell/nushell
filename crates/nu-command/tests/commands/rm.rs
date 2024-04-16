@@ -569,3 +569,44 @@ fn rm_with_tilde() {
         assert!(!files_exist_at(vec![Path::new("~tilde")], dirs.test()));
     })
 }
+
+#[test]
+fn removes_file_with_bareword_interpolation() {
+    Playground::setup("rm_with_bareword_interpolation", |dirs, sandbox| {
+        sandbox
+            .within("src")
+            .with_files(vec![
+                EmptyFile("cli.rs"),
+                EmptyFile("lib.rs"),
+                EmptyFile("prelude.rs"),
+            ])
+            .within("src/parser")
+            .with_files(vec![EmptyFile("parse.rs"), EmptyFile("parser.rs")])
+            .within("src/parser/parse")
+            .with_files(vec![EmptyFile("token_tree.rs")])
+            .within("src/parser/hir")
+            .with_files(vec![
+                EmptyFile("baseline_parse.rs"),
+                EmptyFile("baseline_parse_tokens.rs"),
+            ]);
+
+        nu!(
+            cwd: dirs.test(),
+            r#"let src = "src"; rm $`($src)/*/*/*.rs`"#
+        );
+
+        assert!(!files_exist_at(
+            vec![
+                "src/parser/parse/token_tree.rs",
+                "src/parser/hir/baseline_parse.rs",
+                "src/parser/hir/baseline_parse_tokens.rs"
+            ],
+            dirs.test()
+        ));
+
+        assert_eq!(
+            Playground::glob_vec(&format!("{}/src/*/*/*.rs", dirs.test().display())),
+            Vec::<std::path::PathBuf>::new()
+        );
+    })
+}

@@ -1258,3 +1258,50 @@ fn cp_with_cd() {
         assert!(actual.out.contains("body"));
     });
 }
+
+#[test]
+fn copies_using_a_bareword_interpolation_glob() {
+    copies_using_a_bareword_interpolation_glob_impl(false);
+    copies_using_a_bareword_interpolation_glob_impl(true);
+}
+
+fn copies_using_a_bareword_interpolation_glob_impl(progress: bool) {
+    Playground::setup("copies_using_a_bareword_interpolation", |dirs, _| {
+        let progress_flag = if progress { "-p" } else { "" };
+
+        // Get the hash of the file content to check integrity after copy.
+        let src_hashes = nu!(
+            cwd: dirs.formats(),
+            "for file in (ls *) { open --raw $file.name | to text | hash md5 }"
+        )
+        .out;
+
+        nu!(
+            cwd: dirs.formats(),
+            "cp {} -r $`./*` {}",
+            progress_flag,
+            dirs.test().display()
+        );
+
+        assert!(files_exist_at(
+            vec![
+                Path::new("caco3_plastics.csv"),
+                Path::new("cargo_sample.toml"),
+                Path::new("jt.xml"),
+                Path::new("sample.ini"),
+                Path::new("sgml_description.json"),
+                Path::new("utf16.ini"),
+            ],
+            dirs.test()
+        ));
+
+        // Check integrity after the copy is done
+        let dst_hashes = nu!(
+            cwd: dirs.formats(),
+            "for file in (ls {}) {{ open --raw $file.name | to text | hash md5 }}",
+            dirs.test().display()
+        )
+        .out;
+        assert_eq!(src_hashes, dst_hashes);
+    });
+}

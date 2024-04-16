@@ -687,3 +687,30 @@ fn mv_with_tilde() {
         assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
     })
 }
+
+#[test]
+fn mv_with_bareword_interpolation() {
+    Playground::setup("mv_with_bareword_interpolation", |dirs, sandbox| {
+        sandbox
+            .within("meals")
+            .with_files(vec![
+                EmptyFile("arepa.txt"),
+                EmptyFile("empanada.txt"),
+                EmptyFile("taquiza.txt"),
+            ])
+            .mkdir("work_dir")
+            .mkdir("expected");
+
+        let meal_dir = dirs.test().join("meals");
+        let work_dir = dirs.test().join("work_dir");
+        let expected = dirs.test().join("expected");
+
+        nu!(cwd: work_dir, "let src = 'meals'; mv $`../($src)/*` ../expected");
+
+        assert!(meal_dir.exists());
+        assert!(files_exist_at(
+            vec!["arepa.txt", "empanada.txt", "taquiza.txt",],
+            expected
+        ));
+    })
+}

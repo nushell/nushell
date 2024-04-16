@@ -395,3 +395,15 @@ fn open_files_inside_glob_metachars_dir() {
         assert!(actual.out.contains("hello"));
     });
 }
+
+#[test]
+fn open_with_bareword_interpolation() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        "
+            open $`./*.nu` | where $it =~ echo | length
+        "
+    ));
+
+    assert_eq!(actual.out, "3")
+}
