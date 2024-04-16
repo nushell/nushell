@@ -6,10 +6,7 @@ use nu_protocol::{
 use polars::prelude::NamedFrom;
 use polars::series::Series;
 
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -134,5 +131,5 @@ fn command(
         }),
     };
     let df = NuDataFrame::new(false, df?);
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }

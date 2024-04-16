@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -63,7 +63,8 @@ impl PluginCommand for ExprArgWhere {
         let value: Value = call.req(0)?;
         let expr = NuExpression::try_from_value(plugin, &value)?;
         let expr: NuExpression = arg_where(expr.to_polars()).into();
-        to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+        expr.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

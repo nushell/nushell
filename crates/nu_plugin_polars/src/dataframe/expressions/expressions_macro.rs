@@ -2,7 +2,7 @@
 /// All of these expressions have an identical body and only require
 /// to have a change in the name, description and expression function
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -51,7 +51,8 @@ macro_rules! expr_command {
                 let expr = NuExpression::try_from_pipeline(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
                 let expr: NuExpression = expr.to_polars().$func().into();
-                to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+                expr.to_pipeline_data(plugin, engine, call.head)
+                    .map_err(LabeledError::from)
             }
         }
 
@@ -95,7 +96,8 @@ macro_rules! expr_command {
                 let expr = NuExpression::try_from_pipeline(input, call.head)
                     .map_err(LabeledError::from)?;
                 let expr: NuExpression = expr.into_polars().$func($ddof).into();
-                to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+                expr.to_pipeline_data(plugin, engine, call.head)
+                    .map_err(LabeledError::from)
             }
         }
 
@@ -174,12 +176,14 @@ macro_rules! lazy_expr_command {
                             })
                             .map_err(LabeledError::from)?,
                     );
-                    to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+                    lazy.to_pipeline_data(plugin, engine, call.head)
+                        .map_err(LabeledError::from)
                 } else {
                     let expr =
                         NuExpression::try_from_value(plugin, &value).map_err(LabeledError::from)?;
                     let expr: NuExpression = expr.to_polars().$func().into();
-                    to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+                    expr.to_pipeline_data(plugin, engine, call.head)
+                        .map_err(LabeledError::from)
                 }
             }
         }
@@ -253,11 +257,13 @@ macro_rules! lazy_expr_command {
                             })
                             .map_err(LabeledError::from)?,
                     );
-                    to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+                    lazy.to_pipeline_data(plugin, engine, call.head)
+                        .map_err(LabeledError::from)
                 } else {
                     let expr = NuExpression::try_from_value(plugin, &value)?;
                     let expr: NuExpression = expr.to_polars().$func($ddof).into();
-                    to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+                    expr.to_pipeline_data(plugin, engine, call.head)
+                        .map_err(LabeledError::from)
                 }
             }
         }

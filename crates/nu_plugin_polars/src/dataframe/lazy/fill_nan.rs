@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -161,7 +158,7 @@ fn cmd_df(
         })
         .collect::<Vec<Column>>();
     let df = NuDataFrame::try_from_columns(dataframe, None)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn cmd_expr(
@@ -173,8 +170,7 @@ fn cmd_expr(
 ) -> Result<PipelineData, ShellError> {
     let fill = NuExpression::try_from_value(plugin, &fill)?.to_polars();
     let expr: NuExpression = expr.to_polars().fill_nan(fill).into();
-
-    to_pipeline_data(plugin, engine, call.head, expr)
+    expr.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

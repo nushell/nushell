@@ -1,4 +1,4 @@
-use crate::{dataframe::values::NuExpression, values::to_pipeline_data, PolarsPlugin};
+use crate::{dataframe::values::NuExpression, values::CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     record, Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type, Value,
@@ -54,7 +54,8 @@ impl PluginCommand for ExprCol {
     ) -> Result<PipelineData, LabeledError> {
         let name: String = call.req(0)?;
         let expr: NuExpression = col(name.as_str()).into();
-        to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+        expr.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

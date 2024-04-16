@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen},
-    values::{to_pipeline_data, CustomValueSupport, NuWhenType},
+    values::{CustomValueSupport, NuWhenType},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -128,7 +128,9 @@ impl PluginCommand for ExprWhen {
             },
         };
 
-        to_pipeline_data(plugin, engine, call.head, when_then).map_err(LabeledError::from)
+        when_then
+            .to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

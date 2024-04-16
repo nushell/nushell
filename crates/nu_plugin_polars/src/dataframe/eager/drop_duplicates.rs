@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
@@ -117,7 +117,7 @@ fn command(
         })?;
 
     let df = NuDataFrame::new(df.from_lazy, polars_df);
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

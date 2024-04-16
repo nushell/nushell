@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -244,7 +244,8 @@ impl PluginCommand for LazyJoin {
             .finish();
 
         let lazy = NuLazyFrame::new(from_eager, lazy);
-        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+        lazy.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

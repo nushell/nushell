@@ -1,8 +1,4 @@
-use crate::{
-    missing_flag_error,
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{missing_flag_error, values::CustomValueSupport, PolarsPlugin};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -195,7 +191,7 @@ fn command(
         }),
     }?;
 
-    to_pipeline_data(plugin, engine, call.head, res)
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

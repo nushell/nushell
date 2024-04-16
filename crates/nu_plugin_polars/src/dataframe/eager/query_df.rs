@@ -1,7 +1,7 @@
 use super::super::values::NuDataFrame;
 use crate::dataframe::values::Column;
 use crate::dataframe::{eager::SQLContext, values::NuLazyFrame};
-use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -92,7 +92,7 @@ fn command(
             inner: vec![],
         })?;
     let lazy = NuLazyFrame::new(!df.from_lazy, df_sql);
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
