@@ -1,5 +1,5 @@
 use crate::{
-    values::{Column, CustomValueSupport},
+    values::{Column, CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
 };
 
@@ -98,8 +98,8 @@ impl PluginCommand for FirstDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
-        if NuDataFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value(plugin, &value)?;
+        if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
             command(plugin, engine, call, df).map_err(|e| e.into())
         } else {
             let expr = NuExpression::try_from_value(plugin, &value)?;

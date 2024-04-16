@@ -165,7 +165,7 @@ fn command_df(
 ) -> Result<PipelineData, ShellError> {
     let other_value: Value = call.req(0)?;
     let other_span = other_value.span();
-    let other_df = NuDataFrame::try_from_value(plugin, &other_value)?;
+    let other_df = NuDataFrame::try_from_value_coerce(plugin, &other_value, call.head)?;
     let other = other_df.as_series(other_span)?;
     let series = df.as_series(call.head)?;
 
@@ -181,8 +181,9 @@ fn command_df(
 
     res.rename("is_in");
 
-    let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
-    df.to_pipeline_data(plugin, engine, call.head)
+    let mut new_df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
+    new_df.from_lazy = df.from_lazy;
+    new_df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

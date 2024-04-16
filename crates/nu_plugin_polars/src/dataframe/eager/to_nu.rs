@@ -4,7 +4,11 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use crate::{dataframe::values::NuExpression, values::CustomValueSupport, PolarsPlugin};
+use crate::{
+    dataframe::values::NuExpression,
+    values::{CustomValueSupport, NuLazyFrame},
+    PolarsPlugin,
+};
 
 use super::super::values::NuDataFrame;
 
@@ -86,7 +90,7 @@ impl PluginCommand for ToNu {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
-        if NuDataFrame::can_downcast(&value) {
+        if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
             dataframe_command(plugin, call, value)
         } else {
             expression_command(plugin, call, value)
@@ -103,7 +107,7 @@ fn dataframe_command(
     let rows: Option<usize> = call.get_flag("rows")?;
     let tail: bool = call.has_flag("tail")?;
 
-    let df = NuDataFrame::try_from_value(plugin, &input)?;
+    let df = NuDataFrame::try_from_value_coerce(plugin, &input, call.head)?;
 
     let values = if tail {
         df.tail(rows, call.head)?
