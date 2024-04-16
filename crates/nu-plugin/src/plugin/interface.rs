@@ -80,6 +80,11 @@ pub trait PluginWrite<T>: Send + Sync {
 
     /// Flush any internal buffers, if applicable.
     fn flush(&self) -> Result<(), ShellError>;
+
+    /// True if this output is stdout, so that plugins can avoid using stdout for their own purpose
+    fn is_stdout(&self) -> bool {
+        false
+    }
 }
 
 impl<E, T> PluginWrite<T> for (std::io::Stdout, E)
@@ -95,6 +100,10 @@ where
         self.0.lock().flush().map_err(|err| ShellError::IOError {
             msg: err.to_string(),
         })
+    }
+
+    fn is_stdout(&self) -> bool {
+        true
     }
 }
 
@@ -130,6 +139,10 @@ where
 
     fn flush(&self) -> Result<(), ShellError> {
         (**self).flush()
+    }
+
+    fn is_stdout(&self) -> bool {
+        (**self).is_stdout()
     }
 }
 

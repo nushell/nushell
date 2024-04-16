@@ -2925,7 +2925,7 @@ pub fn parse_var_with_opt_type(
                 lex_signature(&type_bytes, full_span.start, &[b','], &[], true);
 
             if let Some(parse_error) = parse_error {
-                working_set.parse_errors.push(parse_error);
+                working_set.error(parse_error);
             }
 
             let ty = parse_type(working_set, &type_bytes, tokens[0].span);
@@ -3055,7 +3055,7 @@ pub fn parse_input_output_types(
         lex_signature(bytes, full_span.start, &[b'\n', b'\r', b','], &[], true);
 
     if let Some(parse_error) = parse_error {
-        working_set.parse_errors.push(parse_error);
+        working_set.error(parse_error);
     }
 
     let mut output = vec![];
@@ -5195,9 +5195,8 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         }
     };
 
-    let with_env = working_set.find_decl(b"with-env");
-
     if !shorthand.is_empty() {
+        let with_env = working_set.find_decl(b"with-env");
         if let Some(decl_id) = with_env {
             let mut block = Block::default();
             let ty = output.ty.clone();
@@ -5207,13 +5206,12 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
             let mut env_vars = vec![];
             for sh in shorthand {
-                env_vars.push(ListItem::Item(sh.0));
-                env_vars.push(ListItem::Item(sh.1));
+                env_vars.push(RecordItem::Pair(sh.0, sh.1));
             }
 
             let arguments = vec![
                 Argument::Positional(Expression {
-                    expr: Expr::List(env_vars),
+                    expr: Expr::Record(env_vars),
                     span: span(&spans[..pos]),
                     ty: Type::Any,
                     custom_completion: None,

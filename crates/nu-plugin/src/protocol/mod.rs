@@ -17,9 +17,8 @@ use std::collections::HashMap;
 
 pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
-#[cfg(test)]
-pub use protocol_info::Protocol;
-pub use protocol_info::ProtocolInfo;
+#[allow(unused_imports)] // may be unused by compile flags
+pub use protocol_info::{Feature, Protocol, ProtocolInfo};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
@@ -485,6 +484,10 @@ pub enum EngineCall<D> {
     AddEnvVar(String, Value),
     /// Get help for the current command
     GetHelp,
+    /// Move the plugin into the foreground for terminal interaction
+    EnterForeground,
+    /// Move the plugin out of the foreground once terminal interaction has finished
+    LeaveForeground,
     /// Get the contents of a span. Response is a binary which may not parse to UTF-8
     GetSpanContents(Span),
     /// Evaluate a closure with stream input/output
@@ -515,6 +518,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetCurrentDir => "GetCurrentDir",
             EngineCall::AddEnvVar(..) => "AddEnvVar",
             EngineCall::GetHelp => "GetHelp",
+            EngineCall::EnterForeground => "EnterForeground",
+            EngineCall::LeaveForeground => "LeaveForeground",
             EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
@@ -534,6 +539,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
             EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
             EngineCall::GetHelp => EngineCall::GetHelp,
+            EngineCall::EnterForeground => EngineCall::EnterForeground,
+            EngineCall::LeaveForeground => EngineCall::LeaveForeground,
             EngineCall::GetSpanContents(span) => EngineCall::GetSpanContents(span),
             EngineCall::EvalClosure {
                 closure,

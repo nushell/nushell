@@ -45,20 +45,16 @@ def signatures():
                     "name": "nu-python",
                     "usage": "Signature test for Python",
                     "extra_usage": "",
-                    "input_type": "Any",
-                    "output_type": "Any",
                     "required_positional": [
                         {
                             "name": "a",
                             "desc": "required integer value",
                             "shape": "Int",
-                            "var_id": None,
                         },
                         {
                             "name": "b",
                             "desc": "required string value",
                             "shape": "String",
-                            "var_id": None,
                         },
                     ],
                     "optional_positional": [
@@ -66,14 +62,12 @@ def signatures():
                             "name": "opt",
                             "desc": "Optional number",
                             "shape": "Int",
-                            "var_id": None,
                         }
                     ],
                     "rest_positional": {
                         "name": "rest",
                         "desc": "rest value string",
                         "shape": "String",
-                        "var_id": None,
                     },
                     "named": [
                         {
@@ -82,7 +76,6 @@ def signatures():
                             "arg": None,
                             "required": False,
                             "desc": "Display the help message for this command",
-                            "var_id": None,
                         },
                         {
                             "long": "flag",
@@ -90,7 +83,6 @@ def signatures():
                             "arg": None,
                             "required": False,
                             "desc": "a flag for the signature",
-                            "var_id": None,
                         },
                         {
                             "long": "named",
@@ -98,7 +90,6 @@ def signatures():
                             "arg": "String",
                             "required": False,
                             "desc": "named string",
-                            "var_id": None,
                         },
                     ],
                     "input_output_types": [["Any", "Any"]],
@@ -133,6 +124,13 @@ def process_call(id, plugin_call):
     span = plugin_call["Run"]["call"]["head"]
 
     # Creates a Value of type List that will be encoded and sent to Nushell
+    f = lambda x, y: {
+        "Int": {
+            "val": x * y,
+            "span": span
+        }
+    }
+
     value = {
         "Value": {
             "List": {
@@ -140,15 +138,9 @@ def process_call(id, plugin_call):
                     {
                         "Record": {
                             "val": {
-                                "cols": ["one", "two", "three"],
-                                "vals": [
-                                    {
-                                        "Int": {
-                                            "val": x * y,
-                                            "span": span
-                                        }
-                                    } for y in [0, 1, 2]
-                                ]
+                                "one": f(x, 0),
+                                "two": f(x, 1),
+                                "three": f(x, 2),
                             },
                             "span": span
                         }

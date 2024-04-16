@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 
@@ -89,7 +89,7 @@ fn command(
         lazy.from_eager,
         lazy.to_polars().filter(filter_expr.to_polars()),
     );
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

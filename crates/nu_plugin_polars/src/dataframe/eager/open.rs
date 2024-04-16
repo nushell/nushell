@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{cache_and_to_value, NuLazyFrame},
+    values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
 };
 use nu_path::expand_path_with;
@@ -187,7 +187,7 @@ fn from_parquet(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -216,7 +216,7 @@ fn from_parquet(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }
 
@@ -254,7 +254,7 @@ fn from_avro(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_ipc(
@@ -284,7 +284,7 @@ fn from_ipc(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -313,7 +313,7 @@ fn from_ipc(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }
 
@@ -355,7 +355,7 @@ fn from_json(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_jsonl(
@@ -399,7 +399,7 @@ fn from_jsonl(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_csv(
@@ -472,7 +472,7 @@ fn from_csv(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let csv_reader = CsvReader::from_path(file_path)
             .map_err(|e| ShellError::GenericError {
@@ -538,6 +538,6 @@ fn from_csv(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }

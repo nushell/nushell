@@ -203,15 +203,38 @@ macro_rules! nu_with_std {
 #[macro_export]
 macro_rules! nu_with_plugins {
     (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),+$(,)?], $command:expr) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, &[$($plugin_name),+], $command)
+        nu_with_plugins!(
+            cwd: $cwd,
+            envs: Vec::<(&str, &str)>::new(),
+            plugins: [$(($plugin_name)),+],
+            $command
+        )
     }};
     (cwd: $cwd:expr, plugin: ($plugin_name:expr), $command:expr) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, &[$plugin_name], $command)
+        nu_with_plugins!(
+            cwd: $cwd,
+            envs: Vec::<(&str, &str)>::new(),
+            plugin: ($plugin_name),
+            $command
+        )
+    }};
+
+    (
+        cwd: $cwd:expr,
+        envs: $envs:expr,
+        plugins: [$(($plugin_name:expr)),+$(,)?],
+        $command:expr
+    ) => {{
+        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$($plugin_name),+], $command)
+    }};
+    (cwd: $cwd:expr, envs: $envs:expr, plugin: ($plugin_name:expr), $command:expr) => {{
+        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$plugin_name], $command)
     }};
 
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
+use std::ffi::OsStr;
 use std::fmt::Write;
 use std::{
     path::Path,
@@ -285,7 +308,17 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     Outcome::new(out, err.into_owned(), output.status)
 }
 
-pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command: &str) -> Outcome {
+pub fn nu_with_plugin_run_test<E, K, V>(
+    cwd: impl AsRef<Path>,
+    envs: E,
+    plugins: &[&str],
+    command: &str,
+) -> Outcome
+where
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
     let test_bins = crate::fs::binaries();
     let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
         panic!(
@@ -325,6 +358,7 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
         executable_path = crate::fs::installed_nu_path();
     }
     let process = match setup_command(&executable_path, &target_cwd)
+        .envs(envs)
         .arg("--commands")
         .arg(commands)
         .arg("--config")

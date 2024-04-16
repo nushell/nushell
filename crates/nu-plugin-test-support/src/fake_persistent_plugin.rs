@@ -51,6 +51,11 @@ impl RegisteredPlugin for FakePersistentPlugin {
         Ok(())
     }
 
+    fn reset(&self) -> Result<(), ShellError> {
+        // We can't stop
+        Ok(())
+    }
+
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
         self
     }

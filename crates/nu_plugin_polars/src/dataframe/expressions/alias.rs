@@ -1,7 +1,4 @@
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuExpression;
 
@@ -72,7 +69,8 @@ impl PluginCommand for ExprAlias {
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
         let expr: NuExpression = expr.to_polars().alias(alias.as_str()).into();
 
-        to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+        expr.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

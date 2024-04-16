@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -157,7 +154,7 @@ fn command_expr(
     }
 
     let expr: NuExpression = expr.to_polars().is_in(lit(list)).into();
-    to_pipeline_data(plugin, engine, call.head, expr)
+    expr.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_df(
@@ -185,7 +182,7 @@ fn command_df(
     res.rename("is_in");
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

@@ -5,9 +5,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    dataframe::values::utils::convert_columns_string,
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
+    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};
@@ -182,7 +180,7 @@ fn command(
     }
 
     let res = NuDataFrame::new(false, res);
-    to_pipeline_data(plugin, engine, call.head, res)
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn check_column_datatypes<T: AsRef<str>>(

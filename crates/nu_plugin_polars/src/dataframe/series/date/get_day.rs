@@ -1,7 +1,4 @@
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::super::values::NuDataFrame;
 
@@ -90,7 +87,7 @@ fn command(
     let res = casted.day().into_series();
 
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

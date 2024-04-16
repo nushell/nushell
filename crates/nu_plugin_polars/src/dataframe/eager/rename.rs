@@ -6,7 +6,7 @@ use nu_protocol::{
 
 use crate::{
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject},
+    values::{CustomValueSupport, PolarsPluginObject},
     PolarsPlugin,
 };
 
@@ -161,7 +161,7 @@ fn command_eager(
     }
 
     let df = NuDataFrame::new(false, polars_df);
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_lazy(
@@ -187,7 +187,7 @@ fn command_lazy(
     let lazy = lazy.to_polars();
     let lazy: NuLazyFrame = lazy.rename(&columns, &new_names).into();
 
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

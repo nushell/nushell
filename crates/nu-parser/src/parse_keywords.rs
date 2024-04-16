@@ -459,7 +459,7 @@ pub fn parse_def(
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => working_set.parse_errors.push(ParseError::Expected(
+                    _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
                         arg.span,
                     )),
@@ -2957,7 +2957,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error)
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -3221,7 +3221,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error);
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -3687,7 +3687,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
         // Add it to the working set
         let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
+            Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
         });
 
         // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
@@ -3706,7 +3706,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 //
                 // The user would expect that `register` would always run the binary to get new
                 // signatures, in case it was replaced with an updated binary
-                plugin.stop().map_err(|err| {
+                plugin.reset().map_err(|err| {
                     ParseError::LabeledError(
                         "Failed to restart plugin to get new signatures".into(),
                         err.to_string(),
@@ -3714,7 +3714,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 })?;
 
+                plugin.set_gc_config(&gc_config);
+
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
+                    log::warn!("Error getting signatures: {err:?}");
                     ParseError::LabeledError(
                         "Error getting signatures".into(),
                         err.to_string(),
