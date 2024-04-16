@@ -92,7 +92,7 @@ fn command(
     let replace: bool = call.has_flag("replace")?;
     let shuffle: bool = call.has_flag("shuffle")?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let df = match (rows, fraction) {
         (Some(rows), None) => df

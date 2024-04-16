@@ -141,7 +141,7 @@ fn command(
     let (id_col_string, id_col_span) = convert_columns_string(id_col, call.head)?;
     let (val_col_string, val_col_span) = convert_columns_string(val_col, call.head)?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     check_column_datatypes(df.as_ref(), &id_col_string, id_col_span)?;
     check_column_datatypes(df.as_ref(), &val_col_string, val_col_span)?;

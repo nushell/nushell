@@ -145,7 +145,8 @@ fn command_eager(
         let df = lazy.collect(call.head)?;
         df.to_pipeline_data(plugin, engine, call.head)
     } else {
-        let mut other = NuDataFrame::try_from_value(plugin, &new_column)?.as_series(column_span)?;
+        let mut other = NuDataFrame::try_from_value_coerce(plugin, &new_column, call.head)?
+            .as_series(column_span)?;
 
         let name = match call.get_flag::<String>("name")? {
             Some(name) => name,
