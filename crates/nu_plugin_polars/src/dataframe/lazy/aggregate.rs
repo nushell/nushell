@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy},
-    values::{to_pipeline_data, Column, CustomValueSupport, NuDataFrame},
+    values::{Column, CustomValueSupport, NuDataFrame},
     PolarsPlugin,
 };
 
@@ -148,7 +148,8 @@ impl PluginCommand for LazyAggregate {
 
         let polars = group_by.to_polars();
         let lazy = NuLazyFrame::new(false, polars.agg(&expressions));
-        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+        lazy.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

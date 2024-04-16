@@ -1,6 +1,6 @@
 use crate::PolarsPlugin;
 
-use super::super::values::{to_pipeline_data, Column, CustomValueSupport, NuDataFrame};
+use super::super::values::{Column, CustomValueSupport, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
@@ -96,7 +96,7 @@ fn command(
     let dtypes_col = Column::new("dtype".to_string(), dtypes);
 
     let df = NuDataFrame::try_from_columns(vec![names_col, dtypes_col], None)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

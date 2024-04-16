@@ -1,9 +1,6 @@
 use crate::{
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -118,7 +115,7 @@ fn command_eager(
     })?;
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_lazy(
@@ -148,7 +145,7 @@ fn command_lazy(
     } else {
         lazy.unique_stable(subset, strategy).into()
     };
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

@@ -1,7 +1,4 @@
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -103,7 +100,7 @@ fn command(
                 })?
                 .into();
 
-            to_pipeline_data(plugin, engine, call.head, res)
+            res.to_pipeline_data(plugin, engine, call.head)
         }
         _ => Err(ShellError::UnsupportedInput {
             msg: "Expected the dataframe to have a column".to_string(),

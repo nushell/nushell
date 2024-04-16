@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{to_pipeline_data, Column, CustomValueSupport},
+    values::{Column, CustomValueSupport},
     PolarsPlugin,
 };
 
@@ -183,7 +183,8 @@ impl PluginCommand for ToDataFrame {
             .transpose()?;
 
         let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?;
-        to_pipeline_data(plugin, engine, call.head, df).map_err(LabeledError::from)
+        df.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

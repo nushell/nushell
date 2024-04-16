@@ -1,7 +1,7 @@
 use super::super::values::NuLazyFrame;
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -144,7 +144,8 @@ impl PluginCommand for LazySortBy {
             lazy.to_polars()
                 .sort_by_exprs(&expressions, reverse, nulls_last, maintain_order),
         );
-        to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+        lazy.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

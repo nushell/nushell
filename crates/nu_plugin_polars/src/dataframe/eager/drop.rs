@@ -1,4 +1,3 @@
-use crate::values::to_pipeline_data;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -112,7 +111,7 @@ fn command(
 
     let final_df = NuDataFrame::new(df.from_lazy, polars_df);
 
-    to_pipeline_data(plugin, engine, call.head, final_df)
+    final_df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
