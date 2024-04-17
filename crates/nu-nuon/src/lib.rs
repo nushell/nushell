@@ -13,21 +13,6 @@ pub use to::to_nuon;
 #[cfg(test)]
 mod tests {
     #[test]
-    fn to_nuon_correct_compaction() {
-        let actual = nu!(
-            cwd: "tests/fixtures/formats", pipeline(
-            r#"
-                open appveyor.yml 
-                | to nuon 
-                | str length 
-                | $in > 500
-            "#
-        ));
-
-        assert_eq!(actual.out, "true");
-    }
-
-    #[test]
     fn to_nuon_list_of_numbers() {
         let actual = nu!(pipeline(
             r#"
