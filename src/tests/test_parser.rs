@@ -301,8 +301,9 @@ fn string_interpolation_escaping() -> TestResult {
 }
 
 #[test]
-fn bareword_interpolation() -> TestResult {
-    run_test("let x = 3; nu --testbin cococo $`($x)/bin`", "3/bin")
+fn bareword_interpolation() {
+    let actual = nu!("let x = 3; nu --testbin cococo $`($x)/bin`");
+    assert_eq!(actual.out, "3/bin");
 }
 
 #[test]
