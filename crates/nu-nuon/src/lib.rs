@@ -21,26 +21,53 @@ mod tests {
     /// ```nushell
     /// $v | to nuon | from nuon | $in == $v
     /// ```
-    fn nuon_back_and_forth(v: &str) {
-        assert_eq!(
-            to_nuon(&from_nuon(v, None, None).unwrap(), true, None, None, None).unwrap(),
-            v
+    fn nuon_end_to_end(input: &str, middle: Option<Value>) {
+        let val = from_nuon(input, None, None).unwrap();
+        if let Some(m) = middle {
+            assert_eq!(val, m);
+        }
+        assert_eq!(to_nuon(&val, true, None, None, None).unwrap(), input);
+    }
+
+    #[test]
+    fn list_of_numbers() {
+        nuon_end_to_end(
+            "[1, 2, 3]",
+            Some(Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ])),
         );
     }
 
     #[test]
-    fn to_nuon_list_of_numbers() {
-        nuon_back_and_forth("[1, 2, 3]");
+    fn list_of_strings() {
+        nuon_end_to_end(
+            "[abc, xyz, def]",
+            Some(Value::test_list(vec![
+                Value::test_string("abc"),
+                Value::test_string("xyz"),
+                Value::test_string("def"),
+            ])),
+        );
     }
 
     #[test]
-    fn to_nuon_list_of_strings() {
-        nuon_back_and_forth("[abc, xyz, def]");
-    }
-
-    #[test]
-    fn to_nuon_table() {
-        nuon_back_and_forth("[[my, columns]; [abc, xyz], [def, ijk]]");
+    fn table() {
+        nuon_end_to_end(
+            "[[my, columns]; [abc, xyz], [def, ijk]]",
+            Some(Value::test_list(vec![
+                Value::test_record(record!(
+                    "my" => Value::test_string("abc"),
+                    "columns" => Value::test_string("xyz")
+                )),
+                Value::test_record(record!(
+                    "my" => Value::test_string("def"),
+                    "columns" => Value::test_string("ijk")
+                )),
+            ])),
+        );
     }
 
     #[test]
@@ -54,84 +81,77 @@ mod tests {
     }
 
     #[test]
-    fn to_nuon_bool() {
-        nuon_back_and_forth("false");
+    fn bool() {
+        nuon_end_to_end("false", Some(Value::test_bool(false)));
     }
 
     #[test]
-    fn to_nuon_escaping() {
-        nuon_back_and_forth(r#""hello\"world""#);
+    fn escaping() {
+        nuon_end_to_end(r#""hello\"world""#, None);
     }
 
     #[test]
-    fn to_nuon_escaping2() {
-        nuon_back_and_forth(r#""hello\\world""#);
+    fn escaping2() {
+        nuon_end_to_end(r#""hello\\world""#, None);
     }
 
     #[test]
-    fn to_nuon_escaping3() {
-        nuon_back_and_forth(r#"[hello\\world]"#);
-    }
-
-    #[test]
-    fn to_nuon_escaping4() {
-        nuon_back_and_forth(r#"["hello\"world"]"#);
-    }
-
-    #[test]
-    fn to_nuon_escaping5() {
-        nuon_back_and_forth(r#"{s: "hello\"world"}"#);
-    }
-
-    #[test]
-    fn to_nuon_negative_int() {
-        nuon_back_and_forth("-1");
-    }
-
-    #[test]
-    fn to_nuon_records() {
-        nuon_back_and_forth(r#"{name: "foo bar", age: 100, height: 10}"#);
-    }
-
-    #[test]
-    fn nuon_range() {
-        let range = IntRange::new(
-            Value::test_int(1),
-            Value::test_int(2),
-            Value::test_int(42),
-            RangeInclusion::Inclusive,
-            Span::unknown(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            to_nuon(
-                &Value::test_range(Range::IntRange(range)),
-                true,
-                None,
-                None,
-                None
-            )
-            .unwrap(),
-            "1..42"
-        );
-
-        assert_eq!(
-            from_nuon("1..42", None, None).unwrap(),
-            Value::test_range(Range::IntRange(range)),
+    fn escaping3() {
+        nuon_end_to_end(
+            r#"[hello\\world]"#,
+            Some(Value::test_list(vec![Value::test_string(
+                r#"hello\\world"#,
+            )])),
         );
     }
 
     #[test]
-    fn to_nuon_filesize() {
-        assert_eq!(
-            to_nuon(&Value::test_filesize(1024), true, None, None, None).unwrap(),
-            "1024b"
+    fn escaping4() {
+        nuon_end_to_end(r#"["hello\"world"]"#, None);
+    }
+
+    #[test]
+    fn escaping5() {
+        nuon_end_to_end(r#"{s: "hello\"world"}"#, None);
+    }
+
+    #[test]
+    fn negative_int() {
+        nuon_end_to_end("-1", Some(Value::test_int(-1)));
+    }
+
+    #[test]
+    fn records() {
+        nuon_end_to_end(
+            r#"{name: "foo bar", age: 100, height: 10}"#,
+            Some(Value::test_record(record!(
+                    "name" => Value::test_string("foo bar"),
+                    "age" => Value::test_int(100),
+                    "height" => Value::test_int(10),
+            ))),
         );
     }
 
     #[test]
-    fn from_nuon_filesize() {
+    fn range() {
+        nuon_end_to_end(
+            "1..42",
+            Some(Value::test_range(Range::IntRange(
+                IntRange::new(
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(42),
+                    RangeInclusion::Inclusive,
+                    Span::unknown(),
+                )
+                .unwrap(),
+            ))),
+        );
+    }
+
+    #[test]
+    fn filesize() {
+        nuon_end_to_end("1024b", Some(Value::test_filesize(1024)));
         assert_eq!(
             from_nuon("1kib", None, None).unwrap(),
             Value::test_filesize(1024),
@@ -139,48 +159,15 @@ mod tests {
     }
 
     #[test]
-    fn to_nuon_duration() {
-        assert_eq!(
-            to_nuon(
-                &Value::test_duration(60_000_000_000),
-                true,
-                None,
-                None,
-                None
-            )
-            .unwrap(),
-            "60000000000ns"
-        )
-    }
-
-    #[test]
-    fn from_nuon_duration() {
-        assert_eq!(
-            from_nuon("60000000000ns", None, None).unwrap(),
-            Value::test_duration(60_000_000_000),
-        );
+    fn duration() {
+        nuon_end_to_end("60000000000ns", Some(Value::test_duration(60_000_000_000)));
     }
 
     #[test]
     fn to_nuon_datetime() {
-        assert_eq!(
-            to_nuon(
-                &Value::test_date(DateTime::UNIX_EPOCH.into()),
-                true,
-                None,
-                None,
-                None,
-            )
-            .unwrap(),
-            "1970-01-01T00:00:00+00:00"
-        );
-    }
-
-    #[test]
-    fn from_nuon_datetime() {
-        assert_eq!(
-            from_nuon("1970-01-01T00:00:00+00:00", None, None).unwrap(),
-            Value::test_date(DateTime::UNIX_EPOCH.into()),
+        nuon_end_to_end(
+            "1970-01-01T00:00:00+00:00",
+            Some(Value::test_date(DateTime::UNIX_EPOCH.into())),
         );
     }
 
@@ -202,17 +189,10 @@ mod tests {
     }
 
     #[test]
-    fn binary_to() {
-        assert_eq!(
-            to_nuon(
-                &Value::test_binary(vec![0xab, 0xcd, 0xef]),
-                true,
-                None,
-                None,
-                None
-            )
-            .unwrap(),
-            "0x[ABCDEF]"
+    fn binary() {
+        nuon_end_to_end(
+            "0x[ABCDEF]",
+            Some(Value::test_binary(vec![0xab, 0xcd, 0xef])),
         );
     }
 
@@ -232,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn read_binary_data() {
+    fn read_sample_data() {
         assert_eq!(
             from_nuon(
                 include_str!("../../../tests/fixtures/formats/sample.nuon"),
@@ -341,12 +321,27 @@ mod tests {
 
     #[test]
     fn to_nuon_quotes_empty_string_in_list() {
-        nuon_back_and_forth(r#"[""]"#);
+        nuon_end_to_end(
+            r#"[""]"#,
+            Some(Value::test_list(vec![Value::test_string("")])),
+        );
     }
 
     #[test]
     fn to_nuon_quotes_empty_string_in_table() {
-        nuon_back_and_forth("[[a, b]; [\"\", la], [le, lu]]");
+        nuon_end_to_end(
+            "[[a, b]; [\"\", la], [le, lu]]",
+            Some(Value::test_list(vec![
+                Value::test_record(record!(
+                    "a" => Value::test_string(""),
+                    "b" => Value::test_string("la"),
+                )),
+                Value::test_record(record!(
+                    "a" => Value::test_string("le"),
+                    "b" => Value::test_string("lu"),
+                )),
+            ])),
+        );
     }
 
     #[test]
@@ -392,8 +387,9 @@ mod tests {
 
     #[test]
     fn quotes_some_strings_necessarily() {
-        nuon_back_and_forth(
+        nuon_end_to_end(
             r#"["true", "false", "null", "NaN", "NAN", "nan", "+nan", "-nan", "inf", "+inf", "-inf", "INF", "Infinity", "+Infinity", "-Infinity", "INFINITY", "+19.99", "-19.99", "19.99b", "19.99kb", "19.99mb", "19.99gb", "19.99tb", "19.99pb", "19.99eb", "19.99zb", "19.99kib", "19.99mib", "19.99gib", "19.99tib", "19.99pib", "19.99eib", "19.99zib", "19ns", "19us", "19ms", "19sec", "19min", "19hr", "19day", "19wk", "-11.0..-15.0", "11.0..-15.0", "-11.0..15.0", "-11.0..<-15.0", "11.0..<-15.0", "-11.0..<15.0", "-11.0..", "11.0..", "..15.0", "..-15.0", "..<15.0", "..<-15.0", "2000-01-01", "2022-02-02T14:30:00", "2022-02-02T14:30:00+05:00", ", ", "", "&&"]"#,
+            None,
         );
     }
 
