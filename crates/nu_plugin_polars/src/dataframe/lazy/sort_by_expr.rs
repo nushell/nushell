@@ -9,6 +9,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use polars::chunked_array::ops::SortMultipleOptions;
 
 #[derive(Clone)]
 pub struct LazySortBy;
@@ -137,12 +138,18 @@ impl PluginCommand for LazySortBy {
             None => expressions.iter().map(|_| false).collect::<Vec<bool>>(),
         };
 
+        let sort_options = SortMultipleOptions {
+            descending: reverse,
+            nulls_last,
+            multithreaded: true,
+            maintain_order,
+        };
+
         let pipeline_value = input.into_value(call.head);
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
-            lazy.to_polars()
-                .sort_by_exprs(&expressions, reverse, nulls_last, maintain_order),
+            lazy.to_polars().sort_by_exprs(&expressions, sort_options),
         );
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
