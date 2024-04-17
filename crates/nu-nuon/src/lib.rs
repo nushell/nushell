@@ -12,7 +12,7 @@ pub use to::to_nuon;
 
 #[cfg(test)]
 mod tests {
-    use nu_protocol::{ast::RangeInclusion, record, IntRange, Range, Span, Value};
+    use nu_protocol::{ast::RangeInclusion, engine::Closure, record, IntRange, Range, Span, Value};
 
     use crate::{from_nuon, to_nuon};
 
@@ -185,17 +185,22 @@ mod tests {
     //     assert_eq!(actual.out, "date");
     // }
 
-    // #[test]
-    // fn to_nuon_errs_on_closure() {
-    //     let actual = nu!(pipeline(
-    //         r#"
-    //             {|| to nuon}
-    //             | to nuon
-    //         "#
-    //     ));
-    //
-    //     assert!(actual.err.contains("can't convert closure to NUON"));
-    // }
+    #[test]
+    fn to_nuon_errs_on_closure() {
+        assert!(to_nuon(
+            &Value::test_closure(Closure {
+                block_id: 0,
+                captures: vec![]
+            }),
+            true,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("Unsupported input"));
+    }
 
     #[test]
     fn binary_to() {
