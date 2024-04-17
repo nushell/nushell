@@ -47,7 +47,7 @@ impl UIEvents {
                 }
 
                 let time_spent = now.elapsed();
-                let rest = self.tick_rate - time_spent;
+                let rest = self.tick_rate.saturating_sub(time_spent);
 
                 Self { tick_rate: rest }.next()
             }
