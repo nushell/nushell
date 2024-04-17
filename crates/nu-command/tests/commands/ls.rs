@@ -771,6 +771,6 @@ fn list_with_bareword_interpolation() {
 
         let actual =
             nu!(cwd: dirs.test(), format!("ls `{}/*.txt` | length", dirs.test().to_string_lossy()));
-        assert!(actual.out.contains("3"));
+        assert_eq!(actual.out, "3");
     })
 }
