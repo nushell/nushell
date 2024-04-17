@@ -769,8 +769,25 @@ fn list_with_bareword_interpolation() {
             EmptyFile("f3.txt"),
         ]);
 
-        let actual =
-            nu!(cwd: dirs.test(), format!("ls `{}/*.txt` | length", dirs.test().to_string_lossy()));
+        let actual = nu!(cwd: dirs.test(), format!("let d = '{}'; ls $`($d)/*.txt` | length", dirs.test().to_string_lossy()));
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[cfg(windows)]
+#[test]
+fn bareword_interpolation_dont_escape() {
+    Playground::setup("bareword_interpolation_dont_escape", |dirs, sandbox| {
+        sandbox.within("test folder").with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("let d = 'test folder'; ls $`($d)/*.txt` | length")
+        );
         assert_eq!(actual.out, "3");
     })
 }
