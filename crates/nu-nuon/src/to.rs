@@ -18,13 +18,13 @@ pub fn to_nuon(
     let span = span.unwrap_or(Span::unknown());
 
     let nuon_result = if raw {
-        value_to_string(&input, span, 0, None)?
+        value_to_string(input, span, 0, None)?
     } else if let Some(tab_count) = tabs {
-        value_to_string(&input, span, 0, Some(&"\t".repeat(tab_count)))?
+        value_to_string(input, span, 0, Some(&"\t".repeat(tab_count)))?
     } else if let Some(indent) = indent {
-        value_to_string(&input, span, 0, Some(&" ".repeat(indent)))?
+        value_to_string(input, span, 0, Some(&" ".repeat(indent)))?
     } else {
-        value_to_string(&input, span, 0, None)?
+        value_to_string(input, span, 0, None)?
     };
 
     Ok(nuon_result)

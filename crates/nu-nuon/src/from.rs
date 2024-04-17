@@ -10,7 +10,7 @@ pub fn from_nuon(
     engine_state: Option<EngineState>,
     span: Option<Span>,
 ) -> Result<Value, ShellError> {
-    let engine_state = engine_state.unwrap_or(EngineState::default());
+    let engine_state = engine_state.unwrap_or_default();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);
