@@ -453,7 +453,10 @@ fn parse_short_flags(
     let arg_contents = working_set.get_span_contents(arg_span);
 
     if let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) {
-        if arg_contents_uft8_ref.starts_with('-') && arg_contents_uft8_ref.len() > 1 {
+        if arg_contents_uft8_ref.starts_with('-')
+            && arg_contents_uft8_ref.len() > 1
+            && arg_contents_uft8_ref.parse::<f64>().is_err()
+        {
             let short_flags = &arg_contents_uft8_ref[1..];
             let num_chars = short_flags.chars().count();
             let mut found_short_flags = vec![];
