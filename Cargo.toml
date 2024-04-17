@@ -54,6 +54,7 @@ members = [
   "crates/nu-term-grid",
   "crates/nu-test-support",
   "crates/nu-utils",
+  "crates/nu-nuon",
 ]
 
 [workspace.dependencies]
