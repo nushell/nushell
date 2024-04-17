@@ -198,7 +198,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             let priority = get_priority(handle);
 
             let curr_time = Instant::now();
-            let interval = curr_time - prev_time;
+            let interval = curr_time.saturating_duration_since(prev_time);
 
             let mut all_ok = true;
             all_ok &= command.is_some();
@@ -1059,7 +1059,7 @@ impl ProcessInfo {
         let curr_time = self.cpu_info.curr_sys + self.cpu_info.curr_user;
         let prev_time = self.cpu_info.prev_sys + self.cpu_info.prev_user;
 
-        let usage_ms = (curr_time - prev_time) / 10000u64;
+        let usage_ms = curr_time.saturating_sub(prev_time) / 10000u64;
         let interval_ms = self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
         usage_ms as f64 * 100.0 / interval_ms as f64
     }
