@@ -26,7 +26,7 @@ num = { version = "0.4", optional = true }
 serde = { workspace = true, features = ["derive"] }
 # keep sqlparser at 0.39.0 until we can update polars
 sqlparser = { version = "0.45", optional = true }
-polars-io = { version = "0.38", features = ["avro"], optional = true }
+polars-io = { version = "0.39", features = ["avro"], optional = true }
 polars-arrow = { version = "0.38", optional = true }
 polars-ops = { version = "0.38", optional = true }
 polars-plan = { version = "0.38", features = ["regex"], optional = true }
