@@ -7,7 +7,7 @@ fn binary_skip_will_raise_error() {
         "open sample_data.ods --raw | skip 2"
     );
 
-    assert!(actual.out.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }
 
 #[test]
