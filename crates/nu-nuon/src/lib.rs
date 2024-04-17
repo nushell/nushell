@@ -12,6 +12,7 @@ pub use to::to_nuon;
 
 #[cfg(test)]
 mod tests {
+    use chrono::DateTime;
     use nu_protocol::{ast::RangeInclusion, engine::Closure, record, IntRange, Range, Span, Value};
 
     use crate::{from_nuon, to_nuon};
@@ -160,30 +161,28 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn to_nuon_datetime() {
-    //     let actual = nu!(pipeline(
-    //         r#"
-    //             2019-05-10
-    //             | to nuon
-    //         "#
-    //     ));
-    //
-    //     assert_eq!(actual.out, "2019-05-10T00:00:00+00:00");
-    // }
+    #[test]
+    fn to_nuon_datetime() {
+        assert_eq!(
+            to_nuon(
+                &Value::test_date(DateTime::UNIX_EPOCH.into()),
+                true,
+                None,
+                None,
+                None,
+            )
+            .unwrap(),
+            "1970-01-01T00:00:00+00:00"
+        );
+    }
 
-    // #[test]
-    // fn from_nuon_datetime() {
-    //     let actual = nu!(pipeline(
-    //         r#"
-    //             "2019-05-10T00:00:00+00:00"
-    //             | from nuon
-    //             | describe
-    //         "#
-    //     ));
-    //
-    //     assert_eq!(actual.out, "date");
-    // }
+    #[test]
+    fn from_nuon_datetime() {
+        assert_eq!(
+            from_nuon("1970-01-01T00:00:00+00:00", None, None).unwrap(),
+            Value::test_date(DateTime::UNIX_EPOCH.into()),
+        );
+    }
 
     #[test]
     fn to_nuon_errs_on_closure() {

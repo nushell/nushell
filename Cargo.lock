@@ -3191,6 +3191,7 @@ dependencies = [
 name = "nu-nuon"
 version = "0.92.3"
 dependencies = [
+ "chrono",
  "fancy-regex",
  "nu-engine",
  "nu-parser",
