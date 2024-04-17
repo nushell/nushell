@@ -3057,6 +3057,7 @@ dependencies = [
  "nu-engine",
  "nu-glob",
  "nu-json",
+ "nu-nuon",
  "nu-parser",
  "nu-path",
  "nu-pretty-hex",
@@ -3184,6 +3185,17 @@ dependencies = [
  "ropey",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "nu-nuon"
+version = "0.92.3"
+dependencies = [
+ "fancy-regex",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "once_cell",
 ]
 
 [[package]]
