@@ -309,7 +309,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     let head_contents = working_set.get_span_contents(head_span).to_vec();
 
     let head = if head_contents.starts_with(b"$`") {
-        // the expresison is bareword interpolation, just parse as is.
+        // the expression is bareword interpolation, just parse as is.
         let arg = parse_interpolation(working_set, head_span);
         Box::new(arg)
     } else if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
