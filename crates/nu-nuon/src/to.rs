@@ -1,51 +1,36 @@
 use core::fmt::Write;
 use fancy_regex::Regex;
-use nu_engine::{command_prelude::*, get_columns};
-use nu_parser::escape_quote_string;
-use nu_protocol::Range;
 use once_cell::sync::Lazy;
+
+use nu_engine::get_columns;
+use nu_parser::escape_quote_string;
+use nu_protocol::{Range, ShellError, Span, Value};
+
 use std::ops::Bound;
 
-fn run(
-    &self,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let raw = call.has_flag(engine_state, stack, "raw")?;
-    let tabs: Option<usize> = call.get_flag(engine_state, stack, "tabs")?;
-    let indent: Option<usize> = call.get_flag(engine_state, stack, "indent")?;
-
-    let span = call.head;
-    let value = input.into_value(span);
+pub fn to_nuon(
+    input: &Value,
+    raw: bool,
+    tabs: Option<usize>,
+    indent: Option<usize>,
+    span: Option<Span>,
+) -> Result<String, ShellError> {
+    let span = span.unwrap_or(Span::unknown());
 
     let nuon_result = if raw {
-        value_to_string(&value, span, 0, None)
+        value_to_string(&input, span, 0, None)?
     } else if let Some(tab_count) = tabs {
-        value_to_string(&value, span, 0, Some(&"\t".repeat(tab_count)))
+        value_to_string(&input, span, 0, Some(&"\t".repeat(tab_count)))?
     } else if let Some(indent) = indent {
-        value_to_string(&value, span, 0, Some(&" ".repeat(indent)))
+        value_to_string(&input, span, 0, Some(&" ".repeat(indent)))?
     } else {
-        value_to_string(&value, span, 0, None)
+        value_to_string(&input, span, 0, None)?
     };
 
-    match nuon_result {
-        Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span).into_pipeline_data()),
-        _ => Ok(Value::error(
-            ShellError::CantConvert {
-                to_type: "NUON".into(),
-                from_type: value.get_type().to_string(),
-                span,
-                help: None,
-            },
-            span,
-        )
-        .into_pipeline_data()),
-    }
+    Ok(nuon_result)
 }
 
-pub fn value_to_string(
+fn value_to_string(
     v: &Value,
     span: Span,
     depth: usize,

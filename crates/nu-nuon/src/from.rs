@@ -1,36 +1,24 @@
-use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Expr, Expression, RecordItem},
-    engine::StateWorkingSet,
-    Range, Unit,
+    engine::{EngineState, StateWorkingSet},
+    Range, Record, ShellError, Span, Type, Unit, Value,
 };
 use std::sync::Arc;
 
-fn run(
-    &self,
-    engine_state: &EngineState,
-    _stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let (string_input, _span, metadata) = input.collect_string_strict(head)?;
+pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
+    let mut working_set = StateWorkingSet::new(&EngineState::default());
 
-    let engine_state = engine_state.clone();
-
-    let mut working_set = StateWorkingSet::new(&engine_state);
-
-    let mut block = nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false);
+    let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);
 
     if let Some(pipeline) = block.pipelines.get(1) {
         if let Some(element) = pipeline.elements.first() {
             return Err(ShellError::GenericError {
                 error: "error when loading nuon text".into(),
                 msg: "could not load nuon text".into(),
-                span: Some(head),
+                span,
                 help: None,
                 inner: vec![ShellError::OutsideSpannedLabeledError {
-                    src: string_input,
+                    src: input.to_string(),
                     error: "error when loading".into(),
                     msg: "excess values when loading".into(),
                     span: element.expr.span,
@@ -40,12 +28,12 @@ fn run(
             return Err(ShellError::GenericError {
                 error: "error when loading nuon text".into(),
                 msg: "could not load nuon text".into(),
-                span: Some(head),
+                span,
                 help: None,
                 inner: vec![ShellError::GenericError {
                     error: "error when loading".into(),
                     msg: "excess values when loading".into(),
-                    span: Some(head),
+                    span,
                     help: None,
                     inner: vec![],
                 }],
@@ -56,7 +44,7 @@ fn run(
     let expr = if block.pipelines.is_empty() {
         Expression {
             expr: Expr::Nothing,
-            span: head,
+            span: span.unwrap_or(Span::unknown()),
             custom_completion: None,
             ty: Type::Nothing,
         }
@@ -67,10 +55,10 @@ fn run(
             return Err(ShellError::GenericError {
                 error: "error when loading nuon text".into(),
                 msg: "could not load nuon text".into(),
-                span: Some(head),
+                span,
                 help: None,
                 inner: vec![ShellError::OutsideSpannedLabeledError {
-                    src: string_input,
+                    src: input.to_string(),
                     error: "error when loading".into(),
                     msg: "detected a pipeline in nuon file".into(),
                     span: expr.expr.span,
@@ -81,7 +69,7 @@ fn run(
         if pipeline.elements.is_empty() {
             Expression {
                 expr: Expr::Nothing,
-                span: head,
+                span: span.unwrap_or(Span::unknown()),
                 custom_completion: None,
                 ty: Type::Nothing,
             }
@@ -94,10 +82,10 @@ fn run(
         return Err(ShellError::GenericError {
             error: "error when parsing nuon text".into(),
             msg: "could not parse nuon text".into(),
-            span: Some(head),
+            span,
             help: None,
             inner: vec![ShellError::OutsideSpannedLabeledError {
-                src: string_input,
+                src: input.to_string(),
                 error: "error when parsing".into(),
                 msg: err.to_string(),
                 span: err.span(),
@@ -105,18 +93,9 @@ fn run(
         });
     }
 
-    let result = convert_to_value(expr, head, &string_input);
+    let value = convert_to_value(expr, span.unwrap_or(Span::unknown()), input)?;
 
-    match result {
-        Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
-        Err(err) => Err(ShellError::GenericError {
-            error: "error when loading nuon text".into(),
-            msg: "could not load nuon text".into(),
-            span: Some(head),
-            help: None,
-            inner: vec![err],
-        }),
-    }
+    Ok(value)
 }
 
 fn convert_to_value(
