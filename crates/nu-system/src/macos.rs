@@ -146,11 +146,9 @@ pub struct PathInfo {
 
 #[cfg_attr(tarpaulin, ignore)]
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
-    let len = cp as usize - start as usize;
-    let part = Vec::from_raw_parts(start, len, len);
-    let tmp = String::from_utf8_unchecked(part.clone());
-    ::std::mem::forget(part);
-    tmp
+    let len = (cp as usize).saturating_sub(start as usize);
+    let part = std::slice::from_raw_parts(start, len);
+    String::from_utf8_unchecked(part.to_vec())
 }
 
 #[cfg_attr(tarpaulin, ignore)]
