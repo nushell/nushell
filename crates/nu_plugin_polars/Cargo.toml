@@ -33,7 +33,7 @@ polars-io = { version = "0.38", features = ["avro"]}
 polars-arrow = { version = "0.38"}
 polars-ops = { version = "0.38"}
 polars-plan = { version = "0.38", features = ["regex"]}
-polars-utils = { version = "0.38"}
+polars-utils = { version = "0.39"}
 typetag = "0.2"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 
