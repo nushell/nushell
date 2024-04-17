@@ -19,8 +19,11 @@ mod tests {
 
     /// test something of the form
     /// ```nushell
-    /// $v | to nuon | from nuon | $in == $v
+    /// $v | from nuon | to nuon | $in == $v
     /// ```
+    ///
+    /// an optional "middle" value can be given to test what the value is between `from nuon` and
+    /// `to nuon`.
     fn nuon_end_to_end(input: &str, middle: Option<Value>) {
         let val = from_nuon(input, None, None).unwrap();
         if let Some(m) = middle {
