@@ -27,6 +27,7 @@ nu-table = { path = "../nu-table", version = "0.92.3" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.92.3" }
 nu-utils = { path = "../nu-utils", version = "0.92.3" }
 nu-ansi-term = { workspace = true }
+nu-nuon = { path = "../nu-nuon", version = "0.92.3" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
