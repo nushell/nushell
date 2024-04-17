@@ -8,6 +8,19 @@ use nu_protocol::{Range, ShellError, Span, Value};
 
 use std::ops::Bound;
 
+/// convert an actual Nushell [`Value`] to a raw string representation of the NUON data
+///
+/// ## Arguments
+/// - `tabs` and `indent` control the level of indentation, expressed in _tabulations_ and _spaces_
+///   respectively. `tabs` has higher precedence over `indent`.
+/// - `raw` has the highest precedence and will for the output to be _raw_, i.e. the [`Value`] will
+///   be _serialized_ on a single line, without extra whitespaces.
+///
+/// > **Note**  
+/// > a [`Span`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
+/// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
+///
+/// also see [`super::from_nuon`] for the inverse operation
 pub fn to_nuon(
     input: &Value,
     raw: bool,
