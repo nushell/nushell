@@ -1,4 +1,6 @@
 mod list;
+mod rm;
+
 use std::{
     collections::HashMap,
     sync::{Mutex, MutexGuard},
@@ -145,5 +147,5 @@ pub trait Cacheable: Sized + Clone {
 }
 
 pub(crate) fn cache_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
-    vec![Box::new(ListDF)]
+    vec![Box::new(ListDF), Box::new(rm::CacheRemove)]
 }
