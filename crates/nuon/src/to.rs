@@ -8,10 +8,31 @@ use nu_protocol::{Range, ShellError, Span, Value};
 
 use std::ops::Bound;
 
-/// TODO: documentation
+/// control the way Nushell [`Value`] is converted to NUON data
 pub enum ToStyle {
+    /// no indentation at all
+    ///
+    /// `{ a: 1, b: 2 }` will be converted to `{: 1, b: 2}`
     Raw,
+    /// tabulation-based indentation
+    ///
+    /// using 2 as the variant value, `{ a: 1, b: 2 }` will be converted to
+    /// ```
+    /// {
+    /// 		a: 1,
+    /// 		b: 2
+    /// }
+    /// ```
     Tabs(usize),
+    /// space-based indentation
+    ///
+    /// using 3 as the variant value, `{ a: 1, b: 2 }` will be converted to
+    /// ```
+    /// {
+    ///    a: 1,
+    ///    b: 2
+    /// }
+    /// ```
     Spaces(usize),
 }
 
