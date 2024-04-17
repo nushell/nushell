@@ -46,10 +46,9 @@ mod tests {
     fn from_nuon_illegal_table() {
         assert!(
             from_nuon("[[repeated repeated]; [abc, xyz], [def, ijk]]", None, None)
-                .err()
-                .unwrap()
+                .unwrap_err()
                 .to_string()
-                .contains("column_defined_twice")
+                .contains("Record field or table column used twice: repeated")
         );
     }
 
@@ -60,17 +59,17 @@ mod tests {
 
     #[test]
     fn to_nuon_escaping() {
-        nuon_back_and_forth("hello\"world");
+        nuon_back_and_forth(r#""hello\"world""#);
     }
 
     #[test]
     fn to_nuon_escaping2() {
-        nuon_back_and_forth("hello\\world");
+        nuon_back_and_forth(r#""hello\\world""#);
     }
 
     #[test]
     fn to_nuon_escaping3() {
-        nuon_back_and_forth(r#"["hello\\world"]"#);
+        nuon_back_and_forth(r#"[hello\\world]"#);
     }
 
     #[test]
@@ -126,7 +125,7 @@ mod tests {
     fn to_nuon_filesize() {
         assert_eq!(
             to_nuon(&Value::test_filesize(1024), true, None, None, None).unwrap(),
-            "1kib"
+            "1024b"
         );
     }
 
@@ -282,7 +281,7 @@ mod tests {
     fn float_neg_inf_parsed_properly() {
         assert_eq!(
             to_nuon(
-                &Value::test_float(-f64::NEG_INFINITY),
+                &Value::test_float(f64::NEG_INFINITY),
                 true,
                 None,
                 None,
@@ -297,7 +296,7 @@ mod tests {
     fn float_nan_parsed_properly() {
         assert_eq!(
             to_nuon(&Value::test_float(-f64::NAN), true, None, None, None).unwrap(),
-            "-inf"
+            "NaN"
         );
     }
 
@@ -343,7 +342,7 @@ mod tests {
 
     #[test]
     fn to_nuon_quotes_empty_string_in_table() {
-        nuon_back_and_forth("[[a, b]; ['', la] [le lu]]");
+        nuon_back_and_forth("[[a, b]; [\"\", la], [le, lu]]");
     }
 
     #[test]
@@ -390,23 +389,7 @@ mod tests {
     #[test]
     fn quotes_some_strings_necessarily() {
         nuon_back_and_forth(
-            r#"
-                ['true','false','null',
-                'NaN','NAN','nan','+nan','-nan',
-                'inf','+inf','-inf','INF',
-                'Infinity','+Infinity','-Infinity','INFINITY',
-                '+19.99','-19.99', '19.99b',
-                '19.99kb','19.99mb','19.99gb','19.99tb','19.99pb','19.99eb','19.99zb',
-                '19.99kib','19.99mib','19.99gib','19.99tib','19.99pib','19.99eib','19.99zib',
-                '19ns', '19us', '19ms', '19sec', '19min', '19hr', '19day', '19wk',
-                '-11.0..-15.0', '11.0..-15.0', '-11.0..15.0',
-                '-11.0..<-15.0', '11.0..<-15.0', '-11.0..<15.0',
-                '-11.0..', '11.0..', '..15.0', '..-15.0', '..<15.0', '..<-15.0',
-                '2000-01-01', '2022-02-02T14:30:00', '2022-02-02T14:30:00+05:00',
-                ',',''
-                '&&'
-                ]
-            "#,
+            r#"["true", "false", "null", "NaN", "NAN", "nan", "+nan", "-nan", "inf", "+inf", "-inf", "INF", "Infinity", "+Infinity", "-Infinity", "INFINITY", "+19.99", "-19.99", "19.99b", "19.99kb", "19.99mb", "19.99gb", "19.99tb", "19.99pb", "19.99eb", "19.99zb", "19.99kib", "19.99mib", "19.99gib", "19.99tib", "19.99pib", "19.99eib", "19.99zib", "19ns", "19us", "19ms", "19sec", "19min", "19hr", "19day", "19wk", "-11.0..-15.0", "11.0..-15.0", "-11.0..15.0", "-11.0..<-15.0", "11.0..<-15.0", "-11.0..<15.0", "-11.0..", "11.0..", "..15.0", "..-15.0", "..<15.0", "..<-15.0", "2000-01-01", "2022-02-02T14:30:00", "2022-02-02T14:30:00+05:00", ", ", "", "&&"]"#,
         );
     }
 
@@ -417,9 +400,8 @@ mod tests {
             None,
             None,
         )
-        .err()
-        .unwrap()
+        .unwrap_err()
         .to_string()
-        .contains("error when parsing"));
+        .contains("Error when loading"));
     }
 }
