@@ -25,7 +25,7 @@ mod tests {
     /// an optional "middle" value can be given to test what the value is between `from nuon` and
     /// `to nuon`.
     fn nuon_end_to_end(input: &str, middle: Option<Value>) {
-        let val = from_nuon(input, None, None).unwrap();
+        let val = from_nuon(input, None).unwrap();
         if let Some(m) = middle {
             assert_eq!(val, m);
         }
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn from_nuon_illegal_table() {
         assert!(
-            from_nuon("[[repeated repeated]; [abc, xyz], [def, ijk]]", None, None)
+            from_nuon("[[repeated repeated]; [abc, xyz], [def, ijk]]", None)
                 .unwrap_err()
                 .to_string()
                 .contains("Record field or table column used twice: repeated")
@@ -155,10 +155,7 @@ mod tests {
     #[test]
     fn filesize() {
         nuon_end_to_end("1024b", Some(Value::test_filesize(1024)));
-        assert_eq!(
-            from_nuon("1kib", None, None).unwrap(),
-            Value::test_filesize(1024),
-        );
+        assert_eq!(from_nuon("1kib", None).unwrap(), Value::test_filesize(1024),);
     }
 
     #[test]
@@ -203,7 +200,7 @@ mod tests {
     fn binary_roundtrip() {
         assert_eq!(
             to_nuon(
-                &from_nuon("0x[1f ff]", None, None).unwrap(),
+                &from_nuon("0x[1f ff]", None).unwrap(),
                 true,
                 None,
                 None,
@@ -219,7 +216,6 @@ mod tests {
         assert_eq!(
             from_nuon(
                 include_str!("../../../tests/fixtures/formats/sample.nuon"),
-                None,
                 None,
             )
             .unwrap(),
@@ -309,7 +305,6 @@ mod tests {
                 None
             )
             .unwrap(),
-            None,
             None,
         )
         .is_ok());
@@ -401,7 +396,6 @@ mod tests {
     fn read_code_should_fail_rather_than_panic() {
         assert!(from_nuon(
             include_str!("../../../tests/fixtures/formats/code.nu"),
-            None,
             None,
         )
         .unwrap_err()

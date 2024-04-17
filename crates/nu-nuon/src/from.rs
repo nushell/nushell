@@ -8,17 +8,13 @@ use std::sync::Arc;
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
 /// > **Note**  
-/// > an optional [`EngineState`] and [`Span`] can be passed to [`from_nuon`] if there is context
-/// > available to the caller, e.g. when using this function in a command implementation such as
+/// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
+/// > using this function in a command implementation such as
 /// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
 ///
 /// also see [`super::to_nuon`] for the inverse operation
-pub fn from_nuon(
-    input: &str,
-    engine_state: Option<EngineState>,
-    span: Option<Span>,
-) -> Result<Value, ShellError> {
-    let engine_state = engine_state.unwrap_or_default();
+pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
+    let engine_state = EngineState::default();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);

@@ -40,7 +40,7 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -48,7 +48,7 @@ impl Command for FromNuon {
         let head = call.head;
         let (string_input, _span, metadata) = input.collect_string_strict(head)?;
 
-        match nu_nuon::from_nuon(&string_input, Some(engine_state.clone()), Some(head)) {
+        match nu_nuon::from_nuon(&string_input, Some(head)) {
             Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
             Err(err) => Err(ShellError::GenericError {
                 error: "error when loading nuon text".into(),
