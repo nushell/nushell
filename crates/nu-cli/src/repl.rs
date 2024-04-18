@@ -117,7 +117,7 @@ pub fn evaluate_repl(
 
     let hostname = System::host_name();
     if shell_integration {
-        do_shell_integration(hostname.as_deref(), engine_state, &mut unique_stack);
+        shell_integration_osc_7_633_2(hostname.as_deref(), engine_state, &mut unique_stack);
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -666,7 +666,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             if shell_integration {
                 start_time = Instant::now();
 
-                do_shell_integration(hostname, engine_state, &mut stack);
+                shell_integration_osc_7_633_2(hostname, engine_state, &mut stack);
 
                 perf(
                     "shell_integration_finalize ansi escape sequences",
@@ -1025,7 +1025,11 @@ fn do_run_cmd(
 /// can have more information about what is going on (both on startup and after we have
 /// run a command)
 ///
-fn do_shell_integration(hostname: Option<&str>, engine_state: &EngineState, stack: &mut Stack) {
+fn shell_integration_osc_7_633_2(
+    hostname: Option<&str>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) {
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
         match cwd.coerce_into_string() {
             Ok(path) => {
