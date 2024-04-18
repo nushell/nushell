@@ -34,7 +34,7 @@ pub enum Expr {
     Block(BlockId),
     Closure(BlockId),
     MatchBlock(Vec<(MatchPattern, Expression)>),
-    List(Vec<Expression>),
+    List(Vec<ListItem>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Record(Vec<RecordItem>),
     Keyword(Vec<u8>, Span, Box<Expression>),
@@ -50,7 +50,6 @@ pub enum Expr {
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
-    Spread(Box<Expression>),
     Nothing,
     Garbage,
 }
@@ -99,7 +98,6 @@ impl Expr {
             | Expr::ImportPattern(_)
             | Expr::Overlay(_)
             | Expr::Signature(_)
-            | Expr::Spread(_)
             | Expr::Garbage => {
                 // These should be impossible to pipe to,
                 // but even it is, the pipeline output is not used in any way.
@@ -128,4 +126,24 @@ pub enum RecordItem {
     Pair(Expression, Expression),
     /// Span for the "..." and the expression that's being spread
     Spread(Span, Expression),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ListItem {
+    /// A normal expression
+    Item(Expression),
+    /// Span for the "..." and the expression that's being spread
+    Spread(Span, Expression),
+}
+
+impl ListItem {
+    pub fn expr(&self) -> &Expression {
+        let (ListItem::Item(expr) | ListItem::Spread(_, expr)) = self;
+        expr
+    }
+
+    pub fn expr_mut(&mut self) -> &mut Expression {
+        let (ListItem::Item(expr) | ListItem::Spread(_, expr)) = self;
+        expr
+    }
 }

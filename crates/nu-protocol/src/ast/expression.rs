@@ -86,13 +86,6 @@ impl Expression {
         }
     }
 
-    pub fn as_list(&self) -> Option<Vec<Expression>> {
-        match &self.expr {
-            Expr::List(list) => Some(list.clone()),
-            _ => None,
-        }
-    }
-
     pub fn as_keyword(&self) -> Option<&Expression> {
         match &self.expr {
             Expr::Keyword(_, _, expr) => Some(expr),
@@ -213,8 +206,8 @@ impl Expression {
             Expr::Int(_) => false,
             Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
             Expr::List(list) => {
-                for l in list {
-                    if l.has_in_variable(working_set) {
+                for item in list {
+                    if item.expr().has_in_variable(working_set) {
                         return true;
                     }
                 }
@@ -304,7 +297,6 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
-            Expr::Spread(expr) => expr.has_in_variable(working_set),
         }
     }
 
@@ -394,8 +386,9 @@ impl Expression {
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
             Expr::List(list) => {
-                for l in list {
-                    l.replace_span(working_set, replaced, new_span)
+                for item in list {
+                    item.expr_mut()
+                        .replace_span(working_set, replaced, new_span);
                 }
             }
             Expr::Operator(_) => {}
@@ -456,7 +449,6 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
-            Expr::Spread(expr) => expr.replace_span(working_set, replaced, new_span),
         }
     }
 }
