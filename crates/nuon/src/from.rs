@@ -197,10 +197,13 @@ fn convert_to_value(
             span: expr.span,
         }),
         Expr::Int(val) => Ok(Value::int(val, span)),
-        Expr::Keyword(kw, ..) => Err(ShellError::OutsideSpannedLabeledError {
+        Expr::Keyword(kw) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
-            msg: format!("{} not supported in nuon", String::from_utf8_lossy(&kw)),
+            msg: format!(
+                "{} not supported in nuon",
+                String::from_utf8_lossy(&kw.keyword)
+            ),
             span: expr.span,
         }),
         Expr::List(vals) => {

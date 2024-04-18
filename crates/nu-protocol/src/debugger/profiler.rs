@@ -243,7 +243,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::GlobPattern(_, _) => "glob pattern".to_string(),
         Expr::ImportPattern(_) => "import pattern".to_string(),
         Expr::Int(_) => "int".to_string(),
-        Expr::Keyword(_, _, _) => "keyword".to_string(),
+        Expr::Keyword(_) => "keyword".to_string(),
         Expr::List(_) => "list".to_string(),
         Expr::MatchBlock(_) => "match block".to_string(),
         Expr::Nothing => "nothing".to_string(),

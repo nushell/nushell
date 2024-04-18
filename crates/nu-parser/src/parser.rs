@@ -695,25 +695,29 @@ pub fn parse_multispan_value(
                     String::from_utf8_lossy(keyword).into(),
                     Span::new(spans[*spans_idx - 1].end, spans[*spans_idx - 1].end),
                 ));
+                let keyword = Keyword {
+                    keyword: keyword.as_slice().into(),
+                    span: spans[*spans_idx - 1],
+                    expr: Expression::garbage(arg_span),
+                };
                 return Expression {
-                    expr: Expr::Keyword(
-                        keyword.as_slice().into(),
-                        spans[*spans_idx - 1],
-                        Box::new(Expression::garbage(arg_span)),
-                    ),
+                    expr: Expr::Keyword(Box::new(keyword)),
                     span: arg_span,
                     ty: Type::Any,
                     custom_completion: None,
                 };
             }
-            let keyword_span = spans[*spans_idx - 1];
-            let expr = parse_multispan_value(working_set, spans, spans_idx, arg);
-            let ty = expr.ty.clone();
+
+            let keyword = Keyword {
+                keyword: keyword.as_slice().into(),
+                span: spans[*spans_idx - 1],
+                expr: parse_multispan_value(working_set, spans, spans_idx, arg),
+            };
 
             Expression {
-                expr: Expr::Keyword(keyword.as_slice().into(), keyword_span, Box::new(expr)),
+                ty: keyword.expr.ty.clone(),
+                expr: Expr::Keyword(Box::new(keyword)),
                 span: arg_span,
-                ty,
                 custom_completion: None,
             }
         }
@@ -5973,8 +5977,8 @@ pub fn discover_captures_in_expr(
         Expr::Nothing => {}
         Expr::GlobPattern(_, _) => {}
         Expr::Int(_) => {}
-        Expr::Keyword(_, _, expr) => {
-            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+        Expr::Keyword(kw) => {
+            discover_captures_in_expr(working_set, &kw.expr, seen, seen_blocks, output)?;
         }
         Expr::List(list) => {
             for item in list {

@@ -495,9 +495,9 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::Keyword(_, span, expr) => {
-            let mut output = vec![(*span, FlatShape::Keyword)];
-            output.extend(flatten_expression(working_set, expr));
+        Expr::Keyword(kw) => {
+            let mut output = vec![(kw.span, FlatShape::Keyword)];
+            output.extend(flatten_expression(working_set, &kw.expr));
             output
         }
         Expr::Operator(_) => {

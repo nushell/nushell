@@ -2,7 +2,8 @@ use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator, Range,
+    Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
+    Range,
 };
 use crate::{
     ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, OutDest, Signature, Span, Spanned,
@@ -31,7 +32,7 @@ pub enum Expr {
     List(Vec<ListItem>),
     Table(Box<[Expression]>, Box<[Vec<Expression>]>),
     Record(Vec<RecordItem>),
-    Keyword(Box<[u8]>, Span, Box<Expression>),
+    Keyword(Box<Keyword>),
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
     DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String, bool),
@@ -106,7 +107,7 @@ impl Expr {
                 // No override necessary, pipes will always be created in eval
                 (None, None)
             }
-            Expr::Keyword(_, _, _) => {
+            Expr::Keyword(_) => {
                 // Not sure about this; let's return no redirection override for now.
                 (None, None)
             }

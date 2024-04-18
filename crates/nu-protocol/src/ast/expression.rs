@@ -88,7 +88,7 @@ impl Expression {
 
     pub fn as_keyword(&self) -> Option<&Expression> {
         match &self.expr {
-            Expr::Keyword(_, _, expr) => Some(expr),
+            Expr::Keyword(kw) => Some(&kw.expr),
             _ => None,
         }
     }
@@ -204,7 +204,7 @@ impl Expression {
             Expr::Nothing => false,
             Expr::GlobPattern(_, _) => false,
             Expr::Int(_) => false,
-            Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
+            Expr::Keyword(kw) => kw.expr.has_in_variable(working_set),
             Expr::List(list) => {
                 for item in list {
                     if item.expr().has_in_variable(working_set) {
@@ -384,7 +384,7 @@ impl Expression {
             Expr::GlobPattern(_, _) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
-            Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
+            Expr::Keyword(kw) => kw.expr.replace_span(working_set, replaced, new_span),
             Expr::List(list) => {
                 for item in list {
                     item.expr_mut()
