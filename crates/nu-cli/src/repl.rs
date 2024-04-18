@@ -74,7 +74,8 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let nu_prompt = NushellPrompt::new(config.shell_integration);
+    let shell_integration = config.shell_integration;
+    let nu_prompt = NushellPrompt::new(shell_integration);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -112,6 +113,10 @@ pub fn evaluate_repl(
         );
         let cwd = get_guaranteed_cwd(engine_state, &unique_stack);
         engine_state.merge_env(&mut unique_stack, cwd)?;
+    }
+
+    if shell_integration {
+        do_shell_integration(System::host_name(), engine_state, &mut unique_stack);
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -658,7 +663,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             if shell_integration {
                 start_time = Instant::now();
 
-                do_shell_integration_finalize_command(hostname, engine_state, &mut stack);
+                do_shell_integration(hostname, engine_state, &mut stack);
 
                 perf(
                     "shell_integration_finalize ansi escape sequences",
@@ -1014,13 +1019,10 @@ fn do_run_cmd(
 
 ///
 /// Output some things and set environment variables so shells with the right integration
-/// can have more information about what is going on (after we have run a command)
+/// can have more information about what is going on (both on startup and after we have
+/// run a command)
 ///
-fn do_shell_integration_finalize_command(
-    hostname: Option<String>,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-) {
+fn do_shell_integration(hostname: Option<String>, engine_state: &EngineState, stack: &mut Stack) {
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
         match cwd.coerce_into_string() {
             Ok(path) => {
