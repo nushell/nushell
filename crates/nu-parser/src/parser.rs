@@ -2782,7 +2782,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                     prev_span,
                 ));
                 return Expression {
-                    expr: Expr::ImportPattern(import_pattern),
+                    expr: Expr::ImportPattern(Box::new(import_pattern)),
                     span: prev_span,
                     ty: Type::List(Box::new(Type::String)),
                     custom_completion: None,
@@ -2828,7 +2828,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                 } else {
                     working_set.error(ParseError::ExportNotFound(result.span));
                     return Expression {
-                        expr: Expr::ImportPattern(import_pattern),
+                        expr: Expr::ImportPattern(Box::new(import_pattern)),
                         span: span(spans),
                         ty: Type::List(Box::new(Type::String)),
                         custom_completion: None,
@@ -2848,7 +2848,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     }
 
     Expression {
-        expr: Expr::ImportPattern(import_pattern),
+        expr: Expr::ImportPattern(Box::new(import_pattern)),
         span: span(&spans[1..]),
         ty: Type::List(Box::new(Type::String)),
         custom_completion: None,
