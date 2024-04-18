@@ -704,12 +704,7 @@ impl PluginInterface {
             PluginCall::CustomValueOp(value, op) => {
                 (PluginCall::CustomValueOp(value, op), Default::default())
             }
-            PluginCall::Run(CallInfo {
-                name,
-                mut call,
-                input,
-            }) => {
-                state.prepare_call_args(&mut call, &self.state.source)?;
+            PluginCall::Run(CallInfo { name, call, input }) => {
                 let (header, writer) = self.init_write_pipeline_data(input, &state)?;
                 (
                     PluginCall::Run(CallInfo {
