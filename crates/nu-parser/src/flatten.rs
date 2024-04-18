@@ -242,7 +242,7 @@ pub fn flatten_expression(
                 }
             }
 
-            for arg in args {
+            for arg in args.as_ref() {
                 //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
                     ExternalArgument::Regular(expr) => match expr {

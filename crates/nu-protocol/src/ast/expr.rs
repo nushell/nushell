@@ -20,7 +20,7 @@ pub enum Expr {
     Var(VarId),
     VarDecl(VarId),
     Call(Box<Call>),
-    ExternalCall(Box<Expression>, Vec<ExternalArgument>), // head, args
+    ExternalCall(Box<Expression>, Box<[ExternalArgument]>), // head, args
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),

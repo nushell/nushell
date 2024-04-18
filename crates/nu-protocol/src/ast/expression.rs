@@ -182,7 +182,9 @@ impl Expression {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
-                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
+                    args.as_ref()
+                {
                     if expr.has_in_variable(working_set) {
                         return true;
                     }
@@ -365,7 +367,9 @@ impl Expression {
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span);
-                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
+                    args.as_mut()
+                {
                     expr.replace_span(working_set, replaced, new_span);
                 }
             }

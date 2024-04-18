@@ -256,8 +256,6 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
 pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     trace!("parse external");
 
-    let mut args = vec![];
-
     let head_contents = working_set.get_span_contents(spans[0]);
 
     let head_span = if head_contents.starts_with(b"^") {
@@ -286,10 +284,10 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         })
     };
 
-    for span in &spans[1..] {
-        let arg = parse_external_arg(working_set, *span);
-        args.push(arg);
-    }
+    let args = spans[1..]
+        .iter()
+        .map(|&span| parse_external_arg(working_set, span))
+        .collect();
 
     Expression {
         expr: Expr::ExternalCall(head, args),
@@ -1132,18 +1130,17 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             {
                 trace!("parsing: alias of external call");
 
-                let mut final_args = args.clone();
+                let mut head = head.clone();
+                head.span = spans[0]; // replacing the spans preserves syntax highlighting
 
-                for arg_span in spans.iter().skip(1) {
+                let mut final_args = args.clone().into_vec();
+                for arg_span in &spans[1..] {
                     let arg = parse_external_arg(working_set, *arg_span);
                     final_args.push(arg);
                 }
 
-                let mut head = head.clone();
-                head.span = spans[0]; // replacing the spans preserves syntax highlighting
-
                 return Expression {
-                    expr: Expr::ExternalCall(head, final_args),
+                    expr: Expr::ExternalCall(head, final_args.into_boxed_slice()),
                     span: span(spans),
                     ty: ty.clone(),
                     custom_completion: *custom_completion,
@@ -5961,7 +5958,7 @@ pub fn discover_captures_in_expr(
         Expr::ExternalCall(head, args) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 
-            for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+            for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args.as_ref() {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
