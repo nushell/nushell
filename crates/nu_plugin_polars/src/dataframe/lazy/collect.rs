@@ -64,7 +64,9 @@ impl PluginCommand for LazyCollect {
         let value = input.into_value(call.head);
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuLazyFrame(lazy) => {
-                let eager = lazy.collect(call.head)?;
+                let mut eager = lazy.collect(call.head)?;
+                // We don't want this converted back to a lazy frame
+                eager.from_lazy = true;
                 Ok(PipelineData::Value(
                     eager
                         .cache(plugin, engine, call.head)?

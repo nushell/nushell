@@ -64,7 +64,7 @@ impl NuLazyFrame {
                 help: None,
                 inner: vec![],
             })
-            .map(|df| NuDataFrame::new(false, df))
+            .map(|df| NuDataFrame::new(true, df))
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
