@@ -180,9 +180,9 @@ fn features_enabled() -> Vec<String> {
         names.push("static-link-openssl".to_string());
     }
 
-    #[cfg(feature = "wasi")]
+    #[cfg(feature = "system-clipboard")]
     {
-        names.push("wasi".to_string());
+        names.push("system-clipboard".to_string());
     }
 
     names.sort();

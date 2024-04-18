@@ -239,7 +239,6 @@ default-no-clipboard = [
   "mimalloc",
 ]
 stable = ["default"]
-wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
 
 # Enable to statically link OpenSSL (perl is required, to build OpenSSL https://docs.rs/openssl/latest/openssl/);
@@ -247,7 +246,11 @@ wasi = ["nu-cmd-lang/wasi"]
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
-system-clipboard = ["reedline/system_clipboard", "nu-cli/system-clipboard"]
+system-clipboard = [
+  "reedline/system_clipboard",
+  "nu-cli/system-clipboard",
+  "nu-cmd-lang/system-clipboard",
+]
 
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
