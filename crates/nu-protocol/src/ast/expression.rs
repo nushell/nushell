@@ -296,7 +296,7 @@ impl Expression {
                 false
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
+            Expr::ValueWithUnit(value) => value.expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
         }
@@ -450,7 +450,7 @@ impl Expression {
                 }
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
+            Expr::ValueWithUnit(value) => value.expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }

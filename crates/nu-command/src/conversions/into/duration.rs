@@ -203,9 +203,9 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         Type::Duration,
         |x| x,
     ) {
-        if let Expr::ValueWithUnit(value, unit) = expression.expr {
-            if let Expr::Int(x) = value.expr {
-                match unit.item {
+        if let Expr::ValueWithUnit(value) = expression.expr {
+            if let Expr::Int(x) = value.expr.expr {
+                match value.unit.item {
                     Unit::Nanosecond => return Ok(x),
                     Unit::Microsecond => return Ok(x * 1000),
                     Unit::Millisecond => return Ok(x * 1000 * 1000),

@@ -3,12 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
-    Range,
+    Range, ValueWithUnit,
 };
-use crate::{
-    ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, OutDest, Signature, Span, Spanned,
-    VarId,
-};
+use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, Span, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -33,7 +30,7 @@ pub enum Expr {
     Table(Box<[Expression]>, Box<[Vec<Expression>]>),
     Record(Vec<RecordItem>),
     Keyword(Box<Keyword>),
-    ValueWithUnit(Box<Expression>, Spanned<Unit>),
+    ValueWithUnit(Box<ValueWithUnit>),
     DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String, bool),
     Directory(String, bool),
@@ -75,7 +72,7 @@ impl Expr {
             | Expr::List(_)
             | Expr::Table(_, _)
             | Expr::Record(_)
-            | Expr::ValueWithUnit(_, _)
+            | Expr::ValueWithUnit(_)
             | Expr::DateTime(_)
             | Expr::String(_)
             | Expr::CellPath(_)

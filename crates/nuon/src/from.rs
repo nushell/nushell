@@ -384,8 +384,8 @@ fn convert_to_value(
 
             Ok(Value::list(output, span))
         }
-        Expr::ValueWithUnit(val, unit) => {
-            let size = match val.expr {
+        Expr::ValueWithUnit(value) => {
+            let size = match value.expr.expr {
                 Expr::Int(val) => val,
                 _ => {
                     return Err(ShellError::OutsideSpannedLabeledError {
@@ -397,7 +397,7 @@ fn convert_to_value(
                 }
             };
 
-            match unit.item {
+            match value.unit.item {
                 Unit::Byte => Ok(Value::filesize(size, span)),
                 Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),
                 Unit::Megabyte => Ok(Value::filesize(size * 1000 * 1000, span)),

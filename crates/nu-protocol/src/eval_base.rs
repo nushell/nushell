@@ -134,12 +134,12 @@ pub trait Eval {
             Expr::Keyword(kw) => Self::eval::<D>(state, mut_state, &kw.expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(e, unit) => match Self::eval::<D>(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.build_value(val, unit.span),
+            Expr::ValueWithUnit(value) => match Self::eval::<D>(state, mut_state, &value.expr)? {
+                Value::Int { val, .. } => value.unit.item.build_value(val, value.unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
-                    span: e.span,
+                    span: value.expr.span,
                     help: None,
                 }),
             },

@@ -297,9 +297,9 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::ValueWithUnit(x, unit) => {
-            let mut output = flatten_expression(working_set, x);
-            output.push((unit.span, FlatShape::String));
+        Expr::ValueWithUnit(value) => {
+            let mut output = flatten_expression(working_set, &value.expr);
+            output.push((value.unit.span, FlatShape::String));
 
             output
         }

@@ -141,11 +141,11 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::ValueWithUnit(amount, unit) => {
-                        let span = unit.span;
+                    Expr::ValueWithUnit(val) => {
+                        let span = val.unit.span;
 
-                        if let Expr::Int(size) = amount.expr {
-                            match &unit.item.build_value(size, span) {
+                        if let Expr::Int(size) = val.expr.expr {
+                            match &val.unit.item.build_value(size, span) {
                                 Ok(v) => v == value,
                                 _ => false,
                             }

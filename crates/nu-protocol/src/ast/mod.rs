@@ -10,6 +10,7 @@ mod operator;
 mod pipeline;
 mod range;
 mod unit;
+mod value_with_unit;
 
 pub use block::*;
 pub use call::*;
@@ -23,3 +24,4 @@ pub use operator::*;
 pub use pipeline::*;
 pub use range::*;
 pub use unit::*;
+pub use value_with_unit::*;

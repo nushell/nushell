@@ -2313,19 +2313,20 @@ pub fn parse_unit_value<'res>(
         };
 
         trace!("-- found {} {:?}", num, unit);
+        let value = ValueWithUnit {
+            expr: Expression {
+                expr: Expr::Int(num),
+                span: lhs_span,
+                ty: Type::Number,
+                custom_completion: None,
+            },
+            unit: Spanned {
+                item: unit,
+                span: unit_span,
+            },
+        };
         let expr = Expression {
-            expr: Expr::ValueWithUnit(
-                Box::new(Expression {
-                    expr: Expr::Int(num),
-                    span: lhs_span,
-                    ty: Type::Number,
-                    custom_completion: None,
-                }),
-                Spanned {
-                    item: unit,
-                    span: unit_span,
-                },
-            ),
+            expr: Expr::ValueWithUnit(Box::new(value)),
             span,
             ty,
             custom_completion: None,
@@ -6087,8 +6088,8 @@ pub fn discover_captures_in_expr(
                 }
             }
         }
-        Expr::ValueWithUnit(expr, _) => {
-            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+        Expr::ValueWithUnit(value) => {
+            discover_captures_in_expr(working_set, &value.expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
             if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
