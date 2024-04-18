@@ -303,7 +303,7 @@ impl StreamWriterSignal {
     /// If `notify_sent()` is called more than `high_pressure_mark` times, it will wait until
     /// `notify_acknowledge()` is called by another thread enough times to bring the number of
     /// unacknowledged sent messages below that threshold.
-    pub fn new(high_pressure_mark: i32) -> StreamWriterSignal {
+    fn new(high_pressure_mark: i32) -> StreamWriterSignal {
         assert!(high_pressure_mark > 0);
 
         StreamWriterSignal {
@@ -511,6 +511,12 @@ impl StreamManager {
             }
         }
         Ok(())
+    }
+}
+
+impl Default for StreamManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
