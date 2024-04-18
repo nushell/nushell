@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 
 /// A representation of the plugin's invocation command including command line args
 ///
-/// The `EvaluatedCall` contains information about the way a [`Plugin`](crate::Plugin) was invoked
-/// representing the [`Span`] corresponding to the invocation as well as the arguments
-/// it was invoked with. It is one of three items passed to [`run()`](crate::PluginCommand::run()) along with
-/// `name` which command that was invoked and a [`Value`] that represents the input.
+/// The `EvaluatedCall` contains information about the way a `Plugin` was invoked representing the
+/// [`Span`] corresponding to the invocation as well as the arguments it was invoked with. It is
+/// one of the items passed to `PluginCommand::run()`, along with the plugin reference, the engine
+/// interface, and a [`Value`] that represents the input.
 ///
 /// The evaluated call is used with the Plugins because the plugin doesn't have
 /// access to the Stack and the EngineState the way a built in command might. For that

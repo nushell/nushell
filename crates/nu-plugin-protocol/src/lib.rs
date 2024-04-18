@@ -383,7 +383,7 @@ pub enum PluginOption {
     /// Send `GcDisabled(true)` to stop the plugin from being automatically garbage collected, or
     /// `GcDisabled(false)` to enable it again.
     ///
-    /// See [`EngineInterface::set_gc_disabled`] for more information.
+    /// See `EngineInterface::set_gc_disabled()` in `nu-plugin` for more information.
     GcDisabled(bool),
 }
 

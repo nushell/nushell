@@ -131,9 +131,10 @@ where
     }
 }
 
-/// An interface manager handles I/O and state management for communication between a plugin and the
-/// engine. See [`PluginInterfaceManager`] for communication from the engine side to a plugin, or
-/// [`EngineInterfaceManager`] for communication from the plugin side to the engine.
+/// An interface manager handles I/O and state management for communication between a plugin and
+/// the engine. See `PluginInterfaceManager` in `nu-plugin-engine` for communication from the engine
+/// side to a plugin, or `EngineInterfaceManager` in `nu-plugin` for communication from the plugin
+/// side to the engine.
 ///
 /// There is typically one [`InterfaceManager`] consuming input from a background thread, and
 /// managing shared state.
@@ -215,8 +216,8 @@ pub trait InterfaceManager {
 }
 
 /// An interface provides an API for communicating with a plugin or the engine and facilitates
-/// stream I/O. See [`PluginInterface`] for the API from the engine side to a plugin, or
-/// [`EngineInterface`] for the API from the plugin side to the engine.
+/// stream I/O. See `PluginInterface` in `nu-plugin-engine` for the API from the engine side to a
+/// plugin, or `EngineInterface` in `nu-plugin` for the API from the plugin side to the engine.
 ///
 /// There can be multiple copies of the interface managed by a single [`InterfaceManager`].
 pub trait Interface: Clone + Send {
@@ -232,7 +233,7 @@ pub trait Interface: Clone + Send {
     /// Flush the output buffer, so messages are visible to the other side.
     fn flush(&self) -> Result<(), ShellError>;
 
-    /// Get the sequence for generating new [`StreamId`](crate::protocol::StreamId)s.
+    /// Get the sequence for generating new [`StreamId`](nu_plugin_protocol::StreamId)s.
     fn stream_id_sequence(&self) -> &Sequence;
 
     /// Get the [`StreamManagerHandle`] for doing stream operations.
