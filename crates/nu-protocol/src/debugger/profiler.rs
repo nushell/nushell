@@ -249,7 +249,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Nothing => "nothing".to_string(),
         Expr::Operator(_) => "operator".to_string(),
         Expr::Overlay(_) => "overlay".to_string(),
-        Expr::Range(_, _, _, _) => "range".to_string(),
+        Expr::Range(_) => "range".to_string(),
         Expr::Record(_) => "record".to_string(),
         Expr::RowCondition(_) => "row condition".to_string(),
         Expr::Signature(_) => "signature".to_string(),

@@ -346,17 +346,17 @@ pub fn flatten_expression(
         Expr::Overlay(_) => {
             vec![(expr.span, FlatShape::String)]
         }
-        Expr::Range(from, next, to, op) => {
+        Expr::Range(range) => {
             let mut output = vec![];
-            if let Some(f) = from {
+            if let Some(f) = &range.from {
                 output.extend(flatten_expression(working_set, f));
             }
-            if let Some(s) = next {
-                output.extend(vec![(op.next_op_span, FlatShape::Operator)]);
+            if let Some(s) = &range.next {
+                output.extend(vec![(range.operator.next_op_span, FlatShape::Operator)]);
                 output.extend(flatten_expression(working_set, s));
             }
-            output.extend(vec![(op.span, FlatShape::Operator)]);
-            if let Some(t) = to {
+            output.extend(vec![(range.operator.span, FlatShape::Operator)]);
+            if let Some(t) = &range.to {
                 output.extend(flatten_expression(working_set, t));
             }
             output

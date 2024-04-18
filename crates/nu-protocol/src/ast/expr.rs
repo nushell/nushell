@@ -2,8 +2,7 @@ use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator,
-    RangeOperator,
+    Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator, Range,
 };
 use crate::{
     ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, OutDest, Signature, Span, Spanned,
@@ -16,12 +15,7 @@ pub enum Expr {
     Int(i64),
     Float(f64),
     Binary(Vec<u8>),
-    Range(
-        Option<Box<Expression>>, // from
-        Option<Box<Expression>>, // next value after "from"
-        Option<Box<Expression>>, // to
-        RangeOperator,
-    ),
+    Range(Box<Range>),
     Var(VarId),
     VarDecl(VarId),
     Call(Box<Call>),
@@ -72,7 +66,7 @@ impl Expr {
             | Expr::Int(_)
             | Expr::Float(_)
             | Expr::Binary(_)
-            | Expr::Range(_, _, _, _)
+            | Expr::Range(_)
             | Expr::Var(_)
             | Expr::UnaryNot(_)
             | Expr::BinaryOp(_, _, _)

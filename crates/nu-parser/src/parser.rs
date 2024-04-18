@@ -1493,22 +1493,14 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         None
     } else {
         let from_span = Span::new(span.start, span.start + dotdot_pos[0]);
-        Some(Box::new(parse_value(
-            working_set,
-            from_span,
-            &SyntaxShape::Number,
-        )))
+        Some(parse_value(working_set, from_span, &SyntaxShape::Number))
     };
 
     let to = if token.ends_with(range_op_str) {
         None
     } else {
         let to_span = Span::new(range_op_span.end, span.end);
-        Some(Box::new(parse_value(
-            working_set,
-            to_span,
-            &SyntaxShape::Number,
-        )))
+        Some(parse_value(working_set, to_span, &SyntaxShape::Number))
     };
 
     trace!("-- from: {:?} to: {:?}", from, to);
@@ -1523,25 +1515,28 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         let next_span = Span::new(next_op_span.end, range_op_span.start);
 
         (
-            Some(Box::new(parse_value(
-                working_set,
-                next_span,
-                &SyntaxShape::Number,
-            ))),
+            Some(parse_value(working_set, next_span, &SyntaxShape::Number)),
             next_op_span,
         )
     } else {
         (None, span)
     };
 
-    let range_op = RangeOperator {
+    let operator = RangeOperator {
         inclusion,
         span: range_op_span,
         next_op_span,
     };
 
+    let range = Range {
+        from,
+        next,
+        to,
+        operator,
+    };
+
     Expression {
-        expr: Expr::Range(from, next, to, range_op),
+        expr: Expr::Range(Box::new(range)),
         span,
         ty: Type::Range,
         custom_completion: None,
@@ -5987,15 +5982,15 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::Operator(_) => {}
-        Expr::Range(expr1, expr2, expr3, _) => {
-            if let Some(expr) = expr1 {
-                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+        Expr::Range(range) => {
+            if let Some(from) = &range.from {
+                discover_captures_in_expr(working_set, from, seen, seen_blocks, output)?;
             }
-            if let Some(expr) = expr2 {
-                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+            if let Some(next) = &range.next {
+                discover_captures_in_expr(working_set, next, seen, seen_blocks, output)?;
             }
-            if let Some(expr) = expr3 {
-                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+            if let Some(to) = &range.to {
+                discover_captures_in_expr(working_set, to, seen, seen_blocks, output)?;
             }
         }
         Expr::Record(items) => {

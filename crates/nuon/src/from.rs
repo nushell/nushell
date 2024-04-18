@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
-/// > **Note**  
+/// > **Note**
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
 /// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
@@ -237,27 +237,27 @@ fn convert_to_value(
             msg: "operators not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Range(from, next, to, operator) => {
-            let from = if let Some(f) = from {
-                convert_to_value(*f, span, original_text)?
+        Expr::Range(range) => {
+            let from = if let Some(f) = range.from {
+                convert_to_value(f, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
-            let next = if let Some(s) = next {
-                convert_to_value(*s, span, original_text)?
+            let next = if let Some(s) = range.next {
+                convert_to_value(s, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
-            let to = if let Some(t) = to {
-                convert_to_value(*t, span, original_text)?
+            let to = if let Some(t) = range.to {
+                convert_to_value(t, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
             Ok(Value::range(
-                Range::new(from, next, to, operator.inclusion, expr.span)?,
+                Range::new(from, next, to, range.operator.inclusion, expr.span)?,
                 expr.span,
             ))
         }
