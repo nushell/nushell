@@ -16,8 +16,8 @@ impl Command for SubCommand {
                 (Type::String, Type::Float),
                 (Type::Bool, Type::Float),
                 (Type::Float, Type::Float),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Float)),

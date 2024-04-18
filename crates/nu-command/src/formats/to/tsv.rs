@@ -13,8 +13,8 @@ impl Command for ToTsv {
     fn signature(&self) -> Signature {
         Signature::build("to tsv")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::String),
+                (Type::Record([].into()), Type::String),
+                (Type::Table([].into()), Type::String),
             ])
             .switch(
                 "noheaders",

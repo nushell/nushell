@@ -13,8 +13,8 @@ impl Command for SubCommand {
         Signature::build("math variance")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
-                (Type::Table(vec![]), Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Record([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .switch(
                 "sample",

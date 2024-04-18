@@ -26,8 +26,8 @@ impl Command for Parse {
         Signature::build("parse")
             .required("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
-                (Type::String, Type::Table(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+                (Type::String, Type::Table([].into())),
+                (Type::List(Box::new(Type::Any)), Type::Table([].into())),
             ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
             .allow_variants_without_examples(true)

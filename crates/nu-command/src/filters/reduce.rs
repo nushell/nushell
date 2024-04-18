@@ -13,7 +13,7 @@ impl Command for Reduce {
         Signature::build("reduce")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::Any),
-                (Type::Table(vec![]), Type::Any),
+                (Type::Table([].into()), Type::Any),
                 (Type::Range, Type::Any),
             ])
             .named(

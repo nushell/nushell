@@ -29,7 +29,7 @@ impl Command for HelpCommands {
                 "string to find in command names, usage, and search terms",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
             .allow_variants_without_examples(true)
     }
 

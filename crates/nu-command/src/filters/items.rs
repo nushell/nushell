@@ -12,7 +12,7 @@ impl Command for Items {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Record(vec![]), Type::Any)])
+            .input_output_types(vec![(Type::Record([].into()), Type::Any)])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),

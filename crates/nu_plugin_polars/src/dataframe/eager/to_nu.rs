@@ -37,7 +37,7 @@ impl PluginCommand for ToNu {
             .switch("tail", "shows tail rows", Some('t'))
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
-                (Type::Custom("dataframe".into()), Type::Table(vec![])),
+                (Type::Custom("dataframe".into()), Type::Table([].into())),
             ])
             .category(Category::Custom("dataframe".into()))
     }

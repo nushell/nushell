@@ -16,8 +16,8 @@ impl Command for RollLeft {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record([].into()), Type::Record([].into())),
+                (Type::Table([].into()), Type::Table([].into())),
             ])
             .named(
                 "by",

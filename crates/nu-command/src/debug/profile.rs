@@ -37,7 +37,7 @@ impl Command for DebugProfile {
                 "How many blocks/closures deep to step into (default 2)",
                 Some('m'),
             )
-            .input_output_types(vec![(Type::Any, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::Table([].into()))])
             .category(Category::Debug)
     }
 

@@ -15,7 +15,7 @@ pub enum Type {
     Bool,
     CellPath,
     Closure,
-    Custom(String),
+    Custom(Box<str>),
     Date,
     Duration,
     Error,
@@ -28,11 +28,11 @@ pub enum Type {
     Nothing,
     Number,
     Range,
-    Record(Vec<(String, Type)>),
+    Record(Box<[(String, Type)]>),
     Signature,
     String,
     Glob,
-    Table(Vec<(String, Type)>),
+    Table(Box<[(String, Type)]>),
 }
 
 impl Type {

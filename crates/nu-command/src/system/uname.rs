@@ -16,7 +16,7 @@ impl Command for UName {
 
     fn signature(&self) -> Signature {
         Signature::build("uname")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
             .category(Category::System)
     }
 

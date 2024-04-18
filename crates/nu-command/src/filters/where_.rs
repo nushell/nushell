@@ -26,7 +26,7 @@ not supported."#
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
                 (Type::Range, Type::Any),
             ])
             .required(

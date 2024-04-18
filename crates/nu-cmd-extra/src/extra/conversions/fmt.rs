@@ -15,7 +15,7 @@ impl Command for Fmt {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("fmt")
-            .input_output_types(vec![(Type::Number, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Number, Type::Record([].into()))])
             .category(Category::Conversions)
     }
 

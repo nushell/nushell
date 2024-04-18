@@ -4002,7 +4002,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         working_set.parse_errors.extend(errs);
         ty
     } else {
-        Type::Table(vec![])
+        Type::Table([].into())
     };
 
     Expression {
@@ -4052,7 +4052,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
 
     ty.reverse();
 
-    (Type::Table(ty), errors)
+    (Type::Table(ty.into_boxed_slice()), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -5340,7 +5340,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             match &inner.ty {
                 Type::Record(inner_fields) => {
                     if let Some(fields) = &mut field_types {
-                        for (field, ty) in inner_fields {
+                        for (field, ty) in inner_fields.as_ref() {
                             fields.push((field.clone(), ty.clone()));
                         }
                     }
@@ -5419,7 +5419,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         expr: Expr::Record(output),
         span,
         ty: (if let Some(fields) = field_types {
-            Type::Record(fields)
+            Type::Record(fields.into_boxed_slice())
         } else {
             Type::Any
         }),

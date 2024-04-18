@@ -11,7 +11,7 @@ impl Command for StorInsert {
 
     fn signature(&self) -> Signature {
         Signature::build("stor insert")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
             .required_named(
                 "table-name",
                 SyntaxShape::String,

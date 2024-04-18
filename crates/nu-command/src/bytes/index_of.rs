@@ -28,8 +28,8 @@ impl Command for BytesIndexOf {
                 (Type::Binary, Type::Any),
                 // FIXME: this shouldn't be needed, cell paths should work with the two
                 // above
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .required(

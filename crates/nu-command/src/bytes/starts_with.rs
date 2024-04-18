@@ -25,8 +25,8 @@ impl Command for BytesStartsWith {
         Signature::build("bytes starts-with")
             .input_output_types(vec![
                 (Type::Binary, Type::Bool),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .required("pattern", SyntaxShape::Binary, "The pattern to match.")

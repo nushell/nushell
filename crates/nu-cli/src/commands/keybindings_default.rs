@@ -12,7 +12,7 @@ impl Command for KeybindingsDefault {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Platform)
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
     }
 
     fn usage(&self) -> &str {

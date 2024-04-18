@@ -23,8 +23,8 @@ repeating this process with row 1, and so on."#
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("merge")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record([].into()), Type::Record([].into())),
+                (Type::Table([].into()), Type::Table([].into())),
             ])
             .required(
                 "value",

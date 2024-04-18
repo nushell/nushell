@@ -18,7 +18,7 @@ impl Command for FormatDate {
             .input_output_types(vec![
                 (Type::Date, Type::String),
                 (Type::String, Type::String),
-                (Type::Nothing, Type::Table(vec![])),
+                (Type::Nothing, Type::Table([].into())),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "lists strftime cheatsheet", Some('l'))

@@ -15,9 +15,9 @@ impl Command for Wrap {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("wrap")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
-                (Type::Range, Type::Table(vec![])),
-                (Type::Any, Type::Record(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Table([].into())),
+                (Type::Range, Type::Table([].into())),
+                (Type::Any, Type::Record([].into())),
             ])
             .required("name", SyntaxShape::String, "The name of the column.")
             .allow_variants_without_examples(true)

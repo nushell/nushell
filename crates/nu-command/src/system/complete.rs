@@ -13,7 +13,7 @@ impl Command for Complete {
     fn signature(&self) -> Signature {
         Signature::build("complete")
             .category(Category::System)
-            .input_output_types(vec![(Type::Any, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::Record([].into()))])
     }
 
     fn usage(&self) -> &str {

@@ -35,7 +35,7 @@ are also available in the current scope. Commands/aliases that were imported und
                 "string to find in module names and usage",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
             .allow_variants_without_examples(true)
     }
 

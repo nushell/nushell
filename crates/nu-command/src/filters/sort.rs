@@ -17,7 +17,7 @@ impl Command for Sort {
         .input_output_types(vec![(
             Type::List(Box::new(Type::Any)),
             Type::List(Box::new(Type::Any)),
-        ), (Type::Record(vec![]), Type::Record(vec![])),])
+        ), (Type::Record([].into()), Type::Record([].into())),])
     .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",

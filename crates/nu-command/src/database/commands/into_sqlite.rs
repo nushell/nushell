@@ -24,8 +24,8 @@ impl Command for IntoSqliteDb {
         Signature::build("into sqlite")
             .category(Category::Conversions)
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Nothing),
-                (Type::Record(vec![]), Type::Nothing),
+                (Type::Table([].into()), Type::Nothing),
+                (Type::Record([].into()), Type::Nothing),
             ])
             .allow_variants_without_examples(true)
             .required(

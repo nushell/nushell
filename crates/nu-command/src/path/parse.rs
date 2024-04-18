@@ -20,8 +20,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("path parse")
             .input_output_types(vec![
-                (Type::String, Type::Record(vec![])),
-                (Type::List(Box::new(Type::String)), Type::Table(vec![])),
+                (Type::String, Type::Record([].into())),
+                (Type::List(Box::new(Type::String)), Type::Table([].into())),
             ])
             .named(
                 "extension",

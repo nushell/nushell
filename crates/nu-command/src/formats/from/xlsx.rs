@@ -15,7 +15,7 @@ impl Command for FromXlsx {
 
     fn signature(&self) -> Signature {
         Signature::build("from xlsx")
-            .input_output_types(vec![(Type::Binary, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Binary, Type::Table([].into()))])
             .allow_variants_without_examples(true)
             .named(
                 "sheets",

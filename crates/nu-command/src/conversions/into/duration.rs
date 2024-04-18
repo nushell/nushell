@@ -17,9 +17,9 @@ impl Command for SubCommand {
                 (Type::Int, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
                 //todo: record<hour,minute,sign> | into duration -> Duration
-                //(Type::Record(vec![]), Type::Record(vec![])),
+                //(Type::Record([].into()), Type::Record([].into())),
             ])
             //.allow_variants_without_examples(true)
             .named(

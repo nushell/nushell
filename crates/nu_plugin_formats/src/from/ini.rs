@@ -20,7 +20,7 @@ impl SimplePluginCommand for FromIni {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::Record([].into()))])
             .category(Category::Formats)
     }
 

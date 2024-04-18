@@ -13,14 +13,17 @@ impl Command for PluginList {
         Signature::build("plugin list")
             .input_output_type(
                 Type::Nothing,
-                Type::Table(vec![
-                    ("name".into(), Type::String),
-                    ("is_running".into(), Type::Bool),
-                    ("pid".into(), Type::Int),
-                    ("filename".into(), Type::String),
-                    ("shell".into(), Type::String),
-                    ("commands".into(), Type::List(Type::String.into())),
-                ]),
+                Type::Table(
+                    [
+                        ("name".into(), Type::String),
+                        ("is_running".into(), Type::Bool),
+                        ("pid".into(), Type::Int),
+                        ("filename".into(), Type::String),
+                        ("shell".into(), Type::String),
+                        ("commands".into(), Type::List(Type::String.into())),
+                    ]
+                    .into(),
+                ),
             )
             .category(Category::Plugin)
     }

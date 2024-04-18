@@ -13,8 +13,8 @@ impl Command for FormatPattern {
     fn signature(&self) -> Signature {
         Signature::build("format pattern")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-                (Type::Record(vec![]), Type::Any),
+                (Type::Table([].into()), Type::List(Box::new(Type::String))),
+                (Type::Record([].into()), Type::Any),
             ])
             .required(
                 "pattern",

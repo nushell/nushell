@@ -12,7 +12,7 @@ impl Command for UpdateCells {
 
     fn signature(&self) -> Signature {
         Signature::build("update cells")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Table([].into()), Type::Table([].into()))])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),

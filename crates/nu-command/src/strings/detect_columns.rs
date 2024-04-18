@@ -21,7 +21,7 @@ impl Command for DetectColumns {
                 "number of rows to skip before detecting",
                 Some('s'),
             )
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::String, Type::Table([].into()))])
             .switch("no-headers", "don't detect headers", Some('n'))
             .named(
                 "combine-columns",

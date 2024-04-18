@@ -14,7 +14,7 @@ impl Command for FromOds {
 
     fn signature(&self) -> Signature {
         Signature::build("from ods")
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::String, Type::Table([].into()))])
             .allow_variants_without_examples(true)
             .named(
                 "sheets",

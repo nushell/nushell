@@ -16,9 +16,9 @@ impl Command for SubCommand {
                 (Type::Number, Type::Bool),
                 (Type::String, Type::Bool),
                 (Type::Bool, Type::Bool),
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Table([].into())),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .rest(

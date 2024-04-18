@@ -48,6 +48,8 @@ pub enum Expr {
     Garbage,
 }
 
+const _: [(); 56] = [(); std::mem::size_of::<Expr>()];
+
 impl Expr {
     pub fn pipe_redirection(
         &self,

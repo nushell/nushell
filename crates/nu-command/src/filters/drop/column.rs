@@ -13,8 +13,8 @@ impl Command for DropColumn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .optional(
                 "columns",

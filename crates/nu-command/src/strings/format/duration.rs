@@ -29,7 +29,7 @@ impl Command for FormatDuration {
                     Type::List(Box::new(Type::Duration)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
             ])
             .allow_variants_without_examples(true)
             .required(

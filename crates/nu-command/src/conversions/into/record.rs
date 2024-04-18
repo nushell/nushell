@@ -13,11 +13,11 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
-                (Type::Date, Type::Record(vec![])),
-                (Type::Duration, Type::Record(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
-                (Type::Range, Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Date, Type::Record([].into())),
+                (Type::Duration, Type::Record([].into())),
+                (Type::List(Box::new(Type::Any)), Type::Record([].into())),
+                (Type::Range, Type::Record([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .category(Category::Conversions)
     }

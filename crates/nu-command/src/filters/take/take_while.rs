@@ -12,7 +12,7 @@ impl Command for TakeWhile {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),

@@ -48,7 +48,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Filesize)),
                     Type::List(Box::new(Type::Filesize)),
                 ),
-                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)

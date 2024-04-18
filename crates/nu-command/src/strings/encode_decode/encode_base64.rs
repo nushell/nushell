@@ -28,8 +28,8 @@ impl Command for EncodeBase64 {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .named(

@@ -11,7 +11,7 @@ impl Command for StorExport {
 
     fn signature(&self) -> Signature {
         Signature::build("stor export")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
             .required_named(
                 "file-name",
                 SyntaxShape::String,

@@ -11,8 +11,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url build-query")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::String),
+                (Type::Record([].into()), Type::String),
+                (Type::Table([].into()), Type::String),
             ])
             .category(Category::Network)
     }

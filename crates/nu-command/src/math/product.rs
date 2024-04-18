@@ -17,8 +17,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
                 (Type::Range, Type::Number),
-                (Type::Table(vec![]), Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Record([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)

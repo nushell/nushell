@@ -30,8 +30,8 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Binary),
                 (Type::Filesize, Type::Binary),
                 (Type::Date, Type::Binary),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .switch("compact", "output without padding zeros", Some('c'))

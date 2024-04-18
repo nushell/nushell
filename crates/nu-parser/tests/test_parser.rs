@@ -311,7 +311,7 @@ pub fn parse_cell_path() {
     working_set.add_variable(
         "foo".to_string().into_bytes(),
         Span::test_data(),
-        nu_protocol::Type::Record(vec![]),
+        nu_protocol::Type::Record([].into()),
         false,
     );
 
@@ -356,7 +356,7 @@ pub fn parse_cell_path_optional() {
     working_set.add_variable(
         "foo".to_string().into_bytes(),
         Span::test_data(),
-        nu_protocol::Type::Record(vec![]),
+        nu_protocol::Type::Record([].into()),
         false,
     );
 

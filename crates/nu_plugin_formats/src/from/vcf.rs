@@ -22,7 +22,7 @@ impl SimplePluginCommand for FromVcf {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::String, Type::Table([].into()))])
             .category(Category::Formats)
     }
 

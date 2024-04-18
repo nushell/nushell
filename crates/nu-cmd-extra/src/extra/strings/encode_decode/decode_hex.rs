@@ -17,8 +17,8 @@ impl Command for DecodeHex {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Binary)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table([].into()), Type::Table([].into())),
+                (Type::Record([].into()), Type::Record([].into())),
             ])
             .allow_variants_without_examples(true)
             .rest(

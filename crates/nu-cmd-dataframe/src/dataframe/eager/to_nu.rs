@@ -24,7 +24,7 @@ impl Command for ToNu {
             .switch("tail", "shows tail rows", Some('t'))
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
-                (Type::Custom("dataframe".into()), Type::Table(vec![])),
+                (Type::Custom("dataframe".into()), Type::Table([].into())),
             ])
             //.input_output_type(Type::Any, Type::Any)
             .category(Category::Custom("dataframe".into()))

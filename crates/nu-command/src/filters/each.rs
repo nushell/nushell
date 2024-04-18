@@ -35,7 +35,7 @@ with 'transpose' first."#
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::Table([].into()), Type::List(Box::new(Type::Any))),
                 (Type::Any, Type::Any),
             ])
             .required(
