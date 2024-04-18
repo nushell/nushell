@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ast::{Expr, Expression, RecordItem},
+    ast::{Expr, Expression, ListItem, RecordItem},
     engine::StateWorkingSet,
     Range, Unit,
 };
@@ -253,8 +253,21 @@ fn convert_to_value(
         }),
         Expr::List(vals) => {
             let mut output = vec![];
-            for val in vals {
-                output.push(convert_to_value(val, span, original_text)?);
+
+            for item in vals {
+                match item {
+                    ListItem::Item(expr) => {
+                        output.push(convert_to_value(expr, span, original_text)?);
+                    }
+                    ListItem::Spread(_, inner) => {
+                        return Err(ShellError::OutsideSpannedLabeledError {
+                            src: original_text.to_string(),
+                            error: "Error when loading".into(),
+                            msg: "spread operator not supported in nuon".into(),
+                            span: inner.span,
+                        });
+                    }
+                }
             }
 
             Ok(Value::list(output, span))
@@ -349,12 +362,6 @@ fn convert_to_value(
             src: original_text.to_string(),
             error: "Error when loading".into(),
             msg: "signatures not supported in nuon".into(),
-            span: expr.span,
-        }),
-        Expr::Spread(..) => Err(ShellError::OutsideSpannedLabeledError {
-            src: original_text.to_string(),
-            error: "Error when loading".into(),
-            msg: "spread operator not supported in nuon".into(),
             span: expr.span,
         }),
         Expr::String(s) => Ok(Value::string(s, span)),

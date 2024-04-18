@@ -1,4 +1,4 @@
-use crate::tests::{run_test, TestResult};
+use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn shorthand_env_1() -> TestResult {
@@ -7,7 +7,7 @@ fn shorthand_env_1() -> TestResult {
 
 #[test]
 fn shorthand_env_2() -> TestResult {
-    run_test(r#"FOO=BAZ FOO=MOO $env.FOO"#, "MOO")
+    fail_test(r#"FOO=BAZ FOO=MOO $env.FOO"#, "defined_twice")
 }
 
 #[test]

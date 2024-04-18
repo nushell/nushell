@@ -1,8 +1,5 @@
 use super::super::values::NuDataFrame;
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
@@ -103,7 +100,7 @@ fn command(
             })?;
 
     let df: NuDataFrame = polars_df.into();
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

@@ -41,31 +41,14 @@ impl Command for WithEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Set the MYENV environment variable",
-                example: r#"with-env [MYENV "my env value"] { $env.MYENV }"#,
-                result: Some(Value::test_string("my env value")),
-            },
-            Example {
-                description: "Set by primitive value list",
-                example: r#"with-env [X Y W Z] { $env.X }"#,
-                result: Some(Value::test_string("Y")),
-            },
-            Example {
-                description: "Set by single row table",
-                example: r#"with-env [[X W]; [Y Z]] { $env.W }"#,
-                result: Some(Value::test_string("Z")),
-            },
-            Example {
-                description: "Set by key-value record",
-                example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
-                result: Some(Value::list(
-                    vec![Value::test_string("Y"), Value::test_string("Z")],
-                    Span::test_data(),
-                )),
-            },
-        ]
+        vec![Example {
+            description: "Set by key-value record",
+            example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
+            result: Some(Value::list(
+                vec![Value::test_string("Y"), Value::test_string("Z")],
+                Span::test_data(),
+            )),
+        }]
     }
 }
 
@@ -85,6 +68,16 @@ fn with_env(
 
     match &variable {
         Value::List { vals: table, .. } => {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated argument type".into(),
+                    msg: "providing the variables to `with-env` as a list or single row table has been deprecated".into(),
+                    span: Some(variable.span()),
+                    help: Some("use the record form instead".into()),
+                    inner: vec![],
+                },
+            );
             if table.len() == 1 {
                 // single row([[X W]; [Y Z]])
                 match &table[0] {
@@ -95,7 +88,7 @@ fn with_env(
                     }
                     x => {
                         return Err(ShellError::CantConvert {
-                            to_type: "string list or single row".into(),
+                            to_type: "record".into(),
                             from_type: x.get_type().to_string(),
                             span: call
                                 .positional_nth(1)
@@ -111,7 +104,13 @@ fn with_env(
                     if row.len() == 2 {
                         env.insert(row[0].coerce_string()?, row[1].clone());
                     }
-                    // TODO: else error?
+                    if row.len() == 1 {
+                        return Err(ShellError::IncorrectValue {
+                            msg: format!("Missing value for $env.{}", row[0].coerce_string()?),
+                            val_span: row[0].span(),
+                            call_span: call.head,
+                        });
+                    }
                 }
             }
         }
@@ -123,7 +122,7 @@ fn with_env(
         }
         x => {
             return Err(ShellError::CantConvert {
-                to_type: "string list or single row".into(),
+                to_type: "record".into(),
                 from_type: x.get_type().to_string(),
                 span: call
                     .positional_nth(1)
@@ -133,6 +132,16 @@ fn with_env(
             });
         }
     };
+
+    // TODO: factor list of prohibited env vars into common place
+    for prohibited in ["PWD", "FILE_PWD", "CURRENT_FILE"] {
+        if env.contains_key(prohibited) {
+            return Err(ShellError::AutomaticEnvVarSetManually {
+                envvar_name: prohibited.into(),
+                span: call.head,
+            });
+        }
+    }
 
     for (k, v) in env {
         stack.add_env_var(k, v);

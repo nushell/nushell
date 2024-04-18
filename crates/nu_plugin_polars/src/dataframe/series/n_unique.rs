@@ -1,8 +1,5 @@
 use crate::{
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -82,7 +79,7 @@ impl PluginCommand for NUnique {
             }
             PolarsPluginObject::NuExpression(expr) => {
                 let expr: NuExpression = expr.to_polars().n_unique().into();
-                to_pipeline_data(plugin, engine, call.head, expr)
+                expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(
                 &value,
@@ -120,7 +117,7 @@ fn command(
         vec![Column::new("count_unique".to_string(), vec![value])],
         None,
     )?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

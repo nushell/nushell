@@ -6,10 +6,7 @@ use nu_protocol::{
 use polars::prelude::NamedFrom;
 use polars::series::Series;
 
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -95,7 +92,7 @@ fn command(
     let replace: bool = call.has_flag("replace")?;
     let shuffle: bool = call.has_flag("shuffle")?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let df = match (rows, fraction) {
         (Some(rows), None) => df
@@ -134,5 +131,5 @@ fn command(
         }),
     };
     let df = NuDataFrame::new(false, df?);
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }

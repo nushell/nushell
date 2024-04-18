@@ -6,7 +6,7 @@ def path_add [] {
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
-    with-env [$path_name []] {
+    with-env {$path_name: []} {
         def get_path [] { $env | get $path_name }
 
         assert equal (get_path) []

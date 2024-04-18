@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
-        PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection, RecordItem,
+        Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
+        MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
+        RecordItem,
     },
     engine::StateWorkingSet,
     DeclId, Span, VarId,
@@ -377,20 +378,31 @@ pub fn flatten_expression(
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
-            for l in list {
-                let flattened = flatten_expression(working_set, l);
+            for item in list {
+                match item {
+                    ListItem::Item(expr) => {
+                        let flattened = flatten_expression(working_set, expr);
 
-                if let Some(first) = flattened.first() {
-                    if first.0.start > last_end {
-                        output.push((Span::new(last_end, first.0.start), FlatShape::List));
+                        if let Some(first) = flattened.first() {
+                            if first.0.start > last_end {
+                                output.push((Span::new(last_end, first.0.start), FlatShape::List));
+                            }
+                        }
+
+                        if let Some(last) = flattened.last() {
+                            last_end = last.0.end;
+                        }
+
+                        output.extend(flattened);
+                    }
+                    ListItem::Spread(_, expr) => {
+                        let mut output = vec![(
+                            Span::new(expr.span.start, expr.span.start + 3),
+                            FlatShape::Operator,
+                        )];
+                        output.extend(flatten_expression(working_set, expr));
                     }
                 }
-
-                if let Some(last) = flattened.last() {
-                    last_end = last.0.end;
-                }
-
-                output.extend(flattened);
             }
 
             if last_end < outer_span.end {
@@ -544,15 +556,6 @@ pub fn flatten_expression(
         }
         Expr::VarDecl(var_id) => {
             vec![(expr.span, FlatShape::VarDecl(*var_id))]
-        }
-
-        Expr::Spread(inner_expr) => {
-            let mut output = vec![(
-                Span::new(expr.span.start, expr.span.start + 3),
-                FlatShape::Operator,
-            )];
-            output.extend(flatten_expression(working_set, inner_expr));
-            output
         }
     }
 }

@@ -5,9 +5,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    dataframe::values::utils::convert_columns_string,
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
+    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};
@@ -74,7 +72,7 @@ fn command(
     let columns: Vec<Value> = call.rest(0)?;
     let (col_string, col_span) = convert_columns_string(columns, call.head)?;
 
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let df = df
         .as_ref()
@@ -87,7 +85,7 @@ fn command(
             inner: vec![],
         })?;
     let df = NuDataFrame::new(false, df);
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

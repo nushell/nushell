@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{cache_and_to_value, NuLazyFrame},
+    values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
 };
 use nu_path::expand_path_with;
@@ -23,7 +23,7 @@ use polars::prelude::{
     LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
-use polars_io::{avro::AvroReader, prelude::ParallelStrategy};
+use polars_io::{avro::AvroReader, prelude::ParallelStrategy, HiveOptions};
 
 #[derive(Clone)]
 pub struct OpenDataFrame;
@@ -174,7 +174,7 @@ fn from_parquet(
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
-            hive_partitioning: false,
+            hive_options: HiveOptions::default(),
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -187,7 +187,7 @@ fn from_parquet(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -216,7 +216,7 @@ fn from_parquet(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }
 
@@ -254,7 +254,7 @@ fn from_avro(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_ipc(
@@ -271,7 +271,8 @@ fn from_ipc(
             cache: true,
             rechunk: false,
             row_index: None,
-            memmap: true,
+            memory_map: true,
+            cloud_options: None,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
@@ -284,7 +285,7 @@ fn from_ipc(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -313,7 +314,7 @@ fn from_ipc(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }
 
@@ -355,7 +356,7 @@ fn from_json(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_jsonl(
@@ -399,7 +400,7 @@ fn from_jsonl(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_csv(
@@ -472,7 +473,7 @@ fn from_csv(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let csv_reader = CsvReader::from_path(file_path)
             .map_err(|e| ShellError::GenericError {
@@ -538,6 +539,6 @@ fn from_csv(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }

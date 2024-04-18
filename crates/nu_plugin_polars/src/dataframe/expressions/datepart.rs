@@ -2,7 +2,7 @@ use super::super::values::NuExpression;
 
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use chrono::{DateTime, FixedOffset};
@@ -149,7 +149,8 @@ impl PluginCommand for ExprDatePart {
                 }))
             }
         }.into();
-        to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+        expr.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

@@ -1,7 +1,4 @@
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::{Column, NuDataFrame};
 
@@ -78,7 +75,7 @@ fn command(
         vec![Column::new("count_null".to_string(), vec![value])],
         None,
     )?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
