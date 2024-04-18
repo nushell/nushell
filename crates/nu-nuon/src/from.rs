@@ -3,7 +3,7 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Range, Record, ShellError, Span, Type, Unit, Value,
 };
-use std::{env::current_dir, sync::Arc};
+use std::sync::Arc;
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
@@ -17,15 +17,7 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     let mut engine_state = EngineState::default();
     // NOTE: the parser needs `$env.PWD` to be set, that's a know _API issue_ with the
     // [`EngineState`]
-    engine_state.add_env_var(
-        "PWD".to_string(),
-        Value::string(
-            current_dir()
-                .expect("couldn't get current directory to pass to the parser of `from_nuon`")
-                .to_string_lossy(),
-            Span::unknown(),
-        ),
-    );
+    engine_state.add_env_var("PWD".to_string(), Value::string("", Span::unknown()));
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);
