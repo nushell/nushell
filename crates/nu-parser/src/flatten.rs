@@ -509,12 +509,12 @@ pub fn flatten_expression(
         Expr::String(_) => {
             vec![(expr.span, FlatShape::String)]
         }
-        Expr::Table(headers, cells) => {
+        Expr::Table(table) => {
             let outer_span = expr.span;
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
-            for e in headers.as_ref() {
+            for e in table.columns() {
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
@@ -528,7 +528,7 @@ pub fn flatten_expression(
 
                 output.extend(flattened);
             }
-            for row in cells.as_ref() {
+            for row in table.rows() {
                 for expr in row {
                     let flattened = flatten_expression(working_set, expr);
                     if let Some(first) = flattened.first() {

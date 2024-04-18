@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
-    Range, ValueWithUnit,
+    Range, Table, ValueWithUnit,
 };
 use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, Span, VarId};
 
@@ -27,7 +27,7 @@ pub enum Expr {
     Closure(BlockId),
     MatchBlock(Vec<(MatchPattern, Expression)>),
     List(Vec<ListItem>),
-    Table(Box<[Expression]>, Box<[Vec<Expression>]>),
+    Table(Table),
     Record(Vec<RecordItem>),
     Keyword(Box<Keyword>),
     ValueWithUnit(Box<ValueWithUnit>),
@@ -70,7 +70,7 @@ impl Expr {
             | Expr::BinaryOp(_, _, _)
             | Expr::Closure(_) // piping into a closure value, not into a closure call
             | Expr::List(_)
-            | Expr::Table(_, _)
+            | Expr::Table(_)
             | Expr::Record(_)
             | Expr::ValueWithUnit(_)
             | Expr::DateTime(_)

@@ -9,6 +9,7 @@ mod match_pattern;
 mod operator;
 mod pipeline;
 mod range;
+pub mod table;
 mod unit;
 mod value_with_unit;
 
@@ -23,5 +24,6 @@ pub use match_pattern::*;
 pub use operator::*;
 pub use pipeline::*;
 pub use range::*;
+pub use table::Table;
 pub use unit::*;
 pub use value_with_unit::*;

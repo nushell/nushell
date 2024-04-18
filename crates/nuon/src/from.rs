@@ -332,12 +332,12 @@ fn convert_to_value(
             msg: "subexpressions not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Table(mut headers, cells) => {
+        Expr::Table(mut table) => {
             let mut cols = vec![];
 
             let mut output = vec![];
 
-            for key in headers.iter_mut() {
+            for key in table.columns_mut() {
                 let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
                     _ => {
@@ -354,14 +354,14 @@ fn convert_to_value(
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key_str.clone(),
                         second_use: key.span,
-                        first_use: headers[idx].span,
+                        first_use: table.columns()[idx].span,
                     });
                 } else {
                     cols.push(std::mem::take(key_str));
                 }
             }
 
-            for row in cells.into_vec() {
+            for row in table.into_rows() {
                 if cols.len() != row.len() {
                     return Err(ShellError::OutsideSpannedLabeledError {
                         src: original_text.to_string(),

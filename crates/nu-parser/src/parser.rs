@@ -1140,7 +1140,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 }
 
                 return Expression {
-                    expr: Expr::ExternalCall(head, final_args.into_boxed_slice()),
+                    expr: Expr::ExternalCall(head, final_args.into()),
                     span: span(spans),
                     ty: ty.clone(),
                     custom_completion: *custom_completion,
@@ -4007,8 +4007,11 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         Type::Table([].into())
     };
 
+    let mut exprs = vec![head.into()];
+    exprs.extend(rows.into_iter().map(Into::into));
+
     Expression {
-        expr: Expr::Table(head.into_boxed_slice(), rows.into_boxed_slice()),
+        expr: Expr::Table(Table::from_raw(exprs.into())),
         span,
         ty,
         custom_completion: None,
@@ -4054,7 +4057,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
 
     ty.reverse();
 
-    (Type::Table(ty.into_boxed_slice()), errors)
+    (Type::Table(ty.into()), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -5421,7 +5424,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         expr: Expr::Record(output),
         span,
         ty: (if let Some(fields) = field_types {
-            Type::Record(fields.into_boxed_slice())
+            Type::Record(fields.into())
         } else {
             Type::Any
         }),
@@ -6078,11 +6081,11 @@ pub fn discover_captures_in_expr(
                 }
             }
         }
-        Expr::Table(headers, values) => {
-            for header in headers.as_ref() {
+        Expr::Table(table) => {
+            for header in table.columns() {
                 discover_captures_in_expr(working_set, header, seen, seen_blocks, output)?;
             }
-            for row in values.as_ref() {
+            for row in table.rows() {
                 for cell in row {
                     discover_captures_in_expr(working_set, cell, seen, seen_blocks, output)?;
                 }
