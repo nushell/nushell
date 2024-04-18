@@ -393,6 +393,13 @@ mod tests {
 
     #[test]
     fn read_code_should_fail_rather_than_panic() {
+        eprintln!(
+            "res: {:?}",
+            from_nuon(
+                include_str!("../../../tests/fixtures/formats/code.nu"),
+                None,
+            )
+        );
         assert!(from_nuon(
             include_str!("../../../tests/fixtures/formats/code.nu"),
             None,
