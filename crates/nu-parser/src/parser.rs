@@ -2782,7 +2782,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                     prev_span,
                 ));
                 return Expression {
-                    expr: Expr::ImportPattern(import_pattern),
+                    expr: Expr::ImportPattern(Box::new(import_pattern)),
                     span: prev_span,
                     ty: Type::List(Box::new(Type::String)),
                     custom_completion: None,
@@ -2807,9 +2807,19 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                     ..
                 } = result
                 {
-                    for expr in list {
-                        let contents = working_set.get_span_contents(expr.span);
-                        output.push((trim_quotes(contents).to_vec(), expr.span));
+                    for item in list {
+                        match item {
+                            ListItem::Item(expr) => {
+                                let contents = working_set.get_span_contents(expr.span);
+                                output.push((trim_quotes(contents).to_vec(), expr.span));
+                            }
+                            ListItem::Spread(_, spread) => {
+                                working_set.error(ParseError::WrongImportPattern(
+                                    "cannot spread in an import pattern".into(),
+                                    spread.span,
+                                ))
+                            }
+                        }
                     }
 
                     import_pattern
@@ -2818,7 +2828,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                 } else {
                     working_set.error(ParseError::ExportNotFound(result.span));
                     return Expression {
-                        expr: Expr::ImportPattern(import_pattern),
+                        expr: Expr::ImportPattern(Box::new(import_pattern)),
                         span: span(spans),
                         ty: Type::List(Box::new(Type::String)),
                         custom_completion: None,
@@ -2838,7 +2848,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     }
 
     Expression {
-        expr: Expr::ImportPattern(import_pattern),
+        expr: Expr::ImportPattern(Box::new(import_pattern)),
         span: span(&spans[1..]),
         ty: Type::List(Box::new(Type::String)),
         custom_completion: None,
@@ -3823,13 +3833,7 @@ pub fn parse_list_expression(
                         _ => Type::Any,
                     };
                     let span = Span::new(curr_span.start, spread_arg.span.end);
-                    let spread_expr = Expression {
-                        expr: Expr::Spread(Box::new(spread_arg)),
-                        span,
-                        ty: elem_ty.clone(),
-                        custom_completion: None,
-                    };
-                    (spread_expr, elem_ty)
+                    (ListItem::Spread(span, spread_arg), elem_ty)
                 } else {
                     let arg = parse_multispan_value(
                         working_set,
@@ -3838,7 +3842,7 @@ pub fn parse_list_expression(
                         element_shape,
                     );
                     let ty = arg.ty.clone();
-                    (arg, ty)
+                    (ListItem::Item(arg), ty)
                 };
 
                 if let Some(ref ctype) = contained_type {
@@ -3866,6 +3870,29 @@ pub fn parse_list_expression(
         })),
         custom_completion: None,
     }
+}
+
+fn parse_table_row(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> Result<(Vec<Expression>, Span), Span> {
+    let list = parse_list_expression(working_set, span, &SyntaxShape::Any);
+    let Expression {
+        expr: Expr::List(list),
+        span,
+        ..
+    } = list
+    else {
+        unreachable!("the item must be a list")
+    };
+
+    list.into_iter()
+        .map(|item| match item {
+            ListItem::Item(expr) => Ok(expr),
+            ListItem::Spread(_, spread) => Err(spread.span),
+        })
+        .collect::<Result<_, _>>()
+        .map(|exprs| (exprs, span))
 }
 
 fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -3905,71 +3932,75 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-    let head = parse_list_expression(working_set, first.span, &SyntaxShape::Any);
-    let head = {
-        let Expression {
-            expr: Expr::List(vals),
-            ..
-        } = head
-        else {
-            unreachable!("head must be a list by now")
-        };
-
-        vals
-    };
+    let head = parse_table_row(working_set, first.span);
 
     let errors = working_set.parse_errors.len();
 
-    let rows = rest
-        .iter()
-        .fold(Vec::with_capacity(rest.len()), |mut acc, it| {
-            use std::cmp::Ordering;
-            let text = working_set.get_span_contents(it.span).to_vec();
-            match text.as_slice() {
-                b"," => acc,
-                _ if !&text.starts_with(b"[") => {
-                    let err = ParseError::LabeledErrorWithHelp {
-                        error: String::from("Table item not list"),
-                        label: String::from("not a list"),
-                        span: it.span,
-                        help: String::from("All table items must be lists"),
-                    };
-                    working_set.error(err);
-                    acc
-                }
-                _ => {
-                    let ls = parse_list_expression(working_set, it.span, &SyntaxShape::Any);
-                    let Expression {
-                        expr: Expr::List(item),
-                        span,
-                        ..
-                    } = ls
-                    else {
-                        unreachable!("the item must be a list")
-                    };
+    let (head, rows) = match head {
+        Ok((head, _)) => {
+            let rows = rest
+                .iter()
+                .filter_map(|it| {
+                    use std::cmp::Ordering;
 
-                    match item.len().cmp(&head.len()) {
-                        Ordering::Less => {
-                            let err = ParseError::MissingColumns(head.len(), span);
-                            working_set.error(err);
-                        }
-                        Ordering::Greater => {
-                            let span = {
-                                let start = item[head.len()].span.start;
-                                let end = span.end;
-                                Span::new(start, end)
+                    match working_set.get_span_contents(it.span) {
+                        b"," => None,
+                        text if !text.starts_with(b"[") => {
+                            let err = ParseError::LabeledErrorWithHelp {
+                                error: String::from("Table item not list"),
+                                label: String::from("not a list"),
+                                span: it.span,
+                                help: String::from("All table items must be lists"),
                             };
-                            let err = ParseError::ExtraColumns(head.len(), span);
                             working_set.error(err);
+                            None
                         }
-                        Ordering::Equal => {}
+                        _ => match parse_table_row(working_set, it.span) {
+                            Ok((list, span)) => {
+                                match list.len().cmp(&head.len()) {
+                                    Ordering::Less => {
+                                        let err = ParseError::MissingColumns(head.len(), span);
+                                        working_set.error(err);
+                                    }
+                                    Ordering::Greater => {
+                                        let span = {
+                                            let start = list[head.len()].span.start;
+                                            let end = span.end;
+                                            Span::new(start, end)
+                                        };
+                                        let err = ParseError::ExtraColumns(head.len(), span);
+                                        working_set.error(err);
+                                    }
+                                    Ordering::Equal => {}
+                                }
+                                Some(list)
+                            }
+                            Err(span) => {
+                                let err = ParseError::LabeledError(
+                                    String::from("Cannot spread in a table row"),
+                                    String::from("invalid spread here"),
+                                    span,
+                                );
+                                working_set.error(err);
+                                None
+                            }
+                        },
                     }
+                })
+                .collect();
 
-                    acc.push(item);
-                    acc
-                }
-            }
-        });
+            (head, rows)
+        }
+        Err(span) => {
+            let err = ParseError::LabeledError(
+                String::from("Cannot spread in a table row"),
+                String::from("invalid spread here"),
+                span,
+            );
+            working_set.error(err);
+            (Vec::new(), Vec::new())
+        }
+    };
 
     let ty = if working_set.parse_errors.len() == errors {
         let (ty, errs) = table_type(&head, &rows);
@@ -5950,9 +5981,9 @@ pub fn discover_captures_in_expr(
         Expr::Keyword(_, _, expr) => {
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
-        Expr::List(exprs) => {
-            for expr in exprs {
-                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+        Expr::List(list) => {
+            for item in list {
+                discover_captures_in_expr(working_set, item.expr(), seen, seen_blocks, output)?;
             }
         }
         Expr::Operator(_) => {}
@@ -6070,9 +6101,6 @@ pub fn discover_captures_in_expr(
         }
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
-        }
-        Expr::Spread(expr) => {
-            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
     }
     Ok(())
