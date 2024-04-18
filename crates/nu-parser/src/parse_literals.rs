@@ -20,6 +20,7 @@ fn strip_underscores(token: &[u8]) -> Cow<[u8]> {
 }
 
 /// Failed to reinterpet bytes as an ASCII string slice
+#[derive(Debug, PartialEq)]
 struct AsciiError;
 
 /// Alternative to `str::from_utf8` if you only care about ASCII characters
@@ -556,5 +557,17 @@ mod test {
         assert_eq!(*strip_underscores(numeric_with_underscores), *numeric);
 
         assert_eq!(*strip_underscores(just_underscores), *b"");
+    }
+
+    #[test]
+    fn test_parse_ascii_as_str() {
+        use super::*;
+        assert_eq!(parse_ascii_as_str(b"sane ascii"), Ok("sane ascii"));
+        assert_eq!(parse_ascii_as_str(b"12.3-_"), Ok("12.3-_"));
+
+        // Unicode outside ascii is also rejected
+        assert!(parse_ascii_as_str("ä".as_bytes()).is_err());
+        // Invalid UTF-8 doesn't get through
+        assert!(parse_ascii_as_str(&[0, 159, 146, 150]).is_err());
     }
 }
