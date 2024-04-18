@@ -79,7 +79,6 @@ impl Command for Open {
         let mut output = vec![];
 
         for path in paths {
-
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
