@@ -529,28 +529,6 @@ fn copy_identical_file_impl(progress: bool) {
     });
 }
 
-#[test]
-#[ignore = "File name in progress bar not on uutils impl"]
-fn copy_ignores_ansi() {
-    copy_ignores_ansi_impl(false);
-    copy_ignores_ansi_impl(true);
-}
-
-fn copy_ignores_ansi_impl(progress: bool) {
-    Playground::setup("ucp_test_16", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("test.txt")]);
-
-        let progress_flag = if progress { "-p" } else { "" };
-
-        let actual = nu!(
-            cwd: sandbox.cwd(),
-            "ls | find test | get name | cp {} $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
-            progress_flag,
-        );
-        assert_eq!(actual.out, "success.txt");
-    });
-}
-
 //apparently on windows error msg is different, but linux(where i test) is fine.
 //fix later FIXME
 #[cfg(unix)]
