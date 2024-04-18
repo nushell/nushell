@@ -19,7 +19,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     // [`EngineState`]
     engine_state.add_env_var(
         "PWD".to_string(),
-        Value::string(current_dir().unwrap().to_string_lossy(), Span::unknown()),
+        Value::string(
+            current_dir()
+                .expect("couldn't get current directory to pass to the parser of `from_nuon`")
+                .to_string_lossy(),
+            Span::unknown(),
+        ),
     );
     let mut working_set = StateWorkingSet::new(&engine_state);
 
