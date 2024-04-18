@@ -104,10 +104,11 @@ fn command(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::test_polars_plugin_command_with_decls;
+    use nu_command::IntoDatetime;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&StrFTime)
+        test_polars_plugin_command_with_decls(&StrFTime, vec![Box::new(IntoDatetime)])
     }
 }

@@ -1,3 +1,4 @@
+mod get;
 mod list;
 mod rm;
 
@@ -171,5 +172,9 @@ pub trait Cacheable: Sized + Clone {
 }
 
 pub(crate) fn cache_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
-    vec![Box::new(ListDF), Box::new(rm::CacheRemove)]
+    vec![
+        Box::new(ListDF),
+        Box::new(rm::CacheRemove),
+        Box::new(get::CacheGet),
+    ]
 }

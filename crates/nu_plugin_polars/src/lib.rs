@@ -180,9 +180,8 @@ impl Plugin for PolarsPlugin {
 pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
-    use nu_command::IntoDatetime;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{ShellError, Span};
+    use nu_protocol::{engine::Command, ShellError, Span};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode
@@ -195,6 +194,13 @@ pub mod test {
     }
 
     pub fn test_polars_plugin_command(command: &impl PluginCommand) -> Result<(), ShellError> {
+        test_polars_plugin_command_with_decls(command, vec![])
+    }
+
+    pub fn test_polars_plugin_command_with_decls(
+        command: &impl PluginCommand,
+        decls: Vec<Box<dyn Command>>,
+    ) -> Result<(), ShellError> {
         let plugin = PolarsPlugin::new_test_mode();
         let examples = command.examples();
 
@@ -212,9 +218,12 @@ pub mod test {
             }
         }
 
-        PluginTest::new("polars", plugin.into())?
-            .add_decl(Box::new(IntoDatetime))?
-            .test_examples(&examples)?;
+        let mut plugin_test = PluginTest::new("polars", plugin.into())?;
+
+        for decl in decls {
+            let _ = plugin_test.add_decl(decl)?;
+        }
+        plugin_test.test_examples(&examples)?;
 
         Ok(())
     }
