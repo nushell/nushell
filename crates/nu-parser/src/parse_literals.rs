@@ -535,3 +535,26 @@ fn modf(x: f64) -> (f64, f64) {
     rv2 = f64::from_bits(u);
     (x - rv2, rv2)
 }
+
+mod test {
+    #[test]
+    fn test_strip_underscore() {
+        use super::*;
+        use std::borrow::Cow;
+
+        let basic_text = b"This is regular text.";
+        let numeric = b"12345.67";
+        let numeric_with_underscores = b"123_45.6_7";
+        let just_underscores = b"__";
+
+        assert_eq!(*strip_underscores(basic_text), *basic_text);
+        assert!(matches!(strip_underscores(basic_text), Cow::Borrowed(_)));
+
+        assert_eq!(*strip_underscores(numeric), *numeric);
+        assert!(matches!(strip_underscores(numeric), Cow::Borrowed(_)));
+
+        assert_eq!(*strip_underscores(numeric_with_underscores), *numeric);
+
+        assert_eq!(*strip_underscores(just_underscores), *b"");
+    }
+}
