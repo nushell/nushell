@@ -24,7 +24,7 @@ impl PluginCommand for CacheRemove {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest("keys", SyntaxShape::String, "Keys of objects to remove")
-            .input_output_type(Type::Nothing, Type::List(Box::new(Type::String)))
+            .input_output_type(Type::Any, Type::List(Box::new(Type::String)))
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -63,7 +63,7 @@ fn remove_cache_entry(
     let key = as_uuid(key, span)?;
     let msg = plugin
         .cache
-        .remove(Some(engine), &key)?
+        .remove(Some(engine), &key, true)?
         .map(|_| format!("Removed: {key}"))
         .unwrap_or_else(|| format!("No value found for key: {key}"));
     Ok(Value::string(msg, span))
@@ -93,7 +93,7 @@ mod test {
         let pipeline_data = PluginTest::new("polars", plugin)?
             .add_decl(Box::new(First))?
             .add_decl(Box::new(Get))?
-            .eval("let df = ([[a b];[1 2] [3 4]] | polars into-df); polars ls | get key | first | polars store-rm $in")?;
+            .eval("let df = ([[a b];[1 2] [3 4]] | polars into-df); polars store-ls | get key | first | polars store-rm $in")?;
         let value = pipeline_data.into_value(Span::test_data());
         let msg = value
             .as_list()?

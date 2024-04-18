@@ -52,7 +52,7 @@ impl Plugin for PolarsPlugin {
     ) -> Result<(), LabeledError> {
         if !self.disable_cache_drop {
             let id = CustomValueType::try_from_custom_value(custom_value)?.id();
-            let _ = self.cache.remove(Some(engine), &id);
+            let _ = self.cache.remove(Some(engine), &id, false);
         }
         Ok(())
     }

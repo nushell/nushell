@@ -20,6 +20,7 @@ pub struct CacheValue {
     pub value: PolarsPluginObject,
     pub created: DateTime<FixedOffset>,
     pub span: Span,
+    pub reference_count: i16,
 }
 
 #[derive(Default)]
@@ -39,15 +40,32 @@ impl Cache {
     }
 
     /// Removes an item from the plugin cache.
-    /// The maybe_engine parameter is required outside of testing
+    ///
+    /// * `maybe_engine` - Current EngineInterface reference. Required outside of testing
+    /// * `key` - The key of the cache entry to remove.
+    /// * `force` - Delete even if there are multiple references
     pub fn remove(
         &self,
         maybe_engine: Option<&EngineInterface>,
-        uuid: &Uuid,
+        key: &Uuid,
+        force: bool,
     ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = self.lock()?;
-        let removed = lock.remove(uuid);
-        plugin_debug!("PolarsPlugin: removing {uuid} from cache: {removed:?}");
+
+        let reference_count = lock.get_mut(key).map(|cache_value| {
+            cache_value.reference_count -= 1;
+            cache_value.reference_count
+        });
+
+        let removed = if force || reference_count.unwrap_or_default() < 1 {
+            let removed = lock.remove(key);
+            plugin_debug!("PolarsPlugin: removing {key} from cache: {removed:?}");
+            removed
+        } else {
+            plugin_debug!("PolarsPlugin: decrementing reference count for {key}");
+            None
+        };
+
         // Once there are no more entries in the cache
         // we can turn plugin gc back on
         match maybe_engine {
@@ -87,15 +105,21 @@ impl Cache {
             value,
             created: Local::now().into(),
             span,
+            reference_count: 1,
         };
         let result = lock.insert(uuid, cache_value);
         drop(lock);
         Ok(result)
     }
 
-    pub fn get(&self, uuid: &Uuid) -> Result<Option<CacheValue>, ShellError> {
-        let lock = self.lock()?;
-        let result = lock.get(uuid).cloned();
+    pub fn get(&self, uuid: &Uuid, increment: bool) -> Result<Option<CacheValue>, ShellError> {
+        let mut lock = self.lock()?;
+        let result = lock.get_mut(uuid).map(|cv| {
+            if increment {
+                cv.reference_count += 1;
+            }
+            cv.clone()
+        });
         drop(lock);
         Ok(result)
     }
@@ -138,7 +162,7 @@ pub trait Cacheable: Sized + Clone {
     }
 
     fn get_cached(plugin: &PolarsPlugin, id: &Uuid) -> Result<Option<Self>, ShellError> {
-        if let Some(cache_value) = plugin.cache.get(id)? {
+        if let Some(cache_value) = plugin.cache.get(id, false)? {
             Ok(Some(Self::from_cache_value(cache_value.value)?))
         } else {
             Ok(None)
