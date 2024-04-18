@@ -78,9 +78,7 @@ impl Command for Open {
 
         let mut output = vec![];
 
-        for mut path in paths {
-            //FIXME: `open` should not have to do this
-            path.item = path.item.strip_ansi_string_unlikely();
+        for path in paths {
 
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));

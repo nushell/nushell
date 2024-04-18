@@ -14,13 +14,6 @@ pub enum NuGlob {
 }
 
 impl NuGlob {
-    pub fn strip_ansi_string_unlikely(self) -> Self {
-        match self {
-            NuGlob::DoNotExpand(s) => NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s)),
-            NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
-        }
-    }
-
     pub fn is_expand(&self) -> bool {
         matches!(self, NuGlob::Expand(..))
     }

@@ -2,7 +2,6 @@ use super::util::{get_rest_for_glob_pattern, try_interaction};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::NuGlob;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{
@@ -119,7 +118,7 @@ fn rm(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+    let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
     if paths.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -147,7 +146,7 @@ fn rm(
         .into()
     });
 
-    for (idx, path) in paths.clone().into_iter().enumerate() {
+    for path in paths.iter() {
         if let Some(ref home) = home {
             if expand_path_with(path.item.as_ref(), &currentdir_path, path.item.is_expand())
                 .to_string_lossy()
@@ -157,16 +156,6 @@ fn rm(
                 unique_argument_check = Some(path.span);
             }
         }
-        let corrected_path = Spanned {
-            item: match path.item {
-                NuGlob::DoNotExpand(s) => {
-                    NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s))
-                }
-                NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
-            },
-            span: path.span,
-        };
-        let _ = std::mem::replace(&mut paths[idx], corrected_path);
     }
 
     let span = call.head;

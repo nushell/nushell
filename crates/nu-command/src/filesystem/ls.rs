@@ -207,27 +207,13 @@ fn ls_for_one_pattern(
         use_mime_type,
         call_span,
     } = args;
-    let pattern_arg = {
-        if let Some(path) = pattern_arg {
-            // it makes no sense to list an empty string.
-            if path.item.as_ref().is_empty() {
-                return Err(ShellError::FileNotFoundCustom {
-                    msg: "empty string('') directory or file does not exist".to_string(),
-                    span: path.span,
-                });
-            }
-            match path.item {
-                NuGlob::DoNotExpand(p) => Some(Spanned {
-                    item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
-                    span: path.span,
-                }),
-                NuGlob::Expand(p) => Some(Spanned {
-                    item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
-                    span: path.span,
-                }),
-            }
-        } else {
-            pattern_arg
+    if let Some(path) = &pattern_arg {
+        // it makes no sense to list an empty string.
+        if path.item.as_ref().is_empty() {
+            return Err(ShellError::FileNotFoundCustom {
+                msg: "empty string('') directory or file does not exist".to_string(),
+                span: path.span,
+            });
         }
     };
 

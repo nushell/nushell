@@ -39,17 +39,6 @@ impl Command for Cd {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
 
-        let path_val = {
-            if let Some(path) = path_val {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
-                    span: path.span,
-                })
-            } else {
-                path_val
-            }
-        };
-
         let (path, span) = match path_val {
             Some(v) => {
                 if v.item == "-" {
