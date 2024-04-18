@@ -117,7 +117,7 @@ impl Expression {
 
     pub fn as_import_pattern(&self) -> Option<ImportPattern> {
         match &self.expr {
-            Expr::ImportPattern(pattern) => Some(pattern.clone()),
+            Expr::ImportPattern(pattern) => Some(*pattern.clone()),
             _ => None,
         }
     }

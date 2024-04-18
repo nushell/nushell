@@ -2431,7 +2431,7 @@ pub fn parse_use(
 
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
-        expr: Expr::ImportPattern(import_pattern),
+        expr: Expr::ImportPattern(Box::new(import_pattern)),
         span: span(args_spans),
         ty: Type::Any,
         custom_completion: None,
@@ -2615,7 +2615,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 
         // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {
-            expr: Expr::ImportPattern(import_pattern),
+            expr: Expr::ImportPattern(Box::new(import_pattern)),
             span: span(args_spans),
             ty: Type::Any,
             custom_completion: None,
