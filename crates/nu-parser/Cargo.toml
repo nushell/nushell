@@ -14,7 +14,7 @@ bench = false
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.92.3" }
 nu-path = { path = "../nu-path", version = "0.92.3" }
-nu-plugin-engine = { path = "../nu-plugin-engine", optional = true, version = "0.92.3", default-features = false }
+nu-plugin-engine = { path = "../nu-plugin-engine", optional = true, version = "0.92.3" }
 nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
 
 bytesize = { workspace = true }
@@ -28,4 +28,3 @@ rstest = { workspace = true, default-features = false }
 
 [features]
 plugin = ["nu-plugin-engine"]
-local-socket = ["nu-plugin-engine/local-socket"]
