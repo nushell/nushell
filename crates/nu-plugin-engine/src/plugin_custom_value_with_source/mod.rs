@@ -122,7 +122,6 @@ impl PluginCustomValueWithSource {
         {
             custom_value.verify_source(value.span, source)
         } else {
-            eprintln!("{value:?}");
             // Only PluginCustomValueWithSource can be sent
             Err(ShellError::CustomValueIncorrectForPlugin {
                 name: value.item.type_name(),
