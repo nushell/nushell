@@ -14,7 +14,7 @@ bench = false
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.92.3" }
 nu-path = { path = "../nu-path", version = "0.92.3" }
-nu-plugin = { path = "../nu-plugin", optional = true, version = "0.92.3" }
+nu-plugin-engine = { path = "../nu-plugin-engine", optional = true, version = "0.92.3", default-features = false }
 nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
 
 bytesize = { workspace = true }
@@ -27,4 +27,5 @@ serde_json = { workspace = true }
 rstest = { workspace = true, default-features = false }
 
 [features]
-plugin = ["nu-plugin"]
+plugin = ["nu-plugin-engine"]
+local-socket = ["nu-plugin-engine/local-socket"]

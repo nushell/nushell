@@ -40,6 +40,9 @@ members = [
   "crates/nu-pretty-hex",
   "crates/nu-protocol",
   "crates/nu-plugin",
+  "crates/nu-plugin-core",
+  "crates/nu-plugin-engine",
+  "crates/nu-plugin-protocol",
   "crates/nu-plugin-test-support",
   "crates/nu_plugin_inc",
   "crates/nu_plugin_gstat",
@@ -211,6 +214,8 @@ nix = { workspace = true, default-features = false, features = [
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.92.3" }
+nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.92.3" }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.92.3" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
 divan = "0.1.14"
@@ -228,11 +233,16 @@ plugin = [
   "nu-protocol/plugin",
   "nu-engine/plugin",
 ]
+# Support for UNIX domain sockets / Windows named pipes
+# Currently only used for plugins
+local-socket = ["nu-parser/local-socket"]
+
 default = ["default-no-clipboard", "system-clipboard"]
 # Enables convenient omitting of the system-clipboard feature, as it leads to problems in ci on linux
 # See https://github.com/nushell/nushell/pull/11535
 default-no-clipboard = [
   "plugin",
+  "local-socket",
   "which-support",
   "trash-support",
   "sqlite",

@@ -3570,7 +3570,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
-    use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+    use nu_plugin_engine::{PersistentPlugin, PluginDeclaration};
     use nu_protocol::{
         engine::Stack, IntoSpanned, PluginIdentity, PluginSignature, RegisteredPlugin,
     };
@@ -3756,14 +3756,18 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
                 plugin.set_gc_config(&gc_config);
 
-                let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
-                    log::warn!("Error getting signatures: {err:?}");
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                });
+                let signatures = plugin
+                    .clone()
+                    .get(get_envs)
+                    .and_then(|p| p.get_signature())
+                    .map_err(|err| {
+                        log::warn!("Error getting signatures: {err:?}");
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    });
 
                 if signatures.is_ok() {
                     // mark plugins file as dirty only when the user is registering plugins
