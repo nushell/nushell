@@ -5,6 +5,7 @@ mod known_external;
 mod lex;
 mod lite_parser;
 mod parse_keywords;
+mod parse_literals;
 mod parse_patterns;
 mod parse_shape_specs;
 mod parser;
@@ -19,11 +20,12 @@ pub use known_external::KnownExternal;
 pub use lex::{lex, lex_signature, Token, TokenContents};
 pub use lite_parser::{lite_parse, LiteBlock, LiteCommand};
 pub use parse_keywords::*;
+pub use parse_literals::{parse_unit_value, DURATION_UNIT_GROUPS};
 pub use parser_path::*;
 
 pub use parser::{
     is_math_expression_like, parse, parse_block, parse_expression, parse_external_call,
-    parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string, DURATION_UNIT_GROUPS,
+    trim_quotes, trim_quotes_str, unescape_unquote_string,
 };
 
 #[cfg(feature = "plugin")]
