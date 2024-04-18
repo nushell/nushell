@@ -358,7 +358,7 @@ fn convert_to_value(
                 }
             }
 
-            for row in cells {
+            for row in cells.into_vec() {
                 if cols.len() != row.len() {
                     return Err(ShellError::OutsideSpannedLabeledError {
                         src: original_text.to_string(),

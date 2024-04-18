@@ -102,7 +102,7 @@ pub trait Eval {
             }
             Expr::Table(headers, vals) => {
                 let mut output_headers = vec![];
-                for expr in headers {
+                for expr in headers.as_ref() {
                     let header = Self::eval::<D>(state, mut_state, expr)?.coerce_into_string()?;
                     if let Some(idx) = output_headers
                         .iter()
@@ -119,7 +119,7 @@ pub trait Eval {
                 }
 
                 let mut output_rows = vec![];
-                for val in vals {
+                for val in vals.as_ref() {
                     let record = output_headers.iter().zip(val).map(|(col, expr)| {
                         Self::eval::<D>(state, mut_state, expr).map(|val| (col.clone(), val))
                     }).collect::<Result<_,_>>()?;

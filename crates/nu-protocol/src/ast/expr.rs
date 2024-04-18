@@ -29,9 +29,9 @@ pub enum Expr {
     Closure(BlockId),
     MatchBlock(Vec<(MatchPattern, Expression)>),
     List(Vec<ListItem>),
-    Table(Vec<Expression>, Vec<Vec<Expression>>),
+    Table(Box<[Expression]>, Box<[Vec<Expression>]>),
     Record(Vec<RecordItem>),
-    Keyword(Vec<u8>, Span, Box<Expression>),
+    Keyword(Box<[u8]>, Span, Box<Expression>),
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
     DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String, bool),
@@ -47,8 +47,6 @@ pub enum Expr {
     Nothing,
     Garbage,
 }
-
-const _: [(); 56] = [(); std::mem::size_of::<Expr>()];
 
 impl Expr {
     pub fn pipe_redirection(

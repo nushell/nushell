@@ -697,7 +697,7 @@ pub fn parse_multispan_value(
                 ));
                 return Expression {
                     expr: Expr::Keyword(
-                        keyword.clone(),
+                        keyword.as_slice().into(),
                         spans[*spans_idx - 1],
                         Box::new(Expression::garbage(arg_span)),
                     ),
@@ -711,7 +711,7 @@ pub fn parse_multispan_value(
             let ty = expr.ty.clone();
 
             Expression {
-                expr: Expr::Keyword(keyword.clone(), keyword_span, Box::new(expr)),
+                expr: Expr::Keyword(keyword.as_slice().into(), keyword_span, Box::new(expr)),
                 span: arg_span,
                 ty,
                 custom_completion: None,
@@ -4006,7 +4006,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     };
 
     Expression {
-        expr: Expr::Table(head, rows),
+        expr: Expr::Table(head.into_boxed_slice(), rows.into_boxed_slice()),
         span,
         ty,
         custom_completion: None,
@@ -6077,10 +6077,10 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::Table(headers, values) => {
-            for header in headers {
+            for header in headers.as_ref() {
                 discover_captures_in_expr(working_set, header, seen, seen_blocks, output)?;
             }
-            for row in values {
+            for row in values.as_ref() {
                 for cell in row {
                     discover_captures_in_expr(working_set, cell, seen, seen_blocks, output)?;
                 }
