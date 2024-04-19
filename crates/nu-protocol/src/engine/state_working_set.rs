@@ -1112,7 +1112,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
 ///
 /// Note that file paths are compared without canonicalization, so the same
 /// physical file may still appear multiple times under different paths.
-/// This doesn't affact circular import detection though.
+/// This doesn't affect circular import detection though.
 #[derive(Debug, Default)]
 pub struct FileStack(Vec<PathBuf>);
 
