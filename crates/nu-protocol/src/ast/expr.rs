@@ -18,9 +18,8 @@ pub enum Expr {
     Binary(Vec<u8>),
     Range(
         Option<Box<Expression>>, // from
-        Option<Box<Expression>>, // next value after "from"
-        Option<Box<Expression>>, // to
         RangeOperator,
+        Option<Box<Expression>>, // to
     ),
     Var(VarId),
     VarDecl(VarId),
@@ -72,7 +71,7 @@ impl Expr {
             | Expr::Int(_)
             | Expr::Float(_)
             | Expr::Binary(_)
-            | Expr::Range(_, _, _, _)
+            | Expr::Range(_, _, _)
             | Expr::Var(_)
             | Expr::UnaryNot(_)
             | Expr::BinaryOp(_, _, _)

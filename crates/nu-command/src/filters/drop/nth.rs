@@ -134,7 +134,7 @@ impl Command for DropNth {
                     });
                 }
                 // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
-                if range.step() < 0 {
+                if !range.is_ascending() {
                     return Err(ShellError::UnsupportedInput {
                         msg: "The upper bound needs to be equal or larger to the lower bound"
                             .into(),

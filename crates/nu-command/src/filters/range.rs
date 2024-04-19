@@ -74,10 +74,10 @@ impl Command for Range {
                     Bound::Included(end) => end,
                     Bound::Excluded(end) => end - 1,
                     Bound::Unbounded => {
-                        if range.step() < 0 {
-                            i64::MIN
-                        } else {
+                        if range.is_ascending() {
                             i64::MAX
+                        } else {
+                            i64::MIN
                         }
                     }
                 };

@@ -225,42 +225,14 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             }
             Value::Range { val, .. } => match val {
                 Range::IntRange(range) => match range.end() {
-                    Bound::Included(end) => write!(
-                        f,
-                        "Range({:?}..{:?}, step: {:?})",
-                        range.start(),
-                        end,
-                        range.step(),
-                    ),
-                    Bound::Excluded(end) => write!(
-                        f,
-                        "Range({:?}..<{:?}, step: {:?})",
-                        range.start(),
-                        end,
-                        range.step(),
-                    ),
-                    Bound::Unbounded => {
-                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
-                    }
+                    Bound::Included(end) => write!(f, "Range({:?}..{:?})", range.start(), end),
+                    Bound::Excluded(end) => write!(f, "Range({:?}..<{:?})", range.start(), end),
+                    Bound::Unbounded => write!(f, "Range({:?}..)", range.start()),
                 },
                 Range::FloatRange(range) => match range.end() {
-                    Bound::Included(end) => write!(
-                        f,
-                        "Range({:?}..{:?}, step: {:?})",
-                        range.start(),
-                        end,
-                        range.step(),
-                    ),
-                    Bound::Excluded(end) => write!(
-                        f,
-                        "Range({:?}..<{:?}, step: {:?})",
-                        range.start(),
-                        end,
-                        range.step(),
-                    ),
-                    Bound::Unbounded => {
-                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
-                    }
+                    Bound::Included(end) => write!(f, "Range({:?}..{:?})", range.start(), end,),
+                    Bound::Excluded(end) => write!(f, "Range({:?}..<{:?})", range.start(), end,),
+                    Bound::Unbounded => write!(f, "Range({:?}..)", range.start()),
                 },
             },
             Value::String { val, .. } | Value::Glob { val, .. } => {

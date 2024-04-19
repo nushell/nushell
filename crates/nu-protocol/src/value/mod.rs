@@ -2182,7 +2182,6 @@ impl Value {
             Value::test_date(DateTime::UNIX_EPOCH.into()),
             Value::test_range(Range::IntRange(IntRange {
                 start: 0,
-                step: 1,
                 end: Bound::Excluded(0),
             })),
             Value::test_float(0.0),

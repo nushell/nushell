@@ -78,7 +78,7 @@ fn integer(
             let range_span = range.span;
             match range.item {
                 Range::IntRange(range) => {
-                    if range.step() < 0 {
+                    if !range.is_ascending() {
                         return Err(ShellError::InvalidRange {
                             left_flank: range.start().to_string(),
                             right_flank: match range.end() {

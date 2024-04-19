@@ -27,7 +27,7 @@ fn float_not_in_inc_range() -> TestResult {
 
 #[test]
 fn range_and_reduction() -> TestResult {
-    run_test(r#"1..6..36 | math sum"#, "148")
+    run_test(r#"1..36 | math sum"#, "666")
 }
 
 #[test]
