@@ -114,7 +114,10 @@ fn create_command(path: &Path, mut shell: Option<&Path>, mode: &CommunicationMod
                     Some(Path::new("sh"))
                 }
             }
-            Some("nu") => Some(Path::new("nu")),
+            Some("nu") => {
+                shell_args.push("--stdin");
+                Some(Path::new("nu"))
+            }
             Some("py") => Some(Path::new("python")),
             Some("rb") => Some(Path::new("ruby")),
             Some("jar") => {

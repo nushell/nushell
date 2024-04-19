@@ -13,7 +13,10 @@ use nu_protocol::{
 use nu_utils::stdout_write_all_and_flush;
 use std::sync::Arc;
 
-/// Main function used when a file path is found as argument for nu
+/// Entry point for evaluating a file.
+///
+/// If the file contains a main command, it is invoked with `args` and the pipeline data from `input`;
+/// otherwise, the pipeline data is forwarded to the first command in the file, and `args` are ignored.
 pub fn evaluate_file(
     path: String,
     args: &[String],
@@ -21,7 +24,7 @@ pub fn evaluate_file(
     stack: &mut Stack,
     input: PipelineData,
 ) -> Result<()> {
-    // Translate environment variables from Strings to Values
+    // Convert environment variables from Strings to Values and store them in the engine state.
     if let Some(e) = convert_env_values(engine_state, stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
@@ -74,8 +77,7 @@ pub fn evaluate_file(
             );
             std::process::exit(1);
         });
-
-    engine_state.start_in_file(Some(file_path_str));
+    engine_state.file = Some(file_path.clone());
 
     let parent = file_path.parent().unwrap_or_else(|| {
         let working_set = StateWorkingSet::new(engine_state);
@@ -104,17 +106,19 @@ pub fn evaluate_file(
 
     let source_filename = file_path
         .file_name()
-        .expect("internal error: script missing filename");
+        .expect("internal error: missing filename");
 
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", file_path_str);
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
+    // If any parse errors were found, report the first error and exit.
     if let Some(err) = working_set.parse_errors.first() {
         report_error(&working_set, err);
         std::process::exit(1);
     }
 
+    // Look for blocks whose name starts with "main" and replace it with the filename.
     for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
@@ -124,19 +128,21 @@ pub fn evaluate_file(
         }
     }
 
-    let _ = engine_state.merge_delta(working_set.delta);
+    // Merge the changes into the engine state.
+    engine_state
+        .merge_delta(working_set.delta)
+        .expect("merging delta into engine_state should succeed");
 
+    // Check if the file contains a main command.
     if engine_state.find_decl(b"main", &[]).is_some() {
-        let args = format!("main {}", args.join(" "));
-
+        // Evaluate the file, but don't run main yet.
         let pipeline_data =
             eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty());
         let pipeline_data = match pipeline_data {
             Err(ShellError::Return { .. }) => {
-                // allows early exists before `main` is run.
+                // Allow early return before main is run.
                 return Ok(());
             }
-
             x => x,
         }
         .unwrap_or_else(|e| {
@@ -145,12 +151,12 @@ pub fn evaluate_file(
             std::process::exit(1);
         });
 
+        // Print the pipeline output of the file.
+        // The pipeline output of a file is the pipeline output of its last command.
         let result = pipeline_data.print(engine_state, stack, true, false);
-
         match result {
             Err(err) => {
                 let working_set = StateWorkingSet::new(engine_state);
-
                 report_error(&working_set, &err);
                 std::process::exit(1);
             }
@@ -161,6 +167,9 @@ pub fn evaluate_file(
             }
         }
 
+        // Invoke the main command with arguments.
+        // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
+        let args = format!("main {}", args.join(" "));
         if !eval_source(
             engine_state,
             stack,
