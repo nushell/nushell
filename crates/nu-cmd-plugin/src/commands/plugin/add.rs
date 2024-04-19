@@ -91,7 +91,7 @@ apparent the next time `nu` is next launched with that plugin signature file.
                 // Try to find it in NU_PLUGIN_DIRS first, before giving up
                 let mut found = None;
                 if let Some(nu_plugin_dirs) = stack.get_env_var(engine_state, "NU_PLUGIN_DIRS") {
-                    for dir in nu_plugin_dirs.into_list()? {
+                    for dir in nu_plugin_dirs.into_list().unwrap_or(vec![]) {
                         if let Ok(path) = nu_path::canonicalize_with(dir.as_str()?, &cwd)
                             .and_then(|dir| nu_path::canonicalize_with(&filename.item, dir))
                         {
