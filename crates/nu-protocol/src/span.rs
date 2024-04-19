@@ -123,10 +123,6 @@ impl FutureSpanId {
         Self::unknown()
     }
 
-    pub fn offset(&self, offset: usize) -> FutureSpanId {
-        FutureSpanId::new(self.start - offset, self.end - offset)
-    }
-
     pub fn contains(&self, pos: usize) -> bool {
         pos >= self.start && pos < self.end
     }
@@ -195,10 +191,6 @@ impl ActualSpan {
     /// when used in errors.
     pub const fn test_data() -> Self {
         Self::unknown()
-    }
-
-    pub fn offset(&self, offset: usize) -> Self {
-        ActualSpan::new(self.start - offset, self.end - offset)
     }
 
     pub fn contains(&self, pos: usize) -> bool {
