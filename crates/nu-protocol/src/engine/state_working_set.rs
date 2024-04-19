@@ -1120,7 +1120,7 @@ impl FileStack {
 
     /// Creates a stack with a single file on top.
     ///
-    /// This is a convinence method that creates an empty stack, then pushes the file onto it.
+    /// This is a convenience method that creates an empty stack, then pushes the file onto it.
     /// It skips the circular import check and always succeeds.
     pub fn with_file(path: PathBuf) -> Self {
         Self(vec![path])
