@@ -31,12 +31,16 @@ impl Command for Register {
                 "path of shell used to run plugin (cmd, sh, python, etc)",
                 Some('s'),
             )
-            .category(Category::Core)
+            .category(Category::Plugin)
     }
 
     fn extra_usage(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["plugin", "add", "register"]
     }
 
     fn is_parser_keyword(&self) -> bool {

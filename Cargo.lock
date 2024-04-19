@@ -2882,6 +2882,7 @@ dependencies = [
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
+ "nu-cmd-plugin",
  "nu-command",
  "nu-engine",
  "nu-explore",
@@ -3020,6 +3021,17 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "shadow-rs",
+]
+
+[[package]]
+name = "nu-cmd-plugin"
+version = "0.92.3"
+dependencies = [
+ "itertools 0.12.1",
+ "nu-engine",
+ "nu-path",
+ "nu-plugin",
+ "nu-protocol",
 ]
 
 [[package]]

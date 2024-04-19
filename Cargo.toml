@@ -31,6 +31,7 @@ members = [
   "crates/nu-cmd-base",
   "crates/nu-cmd-extra",
   "crates/nu-cmd-lang",
+  "crates/nu-cmd-plugin",
   "crates/nu-cmd-dataframe",
   "crates/nu-command",
   "crates/nu-color-config",
@@ -170,6 +171,7 @@ winreg = "0.52"
 nu-cli = { path = "./crates/nu-cli", version = "0.92.3" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.92.3" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.92.3" }
+nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.92.3", optional = true }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.92.3", features = [
   "dataframe",
 ], optional = true }
@@ -225,6 +227,7 @@ tempfile = { workspace = true }
 [features]
 plugin = [
   "nu-plugin",
+  "nu-cmd-plugin",
   "nu-cli/plugin",
   "nu-parser/plugin",
   "nu-command/plugin",

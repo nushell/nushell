@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{PluginIdentity, PluginSignature, ShellError, Span};
 
-const BUFFER_SIZE: usize = 4096;
+// This has a big impact on performance
+const BUFFER_SIZE: usize = 65536;
 
 // Chose settings at the low end, because we're just trying to get the maximum speed
 const COMPRESSION_QUALITY: u32 = 1;

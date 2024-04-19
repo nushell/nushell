@@ -202,11 +202,11 @@ macro_rules! nu_with_std {
 
 #[macro_export]
 macro_rules! nu_with_plugins {
-    (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),+$(,)?], $command:expr) => {{
+    (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
         nu_with_plugins!(
             cwd: $cwd,
             envs: Vec::<(&str, &str)>::new(),
-            plugins: [$(($plugin_name)),+],
+            plugins: [$(($plugin_name)),*],
             $command
         )
     }};
@@ -222,10 +222,10 @@ macro_rules! nu_with_plugins {
     (
         cwd: $cwd:expr,
         envs: $envs:expr,
-        plugins: [$(($plugin_name:expr)),+$(,)?],
+        plugins: [$(($plugin_name:expr)),*$(,)?],
         $command:expr
     ) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$($plugin_name),+], $command)
+        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$($plugin_name),*], $command)
     }};
     (cwd: $cwd:expr, envs: $envs:expr, plugin: ($plugin_name:expr), $command:expr) => {{
         $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$plugin_name], $command)
