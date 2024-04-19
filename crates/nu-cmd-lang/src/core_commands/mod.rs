@@ -73,11 +73,7 @@ pub use version::Version;
 pub use while_::While;
 
 mod plugin;
-mod plugin_list;
-mod plugin_stop;
 mod register;
 
-pub use plugin::PluginCommand;
-pub use plugin_list::PluginList;
-pub use plugin_stop::PluginStop;
+pub use plugin::*;
 pub use register::Register;

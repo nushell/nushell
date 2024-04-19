@@ -1,5 +1,11 @@
 use nu_engine::{command_prelude::*, get_full_help};
 
+mod list;
+mod stop;
+
+pub use list::PluginList;
+pub use stop::PluginStop;
+
 #[derive(Clone)]
 pub struct PluginCommand;
 
