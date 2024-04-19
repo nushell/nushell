@@ -214,7 +214,7 @@ nix = { workspace = true, default-features = false, features = [
 nu-test-support = { path = "./crates/nu-test-support", version = "0.92.3" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
-tango-bench = { git = "https://github.com/bazhenov/tango", branch = "dev" }
+tango-bench = "0.5"
 pretty_assertions = "1.4"
 rstest = { workspace = true, default-features = false }
 serial_test = "3.0"
