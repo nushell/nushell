@@ -36,12 +36,11 @@ pub struct StateWorkingSet<'a> {
 impl<'a> StateWorkingSet<'a> {
     pub fn new(permanent_state: &'a EngineState) -> Self {
         // Initialize the file stack with the top-level file.
-        let mut files = FileStack::new();
-        if let Some(file) = permanent_state.file.clone() {
-            files
-                .push(file, Span::unknown())
-                .expect("pushing files on an empty stack is safe");
-        }
+        let files = if let Some(file) = permanent_state.file.clone() {
+            FileStack::with_file(file)
+        } else {
+            FileStack::new()
+        };
 
         Self {
             delta: StateDelta::new(permanent_state),
@@ -1117,6 +1116,14 @@ impl FileStack {
     /// Creates an empty stack.
     pub fn new() -> Self {
         Self(vec![])
+    }
+
+    /// Creates a stack with a single file on top.
+    ///
+    /// This is a convinence method that creates an empty stack, then pushes the file onto it.
+    /// It skips the circular import check and always succeeds.
+    pub fn with_file(path: PathBuf) -> Self {
+        Self(vec![path])
     }
 
     /// Adds a file to the stack.

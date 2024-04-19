@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, env::get_config, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::engine::{FileStack, StateWorkingSet};
 use std::path::Path;
 
 #[derive(Clone)]
@@ -123,10 +123,7 @@ impl Command for NuCheck {
                     } else {
                         // Unlike `parse_file_or_dir_module`, `parse_file_script` parses the content directly,
                         // without adding the file to the stack. Therefore we need to handle this manually.
-                        working_set
-                            .files
-                            .push(path.clone(), path_span)
-                            .expect("pushing files on an empty stack is safe");
+                        working_set.files = FileStack::with_file(path.clone());
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                         // The working set is not merged, so no need to pop the file from the stack.
                     };
