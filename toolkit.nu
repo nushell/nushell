@@ -489,7 +489,7 @@ export def cov [] {
 }
 
 # Benchmark the current branch against the main branch
-# Ensure you have `cargo-export` installed to generate seperate artifacts for each branch.
+# Ensure you have `cargo-export` installed to generate separate artifacts for each branch.
 export def "benchmark-current-branch-with-main" [] {
     let main = "main"
     let current_branch = (git branch --show-current)
@@ -502,7 +502,7 @@ export def "benchmark-current-branch-with-main" [] {
 }
 
 # Benchmark the current branch and logs the result in `./target/samples`
-# Ensure you have `cargo-export` installed to generate seperate artifacts for each branch.
+# Ensure you have `cargo-export` installed to generate separate artifacts for each branch.
 export def "benchmark-and-log-result" [] {
     let current_branch = (git branch --show-current)
     let current_dir = "./" | path expand
