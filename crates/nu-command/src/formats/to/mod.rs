@@ -15,7 +15,6 @@ pub use self::toml::ToToml;
 pub use command::To;
 pub use json::ToJson;
 pub use md::ToMd;
-pub use nuon::value_to_string;
 pub use nuon::ToNuon;
 pub use text::ToText;
 pub use tsv::ToTsv;
