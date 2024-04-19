@@ -49,7 +49,7 @@ impl Command for ToNuon {
         let span = call.head;
         let value = input.into_value(span);
 
-        match nu_nuon::to_nuon(&value, raw, tabs, indent, Some(span)) {
+        match nuon::to_nuon(&value, raw, tabs, indent, Some(span)) {
             Ok(serde_nuon_string) => {
                 Ok(Value::string(serde_nuon_string, span).into_pipeline_data())
             }
