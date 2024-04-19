@@ -269,7 +269,9 @@ impl EngineState {
         #[cfg(feature = "plugin")]
         if delta.plugins_changed {
             // Update the plugin file with the new signatures.
-            self.update_plugin_file()?;
+            if self.plugin_signatures.is_some() {
+                self.update_plugin_file()?;
+            }
         }
 
         Ok(())
