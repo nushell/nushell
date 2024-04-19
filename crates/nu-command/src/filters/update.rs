@@ -2,7 +2,6 @@ use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
 use nu_protocol::{
     ast::{Block, PathMember},
     engine::Closure,
-    FromValue,
 };
 
 #[derive(Clone)]
@@ -116,25 +115,23 @@ fn update(
 
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
-
+    let replacement_span = replacement.span();
     let ctrlc = engine_state.ctrlc.clone();
 
     let eval_block = get_eval_block(engine_state);
 
     match input {
         PipelineData::Value(mut value, metadata) => {
-            if replacement.coerce_block().is_ok() {
+            if let Value::Closure { val: closure, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let span = replacement.span();
-                        let capture_block = Closure::from_value(replacement)?;
-                        let block = engine_state.get_block(capture_block.block_id);
-                        let stack = stack.captures_to_stack(capture_block.captures.clone());
+                        let block = engine_state.get_block(closure.block_id);
+                        let stack = stack.captures_to_stack(closure.captures);
                         for val in vals {
                             let mut stack = stack.clone();
                             update_value_by_closure(
                                 val,
-                                span,
+                                replacement_span,
                                 engine_state,
                                 &mut stack,
                                 block,
@@ -147,7 +144,8 @@ fn update(
                     (first, _) => {
                         update_single_value_by_closure(
                             &mut value,
-                            replacement,
+                            closure,
+                            replacement_span,
                             engine_state,
                             stack,
                             &cell_path.members,
@@ -189,10 +187,11 @@ fn update(
                 // cannot fail since loop above does at least one iteration or returns an error
                 let value = pre_elems.last_mut().expect("one element");
 
-                if replacement.coerce_block().is_ok() {
+                if let Value::Closure { val: closure, .. } = replacement {
                     update_single_value_by_closure(
                         value,
-                        replacement,
+                        closure,
+                        replacement_span,
                         engine_state,
                         stack,
                         path,
@@ -207,12 +206,10 @@ fn update(
                     .into_iter()
                     .chain(stream)
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
-            } else if replacement.coerce_block().is_ok() {
-                let replacement_span = replacement.span();
+            } else if let Value::Closure { val: closure, .. } = replacement {
                 let engine_state = engine_state.clone();
-                let capture_block = Closure::from_value(replacement)?;
-                let block = engine_state.get_block(capture_block.block_id).clone();
-                let stack = stack.captures_to_stack(capture_block.captures.clone());
+                let block = engine_state.get_block(closure.block_id).clone();
+                let stack = stack.captures_to_stack(closure.captures);
 
                 Ok(stream
                     .map(move |mut input| {
@@ -302,17 +299,16 @@ fn update_value_by_closure(
 #[allow(clippy::too_many_arguments)]
 fn update_single_value_by_closure(
     value: &mut Value,
-    replacement: Value,
+    closure: Closure,
+    span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
     cell_path: &[PathMember],
     first_path_member_int: bool,
     eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
-    let span = replacement.span();
-    let capture_block = Closure::from_value(replacement)?;
-    let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(capture_block.captures);
+    let block = engine_state.get_block(closure.block_id);
+    let mut stack = stack.captures_to_stack(closure.captures);
 
     update_value_by_closure(
         value,

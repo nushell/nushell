@@ -7,8 +7,8 @@ use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::{
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, PipelineData, Span, Value,
+    engine::{Closure, EngineState, Stack, StateWorkingSet},
+    PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};
@@ -63,15 +63,15 @@ impl NuCompleter {
 
     fn external_completion(
         &self,
-        block_id: BlockId,
+        closure: &Closure,
         spans: &[String],
         offset: usize,
         span: Span,
     ) -> Option<Vec<SemanticSuggestion>> {
-        let block = self.engine_state.get_block(block_id);
+        let block = self.engine_state.get_block(closure.block_id);
         let mut callee_stack = self
             .stack
-            .gather_captures(&self.engine_state, &block.captures);
+            .captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         // Line
         if let Some(pos_arg) = block.signature.required_positional.first() {
@@ -210,13 +210,10 @@ impl NuCompleter {
 
                             // We got no results for internal completion
                             // now we can check if external completer is set and use it
-                            if let Some(block_id) = config.external_completer {
-                                if let Some(external_result) = self.external_completion(
-                                    block_id,
-                                    &spans,
-                                    fake_offset,
-                                    new_span,
-                                ) {
+                            if let Some(closure) = config.external_completer.as_ref() {
+                                if let Some(external_result) =
+                                    self.external_completion(closure, &spans, fake_offset, new_span)
+                                {
                                     return external_result;
                                 }
                             }
@@ -360,9 +357,9 @@ impl NuCompleter {
                                 }
 
                                 // Try to complete using an external completer (if set)
-                                if let Some(block_id) = config.external_completer {
+                                if let Some(closure) = config.external_completer.as_ref() {
                                     if let Some(external_result) = self.external_completion(
-                                        block_id,
+                                        closure,
                                         &spans,
                                         fake_offset,
                                         new_span,
