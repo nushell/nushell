@@ -719,7 +719,7 @@ impl EngineState {
 
     pub fn get_span_contents(&self, span: ActualSpan) -> &[u8] {
         for file in &self.files {
-            if file.covered_span.contains_span(span.id()) {
+            if file.covered_span.contains_span(&self, span.id()) {
                 return &file.content
                     [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
             }
@@ -729,7 +729,7 @@ impl EngineState {
 
     pub fn get_span_id_contents(&self, span: FutureSpanId) -> &[u8] {
         for file in &self.files {
-            if file.covered_span.contains_span(span) {
+            if file.covered_span.contains_span(&self, span) {
                 return &file.content
                     [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
             }

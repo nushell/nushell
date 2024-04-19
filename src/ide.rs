@@ -160,7 +160,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
                 let block = working_set.get_block(block_id);
                 if let Some(span) = &block.span {
                     for file in working_set.files() {
-                        if file.covered_span.contains(span.start) {
+                        if file.covered_span.contains(&working_set, span.start) {
                             println!(
                                 "{}",
                                 json!(
@@ -180,7 +180,10 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
         Some((Id::Variable(var_id), ..)) => {
             let var = working_set.get_variable(var_id);
             for file in working_set.files() {
-                if file.covered_span.contains(var.declaration_span.start) {
+                if file
+                    .covered_span
+                    .contains(&working_set, var.declaration_span.start)
+                {
                     println!(
                         "{}",
                         json!(

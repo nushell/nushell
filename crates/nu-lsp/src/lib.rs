@@ -283,7 +283,7 @@ impl LanguageServer {
                     let block = working_set.get_block(block_id);
                     if let Some(span) = &block.span {
                         for cached_file in working_set.files() {
-                            if cached_file.covered_span.contains(span.start) {
+                            if cached_file.covered_span.contains(&working_set, span.start) {
                                 return Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: Url::from_file_path(&*cached_file.name).ok()?,
                                     range: Self::span_to_range(
@@ -302,7 +302,7 @@ impl LanguageServer {
                 for cached_file in working_set.files() {
                     if cached_file
                         .covered_span
-                        .contains(var.declaration_span.start)
+                        .contains(&working_set, var.declaration_span.start)
                     {
                         return Some(GotoDefinitionResponse::Scalar(Location {
                             uri: params

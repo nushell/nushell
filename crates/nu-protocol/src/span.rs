@@ -123,11 +123,13 @@ impl FutureSpanId {
         Self::unknown()
     }
 
-    pub fn contains(&self, pos: usize) -> bool {
+    pub fn contains(&self, _state: &impl GetSpan, pos: usize) -> bool {
+        // let span = state.get_span(self.id);  // TODO SPAN: This breaks nu-lsp
         pos >= self.start && pos < self.end
     }
 
-    pub fn contains_span(&self, span: FutureSpanId) -> bool {
+    pub fn contains_span(&self, _state: &impl GetSpan, span: FutureSpanId) -> bool {
+        // let self_span = state.get_span(self.id);  // TODO SPAN: This breaks const tests
         span.start >= self.start && span.end <= self.end
     }
 
@@ -191,14 +193,6 @@ impl ActualSpan {
     /// when used in errors.
     pub const fn test_data() -> Self {
         Self::unknown()
-    }
-
-    pub fn contains(&self, pos: usize) -> bool {
-        pos >= self.start && pos < self.end
-    }
-
-    pub fn contains_span(&self, span: ActualSpan) -> bool {
-        span.start >= self.start && span.end <= self.end
     }
 
     /// Point to the space just past this span, useful for missing

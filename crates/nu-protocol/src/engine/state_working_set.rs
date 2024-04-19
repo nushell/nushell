@@ -380,7 +380,7 @@ impl<'a> StateWorkingSet<'a> {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
             for cached_file in &self.delta.files {
-                if cached_file.covered_span.contains_span(span.id()) {
+                if cached_file.covered_span.contains_span(&self, span.id()) {
                     return &cached_file.content[span.start - cached_file.covered_span.start
                         ..span.end - cached_file.covered_span.start];
                 }
@@ -395,7 +395,7 @@ impl<'a> StateWorkingSet<'a> {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
             for cached_file in &self.delta.files {
-                if cached_file.covered_span.contains_span(span) {
+                if cached_file.covered_span.contains_span(&self, span) {
                     return &cached_file.content[span.start - cached_file.covered_span.start
                         ..span.end - cached_file.covered_span.start];
                 }

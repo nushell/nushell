@@ -324,7 +324,7 @@ impl Expression {
         replaced: FutureSpanId,
         new_span_id: SpanId,
     ) {
-        if replaced.contains_span(working_set.get_span(self.span_id)) {
+        if replaced.contains_span(&working_set, working_set.get_span(self.span_id)) {
             self.span_id = new_span_id;
         }
         match &mut self.expr {
@@ -361,7 +361,7 @@ impl Expression {
             Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
-                if replaced.contains_span(call.head) {
+                if replaced.contains_span(&working_set, call.head) {
                     call.head = working_set.get_span(new_span_id);
                 }
                 for arg in call.arguments.item.iter_mut() {

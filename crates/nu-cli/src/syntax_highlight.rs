@@ -264,7 +264,10 @@ fn find_matching_block_end_in_block(
 ) -> Option<usize> {
     for p in &block.pipelines {
         for e in &p.elements {
-            if e.expr.get_span(&working_set).contains(global_cursor_offset) {
+            if e.expr
+                .get_span(&working_set)
+                .contains(working_set, global_cursor_offset)
+            {
                 if let Some(pos) = find_matching_block_end_in_expr(
                     line,
                     working_set,
@@ -281,7 +284,7 @@ fn find_matching_block_end_in_block(
                     PipelineRedirection::Single { target, .. }
                     | PipelineRedirection::Separate { out: target, .. }
                     | PipelineRedirection::Separate { err: target, .. }
-                        if target.span().contains(global_cursor_offset) =>
+                        if target.span().contains(working_set, global_cursor_offset) =>
                     {
                         if let Some(pos) = target.expr().and_then(|expr| {
                             find_matching_block_end_in_expr(
@@ -326,7 +329,7 @@ fn find_matching_block_end_in_expr(
 
     if expression
         .get_span(&working_set)
-        .contains(global_cursor_offset)
+        .contains(working_set, global_cursor_offset)
         && expression.get_span(&working_set).start >= global_span_offset
     {
         let expr_first = expression.get_span(&working_set).start;
