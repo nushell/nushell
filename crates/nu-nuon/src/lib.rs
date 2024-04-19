@@ -392,9 +392,7 @@ mod tests {
     }
 
     #[test]
-    // FIXME: below is the total reason
-    //
-    // the output of [`from_nuon`] on the content of `../../../tests/fixtures/formats/code.nu` is
+    // NOTE: this test could be stronger, but the output of [`from_nuon`] on the content of `../../../tests/fixtures/formats/code.nu` is
     // not the same in the CI and locally...
     //
     // ## locally
@@ -427,8 +425,6 @@ mod tests {
             include_str!("../../../tests/fixtures/formats/code.nu"),
             None,
         )
-        .unwrap_err()
-        .to_string()
-        .contains("Error when loading"));
+        .is_err());
     }
 }
