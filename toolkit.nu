@@ -488,4 +488,28 @@ export def cov [] {
     print $"Coverage generation took ($end - $start)."
 }
 
+# Benchmark the current branch against the main branch
+# Ensure you have `cargo-export` installed to generate seperate artifacts for each branch.
+export def "benchmark-current-branch-with-main" [] {
+    let main = "main"
+    let current_branch = (git branch --show-current)
+
+    cargo export $"target/($current_branch)" -- bench
+    git checkout $main
+    cargo export $"target/($main)" -- bench
+    git checkout $current_branch
+    ^$"./target/($current_branch)/benchmarks" compare $"./target/($main)/benchmarks" -o -s 50
+}
+
+# Benchmark the current branch and logs the result in `./target/samples`
+# Ensure you have `cargo-export` installed to generate seperate artifacts for each branch.
+export def "benchmark-and-log-result" [] {
+    let current_branch = (git branch --show-current)
+    let current_dir = "./" | path expand
+    let res_path = $"($current_dir)/target/samples"
+
+    cargo export $"target/($current_branch)" -- bench
+    ^$"./target/($current_branch)/benchmarks" compare -o -s 50 --dump $res_path
+}
+
 export def main [] { help toolkit }
