@@ -4,10 +4,13 @@ use super::{
     stream::{StreamManager, StreamManagerHandle},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, Sequence,
 };
-use crate::protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
-    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-    ProtocolInfo,
+use crate::{
+    protocol::{
+        CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
+        PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+        PluginOutput, ProtocolInfo,
+    },
+    util::Waitable,
 };
 use nu_protocol::{
     engine::Closure, Config, IntoInterruptiblePipelineData, LabeledError, ListStream, PipelineData,
@@ -47,6 +50,8 @@ mod tests;
 
 /// Internal shared state between the manager and each interface.
 struct EngineInterfaceState {
+    /// Protocol version info, set after `Hello` received
+    protocol_info: Waitable<Arc<ProtocolInfo>>,
     /// Sequence for generating engine call ids
     engine_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
@@ -61,6 +66,7 @@ struct EngineInterfaceState {
 impl std::fmt::Debug for EngineInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EngineInterfaceState")
+            .field("protocol_info", &self.protocol_info)
             .field("engine_call_id_sequence", &self.engine_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
             .field(
@@ -91,8 +97,6 @@ pub struct EngineInterfaceManager {
         mpsc::Receiver<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
-    /// Protocol version info, set after `Hello` received
-    protocol_info: Option<ProtocolInfo>,
 }
 
 impl EngineInterfaceManager {
@@ -102,6 +106,7 @@ impl EngineInterfaceManager {
 
         EngineInterfaceManager {
             state: Arc::new(EngineInterfaceState {
+                protocol_info: Waitable::new(),
                 engine_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
@@ -112,7 +117,6 @@ impl EngineInterfaceManager {
             engine_call_subscriptions: BTreeMap::new(),
             engine_call_subscription_receiver: subscription_rx,
             stream_manager: StreamManager::new(),
-            protocol_info: None,
         }
     }
 
@@ -228,12 +232,13 @@ impl InterfaceManager for EngineInterfaceManager {
 
         match input {
             PluginInput::Hello(info) => {
+                let info = Arc::new(info);
+                self.state.protocol_info.set(info.clone())?;
+
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
-                    self.protocol_info = Some(info);
                     Ok(())
                 } else {
-                    self.protocol_info = None;
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
                             "Plugin is compiled for nushell version {}, \
@@ -243,14 +248,24 @@ impl InterfaceManager for EngineInterfaceManager {
                     })
                 }
             }
-            _ if self.protocol_info.is_none() => {
+            _ if !self.state.protocol_info.is_set() => {
                 // Must send protocol info first
                 Err(ShellError::PluginFailedToLoad {
                     msg: "Failed to receive initial Hello message. This engine might be too old"
                         .into(),
                 })
             }
-            PluginInput::Stream(message) => self.consume_stream_message(message),
+            // Stream messages
+            PluginInput::Data(..)
+            | PluginInput::End(..)
+            | PluginInput::Drop(..)
+            | PluginInput::Ack(..) => {
+                self.consume_stream_message(input.try_into().map_err(|msg| {
+                    ShellError::NushellFailed {
+                        msg: format!("Failed to convert message {msg:?} to StreamMessage"),
+                    }
+                })?)
+            }
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
@@ -467,6 +482,15 @@ impl EngineInterface {
         })
     }
 
+    /// Returns `true` if the plugin is communicating on stdio. When this is the case, stdin and
+    /// stdout should not be used by the plugin for other purposes.
+    ///
+    /// If the plugin can not be used without access to stdio, an error should be presented to the
+    /// user instead.
+    pub fn is_using_stdio(&self) -> bool {
+        self.state.writer.is_stdout()
+    }
+
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
     /// provided on request only.
     ///
@@ -642,6 +666,43 @@ impl EngineInterface {
             }
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::GetHelp".into(),
+            }),
+        }
+    }
+
+    /// Returns a guard that will keep the plugin in the foreground as long as the guard is alive.
+    ///
+    /// Moving the plugin to the foreground is necessary for plugins that need to receive input and
+    /// signals directly from the terminal.
+    ///
+    /// The exact implementation is operating system-specific. On Unix, this ensures that the
+    /// plugin process becomes part of the process group controlling the terminal.
+    pub fn enter_foreground(&self) -> Result<ForegroundGuard, ShellError> {
+        match self.engine_call(EngineCall::EnterForeground)? {
+            EngineCallResponse::Error(error) => Err(error),
+            EngineCallResponse::PipelineData(PipelineData::Value(
+                Value::Int { val: pgrp, .. },
+                _,
+            )) => {
+                set_pgrp_from_enter_foreground(pgrp)?;
+                Ok(ForegroundGuard(Some(self.clone())))
+            }
+            EngineCallResponse::PipelineData(PipelineData::Empty) => {
+                Ok(ForegroundGuard(Some(self.clone())))
+            }
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::SetForeground".into(),
+            }),
+        }
+    }
+
+    /// Internal: for exiting the foreground after `enter_foreground()`. Called from the guard.
+    fn leave_foreground(&self) -> Result<(), ShellError> {
+        match self.engine_call(EngineCall::LeaveForeground)? {
+            EngineCallResponse::Error(error) => Err(error),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
             }),
         }
     }
@@ -858,4 +919,70 @@ impl Interface for EngineInterface {
             PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
         }
     }
+}
+
+/// Keeps the plugin in the foreground as long as it is alive.
+///
+/// Use [`.leave()`] to leave the foreground without ignoring the error.
+pub struct ForegroundGuard(Option<EngineInterface>);
+
+impl ForegroundGuard {
+    // Should be called only once
+    fn leave_internal(&mut self) -> Result<(), ShellError> {
+        if let Some(interface) = self.0.take() {
+            // On Unix, we need to put ourselves back in our own process group
+            #[cfg(unix)]
+            {
+                use nix::unistd::{setpgid, Pid};
+                // This should always succeed, frankly, but handle the error just in case
+                setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| ShellError::IOError {
+                    msg: err.to_string(),
+                })?;
+            }
+            interface.leave_foreground()?;
+        }
+        Ok(())
+    }
+
+    /// Leave the foreground. In contrast to dropping the guard, this preserves the error (if any).
+    pub fn leave(mut self) -> Result<(), ShellError> {
+        let result = self.leave_internal();
+        std::mem::forget(self);
+        result
+    }
+}
+
+impl Drop for ForegroundGuard {
+    fn drop(&mut self) {
+        let _ = self.leave_internal();
+    }
+}
+
+#[cfg(unix)]
+fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
+    use nix::unistd::{setpgid, Pid};
+    if let Ok(pgrp) = pgrp.try_into() {
+        setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| ShellError::GenericError {
+            error: "Failed to set process group for foreground".into(),
+            msg: "".into(),
+            span: None,
+            help: Some(err.to_string()),
+            inner: vec![],
+        })
+    } else {
+        Err(ShellError::NushellFailed {
+            msg: "Engine returned an invalid process group ID".into(),
+        })
+    }
+}
+
+#[cfg(not(unix))]
+fn set_pgrp_from_enter_foreground(_pgrp: i64) -> Result<(), ShellError> {
+    Err(ShellError::NushellFailed {
+        msg: concat!(
+            "EnterForeground asked plugin to join process group, but not supported on ",
+            cfg!(target_os)
+        )
+        .into(),
+    })
 }

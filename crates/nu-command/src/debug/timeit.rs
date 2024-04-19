@@ -44,6 +44,8 @@ impl Command for TimeIt {
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
 
+        // reset outdest, so the command can write to stdout and stderr.
+        let stack = &mut stack.push_redirection(None, None);
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);
@@ -61,7 +63,10 @@ impl Command for TimeIt {
 
         let end_time = Instant::now();
 
-        let output = Value::duration((end_time - start_time).as_nanos() as i64, call.head);
+        let output = Value::duration(
+            end_time.saturating_duration_since(start_time).as_nanos() as i64,
+            call.head,
+        );
 
         Ok(output.into_pipeline_data())
     }

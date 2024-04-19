@@ -267,7 +267,7 @@ fn compact_primitive_description(mut value: Value) -> Value {
         if val.len() != 1 {
             return value;
         }
-        if let Some(type_name) = val.get_mut("type") {
+        if let Some(type_name) = val.to_mut().get_mut("type") {
             return std::mem::take(type_name);
         }
     }
@@ -303,7 +303,8 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Record { mut val, .. } => {
+        Value::Record { val, .. } => {
+            let mut val = val.into_owned();
             for (_k, v) in val.iter_mut() {
                 *v = compact_primitive_description(describe_value(
                     std::mem::take(v),
@@ -317,7 +318,7 @@ fn describe_value(
                 record!(
                     "type" => Value::string("record", head),
                     "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(*val, head),
+                    "columns" => Value::record(val, head),
                 ),
                 head,
             )
@@ -395,10 +396,11 @@ fn describe_value(
 
             if options.collect_lazyrecords {
                 let collected = val.collect()?;
-                if let Value::Record { mut val, .. } =
+                if let Value::Record { val, .. } =
                     describe_value(collected, head, engine_state, options)?
                 {
-                    record.push("length", Value::int(val.len() as i64, head));
+                    let mut val = Record::clone(&val);
+
                     for (_k, v) in val.iter_mut() {
                         *v = compact_primitive_description(describe_value(
                             std::mem::take(v),
@@ -408,7 +410,8 @@ fn describe_value(
                         )?);
                     }
 
-                    record.push("columns", Value::record(*val, head));
+                    record.push("length", Value::int(val.len() as i64, head));
+                    record.push("columns", Value::record(val, head));
                 } else {
                     let cols = val.column_names();
                     record.push("length", Value::int(cols.len() as i64, head));

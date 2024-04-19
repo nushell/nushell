@@ -5,14 +5,14 @@ use super::{
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
 };
 use crate::{
-    plugin::{context::PluginExecutionContext, gc::PluginGc, PluginSource},
+    plugin::{context::PluginExecutionContext, gc::PluginGc, process::PluginProcess, PluginSource},
     protocol::{
         CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering,
         PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
         PluginOutput, ProtocolInfo, StreamId, StreamMessage,
     },
     sequence::Sequence,
-    util::with_custom_values_in,
+    util::{with_custom_values_in, Waitable},
 };
 use nu_protocol::{
     ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, ListStream,
@@ -62,6 +62,10 @@ impl std::ops::Deref for Context {
 struct PluginInterfaceState {
     /// The source to be used for custom values coming from / going to the plugin
     source: Arc<PluginSource>,
+    /// The plugin process being managed
+    process: Option<PluginProcess>,
+    /// Protocol version info, set after `Hello` received
+    protocol_info: Waitable<Arc<ProtocolInfo>>,
     /// Sequence for generating plugin call ids
     plugin_call_id_sequence: Sequence,
     /// Sequence for generating stream ids
@@ -78,12 +82,14 @@ impl std::fmt::Debug for PluginInterfaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginInterfaceState")
             .field("source", &self.source)
+            .field("protocol_info", &self.protocol_info)
             .field("plugin_call_id_sequence", &self.plugin_call_id_sequence)
             .field("stream_id_sequence", &self.stream_id_sequence)
             .field(
                 "plugin_call_subscription_sender",
                 &self.plugin_call_subscription_sender,
             )
+            .field("error", &self.error)
             .finish_non_exhaustive()
     }
 }
@@ -132,8 +138,6 @@ pub struct PluginInterfaceManager {
     state: Arc<PluginInterfaceState>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
-    /// Protocol version info, set after `Hello` received
-    protocol_info: Option<ProtocolInfo>,
     /// State related to plugin calls
     plugin_call_states: BTreeMap<PluginCallId, PluginCallState>,
     /// Receiver for plugin call subscriptions
@@ -149,6 +153,7 @@ pub struct PluginInterfaceManager {
 impl PluginInterfaceManager {
     pub fn new(
         source: Arc<PluginSource>,
+        pid: Option<u32>,
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
         let (subscription_tx, subscription_rx) = mpsc::channel();
@@ -156,6 +161,8 @@ impl PluginInterfaceManager {
         PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
                 source,
+                process: pid.map(PluginProcess::new),
+                protocol_info: Waitable::new(),
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
@@ -163,7 +170,6 @@ impl PluginInterfaceManager {
                 writer: Box::new(writer),
             }),
             stream_manager: StreamManager::new(),
-            protocol_info: None,
             plugin_call_states: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
             plugin_call_input_streams: BTreeMap::new(),
@@ -289,9 +295,10 @@ impl PluginInterfaceManager {
                         })?;
 
                 // Generate the state needed to handle engine calls
-                let current_call_state = CurrentCallState {
+                let mut current_call_state = CurrentCallState {
                     context_tx: None,
                     keep_plugin_custom_values_tx: Some(state.keep_plugin_custom_values.0.clone()),
+                    entered_foreground: false,
                 };
 
                 let handler = move || {
@@ -308,7 +315,7 @@ impl PluginInterfaceManager {
                                 if let Err(err) = interface.handle_engine_call(
                                     engine_call_id,
                                     engine_call,
-                                    &current_call_state,
+                                    &mut current_call_state,
                                     context.as_deref_mut(),
                                 ) {
                                     log::warn!(
@@ -453,12 +460,13 @@ impl InterfaceManager for PluginInterfaceManager {
 
         match input {
             PluginOutput::Hello(info) => {
+                let info = Arc::new(info);
+                self.state.protocol_info.set(info.clone())?;
+
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
-                    self.protocol_info = Some(info);
                     Ok(())
                 } else {
-                    self.protocol_info = None;
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
                             "Plugin `{}` is compiled for nushell version {}, \
@@ -470,7 +478,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     })
                 }
             }
-            _ if self.protocol_info.is_none() => {
+            _ if !self.state.protocol_info.is_set() => {
                 // Must send protocol info first
                 Err(ShellError::PluginFailedToLoad {
                     msg: format!(
@@ -480,7 +488,17 @@ impl InterfaceManager for PluginInterfaceManager {
                     ),
                 })
             }
-            PluginOutput::Stream(message) => self.consume_stream_message(message),
+            // Stream messages
+            PluginOutput::Data(..)
+            | PluginOutput::End(..)
+            | PluginOutput::Drop(..)
+            | PluginOutput::Ack(..) => {
+                self.consume_stream_message(input.try_into().map_err(|msg| {
+                    ShellError::NushellFailed {
+                        msg: format!("Failed to convert message {msg:?} to StreamMessage"),
+                    }
+                })?)
+            }
             PluginOutput::Option(option) => match option {
                 PluginOption::GcDisabled(disabled) => {
                     // Turn garbage collection off/on.
@@ -603,6 +621,16 @@ pub struct PluginInterface {
 }
 
 impl PluginInterface {
+    /// Get the process ID for the plugin, if known.
+    pub fn pid(&self) -> Option<u32> {
+        self.state.process.as_ref().map(|p| p.pid())
+    }
+
+    /// Get the protocol info for the plugin. Will block to receive `Hello` if not received yet.
+    pub fn protocol_info(&self) -> Result<Arc<ProtocolInfo>, ShellError> {
+        self.state.protocol_info.get()
+    }
+
     /// Write the protocol info. This should be done after initialization
     pub fn hello(&self) -> Result<(), ShellError> {
         self.write(PluginInput::Hello(ProtocolInfo::default()))?;
@@ -663,6 +691,7 @@ impl PluginInterface {
         let state = CurrentCallState {
             context_tx: Some(context_tx),
             keep_plugin_custom_values_tx: Some(keep_plugin_custom_values.0.clone()),
+            entered_foreground: false,
         };
 
         // Prepare the call with the state.
@@ -757,12 +786,22 @@ impl PluginInterface {
         &self,
         rx: mpsc::Receiver<ReceivedPluginCallMessage>,
         mut context: Option<&mut (dyn PluginExecutionContext + '_)>,
-        state: CurrentCallState,
+        mut state: CurrentCallState,
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
         // Handle message from receiver
         for msg in rx {
             match msg {
                 ReceivedPluginCallMessage::Response(resp) => {
+                    if state.entered_foreground {
+                        // Make the plugin leave the foreground on return, even if it's a stream
+                        if let Some(context) = context.as_deref_mut() {
+                            if let Err(err) =
+                                set_foreground(self.state.process.as_ref(), context, false)
+                            {
+                                log::warn!("Failed to leave foreground state on exit: {err:?}");
+                            }
+                        }
+                    }
                     if resp.has_stream() {
                         // If the response has a stream, we need to register the context
                         if let Some(context) = context {
@@ -780,7 +819,7 @@ impl PluginInterface {
                     self.handle_engine_call(
                         engine_call_id,
                         engine_call,
-                        &state,
+                        &mut state,
                         context.as_deref_mut(),
                     )?;
                 }
@@ -797,11 +836,12 @@ impl PluginInterface {
         &self,
         engine_call_id: EngineCallId,
         engine_call: EngineCall<PipelineData>,
-        state: &CurrentCallState,
+        state: &mut CurrentCallState,
         context: Option<&mut (dyn PluginExecutionContext + '_)>,
     ) -> Result<(), ShellError> {
-        let resp =
-            handle_engine_call(engine_call, context).unwrap_or_else(EngineCallResponse::Error);
+        let process = self.state.process.as_ref();
+        let resp = handle_engine_call(engine_call, state, context, process)
+            .unwrap_or_else(EngineCallResponse::Error);
         // Handle stream
         let mut writer = None;
         let resp = resp
@@ -1047,6 +1087,9 @@ pub struct CurrentCallState {
     /// Sender for a channel that retains plugin custom values that need to stay alive for the
     /// duration of a plugin call.
     keep_plugin_custom_values_tx: Option<mpsc::Sender<PluginCustomValue>>,
+    /// The plugin call entered the foreground: this should be cleaned up automatically when the
+    /// plugin call returns.
+    entered_foreground: bool,
 }
 
 impl CurrentCallState {
@@ -1134,7 +1177,9 @@ impl CurrentCallState {
 /// Handle an engine call.
 pub(crate) fn handle_engine_call(
     call: EngineCall<PipelineData>,
+    state: &mut CurrentCallState,
     context: Option<&mut (dyn PluginExecutionContext + '_)>,
+    process: Option<&PluginProcess>,
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
     let call_name = call.name();
 
@@ -1180,6 +1225,16 @@ pub(crate) fn handle_engine_call(
                 help.item, help.span,
             )))
         }
+        EngineCall::EnterForeground => {
+            let resp = set_foreground(process, context, true)?;
+            state.entered_foreground = true;
+            Ok(resp)
+        }
+        EngineCall::LeaveForeground => {
+            let resp = set_foreground(process, context, false)?;
+            state.entered_foreground = false;
+            Ok(resp)
+        }
         EngineCall::GetSpanContents(span) => {
             let contents = context.get_span_contents(span)?;
             Ok(EngineCallResponse::value(Value::binary(
@@ -1196,5 +1251,41 @@ pub(crate) fn handle_engine_call(
         } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
+    }
+}
+
+/// Implements enter/exit foreground
+fn set_foreground(
+    process: Option<&PluginProcess>,
+    context: &mut dyn PluginExecutionContext,
+    enter: bool,
+) -> Result<EngineCallResponse<PipelineData>, ShellError> {
+    if let Some(process) = process {
+        if let Some(pipeline_externals_state) = context.pipeline_externals_state() {
+            if enter {
+                let pgrp = process.enter_foreground(context.span(), pipeline_externals_state)?;
+                Ok(pgrp.map_or_else(EngineCallResponse::empty, |id| {
+                    EngineCallResponse::value(Value::int(id as i64, context.span()))
+                }))
+            } else {
+                process.exit_foreground()?;
+                Ok(EngineCallResponse::empty())
+            }
+        } else {
+            // This should always be present on a real context
+            Err(ShellError::NushellFailed {
+                msg: "missing required pipeline_externals_state from context \
+                            for entering foreground"
+                    .into(),
+            })
+        }
+    } else {
+        Err(ShellError::GenericError {
+            error: "Can't manage plugin process to enter foreground".into(),
+            msg: "the process ID for this plugin is unknown".into(),
+            span: Some(context.span()),
+            help: Some("the plugin may be running in a test".into()),
+            inner: vec![],
+        })
     }
 }

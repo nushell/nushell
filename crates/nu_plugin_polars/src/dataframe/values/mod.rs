@@ -302,44 +302,44 @@ pub trait CustomValueSupport: Cacheable {
             false
         }
     }
-}
 
-/// Wraps the cache and into_value calls.
-/// This function also does mapping back and forth
-/// between lazy and eager values and makes sure they
-/// are cached appropriately.
-pub fn cache_and_to_value(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    span: Span,
-    cv: impl CustomValueSupport,
-) -> Result<Value, ShellError> {
-    match cv.to_cache_value()? {
-        // if it was from a lazy value, make it lazy again
-        PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
-            let df = df.lazy();
-            Ok(df.cache(plugin, engine)?.into_value(span))
+    /// Wraps the cache and into_value calls.
+    /// This function also does mapping back and forth
+    /// between lazy and eager values and makes sure they
+    /// are cached appropriately.
+    fn cache_and_to_value(
+        self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        match self.to_cache_value()? {
+            // if it was from a lazy value, make it lazy again
+            PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
+                let df = df.lazy();
+                Ok(df.cache(plugin, engine, span)?.into_value(span))
+            }
+            // if it was from an eager value, make it eager again
+            PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
+                let lf = lf.collect(span)?;
+                Ok(lf.cache(plugin, engine, span)?.into_value(span))
+            }
+            _ => Ok(self.cache(plugin, engine, span)?.into_value(span)),
         }
-        // if it was from an eager value, make it eager again
-        PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
-            let lf = lf.collect(span)?;
-            Ok(lf.cache(plugin, engine)?.into_value(span))
-        }
-        _ => Ok(cv.cache(plugin, engine)?.into_value(span)),
     }
-}
 
-/// Caches the object, converts it to a it's CustomValue counterpart
-/// And creates a pipeline data object out of it
-#[inline]
-pub fn to_pipeline_data(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    span: Span,
-    cv: impl CustomValueSupport,
-) -> Result<PipelineData, ShellError> {
-    Ok(PipelineData::Value(
-        cache_and_to_value(plugin, engine, span, cv)?,
-        None,
-    ))
+    /// Caches the object, converts it to a it's CustomValue counterpart
+    /// And creates a pipeline data object out of it
+    #[inline]
+    fn to_pipeline_data(
+        self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        span: Span,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(PipelineData::Value(
+            self.cache_and_to_value(plugin, engine, span)?,
+            None,
+        ))
+    }
 }

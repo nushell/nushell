@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.92.2"
+version = "0.92.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -21,6 +21,7 @@ lscolors = { workspace = true, default-features = false, features = ["nu-ansi-te
 log = { workspace = true }
 num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
+serde = { workspace = true }
 sys-locale = "0.3"
 unicase = "2.7.0"
 

@@ -22,12 +22,13 @@ impl Default for ProtocolInfo {
         ProtocolInfo {
             protocol: Protocol::NuPlugin,
             version: env!("CARGO_PKG_VERSION").into(),
-            features: vec![],
+            features: default_features(),
         }
     }
 }
 
 impl ProtocolInfo {
+    /// True if the version specified in `self` is compatible with the version specified in `other`.
     pub fn is_compatible_with(&self, other: &ProtocolInfo) -> Result<bool, ShellError> {
         fn parse_failed(error: semver::Error) -> ShellError {
             ShellError::PluginFailedToLoad {
@@ -52,6 +53,11 @@ impl ProtocolInfo {
         }
         .matches(&versions[1]))
     }
+
+    /// True if the protocol info contains a feature compatible with the given feature.
+    pub fn supports_feature(&self, feature: &Feature) -> bool {
+        self.features.iter().any(|f| feature.is_compatible_with(f))
+    }
 }
 
 /// Indicates the protocol in use. Only one protocol is supported.
@@ -72,9 +78,29 @@ pub enum Protocol {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "name")]
 pub enum Feature {
+    /// The plugin supports running with a local socket passed via `--local-socket` instead of
+    /// stdio.
+    LocalSocket,
+
     /// A feature that was not recognized on deserialization. Attempting to serialize this feature
     /// is an error. Matching against it may only be used if necessary to determine whether
     /// unsupported features are present.
     #[serde(other, skip_serializing)]
     Unknown,
+}
+
+impl Feature {
+    /// True if the feature is considered to be compatible with another feature.
+    pub fn is_compatible_with(&self, other: &Feature) -> bool {
+        matches!((self, other), (Feature::LocalSocket, Feature::LocalSocket))
+    }
+}
+
+/// Protocol features compiled into this version of `nu-plugin`.
+pub fn default_features() -> Vec<Feature> {
+    vec![
+        // Only available if compiled with the `local-socket` feature flag (enabled by default).
+        #[cfg(feature = "local-socket")]
+        Feature::LocalSocket,
+    ]
 }

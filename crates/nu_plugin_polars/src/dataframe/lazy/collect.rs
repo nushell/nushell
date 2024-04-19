@@ -64,16 +64,20 @@ impl PluginCommand for LazyCollect {
         let value = input.into_value(call.head);
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuLazyFrame(lazy) => {
-                let eager = lazy.collect(call.head)?;
+                let mut eager = lazy.collect(call.head)?;
+                // We don't want this converted back to a lazy frame
+                eager.from_lazy = true;
                 Ok(PipelineData::Value(
-                    eager.cache(plugin, engine)?.into_value(call.head),
+                    eager
+                        .cache(plugin, engine, call.head)?
+                        .into_value(call.head),
                     None,
                 ))
             }
             PolarsPluginObject::NuDataFrame(df) => {
                 // just return the dataframe, add to cache again to be safe
                 Ok(PipelineData::Value(
-                    df.cache(plugin, engine)?.into_value(call.head),
+                    df.cache(plugin, engine, call.head)?.into_value(call.head),
                     None,
                 ))
             }

@@ -3,7 +3,7 @@ macro_rules! generate_tests {
         use crate::protocol::{
             CallInfo, CustomValueOp, EvaluatedCall, PipelineDataHeader, PluginCall,
             PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-            StreamData, StreamMessage,
+            StreamData,
         };
         use nu_protocol::{
             LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
@@ -429,7 +429,7 @@ macro_rules! generate_tests {
             let item = Value::int(1, span);
 
             let stream_data = StreamData::List(item.clone());
-            let plugin_input = PluginInput::Stream(StreamMessage::Data(0, stream_data));
+            let plugin_input = PluginInput::Data(0, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -442,7 +442,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginInput::Stream(StreamMessage::Data(id, StreamData::List(list_data))) => {
+                PluginInput::Data(id, StreamData::List(list_data)) => {
                     assert_eq!(0, id);
                     assert_eq!(item, list_data);
                 }
@@ -455,7 +455,7 @@ macro_rules! generate_tests {
             let data = b"Hello world";
 
             let stream_data = StreamData::Raw(Ok(data.to_vec()));
-            let plugin_input = PluginInput::Stream(StreamMessage::Data(1, stream_data));
+            let plugin_input = PluginInput::Data(1, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -468,7 +468,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginInput::Stream(StreamMessage::Data(id, StreamData::Raw(bytes))) => {
+                PluginInput::Data(id, StreamData::Raw(bytes)) => {
                     assert_eq!(1, id);
                     match bytes {
                         Ok(bytes) => assert_eq!(data, &bytes[..]),
@@ -485,7 +485,7 @@ macro_rules! generate_tests {
             let item = Value::int(1, span);
 
             let stream_data = StreamData::List(item.clone());
-            let plugin_output = PluginOutput::Stream(StreamMessage::Data(4, stream_data));
+            let plugin_output = PluginOutput::Data(4, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -498,7 +498,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginOutput::Stream(StreamMessage::Data(id, StreamData::List(list_data))) => {
+                PluginOutput::Data(id, StreamData::List(list_data)) => {
                     assert_eq!(4, id);
                     assert_eq!(item, list_data);
                 }
@@ -511,7 +511,7 @@ macro_rules! generate_tests {
             let data = b"Hello world";
 
             let stream_data = StreamData::Raw(Ok(data.to_vec()));
-            let plugin_output = PluginOutput::Stream(StreamMessage::Data(5, stream_data));
+            let plugin_output = PluginOutput::Data(5, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -524,7 +524,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginOutput::Stream(StreamMessage::Data(id, StreamData::Raw(bytes))) => {
+                PluginOutput::Data(id, StreamData::Raw(bytes)) => {
                     assert_eq!(5, id);
                     match bytes {
                         Ok(bytes) => assert_eq!(data, &bytes[..]),

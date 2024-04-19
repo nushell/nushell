@@ -24,17 +24,35 @@ pub fn read_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
-    let start_time = std::time::Instant::now();
-    let mut plug_path = String::new();
+    let mut start_time = std::time::Instant::now();
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file, storage_path);
+    perf(
+        "add plugin file to engine_state",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        engine_state.get_config().use_ansi_coloring,
+    );
 
+    start_time = std::time::Instant::now();
     let plugin_path = engine_state.plugin_signatures.clone();
     if let Some(plugin_path) = plugin_path {
         let plugin_filename = plugin_path.to_string_lossy();
-        plug_path = plugin_filename.to_string();
+        let plug_path = plugin_filename.to_string();
+
         if let Ok(contents) = std::fs::read(&plugin_path) {
+            perf(
+                &format!("read plugin file {}", &plug_path),
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                engine_state.get_config().use_ansi_coloring,
+            );
+            start_time = std::time::Instant::now();
             eval_source(
                 engine_state,
                 stack,
@@ -43,17 +61,16 @@ pub fn read_plugin_file(
                 PipelineData::empty(),
                 false,
             );
+            perf(
+                &format!("eval_source plugin file {}", &plug_path),
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                engine_state.get_config().use_ansi_coloring,
+            );
         }
     }
-
-    perf(
-        &format!("read_plugin_file {}", &plug_path),
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
-    );
 }
 
 #[cfg(feature = "plugin")]
@@ -91,9 +108,9 @@ pub fn eval_config_contents(
         let config_filename = config_path.to_string_lossy();
 
         if let Ok(contents) = std::fs::read(&config_path) {
-            // Change currently parsed directory
-            let prev_currently_parsed_cwd = engine_state.currently_parsed_cwd.clone();
-            engine_state.start_in_file(Some(&config_filename));
+            // Set the current active file to the config file.
+            let prev_file = engine_state.file.take();
+            engine_state.file = Some(config_path.clone());
 
             eval_source(
                 engine_state,
@@ -104,8 +121,8 @@ pub fn eval_config_contents(
                 false,
             );
 
-            // Restore the currently parsed directory back
-            engine_state.currently_parsed_cwd = prev_currently_parsed_cwd;
+            // Restore the current active file.
+            engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
             match nu_engine::env::current_dir(engine_state, stack) {

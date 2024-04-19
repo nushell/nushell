@@ -1,4 +1,4 @@
-use std::ops::RangeBounds;
+use std::{iter::FusedIterator, ops::RangeBounds};
 
 use crate::{ShellError, Span, Value};
 
@@ -151,7 +151,7 @@ impl Record {
     ///
     /// fn remove_foo_recursively(val: &mut Value) {
     ///     if let Value::Record {val, ..} = val {
-    ///         val.retain_mut(keep_non_foo);
+    ///         val.to_mut().retain_mut(keep_non_foo);
     ///     }
     /// }
     ///
@@ -213,6 +213,12 @@ impl Record {
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.inner.iter(),
+        }
+    }
+
+    pub fn into_columns(self) -> IntoColumns {
+        IntoColumns {
+            iter: self.inner.into_iter(),
         }
     }
 
@@ -385,6 +391,10 @@ impl Iterator for IntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl DoubleEndedIterator for IntoIter {
@@ -398,6 +408,8 @@ impl ExactSizeIterator for IntoIter {
         self.iter.len()
     }
 }
+
+impl FusedIterator for IntoIter {}
 
 impl IntoIterator for Record {
     type Item = (String, Value);
@@ -421,6 +433,10 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(col, val): &(_, _)| (col, val))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl<'a> DoubleEndedIterator for Iter<'a> {
@@ -434,6 +450,8 @@ impl<'a> ExactSizeIterator for Iter<'a> {
         self.iter.len()
     }
 }
+
+impl FusedIterator for Iter<'_> {}
 
 impl<'a> IntoIterator for &'a Record {
     type Item = (&'a String, &'a Value);
@@ -457,6 +475,10 @@ impl<'a> Iterator for IterMut<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(col, val)| (&*col, val))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl<'a> DoubleEndedIterator for IterMut<'a> {
@@ -470,6 +492,8 @@ impl<'a> ExactSizeIterator for IterMut<'a> {
         self.iter.len()
     }
 }
+
+impl FusedIterator for IterMut<'_> {}
 
 impl<'a> IntoIterator for &'a mut Record {
     type Item = (&'a String, &'a mut Value);
@@ -511,6 +535,38 @@ impl<'a> ExactSizeIterator for Columns<'a> {
     }
 }
 
+impl FusedIterator for Columns<'_> {}
+
+pub struct IntoColumns {
+    iter: std::vec::IntoIter<(String, Value)>,
+}
+
+impl Iterator for IntoColumns {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(col, _)| col)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for IntoColumns {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|(col, _)| col)
+    }
+}
+
+impl ExactSizeIterator for IntoColumns {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl FusedIterator for IntoColumns {}
+
 pub struct Values<'a> {
     iter: std::slice::Iter<'a, (String, Value)>,
 }
@@ -538,6 +594,8 @@ impl<'a> ExactSizeIterator for Values<'a> {
         self.iter.len()
     }
 }
+
+impl FusedIterator for Values<'_> {}
 
 pub struct IntoValues {
     iter: std::vec::IntoIter<(String, Value)>,
@@ -567,6 +625,8 @@ impl ExactSizeIterator for IntoValues {
     }
 }
 
+impl FusedIterator for IntoValues {}
+
 pub struct Drain<'a> {
     iter: std::vec::Drain<'a, (String, Value)>,
 }
@@ -594,6 +654,8 @@ impl ExactSizeIterator for Drain<'_> {
         self.iter.len()
     }
 }
+
+impl FusedIterator for Drain<'_> {}
 
 #[macro_export]
 macro_rules! record {

@@ -5,7 +5,7 @@ use crate::{
         test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
         CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, ExternalStreamInfo,
         ListStreamInfo, PipelineDataHeader, PluginCall, PluginCustomValue, PluginInput, Protocol,
-        ProtocolInfo, RawStreamInfo, StreamData, StreamMessage,
+        ProtocolInfo, RawStreamInfo, StreamData,
     },
     EvaluatedCall, PluginCallResponse, PluginOutput,
 };
@@ -15,8 +15,20 @@ use nu_protocol::{
 };
 use std::{
     collections::HashMap,
-    sync::mpsc::{self, TryRecvError},
+    sync::{
+        mpsc::{self, TryRecvError},
+        Arc,
+    },
 };
+
+#[test]
+fn is_using_stdio_is_false_for_test() {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.get_interface();
+
+    assert!(!interface.is_using_stdio());
+}
 
 #[test]
 fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {
@@ -247,8 +259,9 @@ fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
     manager.consume(PluginInput::Hello(info.clone()))?;
 
     let set_info = manager
+        .state
         .protocol_info
-        .as_ref()
+        .try_get()?
         .expect("protocol info not set");
     assert_eq!(info.version, set_info.version);
     Ok(())
@@ -275,20 +288,27 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
     let mut manager = TestCase::new().engine();
 
     // hello not set
-    assert!(manager.protocol_info.is_none());
+    assert!(!manager.state.protocol_info.is_set());
 
     let error = manager
-        .consume(PluginInput::Stream(StreamMessage::Drop(0)))
+        .consume(PluginInput::Drop(0))
         .expect_err("consume before Hello should cause an error");
 
     assert!(format!("{error:?}").contains("Hello"));
     Ok(())
 }
 
+fn set_default_protocol_info(manager: &mut EngineInterfaceManager) -> Result<(), ShellError> {
+    manager
+        .state
+        .protocol_info
+        .set(Arc::new(ProtocolInfo::default()))
+}
+
 #[test]
 fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -307,7 +327,7 @@ fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError
 #[test]
 fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -327,7 +347,7 @@ fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<
 #[test]
 fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -361,7 +381,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), Sh
 #[test]
 fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -381,13 +401,10 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
     ))?;
 
     for i in 0..10 {
-        manager.consume(PluginInput::Stream(StreamMessage::Data(
-            6,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginInput::Data(6, Value::test_int(i).into()))?;
     }
 
-    manager.consume(PluginInput::Stream(StreamMessage::End(6)))?;
+    manager.consume(PluginInput::End(6))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -406,7 +423,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
 #[test]
 fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -472,7 +489,7 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
 fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> Result<(), ShellError>
 {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = manager
         .take_plugin_call_receiver()
@@ -512,7 +529,7 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
 fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data(
 ) -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = fake_engine_call(&mut manager, 0);
 
@@ -522,13 +539,10 @@ fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_dat
     ))?;
 
     for i in 0..2 {
-        manager.consume(PluginInput::Stream(StreamMessage::Data(
-            0,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginInput::Data(0, Value::test_int(i).into()))?;
     }
 
-    manager.consume(PluginInput::Stream(StreamMessage::End(0)))?;
+    manager.consume(PluginInput::End(0))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -710,20 +724,20 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
 
     for number in [3, 4, 5] {
         match test.next_written().expect("missing stream Data message") {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
+            PluginOutput::Data(id, data) => {
                 assert_eq!(info.id, id, "Data id");
                 match data {
                     StreamData::List(val) => assert_eq!(number, val.as_int()?),
                     _ => panic!("expected List data: {data:?}"),
                 }
             }
-            message => panic!("expected Stream(Data(..)): {message:?}"),
+            message => panic!("expected Data(..): {message:?}"),
         }
     }
 
     match test.next_written().expect("missing stream End message") {
-        PluginOutput::Stream(StreamMessage::End(id)) => assert_eq!(info.id, id, "End id"),
-        message => panic!("expected Stream(Data(..)): {message:?}"),
+        PluginOutput::End(id) => assert_eq!(info.id, id, "End id"),
+        message => panic!("expected Data(..): {message:?}"),
     }
 
     assert!(!test.has_unconsumed_write());

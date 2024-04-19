@@ -162,7 +162,7 @@ fn rename(
                                 block_info.clone()
                             {
                                 record
-                                    .into_iter()
+                                    .into_owned().into_iter()
                                     .map(|(col, val)| {
                                         stack.with_env(&env_vars, &env_hidden);
 
@@ -191,7 +191,7 @@ fn rename(
                                         // record columns are unique so we can track the number
                                         // of renamed columns to check if any were missed
                                         let mut renamed = 0;
-                                        let record = record.into_iter().map(|(col, val)| {
+                                        let record = record.into_owned().into_iter().map(|(col, val)| {
                                             let col = if let Some(col) = columns.get(&col) {
                                                 renamed += 1;
                                                 col.clone()
@@ -222,7 +222,7 @@ fn rename(
                                         }
                                     }
                                     None => Ok(record
-                                        .into_iter()
+                                        .into_owned().into_iter()
                                         .enumerate()
                                         .map(|(i, (col, val))| {
                                             (columns.get(i).cloned().unwrap_or(col), val)
@@ -237,7 +237,7 @@ fn rename(
                         }
                     }
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { .. } => item.clone(),
+                    Value::Error { .. } => item,
                     other => Value::error(
                         ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),

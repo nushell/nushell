@@ -154,12 +154,16 @@ pub fn create_column(
 
 // Adds a separator to the vector of values using the column names from the
 // dataframe to create the Values Row
-pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
+// returns true if there is an index column contained in the dataframe
+pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, has_index: bool, span: Span) {
     let mut record = Record::new();
 
-    record.push("index", Value::string("...", span));
+    if !has_index {
+        record.push("index", Value::string("...", span));
+    }
 
     for name in df.get_column_names() {
+        // there should only be one index field
         record.push(name, Value::string("...", span))
     }
 

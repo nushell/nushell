@@ -34,6 +34,15 @@ fn source_const_file() {
 }
 
 #[test]
+fn source_circular() {
+    let actual = nu!(cwd: "tests/parsing/samples", "
+        nu source_circular_1.nu
+        ");
+
+    assert!(actual.err.contains("nu::parser::circular_import"));
+}
+
+#[test]
 fn run_nu_script_single_line() {
     let actual = nu!(cwd: "tests/parsing/samples", "
         nu single_line.nu

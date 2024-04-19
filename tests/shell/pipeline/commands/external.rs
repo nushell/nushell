@@ -133,26 +133,27 @@ fn command_not_found_error_shows_not_found_1() {
 #[test]
 fn command_substitution_wont_output_extra_newline() {
     let actual = nu!(r#"
-        with-env [FOO "bar"] { echo $"prefix (nu --testbin echo_env FOO) suffix" }
+        with-env { FOO: "bar" } { echo $"prefix (nu --testbin echo_env FOO) suffix" }
         "#);
     assert_eq!(actual.out, "prefix bar suffix");
 
     let actual = nu!(r#"
-        with-env [FOO "bar"] { (nu --testbin echo_env FOO) }
+        with-env { FOO: "bar" } { (nu --testbin echo_env FOO) }
         "#);
     assert_eq!(actual.out, "bar");
 }
 
 #[test]
 fn basic_err_pipe_works() {
-    let actual = nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr FOO e>| str length }"#);
+    let actual =
+        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn basic_outerr_pipe_works() {
     let actual = nu!(
-        r#"with-env [FOO "bar"] { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
     );
     assert_eq!(actual.out, "7");
 }
@@ -160,7 +161,7 @@ fn basic_outerr_pipe_works() {
 #[test]
 fn err_pipe_with_failed_external_works() {
     let actual =
-        nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
+        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 

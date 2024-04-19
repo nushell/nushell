@@ -1,24 +1,29 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{cache_and_to_value, NuLazyFrame},
+    values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
 };
+use nu_path::expand_path_with;
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
 use polars::prelude::{
     CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
     LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
-use polars_io::{avro::AvroReader, prelude::ParallelStrategy};
+use polars_io::{avro::AvroReader, prelude::ParallelStrategy, HiveOptions};
 
 #[derive(Clone)]
 pub struct OpenDataFrame;
@@ -111,29 +116,31 @@ fn command(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
-    let file: Spanned<PathBuf> = call.req(0)?;
+    let spanned_file: Spanned<PathBuf> = call.req(0)?;
+    let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
+    let file_span = spanned_file.span;
 
     let type_option: Option<Spanned<String>> = call.get_flag("type")?;
 
     let type_id = match &type_option {
         Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
-        None => file.item.extension().map(|e| {
+        None => file_path.extension().map(|e| {
             (
                 e.to_string_lossy().into_owned(),
                 "Invalid extension",
-                file.span,
+                spanned_file.span,
             )
         }),
     };
 
     match type_id {
         Some((e, msg, blamed)) => match e.as_str() {
-            "csv" | "tsv" => from_csv(plugin, engine, call),
-            "parquet" | "parq" => from_parquet(plugin, engine, call),
-            "ipc" | "arrow" => from_ipc(plugin, engine, call),
-            "json" => from_json(plugin, engine, call),
-            "jsonl" => from_jsonl(plugin, engine, call),
-            "avro" => from_avro(plugin, engine, call),
+            "csv" | "tsv" => from_csv(plugin, engine, call, &file_path, file_span),
+            "parquet" | "parq" => from_parquet(plugin, engine, call, &file_path, file_span),
+            "ipc" | "arrow" => from_ipc(plugin, engine, call, &file_path, file_span),
+            "json" => from_json(plugin, engine, call, &file_path, file_span),
+            "jsonl" => from_jsonl(plugin, engine, call, &file_path, file_span),
+            "avro" => from_avro(plugin, engine, call, &file_path, file_span),
             _ => Err(ShellError::FileNotFoundCustom {
                 msg: format!(
                     "{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json, jsonl, avro"
@@ -143,7 +150,7 @@ fn command(
         },
         None => Err(ShellError::FileNotFoundCustom {
             msg: "File without extension".into(),
-            span: file.span,
+            span: spanned_file.span,
         }),
     }
     .map(|value| PipelineData::Value(value, None))
@@ -153,6 +160,8 @@ fn from_parquet(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_path: &Path,
+    file_span: Span,
 ) -> Result<Value, ShellError> {
     if call.has_flag("lazy")? {
         let file: String = call.req(0)?;
@@ -165,7 +174,7 @@ fn from_parquet(
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
-            hive_partitioning: false,
+            hive_options: HiveOptions::default(),
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -178,15 +187,14 @@ fn from_parquet(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
-        let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
-        let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
+        let r = File::open(file_path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
-            span: Some(file.span),
+            span: Some(file_span),
             help: None,
             inner: vec![],
         })?;
@@ -208,7 +216,7 @@ fn from_parquet(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }
 
@@ -216,14 +224,15 @@ fn from_avro(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_path: &Path,
+    file_span: Span,
 ) -> Result<Value, ShellError> {
-    let file: Spanned<PathBuf> = call.req(0)?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
-    let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
+    let r = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
-        span: Some(file.span),
+        span: Some(file_span),
         help: None,
         inner: vec![],
     })?;
@@ -245,13 +254,15 @@ fn from_avro(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_ipc(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_path: &Path,
+    file_span: Span,
 ) -> Result<Value, ShellError> {
     if call.has_flag("lazy")? {
         let file: String = call.req(0)?;
@@ -260,7 +271,8 @@ fn from_ipc(
             cache: true,
             rechunk: false,
             row_index: None,
-            memmap: true,
+            memory_map: true,
+            cloud_options: None,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
@@ -273,15 +285,14 @@ fn from_ipc(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
-        let file: Spanned<PathBuf> = call.req(0)?;
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
-        let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
+        let r = File::open(file_path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
-            span: Some(file.span),
+            span: Some(file_span),
             help: None,
             inner: vec![],
         })?;
@@ -303,7 +314,7 @@ fn from_ipc(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }
 
@@ -311,12 +322,13 @@ fn from_json(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_path: &Path,
+    file_span: Span,
 ) -> Result<Value, ShellError> {
-    let file: Spanned<PathBuf> = call.req(0)?;
-    let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
+    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
-        span: Some(file.span),
+        span: Some(file_span),
         help: None,
         inner: vec![],
     })?;
@@ -344,24 +356,25 @@ fn from_json(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_jsonl(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_path: &Path,
+    file_span: Span,
 ) -> Result<Value, ShellError> {
     let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
     let maybe_schema = call
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
-    let file: Spanned<PathBuf> = call.req(0)?;
-    let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
+    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
-        span: Some(file.span),
+        span: Some(file_span),
         help: None,
         inner: vec![],
     })?;
@@ -387,13 +400,15 @@ fn from_jsonl(
         })?
         .into();
 
-    cache_and_to_value(plugin, engine, call.head, df)
+    df.cache_and_to_value(plugin, engine, call.head)
 }
 
 fn from_csv(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_path: &Path,
+    file_span: Span,
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
@@ -407,8 +422,7 @@ fn from_csv(
         .transpose()?;
 
     if call.has_flag("lazy")? {
-        let file: String = call.req(0)?;
-        let csv_reader = LazyCsvReader::new(file);
+        let csv_reader = LazyCsvReader::new(file_path);
 
         let csv_reader = match delimiter {
             None => csv_reader,
@@ -459,14 +473,13 @@ fn from_csv(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     } else {
-        let file: Spanned<PathBuf> = call.req(0)?;
-        let csv_reader = CsvReader::from_path(&file.item)
+        let csv_reader = CsvReader::from_path(file_path)
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),
-                span: Some(file.span),
+                span: Some(file_span),
                 help: None,
                 inner: vec![],
             })?
@@ -526,6 +539,6 @@ fn from_csv(
             })?
             .into();
 
-        cache_and_to_value(plugin, engine, call.head, df)
+        df.cache_and_to_value(plugin, engine, call.head)
     }
 }

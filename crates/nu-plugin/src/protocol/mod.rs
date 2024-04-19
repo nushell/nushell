@@ -17,9 +17,8 @@ use std::collections::HashMap;
 
 pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
-#[cfg(test)]
-pub use protocol_info::Protocol;
-pub use protocol_info::ProtocolInfo;
+#[allow(unused_imports)] // may be unused by compile flags
+pub use protocol_info::{Feature, Protocol, ProtocolInfo};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
@@ -208,11 +207,14 @@ pub enum PluginInput {
     /// Response to an [`EngineCall`]. The ID should be the same one sent with the engine call this
     /// is responding to
     EngineCallResponse(EngineCallId, EngineCallResponse<PipelineDataHeader>),
-    /// Stream control or data message. Untagged to keep them as small as possible.
-    ///
-    /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
-    #[serde(untagged)]
-    Stream(StreamMessage),
+    /// See [`StreamMessage::Data`].
+    Data(StreamId, StreamData),
+    /// See [`StreamMessage::End`].
+    End(StreamId),
+    /// See [`StreamMessage::Drop`].
+    Drop(StreamId),
+    /// See [`StreamMessage::Ack`].
+    Ack(StreamId),
 }
 
 impl TryFrom<PluginInput> for StreamMessage {
@@ -220,7 +222,10 @@ impl TryFrom<PluginInput> for StreamMessage {
 
     fn try_from(msg: PluginInput) -> Result<StreamMessage, PluginInput> {
         match msg {
-            PluginInput::Stream(stream_msg) => Ok(stream_msg),
+            PluginInput::Data(id, data) => Ok(StreamMessage::Data(id, data)),
+            PluginInput::End(id) => Ok(StreamMessage::End(id)),
+            PluginInput::Drop(id) => Ok(StreamMessage::Drop(id)),
+            PluginInput::Ack(id) => Ok(StreamMessage::Ack(id)),
             _ => Err(msg),
         }
     }
@@ -228,7 +233,12 @@ impl TryFrom<PluginInput> for StreamMessage {
 
 impl From<StreamMessage> for PluginInput {
     fn from(stream_msg: StreamMessage) -> PluginInput {
-        PluginInput::Stream(stream_msg)
+        match stream_msg {
+            StreamMessage::Data(id, data) => PluginInput::Data(id, data),
+            StreamMessage::End(id) => PluginInput::End(id),
+            StreamMessage::Drop(id) => PluginInput::Drop(id),
+            StreamMessage::Ack(id) => PluginInput::Ack(id),
+        }
     }
 }
 
@@ -420,11 +430,14 @@ pub enum PluginOutput {
         id: EngineCallId,
         call: EngineCall<PipelineDataHeader>,
     },
-    /// Stream control or data message. Untagged to keep them as small as possible.
-    ///
-    /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
-    #[serde(untagged)]
-    Stream(StreamMessage),
+    /// See [`StreamMessage::Data`].
+    Data(StreamId, StreamData),
+    /// See [`StreamMessage::End`].
+    End(StreamId),
+    /// See [`StreamMessage::Drop`].
+    Drop(StreamId),
+    /// See [`StreamMessage::Ack`].
+    Ack(StreamId),
 }
 
 impl TryFrom<PluginOutput> for StreamMessage {
@@ -432,7 +445,10 @@ impl TryFrom<PluginOutput> for StreamMessage {
 
     fn try_from(msg: PluginOutput) -> Result<StreamMessage, PluginOutput> {
         match msg {
-            PluginOutput::Stream(stream_msg) => Ok(stream_msg),
+            PluginOutput::Data(id, data) => Ok(StreamMessage::Data(id, data)),
+            PluginOutput::End(id) => Ok(StreamMessage::End(id)),
+            PluginOutput::Drop(id) => Ok(StreamMessage::Drop(id)),
+            PluginOutput::Ack(id) => Ok(StreamMessage::Ack(id)),
             _ => Err(msg),
         }
     }
@@ -440,7 +456,12 @@ impl TryFrom<PluginOutput> for StreamMessage {
 
 impl From<StreamMessage> for PluginOutput {
     fn from(stream_msg: StreamMessage) -> PluginOutput {
-        PluginOutput::Stream(stream_msg)
+        match stream_msg {
+            StreamMessage::Data(id, data) => PluginOutput::Data(id, data),
+            StreamMessage::End(id) => PluginOutput::End(id),
+            StreamMessage::Drop(id) => PluginOutput::Drop(id),
+            StreamMessage::Ack(id) => PluginOutput::Ack(id),
+        }
     }
 }
 
@@ -463,6 +484,10 @@ pub enum EngineCall<D> {
     AddEnvVar(String, Value),
     /// Get help for the current command
     GetHelp,
+    /// Move the plugin into the foreground for terminal interaction
+    EnterForeground,
+    /// Move the plugin out of the foreground once terminal interaction has finished
+    LeaveForeground,
     /// Get the contents of a span. Response is a binary which may not parse to UTF-8
     GetSpanContents(Span),
     /// Evaluate a closure with stream input/output
@@ -493,6 +518,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetCurrentDir => "GetCurrentDir",
             EngineCall::AddEnvVar(..) => "AddEnvVar",
             EngineCall::GetHelp => "GetHelp",
+            EngineCall::EnterForeground => "EnterForeground",
+            EngineCall::LeaveForeground => "LeaveForeground",
             EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
         }
@@ -512,6 +539,8 @@ impl<D> EngineCall<D> {
             EngineCall::GetCurrentDir => EngineCall::GetCurrentDir,
             EngineCall::AddEnvVar(name, value) => EngineCall::AddEnvVar(name, value),
             EngineCall::GetHelp => EngineCall::GetHelp,
+            EngineCall::EnterForeground => EngineCall::EnterForeground,
+            EngineCall::LeaveForeground => EngineCall::LeaveForeground,
             EngineCall::GetSpanContents(span) => EngineCall::GetSpanContents(span),
             EngineCall::EvalClosure {
                 closure,

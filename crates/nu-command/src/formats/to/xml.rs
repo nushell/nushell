@@ -325,8 +325,8 @@ impl Job {
             // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
-                Value::Record { val, .. } => val,
-                Value::Nothing { .. } => Box::new(Record::new()),
+                Value::Record { val, .. } => val.into_owned(),
+                Value::Nothing { .. } => Record::new(),
                 _ => {
                     return Err(ShellError::CantConvert {
                         to_type: "XML".into(),
@@ -350,7 +350,7 @@ impl Job {
                 }
             };
 
-            self.write_tag(entry_span, tag, tag_span, *attrs, content)
+            self.write_tag(entry_span, tag, tag_span, attrs, content)
         }
     }
 

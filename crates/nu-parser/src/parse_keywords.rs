@@ -34,7 +34,7 @@ use crate::{
     lex,
     lite_parser::{lite_parse, LiteCommand},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
+        check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
         parse_full_signature, parse_import_pattern, parse_internal_call, parse_multispan_value,
         parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
@@ -459,7 +459,7 @@ pub fn parse_def(
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => working_set.parse_errors.push(ParseError::Expected(
+                    _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
                         arg.span,
                     )),
@@ -803,6 +803,46 @@ pub fn parse_extern(
     }])
 }
 
+fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
+    let command_len = if !spans.is_empty() {
+        if working_set.get_span_contents(spans[0]) == b"export" {
+            2
+        } else {
+            1
+        }
+    } else {
+        return None;
+    };
+
+    if spans.len() == 1 {
+        None
+    } else if spans.len() < command_len + 3 {
+        if working_set.get_span_contents(spans[command_len]) == b"=" {
+            let name =
+                String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
+            working_set.error(ParseError::AssignmentMismatch(
+                format!("{name} missing name"),
+                "missing name".into(),
+                spans[command_len],
+            ));
+            Some(&spans[command_len])
+        } else {
+            None
+        }
+    } else if working_set.get_span_contents(spans[command_len + 1]) != b"=" {
+        let name =
+            String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
+        working_set.error(ParseError::AssignmentMismatch(
+            format!("{name} missing sign"),
+            "missing equal sign".into(),
+            spans[command_len + 1],
+        ));
+        Some(&spans[command_len + 1])
+    } else {
+        None
+    }
+}
+
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
@@ -831,7 +871,7 @@ pub fn parse_alias(
         return garbage_pipeline(spans);
     }
 
-    if let Some(span) = check_name(working_set, spans) {
+    if let Some(span) = check_alias_name(working_set, spans) {
         return Pipeline::from_vec(vec![garbage(*span)]);
     }
 
@@ -1831,32 +1871,16 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
+/// Parse a module from a file.
+///
+/// The module name is inferred from the stem of the file, unless specified in `name_override`.
 fn parse_module_file(
     working_set: &mut StateWorkingSet,
     path: ParserPath,
     path_span: Span,
     name_override: Option<String>,
 ) -> Option<ModuleId> {
-    if let Some(i) = working_set
-        .parsed_module_files
-        .iter()
-        .rposition(|p| p == path.path())
-    {
-        let mut files: Vec<String> = working_set
-            .parsed_module_files
-            .split_off(i)
-            .iter()
-            .map(|p| p.to_string_lossy().to_string())
-            .collect();
-
-        files.push(path.path().to_string_lossy().to_string());
-
-        let msg = files.join("\nuses ");
-
-        working_set.error(ParseError::CyclicalModuleImport(msg, path_span));
-        return None;
-    }
-
+    // Infer the module name from the stem of the file, unless overridden.
     let module_name = if let Some(name) = name_override {
         name
     } else if let Some(stem) = path.file_stem() {
@@ -1869,6 +1893,7 @@ fn parse_module_file(
         return None;
     };
 
+    // Read the content of the module.
     let contents = if let Some(contents) = path.read(working_set) {
         contents
     } else {
@@ -1882,29 +1907,23 @@ fn parse_module_file(
     let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
+    // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
         return Some(module_id);
     }
 
-    // Change the currently parsed directory
-    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-        working_set.currently_parsed_cwd.replace(parent.into())
-    } else {
-        working_set.currently_parsed_cwd.clone()
-    };
-
-    // Add the file to the stack of parsed module files
-    working_set.parsed_module_files.push(path.path_buf());
+    // Add the file to the stack of files being processed.
+    if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
+        working_set.error(e);
+        return None;
+    }
 
     // Parse the module
     let (block, module, module_comments) =
         parse_module_block(working_set, new_span, module_name.as_bytes());
 
-    // Remove the file from the stack of parsed module files
-    working_set.parsed_module_files.pop();
-
-    // Restore the currently parsed directory back
-    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+    // Remove the file from the stack of files being processed.
+    working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
     let module_id = working_set.add_module(&module_name, module, module_comments);
@@ -2391,7 +2410,7 @@ pub fn parse_use(
 
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
-        expr: Expr::ImportPattern(import_pattern),
+        expr: Expr::ImportPattern(Box::new(import_pattern)),
         span: span(args_spans),
         ty: Type::Any,
         custom_completion: None,
@@ -2575,7 +2594,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 
         // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {
-            expr: Expr::ImportPattern(import_pattern),
+            expr: Expr::ImportPattern(Box::new(import_pattern)),
             span: span(args_spans),
             ty: Type::Any,
             custom_completion: None,
@@ -2957,7 +2976,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error)
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -3221,7 +3240,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error);
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -3385,12 +3404,11 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
                     if let Some(contents) = path.read(working_set) {
-                        // Change currently parsed directory
-                        let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                            working_set.currently_parsed_cwd.replace(parent.into())
-                        } else {
-                            working_set.currently_parsed_cwd.clone()
-                        };
+                        // Add the file to the stack of files being processed.
+                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                            working_set.error(e);
+                            return garbage_pipeline(spans);
+                        }
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
@@ -3401,8 +3419,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             scoped,
                         );
 
-                        // Restore the currently parsed directory back
-                        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+                        // Remove the file from the stack of files being processed.
+                        working_set.files.pop();
 
                         // Save the block into the working set
                         let block_id = working_set.add_block(block);
@@ -3687,7 +3705,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
         // Add it to the working set
         let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
+            Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
         });
 
         // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
@@ -3706,7 +3724,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 //
                 // The user would expect that `register` would always run the binary to get new
                 // signatures, in case it was replaced with an updated binary
-                plugin.stop().map_err(|err| {
+                plugin.reset().map_err(|err| {
                     ParseError::LabeledError(
                         "Failed to restart plugin to get new signatures".into(),
                         err.to_string(),
@@ -3714,7 +3732,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 })?;
 
+                plugin.set_gc_config(&gc_config);
+
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
+                    log::warn!("Error getting signatures: {err:?}");
                     ParseError::LabeledError(
                         "Error getting signatures".into(),
                         err.to_string(),
@@ -3788,11 +3809,10 @@ pub fn find_in_dirs(
         dirs_var_name: &str,
     ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-            currently_parsed_cwd.as_path()
-        } else {
-            Path::new(cwd)
-        };
+        let actual_cwd = working_set
+            .files
+            .current_working_directory()
+            .unwrap_or(Path::new(cwd));
 
         // Try if we have an existing virtual path
         if let Some(virtual_path) = working_set.find_virtual_path(filename) {
@@ -3852,11 +3872,10 @@ pub fn find_in_dirs(
         dirs_env: &str,
     ) -> Option<PathBuf> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-            currently_parsed_cwd.as_path()
-        } else {
-            Path::new(cwd)
-        };
+        let actual_cwd = working_set
+            .files
+            .current_working_directory()
+            .unwrap_or(Path::new(cwd));
 
         if let Ok(p) = canonicalize_with(filename, actual_cwd) {
             Some(p)

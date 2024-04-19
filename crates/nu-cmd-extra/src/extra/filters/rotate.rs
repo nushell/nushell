@@ -171,7 +171,7 @@ pub fn rotate(
             let span = val.span();
             match val {
                 Value::Record { val: record, .. } => {
-                    let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                    let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
                     old_column_names = cols;
                     new_values.extend_from_slice(&vals);
                 }

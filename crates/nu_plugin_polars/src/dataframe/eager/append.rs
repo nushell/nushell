@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    values::{to_pipeline_data, Axis, Column, CustomValueSupport, NuDataFrame},
+    values::{Axis, Column, CustomValueSupport, NuDataFrame},
     PolarsPlugin,
 };
 
@@ -18,7 +18,7 @@ impl PluginCommand for AppendDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "other dataframe to append")
-            .switch("col", "append as new columns instead of rows", None)
+            .switch("col", "append as new columns instead of rows", Some('c'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -126,10 +126,10 @@ fn command(
     };
 
     let df_other = NuDataFrame::try_from_value_coerce(plugin, &other, call.head)?;
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let df = df.append_df(&df_other, axis, call.head)?;
 
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

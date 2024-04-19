@@ -44,34 +44,34 @@ def log-types [] {
     (
         {
             "CRITICAL": {
-                "ansi": ((log-ansi).CRITICAL),
-                "level": ((log-level).CRITICAL),
-                "prefix": ((log-prefix).CRITICAL),
-                "short_prefix": ((log-short-prefix).CRITICAL)
+                "ansi": (log-ansi).CRITICAL,
+                "level": (log-level).CRITICAL,
+                "prefix": (log-prefix).CRITICAL,
+                "short_prefix": (log-short-prefix).CRITICAL
             },
             "ERROR": {
-                "ansi": ((log-ansi).ERROR),
-                "level": ((log-level).ERROR),
-                "prefix": ((log-prefix).ERROR),
-                "short_prefix": ((log-short-prefix).ERROR)
+                "ansi": (log-ansi).ERROR,
+                "level": (log-level).ERROR,
+                "prefix": (log-prefix).ERROR,
+                "short_prefix": (log-short-prefix).ERROR
             },
             "WARNING": {
-                "ansi": ((log-ansi).WARNING),
-                "level": ((log-level).WARNING),
-                "prefix": ((log-prefix).WARNING),
-                "short_prefix": ((log-short-prefix).WARNING)
+                "ansi": (log-ansi).WARNING,
+                "level": (log-level).WARNING,
+                "prefix": (log-prefix).WARNING,
+                "short_prefix": (log-short-prefix).WARNING
             },
             "INFO": {
-                "ansi": ((log-ansi).INFO),
-                "level": ((log-level).INFO),
-                "prefix": ((log-prefix).INFO),
-                "short_prefix": ((log-short-prefix).INFO)
+                "ansi": (log-ansi).INFO,
+                "level": (log-level).INFO,
+                "prefix": (log-prefix).INFO,
+                "short_prefix": (log-short-prefix).INFO
             },
             "DEBUG": {
-                "ansi": ((log-ansi).DEBUG),
-                "level": ((log-level).DEBUG),
-                "prefix": ((log-prefix).DEBUG),
-                "short_prefix": ((log-short-prefix).DEBUG)
+                "ansi": (log-ansi).DEBUG,
+                "level": (log-level).DEBUG,
+                "prefix": (log-prefix).DEBUG,
+                "short_prefix": (log-short-prefix).DEBUG
             }
         }
     )
@@ -83,16 +83,16 @@ def parse-string-level [
 ] {
     let level = ($level | str upcase)
 
-    if $level in [((log-prefix).CRITICAL) ((log-short-prefix).CRITICAL) "CRIT" "CRITICAL"] {
-        ((log-level).CRITICAL)
-    } else if $level in [((log-prefix).ERROR) ((log-short-prefix).ERROR) "ERROR"] {
-        ((log-level).ERROR)
-    } else if $level in [((log-prefix).WARNING) ((log-short-prefix).WARNING) "WARN" "WARNING"] {
-        ((log-level).WARNING)
-    } else if $level in [((log-prefix).DEBUG) ((log-short-prefix).DEBUG) "DEBUG"] {
-        ((log-level).DEBUG)
+    if $level in [(log-prefix).CRITICAL (log-short-prefix).CRITICAL "CRIT" "CRITICAL"] {
+        (log-level).CRITICAL
+    } else if $level in [(log-prefix).ERROR (log-short-prefix).ERROR "ERROR"] {
+        (log-level).ERROR
+    } else if $level in [(log-prefix).WARNING (log-short-prefix).WARNING "WARN" "WARNING"] {
+        (log-level).WARNING
+    } else if $level in [(log-prefix).DEBUG (log-short-prefix).DEBUG "DEBUG"] {
+        (log-level).DEBUG
     } else {
-        ((log-level).INFO)
+        (log-level).INFO
     }
 }
 
@@ -101,41 +101,41 @@ def parse-int-level [
     level: int,
     --short (-s)
 ] {
-    if $level >= ((log-level).CRITICAL) {
+    if $level >= (log-level).CRITICAL {
         if $short {
-            ((log-short-prefix).CRITICAL)
+            (log-short-prefix).CRITICAL
         } else {
-            ((log-prefix).CRITICAL)
+            (log-prefix).CRITICAL
         }
-    } else if $level >= ((log-level).ERROR) {
+    } else if $level >= (log-level).ERROR {
         if $short {
-            ((log-short-prefix).ERROR)
+            (log-short-prefix).ERROR
         } else {
-            ((log-prefix).ERROR)
+            (log-prefix).ERROR
         }
-    } else if $level >= ((log-level).WARNING) {
+    } else if $level >= (log-level).WARNING {
         if $short {
-            ((log-short-prefix).WARNING)
+            (log-short-prefix).WARNING
         } else {
-            ((log-prefix).WARNING)
+            (log-prefix).WARNING
         }
-    } else if $level >= ((log-level).INFO) {
+    } else if $level >= (log-level).INFO {
         if $short {
-            ((log-short-prefix).INFO)
+            (log-short-prefix).INFO
         } else {
-            ((log-prefix).INFO)
+            (log-prefix).INFO
         }
     } else {
         if $short {
-            ((log-short-prefix).DEBUG)
+            (log-short-prefix).DEBUG
         } else {
-            ((log-prefix).DEBUG)
+            (log-prefix).DEBUG
         }
     }
 }
 
 def current-log-level [] {
-    let env_level = ($env.NU_log-level? | default (((log-level).INFO)))
+    let env_level = ($env.NU_LOG_LEVEL? | default (log-level).INFO)
 
     try {
         $env_level | into int
@@ -264,11 +264,11 @@ export def custom [
     }
 
     let valid_levels_for_defaulting = [
-        ((log-level).CRITICAL)
-        ((log-level).ERROR)
-        ((log-level).WARNING)
-        ((log-level).INFO)
-        ((log-level).DEBUG)
+        (log-level).CRITICAL
+        (log-level).ERROR
+        (log-level).WARNING
+        (log-level).INFO
+        (log-level).DEBUG
     ]
 
     let prefix = if ($level_prefix | is-empty) {

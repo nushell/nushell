@@ -279,8 +279,9 @@ fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
     manager.consume(PluginOutput::Hello(info.clone()))?;
 
     let set_info = manager
+        .state
         .protocol_info
-        .as_ref()
+        .try_get()?
         .expect("protocol info not set");
     assert_eq!(info.version, set_info.version);
     Ok(())
@@ -307,21 +308,28 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
     let mut manager = TestCase::new().plugin("test");
 
     // hello not set
-    assert!(manager.protocol_info.is_none());
+    assert!(!manager.state.protocol_info.is_set());
 
     let error = manager
-        .consume(PluginOutput::Stream(StreamMessage::Drop(0)))
+        .consume(PluginOutput::Drop(0))
         .expect_err("consume before Hello should cause an error");
 
     assert!(format!("{error:?}").contains("Hello"));
     Ok(())
 }
 
+fn set_default_protocol_info(manager: &mut PluginInterfaceManager) -> Result<(), ShellError> {
+    manager
+        .state
+        .protocol_info
+        .set(Arc::new(ProtocolInfo::default()))
+}
+
 #[test]
 fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
 ) -> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = fake_plugin_call(&mut manager, 0);
 
@@ -331,13 +339,10 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
     ))?;
 
     for i in 0..2 {
-        manager.consume(PluginOutput::Stream(StreamMessage::Data(
-            0,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginOutput::Data(0, Value::test_int(i).into()))?;
     }
 
-    manager.consume(PluginOutput::Stream(StreamMessage::End(0)))?;
+    manager.consume(PluginOutput::End(0))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -362,7 +367,7 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
 #[test]
 fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     for n in [0, 1] {
         fake_plugin_call(&mut manager, n);
@@ -431,7 +436,7 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
 fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Result<(), ShellError>
 {
     let mut manager = TestCase::new().plugin("test");
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let rx = fake_plugin_call(&mut manager, 37);
 
@@ -454,12 +459,9 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
     })?;
 
     for i in 0..2 {
-        manager.consume(PluginOutput::Stream(StreamMessage::Data(
-            2,
-            Value::test_int(i).into(),
-        )))?;
+        manager.consume(PluginOutput::Data(2, Value::test_int(i).into()))?;
     }
-    manager.consume(PluginOutput::Stream(StreamMessage::End(2)))?;
+    manager.consume(PluginOutput::End(2))?;
 
     // Make sure the streams end and we don't deadlock
     drop(manager);
@@ -486,7 +488,7 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
 fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError> {
     let test = TestCase::new();
     let mut manager = test.plugin("test");
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     let (context_tx, context_rx) = mpsc::channel();
 
@@ -590,7 +592,7 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
 #[test]
 fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
-    manager.protocol_info = Some(ProtocolInfo::default());
+    set_default_protocol_info(&mut manager)?;
 
     for n in [1, 2] {
         manager.plugin_call_states.insert(
@@ -889,7 +891,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             .next_written()
             .expect("failed to get Data stream message")
         {
-            PluginInput::Stream(StreamMessage::Data(id, data)) => {
+            PluginInput::Data(id, data) => {
                 assert_eq!(info.id, id, "id");
                 match data {
                     StreamData::List(data_value) => {
@@ -906,10 +908,10 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
         .next_written()
         .expect("failed to get End stream message")
     {
-        PluginInput::Stream(StreamMessage::End(id)) => {
+        PluginInput::End(id) => {
             assert_eq!(info.id, id, "id");
         }
-        message => panic!("expected Stream(End(_)) message: {message:?}"),
+        message => panic!("expected End(_) message: {message:?}"),
     }
 
     Ok(())
@@ -1280,8 +1282,8 @@ fn prepare_custom_value_sends_to_keep_channel_if_drop_notify() -> Result<(), She
     let source = Arc::new(PluginSource::new_fake("test"));
     let (tx, rx) = mpsc::channel();
     let state = CurrentCallState {
-        context_tx: None,
         keep_plugin_custom_values_tx: Some(tx),
+        ..Default::default()
     };
     // Try with a custom val that has drop check set
     let mut drop_val = PluginCustomValue::serialize_from_custom_value(&DropCustomVal, span)?
