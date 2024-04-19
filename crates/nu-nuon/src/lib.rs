@@ -392,7 +392,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "`from_nuon` does not give the same error locally and in the CI"]
     // FIXME: below is the total reason
     //
     // the output of [`from_nuon`] on the content of `../../../tests/fixtures/formats/code.nu` is
