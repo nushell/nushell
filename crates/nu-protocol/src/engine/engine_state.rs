@@ -485,9 +485,10 @@ impl EngineState {
         updated_items: Vec<PluginCacheItem>,
     ) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
-        use std::io::{Seek, SeekFrom};
+        use std::fs::File;
 
-        self.plugin_path
+        let plugin_path = self
+            .plugin_path
             .as_ref()
             .ok_or_else(|| ShellError::GenericError {
                 error: "Plugin file path not set".into(),
@@ -495,41 +496,42 @@ impl EngineState {
                 span: None,
                 help: Some("you may be running nu with --no-config-file".into()),
                 inner: vec![],
-            })
-            .and_then(|plugin_path| {
-                // Open the plugin file for read/write access, creating it if it doesn't exist
-                std::fs::File::options()
-                    .create(true)
-                    .truncate(false)
-                    .read(true)
-                    .write(true)
-                    .open(plugin_path.as_path())
-                    .map_err(|err| ShellError::GenericError {
+            })?;
+
+        // Read the current contents of the plugin file if it exists
+        let mut contents = match File::open(plugin_path.as_path()) {
+            Ok(mut plugin_file) => PluginCacheFile::read_from(&mut plugin_file, None),
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    Ok(PluginCacheFile::default())
+                } else {
+                    Err(ShellError::GenericError {
                         error: "Failed to open plugin file".into(),
                         msg: "".into(),
                         span: None,
                         help: None,
                         inner: vec![err.into()],
                     })
-            })
-            .and_then(|mut plugin_file| {
-                // Read the current contents of the plugin file, unless it's empty.
-                let mut contents = if plugin_file.metadata().is_ok_and(|m| m.len() > 0) {
-                    PluginCacheFile::read_from(&mut plugin_file, None)?
-                } else {
-                    PluginCacheFile::default()
-                };
-
-                // Update the given signatures
-                for item in updated_items {
-                    contents.upsert_plugin(item);
                 }
+            }
+        }?;
 
-                // Truncate the file and write it back
-                plugin_file.seek(SeekFrom::Start(0))?;
-                plugin_file.set_len(0)?;
-                contents.write_to(&mut plugin_file, None)
-            })
+        // Update the given signatures
+        for item in updated_items {
+            contents.upsert_plugin(item);
+        }
+
+        // Write it to the same path
+        let plugin_file =
+            File::create(plugin_path.as_path()).map_err(|err| ShellError::GenericError {
+                error: "Failed to write plugin file".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![err.into()],
+            })?;
+
+        contents.write_to(plugin_file, None)
     }
 
     /// Update plugins with new garbage collection config
