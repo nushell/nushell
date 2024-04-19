@@ -1046,7 +1046,7 @@ fn shell_integration_osc_7_633_2(
                     run_ansi_sequence(&format!(
                         "\x1b]7;file://{}{}{}\x1b\\",
                         percent_encoding::utf8_percent_encode(
-                            hostname.unwrap_or_else(|| "localhost"),
+                            hostname.unwrap_or("localhost"),
                             percent_encoding::CONTROLS
                         ),
                         if path.starts_with('/') { "" } else { "/" },
