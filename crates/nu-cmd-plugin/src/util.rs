@@ -13,7 +13,7 @@ pub(crate) fn modify_plugin_file(
     let cwd = current_dir(engine_state, stack)?;
 
     let plugin_cache_file_path = if let Some(ref custom_path) = custom_path {
-        nu_path::expand_path_with(&custom_path.item, &cwd, true)
+        nu_path::expand_path_with(&custom_path.item, cwd, true)
     } else {
         engine_state
             .plugin_path

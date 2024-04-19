@@ -1,3 +1,5 @@
+//! Nushell commands for managing plugins.
+
 mod commands;
 mod default_context;
 mod util;
