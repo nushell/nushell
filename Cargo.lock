@@ -520,7 +520,18 @@ checksum = "d640d25bc63c50fb1f0b545ffd80207d2e10a4c965530809b40ba3386825c391"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
- "brotli-decompressor",
+ "brotli-decompressor 2.5.1",
+]
+
+[[package]]
+name = "brotli"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19483b140a7ac7174d34b5a581b406c64f84da5409d3e09cf4fff604f9270e67"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+ "brotli-decompressor 4.0.0",
 ]
 
 [[package]]
@@ -528,6 +539,16 @@ name = "brotli-decompressor"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e2e4afe60d7dd600fdd3de8d0f08c2b7ec039712e3b6137ff98b7004e82de4f"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+]
+
+[[package]]
+name = "brotli-decompressor"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6221fe77a248b9117d431ad93761222e1cf8ff282d9d1d5d9f53d6299a1cf76"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -2914,6 +2935,7 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-path",
+ "nu-plugin",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
@@ -3261,6 +3283,7 @@ dependencies = [
 name = "nu-protocol"
 version = "0.92.3"
 dependencies = [
+ "brotli 5.0.0",
  "byte-unit",
  "chrono",
  "chrono-humanize",
@@ -3273,6 +3296,8 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "pretty_assertions",
+ "rmp-serde",
  "rstest",
  "serde",
  "serde_json",
@@ -4269,7 +4294,7 @@ dependencies = [
  "ahash 0.8.11",
  "async-stream",
  "base64 0.21.7",
- "brotli",
+ "brotli 3.5.0",
  "ethnum",
  "flate2",
  "futures",

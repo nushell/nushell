@@ -24,7 +24,7 @@ use std::{
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
 #[cfg(feature = "plugin")]
-use crate::RegisteredPlugin;
+use crate::{PluginCacheFile, PluginCacheItem, RegisteredPlugin};
 
 pub static PWD_ENV: &str = "PWD";
 
@@ -92,7 +92,7 @@ pub struct EngineState {
     pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
-    pub plugin_signatures: Option<PathBuf>,
+    pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
     plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
@@ -155,7 +155,7 @@ impl EngineState {
             })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
-            plugin_signatures: None,
+            plugin_path: None,
             #[cfg(feature = "plugin")]
             plugins: vec![],
             config_path: HashMap::new(),
@@ -255,7 +255,7 @@ impl EngineState {
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
-                    .find(|p| p.identity() == plugin.identity())
+                    .find(|p| p.identity().name() == plugin.identity().name())
                 {
                     // Stop the existing plugin, so that the new plugin definitely takes over
                     existing.stop()?;
@@ -267,9 +267,9 @@ impl EngineState {
         }
 
         #[cfg(feature = "plugin")]
-        if delta.plugins_changed {
+        if !delta.plugin_cache_items.is_empty() {
             // Update the plugin file with the new signatures.
-            self.update_plugin_file()?;
+            self.update_plugin_file(std::mem::take(&mut delta.plugin_cache_items))?;
         }
 
         Ok(())
@@ -487,92 +487,55 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(&self) -> Result<(), ShellError> {
-        use std::io::Write;
-
-        use crate::{PluginExample, PluginSignature};
-
+    pub fn update_plugin_file(
+        &self,
+        updated_items: Vec<PluginCacheItem>,
+    ) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
-        self.plugin_signatures
+        use std::io::{Seek, SeekFrom};
+
+        self.plugin_path
             .as_ref()
-            .ok_or_else(|| ShellError::PluginFailedToLoad {
-                msg: "Plugin file not found".into(),
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Plugin file path not set".into(),
+                msg: "".into(),
+                span: None,
+                help: Some("you may be running nu with --no-config-file".into()),
+                inner: vec![],
             })
             .and_then(|plugin_path| {
-                // Always create the file, which will erase previous signatures
-                std::fs::File::create(plugin_path.as_path()).map_err(|err| {
-                    ShellError::PluginFailedToLoad {
-                        msg: err.to_string(),
-                    }
-                })
+                // Open the plugin file for read/write access, creating it if it doesn't exist
+                std::fs::File::options()
+                    .create(true)
+                    .truncate(false)
+                    .read(true)
+                    .write(true)
+                    .open(plugin_path.as_path())
+                    .map_err(|err| ShellError::GenericError {
+                        error: "Failed to open plugin file".into(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![err.into()],
+                    })
             })
             .and_then(|mut plugin_file| {
-                // Plugin definitions with parsed signature
-                self.plugin_decls().try_for_each(|decl| {
-                    // A successful plugin registration already includes the plugin filename
-                    // No need to check the None option
-                    let identity = decl.plugin_identity().expect("plugin should have identity");
-                    let mut file_name = identity
-                        .filename()
-                        .to_str()
-                        .expect("path was checked during registration as a str")
-                        .to_string();
+                // Read the current contents of the plugin file, unless it's empty.
+                let mut contents = if plugin_file.metadata().is_ok_and(|m| m.len() > 0) {
+                    PluginCacheFile::read_from(&mut plugin_file, None)?
+                } else {
+                    PluginCacheFile::default()
+                };
 
-                    // Fix files or folders with quotes
-                    if file_name.contains('\'')
-                        || file_name.contains('"')
-                        || file_name.contains(' ')
-                    {
-                        file_name = format!("`{file_name}`");
-                    }
+                // Update the given signatures
+                for item in updated_items {
+                    contents.upsert_plugin(item);
+                }
 
-                    let sig = decl.signature();
-                    let examples = decl
-                        .examples()
-                        .into_iter()
-                        .map(PluginExample::from)
-                        .collect();
-                    let sig_with_examples = PluginSignature::new(sig, examples);
-                    serde_json::to_string_pretty(&sig_with_examples)
-                        .map(|signature| {
-                            // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = identity
-                                .shell()
-                                .map(|path| {
-                                    format!(
-                                        "-s {}",
-                                        path.to_str().expect(
-                                            "shell path was checked during registration as a str"
-                                        )
-                                    )
-                                })
-                                .unwrap_or_default();
-
-                            // Each signature is stored in the plugin file with the shell and signature
-                            // This information will be used when loading the plugin
-                            // information when nushell starts
-                            format!("register {file_name} {shell_str} {signature}\n\n")
-                        })
-                        .map_err(|err| ShellError::PluginFailedToLoad {
-                            msg: err.to_string(),
-                        })
-                        .and_then(|line| {
-                            plugin_file.write_all(line.as_bytes()).map_err(|err| {
-                                ShellError::PluginFailedToLoad {
-                                    msg: err.to_string(),
-                                }
-                            })
-                        })
-                        .and_then(|_| {
-                            plugin_file.flush().map_err(|err| ShellError::GenericError {
-                                error: "Error flushing plugin file".into(),
-                                msg: format! {"{err}"},
-                                span: None,
-                                help: None,
-                                inner: vec![],
-                            })
-                        })
-                })
+                // Truncate the file and write it back
+                plugin_file.seek(SeekFrom::Start(0))?;
+                plugin_file.set_len(0)?;
+                contents.write_to(&mut plugin_file, None)
             })
     }
 

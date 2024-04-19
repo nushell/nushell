@@ -329,12 +329,14 @@ where
     });
 
     let temp = tempdir().expect("couldn't create a temporary directory");
-    let [temp_config_file, temp_env_config_file, temp_plugin_file] =
-        ["config.nu", "env.nu", "plugin.nu"].map(|name| {
-            let temp_file = temp.path().join(name);
-            std::fs::File::create(&temp_file).expect("couldn't create temporary config file");
-            temp_file
-        });
+    let [temp_config_file, temp_env_config_file] = ["config.nu", "env.nu"].map(|name| {
+        let temp_file = temp.path().join(name);
+        std::fs::File::create(&temp_file).expect("couldn't create temporary config file");
+        temp_file
+    });
+
+    // We don't have to write the plugin cache file, it's ok for it to not exist
+    let temp_plugin_file = temp.path().join("plugin.msgpackz");
 
     crate::commands::ensure_plugins_built();
 

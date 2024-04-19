@@ -115,7 +115,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
     {
         record.push(
             "plugin-path",
-            if let Some(path) = &engine_state.plugin_signatures {
+            if let Some(path) = &engine_state.plugin_path {
                 let canon_plugin_path = canonicalize_path(engine_state, path);
                 Value::string(canon_plugin_path.to_string_lossy(), span)
             } else {
@@ -123,7 +123,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                 config_path.clone().map_or_else(
                     |e| e,
                     |mut path| {
-                        path.push("plugin.nu");
+                        path.push("plugin.msgpackz");
                         let canonical_plugin_path = canonicalize_path(engine_state, &path);
                         Value::string(canonical_plugin_path.to_string_lossy(), span)
                     },

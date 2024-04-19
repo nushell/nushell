@@ -6,13 +6,13 @@ use nu_protocol::{
     report_error, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
-use nu_protocol::{ParseError, Spanned};
+use nu_protocol::{ParseError, PluginCacheFile, Spanned};
 #[cfg(feature = "plugin")]
 use nu_utils::utils::perf;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
-const PLUGIN_FILE: &str = "plugin.nu";
+const PLUGIN_FILE: &str = "plugin.msgpackz";
 
 const HISTORY_FILE_TXT: &str = "history.txt";
 const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
@@ -20,13 +20,16 @@ const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(
     engine_state: &mut EngineState,
-    stack: &mut Stack,
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
+    use nu_protocol::{report_error_new, ShellError};
+
+    let span = plugin_file.as_ref().map(|s| s.span);
+
     let mut start_time = std::time::Instant::now();
     // Reading signatures from signature file
-    // The plugin.nu file stores the parsed signature collected from each registered plugin
+    // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file, storage_path);
     perf(
         "add plugin file to engine_state",
@@ -38,38 +41,95 @@ pub fn read_plugin_file(
     );
 
     start_time = std::time::Instant::now();
-    let plugin_path = engine_state.plugin_signatures.clone();
+    let plugin_path = engine_state.plugin_path.clone();
     if let Some(plugin_path) = plugin_path {
-        let plugin_filename = plugin_path.to_string_lossy();
-        let plug_path = plugin_filename.to_string();
+        // Open the plugin file
+        let mut file = match std::fs::File::open(&plugin_path) {
+            Ok(file) => file,
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    log::warn!("Plugin file not found: {}", plugin_path.display());
+                } else {
+                    report_error_new(
+                        engine_state,
+                        &ShellError::GenericError {
+                            error: format!(
+                                "Error while opening plugin cache file: {}",
+                                plugin_path.display()
+                            ),
+                            msg: "plugin path defined here".into(),
+                            span,
+                            help: None,
+                            inner: vec![err.into()],
+                        },
+                    );
+                }
+                return;
+            }
+        };
 
-        if let Ok(contents) = std::fs::read(&plugin_path) {
-            perf(
-                &format!("read plugin file {}", &plug_path),
-                start_time,
-                file!(),
-                line!(),
-                column!(),
-                engine_state.get_config().use_ansi_coloring,
+        // Abort if the file is empty.
+        if file.metadata().is_ok_and(|m| m.len() == 0) {
+            log::warn!(
+                "Not reading plugin file because it's empty: {}",
+                plugin_path.display()
             );
-            start_time = std::time::Instant::now();
-            eval_source(
-                engine_state,
-                stack,
-                &contents,
-                &plugin_filename,
-                PipelineData::empty(),
-                false,
-            );
-            perf(
-                &format!("eval_source plugin file {}", &plug_path),
-                start_time,
-                file!(),
-                line!(),
-                column!(),
-                engine_state.get_config().use_ansi_coloring,
-            );
+            return;
         }
+
+        // Read the contents of the plugin file
+        let contents = match PluginCacheFile::read_from(&mut file, span) {
+            Ok(contents) => contents,
+            Err(err) => {
+                log::warn!("Failed to read plugin cache file: {err:?}");
+                report_error_new(
+                    engine_state,
+                    &ShellError::GenericError {
+                        error: format!(
+                            "Error while reading plugin cache file: {}",
+                            plugin_path.display()
+                        ),
+                        msg: "plugin path defined here".into(),
+                        span,
+                        help: Some(
+                            "you might try deleting the file and registering all of your \
+                                plugins again"
+                                .into(),
+                        ),
+                        inner: vec![],
+                    },
+                );
+                return;
+            }
+        };
+
+        perf(
+            &format!("read plugin file {}", plugin_path.display()),
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            engine_state.get_config().use_ansi_coloring,
+        );
+        start_time = std::time::Instant::now();
+
+        let mut working_set = StateWorkingSet::new(engine_state);
+
+        nu_plugin::load_plugin_file(&mut working_set, &contents, span);
+
+        if let Err(err) = engine_state.merge_delta(working_set.render()) {
+            report_error_new(engine_state, &err);
+            return;
+        }
+
+        perf(
+            &format!("load plugin file {}", plugin_path.display()),
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            engine_state.get_config().use_ansi_coloring,
+        );
     }
 }
 
@@ -79,15 +139,30 @@ pub fn add_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
+    use std::path::Path;
+
     let working_set = StateWorkingSet::new(engine_state);
     let cwd = working_set.get_cwd();
 
     if let Some(plugin_file) = plugin_file {
-        if let Ok(path) = canonicalize_with(&plugin_file.item, cwd) {
-            engine_state.plugin_signatures = Some(path)
+        let path = Path::new(&plugin_file.item);
+        let path_dir = path.parent().unwrap_or(path);
+        // Just try to canonicalize the directory of the plugin file first.
+        if let Ok(path_dir) = canonicalize_with(path_dir, &cwd) {
+            // Try to canonicalize the actual filename, but it's ok if that fails. The file doesn't
+            // have to exist.
+            let path = path_dir.join(path.file_name().unwrap_or(path.as_os_str()));
+            let path = canonicalize_with(&path, &cwd).unwrap_or(path);
+            engine_state.plugin_path = Some(path)
         } else {
-            let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
-            report_error(&working_set, &e);
+            // It's an error if the directory for the plugin file doesn't exist.
+            report_error(
+                &working_set,
+                &ParseError::FileNotFound(
+                    path_dir.to_string_lossy().into_owned(),
+                    plugin_file.span,
+                ),
+            );
         }
     } else if let Some(mut plugin_path) = nu_path::config_dir() {
         // Path to store plugins signatures
@@ -95,7 +170,7 @@ pub fn add_plugin_file(
         let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
         plugin_path.push(PLUGIN_FILE);
         let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
-        engine_state.plugin_signatures = Some(plugin_path);
+        engine_state.plugin_path = Some(plugin_path);
     }
 }
 
