@@ -336,7 +336,7 @@ impl PipelineData {
                     if command.get_block_id().is_some() {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
-                        let call = Call::new(FutureSpanId::unknown());
+                        let call = Call::new(FutureSpanId::unknown(), FutureSpanId::unknown());
                         let stack = &mut stack.start_capture();
                         let table = command.run(engine_state, stack, &call, data)?;
                         table.write_all_and_flush(engine_state, config, false, false)?;
@@ -879,7 +879,7 @@ impl PipelineData {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
 
-            let call = Call::new(FutureSpanId::new(0, 0));
+            let call = Call::new(FutureSpanId::unknown(), FutureSpanId::unknown());
             let table = command.run(engine_state, stack, &call, self)?;
             table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         } else {

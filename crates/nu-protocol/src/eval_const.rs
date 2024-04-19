@@ -3,8 +3,8 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, FutureSpanId, HistoryFileFormat, PipelineData, Record, ShellError, Value,
-    VarId,
+    record, Config, FutureSpanId, HistoryFileFormat, PipelineData, Record, ShellError, Spanned,
+    Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -324,7 +324,7 @@ impl Eval for EvalConst {
         _: &StateWorkingSet,
         _: &mut (),
         _: &Expression,
-        _: &[ExternalArgument],
+        _: Spanned<&[ExternalArgument]>,
         span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         // TODO: It may be more helpful to give not_a_const_command error

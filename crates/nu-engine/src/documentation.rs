@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, UNKNOWN_SPAN_ID},
     record, Category, Example, FutureSpanId, IntoPipelineData, PipelineData, Signature, SpanId,
-    SyntaxShape, Type, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -49,7 +49,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(FutureSpanId::unknown()),
+            &Call::new(FutureSpanId::unknown(), FutureSpanId::unknown()),
             Value::string(code_string, FutureSpanId::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(FutureSpanId::unknown());
@@ -243,7 +243,7 @@ fn get_documentation(
                 &Call {
                     decl_id,
                     head: span,
-                    arguments: vec![],
+                    arguments: Spanned { item: vec![], span },
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -275,7 +275,7 @@ fn get_documentation(
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(FutureSpanId::unknown()),
+                &Call::new(FutureSpanId::unknown(), FutureSpanId::unknown()),
                 Value::string(example.example, FutureSpanId::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
@@ -306,7 +306,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &Call::new(FutureSpanId::new(0, 0)),
+                            &Call::new(FutureSpanId::unknown(), FutureSpanId::unknown()),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
@@ -354,7 +354,10 @@ fn get_ansi_color_for_component_or_default(
                     &Call {
                         decl_id,
                         head: span,
-                        arguments: vec![argument],
+                        arguments: Spanned {
+                            item: vec![argument],
+                            span,
+                        },
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,

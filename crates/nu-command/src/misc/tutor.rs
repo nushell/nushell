@@ -114,7 +114,13 @@ fn tutor(
             results.into_iter().map(|x| format!("- {x}")).join("\n")
         );
 
-        return Ok(display(&message, engine_state, stack, span));
+        return Ok(display(
+            &message,
+            engine_state,
+            stack,
+            span,
+            call.arguments_span(),
+        ));
     } else if let Some(search) = search {
         if search == "list" {
             let results = search_space.map(|s| s.0[0].to_string());
@@ -122,16 +128,34 @@ fn tutor(
                 "This tutorial contains the following topics:\n\n{}\n\n{notes}",
                 results.map(|x| format!("- {x}")).join("\n")
             );
-            return Ok(display(&message, engine_state, stack, span));
+            return Ok(display(
+                &message,
+                engine_state,
+                stack,
+                span,
+                call.arguments_span(),
+            ));
         }
 
         for search_group in search_space {
             if search_group.0.contains(&search.as_str()) {
-                return Ok(display(search_group.1, engine_state, stack, span));
+                return Ok(display(
+                    search_group.1,
+                    engine_state,
+                    stack,
+                    span,
+                    call.arguments_span(),
+                ));
             }
         }
     }
-    Ok(display(default_tutor(), engine_state, stack, span))
+    Ok(display(
+        default_tutor(),
+        engine_state,
+        stack,
+        span,
+        call.arguments_span(),
+    ))
 }
 
 fn default_tutor() -> &'static str {
@@ -401,6 +425,7 @@ fn display(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: FutureSpanId,
+    args_span: FutureSpanId,
 ) -> PipelineData {
     let help = help.split('`');
 
@@ -418,7 +443,7 @@ fn display(
                 if let Ok(output) = decl.run(
                     engine_state,
                     stack,
-                    &Call::new(span),
+                    &Call::new(span, args_span),
                     Value::string(item, FutureSpanId::unknown()).into_pipeline_data(),
                 ) {
                     let result = output.into_value(FutureSpanId::unknown());

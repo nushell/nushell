@@ -172,7 +172,7 @@ impl Expression {
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
-                for arg in &call.arguments {
+                for arg in &call.arguments.item {
                     match arg {
                         Argument::Positional(expr)
                         | Argument::Unknown(expr)
@@ -199,7 +199,7 @@ impl Expression {
                     return true;
                 }
                 for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
-                    args.as_ref()
+                    &args.item
                 {
                     if expr.has_in_variable(working_set) {
                         return true;
@@ -364,7 +364,7 @@ impl Expression {
                 if replaced.contains_span(call.head) {
                     call.head = working_set.get_span(new_span_id);
                 }
-                for arg in call.arguments.iter_mut() {
+                for arg in call.arguments.item.iter_mut() {
                     match arg {
                         Argument::Positional(expr)
                         | Argument::Unknown(expr)
@@ -384,7 +384,7 @@ impl Expression {
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span_id);
                 for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
-                    args.as_mut()
+                    args.item.as_mut()
                 {
                     expr.replace_span(working_set, replaced, new_span_id);
                 }

@@ -114,7 +114,7 @@ fn get_arguments(
 ) -> Vec<Value> {
     let mut arg_value = vec![];
     let span = FutureSpanId::test_data();
-    for arg in &call.arguments {
+    for arg in &call.arguments.item {
         match arg {
             // I think the second argument to Argument::Named is the short name, but I'm not really sure.
             // Please fix it if it's wrong. :)

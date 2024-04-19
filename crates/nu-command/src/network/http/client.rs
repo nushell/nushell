@@ -424,10 +424,12 @@ pub struct RequestFlags {
     pub full: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn transform_response_using_content_type(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: FutureSpanId,
+    args_span: FutureSpanId,
     requested_url: &str,
     flags: &RequestFlags,
     resp: Response,
@@ -472,7 +474,7 @@ fn transform_response_using_content_type(
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
-                &Call::new(span),
+                &Call::new(span, args_span),
                 output,
             ),
             None => Ok(output),
@@ -502,10 +504,12 @@ pub fn check_response_redirection(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn request_handle_response_content(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: FutureSpanId,
+    args_span: FutureSpanId,
     requested_url: &str,
     flags: RequestFlags,
     resp: Response,
@@ -521,6 +525,7 @@ fn request_handle_response_content(
                 engine_state,
                 stack,
                 span,
+                args_span,
                 requested_url,
                 &flags,
                 response,
@@ -563,10 +568,12 @@ fn request_handle_response_content(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn request_handle_response(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: FutureSpanId,
+    args_span: FutureSpanId,
     requested_url: &str,
     flags: RequestFlags,
     response: Result<Response, ShellErrorOrRequestError>,
@@ -577,6 +584,7 @@ pub fn request_handle_response(
             engine_state,
             stack,
             span,
+            args_span,
             requested_url,
             flags,
             resp,
@@ -591,6 +599,7 @@ pub fn request_handle_response(
                             engine_state,
                             stack,
                             span,
+                            args_span,
                             requested_url,
                             flags,
                             resp,

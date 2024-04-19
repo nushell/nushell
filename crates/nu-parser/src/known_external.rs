@@ -45,7 +45,7 @@ impl Command for KnownExternal {
 
         let command = engine_state.get_decl(decl_id);
 
-        let mut extern_call = Call::new(head_span);
+        let mut extern_call = Call::new(head_span, call.arguments_span());
 
         let extern_name = if let Some(name_bytes) = engine_state.find_decl_name(call.decl_id, &[]) {
             String::from_utf8_lossy(name_bytes)
@@ -78,7 +78,7 @@ impl Command for KnownExternal {
             ));
         }
 
-        for arg in &call.arguments {
+        for arg in &call.arguments.item {
             match arg {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
                 Argument::Named(named) => {

@@ -1024,7 +1024,7 @@ pub fn parse_alias(
                 // First from comments, if any are present
                 false => working_set.build_usage(&lite_command.comments),
                 // Then from the command itself
-                true => match alias_call.arguments.get(1) {
+                true => match alias_call.arguments.item.get(1) {
                     Some(Argument::Positional(Expression {
                         expr: Expr::Keyword(kw),
                         ..
@@ -1222,7 +1222,10 @@ pub fn parse_export_in_module(
     let mut call = Box::new(Call {
         head: spans[0].id(),
         decl_id: export_decl_id,
-        arguments: vec![],
+        arguments: Spanned {
+            item: vec![],
+            span: spans[0].past().id(),
+        },
         parser_info: HashMap::new(),
     });
 
@@ -2159,13 +2162,21 @@ pub fn parse_module(
         .find_decl(b"module")
         .expect("internal error: missing module command");
 
+    let args_span = span_concat(&[
+        module_name_or_path_expr.get_actual_span(&working_set),
+        block_expr.get_actual_span(&working_set),
+    ]);
+
     let call = Box::new(Call {
         head: span_concat(&spans[..split_id]).id(),
         decl_id: module_decl_id,
-        arguments: vec![
-            Argument::Positional(module_name_or_path_expr),
-            Argument::Positional(block_expr),
-        ],
+        arguments: Spanned {
+            item: vec![
+                Argument::Positional(module_name_or_path_expr),
+                Argument::Positional(block_expr),
+            ],
+            span: args_span.id(),
+        },
         parser_info: HashMap::new(),
     });
 
@@ -2970,10 +2981,18 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[ActualSpan]) -> Pip
                         }
                     }
 
+                    let args_span = span_concat(&[
+                        lvalue.get_actual_span(&working_set),
+                        rvalue.get_actual_span(&working_set),
+                    ]);
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0].id(),
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: Spanned {
+                            item: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            span: args_span.id(),
+                        },
                         parser_info: HashMap::new(),
                     });
 
@@ -3125,10 +3144,18 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[ActualSpan]) -> P
                         }
                     }
 
+                    let args_span = span_concat(&[
+                        lvalue.get_actual_span(&working_set),
+                        rvalue.get_actual_span(&working_set),
+                    ]);
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0].id(),
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: Spanned {
+                            item: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            span: args_span.id(),
+                        },
                         parser_info: HashMap::new(),
                     });
 
@@ -3253,10 +3280,18 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[ActualSpan]) -> Pip
                         }
                     }
 
+                    let args_span = span_concat(&[
+                        lvalue.get_actual_span(&working_set),
+                        rvalue.get_actual_span(&working_set),
+                    ]);
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0].id(),
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: Spanned {
+                            item: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            span: args_span.id(),
+                        },
                         parser_info: HashMap::new(),
                     });
 

@@ -214,7 +214,7 @@ pub fn flatten_expression(
             }
 
             let mut args = vec![];
-            for arg in &call.arguments {
+            for arg in &call.arguments.item {
                 match arg {
                     Argument::Positional(positional) | Argument::Unknown(positional) => {
                         let flattened = flatten_expression(working_set, positional);
@@ -263,7 +263,7 @@ pub fn flatten_expression(
                 }
             }
 
-            for arg in args.as_ref() {
+            for arg in &args.item {
                 //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
                     ExternalArgument::Regular(expr) => match expr {

@@ -49,17 +49,20 @@ pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,
     pub head: FutureSpanId,
-    pub arguments: Vec<Argument>,
+    pub arguments: Spanned<Vec<Argument>>,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
 
 impl Call {
-    pub fn new(head: FutureSpanId) -> Call {
+    pub fn new(head: FutureSpanId, args_span: FutureSpanId) -> Call {
         Self {
             decl_id: 0,
             head,
-            arguments: vec![],
+            arguments: Spanned {
+                item: vec![],
+                span: args_span,
+            },
             parser_info: HashMap::new(),
         }
     }
@@ -70,29 +73,14 @@ impl Call {
     ///
     /// If there are one or more arguments the span encompasses the start of the first argument to
     /// end of the last argument
-    pub fn arguments_span(&self, state: &impl GetSpan) -> FutureSpanId {
-        let past = self.head.past();
-
-        let start = self
-            .arguments
-            .first()
-            .map(|a| a.get_span(state))
-            .unwrap_or(past)
-            .start;
-        let end = self
-            .arguments
-            .last()
-            .map(|a| a.get_span(state))
-            .unwrap_or(past)
-            .end;
-
-        FutureSpanId::new(start, end)
+    pub fn arguments_span(&self) -> FutureSpanId {
+        self.arguments.span
     }
 
     pub fn named_iter(
         &self,
     ) -> impl Iterator<Item = &(Spanned<String>, Option<Spanned<String>>, Option<Expression>)> {
-        self.arguments.iter().filter_map(|arg| match arg {
+        self.arguments.item.iter().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
@@ -104,7 +92,7 @@ impl Call {
         &mut self,
     ) -> impl Iterator<Item = &mut (Spanned<String>, Option<Spanned<String>>, Option<Expression>)>
     {
-        self.arguments.iter_mut().filter_map(|arg| match arg {
+        self.arguments.item.iter_mut().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
@@ -120,23 +108,24 @@ impl Call {
         &mut self,
         named: (Spanned<String>, Option<Spanned<String>>, Option<Expression>),
     ) {
-        self.arguments.push(Argument::Named(named));
+        self.arguments.item.push(Argument::Named(named));
     }
 
     pub fn add_positional(&mut self, positional: Expression) {
-        self.arguments.push(Argument::Positional(positional));
+        self.arguments.item.push(Argument::Positional(positional));
     }
 
     pub fn add_unknown(&mut self, unknown: Expression) {
-        self.arguments.push(Argument::Unknown(unknown));
+        self.arguments.item.push(Argument::Unknown(unknown));
     }
 
     pub fn add_spread(&mut self, args: Expression) {
-        self.arguments.push(Argument::Spread(args));
+        self.arguments.item.push(Argument::Spread(args));
     }
 
     pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
         self.arguments
+            .item
             .iter()
             .take_while(|arg| match arg {
                 Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
@@ -152,6 +141,7 @@ impl Call {
 
     pub fn positional_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
         self.arguments
+            .item
             .iter_mut()
             .take_while(|arg| match arg {
                 Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
@@ -184,6 +174,7 @@ impl Call {
         // todo maybe rewrite to be more elegant or something
         let args = self
             .arguments
+            .item
             .iter()
             .filter_map(|arg| match arg {
                 Argument::Named(_) => None,
@@ -360,7 +351,7 @@ impl Call {
 mod test {
     use super::*;
     use crate::engine::EngineState;
-    use crate::ActualSpan;
+    use crate::{span_concat, ActualSpan};
 
     #[test]
     fn argument_span_named() {
@@ -423,10 +414,17 @@ mod test {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let mut call = Call::new(FutureSpanId::new(0, 1));
-        call.add_positional(Expression::garbage(&mut working_set, ActualSpan::new(2, 3)));
-        call.add_positional(Expression::garbage(&mut working_set, ActualSpan::new(5, 7)));
+        let arg1 = Expression::garbage(&mut working_set, ActualSpan::new(2, 3));
+        let arg2 = Expression::garbage(&mut working_set, ActualSpan::new(5, 7));
+        let args_span = span_concat(&[
+            arg1.get_actual_span(&working_set),
+            arg2.get_actual_span(&working_set),
+        ]);
 
-        assert_eq!(FutureSpanId::new(2, 7), call.arguments_span(&working_set));
+        let mut call = Call::new(FutureSpanId::new(0, 1), args_span.id());
+        call.add_positional(arg1);
+        call.add_positional(arg2);
+
+        assert_eq!(FutureSpanId::new(2, 7), call.arguments_span());
     }
 }

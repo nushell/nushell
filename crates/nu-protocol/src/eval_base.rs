@@ -4,8 +4,8 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, FutureSpanId, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError, Value,
-    VarId,
+    Config, FutureSpanId, GetSpan, IntoInterruptiblePipelineData, Range, Record, ShellError,
+    Spanned, Value, VarId,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -148,7 +148,7 @@ pub trait Eval {
             },
             Expr::Call(call) => Self::eval_call::<D>(state, mut_state, call, expr_span),
             Expr::ExternalCall(head, args) => {
-                Self::eval_external_call(state, mut_state, head, args, expr_span)
+                Self::eval_external_call(state, mut_state, head, Spanned { item: &args.item, span: args.span }, expr_span)
             }
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr_span)
@@ -339,7 +339,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         head: &Expression,
-        args: &[ExternalArgument],
+        args: Spanned<&[ExternalArgument]>,
         span: FutureSpanId,
     ) -> Result<Value, ShellError>;
 

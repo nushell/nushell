@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    FutureSpanId, PipelineData, Type, Value,
+    FutureSpanId, PipelineData, Spanned, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{collections::HashMap, sync::Arc};
@@ -52,16 +52,19 @@ impl Completer for CustomCompletion {
             &Call {
                 decl_id: self.decl_id,
                 head: span,
-                arguments: vec![
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::String(self.line.clone()),
-                        Type::String,
-                    )),
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::Int(line_pos as i64),
-                        Type::Int,
-                    )),
-                ],
+                arguments: Spanned {
+                    item: vec![
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::String(self.line.clone()),
+                            Type::String,
+                        )),
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::Int(line_pos as i64),
+                            Type::Int,
+                        )),
+                    ],
+                    span: FutureSpanId::unknown(),
+                },
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),

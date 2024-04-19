@@ -135,16 +135,6 @@ impl FutureSpanId {
         span.start >= self.start && span.end <= self.end
     }
 
-    /// Point to the space just past this span, useful for missing
-    /// values
-    pub fn past(&self) -> FutureSpanId {
-        FutureSpanId {
-            start: self.end,
-            end: self.end,
-            id: self.id,
-        }
-    }
-
     // TODO SPAN: This will later require engine_state/working_set reference once Span becomes SpanId
     pub fn span(&self) -> ActualSpan {
         ActualSpan::new(self.start, self.end)

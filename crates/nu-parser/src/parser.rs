@@ -11,9 +11,9 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, span_concat, ActualSpan, BlockId,
-    DidYouMean, Flag, FutureSpanId, GetSpan, ParseError, PositionalArg, Signature, Spanned,
-    SyntaxShape, Type, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, span, span_concat, ActualSpan,
+    BlockId, DidYouMean, Flag, FutureSpanId, GetSpan, ParseError, PositionalArg, Signature,
+    Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -296,9 +296,17 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[ActualSpa
         .map(|&span| parse_external_arg(working_set, span))
         .collect();
 
+    let args_span = span_concat(&spans[1..]);
+
     Expression::new(
         working_set,
-        Expr::ExternalCall(head, args),
+        Expr::ExternalCall(
+            head,
+            Spanned {
+                item: args,
+                span: args_span.id(),
+            },
+        ),
         span_concat(spans),
         Type::Any,
     )
@@ -751,7 +759,7 @@ pub fn parse_internal_call(
     trace!("parsing: internal call (decl id: {})", decl_id);
 
     let _ = working_set.add_span(command_span);
-    let mut call = Call::new(command_span.id());
+    let mut call = Call::new(command_span.id(), span_concat(spans).id());
     call.decl_id = decl_id;
     call.head = command_span.id();
 
@@ -1144,10 +1152,14 @@ pub fn parse_call(
                 trace!("parsing: alias of external call");
 
                 let mut final_args = args.clone().into_vec();
+                let mut final_args_spans = vec![args.span];
                 for arg_span in &spans[1..] {
                     let arg = parse_external_arg(working_set, *arg_span);
-                    final_args.push(arg);
+                    final_args.item.push(arg);
+                    final_args_spans.push(arg_span.id());
                 }
+
+                final_args.span = span(&final_args_spans);
 
                 let mut head = head.clone();
                 let new_span_id = working_set.add_span(spans[0]);
@@ -5178,17 +5190,20 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[ActualSpan])
                 env_vars.push(RecordItem::Pair(sh.0, sh.1));
             }
 
+            let span1 = span_concat(&spans[..pos]);
+            let span2 = span_concat(&spans[pos..]);
+
             let arguments = vec![
                 Argument::Positional(Expression::new(
                     working_set,
                     Expr::Record(env_vars),
-                    span_concat(&spans[..pos]),
+                    span1,
                     Type::Any,
                 )),
                 Argument::Positional(Expression::new(
                     working_set,
                     Expr::Closure(block_id),
-                    span_concat(&spans[pos..]),
+                    span2,
                     Type::Closure,
                 )),
             ];
@@ -5196,7 +5211,10 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[ActualSpan])
             let expr = Expr::Call(Box::new(Call {
                 head: FutureSpanId::unknown(),
                 decl_id,
-                arguments,
+                arguments: Spanned {
+                    item: arguments,
+                    span: span_concat(&[span1, span2]).id(),
+                },
                 parser_info: HashMap::new(),
             }));
 
@@ -5963,7 +5981,7 @@ pub fn discover_captures_in_expr(
                 }
             }
 
-            for arg in &call.arguments {
+            for arg in &call.arguments.item {
                 match arg {
                     Argument::Named(named) => {
                         if let Some(arg) = &named.2 {
@@ -5983,7 +6001,7 @@ pub fn discover_captures_in_expr(
         Expr::ExternalCall(head, args) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 
-            for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args.as_ref() {
+            for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in &args.item {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
@@ -6166,6 +6184,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
 
     if let Some(decl_id) = working_set.find_decl(b"collect") {
         let mut output = vec![];
+        let mut output_spans = vec![];
 
         let var_id = IN_VARIABLE_ID;
         let mut signature = Signature::new("");
@@ -6191,11 +6210,12 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             span,
             Type::Any,
         )));
+        output_spans.push(span);
 
         output.push(Argument::Named((
             Spanned {
                 item: "keep-env".to_string(),
-                span: FutureSpanId::new(0, 0),
+                span: FutureSpanId::unknown(),
             },
             None,
             None,
@@ -6208,7 +6228,10 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             working_set,
             Expr::Call(Box::new(Call {
                 head: FutureSpanId::new(0, 0),
-                arguments: output,
+                arguments: Spanned {
+                    item: output,
+                    span: span_concat(&output_spans).id(),
+                },
                 decl_id,
                 parser_info: HashMap::new(),
             })),

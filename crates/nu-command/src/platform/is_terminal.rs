@@ -59,6 +59,7 @@ impl Command for IsTerminal {
             _ => {
                 let spans: Vec<_> = call
                     .arguments
+                    .item
                     .iter()
                     .map(|arg| arg.get_span(engine_state))
                     .collect();

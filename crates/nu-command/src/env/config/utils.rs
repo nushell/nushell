@@ -27,7 +27,10 @@ pub(crate) fn gen_command(
 
     ExternalCommand {
         name,
-        args,
+        args: Spanned {
+            item: args,
+            span: FutureSpanId::unknown(),
+        },
         arg_keep_raw: vec![false; number_of_args],
         out: OutDest::Inherit,
         err: OutDest::Inherit,

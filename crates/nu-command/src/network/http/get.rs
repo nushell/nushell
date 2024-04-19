@@ -193,6 +193,7 @@ fn helper(
         engine_state,
         stack,
         span,
+        call.arguments_span(),
         &requested_url,
         request_flags,
         response,

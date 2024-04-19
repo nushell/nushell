@@ -598,9 +598,9 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
 
     if let Expr::Call(call) = &element.expr.expr {
         assert_eq!(call.decl_id, 0);
-        assert_eq!(call.arguments.len(), 2);
-        matches!(call.arguments[0], Argument::Named((_, None, None)));
-        matches!(call.arguments[1], Argument::Named((_, None, Some(_))));
+        assert_eq!(call.arguments.item.len(), 2);
+        matches!(call.arguments.item[0], Argument::Named((_, None, None)));
+        matches!(call.arguments.item[1], Argument::Named((_, None, Some(_))));
     }
 }
 
@@ -1622,7 +1622,7 @@ mod input_types {
         assert!(pipeline.elements[3].redirection.is_none());
         match &pipeline.elements[3].expr.expr {
             Expr::Call(call) => {
-                let arg = &call.arguments[0];
+                let arg = &call.arguments.item[0];
                 match arg {
                     Argument::Positional(a) => match &a.expr {
                         Expr::FullCellPath(path) => match &path.head.expr {

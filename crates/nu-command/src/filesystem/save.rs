@@ -296,6 +296,7 @@ fn input_to_bytes(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: FutureSpanId,
+    args_span: FutureSpanId,
 ) -> Result<Vec<u8>, ShellError> {
     let ext = if raw {
         None
@@ -310,7 +311,7 @@ fn input_to_bytes(
     };
 
     if let Some(ext) = ext {
-        convert_to_extension(engine_state, &ext, stack, input, span)
+        convert_to_extension(engine_state, &ext, stack, input, span, args_span)
     } else {
         let value = input.into_value(span);
         value_to_bytes(value)
@@ -326,6 +327,7 @@ fn convert_to_extension(
     stack: &mut Stack,
     input: PipelineData,
     span: FutureSpanId,
+    args_span: FutureSpanId,
 ) -> Result<Vec<u8>, ShellError> {
     let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
 
@@ -334,7 +336,7 @@ fn convert_to_extension(
             let output = engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
-                &Call::new(span),
+                &Call::new(span, args_span),
                 input,
             )?;
 

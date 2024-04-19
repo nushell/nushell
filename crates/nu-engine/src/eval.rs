@@ -213,7 +213,7 @@ fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
     head: &Expression,
-    args: &[ExternalArgument],
+    args: Spanned<&[ExternalArgument]>,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
@@ -224,11 +224,11 @@ fn eval_external(
 
     let command = engine_state.get_decl(decl_id);
 
-    let mut call = Call::new(head.get_span(engine_state));
+    let mut call = Call::new(head.get_span(engine_state), args.span);
 
     call.add_positional(head.clone());
 
-    for arg in args {
+    for arg in args.item {
         match arg {
             ExternalArgument::Regular(expr) => call.add_positional(expr.clone()),
             ExternalArgument::Spread(expr) => call.add_spread(expr.clone()),
@@ -264,7 +264,16 @@ pub fn eval_expression_with_input<D: DebugContext>(
             input = eval_call::<D>(engine_state, stack, call, input)?;
         }
         Expr::ExternalCall(head, args) => {
-            input = eval_external(engine_state, stack, head, args, input)?;
+            input = eval_external(
+                engine_state,
+                stack,
+                head,
+                Spanned {
+                    item: &args.item,
+                    span: args.span,
+                },
+                input,
+            )?;
         }
 
         Expr::Subexpression(block_id) => {
@@ -684,7 +693,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         head: &Expression,
-        args: &[ExternalArgument],
+        args: Spanned<&[ExternalArgument]>,
         _: FutureSpanId,
     ) -> Result<Value, ShellError> {
         let span = head.get_span(engine_state);

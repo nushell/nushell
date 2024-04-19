@@ -410,7 +410,7 @@ fn find_matching_block_end_in_expr(
             }
 
             Expr::Call(call) => {
-                for arg in &call.arguments {
+                for arg in &call.arguments.item {
                     let opt_expr = match arg {
                         Argument::Named((_, _, opt_expr)) => opt_expr.as_ref(),
                         Argument::Positional(inner_expr) => Some(inner_expr),

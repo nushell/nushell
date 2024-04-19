@@ -139,7 +139,10 @@ pub fn create_external_command(
 
     Ok(ExternalCommand {
         name,
-        args: spanned_args,
+        args: Spanned {
+            item: spanned_args,
+            span: call.arguments_span(),
+        },
         arg_keep_raw,
         out: stack.stdout().clone(),
         err: stack.stderr().clone(),
@@ -150,7 +153,7 @@ pub fn create_external_command(
 #[derive(Clone)]
 pub struct ExternalCommand {
     pub name: Spanned<String>,
-    pub args: Vec<Spanned<String>>,
+    pub args: Spanned<Vec<Spanned<String>>>,
     pub arg_keep_raw: Vec<bool>,
     pub out: OutDest,
     pub err: OutDest,
@@ -377,6 +380,7 @@ impl ExternalCommand {
                 if !input.is_nothing() {
                     let mut engine_state = engine_state.clone();
                     let mut stack = stack.clone();
+                    let args_span = self.args.span;
 
                     // Turn off color as we pass data through
                     Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
@@ -401,7 +405,7 @@ impl ExternalCommand {
                                         crate::Table.run(
                                             &engine_state,
                                             stack,
-                                            &Call::new(head),
+                                            &Call::new(head, args_span),
                                             input,
                                         )
                                     }
@@ -607,7 +611,7 @@ impl ExternalCommand {
 
         let mut process = std::process::Command::new(head);
 
-        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
+        for (arg, arg_keep_raw) in self.args.item.iter().zip(self.arg_keep_raw.iter()) {
             trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
         }
 
@@ -625,7 +629,7 @@ impl ExternalCommand {
 
         process.arg("/c");
         process.arg(&self.name.item);
-        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
+        for (arg, arg_keep_raw) in self.args.item.iter().zip(self.arg_keep_raw.iter()) {
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
             let arg = Spanned {
