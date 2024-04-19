@@ -3,8 +3,8 @@ use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
-    engine::{Stack, StateWorkingSet, VirtualPath},
-    report_error, PipelineData, Span,
+    engine::{FileStack, Stack, StateWorkingSet, VirtualPath},
+    report_error, PipelineData,
 };
 use std::path::PathBuf;
 
@@ -71,10 +71,7 @@ use std pwd
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
         let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
-        working_set
-            .files
-            .push(placeholder, Span::unknown())
-            .expect("placeholder name is unique");
+        working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(
             &mut working_set,
