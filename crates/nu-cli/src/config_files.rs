@@ -108,9 +108,9 @@ pub fn eval_config_contents(
         let config_filename = config_path.to_string_lossy();
 
         if let Ok(contents) = std::fs::read(&config_path) {
-            // Change currently parsed directory
-            let prev_currently_parsed_cwd = engine_state.currently_parsed_cwd.clone();
-            engine_state.start_in_file(Some(&config_filename));
+            // Set the current active file to the config file.
+            let prev_file = engine_state.file.take();
+            engine_state.file = Some(config_path.clone());
 
             eval_source(
                 engine_state,
@@ -121,8 +121,8 @@ pub fn eval_config_contents(
                 false,
             );
 
-            // Restore the currently parsed directory back
-            engine_state.currently_parsed_cwd = prev_currently_parsed_cwd;
+            // Restore the current active file.
+            engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
             match nu_engine::env::current_dir(engine_state, stack) {
