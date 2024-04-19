@@ -1108,7 +1108,11 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
 ///
 /// The current active file is on the top of the stack.
 /// When a file source/import another file, the new file is pushed onto the stack.
-/// Attempting to add files that are already in the stack (circular source/import) results in an error.
+/// Attempting to add files that are already in the stack (circular import) results in an error.
+///
+/// Note that file paths are compared without canonicalization, so the same
+/// physical file may still appear multiple times under different paths.
+/// This doesn't affact circular import detection though.
 #[derive(Debug, Default)]
 pub struct FileStack(Vec<PathBuf>);
 
@@ -1129,7 +1133,6 @@ impl FileStack {
     /// Adds a file to the stack.
     ///
     /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
-    /// Note that paths are compared without canonicalization, so the same file may be added twice under different paths.
     pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
         // Check for circular import.
         if let Some(i) = self.0.iter().rposition(|p| p == &path) {
@@ -1156,7 +1159,8 @@ impl FileStack {
         self.0.last().map(PathBuf::as_path)
     }
 
-    /// Returns the parent directory of the active file, or None if the stack is empty or the active file doesn't have a parent.
+    /// Returns the parent directory of the active file, or None if the stack is empty
+    /// or the active file doesn't have a parent directory as part of its path.
     pub fn current_working_directory(&self) -> Option<&Path> {
         self.0.last().and_then(|path| path.parent())
     }
