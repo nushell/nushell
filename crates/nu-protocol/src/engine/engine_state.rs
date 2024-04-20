@@ -953,6 +953,49 @@ impl EngineState {
             .unwrap_or_default()
     }
 
+    /// Returns the current working directory, which is guaranteed to be an absolute path
+    /// but might contain symlink components.
+    ///
+    /// If `stack` is supplied, also considers modifications to the working directory on the stack
+    /// that have yet to be merged into the engine state.
+    ///
+    /// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+    pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
+        // Helper function to create a simple generic error.
+        // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
+        fn error(msg: &str) -> Result<PathBuf, ShellError> {
+            Err(ShellError::GenericError {
+                error: msg.into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+        }
+
+        // Retrive $env.PWD from the stack or the engine state.
+        let pwd = if let Some(stack) = stack {
+            stack.get_env_var(self, "PWD")
+        } else {
+            self.get_env_var("PWD").map(ToOwned::to_owned)
+        };
+
+        if let Some(pwd) = pwd {
+            if let Value::String { val, .. } = pwd {
+                let path = PathBuf::from(val);
+                if path.is_absolute() {
+                    Ok(path)
+                } else {
+                    error("$env.PWD is not an absolute path")
+                }
+            } else {
+                error("$env.PWD is not a string")
+            }
+        } else {
+            error("$env.PWD not found")
+        }
+    }
+
     // TODO: see if we can completely get rid of this
     pub fn get_file_contents(&self) -> &[CachedFile] {
         &self.files
