@@ -18,7 +18,7 @@ pub enum ToStyle {
     /// tabulation-based indentation
     ///
     /// using 2 as the variant value, `{ a: 1, b: 2 }` will be converted to
-    /// ```
+    /// ```text
     /// {
     /// 		a: 1,
     /// 		b: 2
@@ -28,7 +28,7 @@ pub enum ToStyle {
     /// space-based indentation
     ///
     /// using 3 as the variant value, `{ a: 1, b: 2 }` will be converted to
-    /// ```
+    /// ```text
     /// {
     ///    a: 1,
     ///    b: 2
