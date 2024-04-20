@@ -36,14 +36,14 @@ impl Command for Collect {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let block = engine_state.get_block(capture_block.block_id).clone();
+        let block = engine_state.get_block(closure.block_id);
         let mut stack_captures =
-            stack.captures_to_stack_preserve_out_dest(capture_block.captures.clone());
+            stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         let metadata = input.metadata();
-        let input: Value = input.into_value(call.head);
+        let input = input.into_value(call.head);
 
         let mut saved_positional = None;
         if let Some(var) = block.signature.get_positional(0) {
@@ -58,7 +58,7 @@ impl Command for Collect {
         let result = eval_block(
             engine_state,
             &mut stack_captures,
-            &block,
+            block,
             input.into_pipeline_data(),
         )
         .map(|x| x.set_metadata(metadata));
@@ -67,7 +67,7 @@ impl Command for Collect {
             redirect_env(engine_state, stack, &stack_captures);
             // for when we support `data | let x = $in;`
             // remove the variables added earlier
-            for (var_id, _) in capture_block.captures {
+            for (var_id, _) in closure.captures {
                 stack_captures.remove_var(var_id);
             }
             if let Some(u) = saved_positional {
