@@ -25,7 +25,7 @@ impl Encoder<PluginInput> for MsgPackSerializer {
         plugin_input: &PluginInput,
         writer: &mut impl std::io::Write,
     ) -> Result<(), nu_protocol::ShellError> {
-        rmp_serde::encode::write(writer, plugin_input).map_err(rmp_encode_err)
+        rmp_serde::encode::write_named(writer, plugin_input).map_err(rmp_encode_err)
     }
 
     fn decode(
@@ -45,7 +45,7 @@ impl Encoder<PluginOutput> for MsgPackSerializer {
         plugin_output: &PluginOutput,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError> {
-        rmp_serde::encode::write(writer, plugin_output).map_err(rmp_encode_err)
+        rmp_serde::encode::write_named(writer, plugin_output).map_err(rmp_encode_err)
     }
 
     fn decode(

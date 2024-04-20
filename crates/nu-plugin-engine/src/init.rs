@@ -44,7 +44,10 @@ pub fn create_command(
                     Some(Path::new("sh"))
                 }
             }
-            Some("nu") => Some(Path::new("nu")),
+            Some("nu") => {
+                shell_args.push("--stdin");
+                Some(Path::new("nu"))
+            }
             Some("py") => Some(Path::new("python")),
             Some("rb") => Some(Path::new("ruby")),
             Some("jar") => {

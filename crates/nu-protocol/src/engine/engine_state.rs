@@ -98,8 +98,8 @@ pub struct EngineState {
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
-    // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
-    pub currently_parsed_cwd: Option<PathBuf>,
+    // Path to the file Nushell is currently evaluating, or None if we're in an interactive session.
+    pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
@@ -161,7 +161,7 @@ impl EngineState {
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
-            currently_parsed_cwd: None,
+            file: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
@@ -269,7 +269,9 @@ impl EngineState {
         #[cfg(feature = "plugin")]
         if delta.plugins_changed {
             // Update the plugin file with the new signatures.
-            self.update_plugin_file()?;
+            if self.plugin_signatures.is_some() {
+                self.update_plugin_file()?;
+            }
         }
 
         Ok(())
@@ -320,15 +322,6 @@ impl EngineState {
         }
 
         Ok(())
-    }
-
-    /// Mark a starting point if it is a script (e.g., nu spam.nu)
-    pub fn start_in_file(&mut self, file_path: Option<&str>) {
-        self.currently_parsed_cwd = if let Some(path) = file_path {
-            Path::new(path).parent().map(PathBuf::from)
-        } else {
-            None
-        };
     }
 
     pub fn has_overlay(&self, name: &[u8]) -> bool {

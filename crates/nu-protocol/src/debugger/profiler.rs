@@ -253,7 +253,6 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Record(_) => "record".to_string(),
         Expr::RowCondition(_) => "row condition".to_string(),
         Expr::Signature(_) => "signature".to_string(),
-        Expr::Spread(_) => "spread".to_string(),
         Expr::String(_) => "string".to_string(),
         Expr::StringInterpolation(_) => "string interpolation".to_string(),
         Expr::Subexpression(_) => "subexpression".to_string(),

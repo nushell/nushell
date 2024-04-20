@@ -121,7 +121,7 @@ def process_call(id, plugin_call):
     sys.stderr.write("\n")
 
     # Get the span from the call
-    span = plugin_call["Run"]["call"]["head"]
+    span = plugin_call["call"]["head"]
 
     # Creates a Value of type List that will be encoded and sent to Nushell
     f = lambda x, y: {
@@ -194,16 +194,25 @@ def write_response(id, response):
     sys.stdout.flush()
 
 
-def write_error(id, msg, span=None):
+def write_error(id, text, span=None):
     """
     Use this error format to send errors to nushell in response to a plugin call. The ID of the
     plugin call is required.
     """
     error = {
         "Error": {
-            "label": "ERROR from plugin",
-            "msg": msg,
-            "span": span
+            "msg": "ERROR from plugin",
+            "labels": [
+                {
+                    "text": text,
+                    "span": span,
+                }
+            ],
+        }
+    } if span is not None else {
+        "Error": {
+            "msg": "ERROR from plugin",
+            "help": text,
         }
     }
     write_response(id, error)
@@ -216,13 +225,13 @@ def handle_input(input):
         else:
             return
     elif input == "Goodbye":
-        return
+        exit(0)
     elif "Call" in input:
         [id, plugin_call] = input["Call"]
-        if "Signature" in plugin_call:
+        if plugin_call == "Signature":
             write_response(id, signatures())
         elif "Run" in plugin_call:
-            process_call(id, plugin_call)
+            process_call(id, plugin_call["Run"])
         else:
             write_error(id, "Operation not supported: " + str(plugin_call))
     else:

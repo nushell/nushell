@@ -74,7 +74,8 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let nu_prompt = NushellPrompt::new(config.shell_integration);
+    let shell_integration = config.shell_integration;
+    let nu_prompt = NushellPrompt::new(shell_integration);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -114,6 +115,11 @@ pub fn evaluate_repl(
         engine_state.merge_env(&mut unique_stack, cwd)?;
     }
 
+    let hostname = System::host_name();
+    if shell_integration {
+        shell_integration_osc_7_633_2(hostname.as_deref(), engine_state, &mut unique_stack);
+    }
+
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
@@ -147,7 +153,7 @@ pub fn evaluate_repl(
         let temp_file_cloned = temp_file.clone();
         let mut nu_prompt_cloned = nu_prompt.clone();
 
-        let iteration_panic_state = catch_unwind(AssertUnwindSafe(move || {
+        let iteration_panic_state = catch_unwind(AssertUnwindSafe(|| {
             let (continue_loop, current_stack, line_editor) = loop_iteration(LoopContext {
                 engine_state: &mut current_engine_state,
                 stack: current_stack,
@@ -156,6 +162,7 @@ pub fn evaluate_repl(
                 temp_file: &temp_file_cloned,
                 use_color,
                 entry_num: &mut entry_num,
+                hostname: hostname.as_deref(),
             });
 
             // pass the most recent version of the line_editor back
@@ -232,6 +239,7 @@ struct LoopContext<'a> {
     temp_file: &'a Path,
     use_color: bool,
     entry_num: &'a mut usize,
+    hostname: Option<&'a str>,
 }
 
 /// Perform one iteration of the REPL loop
@@ -250,6 +258,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         temp_file,
         use_color,
         entry_num,
+        hostname,
     } = ctx;
 
     let cwd = get_guaranteed_cwd(engine_state, &stack);
@@ -520,14 +529,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let line_editor_input_time = std::time::Instant::now();
     match input {
         Ok(Signal::Success(s)) => {
-            let hostname = System::host_name();
             let history_supports_meta = matches!(
                 engine_state.history_config().map(|h| h.file_format),
                 Some(HistoryFileFormat::Sqlite)
             );
 
             if history_supports_meta {
-                prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor);
+                prepare_history_metadata(&s, hostname, engine_state, &mut line_editor);
             }
 
             // For pre_exec_hook
@@ -658,7 +666,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             if shell_integration {
                 start_time = Instant::now();
 
-                do_shell_integration_finalize_command(hostname, engine_state, &mut stack);
+                shell_integration_osc_7_633_2(hostname, engine_state, &mut stack);
 
                 perf(
                     "shell_integration_finalize ansi escape sequences",
@@ -759,7 +767,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 ///
 fn prepare_history_metadata(
     s: &str,
-    hostname: &Option<String>,
+    hostname: Option<&str>,
     engine_state: &EngineState,
     line_editor: &mut Reedline,
 ) {
@@ -767,7 +775,7 @@ fn prepare_history_metadata(
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
-                c.hostname.clone_from(hostname);
+                c.hostname = hostname.map(str::to_string);
 
                 c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                 c
@@ -1014,10 +1022,11 @@ fn do_run_cmd(
 
 ///
 /// Output some things and set environment variables so shells with the right integration
-/// can have more information about what is going on (after we have run a command)
+/// can have more information about what is going on (both on startup and after we have
+/// run a command)
 ///
-fn do_shell_integration_finalize_command(
-    hostname: Option<String>,
+fn shell_integration_osc_7_633_2(
+    hostname: Option<&str>,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) {
@@ -1037,7 +1046,7 @@ fn do_shell_integration_finalize_command(
                     run_ansi_sequence(&format!(
                         "\x1b]7;file://{}{}{}\x1b\\",
                         percent_encoding::utf8_percent_encode(
-                            &hostname.unwrap_or_else(|| "localhost".to_string()),
+                            hostname.unwrap_or("localhost"),
                             percent_encoding::CONTROLS
                         ),
                         if path.starts_with('/') { "" } else { "/" },
