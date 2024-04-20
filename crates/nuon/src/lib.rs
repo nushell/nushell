@@ -9,13 +9,14 @@ mod to;
 
 pub use from::from_nuon;
 pub use to::to_nuon;
+pub use to::ToStyle;
 
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
     use nu_protocol::{ast::RangeInclusion, engine::Closure, record, IntRange, Range, Span, Value};
 
-    use crate::{from_nuon, to_nuon};
+    use crate::{from_nuon, to_nuon, ToStyle};
 
     /// test something of the form
     /// ```nushell
@@ -29,7 +30,7 @@ mod tests {
         if let Some(m) = middle {
             assert_eq!(val, m);
         }
-        assert_eq!(to_nuon(&val, true, None, None, None).unwrap(), input);
+        assert_eq!(to_nuon(&val, ToStyle::Raw, None).unwrap(), input);
     }
 
     #[test]
@@ -178,9 +179,7 @@ mod tests {
                 block_id: 0,
                 captures: vec![]
             }),
-            true,
-            None,
-            None,
+            ToStyle::Raw,
             None,
         )
         .unwrap_err()
@@ -199,14 +198,7 @@ mod tests {
     #[test]
     fn binary_roundtrip() {
         assert_eq!(
-            to_nuon(
-                &from_nuon("0x[1f ff]", None).unwrap(),
-                true,
-                None,
-                None,
-                None
-            )
-            .unwrap(),
+            to_nuon(&from_nuon("0x[1f ff]", None).unwrap(), ToStyle::Raw, None).unwrap(),
             "0x[1FFF]"
         );
     }
@@ -247,7 +239,7 @@ mod tests {
     #[test]
     fn float_doesnt_become_int() {
         assert_eq!(
-            to_nuon(&Value::test_float(1.0), true, None, None, None).unwrap(),
+            to_nuon(&Value::test_float(1.0), ToStyle::Raw, None).unwrap(),
             "1.0"
         );
     }
@@ -255,7 +247,7 @@ mod tests {
     #[test]
     fn float_inf_parsed_properly() {
         assert_eq!(
-            to_nuon(&Value::test_float(f64::INFINITY), true, None, None, None).unwrap(),
+            to_nuon(&Value::test_float(f64::INFINITY), ToStyle::Raw, None).unwrap(),
             "inf"
         );
     }
@@ -263,14 +255,7 @@ mod tests {
     #[test]
     fn float_neg_inf_parsed_properly() {
         assert_eq!(
-            to_nuon(
-                &Value::test_float(f64::NEG_INFINITY),
-                true,
-                None,
-                None,
-                None
-            )
-            .unwrap(),
+            to_nuon(&Value::test_float(f64::NEG_INFINITY), ToStyle::Raw, None).unwrap(),
             "-inf"
         );
     }
@@ -278,7 +263,7 @@ mod tests {
     #[test]
     fn float_nan_parsed_properly() {
         assert_eq!(
-            to_nuon(&Value::test_float(-f64::NAN), true, None, None, None).unwrap(),
+            to_nuon(&Value::test_float(-f64::NAN), ToStyle::Raw, None).unwrap(),
             "NaN"
         );
     }
@@ -299,9 +284,7 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                true,
-                None,
-                None,
+                ToStyle::Raw,
                 None
             )
             .unwrap(),
@@ -312,7 +295,7 @@ mod tests {
 
     #[test]
     fn to_nuon_quotes_empty_string() {
-        let res = to_nuon(&Value::test_string(""), true, None, None, None);
+        let res = to_nuon(&Value::test_string(""), ToStyle::Raw, None);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), r#""""#);
     }
@@ -358,9 +341,7 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                true,
-                None,
-                None,
+                ToStyle::Raw,
                 None
             )
             .unwrap(),
@@ -373,9 +354,7 @@ mod tests {
                     "ro name" => Value::test_string("sam"),
                     "rank" => Value::test_int(10)
                 )),
-                true,
-                None,
-                None,
+                ToStyle::Raw,
                 None
             )
             .unwrap(),
