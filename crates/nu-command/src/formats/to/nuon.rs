@@ -42,14 +42,38 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let style = if call.has_flag(engine_state, stack, "raw")? {
-            nuon::ToStyle::Raw
-        } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
-            nuon::ToStyle::Tabs(t)
-        } else if let Some(i) = call.get_flag(engine_state, stack, "indent")? {
-            nuon::ToStyle::Spaces(i)
-        } else {
-            nuon::ToStyle::Raw
+        let raw_flag = call.has_flag(engine_state, stack, "raw")?;
+        let tabs_flag = call.get_flag(engine_state, stack, "tabs")?;
+        let indent_flag = call.get_flag(engine_state, stack, "indent")?;
+        let style = match (raw_flag, tabs_flag, indent_flag) {
+            (true, None, None) => nuon::ToStyle::Raw,
+            (false, None, None) => nuon::ToStyle::Raw,
+            (false, None, Some(indent)) => nuon::ToStyle::Spaces(indent),
+            (false, Some(n_tabs), None) => nuon::ToStyle::Tabs(n_tabs),
+            (true, None, Some(_)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "can't use `--indent` at the same time".into(),
+                    left_span: call.get_named_arg("indent").expect("has flag").span,
+                    right_message: "because of `--raw`".into(),
+                    right_span: call.get_named_arg("raw").expect("has flag").span,
+                });
+            }
+            (true, Some(_), _) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "can't use `--tabs` at the same time".into(),
+                    left_span: call.get_named_arg("tabs").expect("has flag").span,
+                    right_message: "because of `--raw`".into(),
+                    right_span: call.get_named_arg("raw").expect("has flag").span,
+                });
+            }
+            (false, Some(_), Some(_)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "can't use `--indent` at the same time".into(),
+                    left_span: call.get_named_arg("indent").expect("has flag").span,
+                    right_message: "because of `--tabs`".into(),
+                    right_span: call.get_named_arg("tabs").expect("has flag").span,
+                });
+            }
         };
 
         let span = call.head;
