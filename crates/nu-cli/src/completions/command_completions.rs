@@ -186,13 +186,25 @@ impl Completer for CommandCompletion {
 
         // The last item here would be the earliest shape that could possible by part of this subcommand
         let subcommands = if let Some(last) = last {
-            self.complete_commands(
-                working_set,
-                Span::new(last.0.start, pos),
-                offset,
-                false,
-                options.match_algorithm,
-            )
+            // we'll check if start of span is greater than offset, to prevent panic
+            // else we can use the start and end values from last and use that.
+            if last.0.start >= offset {
+                self.complete_commands(
+                    working_set,
+                    Span::new(last.0.start, pos),
+                    offset,
+                    false,
+                    options.match_algorithm,
+                )
+            } else {
+                self.complete_commands(
+                    working_set,
+                    Span::new(last.0.start, last.0.end),
+                    offset,
+                    false,
+                    options.match_algorithm,
+                )
+            }
         } else {
             vec![]
         };
