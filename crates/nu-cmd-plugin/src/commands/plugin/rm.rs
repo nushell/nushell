@@ -62,7 +62,7 @@ fixed with `plugin add`.
                 result: None,
             },
             Example {
-                example: "plugin rm --plugin-config=polars.msgpackz polars",
+                example: "plugin rm --plugin-config polars.msgpackz polars",
                 description: "Remove the installed signatures for the `polars` plugin from the \"polars.msgpackz\" plugin cache file.",
                 result: None,
             },

@@ -180,9 +180,12 @@ fn warning_on_invalid_plugin_item() {
             .current_dir(dirs.test())
             .args([
                 "--no-std-lib",
-                "--config=config.nu",
-                "--env-config=env.nu",
-                "--plugin-config=test-plugin-file.msgpackz",
+                "--config",
+                "config.nu",
+                "--env-config",
+                "env.nu",
+                "--plugin-config",
+                "test-plugin-file.msgpackz",
                 "--commands",
                 "plugin list | get name | to json --raw",
             ])

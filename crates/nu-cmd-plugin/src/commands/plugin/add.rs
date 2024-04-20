@@ -65,7 +65,7 @@ apparent the next time `nu` is next launched with that plugin cache file.
                 result: None,
             },
             Example {
-                example: "plugin add --plugin-config=polars.msgpackz nu_plugin_polars",
+                example: "plugin add --plugin-config polars.msgpackz nu_plugin_polars",
                 description: "Run the `nu_plugin_polars` plugin from the current directory or $env.NU_PLUGIN_DIRS, and install its signatures to the \"polars.msgpackz\" plugin cache file.",
                 result: None,
             },
