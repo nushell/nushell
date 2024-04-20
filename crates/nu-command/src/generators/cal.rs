@@ -77,7 +77,7 @@ impl Command for Cal {
             },
             Example {
                 description: "This month's calendar with the week starting on monday",
-                example: "cal --week-start monday",
+                example: "cal --week-start mo",
                 result: None,
             },
         ]
@@ -269,7 +269,7 @@ fn add_month_to_table(
             week_start_day = s.to_string();
         } else {
             return Err(ShellError::TypeMismatch {
-                err_message: "The specified week start day is invalid".to_string(),
+                err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
                 span: day.span,
             });
         }
