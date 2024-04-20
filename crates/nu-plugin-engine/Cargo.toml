@@ -18,7 +18,7 @@ nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.92.3" }
 nu-plugin-core = { path = "../nu-plugin-core", version = "0.92.3", default-features = false }
 
 serde = { workspace = true }
-log = "0.4"
+log = { workspace = true }
 
 [dev-dependencies]
 typetag = "0.2"

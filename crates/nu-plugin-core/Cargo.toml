@@ -14,11 +14,11 @@ bench = false
 nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
 nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.92.3" }
 
-rmp-serde = "1.2"
+rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-log = "0.4"
-interprocess = { version = "1.2.1", optional = true }
+log = { workspace = true }
+interprocess = { workspace = true, optional = true }
 
 [features]
 default = ["local-socket"]

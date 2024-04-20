@@ -16,4 +16,4 @@ bench = false
 # assumptions about the serialized format
 serde = { workspace = true }
 serde_json = { workspace = true }
-interprocess = "1.2.1"
+interprocess = { workspace = true }

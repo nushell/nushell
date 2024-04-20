@@ -16,7 +16,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
 nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.92.3" }
 nu-plugin-core = { path = "../nu-plugin-core", version = "0.92.3", default-features = false }
 
-log = "0.4"
+log = { workspace = true }
 thiserror = "1.0"
 
 [dev-dependencies]
