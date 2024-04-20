@@ -14,6 +14,7 @@ pub enum ToStyle {
     ///
     /// `{ a: 1, b: 2 }` will be converted to `{: 1, b: 2}`
     Raw,
+    #[allow(clippy::tabs_in_doc_comments)]
     /// tabulation-based indentation
     ///
     /// using 2 as the variant value, `{ a: 1, b: 2 }` will be converted to
