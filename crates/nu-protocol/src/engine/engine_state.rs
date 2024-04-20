@@ -928,14 +928,6 @@ impl EngineState {
         self.num_files() - 1
     }
 
-    pub fn get_cwd(&self) -> Option<String> {
-        if let Some(pwd_value) = self.get_env_var(PWD_ENV) {
-            pwd_value.coerce_string().ok()
-        } else {
-            None
-        }
-    }
-
     pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
         self.config_path.insert(key.to_string(), val);
     }
