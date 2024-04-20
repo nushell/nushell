@@ -56,7 +56,7 @@ impl Command for Version {
 }
 
 pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
-    // Pre-allocate the arrays in the worst case (12 items):
+    // Pre-allocate the arrays in the worst case (13 items):
     // - version
     // - branch
     // - commit_hash
@@ -66,9 +66,10 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     // - cargo_version
     // - build_time
     // - build_rust_channel
+    // - allocator
     // - features
     // - installed_plugins
-    let mut record = Record::with_capacity(12);
+    let mut record = Record::with_capacity(13);
 
     record.push(
         "version",
