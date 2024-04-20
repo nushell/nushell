@@ -19,7 +19,7 @@ pub(crate) fn modify_plugin_file(
             .plugin_path
             .clone()
             .ok_or_else(|| ShellError::GenericError {
-                error: "Plugin signature file not set".into(),
+                error: "Plugin cache file not set".into(),
                 msg: "pass --plugin-config explicitly here".into(),
                 span: Some(span),
                 help: Some("you may be running `nu` with --no-config-file".into()),

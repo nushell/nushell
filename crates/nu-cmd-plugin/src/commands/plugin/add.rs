@@ -21,7 +21,7 @@ impl Command for PluginAdd {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin signature file other than the one set in `$nu.plugin-path`",
+                "Use a plugin cache file other than the one set in `$nu.plugin-path`",
                 None,
             )
             .named(
@@ -39,7 +39,7 @@ impl Command for PluginAdd {
     }
 
     fn usage(&self) -> &str {
-        "Add a plugin to the plugin signature file."
+        "Add a plugin to the plugin cache file."
     }
 
     fn extra_usage(&self) -> &str {
@@ -47,8 +47,8 @@ impl Command for PluginAdd {
 This does not load the plugin commands into the scope - see `register` for that.
 
 Instead, it runs the plugin to get its command signatures, and then edits the
-plugin signature file (by default, `$nu.plugin-path`). The changes will be
-apparent the next time `nu` is next launched with that plugin signature file.
+plugin cache file (by default, `$nu.plugin-path`). The changes will be
+apparent the next time `nu` is next launched with that plugin cache file.
 "#
         .trim()
     }
@@ -66,7 +66,7 @@ apparent the next time `nu` is next launched with that plugin signature file.
             },
             Example {
                 example: "plugin add --plugin-config=polars.msgpackz nu_plugin_polars",
-                description: "Run the `nu_plugin_polars` plugin from the current directory or $env.NU_PLUGIN_DIRS, and install its signatures to the \"polars.msgpackz\" plugin signature file.",
+                description: "Run the `nu_plugin_polars` plugin from the current directory or $env.NU_PLUGIN_DIRS, and install its signatures to the \"polars.msgpackz\" plugin cache file.",
                 result: None,
             },
         ]

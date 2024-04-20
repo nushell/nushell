@@ -28,7 +28,7 @@ pub fn read_plugin_file(
     let span = plugin_file.as_ref().map(|s| s.span);
 
     let mut start_time = std::time::Instant::now();
-    // Reading signatures from signature file
+    // Reading signatures from plugin cache file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file, storage_path);
     perf(
