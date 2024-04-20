@@ -365,7 +365,7 @@ impl LanguageServer {
                 }
 
                 // Usage
-                description.push_str("### Usage \n```\n");
+                description.push_str("### Usage \n```nu\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -472,7 +472,7 @@ impl LanguageServer {
                 // Input/output types
                 if !signature.input_output_types.is_empty() {
                     description.push_str("\n### Input/output types\n");
-                    description.push_str("\n```\n");
+                    description.push_str("\n```nu\n");
                     for input_output in &signature.input_output_types {
                         description
                             .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
@@ -485,7 +485,7 @@ impl LanguageServer {
                     description.push_str("### Example(s)\n");
                     for example in decl.examples() {
                         description.push_str(&format!(
-                            "  {}\n```\n  {}\n```\n",
+                            "  {}\n```nu\n  {}\n```\n",
                             example.description, example.example
                         ));
                     }
