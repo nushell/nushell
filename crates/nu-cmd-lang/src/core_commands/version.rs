@@ -58,11 +58,12 @@ impl Command for Version {
 }
 
 pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
-    // Pre-allocate the arrays in the worst case (16 items):
+    // Pre-allocate the arrays in the worst case (17 items):
     // - version
     // - major
     // - minor
     // - patch
+    // - pre
     // - branch
     // - commit_hash
     // - build_os
@@ -74,7 +75,7 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     // - allocator
     // - features
     // - installed_plugins
-    let mut record = Record::with_capacity(16);
+    let mut record = Record::with_capacity(17);
 
     record.push(
         "version",
@@ -82,6 +83,11 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     );
 
     push_version_numbers(&mut record, call.head);
+
+    let version_pre = Some(build::PKG_VERSION_PRE).filter(|x| !x.is_empty());
+    if let Some(version_pre) = version_pre {
+        record.push("pre", Value::string(version_pre, call.head));
+    }
 
     record.push("branch", Value::string(build::BRANCH, call.head));
 
