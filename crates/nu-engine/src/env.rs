@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr},
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
+    engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, ShellError, Span, Value, VarId,
 };
 use std::{
@@ -159,9 +159,9 @@ pub fn env_to_strings(
 
 /// Shorthand for env_to_string() for PWD with custom error
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
-    if let Some(pwd) = stack.get_env_var(engine_state, PWD_ENV) {
+    if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
         // TODO: PWD should be string by default, we don't need to run ENV_CONVERSIONS on it
-        match env_to_string(PWD_ENV, &pwd, engine_state, stack) {
+        match env_to_string("PWD", &pwd, engine_state, stack) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
@@ -190,7 +190,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
 
 /// Simplified version of current_dir_str() for constant evaluation
 pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, ShellError> {
-    if let Some(pwd) = working_set.get_env_var(PWD_ENV) {
+    if let Some(pwd) = working_set.get_env_var("PWD") {
         let span = pwd.span();
         match pwd {
             Value::String { val, .. } => {

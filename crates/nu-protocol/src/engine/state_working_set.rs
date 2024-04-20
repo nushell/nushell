@@ -2,7 +2,7 @@ use crate::{
     ast::Block,
     engine::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
-        StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
+        StateDelta, Variable, VirtualPath, Visibility,
     },
     BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
     Type, Value, VarId, VirtualPathId,
@@ -604,7 +604,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn get_cwd(&self) -> String {
         let pwd = self
             .permanent_state
-            .get_env_var(PWD_ENV)
+            .get_env_var("PWD")
             .expect("internal error: can't find PWD");
         pwd.coerce_string()
             .expect("internal error: PWD not a string")

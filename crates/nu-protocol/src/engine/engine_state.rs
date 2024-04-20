@@ -26,8 +26,6 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::RegisteredPlugin;
 
-pub static PWD_ENV: &str = "PWD";
-
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
     File(FileId),
