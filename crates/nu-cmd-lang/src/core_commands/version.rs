@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use shadow_rs::shadow;
@@ -56,8 +58,11 @@ impl Command for Version {
 }
 
 pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
-    // Pre-allocate the arrays in the worst case (13 items):
+    // Pre-allocate the arrays in the worst case (16 items):
     // - version
+    // - major
+    // - minor
+    // - patch
     // - branch
     // - commit_hash
     // - build_os
@@ -69,12 +74,14 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     // - allocator
     // - features
     // - installed_plugins
-    let mut record = Record::with_capacity(13);
+    let mut record = Record::with_capacity(16);
 
     record.push(
         "version",
         Value::string(env!("CARGO_PKG_VERSION"), call.head),
     );
+
+    push_version_numbers(&mut record, call.head);
 
     record.push("branch", Value::string(build::BRANCH, call.head));
 
@@ -141,6 +148,22 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     );
 
     Ok(Value::record(record, call.head).into_pipeline_data())
+}
+
+/// Add version numbers as integers to the given record
+fn push_version_numbers(record: &mut Record, head: Span) {
+    static VERSION_NUMBERS: OnceLock<(u8, u8, u8)> = OnceLock::new();
+
+    let &(major, minor, patch) = VERSION_NUMBERS.get_or_init(|| {
+        (
+            build::PKG_VERSION_MAJOR.parse().expect("Always set"),
+            build::PKG_VERSION_MINOR.parse().expect("Always set"),
+            build::PKG_VERSION_PATCH.parse().expect("Always set"),
+        )
+    });
+    record.push("major", Value::int(major as _, head));
+    record.push("minor", Value::int(minor as _, head));
+    record.push("patch", Value::int(patch as _, head));
 }
 
 fn global_allocator() -> &'static str {
