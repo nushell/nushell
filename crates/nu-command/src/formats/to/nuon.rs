@@ -42,14 +42,20 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag(engine_state, stack, "raw")?;
-        let tabs: Option<usize> = call.get_flag(engine_state, stack, "tabs")?;
-        let indent: Option<usize> = call.get_flag(engine_state, stack, "indent")?;
+        let style = if call.has_flag(engine_state, stack, "raw")? {
+            nuon::ToStyle::Raw
+        } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
+            nuon::ToStyle::Tabs(t)
+        } else if let Some(i) = call.get_flag(engine_state, stack, "indent")? {
+            nuon::ToStyle::Spaces(i)
+        } else {
+            nuon::ToStyle::Raw
+        };
 
         let span = call.head;
         let value = input.into_value(span);
 
-        match nuon::to_nuon(&value, raw, tabs, indent, Some(span)) {
+        match nuon::to_nuon(&value, style, Some(span)) {
             Ok(serde_nuon_string) => {
                 Ok(Value::string(serde_nuon_string, span).into_pipeline_data())
             }
