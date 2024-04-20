@@ -57,6 +57,12 @@ impl Command for Version {
     }
 }
 
+fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
+    if !value.is_empty() {
+        record.push(name, Value::string(value, span))
+    }
+}
+
 pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (17 items):
     // - version
@@ -69,6 +75,7 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
     // - build_os
     // - build_target
     // - rust_version
+    // - rust_channel
     // - cargo_version
     // - build_time
     // - build_rust_channel
@@ -81,55 +88,26 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
 
     push_version_numbers(&mut record, span);
 
-    let version_pre = Some(build::PKG_VERSION_PRE).filter(|x| !x.is_empty());
-    if let Some(version_pre) = version_pre {
-        record.push("pre", Value::string(version_pre, span));
-    }
+    push_non_empty(&mut record, "pre", build::PKG_VERSION_PRE, span);
 
     record.push("branch", Value::string(build::BRANCH, span));
 
-    let commit_hash = option_env!("NU_COMMIT_HASH");
-    if let Some(commit_hash) = commit_hash {
+    if let Some(commit_hash) = option_env!("NU_COMMIT_HASH") {
         record.push("commit_hash", Value::string(commit_hash, span));
     }
 
-    let build_os = Some(build::BUILD_OS).filter(|x| !x.is_empty());
-    if let Some(build_os) = build_os {
-        record.push("build_os", Value::string(build_os, span));
-    }
-
-    let build_target = Some(build::BUILD_TARGET).filter(|x| !x.is_empty());
-    if let Some(build_target) = build_target {
-        record.push("build_target", Value::string(build_target, span));
-    }
-
-    let rust_version = Some(build::RUST_VERSION).filter(|x| !x.is_empty());
-    if let Some(rust_version) = rust_version {
-        record.push("rust_version", Value::string(rust_version, span));
-    }
-
-    let rust_channel = Some(build::RUST_CHANNEL).filter(|x| !x.is_empty());
-    if let Some(rust_channel) = rust_channel {
-        record.push("rust_channel", Value::string(rust_channel, span));
-    }
-
-    let cargo_version = Some(build::CARGO_VERSION).filter(|x| !x.is_empty());
-    if let Some(cargo_version) = cargo_version {
-        record.push("cargo_version", Value::string(cargo_version, span));
-    }
-
-    let build_time = Some(build::BUILD_TIME).filter(|x| !x.is_empty());
-    if let Some(build_time) = build_time {
-        record.push("build_time", Value::string(build_time, span));
-    }
-
-    let build_rust_channel = Some(build::BUILD_RUST_CHANNEL).filter(|x| !x.is_empty());
-    if let Some(build_rust_channel) = build_rust_channel {
-        record.push(
-            "build_rust_channel",
-            Value::string(build_rust_channel, span),
-        );
-    }
+    push_non_empty(&mut record, "build_os", build::BUILD_OS, span);
+    push_non_empty(&mut record, "build_target", build::BUILD_TARGET, span);
+    push_non_empty(&mut record, "rust_version", build::RUST_VERSION, span);
+    push_non_empty(&mut record, "rust_channel", build::RUST_CHANNEL, span);
+    push_non_empty(&mut record, "cargo_version", build::CARGO_VERSION, span);
+    push_non_empty(&mut record, "build_time", build::BUILD_TIME, span);
+    push_non_empty(
+        &mut record,
+        "build_rust_channel",
+        build::BUILD_RUST_CHANNEL,
+        span,
+    );
 
     record.push("allocator", Value::string(global_allocator(), span));
 
@@ -164,9 +142,9 @@ fn push_version_numbers(record: &mut Record, head: Span) {
             build::PKG_VERSION_PATCH.parse().expect("Always set"),
         )
     });
-    record.push("major", Value::int(major as _, head));
-    record.push("minor", Value::int(minor as _, head));
-    record.push("patch", Value::int(patch as _, head));
+    record.push("major", Value::int(major.into(), head));
+    record.push("minor", Value::int(minor.into(), head));
+    record.push("patch", Value::int(patch.into(), head));
 }
 
 fn global_allocator() -> &'static str {
