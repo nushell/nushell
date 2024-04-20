@@ -13,6 +13,8 @@ use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
 const PLUGIN_FILE: &str = "plugin.msgpackz";
+#[cfg(feature = "plugin")]
+const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
 const HISTORY_FILE_TXT: &str = "history.txt";
 const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
@@ -23,14 +25,35 @@ pub fn read_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
+    use std::path::Path;
+
     use nu_protocol::{report_error_new, ShellError};
 
     let span = plugin_file.as_ref().map(|s| s.span);
 
+    // Check and warn + abort if this is a .nu plugin file
+    if plugin_file
+        .as_ref()
+        .and_then(|p| Path::new(&p.item).extension())
+        .is_some_and(|ext| ext == "nu")
+    {
+        report_error_new(
+            engine_state,
+            &ShellError::GenericError {
+                error: "Wrong plugin file format".into(),
+                msg: ".nu plugin files are no longer supported".into(),
+                span,
+                help: Some("please recreate this file in the new .msgpackz format".into()),
+                inner: vec![],
+            },
+        );
+        return;
+    }
+
     let mut start_time = std::time::Instant::now();
     // Reading signatures from plugin cache file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
-    add_plugin_file(engine_state, plugin_file, storage_path);
+    add_plugin_file(engine_state, plugin_file.clone(), storage_path);
     perf(
         "add plugin file to engine_state",
         start_time,
@@ -49,6 +72,18 @@ pub fn read_plugin_file(
             Err(err) => {
                 if err.kind() == std::io::ErrorKind::NotFound {
                     log::warn!("Plugin file not found: {}", plugin_path.display());
+
+                    // Try migration of an old plugin file if this wasn't a custom plugin file
+                    if plugin_file.is_none() && migrate_old_plugin_file(engine_state, storage_path)
+                    {
+                        let Ok(file) = std::fs::File::open(&plugin_path) else {
+                            log::warn!("Failed to load newly migrated plugin file");
+                            return;
+                        };
+                        file
+                    } else {
+                        return;
+                    }
                 } else {
                     report_error_new(
                         engine_state,
@@ -63,8 +98,8 @@ pub fn read_plugin_file(
                             inner: vec![err.into()],
                         },
                     );
+                    return;
                 }
-                return;
             }
         };
 
@@ -225,4 +260,130 @@ pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> O
         });
         history_path
     })
+}
+
+#[cfg(feature = "plugin")]
+pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -> bool {
+    use nu_protocol::{
+        report_error_new, PluginCacheItem, PluginCacheItemData, PluginExample, PluginIdentity,
+        PluginSignature, ShellError,
+    };
+    use std::collections::BTreeMap;
+
+    let start_time = std::time::Instant::now();
+
+    let cwd = engine_state.current_work_dir();
+
+    let Some(config_dir) = nu_path::config_dir().and_then(|mut dir| {
+        dir.push(storage_path);
+        nu_path::canonicalize_with(dir, &cwd).ok()
+    }) else {
+        return false;
+    };
+
+    let Ok(old_plugin_file_path) = nu_path::canonicalize_with(OLD_PLUGIN_FILE, &config_dir) else {
+        return false;
+    };
+
+    let old_contents = match std::fs::read(&old_plugin_file_path) {
+        Ok(old_contents) => old_contents,
+        Err(err) => {
+            report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Can't read old plugin file to migrate".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(err.to_string()),
+                    inner: vec![],
+                },
+            );
+            return false;
+        }
+    };
+
+    // Make a copy of the engine state, because we'll read the newly generated file
+    let mut engine_state = engine_state.clone();
+    let mut stack = Stack::new();
+
+    if !eval_source(
+        &mut engine_state,
+        &mut stack,
+        &old_contents,
+        &old_plugin_file_path.to_string_lossy(),
+        PipelineData::Empty,
+        false,
+    ) {
+        return false;
+    }
+
+    // Now that the plugin commands are loaded, we just have to generate the file
+    let mut contents = PluginCacheFile::new();
+
+    let mut groups = BTreeMap::<PluginIdentity, Vec<PluginSignature>>::new();
+
+    for decl in engine_state.plugin_decls() {
+        if let Some(identity) = decl.plugin_identity() {
+            groups
+                .entry(identity.clone())
+                .or_default()
+                .push(PluginSignature {
+                    sig: decl.signature(),
+                    examples: decl
+                        .examples()
+                        .into_iter()
+                        .map(PluginExample::from)
+                        .collect(),
+                })
+        }
+    }
+
+    for (identity, commands) in groups {
+        contents.upsert_plugin(PluginCacheItem {
+            name: identity.name().to_owned(),
+            filename: identity.filename().to_owned(),
+            shell: identity.shell().map(|p| p.to_owned()),
+            data: PluginCacheItemData::Valid { commands },
+        });
+    }
+
+    // Write the new file
+    let new_plugin_file_path = config_dir.join(PLUGIN_FILE);
+    if let Err(err) = std::fs::File::create(&new_plugin_file_path)
+        .map_err(|e| e.into())
+        .and_then(|file| contents.write_to(file, None))
+    {
+        report_error_new(
+            &engine_state,
+            &ShellError::GenericError {
+                error: "Failed to save migrated plugin file".into(),
+                msg: "".into(),
+                span: None,
+                help: Some("ensure `$nu.plugin-path` is writable".into()),
+                inner: vec![err],
+            },
+        );
+        return false;
+    }
+
+    if engine_state.is_interactive {
+        eprintln!(
+            "Your old plugin.nu file has been migrated to the new format: {}",
+            new_plugin_file_path.display()
+        );
+        eprintln!(
+            "The plugin.nu file has not been removed. If `plugin list` looks okay, \
+            you may do so manually."
+        );
+    }
+
+    perf(
+        "migrate old plugin file",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        engine_state.get_config().use_ansi_coloring,
+    );
+    true
 }
