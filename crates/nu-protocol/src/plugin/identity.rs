@@ -88,6 +88,19 @@ impl PluginIdentity {
         PluginIdentity::new(format!(r"/fake/path/nu_plugin_{name}"), None)
             .expect("fake plugin identity path is invalid")
     }
+
+    /// A command that could be used to register the plugin, for suggesting in errors.
+    pub fn register_command(&self) -> String {
+        if let Some(shell) = self.shell() {
+            format!(
+                "register --shell '{}' '{}'",
+                shell.display(),
+                self.filename().display(),
+            )
+        } else {
+            format!("register '{}'", self.filename().display())
+        }
+    }
 }
 
 #[test]

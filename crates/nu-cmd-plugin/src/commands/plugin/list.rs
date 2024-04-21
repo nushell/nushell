@@ -22,7 +22,7 @@ impl Command for PluginList {
                     ("commands".into(), Type::List(Type::String.into())),
                 ]),
             )
-            .category(Category::Core)
+            .category(Category::Plugin)
     }
 
     fn usage(&self) -> &str {

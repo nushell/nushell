@@ -340,7 +340,7 @@ impl Command for Nu {
             signature = signature.named(
                 "plugin-config",
                 SyntaxShape::String,
-                "start with an alternate plugin signature file",
+                "start with an alternate plugin cache file",
                 None,
             );
         }
