@@ -46,11 +46,19 @@ pub struct PluginIdentity {
 
 impl PluginIdentity {
     /// Create a new plugin identity from a path to plugin executable and shell option.
+    ///
+    /// The `filename` must be an absolute path. Canonicalize before trying to construct the
+    /// [`PluginIdentity`].
     pub fn new(
         filename: impl Into<PathBuf>,
         shell: Option<PathBuf>,
     ) -> Result<PluginIdentity, InvalidPluginFilename> {
-        let filename = filename.into();
+        let filename: PathBuf = filename.into();
+
+        // Must pass absolute path.
+        if filename.is_relative() {
+            return Err(InvalidPluginFilename(filename));
+        }
 
         let name = filename
             .file_stem()
@@ -123,12 +131,19 @@ impl PluginIdentity {
 fn parses_name_from_path() {
     assert_eq!("test", PluginIdentity::new_fake("test").name());
     assert_eq!("test_2", PluginIdentity::new_fake("test_2").name());
+    let absolute_path = if cfg!(windows) {
+        r"C:\path\to\nu_plugin_foo.sh"
+    } else {
+        "/path/to/nu_plugin_foo.sh"
+    };
     assert_eq!(
         "foo",
-        PluginIdentity::new("nu_plugin_foo.sh", Some("sh".into()))
+        PluginIdentity::new(absolute_path, Some("sh".into()))
             .expect("should be valid")
             .name()
     );
+    // Relative paths should be invalid
+    PluginIdentity::new("nu_plugin_foo.sh", Some("sh".into())).expect_err("should be invalid");
     PluginIdentity::new("other", None).expect_err("should be invalid");
     PluginIdentity::new("", None).expect_err("should be invalid");
 }
