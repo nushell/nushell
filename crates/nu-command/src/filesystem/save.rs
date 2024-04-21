@@ -107,7 +107,7 @@ impl Command for Save {
                 metadata,
                 ..
             } => {
-                check_saving_to_souce_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
+                check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
                 let (file, stderr_file) = get_files(
                     &path,
@@ -158,7 +158,7 @@ impl Command for Save {
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                check_saving_to_souce_file(
+                check_saving_to_source_file(
                     pipeline_metadata.as_ref(),
                     &path,
                     stderr_path.as_ref(),
@@ -246,7 +246,7 @@ impl Command for Save {
     }
 }
 
-fn saving_to_souce_file_error(dest: &Spanned<PathBuf>) -> ShellError {
+fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
     ShellError::GenericError {
         error: "pipeline input and output are the same file".into(),
         msg: format!(
@@ -259,7 +259,7 @@ fn saving_to_souce_file_error(dest: &Spanned<PathBuf>) -> ShellError {
     }
 }
 
-fn check_saving_to_souce_file(
+fn check_saving_to_source_file(
     metadata: Option<&PipelineMetadata>,
     dest: &Spanned<PathBuf>,
     stderr_dest: Option<&Spanned<PathBuf>>,
@@ -269,12 +269,12 @@ fn check_saving_to_souce_file(
     };
 
     if &dest.item == source {
-        return Err(saving_to_souce_file_error(dest));
+        return Err(saving_to_source_file_error(dest));
     }
 
     if let Some(dest) = stderr_dest {
         if &dest.item == source {
-            return Err(saving_to_souce_file_error(dest));
+            return Err(saving_to_source_file_error(dest));
         }
     }
 
