@@ -9,7 +9,20 @@ fn call() {
     )
     .expect("failed to find nu_plugin_nu_example.nu");
 
+    // Add the `nu` binaries to the path env
+    let path_env = std::env::join_paths(
+        std::iter::once(nu_test_support::fs::binaries()).chain(
+            std::env::var_os(nu_test_support::NATIVE_PATH_ENV_VAR)
+                .as_deref()
+                .map(std::env::split_paths)
+                .into_iter()
+                .flatten(),
+        ),
+    )
+    .expect("failed to make path var");
+
     let assert = Command::new(nu_test_support::fs::executable_path())
+        .env(nu_test_support::NATIVE_PATH_ENV_VAR, path_env)
         .args([
             "--no-config-file",
             "--no-std-lib",
