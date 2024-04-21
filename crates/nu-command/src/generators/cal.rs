@@ -260,27 +260,23 @@ fn add_month_to_table(
     };
 
     let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
+    let mut total_start_offset: u32 = month_helper.day_number_of_week_month_starts_on;
 
-    let week_start_day_offset = if let Some(week_start_day) = &arguments.week_start {
+    if let Some(week_start_day) = &arguments.week_start {
         if let Some(position) = days_of_the_week
             .iter()
             .position(|day| *day == week_start_day.item)
         {
             days_of_the_week.rotate_left(position);
-            days_of_the_week.len() - position
+            total_start_offset += (days_of_the_week.len() - position) as u32;
+            total_start_offset %= days_of_the_week.len() as u32;
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
                 span: week_start_day.span,
             });
         }
-    } else {
-        0
     };
-
-    let mut total_start_offset: u32 =
-        month_helper.day_number_of_week_month_starts_on + week_start_day_offset as u32;
-    total_start_offset %= days_of_the_week.len() as u32;
 
     let mut day_number: u32 = 1;
     let day_limit: u32 = total_start_offset + month_helper.number_of_days_in_month;
