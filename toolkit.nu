@@ -410,10 +410,10 @@ def keep-plugin-executables [] {
     if (windows?) { where name ends-with '.exe' } else { where name !~ '\.d' }
 }
 
-# register all installed plugins
-export def "register plugins" [] {
+# add all installed plugins
+export def "add plugins" [] {
     let plugin_path = (which nu | get path.0 | path dirname)
-    let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables)
+    let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables | get name)
 
     if ($plugins | is-empty) {
         print $"no plugins found in ($plugin_path)..."
@@ -421,12 +421,15 @@ export def "register plugins" [] {
     }
 
     for plugin in $plugins {
-        print -n $"registering ($plugin.name), "
-        nu -c $"register '($plugin.name)'"
-        print "success!"
+        try {
+            print $"> plugin add ($plugin)"
+            plugin add $plugin
+        } catch { |err|
+            print -e $"(ansi rb)Failed to add ($plugin):\n($err.msg)(ansi reset)"
+        }
     }
 
-    print "\nplugins registered, please restart nushell"
+    print $"\n(ansi gb)plugins registered, please restart nushell(ansi reset)"
 }
 
 def compute-coverage [] {
