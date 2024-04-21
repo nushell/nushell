@@ -80,6 +80,7 @@ pub fn add_plugin_file(
     storage_path: &str,
 ) {
     let working_set = StateWorkingSet::new(engine_state);
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     if let Some(plugin_file) = plugin_file {
@@ -125,6 +126,7 @@ pub fn eval_config_contents(
             engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
+            #[allow(deprecated)]
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_env(stack, cwd) {

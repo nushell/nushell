@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
@@ -37,6 +38,7 @@ impl Command for Cd {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         let path_val = {

@@ -1943,6 +1943,7 @@ pub fn parse_module_file_or_dir(
         return None;
     }
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     let module_path =
@@ -3352,6 +3353,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
+            #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -3555,6 +3557,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
     let spans = &lite_command.parts;
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     // Checking that the function is used with the correct name

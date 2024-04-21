@@ -163,6 +163,7 @@ pub fn env_to_strings(
 /// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
 #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
+    #[allow(deprecated)]
     current_dir(engine_state, stack).map(|path| path.to_string_lossy().to_string())
 }
 
@@ -171,6 +172,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
 /// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
 #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, ShellError> {
+    #[allow(deprecated)]
     current_dir_const(working_set).map(|path| path.to_string_lossy().to_string())
 }
 
@@ -277,6 +279,7 @@ pub fn find_in_dirs_env(
             Err(e) => return Err(e),
         }
     } else {
+        #[allow(deprecated)]
         current_dir_str(engine_state, stack)?
     };
 

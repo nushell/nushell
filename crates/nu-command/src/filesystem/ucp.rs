@@ -1,4 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -177,6 +178,7 @@ impl Command for UCp {
         let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
             target.item.to_string(),
         ));
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {

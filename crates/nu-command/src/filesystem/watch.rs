@@ -5,6 +5,7 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
@@ -72,6 +73,7 @@ impl Command for Watch {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 

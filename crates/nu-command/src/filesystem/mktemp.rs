@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use std::path::PathBuf;
 
@@ -90,6 +91,7 @@ impl Command for Mktemp {
         } else if directory || tmpdir {
             Some(std::env::temp_dir())
         } else {
+            #[allow(deprecated)]
             Some(current_dir(engine_state, stack)?)
         };
 

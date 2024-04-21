@@ -14,6 +14,7 @@ use nu_cmd_base::{
     util::{get_editor, get_guaranteed_cwd},
 };
 use nu_color_config::StyleComputer;
+#[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -772,6 +773,7 @@ fn prepare_history_metadata(
     line_editor: &mut Reedline,
 ) {
     if !s.is_empty() && line_editor.has_last_command_context() {
+        #[allow(deprecated)]
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
@@ -842,6 +844,7 @@ fn parse_operation(
 ) -> Result<ReplOperation, ErrReport> {
     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
     // Check if this is a single call to a directory, if so auto-cd
+    #[allow(deprecated)]
     let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
     let mut orig = s.clone();
     if orig.starts_with('`') {
@@ -975,6 +978,7 @@ fn do_run_cmd(
 
     if shell_integration {
         let start_time = Instant::now();
+        #[allow(deprecated)]
         if let Ok(path) = current_dir_str(engine_state, stack) {
             // Try to abbreviate string for windows title
             let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
@@ -1021,6 +1025,7 @@ fn shell_integration_osc_7_633_2(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) {
+    #[allow(deprecated)]
     if let Ok(path) = current_dir_str(engine_state, stack) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences

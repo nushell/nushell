@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use crate::{current_dir, current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
@@ -324,6 +325,7 @@ fn eval_redirection<D: DebugContext>(
 ) -> Result<Redirection, ShellError> {
     match target {
         RedirectionTarget::File { expr, append, .. } => {
+            #[allow(deprecated)]
             let cwd = current_dir(engine_state, stack)?;
             let value = eval_expression::<D>(engine_state, stack, expr)?;
             let path = Spanned::<PathBuf>::from_value(value)?.item;
@@ -632,6 +634,7 @@ impl Eval for EvalRuntime {
         if quoted {
             Ok(Value::string(path, span))
         } else {
+            #[allow(deprecated)]
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(path, cwd, true);
 
@@ -651,6 +654,7 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
+            #[allow(deprecated)]
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(path, cwd, true);
 
