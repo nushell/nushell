@@ -209,3 +209,69 @@ fn warning_on_invalid_plugin_item() {
         assert!(err.contains("badtest"));
     })
 }
+
+#[test]
+fn plugin_use_error_not_found() {
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [("nu_plugin_example")],
+        r#"
+            (
+                ^$nu.current-exe
+                    --config $nu.config-path
+                    --env-config $nu.env-path
+                    --plugin-config $nu.plugin-path
+                    --commands 'plugin use custom_values'
+            )
+        "#
+    );
+    assert!(!result.status.success());
+    assert!(result.err.contains("Plugin not found"));
+}
+
+#[test]
+fn plugin_add_and_then_use() {
+    let example_plugin_path = example_plugin_path();
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(r#"
+            plugin add '{}'
+            (
+                ^$nu.current-exe
+                    --config $nu.config-path
+                    --env-config $nu.env-path
+                    --plugin-config $nu.plugin-path
+                    --commands 'plugin use example; plugin list | get name | to json --raw'
+            )
+        "#, example_plugin_path.display())
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
+fn plugin_add_then_use_with_custom_path() {
+    let example_plugin_path = example_plugin_path();
+    Playground::setup("plugin add to custom path", |dirs, _playground| {
+        let result_add = nu!(
+            cwd: dirs.test(),
+            &format!("
+                plugin add --plugin-config test-plugin-file.msgpackz '{}'
+            ", example_plugin_path.display())
+        );
+
+        assert!(result_add.status.success());
+
+        let result_use = nu!(
+            cwd: dirs.test(),
+            r#"
+                plugin use --plugin-config test-plugin-file.msgpackz example
+                plugin list | get name | to json --raw
+            "#
+        );
+
+        assert!(result_use.status.success());
+        assert_eq!(r#"["example"]"#, result_use.out);
+    })
+}
