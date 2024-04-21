@@ -59,24 +59,6 @@ fn get_prompt_string(
                     })
                     .ok()
             }
-            Value::Block { val: block_id, .. } => {
-                let block = engine_state.get_block(block_id);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
-                trace!(
-                    "get_prompt_string (block) {}:{}:{}",
-                    file!(),
-                    line!(),
-                    column!()
-                );
-
-                ret_val
-                    .map_err(|err| {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        report_error(&working_set, &err);
-                    })
-                    .ok()
-            }
             Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
             _ => None,
         })
