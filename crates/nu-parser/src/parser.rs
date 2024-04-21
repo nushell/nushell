@@ -4007,11 +4007,13 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         Type::table()
     };
 
-    let mut exprs = vec![head.into()];
-    exprs.extend(rows.into_iter().map(Into::into));
+    let table = Table {
+        columns: head.into(),
+        rows: rows.into_iter().map(Into::into).collect(),
+    };
 
     Expression {
-        expr: Expr::Table(Table::from_raw(exprs.into())),
+        expr: Expr::Table(table),
         span,
         ty,
         custom_completion: None,
@@ -6082,11 +6084,11 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::Table(table) => {
-            for header in table.columns() {
+            for header in table.columns.as_ref() {
                 discover_captures_in_expr(working_set, header, seen, seen_blocks, output)?;
             }
-            for row in table.rows() {
-                for cell in row {
+            for row in table.rows.as_ref() {
+                for cell in row.as_ref() {
                     discover_captures_in_expr(working_set, cell, seen, seen_blocks, output)?;
                 }
             }

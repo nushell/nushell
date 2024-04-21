@@ -337,7 +337,7 @@ fn convert_to_value(
 
             let mut output = vec![];
 
-            for key in table.columns_mut() {
+            for key in table.columns.as_mut() {
                 let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
                     _ => {
@@ -354,14 +354,14 @@ fn convert_to_value(
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key_str.clone(),
                         second_use: key.span,
-                        first_use: table.columns()[idx].span,
+                        first_use: table.columns[idx].span,
                     });
                 } else {
                     cols.push(std::mem::take(key_str));
                 }
             }
 
-            for row in table.into_rows() {
+            for row in table.rows.into_vec() {
                 if cols.len() != row.len() {
                     return Err(ShellError::OutsideSpannedLabeledError {
                         src: original_text.to_string(),
@@ -373,7 +373,7 @@ fn convert_to_value(
 
                 let record = cols
                     .iter()
-                    .zip(row)
+                    .zip(row.into_vec())
                     .map(|(col, cell)| {
                         convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
                     })

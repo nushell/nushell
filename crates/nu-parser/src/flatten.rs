@@ -514,7 +514,7 @@ pub fn flatten_expression(
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
-            for e in table.columns() {
+            for e in table.columns.as_ref() {
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
@@ -528,8 +528,8 @@ pub fn flatten_expression(
 
                 output.extend(flattened);
             }
-            for row in table.rows() {
-                for expr in row {
+            for row in table.rows.as_ref() {
+                for expr in row.as_ref() {
                     let flattened = flatten_expression(working_set, expr);
                     if let Some(first) = flattened.first() {
                         if first.0.start > last_end {

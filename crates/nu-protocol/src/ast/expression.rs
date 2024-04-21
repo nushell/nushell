@@ -279,13 +279,13 @@ impl Expression {
                 }
             }
             Expr::Table(table) => {
-                for header in table.columns() {
+                for header in table.columns.as_ref() {
                     if header.has_in_variable(working_set) {
                         return true;
                     }
                 }
 
-                for row in table.rows() {
+                for row in table.rows.as_ref() {
                     for cell in row.iter() {
                         if cell.has_in_variable(working_set) {
                             return true;
@@ -439,11 +439,11 @@ impl Expression {
                 *block_id = working_set.add_block(Arc::new(block));
             }
             Expr::Table(table) => {
-                for header in table.columns_mut() {
+                for header in table.columns.as_mut() {
                     header.replace_span(working_set, replaced, new_span)
                 }
 
-                for row in table.rows_mut() {
+                for row in table.rows.as_mut() {
                     for cell in row.iter_mut() {
                         cell.replace_span(working_set, replaced, new_span)
                     }

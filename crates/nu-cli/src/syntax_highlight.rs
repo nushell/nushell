@@ -370,11 +370,11 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside table
-                    for inner_expr in table.columns() {
+                    for inner_expr in table.columns.as_ref() {
                         find_in_expr_or_continue!(inner_expr);
                     }
-                    for row in table.rows() {
-                        for inner_expr in row {
+                    for row in table.rows.as_ref() {
+                        for inner_expr in row.as_ref() {
                             find_in_expr_or_continue!(inner_expr);
                         }
                     }

@@ -102,7 +102,7 @@ pub trait Eval {
             }
             Expr::Table(table) => {
                 let mut output_headers = vec![];
-                for expr in table.columns() {
+                for expr in table.columns.as_ref() {
                     let header = Self::eval::<D>(state, mut_state, expr)?.coerce_into_string()?;
                     if let Some(idx) = output_headers
                         .iter()
@@ -111,7 +111,7 @@ pub trait Eval {
                         return Err(ShellError::ColumnDefinedTwice {
                             col_name: header,
                             second_use: expr.span,
-                            first_use: table.columns()[idx].span,
+                            first_use: table.columns[idx].span,
                         });
                     } else {
                         output_headers.push(header);
@@ -119,8 +119,8 @@ pub trait Eval {
                 }
 
                 let mut output_rows = vec![];
-                for val in table.rows() {
-                    let record = output_headers.iter().zip(val).map(|(col, expr)| {
+                for val in table.rows.as_ref() {
+                    let record = output_headers.iter().zip(val.as_ref()).map(|(col, expr)| {
                         Self::eval::<D>(state, mut_state, expr).map(|val| (col.clone(), val))
                     }).collect::<Result<_,_>>()?;
 
