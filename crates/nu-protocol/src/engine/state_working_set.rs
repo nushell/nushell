@@ -601,13 +601,16 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
+    /// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+    /// Returns an empty string if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+    ///
+    /// It does NOT consider modifications to the working directory made on a stack.
+    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
     pub fn get_cwd(&self) -> String {
-        let pwd = self
-            .permanent_state
-            .get_env_var("PWD")
-            .expect("internal error: can't find PWD");
-        pwd.coerce_string()
-            .expect("internal error: PWD not a string")
+        self.permanent_state
+            .cwd(None)
+            .map(|path| path.to_string_lossy().to_string())
+            .unwrap_or_default()
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {

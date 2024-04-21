@@ -157,85 +157,46 @@ pub fn env_to_strings(
     Ok(env_vars_str)
 }
 
-/// Shorthand for env_to_string() for PWD with custom error
+/// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+/// Unlike `current_dir_str_const()`, this also considers modifications to the current working directory made on the stack.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
-    if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
-        // TODO: PWD should be string by default, we don't need to run ENV_CONVERSIONS on it
-        match env_to_string("PWD", &pwd, engine_state, stack) {
-            Ok(cwd) => {
-                if Path::new(&cwd).is_absolute() {
-                    Ok(cwd)
-                } else {
-                    Err(ShellError::GenericError {
-                            error: "Invalid current directory".into(),
-                            msg: format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            span: Some(pwd.span()),
-                            help: None,
-                            inner: vec![]
-                    })
-                }
-            }
-            Err(e) => Err(e),
-        }
-    } else {
-        Err(ShellError::GenericError {
-                error: "Current directory not found".into(),
-                msg: "".into(),
-                span: None,
-                help: Some("The environment variable 'PWD' was not found. It is required to define the current directory.".into()),
-                inner: vec![],
-        })
-    }
+    current_dir(engine_state, stack).map(|path| path.to_string_lossy().to_string())
 }
 
-/// Simplified version of current_dir_str() for constant evaluation
+/// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, ShellError> {
-    if let Some(pwd) = working_set.get_env_var("PWD") {
-        let span = pwd.span();
-        match pwd {
-            Value::String { val, .. } => {
-                if Path::new(val).is_absolute() {
-                    Ok(val.clone())
-                } else {
-                    Err(ShellError::GenericError {
-                            error: "Invalid current directory".into(),
-                            msg: format!("The 'PWD' environment variable must be set to an absolute path. Found: '{val}'"),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![]
-                    })
-                }
-            }
-            _ => Err(ShellError::GenericError {
-                error: "PWD is not a string".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(
-                    "Cusrrent working directory environment variable 'PWD' must be a string."
-                        .into(),
-                ),
-                inner: vec![],
-            }),
-        }
-    } else {
-        Err(ShellError::GenericError{
-                error: "Current directory not found".into(),
-                msg: "".into(),
-                span: None,
-                help: Some("The environment variable 'PWD' was not found. It is required to define the current directory.".into()),
-                inner: vec![],
-        })
-    }
+    current_dir_const(working_set).map(|path| path.to_string_lossy().to_string())
 }
 
-/// Calls current_dir_str() and returns the current directory as a PathBuf
+/// Returns the current working directory, which is guaranteed to be canonicalized.
+/// Unlike `current_dir_const()`, this also considers modifications to the current working directory made on the stack.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf, ShellError> {
-    current_dir_str(engine_state, stack).map(PathBuf::from)
+    let cwd = engine_state.cwd(Some(stack))?;
+    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
+        dir: cwd.to_string_lossy().to_string(),
+        span: Span::unknown(),
+    })
 }
 
-/// Version of current_dir() for constant evaluation
+/// Returns the current working directory, which is guaranteed to be canonicalized.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, ShellError> {
-    current_dir_str_const(working_set).map(PathBuf::from)
+    let cwd = working_set.permanent_state.cwd(None)?;
+    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
+        dir: cwd.to_string_lossy().to_string(),
+        span: Span::unknown(),
+    })
 }
 
 /// Get the contents of path environment variable as a list of strings
