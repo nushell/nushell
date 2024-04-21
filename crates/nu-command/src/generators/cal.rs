@@ -1,5 +1,4 @@
 use chrono::{Datelike, Local, NaiveDate};
-use indexmap::IndexMap;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 
@@ -293,17 +292,17 @@ fn add_month_to_table(
     let should_show_month_names = arguments.month_names;
 
     while day_number <= day_limit {
-        let mut indexmap = IndexMap::new();
+        let mut record = Record::new();
 
         if should_show_year_column {
-            indexmap.insert(
+            record.insert(
                 "year".to_string(),
                 Value::int(month_helper.selected_year as i64, tag),
             );
         }
 
         if should_show_quarter_column {
-            indexmap.insert(
+            record.insert(
                 "quarter".to_string(),
                 Value::int(month_helper.quarter_number as i64, tag),
             );
@@ -316,7 +315,7 @@ fn add_month_to_table(
                 Value::int(month_helper.selected_month as i64, tag)
             };
 
-            indexmap.insert("month".to_string(), month_value);
+            record.insert("month".to_string(), month_value);
         }
 
         for day in &days_of_the_week {
@@ -346,12 +345,12 @@ fn add_month_to_table(
                 }
             }
 
-            indexmap.insert((*day).to_string(), value);
+            record.insert((*day).to_string(), value);
 
             day_number += 1;
         }
 
-        calendar_vec_deque.push_back(Value::record(indexmap.into_iter().collect(), tag))
+        calendar_vec_deque.push_back(Value::record(record, tag))
     }
 
     Ok(())
