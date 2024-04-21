@@ -36,6 +36,14 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn record() -> Self {
+        Self::Record([].into())
+    }
+
+    pub fn table() -> Self {
+        Self::Table([].into())
+    }
+
     pub fn is_subtype(&self, other: &Type) -> bool {
         // Structural subtyping
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {

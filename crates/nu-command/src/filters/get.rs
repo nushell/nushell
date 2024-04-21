@@ -27,8 +27,8 @@ If multiple cell paths are given, this will produce a list of values."#
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Table([].into()), Type::Any),
-                (Type::Record([].into()), Type::Any),
+                (Type::table(), Type::Any),
+                (Type::record(), Type::Any),
             ])
             .required(
                 "cell_path",

@@ -30,8 +30,8 @@ impl Command for BitsInto {
                 (Type::Duration, Type::String),
                 (Type::String, Type::String),
                 (Type::Bool, Type::String),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(

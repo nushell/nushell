@@ -25,8 +25,8 @@ impl Command for FormatFilesize {
         Signature::build("format filesize")
             .input_output_types(vec![
                 (Type::Filesize, Type::String),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required(

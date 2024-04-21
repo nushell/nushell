@@ -11,7 +11,7 @@ impl Command for StorReset {
 
     fn signature(&self) -> Signature {
         Signature::build("stor reset")
-            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .category(Category::Database)
     }

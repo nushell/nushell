@@ -26,8 +26,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .rest(
                 "cell path",

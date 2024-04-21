@@ -50,8 +50,8 @@ where
             .category(Category::Hash)
             .input_output_types(vec![
                 (Type::String, Type::Any),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .switch(

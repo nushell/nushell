@@ -45,7 +45,7 @@ impl Command for Ls {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
-            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .rest("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")

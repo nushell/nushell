@@ -11,7 +11,7 @@ impl Command for FromToml {
 
     fn signature(&self) -> Signature {
         Signature::build("from toml")
-            .input_output_types(vec![(Type::String, Type::Record([].into()))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .category(Category::Formats)
     }
 

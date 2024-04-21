@@ -12,9 +12,9 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url parse")
             .input_output_types(vec![
-                (Type::String, Type::Record([].into())),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::String, Type::record()),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .rest(

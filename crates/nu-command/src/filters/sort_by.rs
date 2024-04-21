@@ -15,8 +15,8 @@ impl Command for SortBy {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Record([].into()), Type::Table([].into())),
-                (Type::Table([].into()), Type::Table([].into())),
+                (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
             ])
             .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
             .switch("reverse", "Sort in reverse order", Some('r'))

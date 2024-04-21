@@ -23,7 +23,7 @@ impl SimplePluginCommand for FromIcs {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::String, Type::Table([].into()))])
+            .input_output_types(vec![(Type::String, Type::table())])
             .category(Category::Formats)
     }
 

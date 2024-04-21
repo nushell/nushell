@@ -17,8 +17,8 @@ impl Command for DecodeBase64 {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .named(

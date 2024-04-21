@@ -15,8 +15,8 @@ impl Command for Update {
     fn signature(&self) -> Signature {
         Signature::build("update")
             .input_output_types(vec![
-                (Type::Record([].into()), Type::Record([].into())),
-                (Type::Table([].into()), Type::Table([].into())),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),

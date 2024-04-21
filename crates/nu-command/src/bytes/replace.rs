@@ -26,8 +26,8 @@ impl Command for BytesReplace {
         Signature::build("bytes replace")
             .input_output_types(vec![
                 (Type::Binary, Type::Binary),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required("find", SyntaxShape::Binary, "The pattern to find.")

@@ -41,8 +41,8 @@ impl Command for BytesAt {
                     Type::List(Box::new(Type::Binary)),
                     Type::List(Box::new(Type::Binary)),
                 ),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .required("range", SyntaxShape::Range, "The range to get bytes.")
             .rest(

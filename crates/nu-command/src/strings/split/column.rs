@@ -13,11 +13,11 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("split column")
             .input_output_types(vec![
-                (Type::String, Type::Table([].into())),
+                (Type::String, Type::table()),
                 (
                     // TODO: no test coverage (is this behavior a bug or a feature?)
                     Type::List(Box::new(Type::String)),
-                    Type::Table([].into()),
+                    Type::table(),
                 ),
             ])
             .required(

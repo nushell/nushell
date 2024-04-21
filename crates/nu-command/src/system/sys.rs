@@ -18,7 +18,7 @@ impl Command for Sys {
         Signature::build("sys")
             .filter()
             .category(Category::System)
-            .input_output_types(vec![(Type::Nothing, Type::Record([].into()))])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
     fn usage(&self) -> &str {

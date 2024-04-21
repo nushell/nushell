@@ -13,8 +13,8 @@ impl Command for Reject {
     fn signature(&self) -> Signature {
         Signature::build("reject")
             .input_output_types(vec![
-                (Type::Record([].into()), Type::Record([].into())),
-                (Type::Table([].into()), Type::Table([].into())),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .switch(
                 "ignore-errors",

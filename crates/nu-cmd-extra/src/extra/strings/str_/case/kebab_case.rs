@@ -14,8 +14,8 @@ impl Command for SubCommand {
         Signature::build("str kebab-case")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
                 (
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),

@@ -4004,7 +4004,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         working_set.parse_errors.extend(errs);
         ty
     } else {
-        Type::Table([].into())
+        Type::table()
     };
 
     let mut exprs = vec![head.into()];

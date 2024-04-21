@@ -36,8 +36,8 @@ impl Command for SubCommand {
                 (Type::Duration, Type::Int),
                 (Type::Filesize, Type::Int),
                 (Type::Binary, Type::Int),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
                 (
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Int)),

@@ -62,8 +62,8 @@ impl Command for SubCommand {
             (Type::Int, Type::Date),
             (Type::String, Type::Date),
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
-            (Type::Table([].into()), Type::Table([].into())),
-            (Type::Record([].into()), Type::Record([].into())),
+            (Type::table(), Type::table()),
+            (Type::record(), Type::record()),
         ])
         .allow_variants_without_examples(true)
         .named(

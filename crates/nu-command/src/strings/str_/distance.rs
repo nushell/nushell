@@ -25,8 +25,8 @@ impl Command for SubCommand {
         Signature::build("str distance")
             .input_output_types(vec![
                 (Type::String, Type::Int),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .required(
                 "compare-string",

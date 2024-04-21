@@ -11,7 +11,7 @@ impl Command for FromTsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from tsv")
-            .input_output_types(vec![(Type::String, Type::Table([].into()))])
+            .input_output_types(vec![(Type::String, Type::table())])
             .named(
                 "comment",
                 SyntaxShape::String,

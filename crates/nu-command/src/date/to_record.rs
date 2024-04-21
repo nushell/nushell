@@ -13,8 +13,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("date to-record")
             .input_output_types(vec![
-                (Type::Date, Type::Record([].into())),
-                (Type::String, Type::Record([].into())),
+                (Type::Date, Type::record()),
+                (Type::String, Type::record()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .category(Category::Date)

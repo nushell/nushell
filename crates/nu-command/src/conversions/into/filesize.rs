@@ -18,8 +18,8 @@ impl Command for SubCommand {
                 (Type::Number, Type::Filesize),
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
                 (
                     Type::List(Box::new(Type::Int)),
                     Type::List(Box::new(Type::Filesize)),

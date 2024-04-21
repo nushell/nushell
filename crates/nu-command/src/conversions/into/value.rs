@@ -15,7 +15,7 @@ impl Command for IntoValue {
 
     fn signature(&self) -> Signature {
         Signature::build("into value")
-            .input_output_types(vec![(Type::Table([].into()), Type::Table([].into()))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .named(
                 "columns",
                 SyntaxShape::Table(vec![]),

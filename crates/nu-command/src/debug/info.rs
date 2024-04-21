@@ -31,7 +31,7 @@ impl Command for DebugInfo {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("debug info")
-            .input_output_types(vec![(Type::Nothing, Type::Record([].into()))])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
             .category(Category::Debug)
     }
 

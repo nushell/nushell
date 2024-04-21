@@ -12,7 +12,7 @@ impl Command for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
-            .input_output_types(vec![(Type::Nothing, Type::Table([].into()))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .required("application", SyntaxShape::String, "Application.")
             .rest("rest", SyntaxShape::String, "Additional applications.")

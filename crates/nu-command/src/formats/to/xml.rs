@@ -18,7 +18,7 @@ impl Command for ToXml {
 
     fn signature(&self) -> Signature {
         Signature::build("to xml")
-            .input_output_types(vec![(Type::Record([].into()), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .named(
                 "indent",
                 SyntaxShape::Int,
@@ -300,7 +300,7 @@ impl Job {
             if top_level {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
-                    from_type: Type::Record([].into()).to_string(),
+                    from_type: Type::record().to_string(),
                     span: entry_span,
                     help: Some("PIs can not be a root element of document".into()),
                 });
@@ -312,7 +312,7 @@ impl Job {
                 _ => {
                     return Err(ShellError::CantConvert {
                         to_type: "XML".into(),
-                        from_type: Type::Record([].into()).to_string(),
+                        from_type: Type::record().to_string(),
                         span: content.span(),
                         help: Some("PI content expected to be a string".into()),
                     });
@@ -369,7 +369,7 @@ impl Job {
                     .write_event(Event::Comment(comment_content))
                     .map_err(|_| ShellError::CantConvert {
                         to_type: "XML".to_string(),
-                        from_type: Type::Record([].into()).to_string(),
+                        from_type: Type::record().to_string(),
                         span: entry_span,
                         help: Some("Failure writing comment to xml".into()),
                     })
@@ -393,7 +393,7 @@ impl Job {
         if !matches!(attrs, Value::Nothing { .. }) {
             return Err(ShellError::CantConvert {
                 to_type: "XML".into(),
-                from_type: Type::Record([].into()).to_string(),
+                from_type: Type::record().to_string(),
                 span: entry_span,
                 help: Some("PIs do not have attributes".into()),
             });
@@ -408,7 +408,7 @@ impl Job {
             .write_event(Event::PI(pi_content))
             .map_err(|_| ShellError::CantConvert {
                 to_type: "XML".to_string(),
-                from_type: Type::Record([].into()).to_string(),
+                from_type: Type::record().to_string(),
                 span: entry_span,
                 help: Some("Failure writing PI to xml".into()),
             })
@@ -425,7 +425,7 @@ impl Job {
         if tag.starts_with('!') || tag.starts_with('?') {
             return Err(ShellError::CantConvert {
                 to_type: "XML".to_string(),
-                from_type: Type::Record([].into()).to_string(),
+                from_type: Type::record().to_string(),
                 span: tag_span,
                 help: Some(format!(
                     "Incorrect tag name {}, tag name can not start with ! or ?",
@@ -448,7 +448,7 @@ impl Job {
             .write_event(open_tag_event)
             .map_err(|_| ShellError::CantConvert {
                 to_type: "XML".to_string(),
-                from_type: Type::Record([].into()).to_string(),
+                from_type: Type::record().to_string(),
                 span: entry_span,
                 help: Some("Failure writing tag to xml".into()),
             })?;
@@ -463,7 +463,7 @@ impl Job {
                 .write_event(close_tag_event)
                 .map_err(|_| ShellError::CantConvert {
                     to_type: "XML".to_string(),
-                    from_type: Type::Record([].into()).to_string(),
+                    from_type: Type::record().to_string(),
                     span: entry_span,
                     help: Some("Failure writing tag to xml".into()),
                 })?;

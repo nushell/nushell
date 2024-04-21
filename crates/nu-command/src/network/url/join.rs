@@ -10,7 +10,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("url join")
-            .input_output_types(vec![(Type::Record([].into()), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .category(Category::Network)
     }
 

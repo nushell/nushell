@@ -24,8 +24,8 @@ impl Command for BytesEndsWith {
     fn signature(&self) -> Signature {
         Signature::build("bytes ends-with")
             .input_output_types(vec![(Type::Binary, Type::Bool),
-                (Type::Table([].into()), Type::Table([].into())),
-                (Type::Record([].into()), Type::Record([].into())),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required("pattern", SyntaxShape::Binary, "The pattern to match.")
