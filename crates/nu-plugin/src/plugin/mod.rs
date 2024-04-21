@@ -23,8 +23,9 @@ use std::{
 
 use nu_engine::documentation::get_flags_section;
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginSignature,
-    ShellError, Spanned, Value,
+    ast::Operator, engine::StateWorkingSet, report_error_new, CustomValue, IntoSpanned,
+    LabeledError, PipelineData, PluginCacheFile, PluginCacheItem, PluginCacheItemData,
+    PluginIdentity, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -113,7 +114,10 @@ fn create_command(path: &Path, mut shell: Option<&Path>, mode: &CommunicationMod
                     Some(Path::new("sh"))
                 }
             }
-            Some("nu") => Some(Path::new("nu")),
+            Some("nu") => {
+                shell_args.push("--stdin");
+                Some(Path::new("nu"))
+            }
             Some("py") => Some(Path::new("python")),
             Some("rb") => Some(Path::new("ruby")),
             Some("jar") => {
@@ -915,4 +919,80 @@ pub fn get_plugin_encoding(
             msg: format!("get unsupported plugin encoding: {encoding_for_debug}"),
         }
     })
+}
+
+/// Load the definitions from the plugin file into the engine state
+#[doc(hidden)]
+pub fn load_plugin_file(
+    working_set: &mut StateWorkingSet,
+    plugin_cache_file: &PluginCacheFile,
+    span: Option<Span>,
+) {
+    for plugin in &plugin_cache_file.plugins {
+        // Any errors encountered should just be logged.
+        if let Err(err) = load_plugin_cache_item(working_set, plugin, span) {
+            report_error_new(working_set.permanent_state, &err)
+        }
+    }
+}
+
+/// Load a definition from the plugin file into the engine state
+#[doc(hidden)]
+pub fn load_plugin_cache_item(
+    working_set: &mut StateWorkingSet,
+    plugin: &PluginCacheItem,
+    span: Option<Span>,
+) -> Result<(), ShellError> {
+    let identity =
+        PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
+            ShellError::GenericError {
+                error: "Invalid plugin filename in plugin cache file".into(),
+                msg: "loaded from here".into(),
+                span,
+                help: Some(format!(
+                    "the filename for `{}` is not a valid nushell plugin: {}",
+                    plugin.name,
+                    plugin.filename.display()
+                )),
+                inner: vec![],
+            }
+        })?;
+
+    match &plugin.data {
+        PluginCacheItemData::Valid { commands } => {
+            // Find garbage collection config for the plugin
+            let gc_config = working_set
+                .get_config()
+                .plugin_gc
+                .get(identity.name())
+                .clone();
+
+            // Add it to / get it from the working set
+            let plugin = working_set.find_or_create_plugin(&identity, || {
+                Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
+            });
+
+            // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
+            // The trait object only exists so that nu-protocol can contain plugins without knowing
+            // anything about their implementation, but we only use `PersistentPlugin` in practice.
+            let plugin: Arc<PersistentPlugin> =
+                plugin
+                    .as_any()
+                    .downcast()
+                    .map_err(|_| ShellError::NushellFailed {
+                        msg: "encountered unexpected RegisteredPlugin type".into(),
+                    })?;
+
+            // Create the declarations from the commands
+            for signature in commands {
+                let decl = PluginDeclaration::new(plugin.clone(), signature.clone());
+                working_set.add_decl(Box::new(decl));
+            }
+            Ok(())
+        }
+        PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
+            plugin_name: identity.name().to_owned(),
+            register_command: identity.register_command(),
+        }),
+    }
 }

@@ -5,7 +5,7 @@ use polars::prelude::{
     CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
     LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
-use polars_io::avro::AvroReader;
+use polars_io::{avro::AvroReader, HiveOptions};
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 #[derive(Clone)]
@@ -151,7 +151,7 @@ fn from_parquet(
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
-            hive_partitioning: false,
+            hive_options: HiveOptions::default(),
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -246,7 +246,8 @@ fn from_ipc(
             cache: true,
             rechunk: false,
             row_index: None,
-            memmap: true,
+            memory_map: true,
+            cloud_options: None,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)

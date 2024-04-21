@@ -1,18 +1,13 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
-fn binary_skip() {
+fn binary_skip_will_raise_error() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            open sample_data.ods --raw |
-            skip 2 |
-            take 2 |
-            into int --endian big
-        "#
-    ));
+        cwd: "tests/fixtures/formats",
+        "open sample_data.ods --raw | skip 2"
+    );
 
-    assert_eq!(actual.out, "772");
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }
 
 #[test]

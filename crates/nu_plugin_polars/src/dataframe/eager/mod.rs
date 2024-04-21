@@ -4,7 +4,6 @@ mod columns;
 mod drop;
 mod drop_duplicates;
 mod drop_nulls;
-mod dtypes;
 mod dummies;
 mod filter_with;
 mod first;
@@ -41,7 +40,6 @@ pub use columns::ColumnsDF;
 pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
 pub use drop_nulls::DropNulls;
-pub use dtypes::DataTypes;
 pub use dummies::Dummies;
 pub use filter_with::FilterWith;
 pub use first::FirstDF;
@@ -73,7 +71,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(AppendDF),
         Box::new(CastDF),
         Box::new(ColumnsDF),
-        Box::new(DataTypes),
         Box::new(DropDF),
         Box::new(DropDuplicates),
         Box::new(DropNulls),

@@ -93,7 +93,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let curr_res = pidrusage::<RUsageInfoV2>(pid).ok();
 
         let curr_time = Instant::now();
-        let interval = curr_time - prev_time;
+        let interval = curr_time.saturating_duration_since(prev_time);
         let ppid = curr_task.pbsd.pbi_ppid as i32;
 
         let proc = ProcessInfo {
@@ -146,11 +146,9 @@ pub struct PathInfo {
 
 #[cfg_attr(tarpaulin, ignore)]
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
-    let len = cp as usize - start as usize;
-    let part = Vec::from_raw_parts(start, len, len);
-    let tmp = String::from_utf8_unchecked(part.clone());
-    ::std::mem::forget(part);
-    tmp
+    let len = (cp as usize).saturating_sub(start as usize);
+    let part = std::slice::from_raw_parts(start, len);
+    String::from_utf8_unchecked(part.to_vec())
 }
 
 #[cfg_attr(tarpaulin, ignore)]
@@ -385,7 +383,7 @@ impl ProcessInfo {
             self.curr_task.ptinfo.pti_total_user + self.curr_task.ptinfo.pti_total_system;
         let prev_time =
             self.prev_task.ptinfo.pti_total_user + self.prev_task.ptinfo.pti_total_system;
-        let usage_ticks = curr_time - prev_time;
+        let usage_ticks = curr_time.saturating_sub(prev_time);
         let interval_us = self.interval.as_micros();
         let ticktime_us = mach_ticktime() / 1000.0;
         usage_ticks as f64 * 100.0 * ticktime_us / interval_us as f64

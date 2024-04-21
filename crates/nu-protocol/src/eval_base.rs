@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
-        ExternalArgument, Math, Operator, RecordItem,
+        ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
@@ -40,15 +40,15 @@ pub trait Eval {
                 value.follow_cell_path(&cell_path.tail, false)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
-            Expr::List(x) => {
+            Expr::List(list) => {
                 let mut output = vec![];
-                for expr in x {
-                    match &expr.expr {
-                        Expr::Spread(expr) => match Self::eval::<D>(state, mut_state, expr)? {
-                            Value::List { mut vals, .. } => output.append(&mut vals),
+                for item in list {
+                    match item {
+                        ListItem::Item(expr) => output.push(Self::eval::<D>(state, mut_state, expr)?),
+                        ListItem::Spread(_, expr) => match Self::eval::<D>(state, mut_state, expr)? {
+                            Value::List { vals, .. } => output.extend(vals),
                             _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                         },
-                        _ => output.push(Self::eval::<D>(state, mut_state, expr)?),
                     }
                 }
                 Ok(Value::list(output, expr.span))
@@ -267,7 +267,6 @@ pub trait Eval {
                     ),
                 }
             }
-            Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
@@ -292,10 +291,10 @@ pub trait Eval {
                 Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
+            | Expr::Block(_) // blocks are handled directly by core commands
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
             | Expr::Signature(_)
-            | Expr::Spread(_)
             | Expr::Operator(_)
             | Expr::Garbage => Self::unreachable(expr),
         }

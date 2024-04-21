@@ -19,7 +19,7 @@ impl Command for Parse {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "regex"]
+        vec!["pattern", "match", "regex", "str extract"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

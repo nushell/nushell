@@ -105,9 +105,7 @@ impl<'a> StyleComputer<'a> {
             Value::Nothing { .. } => TextStyle::with_style(Left, s),
             Value::Binary { .. } => TextStyle::with_style(Left, s),
             Value::CellPath { .. } => TextStyle::with_style(Left, s),
-            Value::Record { .. } | Value::List { .. } | Value::Block { .. } => {
-                TextStyle::with_style(Left, s)
-            }
+            Value::Record { .. } | Value::List { .. } => TextStyle::with_style(Left, s),
             Value::Closure { .. }
             | Value::Custom { .. }
             | Value::Error { .. }

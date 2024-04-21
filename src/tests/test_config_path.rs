@@ -117,7 +117,7 @@ fn test_config_path_helper(playground: &mut Playground, config_dir_nushell: Path
 
     #[cfg(feature = "plugin")]
     {
-        let plugin_path = config_dir_nushell.join("plugin.nu");
+        let plugin_path = config_dir_nushell.join("plugin.msgpackz");
         let canon_plugin_path =
             adjust_canonicalization(std::fs::canonicalize(&plugin_path).unwrap_or(plugin_path));
         let actual = run(playground, "$nu.plugin-path");
@@ -161,7 +161,7 @@ fn test_default_symlink_config_path_broken_symlink_config_files() {
                 "history.txt",
                 "history.sqlite3",
                 "login.nu",
-                "plugin.nu",
+                "plugin.msgpackz",
             ] {
                 let fake_file = fake_dir.join(config_file);
                 File::create(playground.cwd().join(&fake_file)).unwrap();
@@ -194,7 +194,7 @@ fn test_default_config_path_symlinked_config_files() {
                 "history.txt",
                 "history.sqlite3",
                 "login.nu",
-                "plugin.nu",
+                "plugin.msgpackz",
             ] {
                 let empty_file = playground.cwd().join(format!("empty-{config_file}"));
                 File::create(&empty_file).unwrap();

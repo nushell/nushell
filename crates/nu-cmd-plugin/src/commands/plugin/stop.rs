@@ -16,7 +16,7 @@ impl Command for PluginStop {
                 SyntaxShape::String,
                 "The name of the plugin to stop.",
             )
-            .category(Category::Core)
+            .category(Category::Plugin)
     }
 
     fn usage(&self) -> &str {
