@@ -266,7 +266,8 @@ fn add_month_to_table(
             .iter()
             .position(|day| *day == week_start_day.item)
         {
-            position
+            days_of_the_week.rotate_left(position);
+            days_of_the_week.len() - position
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
@@ -276,8 +277,6 @@ fn add_month_to_table(
     } else {
         0
     };
-
-    days_of_the_week.rotate_right(week_start_day_offset);
 
     let mut total_start_offset: u32 =
         month_helper.day_number_of_week_month_starts_on + week_start_day_offset as u32;
