@@ -94,11 +94,14 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
 /// This is a new more compact method of calling parse_xxx() functions without repeating the
 /// parse_call() in each function. Remaining keywords can be moved here.
 pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    let orig_parse_errors_len = working_set.parse_errors.len();
+
     let call_expr = parse_call(working_set, &lite_command.parts, lite_command.parts[0]);
 
-    // if err.is_some() {
-    //     return (Pipeline::from_vec(vec![call_expr]), err);
-    // }
+    // If an error occurred, don't invoke the keyword-specific functionality
+    if working_set.parse_errors.len() > orig_parse_errors_len {
+        return Pipeline::from_vec(vec![call_expr]);
+    }
 
     if let Expression {
         expr: Expr::Call(call),
