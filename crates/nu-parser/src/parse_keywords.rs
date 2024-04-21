@@ -1035,10 +1035,10 @@ pub fn parse_alias(
                 // Then from the command itself
                 true => match alias_call.arguments.get(1) {
                     Some(Argument::Positional(Expression {
-                        expr: Expr::Keyword(.., expr),
+                        expr: Expr::Keyword(kw),
                         ..
                     })) => {
-                        let aliased = working_set.get_span_contents(expr.span);
+                        let aliased = working_set.get_span_contents(kw.expr.span);
                         (
                             format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
                             String::new(),
