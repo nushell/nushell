@@ -1,5 +1,5 @@
 #[allow(deprecated)]
-use crate::{current_dir, current_dir_str, get_config, get_full_help};
+use crate::{current_dir, get_config, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -634,8 +634,7 @@ impl Eval for EvalRuntime {
         if quoted {
             Ok(Value::string(path, span))
         } else {
-            #[allow(deprecated)]
-            let cwd = current_dir_str(engine_state, stack)?;
+            let cwd = engine_state.cwd(Some(stack))?;
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
@@ -654,8 +653,7 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            #[allow(deprecated)]
-            let cwd = current_dir_str(engine_state, stack)?;
+            let cwd = engine_state.cwd(Some(stack))?;
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
