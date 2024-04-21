@@ -71,6 +71,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"source",
     b"where",
     b"register",
+    b"plugin use",
 ];
 
 /// Check whether spans start with a parser keyword that can be aliased
@@ -121,6 +122,7 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
             "overlay hide" => parse_overlay_hide(working_set, call),
             "overlay new" => parse_overlay_new(working_set, call),
             "overlay use" => parse_overlay_use(working_set, call),
+            "plugin use" => parse_plugin_use(working_set, call),
             _ => Pipeline::from_vec(vec![call_expr]),
         }
     } else {
@@ -1946,7 +1948,7 @@ pub fn parse_module_file_or_dir(
     let cwd = working_set.get_cwd();
 
     let module_path =
-        if let Some(path) = find_in_dirs(&module_path_str, working_set, &cwd, LIB_DIRS_VAR) {
+        if let Some(path) = find_in_dirs(&module_path_str, working_set, &cwd, Some(LIB_DIRS_VAR)) {
             path
         } else {
             working_set.error(ParseError::ModuleNotFound(path_span, module_path_str));
@@ -3402,7 +3404,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     }
                 };
 
-                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
+                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
                         // Add the file to the stack of files being processed.
                         if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
@@ -3562,7 +3564,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     // Maybe this is not necessary but it is a sanity check
     if working_set.get_span_contents(spans[0]) != b"register" {
         working_set.error(ParseError::UnknownState(
-            "internal error: Wrong call name for parse plugin function".into(),
+            "internal error: Wrong call name for 'register' function".into(),
             span(spans),
         ));
         return garbage_pipeline(spans);
@@ -3620,7 +3622,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 .coerce_into_string()
                 .map_err(|err| err.wrap(working_set, call.head))?;
 
-            let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
+            let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(PLUGIN_DIRS_VAR))
+            else {
                 return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
             };
 
@@ -3778,6 +3781,100 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     }])
 }
 
+#[cfg(feature = "plugin")]
+pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
+    use nu_protocol::{FromValue, PluginCacheFile};
+
+    let cwd = working_set.get_cwd();
+
+    if let Err(err) = (|| {
+        let name = call
+            .positional_nth(0)
+            .map(|expr| {
+                eval_constant(working_set, expr)
+                    .and_then(Spanned::<String>::from_value)
+                    .map_err(|err| err.wrap(working_set, call.head))
+            })
+            .expect("required positional should have been checked")?;
+
+        let plugin_config = call
+            .named_iter()
+            .find(|(arg_name, _, _)| arg_name.item == "plugin-config")
+            .map(|(_, _, expr)| {
+                let expr = expr
+                    .as_ref()
+                    .expect("--plugin-config arg should have been checked already");
+                eval_constant(working_set, expr)
+                    .and_then(Spanned::<String>::from_value)
+                    .map_err(|err| err.wrap(working_set, call.head))
+            })
+            .transpose()?;
+
+        // Find the actual plugin config path location. We don't have a const/env variable for this,
+        // it either lives in the current working directory or in the script's directory
+        let plugin_config_path = if let Some(custom_path) = &plugin_config {
+            find_in_dirs(&custom_path.item, working_set, &cwd, None).ok_or_else(|| {
+                ParseError::FileNotFound(custom_path.item.clone(), custom_path.span)
+            })?
+        } else {
+            ParserPath::RealPath(
+                working_set
+                    .permanent_state
+                    .plugin_path
+                    .as_ref()
+                    .ok_or_else(|| ParseError::LabeledErrorWithHelp {
+                        error: "Plugin cache file not set".into(),
+                        label: "can't load plugin without cache file".into(),
+                        span: call.head,
+                        help:
+                            "pass --plugin-config to `plugin use` when $nu.plugin-path is not set"
+                                .into(),
+                    })?
+                    .to_owned(),
+            )
+        };
+
+        let file = plugin_config_path.open(working_set).map_err(|err| {
+            ParseError::LabeledError(
+                "Plugin cache file can't be opened".into(),
+                err.to_string(),
+                plugin_config.as_ref().map(|p| p.span).unwrap_or(call.head),
+            )
+        })?;
+
+        // The file is now open, so we just have to parse the contents and find the plugin
+        let contents = PluginCacheFile::read_from(file, Some(call.head))
+            .map_err(|err| err.wrap(working_set, call.head))?;
+
+        let plugin_item = contents
+            .plugins
+            .iter()
+            .find(|plugin| plugin.name == name.item)
+            .ok_or_else(|| ParseError::PluginNotFound {
+                name: name.item.clone(),
+                name_span: name.span,
+                plugin_config_span: plugin_config.as_ref().map(|p| p.span),
+            })?;
+
+        // Now add the signatures to the working set
+        nu_plugin::load_plugin_cache_item(working_set, plugin_item, Some(call.head))
+            .map_err(|err| err.wrap(working_set, call.head))?;
+
+        Ok(())
+    })() {
+        working_set.error(err);
+    }
+
+    let call_span = call.span();
+
+    Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: call_span,
+        ty: Type::Nothing,
+        custom_completion: None,
+    }])
+}
+
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
     working_set
         .find_variable(format!("${}", var_name).as_bytes())
@@ -3801,13 +3898,13 @@ pub fn find_in_dirs(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
-    dirs_var_name: &str,
+    dirs_var_name: Option<&str>,
 ) -> Option<ParserPath> {
     pub fn find_in_dirs_with_id(
         filename: &str,
         working_set: &StateWorkingSet,
         cwd: &str,
-        dirs_var_name: &str,
+        dirs_var_name: Option<&str>,
     ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
         let actual_cwd = working_set
@@ -3847,8 +3944,10 @@ pub fn find_in_dirs(
         }
 
         // Look up relative path from NU_LIB_DIRS
-        working_set
-            .get_variable(find_dirs_var(working_set, dirs_var_name)?)
+        dirs_var_name
+            .as_ref()
+            .and_then(|dirs_var_name| find_dirs_var(working_set, dirs_var_name))
+            .map(|var_id| working_set.get_variable(var_id))?
             .const_val
             .as_ref()?
             .as_list()
@@ -3870,7 +3969,7 @@ pub fn find_in_dirs(
         filename: &str,
         working_set: &StateWorkingSet,
         cwd: &str,
-        dirs_env: &str,
+        dirs_env: Option<&str>,
     ) -> Option<PathBuf> {
         // Choose whether to use file-relative or PWD-relative path
         let actual_cwd = working_set
@@ -3884,7 +3983,9 @@ pub fn find_in_dirs(
             let path = Path::new(filename);
 
             if path.is_relative() {
-                if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
+                if let Some(lib_dirs) =
+                    dirs_env.and_then(|dirs_env| working_set.get_env_var(dirs_env))
+                {
                     if let Ok(dirs) = lib_dirs.as_list() {
                         for lib_dir in dirs {
                             if let Ok(dir) = lib_dir.to_path() {

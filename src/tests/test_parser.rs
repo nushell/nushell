@@ -594,6 +594,42 @@ register $file
 }
 
 #[test]
+fn plugin_use_with_string_literal() -> TestResult {
+    fail_test(
+        r#"plugin use 'nu-plugin-math'"#,
+        "Plugin cache file not set",
+    )
+}
+
+#[test]
+fn plugin_use_with_string_constant() -> TestResult {
+    let input = "\
+const file = 'nu-plugin-math'
+plugin use $file
+";
+    // should not fail with `not a constant`
+    fail_test(input, "Plugin cache file not set")
+}
+
+#[test]
+fn plugin_use_with_string_variable() -> TestResult {
+    let input = "\
+let file = 'nu-plugin-math'
+plugin use $file
+";
+    fail_test(input, "Value is not a parse-time constant")
+}
+
+#[test]
+fn plugin_use_with_non_string_constant() -> TestResult {
+    let input = "\
+const file = 6
+plugin use $file
+";
+    fail_test(input, "expected string, found int")
+}
+
+#[test]
 fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
     fail_test("extern cmd[]", "expected space")
 }

@@ -89,17 +89,22 @@ impl PluginIdentity {
             .expect("fake plugin identity path is invalid")
     }
 
-    /// A command that could be used to register the plugin, for suggesting in errors.
-    pub fn register_command(&self) -> String {
+    /// A command that could be used to add the plugin, for suggesting in errors.
+    pub fn add_command(&self) -> String {
         if let Some(shell) = self.shell() {
             format!(
-                "register --shell '{}' '{}'",
+                "plugin add --shell '{}' '{}'",
                 shell.display(),
                 self.filename().display(),
             )
         } else {
-            format!("register '{}'", self.filename().display())
+            format!("plugin add '{}'", self.filename().display())
         }
+    }
+
+    /// A command that could be used to reload the plugin, for suggesting in errors.
+    pub fn use_command(&self) -> String {
+        format!("plugin use '{}'", self.name())
     }
 }
 

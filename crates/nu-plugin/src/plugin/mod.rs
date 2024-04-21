@@ -992,7 +992,8 @@ pub fn load_plugin_cache_item(
         }
         PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
             plugin_name: identity.name().to_owned(),
-            register_command: identity.register_command(),
+            span,
+            add_command: identity.add_command(),
         }),
     }
 }

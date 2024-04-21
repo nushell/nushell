@@ -4,11 +4,13 @@ mod add;
 mod list;
 mod rm;
 mod stop;
+mod use_;
 
 pub use add::PluginAdd;
 pub use list::PluginList;
 pub use rm::PluginRm;
 pub use stop::PluginStop;
+pub use use_::PluginUse;
 
 #[derive(Clone)]
 pub struct PluginCommand;
@@ -67,6 +69,15 @@ impl Command for PluginCommand {
             Example {
                 example: "plugin add nu_plugin_inc",
                 description: "Run the `nu_plugin_inc` plugin from the current directory and install its signatures.",
+                result: None,
+            },
+            Example {
+                example: "plugin use inc",
+                description: "
+Load (or reload) the `inc` plugin from the plugin cache file and put its commands in scope.
+The plugin must already be in the cache file at parse time.
+"
+                .trim(),
                 result: None,
             },
             Example {
