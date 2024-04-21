@@ -262,24 +262,21 @@ fn add_month_to_table(
 
     let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
 
-    let mut week_start_day = days_of_the_week[0].to_string();
-    if let Some(day) = &arguments.week_start {
-        let s = &day.item;
-        if days_of_the_week.contains(&s.as_str()) {
-            week_start_day = s.to_string();
+    let week_start_day_offset = if let Some(week_start_day) = &arguments.week_start {
+        if let Some(position) = days_of_the_week
+            .iter()
+            .position(|day| *day == week_start_day.item)
+        {
+            position
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
-                span: day.span,
+                span: week_start_day.span,
             });
         }
-    }
-
-    let week_start_day_offset = days_of_the_week.len()
-        - days_of_the_week
-            .iter()
-            .position(|day| *day == week_start_day)
-            .unwrap_or(0);
+    } else {
+        0
+    };
 
     days_of_the_week.rotate_right(week_start_day_offset);
 
