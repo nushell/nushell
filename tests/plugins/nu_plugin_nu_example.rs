@@ -1,14 +1,7 @@
 use assert_cmd::Command;
-use nu_parser::escape_quote_string;
 
 #[test]
 fn call() {
-    let path = nu_path::canonicalize_with(
-        "crates/nu_plugin_nu_example/nu_plugin_nu_example.nu",
-        nu_test_support::fs::root(),
-    )
-    .expect("failed to find nu_plugin_nu_example.nu");
-
     // Add the `nu` binaries to the path env
     let path_env = std::env::join_paths(
         std::iter::once(nu_test_support::fs::binaries()).chain(
@@ -27,7 +20,10 @@ fn call() {
             "--no-config-file",
             "--no-std-lib",
             "--plugins",
-            &format!("[{}]", escape_quote_string(&path.to_string_lossy())),
+            &format!(
+                "[crates{0}nu_plugin_nu_example{0}nu_plugin_nu_example.nu]",
+                std::path::MAIN_SEPARATOR
+            ),
             "--commands",
             "nu_plugin_nu_example 4242 teststring",
         ])

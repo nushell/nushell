@@ -399,7 +399,11 @@ fn main() -> Result<()> {
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         for plugin_filename in plugins {
-            let identity = PluginIdentity::new(&plugin_filename.item, None)
+            // Make sure the plugin filenames are canonicalized
+            let filename = nu_path::canonicalize_with(&plugin_filename.item, &init_cwd)
+                .map_err(|err| ShellError::from(err.into_spanned(plugin_filename.span)))?;
+
+            let identity = PluginIdentity::new(&filename, None)
                 .map_err(|err| ShellError::from(err.into_spanned(plugin_filename.span)))?;
 
             // Create the plugin and add it to the working set
