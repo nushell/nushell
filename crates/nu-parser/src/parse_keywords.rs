@@ -125,6 +125,7 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
             "overlay hide" => parse_overlay_hide(working_set, call),
             "overlay new" => parse_overlay_new(working_set, call),
             "overlay use" => parse_overlay_use(working_set, call),
+            #[cfg(feature = "plugin")]
             "plugin use" => parse_plugin_use(working_set, call),
             _ => Pipeline::from_vec(vec![call_expr]),
         }
