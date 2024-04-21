@@ -1,11 +1,10 @@
 use std::path::{Path, PathBuf};
 
-use crate::{ParseError, Spanned};
+use crate::{ParseError, ShellError, Spanned};
 
-/// Error when an invalid plugin filename was encountered. This can be converted to [`ParseError`]
-/// if a span is added.
+/// Error when an invalid plugin filename was encountered.
 #[derive(Debug, Clone)]
-pub struct InvalidPluginFilename;
+pub struct InvalidPluginFilename(PathBuf);
 
 impl std::fmt::Display for InvalidPluginFilename {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -20,6 +19,18 @@ impl From<Spanned<InvalidPluginFilename>> for ParseError {
             "must start with `nu_plugin_`".into(),
             error.span,
         )
+    }
+}
+
+impl From<Spanned<InvalidPluginFilename>> for ShellError {
+    fn from(error: Spanned<InvalidPluginFilename>) -> ShellError {
+        ShellError::GenericError {
+            error: format!("Invalid plugin filename: {}", error.item.0.display()),
+            msg: "not a valid plugin filename".into(),
+            span: Some(error.span),
+            help: Some("valid Nushell plugin filenames must start with `nu_plugin_`".into()),
+            inner: vec![],
+        }
     }
 }
 
@@ -45,7 +56,7 @@ impl PluginIdentity {
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
             .and_then(|stem| stem.strip_prefix("nu_plugin_").map(|s| s.to_owned()))
-            .ok_or(InvalidPluginFilename)?;
+            .ok_or_else(|| InvalidPluginFilename(filename.clone()))?;
 
         Ok(PluginIdentity {
             filename,

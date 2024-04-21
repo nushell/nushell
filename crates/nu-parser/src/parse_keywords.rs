@@ -3551,7 +3551,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 /// `register` is deprecated and will be removed in 0.94. Use `plugin add` and `plugin use` instead.
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
-    use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+    use nu_plugin::{get_signature, PluginDeclaration};
     use nu_protocol::{
         engine::Stack, IntoSpanned, ParseWarning, PluginCacheItem, PluginIdentity, PluginSignature,
         RegisteredPlugin,
@@ -3711,27 +3711,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         let identity =
             PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
 
-        // Find garbage collection config
-        let gc_config = working_set
-            .get_config()
-            .plugin_gc
-            .get(identity.name())
-            .clone();
-
-        // Add it to the working set
-        let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
-        });
-
-        // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
-        // trait object only exists so that nu-protocol can contain plugins without knowing anything
-        // about their implementation, but we only use `PersistentPlugin` in practice.
-        let plugin: Arc<PersistentPlugin> = plugin.as_any().downcast().map_err(|_| {
-            ParseError::InternalError(
-                "encountered unexpected RegisteredPlugin type".into(),
-                spans[0],
-            )
-        })?;
+        let plugin = nu_plugin::add_plugin_to_working_set(working_set, &identity)
+            .map_err(|err| err.wrap(working_set, call.head))?;
 
         let signatures = signature.map_or_else(
             || {
@@ -3746,8 +3727,6 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                         spans[0],
                     )
                 })?;
-
-                plugin.set_gc_config(&gc_config);
 
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
                     log::warn!("Error getting signatures: {err:?}");

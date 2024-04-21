@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    path::PathBuf,
-    process::{Command, Stdio},
-};
+use std::{fs::File, path::PathBuf};
 
 use nu_protocol::{PluginCacheFile, PluginCacheItem, PluginCacheItemData};
 use nu_test_support::{fs::Stub, nu, nu_with_plugins, playground::Playground};
@@ -69,16 +65,70 @@ fn plugin_add_to_custom_path() {
 
 #[test]
 fn plugin_rm_then_restart_nu() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        r#"
-            plugin rm example
-            ^$nu.current-exe --config $nu.config-path --env-config $nu.env-path --plugin-config $nu.plugin-path --commands 'plugin list | get name | to json --raw'
-        "#
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"[]"#, result.out);
+    let example_plugin_path = example_plugin_path();
+    Playground::setup("plugin rm from custom path", |dirs, playground| {
+        playground.with_files(vec![
+            Stub::FileWithContent("config.nu", ""),
+            Stub::FileWithContent("env.nu", ""),
+        ]);
+
+        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
+            .expect("failed to create file");
+        let mut contents = PluginCacheFile::new();
+
+        contents.upsert_plugin(PluginCacheItem {
+            name: "example".into(),
+            filename: example_plugin_path,
+            shell: None,
+            data: PluginCacheItemData::Valid { commands: vec![] },
+        });
+
+        contents.upsert_plugin(PluginCacheItem {
+            name: "foo".into(),
+            // this doesn't exist, but it should be ok
+            filename: dirs.test().join("nu_plugin_foo"),
+            shell: None,
+            data: PluginCacheItemData::Valid { commands: vec![] },
+        });
+
+        contents
+            .write_to(file, None)
+            .expect("failed to write plugin file");
+
+        assert_cmd::Command::new(nu_test_support::fs::executable_path())
+            .current_dir(dirs.test())
+            .args([
+                "--no-std-lib",
+                "--config",
+                "config.nu",
+                "--env-config",
+                "env.nu",
+                "--plugin-config",
+                "test-plugin-file.msgpackz",
+                "--commands",
+                "plugin rm example",
+            ])
+            .assert()
+            .success()
+            .stderr("");
+
+        assert_cmd::Command::new(nu_test_support::fs::executable_path())
+            .current_dir(dirs.test())
+            .args([
+                "--no-std-lib",
+                "--config",
+                "config.nu",
+                "--env-config",
+                "env.nu",
+                "--plugin-config",
+                "test-plugin-file.msgpackz",
+                "--commands",
+                "plugin list | get name | to json --raw",
+            ])
+            .assert()
+            .success()
+            .stdout("[\"foo\"]\n");
+    })
 }
 
 #[test]
@@ -176,7 +226,7 @@ fn warning_on_invalid_plugin_item() {
             .write_to(file, None)
             .expect("failed to write plugin file");
 
-        let result = Command::new(nu_test_support::fs::executable_path())
+        let result = assert_cmd::Command::new(nu_test_support::fs::executable_path())
             .current_dir(dirs.test())
             .args([
                 "--no-std-lib",
@@ -189,9 +239,6 @@ fn warning_on_invalid_plugin_item() {
                 "--commands",
                 "plugin list | get name | to json --raw",
             ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
             .output()
             .expect("failed to run nu");
 
@@ -212,21 +259,30 @@ fn warning_on_invalid_plugin_item() {
 
 #[test]
 fn plugin_use_error_not_found() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [("nu_plugin_example")],
-        r#"
-            (
-                ^$nu.current-exe
-                    --config $nu.config-path
-                    --env-config $nu.env-path
-                    --plugin-config $nu.plugin-path
-                    --commands 'plugin use custom_values'
-            )
-        "#
-    );
-    assert!(!result.status.success());
-    assert!(result.err.contains("Plugin not found"));
+    Playground::setup("plugin use error not found", |dirs, playground| {
+        playground.with_files(vec![
+            Stub::FileWithContent("config.nu", ""),
+            Stub::FileWithContent("env.nu", ""),
+        ]);
+
+        // Make an empty msgpackz
+        let file = File::create(dirs.test().join("plugin.msgpackz"))
+            .expect("failed to open plugin.msgpackz");
+        PluginCacheFile::default()
+            .write_to(file, None)
+            .expect("failed to write empty cache file");
+
+        let output = assert_cmd::Command::new(nu_test_support::fs::executable_path())
+            .current_dir(dirs.test())
+            .args(["--config", "config.nu"])
+            .args(["--env-config", "env.nu"])
+            .args(["--plugin-config", "plugin.msgpackz"])
+            .args(["--commands", "plugin use custom_values"])
+            .output()
+            .expect("failed to run nu");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Plugin not found"));
+    })
 }
 
 #[test]

@@ -1,26 +1,33 @@
-use nu_test_support::nu;
-
-#[test]
-fn register() {
-    let out = nu!("register crates/nu_plugin_nu_example/nu_plugin_nu_example.nu");
-    assert!(out.status.success());
-    assert!(out.out.trim().is_empty());
-    assert!(out.err.trim().is_empty());
-}
+use assert_cmd::Command;
+use nu_parser::escape_quote_string;
 
 #[test]
 fn call() {
-    let out = nu!(r#"
-        register crates/nu_plugin_nu_example/nu_plugin_nu_example.nu
-        nu_plugin_nu_example 4242 teststring
-    "#);
-    assert!(out.status.success());
+    let path = nu_path::canonicalize_with(
+        "crates/nu_plugin_nu_example/nu_plugin_nu_example.nu",
+        nu_test_support::fs::root(),
+    )
+    .expect("failed to find nu_plugin_nu_example.nu");
 
-    assert!(out.err.contains("name: nu_plugin_nu_example"));
-    assert!(out.err.contains("4242"));
-    assert!(out.err.contains("teststring"));
+    let assert = Command::new(nu_test_support::fs::executable_path())
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--plugins",
+            &format!("[{}]", escape_quote_string(&path.to_string_lossy())),
+            "--commands",
+            "nu_plugin_nu_example 4242 teststring",
+        ])
+        .assert()
+        .success();
 
-    assert!(out.out.contains("one"));
-    assert!(out.out.contains("two"));
-    assert!(out.out.contains("three"));
+    let output = assert.get_output();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("one"));
+    assert!(stdout.contains("two"));
+    assert!(stdout.contains("three"));
+    assert!(stderr.contains("name: nu_plugin_nu_example"));
+    assert!(stderr.contains("4242"));
+    assert!(stderr.contains("teststring"));
 }

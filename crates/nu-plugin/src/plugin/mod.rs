@@ -960,28 +960,7 @@ pub fn load_plugin_cache_item(
 
     match &plugin.data {
         PluginCacheItemData::Valid { commands } => {
-            // Find garbage collection config for the plugin
-            let gc_config = working_set
-                .get_config()
-                .plugin_gc
-                .get(identity.name())
-                .clone();
-
-            // Add it to / get it from the working set
-            let plugin = working_set.find_or_create_plugin(&identity, || {
-                Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
-            });
-
-            // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
-            // The trait object only exists so that nu-protocol can contain plugins without knowing
-            // anything about their implementation, but we only use `PersistentPlugin` in practice.
-            let plugin: Arc<PersistentPlugin> =
-                plugin
-                    .as_any()
-                    .downcast()
-                    .map_err(|_| ShellError::NushellFailed {
-                        msg: "encountered unexpected RegisteredPlugin type".into(),
-                    })?;
+            let plugin = add_plugin_to_working_set(working_set, &identity)?;
 
             // Create the declarations from the commands
             for signature in commands {
@@ -996,4 +975,34 @@ pub fn load_plugin_cache_item(
             add_command: identity.add_command(),
         }),
     }
+}
+
+#[doc(hidden)]
+pub fn add_plugin_to_working_set(
+    working_set: &mut StateWorkingSet,
+    identity: &PluginIdentity,
+) -> Result<Arc<PersistentPlugin>, ShellError> {
+    // Find garbage collection config for the plugin
+    let gc_config = working_set
+        .get_config()
+        .plugin_gc
+        .get(identity.name())
+        .clone();
+
+    // Add it to / get it from the working set
+    let plugin = working_set.find_or_create_plugin(&identity, || {
+        Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
+    });
+
+    plugin.set_gc_config(&gc_config);
+
+    // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
+    // The trait object only exists so that nu-protocol can contain plugins without knowing
+    // anything about their implementation, but we only use `PersistentPlugin` in practice.
+    plugin
+        .as_any()
+        .downcast()
+        .map_err(|_| ShellError::NushellFailed {
+            msg: "encountered unexpected RegisteredPlugin type".into(),
+        })
 }
