@@ -977,7 +977,7 @@ impl EngineState {
             })
         }
 
-        // Retrive $env.PWD from the stack or the engine state.
+        // Retrieve $env.PWD from the stack or the engine state.
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
