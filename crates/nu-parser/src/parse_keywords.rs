@@ -3548,11 +3548,12 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
     }
 }
 
+/// `register` is deprecated and will be removed in 0.94. Use `plugin add` and `plugin use` instead.
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
     use nu_protocol::{
-        engine::Stack, IntoSpanned, PluginCacheItem, PluginIdentity, PluginSignature,
+        engine::Stack, IntoSpanned, ParseWarning, PluginCacheItem, PluginIdentity, PluginSignature,
         RegisteredPlugin,
     };
 
@@ -3611,6 +3612,16 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
             (call, call_span)
         }
     };
+
+    // Now that the call is parsed, add the deprecation warning
+    working_set
+        .parse_warnings
+        .push(ParseWarning::DeprecatedWarning {
+            old_command: "register".into(),
+            new_suggestion: "use `plugin add` and `plugin use`".into(),
+            span: call.head,
+            url: "https://www.nushell.sh/book/plugins.html".into(),
+        });
 
     // Extracting the required arguments from the call and keeping them together in a tuple
     let arguments = call
