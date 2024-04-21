@@ -1,5 +1,4 @@
 use chrono::{Datelike, Local, NaiveDate};
-use indexmap::IndexMap;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 
@@ -261,31 +260,23 @@ fn add_month_to_table(
     };
 
     let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
+    let mut total_start_offset: u32 = month_helper.day_number_of_week_month_starts_on;
 
-    let mut week_start_day = days_of_the_week[0].to_string();
-    if let Some(day) = &arguments.week_start {
-        let s = &day.item;
-        if days_of_the_week.contains(&s.as_str()) {
-            week_start_day = s.to_string();
+    if let Some(week_start_day) = &arguments.week_start {
+        if let Some(position) = days_of_the_week
+            .iter()
+            .position(|day| *day == week_start_day.item)
+        {
+            days_of_the_week.rotate_left(position);
+            total_start_offset += (days_of_the_week.len() - position) as u32;
+            total_start_offset %= days_of_the_week.len() as u32;
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
-                span: day.span,
+                span: week_start_day.span,
             });
         }
-    }
-
-    let week_start_day_offset = days_of_the_week.len()
-        - days_of_the_week
-            .iter()
-            .position(|day| *day == week_start_day)
-            .unwrap_or(0);
-
-    days_of_the_week.rotate_right(week_start_day_offset);
-
-    let mut total_start_offset: u32 =
-        month_helper.day_number_of_week_month_starts_on + week_start_day_offset as u32;
-    total_start_offset %= days_of_the_week.len() as u32;
+    };
 
     let mut day_number: u32 = 1;
     let day_limit: u32 = total_start_offset + month_helper.number_of_days_in_month;
@@ -296,17 +287,17 @@ fn add_month_to_table(
     let should_show_month_names = arguments.month_names;
 
     while day_number <= day_limit {
-        let mut indexmap = IndexMap::new();
+        let mut record = Record::new();
 
         if should_show_year_column {
-            indexmap.insert(
+            record.insert(
                 "year".to_string(),
                 Value::int(month_helper.selected_year as i64, tag),
             );
         }
 
         if should_show_quarter_column {
-            indexmap.insert(
+            record.insert(
                 "quarter".to_string(),
                 Value::int(month_helper.quarter_number as i64, tag),
             );
@@ -319,7 +310,7 @@ fn add_month_to_table(
                 Value::int(month_helper.selected_month as i64, tag)
             };
 
-            indexmap.insert("month".to_string(), month_value);
+            record.insert("month".to_string(), month_value);
         }
 
         for day in &days_of_the_week {
@@ -349,12 +340,12 @@ fn add_month_to_table(
                 }
             }
 
-            indexmap.insert((*day).to_string(), value);
+            record.insert((*day).to_string(), value);
 
             day_number += 1;
         }
 
-        calendar_vec_deque.push_back(Value::record(indexmap.into_iter().collect(), tag))
+        calendar_vec_deque.push_back(Value::record(record, tag))
     }
 
     Ok(())
