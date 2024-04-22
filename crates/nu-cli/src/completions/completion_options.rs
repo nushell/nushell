@@ -24,6 +24,12 @@ pub enum MatchAlgorithm {
     /// Example:
     /// "git checkout" is matched by "gco"
     Fuzzy,
+
+    /// Only show suggestions which contain the substring starting at any place
+    /// 
+    /// Example:
+    /// "git checkout" is matched by "check"
+    Substring
 }
 
 impl MatchAlgorithm {
@@ -37,6 +43,7 @@ impl MatchAlgorithm {
                 let matcher = SkimMatcherV2::default();
                 matcher.fuzzy_match(haystack, needle).is_some()
             }
+            MatchAlgorithm::Substring => haystack.contains(needle),
         }
     }
 
@@ -51,6 +58,7 @@ impl MatchAlgorithm {
                 let matcher = SkimMatcherV2::default();
                 matcher.fuzzy_match(&haystack_str, &needle_str).is_some()
             }
+            MatchAlgorithm::Substring => haystack.windows(needle.len()).any(|window| window == needle),
         }
     }
 }
@@ -60,6 +68,7 @@ impl From<CompletionAlgorithm> for MatchAlgorithm {
         match value {
             CompletionAlgorithm::Prefix => MatchAlgorithm::Prefix,
             CompletionAlgorithm::Fuzzy => MatchAlgorithm::Fuzzy,
+            CompletionAlgorithm::Substring => MatchAlgorithm::Substring,
         }
     }
 }
@@ -71,6 +80,7 @@ impl TryFrom<String> for MatchAlgorithm {
         match value.as_str() {
             "prefix" => Ok(Self::Prefix),
             "fuzzy" => Ok(Self::Fuzzy),
+            "substring" => Ok(Self::Substring),
             _ => Err(InvalidMatchAlgorithm::Unknown),
         }
     }

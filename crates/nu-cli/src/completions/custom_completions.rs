@@ -163,7 +163,7 @@ fn filter(
                     }
                 }
             },
-            MatchAlgorithm::Fuzzy => options
+            MatchAlgorithm::Fuzzy | MatchAlgorithm::Substring => options
                 .match_algorithm
                 .matches_u8(it.suggestion.value.as_bytes(), prefix),
         })
