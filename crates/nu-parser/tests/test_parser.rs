@@ -304,6 +304,52 @@ pub fn parse_int_with_underscores() {
 }
 
 #[test]
+pub fn parse_float() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"3.0", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+    assert_eq!(element.expr.expr, Expr::Float(3.0));
+
+    let block = parse(&mut working_set, None, b"1_234.567_8", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+    assert_eq!(element.expr.expr, Expr::Float(1234.5678));
+
+    let block = parse(&mut working_set, None, b"-inf", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+    assert_eq!(element.expr.expr, Expr::Float(f64::NEG_INFINITY));
+
+    let block = parse(&mut working_set, None, b"NaN", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+    assert!(matches!(element.expr.expr, Expr::Float(val) if val.is_nan()));
+}
+
+#[test]
 pub fn parse_cell_path() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
