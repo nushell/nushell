@@ -29,7 +29,7 @@ fn helper_for_tables(
     for val in values {
         match val {
             Value::Record { val, .. } => {
-                for (key, value) in &**val {
+                for (key, value) in val {
                     column_values
                         .entry(key.clone())
                         .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
@@ -82,15 +82,13 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { val, .. }, ..) => {
-            let mut record = val.into_owned();
-            record
-                .iter_mut()
+        PipelineData::Value(Value::Record { mut val, .. }, ..) => {
+            val.iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
                     *val = mf(slice::from_ref(val), span, name)?;
                     Ok(())
                 })?;
-            Ok(Value::record(record, span))
+            Ok(Value::record(val, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             ensure_bounded(val.as_ref(), span, name)?;

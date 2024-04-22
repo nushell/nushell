@@ -651,7 +651,7 @@ fn eval_instruction<D: DebugContext>(
             let items_span = items.span();
             let mut record = record_value.into_record()?;
             let items = match items {
-                Value::Record { val, .. } => val.into_owned(),
+                Value::Record { val, .. } => val,
                 Value::Nothing { .. } => Record::new(),
                 _ => return Err(ShellError::CannotSpreadAsRecord { span: items_span }),
             };
