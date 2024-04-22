@@ -158,8 +158,8 @@ fn run(
     input: PipelineData,
     options: Options,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata().clone().map(Box::new);
     let head = call.head;
+    let metadata = input.metadata();
 
     let description: Value = match input {
         PipelineData::ExternalStream {
@@ -373,15 +373,12 @@ fn describe_value(
     }
 }
 
-fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol::Span) -> Value {
-    match metadata {
-        Some(metadata) => Value::record(
-            record!(
-                "data_source" => Value::string(format!("{:?}", metadata.data_source), head),
-            ),
-            head,
-        ),
-        _ => Value::nothing(head),
+fn metadata_to_value(metadata: Option<PipelineMetadata>, head: Span) -> Value {
+    if let Some(metadata) = metadata {
+        let data_source = Value::string(format!("{:?}", metadata.data_source), head);
+        Value::record(record! { "data_source" => data_source }, head)
+    } else {
+        Value::nothing(head)
     }
 }
 
