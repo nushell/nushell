@@ -234,7 +234,7 @@ fn ls_for_one_pattern(
     // it indicates we need to append an extra '*' after pattern for listing given directory
     // Example: 'ls directory' -> 'ls directory/*'
     let mut extra_star_under_given_directory = false;
-    let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+    let (mut path, p_tag, absolute_path) = match pattern_arg {
         Some(pat) => {
             let p_tag = pat.span;
             let expanded = nu_path::expand_path_with(
@@ -278,52 +278,37 @@ fn ls_for_one_pattern(
             //    path.
             let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
                 || (pat.item.is_expand() && expand_to_real_path(pat.item.as_ref()).is_absolute());
-            (
-                expanded,
-                p_tag,
-                absolute_path,
-                matches!(pat.item, NuGlob::DoNotExpand(_)),
-            )
+            (pat.item, p_tag, absolute_path)
         }
         None => {
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
-                (PathBuf::from("."), call_span, false, false)
+                (NuGlob::Expand(".".to_string()), call_span, false)
             } else if is_empty_dir(&cwd) {
                 return Ok(Box::new(vec![].into_iter()));
             } else {
-                (PathBuf::from("*"), call_span, false, false)
+                (NuGlob::Expand("*".to_string()), call_span, false)
             }
         }
     };
 
-    let hidden_dir_specified = is_hidden_dir(&path);
+    let hidden_dir_specified = false;
     // when it's quoted, we need to escape our glob pattern(but without the last extra
     // start which may be added under given directory)
     // so we can do ls for a file or directory like `a[123]b`
-    let path = if quoted {
-        let p = path.display().to_string();
-        let mut glob_escaped = Pattern::escape(&p);
-        if extra_star_under_given_directory {
-            glob_escaped.push(std::path::MAIN_SEPARATOR);
-            glob_escaped.push('*');
+    if extra_star_under_given_directory {
+        match &mut path {
+            NuGlob::Expand(p) | NuGlob::DoNotExpand(p) => {
+                p.push(std::path::MAIN_SEPARATOR);
+                p.push('*');
+            }
         }
-        glob_escaped
-    } else {
-        let mut p = path.display().to_string();
-        if extra_star_under_given_directory {
-            p.push(std::path::MAIN_SEPARATOR);
-            p.push('*');
-        }
-        p
-    };
+    }
 
-    let glob_path = Spanned {
-        // use NeedExpand, the relative escaping logic is handled previously
-        item: NuGlob::Expand(path.clone()),
+    let path = Spanned {
+        item: path,
         span: p_tag,
     };
-
     let glob_options = if all {
         None
     } else {
@@ -333,12 +318,12 @@ fn ls_for_one_pattern(
         };
         Some(glob_options)
     };
-    let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)?;
+    let (prefix, paths) = nu_engine::glob_from(&path, &cwd, call_span, glob_options)?;
 
     let mut paths_peek = paths.peekable();
     if paths_peek.peek().is_none() {
         return Err(ShellError::GenericError {
-            error: format!("No matches found for {}", &path),
+            error: format!("No matches found for {:?}", path.item),
             msg: "Pattern, file or folder not found".into(),
             span: Some(p_tag),
             help: Some("no matches found".into()),
