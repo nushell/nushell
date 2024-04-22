@@ -183,8 +183,10 @@ impl Record {
     where
         F: FnMut(&str, &mut Value) -> bool,
     {
-        todo!()
-        // self.inner.retain_mut(|(col, val)| keep(col, val));
+        self.inner = std::mem::take(&mut self.inner)
+            .into_iter()
+            .filter_map(|(col, mut val)| keep(&col, &mut val).then_some((col, val)))
+            .collect();
     }
 
     /// Truncate record to the first `len` elements.
