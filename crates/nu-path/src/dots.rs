@@ -2,7 +2,7 @@ use std::path::{Component, Path, PathBuf};
 
 use super::helpers;
 
-/// Normalize the path, expanding occurances of n-dots.
+/// Normalize the path, expanding occurrences of n-dots.
 ///
 /// It performs the same normalization as `Path::components()`, except it also expands n-dots,
 /// such as "..." and "....", into multiple "..".
@@ -33,7 +33,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     result
 }
 
-/// Normalize the path, expanding occurances of "." and "..".
+/// Normalize the path, expanding occurrences of "." and "..".
 ///
 /// It performs the same normalization as `Path::components()`, except it also expands ".."
 /// when its preceding component is a normal component, ignoring the possibility of symlinks.
@@ -70,7 +70,7 @@ mod tests {
 
     /// Path equality in Rust is defined by comparing their `components()`.
     /// However, `components()` will perform its own normalization, which is not ideal for testing.
-    /// Avoid `assert_eq!` in tests; use `assert_path_eq!` instead, which converts path to string before comparision.
+    /// Avoid `assert_eq!` in tests; use `assert_path_eq!` instead, which converts path to string before comparison.
     /// It accepts PathBuf, Path, String, and &str.
     macro_rules! assert_path_eq {
         ($left:expr, $right:expr $(,)?) => {
@@ -94,11 +94,11 @@ mod tests {
     /// For example, "./foo\bar" is converted to ".\foo\bar" on Windows, and "./foo/bar" on other platforms.
     #[cfg(windows)]
     fn platform_path(path: &str) -> String {
-        path.replace(r"/", r"\")
+        path.replace('/', "\\")
     }
     #[cfg(not(windows))]
     fn platform_path(path: &str) -> String {
-        path.replace(r"\", r"/")
+        path.replace('\\', "/")
     }
 
     #[test]
