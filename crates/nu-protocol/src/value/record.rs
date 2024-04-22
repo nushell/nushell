@@ -98,6 +98,7 @@ impl Record {
 
     pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
         self.inner
+            .make_mut()
             .iter_mut()
             .find_map(|(k, v)| if k == col.as_ref() { Some(v) } else { None })
     }
@@ -288,7 +289,7 @@ impl Record {
     /// );
     /// ```
     pub fn sort_cols(&mut self) {
-        self.inner.sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
+        self.inner.make_mut().sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
     }
 }
 
@@ -503,7 +504,7 @@ impl<'a> IntoIterator for &'a mut Record {
 
     fn into_iter(self) -> Self::IntoIter {
         IterMut {
-            iter: self.inner.iter_mut(),
+            iter: self.inner.make_mut().iter_mut(),
         }
     }
 }

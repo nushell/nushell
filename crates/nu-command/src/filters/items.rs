@@ -55,7 +55,6 @@ impl Command for Items {
                     Value::Record { val, .. } => {
                         let mut closure = ClosureEval::new(engine_state, stack, closure);
                         Ok(val
-                            .into_owned()
                             .into_iter()
                             .map_while(move |(col, val)| {
                                 let result = closure

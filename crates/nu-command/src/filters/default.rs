@@ -92,7 +92,7 @@ fn default(
                     } => {
                         let mut found = false;
 
-                        for (col, val) in record.to_mut().iter_mut() {
+                        for (col, val) in record.iter_mut() {
                             if *col == column.item {
                                 found = true;
                                 if matches!(val, Value::Nothing { .. }) {
@@ -102,7 +102,7 @@ fn default(
                         }
 
                         if !found {
-                            record.to_mut().push(column.item.clone(), value.clone());
+                            record.push(column.item.clone(), value.clone());
                         }
 
                         item

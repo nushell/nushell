@@ -152,7 +152,7 @@ pub fn highlight_search_in_table(
             });
         };
 
-        let has_match = record.to_mut().iter_mut().try_fold(
+        let has_match = record.iter_mut().try_fold(
             false,
             |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if !searched_cols.contains(&col.as_str()) {

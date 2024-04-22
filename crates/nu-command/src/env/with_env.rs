@@ -82,7 +82,7 @@ fn with_env(
                 // single row([[X W]; [Y Z]])
                 match &table[0] {
                     Value::Record { val, .. } => {
-                        for (k, v) in &**val {
+                        for (k, v) in val {
                             env.insert(k.to_string(), v.clone());
                         }
                     }
@@ -116,7 +116,7 @@ fn with_env(
         }
         // when get object by `open x.json` or `from json`
         Value::Record { val, .. } => {
-            for (k, v) in &**val {
+            for (k, v) in val {
                 env.insert(k.clone(), v.clone());
             }
         }

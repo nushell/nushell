@@ -319,8 +319,8 @@ impl PluginTest {
                 // reorder cols and vals to make more logically compare.
                 // more general, if two record have same col and values,
                 // the order of cols shouldn't affect the equal property.
-                let mut a_rec = a_rec.clone().into_owned();
-                let mut b_rec = b_rec.clone().into_owned();
+                let mut a_rec = a_rec.clone();
+                let mut b_rec = b_rec.clone();
                 a_rec.sort_cols();
                 b_rec.sort_cols();
 

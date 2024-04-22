@@ -87,7 +87,7 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
-            let (key, val) = record.into_owned().into_iter().unzip();
+            let (key, val) = record.into_iter().unzip();
             (key, vec![val])
         }
         Value::List { vals, .. } => {

@@ -106,7 +106,7 @@ pub fn get_values<'a>(
     for item in input {
         match item {
             Value::Record { val, .. } => {
-                for (k, v) in &**val {
+                for (k, v) in val {
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
@@ -171,7 +171,6 @@ fn values(
                         })?,
                     };
                     Ok(record
-                        .into_owned()
                         .into_values()
                         .into_pipeline_data_with_metadata(metadata, ctrlc))
                 }

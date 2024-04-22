@@ -199,7 +199,7 @@ mod util {
         let span = value.span();
         match value {
             Value::Record { val: record, .. } => {
-                let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
+                let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
                 (
                     cols,
                     vec![vals

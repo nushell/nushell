@@ -187,11 +187,11 @@ pub fn data_split(
             let span = v.span();
             match v {
                 Value::Record { val: grouped, .. } => {
-                    for (outer_key, list) in grouped.into_owned() {
+                    for (outer_key, list) in grouped {
                         match data_group(&list, splitter, span) {
                             Ok(grouped_vals) => {
                                 if let Value::Record { val: sub, .. } = grouped_vals {
-                                    for (inner_key, subset) in sub.into_owned() {
+                                    for (inner_key, subset) in sub {
                                         let s: &mut IndexMap<String, Value> =
                                             splits.entry(inner_key).or_default();
 

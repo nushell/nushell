@@ -264,7 +264,7 @@ fn compact_primitive_description(mut value: Value) -> Value {
         if val.len() != 1 {
             return value;
         }
-        if let Some(type_name) = val.to_mut().get_mut("type") {
+        if let Some(type_name) = val.get_mut("type") {
             return std::mem::take(type_name);
         }
     }
@@ -300,8 +300,7 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Record { val, .. } => {
-            let mut val = val.into_owned();
+        Value::Record { mut val, .. } => {
             for (_k, v) in val.iter_mut() {
                 *v = compact_primitive_description(describe_value(
                     std::mem::take(v),

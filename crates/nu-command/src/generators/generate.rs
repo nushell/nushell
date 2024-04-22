@@ -112,7 +112,7 @@ used as the next argument to the closure, otherwise generation stops.
                     match value {
                         // {out: ..., next: ...} -> output and continue
                         Value::Record { val, .. } => {
-                            let iter = val.into_owned().into_iter();
+                            let iter = val.into_iter();
                             let mut out = None;
                             let mut next = None;
                             let mut err = None;

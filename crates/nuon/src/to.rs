@@ -201,7 +201,7 @@ fn value_to_string(
         },
         Value::Record { val, .. } => {
             let mut collection = vec![];
-            for (col, val) in &**val {
+            for (col, val) in val {
                 collection.push(if needs_quotes(col) {
                     format!(
                         "{idt_po}\"{}\": {}",

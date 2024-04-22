@@ -500,7 +500,7 @@ pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
         Value::Record { val, .. } => {
             let mut params = Vec::with_capacity(val.len());
 
-            for (mut column, value) in val.into_owned().into_iter() {
+            for (mut column, value) in val {
                 let sql_type_erased = value_to_sql(value)?;
 
                 if !column.starts_with([':', '@', '$']) {

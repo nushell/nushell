@@ -392,7 +392,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
-            handle_record(input, cfg, val.into_owned())
+            handle_record(input, cfg, val)
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             input.data = val.collect()?.into_pipeline_data();
@@ -557,7 +557,7 @@ fn handle_row_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { val: record, .. } => {
                         // Only the name column gets special colors, for now
-                        if let Some(value) = record.to_mut().get_mut("name") {
+                        if let Some(value) = record.get_mut("name") {
                             let span = value.span();
                             if let Value::String { val, .. } = value {
                                 if let Some(val) = render_path_name(val, &config, &ls_colors, span)
@@ -583,7 +583,7 @@ fn handle_row_stream(
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { val: record, .. } => {
-                        for (rec_col, rec_val) in record.to_mut().iter_mut() {
+                        for (rec_col, rec_val) in record.iter_mut() {
                             // Every column in the HTML theme table except 'name' is colored
                             if rec_col != "name" {
                                 continue;

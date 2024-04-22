@@ -40,7 +40,7 @@ impl Command for LoadEnv {
         let record = match arg {
             Some(record) => record,
             None => match input {
-                PipelineData::Value(Value::Record { val, .. }, ..) => val.into_owned(),
+                PipelineData::Value(Value::Record { val, .. }, ..) => val,
                 _ => {
                     return Err(ShellError::UnsupportedInput {
                         msg: "'load-env' expects a single record".into(),

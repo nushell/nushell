@@ -325,7 +325,7 @@ impl Job {
             // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
-                Value::Record { val, .. } => val.into_owned(),
+                Value::Record { val, .. } => val,
                 Value::Nothing { .. } => Record::new(),
                 _ => {
                     return Err(ShellError::CantConvert {
