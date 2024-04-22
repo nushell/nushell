@@ -324,13 +324,13 @@ impl Command for Nu {
             .switch("version", "print the version", Some('v'))
             .named(
                 "config",
-                SyntaxShape::Filepath,
+                SyntaxShape::String,
                 "start with an alternate config file",
                 None,
             )
             .named(
                 "env-config",
-                SyntaxShape::Filepath,
+                SyntaxShape::String,
                 "start with an alternate environment config file",
                 None,
             )
