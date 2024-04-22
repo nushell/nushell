@@ -145,6 +145,45 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
 mod tests {
     use super::*;
 
+    /// Path equality in Rust is defined by comparing their `components()`.
+    /// However, `components()` will perform its own normalization, which is not ideal for testing.
+    /// Avoid `assert_eq!` in tests; use `assert_path_eq!` instead, which converts path to string before comparision.
+    /// It accepts PathBuf, Path, String, and &str.
+    macro_rules! assert_path_eq {
+        ($left:expr, $right:expr $(,)?) => {
+            assert_eq!(
+                AsRef::<Path>::as_ref(&$left).to_str().unwrap(),
+                AsRef::<Path>::as_ref(&$right).to_str().unwrap()
+            )
+        };
+    }
+    macro_rules! assert_path_ne {
+        ($left:expr, $right:expr $(,)?) => {
+            assert_ne!(
+                AsRef::<Path>::as_ref(&$left).to_str().unwrap(),
+                AsRef::<Path>::as_ref(&$right).to_str().unwrap()
+            )
+        };
+    }
+
+    #[test]
+    fn assert_path_eq_works() {
+        assert_path_eq!(PathBuf::from("/foo/bar"), Path::new("/foo/bar"));
+        assert_path_eq!(PathBuf::from("/foo/bar"), String::from("/foo/bar"));
+        assert_path_eq!(PathBuf::from("/foo/bar"), "/foo/bar");
+        assert_path_eq!(Path::new("/foo/bar"), String::from("/foo/bar"));
+        assert_path_eq!(Path::new("/foo/bar"), "/foo/bar");
+        assert_path_eq!(Path::new(r"\foo\bar"), r"\foo\bar");
+
+        assert_path_ne!(PathBuf::from("/foo/bar/."), Path::new("/foo/bar"));
+        assert_path_ne!(PathBuf::from("/foo/bar/."), String::from("/foo/bar"));
+        assert_path_ne!(PathBuf::from("/foo/bar/."), "/foo/bar");
+        assert_path_ne!(Path::new("/foo/./bar"), String::from("/foo/bar"));
+        assert_path_ne!(Path::new("/foo/./bar"), "/foo/bar");
+        assert_path_ne!(Path::new(r"\foo\bar"), r"/foo/bar");
+        assert_path_ne!(Path::new(r"/foo/bar"), r"\foo\bar");
+    }
+
     #[test]
     fn expand_two_dots() {
         let path = Path::new("/foo/bar/..");
