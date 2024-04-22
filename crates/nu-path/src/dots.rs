@@ -112,6 +112,9 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
 ///
 /// It performs the same normalization as `Path::components()`, except it also expands ".."
 /// when its preceding component is a normal component, ignoring the possibility of symlinks.
+/// In other words, it operates on the lexical structure of the path.
+///
+/// The resulting path will use platform-specific path separators, regardless of what path separators was used in the input.
 pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
 
@@ -209,13 +212,13 @@ mod tests {
     #[test]
     fn expand_two_dots() {
         let path = Path::new("/foo/bar/..");
-        assert_path_eq!("/foo", expand_dots(path));
+        assert_path_eq!(platform_path("/foo"), expand_dots(path));
     }
 
     #[test]
     fn expand_dots_with_curdir() {
         let path = Path::new("/foo/./bar/./baz");
-        assert_path_eq!("/foo/bar/baz", expand_dots(path));
+        assert_path_eq!(platform_path("/foo/bar/baz"), expand_dots(path));
     }
 
     // track_caller refers, in the panic-message, to the line of the function call and not
@@ -223,7 +226,7 @@ mod tests {
     #[track_caller]
     fn check_ndots_expansion(expected: &str, s: &str) {
         let expanded = expand_ndots(s);
-        assert_path_eq!(expected, expanded);
+        assert_path_eq!(platform_path(expected), expanded);
     }
 
     // common tests
@@ -302,23 +305,29 @@ mod tests {
 
     #[test]
     fn expand_multi_double_dots_no_change() {
-        assert_path_eq!("../../../", expand_dots("../../../"));
+        assert_path_eq!(platform_path("../../.."), expand_dots("../../../"));
     }
 
     #[test]
     fn expand_dots_no_change_with_dirs() {
         // Can't resolve this as we don't know our parent dir
-        assert_path_eq!("../../../dir1/dir2/", expand_dots("../../../dir1/dir2"));
+        assert_path_eq!(
+            platform_path("../../../dir1/dir2"),
+            expand_dots("../../../dir1/dir2"),
+        );
     }
 
     #[test]
     fn expand_dots_simple() {
-        assert_path_eq!("/foo", expand_dots("/foo/bar/.."));
+        assert_path_eq!(platform_path("/foo"), expand_dots("/foo/bar/.."));
     }
 
     #[test]
     fn expand_dots_complex() {
-        assert_path_eq!("/test", expand_dots("/foo/./bar/../../test/././test2/../"));
+        assert_path_eq!(
+            platform_path("/test"),
+            expand_dots("/foo/./bar/../../test/././test2/../"),
+        );
     }
 
     #[cfg(windows)]
