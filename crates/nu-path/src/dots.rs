@@ -187,26 +187,21 @@ mod tests {
     #[test]
     fn expand_two_dots() {
         let path = Path::new("/foo/bar/..");
-
-        assert_eq!(
-            PathBuf::from("/foo"), // missing path
-            expand_dots(path)
-        );
+        assert_path_eq!("/foo", expand_dots(path));
     }
 
     #[test]
     fn expand_dots_with_curdir() {
         let path = Path::new("/foo/./bar/./baz");
-
-        assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path));
+        assert_path_eq!("/foo/bar/baz", expand_dots(path));
     }
 
     // track_caller refers, in the panic-message, to the line of the function call and not
     // inside of the function, which is nice for a test-helper-function
     #[track_caller]
     fn check_ndots_expansion(expected: &str, s: &str) {
-        let expanded = expand_ndots(Path::new(s));
-        assert_eq!(Path::new(expected), &expanded);
+        let expanded = expand_ndots(s);
+        assert_path_eq!(expected, expanded);
     }
 
     // common tests
@@ -269,45 +264,39 @@ mod tests {
     #[test]
     fn expand_dots_double_dots_no_change() {
         // Can't resolve this as we don't know our parent dir
-        assert_eq!(Path::new(".."), expand_dots(Path::new("..")));
+        assert_path_eq!("..", expand_dots(".."));
     }
 
     #[test]
     fn expand_dots_single_dot_no_change() {
         // Can't resolve this as we don't know our current dir
-        assert_eq!(Path::new("."), expand_dots(Path::new(".")));
+        assert_path_eq!(".", expand_dots("."));
     }
 
     #[test]
     fn expand_dots_multi_single_dots_no_change() {
-        assert_eq!(Path::new("././."), expand_dots(Path::new("././.")));
+        assert_path_eq!("././.", expand_dots("././."));
     }
 
     #[test]
     fn expand_multi_double_dots_no_change() {
-        assert_eq!(Path::new("../../../"), expand_dots(Path::new("../../../")));
+        assert_path_eq!("../../../", expand_dots("../../../"));
     }
 
     #[test]
     fn expand_dots_no_change_with_dirs() {
         // Can't resolve this as we don't know our parent dir
-        assert_eq!(
-            Path::new("../../../dir1/dir2/"),
-            expand_dots(Path::new("../../../dir1/dir2"))
-        );
+        assert_path_eq!("../../../dir1/dir2/", expand_dots("../../../dir1/dir2"));
     }
 
     #[test]
     fn expand_dots_simple() {
-        assert_eq!(Path::new("/foo"), expand_dots(Path::new("/foo/bar/..")));
+        assert_path_eq!("/foo", expand_dots("/foo/bar/.."));
     }
 
     #[test]
     fn expand_dots_complex() {
-        assert_eq!(
-            Path::new("/test"),
-            expand_dots(Path::new("/foo/./bar/../../test/././test2/../"))
-        );
+        assert_path_eq!("/test", expand_dots("/foo/./bar/../../test/././test2/../"));
     }
 
     #[cfg(windows)]
