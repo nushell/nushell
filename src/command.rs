@@ -324,13 +324,13 @@ impl Command for Nu {
             .switch("version", "print the version", Some('v'))
             .named(
                 "config",
-                SyntaxShape::String,
+                SyntaxShape::Filepath,
                 "start with an alternate config file",
                 None,
             )
             .named(
                 "env-config",
-                SyntaxShape::String,
+                SyntaxShape::Filepath,
                 "start with an alternate environment config file",
                 None,
             )
@@ -370,14 +370,14 @@ impl Command for Nu {
             signature = signature
                 .named(
                     "plugin-config",
-                    SyntaxShape::String,
+                    SyntaxShape::Filepath,
                     "start with an alternate plugin cache file",
                     None,
                 )
                 .named(
                     "plugins",
-                    SyntaxShape::List(Box::new(SyntaxShape::String)),
-                    "list of plugin executables to load, separately from the cache file",
+                    SyntaxShape::List(Box::new(SyntaxShape::Filepath)),
+                    "list of plugin executable files to load, separately from the cache file",
                     None,
                 )
         }
