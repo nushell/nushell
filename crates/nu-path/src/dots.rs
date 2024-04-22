@@ -274,8 +274,8 @@ mod tests {
     }
 
     #[test]
-    fn expand_dots_multi_single_dots_no_change() {
-        assert_path_eq!("././.", expand_dots("././."));
+    fn expand_dots_multi_single_dots() {
+        assert_path_eq!(".", expand_dots("././."));
     }
 
     #[test]
