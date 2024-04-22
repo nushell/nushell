@@ -400,7 +400,7 @@ fn main() -> Result<()> {
         let mut working_set = StateWorkingSet::new(&engine_state);
         for plugin_filename in plugins {
             // Make sure the plugin filenames are canonicalized
-            let filename = nu_path::canonicalize_with(&plugin_filename.item, &init_cwd)
+            let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| ShellError::from(err.into_spanned(plugin_filename.span)))?;
 
             let identity = PluginIdentity::new(&filename, None)

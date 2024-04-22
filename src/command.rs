@@ -135,12 +135,33 @@ pub(crate) fn parse_commandline_args(
                 }
             }
 
+            fn extract_path(
+                expression: Option<&Expression>,
+            ) -> Result<Option<Spanned<String>>, ShellError> {
+                if let Some(expr) = expression {
+                    let tuple = expr.as_filepath();
+                    if let Some((str, _)) = tuple {
+                        Ok(Some(Spanned {
+                            item: str,
+                            span: expr.span,
+                        }))
+                    } else {
+                        Err(ShellError::TypeMismatch {
+                            err_message: "path".into(),
+                            span: expr.span,
+                        })
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+
             let commands = extract_contents(commands)?;
             let testbin = extract_contents(testbin)?;
             #[cfg(feature = "plugin")]
-            let plugin_file = extract_contents(plugin_file)?;
-            let config_file = extract_contents(config_file)?;
-            let env_file = extract_contents(env_file)?;
+            let plugin_file = extract_path(plugin_file)?;
+            let config_file = extract_path(config_file)?;
+            let env_file = extract_path(env_file)?;
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
             let execute = extract_contents(execute)?;
@@ -153,16 +174,16 @@ pub(crate) fn parse_commandline_args(
                         .iter()
                         .map(|item| {
                             item.expr()
-                                .as_string()
-                                .map(|s| s.into_spanned(item.expr().span))
+                                .as_filepath()
+                                .map(|(s, _)| s.into_spanned(item.expr().span))
                                 .ok_or_else(|| ShellError::TypeMismatch {
-                                    err_message: "string".into(),
+                                    err_message: "path".into(),
                                     span: item.expr().span,
                                 })
                         })
                         .collect::<Result<Vec<Spanned<String>>, _>>(),
                     _ => Err(ShellError::TypeMismatch {
-                        err_message: "list<string>".into(),
+                        err_message: "list<path>".into(),
                         span: expr.span,
                     }),
                 })
@@ -324,13 +345,13 @@ impl Command for Nu {
             .switch("version", "print the version", Some('v'))
             .named(
                 "config",
-                SyntaxShape::String,
+                SyntaxShape::Filepath,
                 "start with an alternate config file",
                 None,
             )
             .named(
                 "env-config",
-                SyntaxShape::String,
+                SyntaxShape::Filepath,
                 "start with an alternate environment config file",
                 None,
             )
