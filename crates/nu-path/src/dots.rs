@@ -108,17 +108,12 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     expanded.into()
 }
 
-/// Expand "." and ".." into nothing and parent directory, respectively.
+/// Normalize the path, expanding occurances of "." and "..".
+///
+/// It performs the same normalization as `Path::components()`, except it also expands ".."
+/// when its preceding component is a normal component, ignoring the possibility of symlinks.
 pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
-
-    // Early-exit if path does not contain '.' or '..'
-    if !path
-        .components()
-        .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
-    {
-        return path.into();
-    }
 
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
 
