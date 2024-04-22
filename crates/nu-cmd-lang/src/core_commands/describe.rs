@@ -228,7 +228,7 @@ fn run(
                 let subtype = if options.no_collect {
                     Value::string("any", head)
                 } else {
-                    describe_value(input.into_value(head), head, engine_state)
+                    describe_value(&input.into_value(head), head, engine_state)
                 };
                 Value::record(
                     record! {
@@ -252,7 +252,7 @@ fn run(
             if !options.detailed {
                 Value::string(value.get_type().to_string(), head)
             } else {
-                describe_value(value, head, engine_state)
+                describe_value(&value, head, engine_state)
             }
         }
     };
@@ -273,7 +273,7 @@ fn compact_primitive_description(mut value: Value) -> Value {
 }
 
 fn describe_value(
-    value: Value,
+    value: &Value,
     head: nu_protocol::Span,
     engine_state: Option<&EngineState>,
 ) -> Value {
@@ -299,26 +299,26 @@ fn describe_value(
             head,
         ),
         Value::Record { val, .. } => {
-            let mut val = val.into_owned();
-            for (_k, v) in val.iter_mut() {
-                *v = compact_primitive_description(describe_value(
-                    std::mem::take(v),
-                    head,
-                    engine_state,
-                ));
-            }
+            let columns = val
+                .iter()
+                .map(|(col, val)| {
+                    let val =
+                        compact_primitive_description(describe_value(val, head, engine_state));
+                    (col.clone(), val)
+                })
+                .collect();
 
             Value::record(
                 record! {
                     "type" => Value::string("record", head),
-                    "columns" => Value::record(val, head),
+                    "columns" => Value::record(columns, head),
                 },
                 head,
             )
         }
         Value::List { vals, .. } => {
             let values = vals
-                .into_iter()
+                .iter()
                 .map(|v| compact_primitive_description(describe_value(v, head, engine_state)))
                 .collect::<Vec<_>>();
 
