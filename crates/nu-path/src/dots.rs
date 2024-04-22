@@ -161,6 +161,18 @@ mod tests {
         };
     }
 
+    /// Fixes the path separator for test cases, so that you don't need to write the same test case twice.
+    ///
+    /// For example, "./foo\bar" is converted to ".\foo\bar" on Windows, and "./foo/bar" on other platforms.
+    #[cfg(windows)]
+    fn platform_path(path: &str) -> String {
+        path.replace(r"/", r"\")
+    }
+    #[cfg(not(windows))]
+    fn platform_path(path: &str) -> String {
+        path.replace(r"\", r"/")
+    }
+
     #[test]
     fn assert_path_eq_works() {
         assert_path_eq!(PathBuf::from("/foo/bar"), Path::new("/foo/bar"));
@@ -177,6 +189,21 @@ mod tests {
         assert_path_ne!(Path::new("/foo/./bar"), "/foo/bar");
         assert_path_ne!(Path::new(r"\foo\bar"), r"/foo/bar");
         assert_path_ne!(Path::new(r"/foo/bar"), r"\foo\bar");
+    }
+
+    #[test]
+    fn platform_path_works() {
+        #[cfg(windows)]
+        {
+            assert_eq!(platform_path(r"/foo/bar"), r"\foo\bar");
+            assert_eq!(platform_path(r"C:\foo\bar"), r"C:\foo\bar");
+        }
+
+        #[cfg(not(windows))]
+        {
+            assert_eq!(platform_path(r"/foo/bar"), r"/foo/bar");
+            assert_eq!(platform_path(r"C:\foo\bar"), r"C:/foo/bar");
+        }
     }
 
     #[test]
