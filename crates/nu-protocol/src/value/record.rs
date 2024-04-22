@@ -1,7 +1,7 @@
 use crate::{ShellError, Span, Value};
 use ecow::EcoVec;
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
-use std::{iter::FusedIterator, ops::RangeBounds};
+use std::iter::FusedIterator;
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
@@ -258,14 +258,14 @@ impl Record {
     /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
     /// assert_eq!(rec_iter.next(), None);
     /// ```
-    pub fn drain<R>(&mut self, range: R) -> Drain
-    where
-        R: RangeBounds<usize> + Clone,
-    {
-        Drain {
-            iter: self.inner[(range.start_bound().cloned(), range.end_bound().cloned())].iter(),
-        }
-    }
+    // pub fn drain<R>(&mut self, range: R) -> Drain
+    // where
+    //     R: RangeBounds<usize> + Clone,
+    // {
+    //     Drain {
+    //         iter: self.inner.drain(range)
+    //     }
+    // }
 
     /// Sort the record by its columns.
     ///
@@ -630,39 +630,39 @@ impl ExactSizeIterator for IntoValues {
 
 impl FusedIterator for IntoValues {}
 
-pub struct Drain<'a> {
-    iter: std::slice::Iter<'a, (String, Value)>,
-}
+// pub struct Drain<'a> {
+//     iter: std::slice::Iter<'a, (String, Value)>,
+// }
 
-impl Iterator for Drain<'_> {
-    type Item = (String, Value);
+// impl Iterator for Drain<'_> {
+//     type Item = (String, Value);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next()
-            .map(|(col, val)| (col.clone(), val.clone()))
-    }
+//     fn next(&mut self) -> Option<Self::Item> {
+//         self.iter
+//             .next()
+//             .map(|(col, val)| (col.clone(), val.clone()))
+//     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
+//     fn size_hint(&self) -> (usize, Option<usize>) {
+//         self.iter.size_hint()
+//     }
+// }
 
-impl DoubleEndedIterator for Drain<'_> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next_back()
-            .map(|(col, val)| (col.clone(), val.clone()))
-    }
-}
+// impl DoubleEndedIterator for Drain<'_> {
+//     fn next_back(&mut self) -> Option<Self::Item> {
+//         self.iter
+//             .next_back()
+//             .map(|(col, val)| (col.clone(), val.clone()))
+//     }
+// }
 
-impl ExactSizeIterator for Drain<'_> {
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-}
+// impl ExactSizeIterator for Drain<'_> {
+//     fn len(&self) -> usize {
+//         self.iter.len()
+//     }
+// }
 
-impl FusedIterator for Drain<'_> {}
+// impl FusedIterator for Drain<'_> {}
 
 #[macro_export]
 macro_rules! record {

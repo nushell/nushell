@@ -144,7 +144,9 @@ fn drop_cols(
 fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
     if let Value::Record { val: record, .. } = val {
         let len = record.len().saturating_sub(drop);
-        Ok(record.drain(len..).map(|(col, _)| col).collect())
+        let set = record.columns().skip(len).cloned().collect();
+        record.truncate(len);
+        Ok(set)
     } else {
         Err(unsupported_value_error(val, head))
     }
