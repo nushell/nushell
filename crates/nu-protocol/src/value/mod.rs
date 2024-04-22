@@ -247,6 +247,11 @@ impl Clone for Value {
     }
 }
 
+// This is to document/enforce the size of `Value` in bytes.
+// We should try to avoid increasing the size of `Value`,
+// and PRs that do so will have to change the number below so that it's noted in review.
+const _: () = assert!(std::mem::size_of::<Value>() <= 56);
+
 impl Value {
     fn cant_convert_to<T>(&self, typ: &str) -> Result<T, ShellError> {
         Err(ShellError::CantConvert {
