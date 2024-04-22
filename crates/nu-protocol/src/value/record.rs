@@ -260,10 +260,9 @@ impl Record {
     where
         R: RangeBounds<usize> + Clone,
     {
-        todo!()
-        // Drain {
-        //     iter: self.inner.drain(range),
-        // }
+        Drain {
+            iter: self.inner[(range.start_bound().cloned(), range.end_bound().cloned())].iter(),
+        }
     }
 
     /// Sort the record by its columns.
@@ -630,14 +629,16 @@ impl ExactSizeIterator for IntoValues {
 impl FusedIterator for IntoValues {}
 
 pub struct Drain<'a> {
-    iter: std::vec::Drain<'a, (String, Value)>,
+    iter: std::slice::Iter<'a, (String, Value)>,
 }
 
 impl Iterator for Drain<'_> {
     type Item = (String, Value);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        self.iter
+            .next()
+            .map(|(col, val)| (col.clone(), val.clone()))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -647,7 +648,9 @@ impl Iterator for Drain<'_> {
 
 impl DoubleEndedIterator for Drain<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back()
+        self.iter
+            .next_back()
+            .map(|(col, val)| (col.clone(), val.clone()))
     }
 }
 
