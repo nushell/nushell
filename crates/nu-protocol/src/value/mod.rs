@@ -784,10 +784,10 @@ impl Value {
                     None => Type::List(Box::new(Type::Any)),
                 }
             }
-            Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.get_type(),
-                Err(..) => Type::Error,
-            },
+            Value::LazyRecord { val, .. } => val
+                .to_value()
+                .map(|val| val.get_type())
+                .unwrap_or(Type::Error),
             Value::Nothing { .. } => Type::Nothing,
             Value::Closure { .. } => Type::Closure,
             Value::Error { .. } => Type::Error,
@@ -894,7 +894,7 @@ impl Value {
                     .join(separator)
             ),
             Value::LazyRecord { val, .. } => val
-                .collect()
+                .to_value()
                 .unwrap_or_else(|err| Value::error(err, span))
                 .to_expanded_string(separator, config),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
@@ -946,7 +946,7 @@ impl Value {
                 if val.len() == 1 { "" } else { "s" }
             ),
             Value::LazyRecord { val, .. } => val
-                .collect()
+                .to_value()
                 .unwrap_or_else(|err| Value::error(err, span))
                 .to_abbreviated_string(config),
             val => val.to_expanded_string(", ", config),
@@ -1329,7 +1329,7 @@ impl Value {
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
-                        *self = val.collect()?;
+                        *self = val.to_value()?;
                         self.upsert_data_at_cell_path(cell_path, new_val)?;
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1445,7 +1445,7 @@ impl Value {
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
-                        *self = val.collect()?;
+                        *self = val.to_value()?;
                         self.update_data_at_cell_path(cell_path, new_val)?;
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1534,7 +1534,7 @@ impl Value {
                         }
                         Value::LazyRecord { val, .. } => {
                             // convert to Record first.
-                            *self = val.collect()?;
+                            *self = val.to_value()?;
                             self.remove_data_at_cell_path(cell_path)
                         }
                         v => Err(ShellError::CantFindColumn {
@@ -1618,7 +1618,7 @@ impl Value {
                         }
                         Value::LazyRecord { val, .. } => {
                             // convert to Record first.
-                            *self = val.collect()?;
+                            *self = val.to_value()?;
                             self.remove_data_at_cell_path(cell_path)
                         }
                         v => Err(ShellError::CantFindColumn {
@@ -1741,7 +1741,7 @@ impl Value {
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
-                        *self = val.collect()?;
+                        *self = val.to_value()?;
                         self.insert_data_at_cell_path(cell_path, new_val, v_span)?;
                     }
                     other => {
@@ -2388,7 +2388,7 @@ impl PartialOrd for Value {
                     lhs.len().partial_cmp(&rhs.len())
                 }
                 Value::LazyRecord { val, .. } => {
-                    if let Ok(rhs) = val.collect() {
+                    if let Ok(rhs) = val.to_value() {
                         self.partial_cmp(&rhs)
                     } else {
                         None
@@ -2524,7 +2524,7 @@ impl PartialOrd for Value {
             },
             (Value::Custom { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
             (Value::LazyRecord { val, .. }, rhs) => {
-                if let Ok(val) = val.collect() {
+                if let Ok(val) = val.to_value() {
                     val.partial_cmp(rhs)
                 } else {
                     None

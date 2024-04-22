@@ -324,7 +324,7 @@ impl PluginCustomValue {
                 }
                 // Collect LazyRecord before proceeding
                 Value::LazyRecord { ref val, .. } => {
-                    *value = val.collect()?;
+                    *value = val.to_value()?;
                     Ok(())
                 }
                 _ => Ok(()),
@@ -350,7 +350,7 @@ impl PluginCustomValue {
                 }
                 // Collect LazyRecord before proceeding
                 Value::LazyRecord { ref val, .. } => {
-                    *value = val.collect()?;
+                    *value = val.to_value()?;
                     Ok(())
                 }
                 _ => Ok(()),
@@ -369,7 +369,7 @@ impl PluginCustomValue {
                 }
                 // Collect LazyRecord before proceeding
                 Value::LazyRecord { ref val, .. } => {
-                    *value = val.collect()?;
+                    *value = val.to_value()?;
                     Ok(())
                 }
                 _ => Ok(()),

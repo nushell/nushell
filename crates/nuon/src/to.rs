@@ -222,7 +222,7 @@ fn value_to_string(
             ))
         }
         Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
+            let collected = val.to_value()?;
             value_to_string(&collected, span, depth + 1, indent)
         }
         // All strings outside data structures are quoted because they are in 'command position'

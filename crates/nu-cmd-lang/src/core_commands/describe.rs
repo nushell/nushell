@@ -388,27 +388,19 @@ fn describe_value(
             record.push("lazy", Value::bool(true, head));
 
             if options.collect_lazyrecords {
-                let collected = val.collect()?;
-                if let Value::Record { val, .. } =
-                    describe_value(collected, head, engine_state, options)?
-                {
-                    let mut val = Record::clone(&val);
+                let mut val = val.to_record()?;
 
-                    for (_k, v) in val.iter_mut() {
-                        *v = compact_primitive_description(describe_value(
-                            std::mem::take(v),
-                            head,
-                            engine_state,
-                            options,
-                        )?);
-                    }
-
-                    record.push("length", Value::int(val.len() as i64, head));
-                    record.push("columns", Value::record(val, head));
-                } else {
-                    let cols = val.column_names();
-                    record.push("length", Value::int(cols.len() as i64, head));
+                for (_k, v) in val.iter_mut() {
+                    *v = compact_primitive_description(describe_value(
+                        std::mem::take(v),
+                        head,
+                        engine_state,
+                        options,
+                    )?);
                 }
+
+                record.push("length", Value::int(val.len() as i64, head));
+                record.push("columns", Value::record(val, head));
             } else {
                 let cols = val.column_names();
                 record.push("length", Value::int(cols.len() as i64, head));

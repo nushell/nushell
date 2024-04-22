@@ -220,7 +220,7 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
         Value::lazy_record(Box::new(LazySystemInfoRecord { span }), span)
     }
 
-    fn collect(&'a self) -> Result<Value, ShellError> {
+    fn to_record(&'a self) -> Result<Record, ShellError> {
         let rk = RefreshKind::new()
             .with_processes(ProcessRefreshKind::everything())
             .with_memory(MemoryRefreshKind::everything());
@@ -233,8 +233,7 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
                 let val = self.get_column_value_with_system(col, Some(&system))?;
                 Ok((col.to_owned(), val))
             })
-            .collect::<Result<Record, _>>()
-            .map(|record| Value::record(record, self.span()))
+            .collect()
     }
 }
 

@@ -45,7 +45,7 @@ impl Command for Items {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(value, ..) => {
                 let value = if let Value::LazyRecord { val, .. } = value {
-                    val.collect()?
+                    val.to_value()?
                 } else {
                     value
                 };

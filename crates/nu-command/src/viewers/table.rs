@@ -395,7 +395,7 @@ fn handle_table_command(
             handle_record(input, cfg, val.into_owned())
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            input.data = val.collect()?.into_pipeline_data();
+            input.data = val.to_value()?.into_pipeline_data();
             handle_table_command(input, cfg)
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {

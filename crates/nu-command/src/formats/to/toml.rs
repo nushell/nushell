@@ -63,7 +63,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             toml::Value::Table(m)
         }
         Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
+            let collected = val.to_value()?;
             helper(engine_state, &collected)?
         }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),

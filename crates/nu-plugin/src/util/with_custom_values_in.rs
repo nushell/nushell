@@ -22,7 +22,7 @@ where
             // next time, and we have to collect it anyway to serialize it. Collect it in place,
             // and then use the result
             Value::LazyRecord { val, .. } => {
-                *value = val.collect()?;
+                *value = val.to_value()?;
                 Ok(())
             }
             _ => Ok(()),

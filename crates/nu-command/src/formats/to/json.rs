@@ -136,7 +136,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             nu_json::Value::Object(m)
         }
         Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
+            let collected = val.to_value()?;
             value_to_json_value(&collected)?
         }
         Value::Custom { val, .. } => {

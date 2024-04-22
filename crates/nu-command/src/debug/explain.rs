@@ -272,7 +272,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
-        Value::LazyRecord { val, .. } => match val.collect() {
+        Value::LazyRecord { val, .. } => match val.to_value() {
             Ok(val) => debug_string_without_formatting(&val),
             Err(error) => format!("{error:?}"),
         },

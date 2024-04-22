@@ -383,7 +383,7 @@ pub(crate) fn render_examples(
                     }
                     // Collect LazyRecord before proceeding
                     Value::LazyRecord { ref val, .. } => {
-                        *value = val.collect()?;
+                        *value = val.to_value()?;
                         Ok(())
                     }
                     _ => Ok(()),
