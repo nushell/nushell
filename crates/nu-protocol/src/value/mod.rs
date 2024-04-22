@@ -166,7 +166,7 @@ pub enum Value {
     },
     #[serde(skip)]
     LazyRecord {
-        val: Box<dyn for<'a> LazyRecord<'a>>,
+        val: Box<dyn LazyRecord>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         internal_span: Span,
@@ -673,7 +673,7 @@ impl Value {
     }
 
     /// Returns a reference to the inner [`LazyRecord`] trait object or an error if this `Value` is not a lazy record
-    pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
+    pub fn as_lazy_record(&self) -> Result<&dyn LazyRecord, ShellError> {
         if let Value::LazyRecord { val, .. } = self {
             Ok(val.as_ref())
         } else {
@@ -682,7 +682,7 @@ impl Value {
     }
 
     /// Unwraps the inner [`LazyRecord`] trait object or returns an error if this `Value` is not a lazy record
-    pub fn into_lazy_record(self) -> Result<Box<dyn for<'a> LazyRecord<'a>>, ShellError> {
+    pub fn into_lazy_record(self) -> Result<Box<dyn LazyRecord>, ShellError> {
         if let Value::LazyRecord { val, .. } = self {
             Ok(val)
         } else {
@@ -1998,7 +1998,7 @@ impl Value {
         }
     }
 
-    pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: Span) -> Value {
+    pub fn lazy_record(val: Box<dyn LazyRecord>, span: Span) -> Value {
         Value::LazyRecord {
             val,
             internal_span: span,
@@ -2103,7 +2103,7 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
+    pub fn test_lazy_record(val: Box<dyn LazyRecord>) -> Value {
         Value::lazy_record(val, Span::test_data())
     }
 

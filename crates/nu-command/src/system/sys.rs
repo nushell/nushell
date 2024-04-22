@@ -64,8 +64,8 @@ pub struct SysResult {
     pub span: Span,
 }
 
-impl LazyRecord<'_> for SysResult {
-    fn column_names(&self) -> Vec<&'static str> {
+impl LazyRecord for SysResult {
+    fn column_names(&self) -> Vec<&str> {
         vec!["host", "cpu", "disks", "mem", "temp", "net"]
     }
 

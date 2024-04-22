@@ -127,8 +127,8 @@ impl std::fmt::Debug for NuLazyRecord {
     }
 }
 
-impl<'a> LazyRecord<'a> for NuLazyRecord {
-    fn column_names(&'a self) -> Vec<&'a str> {
+impl LazyRecord for NuLazyRecord {
+    fn column_names(&self) -> Vec<&str> {
         self.columns.iter().map(|column| column.as_str()).collect()
     }
 

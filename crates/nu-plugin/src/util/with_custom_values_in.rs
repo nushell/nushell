@@ -37,8 +37,8 @@ fn find_custom_values() {
 
     #[derive(Debug, Clone)]
     struct Lazy;
-    impl<'a> LazyRecord<'a> for Lazy {
-        fn column_names(&'a self) -> Vec<&'a str> {
+    impl LazyRecord for Lazy {
+        fn column_names(&self) -> Vec<&str> {
             vec!["custom", "plain"]
         }
 

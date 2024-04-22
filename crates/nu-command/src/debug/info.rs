@@ -203,8 +203,8 @@ impl LazySystemInfoRecord {
     }
 }
 
-impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
-    fn column_names(&'a self) -> Vec<&'a str> {
+impl LazyRecord for LazySystemInfoRecord {
+    fn column_names(&self) -> Vec<&str> {
         vec!["thread_id", "pid", "ppid", "process", "system"]
     }
 
@@ -220,7 +220,7 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
         Value::lazy_record(Box::new(LazySystemInfoRecord { span }), span)
     }
 
-    fn to_record(&'a self) -> Result<Record, ShellError> {
+    fn to_record(&self) -> Result<Record, ShellError> {
         let rk = RefreshKind::new()
             .with_processes(ProcessRefreshKind::everything())
             .with_memory(MemoryRefreshKind::everything());
