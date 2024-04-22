@@ -19,14 +19,14 @@ impl Command for Collect {
             )
             .switch(
                 "keep-env",
-                "let the block affect environment variables",
+                "let the closure affect environment variables",
                 None,
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Collect the stream and pass it to a block."
+        "Collect a stream into a value and then run a closure with the collected value as input."
     }
 
     fn run(
@@ -80,11 +80,18 @@ impl Command for Collect {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Use the second value in the stream",
-            example: "[1 2 3] | collect { |x| $x.1 }",
-            result: Some(Value::test_int(2)),
-        }]
+        vec![
+            Example {
+                description: "Use the second value in the stream",
+                example: "[1 2 3] | collect { |x| $x.1 }",
+                result: Some(Value::test_int(2)),
+            },
+            Example {
+                description: "Read and write to the same file",
+                example: "open file.txt | collect { save -f file.txt }",
+                result: None,
+            },
+        ]
     }
 }
 

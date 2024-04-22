@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -88,72 +88,37 @@ impl Command for Reduce {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-
+        let head = call.head;
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let block = engine_state.get_block(capture_block.block_id);
-        let ctrlc = engine_state.ctrlc.clone();
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
+        let mut iter = input.into_iter();
 
-        // To enumerate over the input (for the index argument),
-        // it must be converted into an iterator using into_iter().
-        let mut input_iter = input.into_iter();
-
-        let start_val = if let Some(val) = fold {
-            val
-        } else if let Some(val) = input_iter.next() {
-            val
-        } else {
-            return Err(ShellError::GenericError {
+        let mut acc = fold
+            .or_else(|| iter.next())
+            .ok_or_else(|| ShellError::GenericError {
                 error: "Expected input".into(),
                 msg: "needs input".into(),
-                span: Some(span),
+                span: Some(head),
                 help: None,
                 inner: vec![],
-            });
-        };
+            })?;
 
-        let mut acc = start_val;
+        let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        for x in input_iter {
-            // with_env() is used here to ensure that each iteration uses
-            // a different set of environment variables.
-            // Hence, a 'cd' in the first loop won't affect the next loop.
-            stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-            // Element argument
-            if let Some(var) = block.signature.get_positional(0) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, x);
-                }
-            }
-
-            // Accumulator argument
-            if let Some(var) = block.signature.get_positional(1) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, acc);
-                }
-            }
-
-            acc = eval_block_with_early_return(
-                engine_state,
-                &mut stack,
-                block,
-                PipelineData::empty(),
-            )?
-            .into_value(span);
-
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+        for value in iter {
+            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 break;
             }
+
+            acc = closure
+                .add_arg(value)
+                .add_arg(acc)
+                .run_with_input(PipelineData::Empty)?
+                .into_value(head);
         }
 
-        Ok(acc.with_span(span).into_pipeline_data())
+        Ok(acc.with_span(head).into_pipeline_data())
     }
 }
 

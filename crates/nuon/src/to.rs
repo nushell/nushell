@@ -12,7 +12,7 @@ use std::ops::Bound;
 pub enum ToStyle {
     /// no indentation at all
     ///
-    /// `{ a: 1, b: 2 }` will be converted to `{: 1, b: 2}`
+    /// `{ a: 1, b: 2 }` will be converted to `{a: 1, b: 2}`
     Raw,
     #[allow(clippy::tabs_in_doc_comments)]
     /// tabulation-based indentation

@@ -1,5 +1,5 @@
 use crate::util::MutableCow;
-use nu_engine::{get_eval_block_with_early_return, get_full_help};
+use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
@@ -112,23 +112,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                 let span = value.span();
                 match value {
                     Value::Closure { val, .. } => {
-                        let input = PipelineData::Empty;
-
-                        let block = self.engine_state.get_block(val.block_id).clone();
-                        let mut stack = self.stack.captures_to_stack(val.captures);
-
-                        let eval_block_with_early_return =
-                            get_eval_block_with_early_return(&self.engine_state);
-
-                        match eval_block_with_early_return(
-                            &self.engine_state,
-                            &mut stack,
-                            &block,
-                            input,
-                        ) {
-                            Ok(v) => v.into_value(span),
-                            Err(e) => Value::error(e, self.call.head),
-                        }
+                        ClosureEvalOnce::new(&self.engine_state, &self.stack, val)
+                            .run_with_input(PipelineData::Empty)
+                            .map(|data| data.into_value(span))
+                            .unwrap_or_else(|err| Value::error(err, self.call.head))
                     }
                     _ => value.clone(),
                 }

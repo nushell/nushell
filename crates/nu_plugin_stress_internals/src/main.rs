@@ -114,6 +114,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
             Err(err) => {
                 if err.is_eof() {
                     break;
+                } else if err.is_io() {
+                    std::process::exit(1);
                 } else {
                     return Err(err.into());
                 }
