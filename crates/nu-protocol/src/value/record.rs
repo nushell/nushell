@@ -1,12 +1,11 @@
-use std::{iter::FusedIterator, ops::RangeBounds};
-
 use crate::{ShellError, Span, Value};
-
+use ecow::EcoVec;
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
+use std::{iter::FusedIterator, ops::RangeBounds};
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
-    inner: Vec<(String, Value)>,
+    inner: EcoVec<(String, Value)>,
 }
 
 impl Record {
@@ -16,7 +15,7 @@ impl Record {
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            inner: Vec::with_capacity(capacity),
+            inner: EcoVec::with_capacity(capacity),
         }
     }
 
@@ -139,7 +138,7 @@ impl Record {
     where
         F: FnMut(&str, &Value) -> bool,
     {
-        self.retain_mut(|k, v| keep(k, v));
+        self.inner.retain(|(k, v)| keep(k, v))
     }
 
     /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
@@ -183,7 +182,8 @@ impl Record {
     where
         F: FnMut(&str, &mut Value) -> bool,
     {
-        self.inner.retain_mut(|(col, val)| keep(col, val));
+        todo!()
+        // self.inner.retain_mut(|(col, val)| keep(col, val));
     }
 
     /// Truncate record to the first `len` elements.
@@ -259,9 +259,10 @@ impl Record {
     where
         R: RangeBounds<usize> + Clone,
     {
-        Drain {
-            iter: self.inner.drain(range),
-        }
+        todo!()
+        // Drain {
+        //     iter: self.inner.drain(range),
+        // }
     }
 
     /// Sort the record by its columns.
@@ -382,7 +383,7 @@ impl Extend<(String, Value)> for Record {
 }
 
 pub struct IntoIter {
-    iter: std::vec::IntoIter<(String, Value)>,
+    iter: ecow::vec::IntoIter<(String, Value)>,
 }
 
 impl Iterator for IntoIter {
@@ -538,7 +539,7 @@ impl<'a> ExactSizeIterator for Columns<'a> {
 impl FusedIterator for Columns<'_> {}
 
 pub struct IntoColumns {
-    iter: std::vec::IntoIter<(String, Value)>,
+    iter: ecow::vec::IntoIter<(String, Value)>,
 }
 
 impl Iterator for IntoColumns {
@@ -598,7 +599,7 @@ impl<'a> ExactSizeIterator for Values<'a> {
 impl FusedIterator for Values<'_> {}
 
 pub struct IntoValues {
-    iter: std::vec::IntoIter<(String, Value)>,
+    iter: ecow::vec::IntoIter<(String, Value)>,
 }
 
 impl Iterator for IntoValues {

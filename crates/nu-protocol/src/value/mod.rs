@@ -110,7 +110,7 @@ pub enum Value {
         internal_span: Span,
     },
     Record {
-        val: SharedCow<Record>,
+        val: Record,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]

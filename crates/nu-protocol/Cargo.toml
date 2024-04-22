@@ -31,6 +31,7 @@ serde = { workspace = true, default-features = false }
 serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"
+ecow = { version = "0.2.2", features = ["serde"] }
 
 [features]
 plugin = [
