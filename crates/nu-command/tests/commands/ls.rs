@@ -759,3 +759,44 @@ fn list_with_multiple_path() {
         assert_eq!(actual.out, "0");
     })
 }
+
+#[test]
+fn list_inside_glob_metachars_dir() {
+    Playground::setup("list_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "ls test_file.txt",
+        );
+        assert!(actual.out.contains("test_file.txt"));
+    });
+}
+
+#[test]
+fn list_inside_tilde_glob_metachars_dir() {
+    Playground::setup(
+        "list_files_inside_tilde_glob_metachars_dir",
+        |dirs, sandbox| {
+            let sub_dir = "~test[]";
+            sandbox
+                .within(sub_dir)
+                .with_files(vec![EmptyFile("test_file.txt")]);
+
+            let actual = nu!(
+                cwd: dirs.test().join(sub_dir),
+                "ls test_file.txt",
+            );
+            assert!(actual.out.contains("test_file.txt"));
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                "ls '~test[]'"
+            );
+            assert!(actual.out.contains("test_file.txt"));
+        },
+    );
+}
