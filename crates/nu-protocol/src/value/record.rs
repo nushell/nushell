@@ -151,7 +151,7 @@ impl Record {
     ///
     /// fn remove_foo_recursively(val: &mut Value) {
     ///     if let Value::Record {val, ..} = val {
-    ///         val.to_mut().retain_mut(keep_non_foo);
+    ///         val.retain_mut(keep_non_foo);
     ///     }
     /// }
     ///
@@ -237,27 +237,27 @@ impl Record {
         }
     }
 
-    /// Obtain an iterator to remove elements in `range`
-    ///
-    /// Elements not consumed from the iterator will be dropped
-    ///
-    /// ```rust
-    /// use nu_protocol::{record, Value};
-    ///
-    /// let mut rec = record!(
-    ///     "a" => Value::test_nothing(),
-    ///     "b" => Value::test_int(42),
-    ///     "c" => Value::test_string("foo"),
-    /// );
-    /// {
-    ///     let mut drainer = rec.drain(1..);
-    ///     assert_eq!(drainer.next(), Some(("b".into(), Value::test_int(42))));
-    ///     // Dropping the `Drain`
-    /// }
-    /// let mut rec_iter = rec.into_iter();
-    /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
-    /// assert_eq!(rec_iter.next(), None);
-    /// ```
+    // /// Obtain an iterator to remove elements in `range`
+    // ///
+    // /// Elements not consumed from the iterator will be dropped
+    // ///
+    // /// ```rust
+    // /// use nu_protocol::{record, Value};
+    // ///
+    // /// let mut rec = record!(
+    // ///     "a" => Value::test_nothing(),
+    // ///     "b" => Value::test_int(42),
+    // ///     "c" => Value::test_string("foo"),
+    // /// );
+    // /// {
+    // ///     let mut drainer = rec.drain(1..);
+    // ///     assert_eq!(drainer.next(), Some(("b".into(), Value::test_int(42))));
+    // ///     // Dropping the `Drain`
+    // /// }
+    // /// let mut rec_iter = rec.into_iter();
+    // /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
+    // /// assert_eq!(rec_iter.next(), None);
+    // /// ```
     // pub fn drain<R>(&mut self, range: R) -> Drain
     // where
     //     R: RangeBounds<usize> + Clone,
