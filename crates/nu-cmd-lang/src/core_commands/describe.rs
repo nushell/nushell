@@ -169,45 +169,54 @@ fn run(
             ..
         } => {
             if options.detailed {
+                let stdout = if stdout.is_some() {
+                    Value::record(
+                        record! {
+                            "type" => Value::string("stream", head),
+                            "origin" => Value::string("external", head),
+                            "subtype" => Value::string("any", head),
+                        },
+                        head,
+                    )
+                } else {
+                    Value::nothing(head)
+                };
+
+                let stderr = if stderr.is_some() {
+                    Value::record(
+                        record! {
+                            "type" => Value::string("stream", head),
+                            "origin" => Value::string("external", head),
+                            "subtype" => Value::string("any", head),
+                        },
+                        head,
+                    )
+                } else {
+                    Value::nothing(head)
+                };
+
+                let exit_code = if exit_code.is_some() {
+                    Value::record(
+                        record! {
+                            "type" => Value::string("stream", head),
+                            "origin" => Value::string("external", head),
+                            "subtype" => Value::string("int", head),
+                        },
+                        head,
+                    )
+                } else {
+                    Value::nothing(head)
+                };
+
                 Value::record(
-                    record!(
+                    record! {
                         "type" => Value::string("stream", head),
                         "origin" => Value::string("external", head),
-                        "stdout" => match stdout {
-                            Some(_) => Value::record(
-                                    record!(
-                                        "type" => Value::string("stream", head),
-                                        "origin" => Value::string("external", head),
-                                        "subtype" => Value::string("any", head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
-                        "stderr" => match stderr {
-                            Some(_) => Value::record(
-                                    record!(
-                                        "type" => Value::string("stream", head),
-                                        "origin" => Value::string("external", head),
-                                        "subtype" => Value::string("any", head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
-                        "exit_code" => match exit_code {
-                            Some(_) => Value::record(
-                                    record!(
-                                        "type" => Value::string("stream", head),
-                                        "origin" => Value::string("external", head),
-                                        "subtype" => Value::string("int", head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
+                        "stdout" => stdout,
+                        "stderr" => stderr,
+                        "exit_code" => exit_code,
                         "metadata" => metadata_to_value(metadata, head),
-                    ),
+                    },
                     head,
                 )
             } else {
@@ -216,19 +225,18 @@ fn run(
         }
         PipelineData::ListStream(_, _) => {
             if options.detailed {
+                let subtype = if options.no_collect {
+                    Value::string("any", head)
+                } else {
+                    describe_value(input.into_value(head), head, engine_state)
+                };
                 Value::record(
-                    record!(
+                    record! {
                         "type" => Value::string("stream", head),
                         "origin" => Value::string("nushell", head),
-                        "subtype" => {
-                           if options.no_collect {
-                            Value::string("any", head)
-                           } else {
-                            describe_value(input.into_value(head), head, engine_state, )
-                           }
-                        },
+                        "subtype" => subtype,
                         "metadata" => metadata_to_value(metadata, head),
-                    ),
+                    },
                     head,
                 )
             } else if options.no_collect {
@@ -236,7 +244,6 @@ fn run(
             } else {
                 let value = input.into_value(head);
                 let base_description = value.get_type().to_string();
-
                 Value::string(format!("{} (stream)", base_description), head)
             }
         }
@@ -272,10 +279,10 @@ fn describe_value(
 ) -> Value {
     match value {
         Value::Custom { val, .. } => Value::record(
-            record!(
+            record! {
                 "type" => Value::string("custom", head),
                 "subtype" => Value::string(val.type_name(), head),
-            ),
+            },
             head,
         ),
         Value::Bool { .. }
@@ -288,9 +295,7 @@ fn describe_value(
         | Value::String { .. }
         | Value::Glob { .. }
         | Value::Nothing { .. } => Value::record(
-            record!(
-                "type" => Value::string(value.get_type().to_string(), head),
-            ),
+            record! { "type" => Value::string(value.get_type().to_string(), head) },
             head,
         ),
         Value::Record { val, .. } => {
@@ -304,24 +309,28 @@ fn describe_value(
             }
 
             Value::record(
-                record!(
+                record! {
                     "type" => Value::string("record", head),
                     "columns" => Value::record(val, head),
-                ),
+                },
                 head,
             )
         }
-        Value::List { vals, .. } => Value::record(
-            record!(
-                "type" => Value::string("list", head),
-                "length" => Value::int(vals.len() as i64, head),
-                "values" => Value::list(vals.into_iter().map(|v|
-                    compact_primitive_description(describe_value(v, head, engine_state))
-                )
-                .collect(), head),
-            ),
-            head,
-        ),
+        Value::List { vals, .. } => {
+            let values = vals
+                .into_iter()
+                .map(|v| compact_primitive_description(describe_value(v, head, engine_state)))
+                .collect::<Vec<_>>();
+
+            Value::record(
+                record! {
+                    "type" => Value::string("list", head),
+                    "length" => Value::int(values.len() as i64, head),
+                    "values" => Value::list(values, head),
+                },
+                head,
+            )
+        }
         Value::Closure { val, .. } => {
             let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 
@@ -331,43 +340,37 @@ fn describe_value(
                 record.push(
                     "signature",
                     Value::record(
-                        record!(
+                        record! {
                             "name" => Value::string(block.signature.name.clone(), head),
                             "category" => Value::string(block.signature.category.to_string(), head),
-                        ),
+                        },
                         head,
                     ),
                 );
                 Value::record(record, head)
             } else {
-                Value::record(
-                    record!(
-                        "type" => Value::string("closure", head),
-                    ),
-                    head,
-                )
+                Value::record(record! { "type" => Value::string("closure", head) }, head)
             }
         }
-
         Value::Error { error, .. } => Value::record(
-            record!(
+            record! {
                 "type" => Value::string("error", head),
                 "subtype" => Value::string(error.to_string(), head),
-            ),
+            },
             head,
         ),
         Value::Binary { val, .. } => Value::record(
-            record!(
+            record! {
                 "type" => Value::string("binary", head),
                 "length" => Value::int(val.len() as i64, head),
-            ),
+            },
             head,
         ),
         Value::CellPath { val, .. } => Value::record(
-            record!(
+            record! {
                 "type" => Value::string("cellpath", head),
                 "length" => Value::int(val.members.len() as i64, head),
-            ),
+            },
             head,
         ),
     }
