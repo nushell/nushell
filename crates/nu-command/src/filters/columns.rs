@@ -108,8 +108,7 @@ fn getcol(
                 Value::LazyRecord { val, .. } => {
                     Ok({
                         // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
-                        let cols: Vec<_> =
-                            val.column_names().iter().map(|s| s.to_string()).collect();
+                        let cols: Vec<_> = val.columns().iter().map(|s| s.to_string()).collect();
 
                         cols.into_iter()
                             .map(move |x| Value::string(x, head))

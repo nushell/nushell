@@ -269,7 +269,7 @@ fn nested_suggestions(
         }
         Value::LazyRecord { val, .. } => {
             // Add all the columns as completion
-            for column_name in val.column_names() {
+            for column_name in val.columns() {
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: column_name.to_string(),
@@ -322,9 +322,9 @@ fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
                 }
             }
             Value::LazyRecord { val, .. } => {
-                for col in val.column_names() {
+                for col in val.columns() {
                     if col.as_bytes() == *sublevel {
-                        let val = val.get_column_value(col).map_err(|_| span)?;
+                        let val = val.get(col).map_err(|_| span)?;
                         return recursive_value(&val, next_sublevels);
                     }
                 }

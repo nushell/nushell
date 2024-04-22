@@ -128,11 +128,11 @@ impl std::fmt::Debug for NuLazyRecord {
 }
 
 impl LazyRecord for NuLazyRecord {
-    fn column_names(&self) -> Vec<&str> {
+    fn columns(&self) -> Vec<&str> {
         self.columns.iter().map(|column| column.as_str()).collect()
     }
 
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+    fn get(&self, column: &str) -> Result<Value, ShellError> {
         let block = self.engine_state.get_block(self.get_value.block_id);
         let mut stack = self.stack.lock().expect("lock must not be poisoned");
         let column_value = Value::string(column, self.span);

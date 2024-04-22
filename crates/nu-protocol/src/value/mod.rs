@@ -1138,7 +1138,7 @@ impl Value {
                             }
                         }
                         Value::LazyRecord { val, .. } => {
-                            let columns = val.column_names();
+                            let columns = val.columns();
 
                             if let Some(col) = columns.iter().rev().find(|&col| {
                                 if insensitive {
@@ -1147,7 +1147,7 @@ impl Value {
                                     col == column_name
                                 }
                             }) {
-                                current = val.get_column_value(col)?;
+                                current = val.get(col)?;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) = did_you_mean(&columns, column_name) {

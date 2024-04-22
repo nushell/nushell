@@ -65,11 +65,11 @@ pub struct SysResult {
 }
 
 impl LazyRecord for SysResult {
-    fn column_names(&self) -> Vec<&str> {
+    fn columns(&self) -> Vec<&str> {
         vec!["host", "cpu", "disks", "mem", "temp", "net"]
     }
 
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+    fn get(&self, column: &str) -> Result<Value, ShellError> {
         let span = self.span;
 
         match column {

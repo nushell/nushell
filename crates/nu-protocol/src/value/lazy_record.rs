@@ -6,19 +6,19 @@ use std::fmt;
 /// or into a [`Record`] with [`to_record`](LazyRecord::to_record).
 pub trait LazyRecord: fmt::Debug + Send + Sync {
     /// All column names
-    fn column_names(&self) -> Vec<&str>;
+    fn columns(&self) -> Vec<&str>;
 
     /// Get the value for a specific column
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError>;
+    fn get(&self, column: &str) -> Result<Value, ShellError>;
 
     fn span(&self) -> Span;
 
     /// Convert this [`LazyRecord`] into a [`Record`] by evaluating all of its columns
     fn to_record(&self) -> Result<Record, ShellError> {
-        self.column_names()
+        self.columns()
             .into_iter()
             .map(|col| {
-                let val = self.get_column_value(col)?;
+                let val = self.get(col)?;
                 Ok((col.to_owned(), val))
             })
             .collect()

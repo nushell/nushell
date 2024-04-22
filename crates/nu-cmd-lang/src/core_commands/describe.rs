@@ -402,7 +402,7 @@ fn describe_value(
                 record.push("length", Value::int(val.len() as i64, head));
                 record.push("columns", Value::record(val, head));
             } else {
-                let cols = val.column_names();
+                let cols = val.columns();
                 record.push("length", Value::int(cols.len() as i64, head));
             }
 

@@ -38,11 +38,11 @@ fn find_custom_values() {
     #[derive(Debug, Clone)]
     struct Lazy;
     impl LazyRecord for Lazy {
-        fn column_names(&self) -> Vec<&str> {
+        fn columns(&self) -> Vec<&str> {
             vec!["custom", "plain"]
         }
 
-        fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+        fn get(&self, column: &str) -> Result<Value, ShellError> {
             Ok(match column {
                 "custom" => Value::test_custom_value(Box::new(test_plugin_custom_value())),
                 "plain" => Value::test_int(42),

@@ -204,11 +204,11 @@ impl LazySystemInfoRecord {
 }
 
 impl LazyRecord for LazySystemInfoRecord {
-    fn column_names(&self) -> Vec<&str> {
+    fn columns(&self) -> Vec<&str> {
         vec!["thread_id", "pid", "ppid", "process", "system"]
     }
 
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+    fn get(&self, column: &str) -> Result<Value, ShellError> {
         self.get_column_value_with_system(column, None)
     }
 
@@ -227,7 +227,7 @@ impl LazyRecord for LazySystemInfoRecord {
         // only get information requested
         let system = System::new_with_specifics(rk);
 
-        self.column_names()
+        self.columns()
             .into_iter()
             .map(|col| {
                 let val = self.get_column_value_with_system(col, Some(&system))?;
