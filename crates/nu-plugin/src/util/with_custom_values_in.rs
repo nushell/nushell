@@ -18,13 +18,6 @@ where
                 // Operate on a CustomValue.
                 f(val.as_mut().into_spanned(span))
             }
-            // LazyRecord would be a problem for us, since it could return something else the
-            // next time, and we have to collect it anyway to serialize it. Collect it in place,
-            // and then use the result
-            Value::LazyRecord { val, .. } => {
-                *value = val.collect()?;
-                Ok(())
-            }
             _ => Ok(()),
         }
     })
@@ -33,31 +26,7 @@ where
 #[test]
 fn find_custom_values() {
     use crate::protocol::test_util::test_plugin_custom_value;
-    use nu_protocol::{engine::Closure, record, LazyRecord, Span};
-
-    #[derive(Debug, Clone)]
-    struct Lazy;
-    impl<'a> LazyRecord<'a> for Lazy {
-        fn column_names(&'a self) -> Vec<&'a str> {
-            vec!["custom", "plain"]
-        }
-
-        fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
-            Ok(match column {
-                "custom" => Value::test_custom_value(Box::new(test_plugin_custom_value())),
-                "plain" => Value::test_int(42),
-                _ => unimplemented!(),
-            })
-        }
-
-        fn span(&self) -> Span {
-            Span::test_data()
-        }
-
-        fn clone_value(&self, span: Span) -> Value {
-            Value::lazy_record(Box::new(self.clone()), span)
-        }
-    }
+    use nu_protocol::{engine::Closure, record};
 
     let mut cv = Value::test_custom_value(Box::new(test_plugin_custom_value()));
 
@@ -73,7 +42,6 @@ fn find_custom_values() {
                 captures: vec![(0, cv.clone()), (1, Value::test_string("foo"))]
             }
         ),
-        "lazy" => Value::test_lazy_record(Box::new(Lazy)),
     });
 
     // Do with_custom_values_in, and count the number of custom values found

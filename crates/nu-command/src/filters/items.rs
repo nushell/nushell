@@ -44,12 +44,6 @@ impl Command for Items {
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(value, ..) => {
-                let value = if let Value::LazyRecord { val, .. } = value {
-                    val.collect()?
-                } else {
-                    value
-                };
-
                 let span = value.span();
                 match value {
                     Value::Record { val, .. } => {

@@ -109,13 +109,6 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (vec![String::from("")], lines)
         }
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(value) => collect_input(value),
-            Err(_) => (
-                vec![String::from("")],
-                vec![vec![Value::lazy_record(val, span)]],
-            ),
-        },
         Value::Nothing { .. } => (vec![], vec![]),
         value => (vec![String::from("")], vec![vec![value]]),
     }

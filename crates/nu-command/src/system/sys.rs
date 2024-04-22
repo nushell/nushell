@@ -1,6 +1,5 @@
 use chrono::{DateTime, Local};
 use nu_engine::command_prelude::*;
-use nu_protocol::LazyRecord;
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
@@ -33,9 +32,10 @@ impl Command for Sys {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.span();
-        let ret = Value::lazy_record(Box::new(SysResult { span }), span);
+        todo!()
+        // let ret = Value::lazy_record(Box::new(SysResult { span }), span);
 
-        Ok(ret.into_pipeline_data())
+        // Ok(ret.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -64,37 +64,37 @@ pub struct SysResult {
     pub span: Span,
 }
 
-impl LazyRecord<'_> for SysResult {
-    fn column_names(&self) -> Vec<&'static str> {
-        vec!["host", "cpu", "disks", "mem", "temp", "net"]
-    }
+// impl LazyRecord<'_> for SysResult {
+//     fn column_names(&self) -> Vec<&'static str> {
+//         vec!["host", "cpu", "disks", "mem", "temp", "net"]
+//     }
 
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
-        let span = self.span;
+//     fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+//         let span = self.span;
 
-        match column {
-            "host" => Ok(host(span)),
-            "cpu" => Ok(cpu(span)),
-            "disks" => Ok(disks(span)),
-            "mem" => Ok(mem(span)),
-            "temp" => Ok(temp(span)),
-            "net" => Ok(net(span)),
-            _ => Err(ShellError::LazyRecordAccessFailed {
-                message: format!("Could not find column '{column}'"),
-                column_name: column.to_string(),
-                span,
-            }),
-        }
-    }
+//         match column {
+//             "host" => Ok(host(span)),
+//             "cpu" => Ok(cpu(span)),
+//             "disks" => Ok(disks(span)),
+//             "mem" => Ok(mem(span)),
+//             "temp" => Ok(temp(span)),
+//             "net" => Ok(net(span)),
+//             _ => Err(ShellError::LazyRecordAccessFailed {
+//                 message: format!("Could not find column '{column}'"),
+//                 column_name: column.to_string(),
+//                 span,
+//             }),
+//         }
+//     }
 
-    fn span(&self) -> Span {
-        self.span
-    }
+//     fn span(&self) -> Span {
+//         self.span
+//     }
 
-    fn clone_value(&self, span: Span) -> Value {
-        Value::lazy_record(Box::new((*self).clone()), span)
-    }
-}
+//     fn clone_value(&self, span: Span) -> Value {
+//         Value::lazy_record(Box::new((*self).clone()), span)
+//     }
+// }
 
 pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()

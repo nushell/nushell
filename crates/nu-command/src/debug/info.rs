@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::LazyRecord;
 use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 
 const ENV_PATH_SEPARATOR_CHAR: char = {
@@ -43,10 +42,9 @@ impl Command for DebugInfo {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = Span::unknown();
-
-        let record = LazySystemInfoRecord { span };
-
-        Ok(Value::lazy_record(Box::new(record), span).into_pipeline_data())
+        todo!()
+        // let record = LazySystemInfoRecord { span };
+        // Ok(Value::lazy_record(Box::new(record), span).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -203,40 +201,40 @@ impl LazySystemInfoRecord {
     }
 }
 
-impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
-    fn column_names(&'a self) -> Vec<&'a str> {
-        vec!["thread_id", "pid", "ppid", "process", "system"]
-    }
+// impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
+//     fn column_names(&'a self) -> Vec<&'a str> {
+//         vec!["thread_id", "pid", "ppid", "process", "system"]
+//     }
 
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
-        self.get_column_value_with_system(column, None)
-    }
+//     fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+//         self.get_column_value_with_system(column, None)
+//     }
 
-    fn span(&self) -> Span {
-        self.span
-    }
+//     fn span(&self) -> Span {
+//         self.span
+//     }
 
-    fn clone_value(&self, span: Span) -> Value {
-        Value::lazy_record(Box::new(LazySystemInfoRecord { span }), span)
-    }
+//     fn clone_value(&self, span: Span) -> Value {
+//         Value::lazy_record(Box::new(LazySystemInfoRecord { span }), span)
+//     }
 
-    fn collect(&'a self) -> Result<Value, ShellError> {
-        let rk = RefreshKind::new()
-            .with_processes(ProcessRefreshKind::everything())
-            .with_memory(MemoryRefreshKind::everything());
-        // only get information requested
-        let system = System::new_with_specifics(rk);
+//     fn collect(&'a self) -> Result<Value, ShellError> {
+//         let rk = RefreshKind::new()
+//             .with_processes(ProcessRefreshKind::everything())
+//             .with_memory(MemoryRefreshKind::everything());
+//         // only get information requested
+//         let system = System::new_with_specifics(rk);
 
-        self.column_names()
-            .into_iter()
-            .map(|col| {
-                let val = self.get_column_value_with_system(col, Some(&system))?;
-                Ok((col.to_owned(), val))
-            })
-            .collect::<Result<Record, _>>()
-            .map(|record| Value::record(record, self.span()))
-    }
-}
+//         self.column_names()
+//             .into_iter()
+//             .map(|col| {
+//                 let val = self.get_column_value_with_system(col, Some(&system))?;
+//                 Ok((col.to_owned(), val))
+//             })
+//             .collect::<Result<Record, _>>()
+//             .map(|record| Value::record(record, self.span()))
+//     }
+// }
 
 enum SystemOpt<'a> {
     Ptr(&'a System),

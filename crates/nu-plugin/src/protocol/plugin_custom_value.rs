@@ -322,11 +322,6 @@ impl PluginCustomValue {
                         Ok(())
                     }
                 }
-                // Collect LazyRecord before proceeding
-                Value::LazyRecord { ref val, .. } => {
-                    *value = val.collect()?;
-                    Ok(())
-                }
                 _ => Ok(()),
             }
         })
@@ -348,11 +343,6 @@ impl PluginCustomValue {
                         Ok(())
                     }
                 }
-                // Collect LazyRecord before proceeding
-                Value::LazyRecord { ref val, .. } => {
-                    *value = val.collect()?;
-                    Ok(())
-                }
                 _ => Ok(()),
             }
         })
@@ -365,11 +355,6 @@ impl PluginCustomValue {
             match value {
                 Value::Custom { ref val, .. } => {
                     *value = val.to_base_value(span)?;
-                    Ok(())
-                }
-                // Collect LazyRecord before proceeding
-                Value::LazyRecord { ref val, .. } => {
-                    *value = val.collect()?;
                     Ok(())
                 }
                 _ => Ok(()),
