@@ -1,111 +1,36 @@
-use std::path::{is_separator, Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use super::helpers;
 
-const EXPAND_STR: &str = if cfg!(windows) { r"..\" } else { "../" };
-
-fn handle_dots_push(string: &mut String, count: u8) {
-    if count < 1 {
-        return;
-    }
-
-    if count == 1 {
-        string.push('.');
-        return;
-    }
-
-    for _ in 0..(count - 1) {
-        string.push_str(EXPAND_STR);
-    }
-
-    string.pop(); // remove last '/'
-}
-
-/// Expands any occurrence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.,
-/// "..." into "../..", "...." into "../../../", etc.
+/// Normalize the path, expanding occurances of n-dots.
+///
+/// It performs the same normalization as `Path::components()`, except it also expands n-dots,
+/// such as "..." and "....", into multiple "..".
+///
+/// The resulting path will use platform-specific path separators, regardless of what path separators was used in the input.
 pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
-    // Check if path is valid UTF-8 and if not, return it as it is to avoid breaking it via string
-    // conversion.
-    let path_str = match path.as_ref().to_str() {
-        Some(s) => s,
-        None => return path.as_ref().into(),
-    };
-
-    // find if we need to expand any >2 dot paths and early exit if not
-    let mut dots_count = 0u8;
-    let mut not_separator_before_dot = false;
-    let ndots_present = {
-        for chr in path_str.chars() {
-            if chr == '.' {
-                dots_count += 1;
-            } else {
-                if is_separator(chr) && (dots_count > 2) {
-                    // this path component had >2 dots
-                    break;
-                }
-                not_separator_before_dot = !(is_separator(chr) || chr.is_whitespace());
-                dots_count = 0;
-            }
-        }
-
-        dots_count > 2
-    };
-
-    if !ndots_present || not_separator_before_dot {
-        return path.as_ref().into();
+    // Returns whether a path component is n-dots.
+    fn is_ndots(s: &std::ffi::OsStr) -> bool {
+        s.as_encoded_bytes().iter().all(|c| *c == b'.') && s.len() >= 3
     }
 
-    enum Segment {
-        Empty,
-        OnlyDots,
-        OtherChars,
-    }
-    let mut dots_count = 0u8;
-    let mut path_segment = Segment::Empty;
-    let mut expanded = String::with_capacity(path_str.len() + 10);
-    for chr in path_str.chars() {
-        if chr == '.' {
-            if matches!(path_segment, Segment::Empty) {
-                path_segment = Segment::OnlyDots;
-            }
-            dots_count += 1;
-        } else {
-            if is_separator(chr) {
-                if matches!(path_segment, Segment::OnlyDots) {
-                    // check for dots expansion only at path component boundaries
-                    handle_dots_push(&mut expanded, dots_count);
-                    dots_count = 0;
-                } else {
-                    // if at a path component boundary a secment consists of not only dots
-                    // don't expand the dots and only append the appropriate number of .
-                    while dots_count > 0 {
-                        expanded.push('.');
-                        dots_count -= 1;
-                    }
-                }
-                path_segment = Segment::Empty;
-            } else {
-                // got non-dot within path component => do not expand any dots
-                path_segment = Segment::OtherChars;
-                while dots_count > 0 {
-                    expanded.push('.');
-                    dots_count -= 1;
+    let path = path.as_ref();
+
+    let mut result = PathBuf::with_capacity(path.as_os_str().len());
+    for component in path.components() {
+        match component {
+            Component::Normal(s) if is_ndots(s) => {
+                let n = s.len();
+                // Push ".." to the path (n - 1) times.
+                for _ in 0..n - 1 {
+                    result.push("..");
                 }
             }
-            expanded.push(chr);
+            _ => result.push(component),
         }
     }
 
-    // Here only the final dots without any following characters are handled
-    if matches!(path_segment, Segment::OnlyDots) {
-        handle_dots_push(&mut expanded, dots_count);
-    } else {
-        for _ in 0..dots_count {
-            expanded.push('.');
-        }
-    }
-
-    expanded.into()
+    result
 }
 
 /// Normalize the path, expanding occurances of "." and "..".
@@ -281,9 +206,9 @@ mod tests {
         check_ndots_expansion("../..", "...");
         check_ndots_expansion("../../..", "....");
         check_ndots_expansion("../../../..", ".....");
-        check_ndots_expansion("../../../../", ".../...");
-        check_ndots_expansion("../../file name/../../", ".../file name/...");
-        check_ndots_expansion("../../../file name/../../../", "..../file name/....");
+        check_ndots_expansion("../../../..", ".../...");
+        check_ndots_expansion("../../file name/../..", ".../file name/...");
+        check_ndots_expansion("../../../file name/../../..", "..../file name/....");
     }
 
     #[test]
@@ -341,15 +266,12 @@ mod tests {
 
         #[test]
         fn string_with_mixed_ndots_and_chars() {
-            check_ndots_expansion(
-                r"a...b/./c..d/../e.f/..\..\..//.",
-                "a...b/./c..d/../e.f/....//.",
-            );
+            check_ndots_expansion(r"a...b/c..d/../e.f/../../..", "a...b/./c..d/../e.f/....//.");
         }
 
         #[test]
         fn string_with_three_ndots_and_final_slash() {
-            check_ndots_expansion(r"..\../", ".../");
+            check_ndots_expansion(r"..\..", ".../");
         }
 
         #[test]
