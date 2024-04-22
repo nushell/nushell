@@ -46,7 +46,7 @@ the cache file into scope.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["add", "plugin", "register", "scope", "use"]
+        vec!["add", "register", "scope"]
     }
 
     fn is_parser_keyword(&self) -> bool {

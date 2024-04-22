@@ -45,7 +45,7 @@ This command is a parser keyword. For details, check:
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["plugin", "add", "register"]
+        vec!["add"]
     }
 
     fn is_parser_keyword(&self) -> bool {
