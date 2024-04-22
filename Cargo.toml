@@ -197,6 +197,7 @@ windows-sys = "0.48"
 winreg = "0.52"
 memchr = "2.7.4"
 webpki-roots = "1.0"
+ecow = { version = "0.2.6", features = ["serde"] }
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
