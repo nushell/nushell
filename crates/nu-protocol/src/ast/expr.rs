@@ -49,7 +49,7 @@ pub enum Expr {
 // This is to document/enforce the size of `Expr` in bytes.
 // We should try to avoid increasing the size of `Expr`,
 // and PRs that do so will have to change the number below so that it's noted in review.
-const _: [(); 40] = [(); std::mem::size_of::<Expr>()];
+const _: () = assert!(std::mem::size_of::<Expr>() <= 40);
 
 impl Expr {
     pub fn pipe_redirection(
