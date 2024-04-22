@@ -34,39 +34,34 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
 
 /// Normalize the path, expanding occurrences of "." and "..".
 ///
-/// It performs the same normalization as `Path::components()`, except it also expands ".."
+/// It performs the same normalization as `nu_path::components()`, except it also expands ".."
 /// when its preceding component is a normal component, ignoring the possibility of symlinks.
 /// In other words, it operates on the lexical structure of the path.
 ///
+/// This won't expand "/.." even though the parent directory of "/" is often
+/// considered to be itself.
+///
 /// The resulting path will use platform-specific path separators, regardless of what path separators was used in the input.
 pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
-    let path = path.as_ref();
-
-    // Early-exit if path does not contain '.' or '..'
-    if !path
-        .components()
-        .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
-    {
-        return path.into();
+    // Check if the last component of the path is a normal component.
+    fn last_component_is_normal(path: &Path) -> bool {
+        matches!(path.components().last(), Some(Component::Normal(_)))
     }
 
+    let path = path.as_ref();
+
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
-
-    // Only pop/skip path elements if the previous one was an actual path element
-    let prev_is_normal = |p: &Path| -> bool {
-        p.components()
-            .next_back()
-            .map(|c| std::matches!(c, Component::Normal(_)))
-            .unwrap_or(false)
-    };
-
-    path.components().for_each(|component| match component {
-        Component::ParentDir if prev_is_normal(&result) => {
-            result.pop();
+    for component in crate::components(path) {
+        match component {
+            Component::ParentDir if last_component_is_normal(&result) => {
+                result.pop();
+            }
+            Component::CurDir if last_component_is_normal(&result) => {
+                // no-op
+            }
+            _ => result.push(component),
         }
-        Component::CurDir if prev_is_normal(&result) => {}
-        _ => result.push(component),
-    });
+    }
 
     helpers::simiplified(&result)
 }
