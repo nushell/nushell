@@ -234,21 +234,22 @@ fn ls_for_one_pattern(
     // it indicates we need to append an extra '*' after pattern for listing given directory
     // Example: 'ls directory' -> 'ls directory/*'
     let mut extra_star_under_given_directory = false;
-    let (mut path, p_tag, absolute_path) = match pattern_arg {
+    let p_tag: Span = pattern_arg.as_ref().map(|p| p.span).unwrap_or(call_span);
+    let (mut pattern_arg, absolute_path) = match pattern_arg {
         Some(pat) => {
-            let p_tag = pat.span;
-            let expanded = nu_path::expand_path_with(
+            // expand with cwd here is only used for checking
+            let tmp_expanded = nu_path::expand_path_with(
                 pat.item.as_ref(),
                 &cwd,
                 matches!(pat.item, NuGlob::Expand(..)),
             );
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
-            if !directory && expanded.is_dir() {
-                if permission_denied(&expanded) {
+            if !directory && tmp_expanded.is_dir() {
+                if permission_denied(&tmp_expanded) {
                     #[cfg(unix)]
                     let error_msg = format!(
                         "The permissions of {:o} do not allow access for this user",
-                        expanded
+                        tmp_expanded
                             .metadata()
                             .expect("this shouldn't be called since we already know there is a dir")
                             .permissions()
@@ -265,7 +266,7 @@ fn ls_for_one_pattern(
                         inner: vec![],
                     });
                 }
-                if is_empty_dir(&expanded) {
+                if is_empty_dir(&tmp_expanded) {
                     return Ok(Box::new(vec![].into_iter()));
                 }
                 extra_star_under_given_directory = true;
@@ -278,35 +279,40 @@ fn ls_for_one_pattern(
             //    path.
             let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
                 || (pat.item.is_expand() && expand_to_real_path(pat.item.as_ref()).is_absolute());
-            (pat.item, p_tag, absolute_path)
+            (pat.item, absolute_path)
         }
         None => {
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
-                (NuGlob::Expand(".".to_string()), call_span, false)
+                (NuGlob::Expand(".".to_string()), false)
             } else if is_empty_dir(&cwd) {
                 return Ok(Box::new(vec![].into_iter()));
             } else {
-                (NuGlob::Expand("*".to_string()), call_span, false)
+                (NuGlob::Expand("*".to_string()), false)
             }
         }
     };
 
-    let hidden_dir_specified = false;
+    let hidden_dir_specified = is_hidden_dir(pattern_arg.as_ref());
     // when it's quoted, we need to escape our glob pattern(but without the last extra
     // start which may be added under given directory)
     // so we can do ls for a file or directory like `a[123]b`
     if extra_star_under_given_directory {
-        match &mut path {
-            NuGlob::Expand(p) | NuGlob::DoNotExpand(p) => {
-                p.push(std::path::MAIN_SEPARATOR);
-                p.push('*');
+        // pattern arg must be expanded, because we need to put an extra '*'.
+        let mut pattern = match pattern_arg {
+            NuGlob::Expand(p) => p,
+            NuGlob::DoNotExpand(p) => {
+                let mut p_escaped = Pattern::escape(&p);
+                p_escaped
             }
-        }
-    }
+        };
+        pattern.push(std::path::MAIN_SEPARATOR);
+        pattern.push('*');
+        pattern_arg = NuGlob::Expand(pattern)
+    };
 
     let path = Spanned {
-        item: path,
+        item: pattern_arg,
         span: p_tag,
     };
     let glob_options = if all {
