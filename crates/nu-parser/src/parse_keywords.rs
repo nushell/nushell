@@ -3550,8 +3550,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
     use nu_protocol::{
-        engine::Stack, IntoSpanned, PluginCacheItem, PluginIdentity, PluginSignature,
-        RegisteredPlugin,
+        engine::Stack, ErrSpan, PluginCacheItem, PluginIdentity, PluginSignature, RegisteredPlugin,
     };
 
     let spans = &lite_command.parts;
@@ -3694,8 +3693,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         let path = path.path_buf();
 
         // Create the plugin identity. This validates that the plugin name starts with `nu_plugin_`
-        let identity =
-            PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
+        let identity = PluginIdentity::new(path, shell).err_span(path_span)?;
 
         // Find garbage collection config
         let gc_config = working_set
