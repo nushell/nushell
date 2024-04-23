@@ -62,7 +62,7 @@ impl Command for Complete {
                                 }
                             })
                             .map(|handle| (handle, stderr_span))
-                            .map_err(|err| err.into_spanned(call.head))
+                            .err_span(call.head)
                     })
                     .transpose()?;
 

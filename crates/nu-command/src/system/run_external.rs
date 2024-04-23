@@ -495,7 +495,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .map_err(|e| e.into_spanned(head))?;
+                            .err_span(head)?;
                     }
                 }
 
@@ -580,7 +580,7 @@ impl ExternalCommand {
                             Ok(())
                         }
                     })
-                    .map_err(|e| e.into_spanned(head))?;
+                    .err_span(head)?;
 
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 

@@ -30,7 +30,7 @@ pub(crate) fn modify_plugin_file(
     // Try to read the plugin file if it exists
     let mut contents = if fs::metadata(&plugin_cache_file_path).is_ok_and(|m| m.len() > 0) {
         PluginCacheFile::read_from(
-            File::open(&plugin_cache_file_path).map_err(|err| err.into_spanned(span))?,
+            File::open(&plugin_cache_file_path).err_span(span)?,
             Some(span),
         )?
     } else {
@@ -42,7 +42,7 @@ pub(crate) fn modify_plugin_file(
 
     // Save the modified file on success
     contents.write_to(
-        File::create(&plugin_cache_file_path).map_err(|err| err.into_spanned(span))?,
+        File::create(&plugin_cache_file_path).err_span(span)?,
         Some(span),
     )?;
 

@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -104,6 +104,8 @@ fn rename(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+    let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let specified_column: Option<Record> = call.get_flag(engine_state, stack, "column")?;
     // convert from Record to HashMap for easily query.
     let specified_column: Option<IndexMap<String, String>> = match specified_column {
@@ -133,24 +135,11 @@ fn rename(
         }
         None => None,
     };
-    let block_info =
-        if let Some(capture_block) = call.get_flag::<Closure>(engine_state, stack, "block")? {
-            let engine_state = engine_state.clone();
-            let block = engine_state.get_block(capture_block.block_id).clone();
-            let stack = stack.captures_to_stack(capture_block.captures);
-            let orig_env_vars = stack.env_vars.clone();
-            let orig_env_hidden = stack.env_hidden.clone();
-            Some((engine_state, block, stack, orig_env_vars, orig_env_hidden))
-        } else {
-            None
-        };
+    let closure: Option<Closure> = call.get_flag(engine_state, stack, "block")?;
 
-    let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+    let mut closure = closure.map(|closure| ClosureEval::new(engine_state, stack, closure));
+
     let metadata = input.metadata();
-
-    let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-
-    let head_span = call.head;
     input
         .map(
             move |item| {
@@ -158,31 +147,14 @@ fn rename(
                 match item {
                     Value::Record { val: record, .. } => {
                         let record =
-                            if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
-                                block_info.clone()
-                            {
+                            if let Some(closure) = &mut closure {
                                 record
                                     .into_owned().into_iter()
                                     .map(|(col, val)| {
-                                        stack.with_env(&env_vars, &env_hidden);
-
-                                        if let Some(var) = block.signature.get_positional(0) {
-                                            if let Some(var_id) = &var.var_id {
-                                                stack.add_var(
-                                                    *var_id,
-                                                    Value::string(col.clone(), span),
-                                                )
-                                            }
-                                        }
-
-                                        eval_block_with_early_return(
-                                            &engine_state,
-                                            &mut stack,
-                                            &block,
-                                            Value::string(col, span).into_pipeline_data(),
-                                        )
-                                        .and_then(|data| data.collect_string_strict(span))
-                                        .map(|(col, _, _)| (col, val))
+                                        let col = Value::string(col, span);
+                                        let data = closure.run_with_value(col)?;
+                                        let col = data.collect_string_strict(span)?.0;
+                                        Ok((col, val))
                                     })
                                     .collect::<Result<Record, _>>()
                             } else {
@@ -214,7 +186,7 @@ fn rename(
                                             Err(ShellError::UnsupportedInput {
                                                 msg: format!("The column '{missing}' does not exist in the input"),
                                                 input: "value originated from here".into(),
-                                                msg_span: head_span,
+                                                msg_span: head,
                                                 input_span: span,
                                             })
                                         } else {
@@ -242,16 +214,16 @@ fn rename(
                         ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),
                             wrong_type: other.get_type().to_string(),
-                            dst_span: head_span,
+                            dst_span: head,
                             src_span: other.span(),
                         },
-                        head_span,
+                        head,
                     ),
                 }
             },
             engine_state.ctrlc.clone(),
         )
-        .map(|x| x.set_metadata(metadata))
+        .map(|data| data.set_metadata(metadata))
 }
 
 #[cfg(test)]
