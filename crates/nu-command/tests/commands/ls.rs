@@ -792,7 +792,6 @@ fn list_inside_tilde_glob_metachars_dir() {
                 cwd: dirs.test().join(sub_dir),
                 "ls test_file.txt | get name.0 | path basename",
             );
-            println!("debug {:?}", actual.out);
             assert!(actual.out.contains("test_file.txt"));
 
             let actual = nu!(
