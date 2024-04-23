@@ -786,15 +786,18 @@ fn list_inside_tilde_glob_metachars_dir() {
                 .within(sub_dir)
                 .with_files(vec![EmptyFile("test_file.txt")]);
 
+            // need getname.0 | path basename because the output path
+            // might be too long to output as a single line.
             let actual = nu!(
                 cwd: dirs.test().join(sub_dir),
-                "ls test_file.txt",
+                "ls test_file.txt | get name.0 | path basename",
             );
+            println!("debug {:?}", actual.out);
             assert!(actual.out.contains("test_file.txt"));
 
             let actual = nu!(
                 cwd: dirs.test(),
-                "ls '~test[]'"
+                "ls '~test[]' | get name.0 | path basename"
             );
             assert!(actual.out.contains("test_file.txt"));
         },
