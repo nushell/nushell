@@ -106,9 +106,7 @@ apparent the next time `nu` is next launched with that plugin cache file.
 
         let shell_expanded = shell
             .as_ref()
-            .map(|s| {
-                nu_path::canonicalize_with(&s.item, &cwd).map_err(|err| err.into_spanned(s.span))
-            })
+            .map(|s| nu_path::canonicalize_with(&s.item, &cwd).err_span(s.span))
             .transpose()?;
 
         // Parse the plugin filename so it can be used to spawn the plugin
