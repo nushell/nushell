@@ -392,13 +392,13 @@ impl Command for Nu {
                 .named(
                     "plugin-config",
                     SyntaxShape::Filepath,
-                    "start with an alternate plugin cache file",
+                    "start with an alternate plugin registry file",
                     None,
                 )
                 .named(
                     "plugins",
                     SyntaxShape::List(Box::new(SyntaxShape::Filepath)),
-                    "list of plugin executable files to load, separately from the cache file",
+                    "list of plugin executable files to load, separately from the registry file",
                     None,
                 )
         }

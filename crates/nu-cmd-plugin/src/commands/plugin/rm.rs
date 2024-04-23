@@ -17,7 +17,7 @@ impl Command for PluginRm {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin cache file other than the one set in `$nu.plugin-path`",
+                "Use a plugin registry file other than the one set in `$nu.plugin-path`",
                 None,
             )
             .switch(
@@ -34,15 +34,15 @@ impl Command for PluginRm {
     }
 
     fn usage(&self) -> &str {
-        "Remove a plugin from the plugin cache file."
+        "Remove a plugin from the plugin registry file."
     }
 
     fn extra_usage(&self) -> &str {
         r#"
 This does not remove the plugin commands from the current scope or from `plugin
 list` in the current shell. It instead removes the plugin from the plugin
-cache file (by default, `$nu.plugin-path`). The changes will be apparent the
-next time `nu` is launched with that plugin cache file.
+registry file (by default, `$nu.plugin-path`). The changes will be apparent the
+next time `nu` is launched with that plugin registry file.
 
 This can be useful for removing an invalid plugin signature, if it can't be
 fixed with `plugin add`.
@@ -63,7 +63,7 @@ fixed with `plugin add`.
             },
             Example {
                 example: "plugin rm --plugin-config polars.msgpackz polars",
-                description: "Remove the installed signatures for the `polars` plugin from the \"polars.msgpackz\" plugin cache file.",
+                description: "Remove the installed signatures for the `polars` plugin from the \"polars.msgpackz\" plugin registry file.",
                 result: None,
             },
         ]
@@ -84,7 +84,7 @@ fixed with `plugin add`.
             if !force && !contents.plugins.iter().any(|p| p.name == name.item) {
                 Err(ShellError::GenericError {
                     error: format!("Failed to remove the `{}` plugin", name.item),
-                    msg: "couldn't find a plugin with this name in the cache file".into(),
+                    msg: "couldn't find a plugin with this name in the registry file".into(),
                     span: Some(name.span),
                     help: None,
                     inner: vec![],
