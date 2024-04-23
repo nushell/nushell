@@ -3,9 +3,10 @@ use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
-use nu_path::expand_to_real_path;
+use nu_path::{canonicalize_with, expand_path_with, expand_to_real_path};
 use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
+use std::{fs, path::Component};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -890,6 +891,12 @@ mod windows_helper {
     }
 }
 
+// It's mostly a copy of `nu_engine::glob_from`.  But with a new `expand_tilde` parameter.
+//
+// nu_engine::glob_from can't work for the code: `mkdir ~[a]bc; ls "~[a]bc`.
+// It's also bad to add an extra argument to `nu_engine::glob_from`, because only `ls` has the issue.
+//
+// `ls` might converts input pattern from `NuGlob::NotExpand` to `NuGlob::Expand`.
 fn glob_from(
     pattern: &Spanned<NuGlob>,
     cwd: &Path,
@@ -904,9 +911,6 @@ fn glob_from(
     ShellError,
 > {
     const GLOB_CHARS: &[char] = &['*', '?', '['];
-    use nu_path::{canonicalize_with, expand_path_with};
-    use std::fs;
-    use std::path::Component;
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
     let (prefix, pattern) = if pattern.item.as_ref().contains(GLOB_CHARS) {
         // Pattern contains glob, split it
