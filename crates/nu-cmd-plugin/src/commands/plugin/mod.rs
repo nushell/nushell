@@ -30,10 +30,6 @@ impl Command for PluginCommand {
         "Commands for managing plugins."
     }
 
-    fn extra_usage(&self) -> &str {
-        "To load a plugin, see `register`."
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -57,16 +53,6 @@ impl Command for PluginCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "plugin list",
-                description: "List installed plugins",
-                result: None,
-            },
-            Example {
-                example: "plugin stop inc",
-                description: "Stop the plugin named `inc`.",
-                result: None,
-            },
-            Example {
                 example: "plugin add nu_plugin_inc",
                 description: "Run the `nu_plugin_inc` plugin from the current directory and install its signatures.",
                 result: None,
@@ -78,6 +64,16 @@ Load (or reload) the `inc` plugin from the plugin cache file and put its command
 The plugin must already be in the cache file at parse time.
 "
                 .trim(),
+                result: None,
+            },
+            Example {
+                example: "plugin list",
+                description: "List installed plugins",
+                result: None,
+            },
+            Example {
+                example: "plugin stop inc",
+                description: "Stop the plugin named `inc`.",
                 result: None,
             },
             Example {
