@@ -392,7 +392,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, IntoSpanned, PluginIdentity};
+        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -401,10 +401,12 @@ fn main() -> Result<()> {
         for plugin_filename in plugins {
             // Make sure the plugin filenames are canonicalized
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
-                .map_err(|err| ShellError::from(err.into_spanned(plugin_filename.span)))?;
+                .err_span(plugin_filename.span)
+                .map_err(ShellError::from)?;
 
             let identity = PluginIdentity::new(&filename, None)
-                .map_err(|err| ShellError::from(err.into_spanned(plugin_filename.span)))?;
+                .err_span(plugin_filename.span)
+                .map_err(ShellError::from)?;
 
             // Create the plugin and add it to the working set
             let plugin = nu_plugin::add_plugin_to_working_set(&mut working_set, &identity)?;
