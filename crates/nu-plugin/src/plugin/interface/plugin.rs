@@ -817,10 +817,15 @@ impl PluginInterface {
                 }
             }
         }
-        // If we fail to get a response
-        Err(ShellError::PluginFailedToDecode {
-            msg: "Failed to receive response to plugin call".into(),
-        })
+        // If we fail to get a response, check for an error in the state first, and return it if
+        // set. This is probably a much more helpful error than 'failed to receive response'
+        if let Some(error) = self.state.error.get() {
+            Err(error.clone())
+        } else {
+            Err(ShellError::PluginFailedToDecode {
+                msg: "Failed to receive response to plugin call".into(),
+            })
+        }
     }
 
     /// Handle an engine call and write the response.
