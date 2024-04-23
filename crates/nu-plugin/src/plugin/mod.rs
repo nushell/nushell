@@ -25,7 +25,7 @@ use nu_engine::documentation::get_flags_section;
 use nu_protocol::{
     ast::Operator, engine::StateWorkingSet, report_error_new, CustomValue, IntoSpanned,
     LabeledError, PipelineData, PluginCacheFile, PluginCacheItem, PluginCacheItemData,
-    PluginIdentity, PluginSignature, ShellError, Span, Spanned, Value,
+    PluginIdentity, PluginSignature, RegisteredPlugin, ShellError, Span, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -942,7 +942,7 @@ pub fn load_plugin_cache_item(
     working_set: &mut StateWorkingSet,
     plugin: &PluginCacheItem,
     span: Option<Span>,
-) -> Result<(), ShellError> {
+) -> Result<Arc<PersistentPlugin>, ShellError> {
     let identity =
         PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
             ShellError::GenericError {
@@ -962,12 +962,17 @@ pub fn load_plugin_cache_item(
         PluginCacheItemData::Valid { commands } => {
             let plugin = add_plugin_to_working_set(working_set, &identity)?;
 
+            // Ensure that the plugin is reset. We're going to load new signatures, so we want to
+            // make sure the running plugin reflects those new signatures, and it's possible that it
+            // doesn't.
+            plugin.reset()?;
+
             // Create the declarations from the commands
             for signature in commands {
                 let decl = PluginDeclaration::new(plugin.clone(), signature.clone());
                 working_set.add_decl(Box::new(decl));
             }
-            Ok(())
+            Ok(plugin)
         }
         PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
             plugin_name: identity.name().to_owned(),
