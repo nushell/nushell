@@ -748,9 +748,9 @@ impl PluginInterface {
                     PluginCall::CustomValueOp(val, _) => Some(val.span),
                 },
                 help: Some(format!(
-                    "the plugin may have experienced an error. Try registering the plugin again \
+                    "the plugin may have experienced an error. Try loading the plugin again \
                         with `{}`",
-                    self.state.source.identity.register_command(),
+                    self.state.source.identity.use_command(),
                 )),
                 inner: vec![],
             })?;

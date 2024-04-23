@@ -29,6 +29,10 @@ impl Command for PluginList {
         "List installed plugins."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["scope"]
+    }
+
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {

@@ -4,11 +4,13 @@ mod add;
 mod list;
 mod rm;
 mod stop;
+mod use_;
 
 pub use add::PluginAdd;
 pub use list::PluginList;
 pub use rm::PluginRm;
 pub use stop::PluginStop;
+pub use use_::PluginUse;
 
 #[derive(Clone)]
 pub struct PluginCommand;
@@ -26,10 +28,6 @@ impl Command for PluginCommand {
 
     fn usage(&self) -> &str {
         "Commands for managing plugins."
-    }
-
-    fn extra_usage(&self) -> &str {
-        "To load a plugin, see `register`."
     }
 
     fn run(
@@ -55,6 +53,20 @@ impl Command for PluginCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                example: "plugin add nu_plugin_inc",
+                description: "Run the `nu_plugin_inc` plugin from the current directory and install its signatures.",
+                result: None,
+            },
+            Example {
+                example: "plugin use inc",
+                description: "
+Load (or reload) the `inc` plugin from the plugin cache file and put its commands in scope.
+The plugin must already be in the cache file at parse time.
+"
+                .trim(),
+                result: None,
+            },
+            Example {
                 example: "plugin list",
                 description: "List installed plugins",
                 result: None,
@@ -62,11 +74,6 @@ impl Command for PluginCommand {
             Example {
                 example: "plugin stop inc",
                 description: "Stop the plugin named `inc`.",
-                result: None,
-            },
-            Example {
-                example: "plugin add nu_plugin_inc",
-                description: "Run the `nu_plugin_inc` plugin from the current directory and install its signatures.",
                 result: None,
             },
             Example {

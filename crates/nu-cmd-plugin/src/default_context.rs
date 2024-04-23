@@ -12,11 +12,12 @@ pub fn add_plugin_command_context(mut engine_state: EngineState) -> EngineState 
         }
 
         bind_command!(
-            PluginCommand,
             PluginAdd,
+            PluginCommand,
             PluginList,
             PluginRm,
             PluginStop,
+            PluginUse,
             Register,
         );
 

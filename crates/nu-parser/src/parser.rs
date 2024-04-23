@@ -5149,9 +5149,21 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             #[cfg(feature = "plugin")]
             b"register" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
-                    "plugin".into(),
+                    "register".into(),
                     spans[0],
                 ));
+
+                parse_call(working_set, &spans[pos..], spans[0])
+            }
+            #[cfg(feature = "plugin")]
+            b"plugin" => {
+                if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"use" {
+                    // only 'plugin use' is banned
+                    working_set.error(ParseError::BuiltinCommandInPipeline(
+                        "plugin use".into(),
+                        spans[0],
+                    ));
+                }
 
                 parse_call(working_set, &spans[pos..], spans[0])
             }
@@ -5286,6 +5298,20 @@ pub fn parse_builtin_commands(
         b"where" => parse_where(working_set, lite_command),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, lite_command),
+        // Only "plugin use" is a keyword
+        #[cfg(feature = "plugin")]
+        b"plugin"
+            if lite_command
+                .parts
+                .get(1)
+                .is_some_and(|span| working_set.get_span_contents(*span) == b"use") =>
+        {
+            if let Some(redirection) = lite_command.redirection.as_ref() {
+                working_set.error(redirecting_builtin_error("plugin use", redirection));
+                return garbage_pipeline(&lite_command.parts);
+            }
+            parse_keyword(working_set, lite_command)
+        }
         _ => {
             let element = parse_pipeline_element(working_set, lite_command);
 

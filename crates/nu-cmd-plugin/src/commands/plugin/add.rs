@@ -54,7 +54,7 @@ apparent the next time `nu` is next launched with that plugin cache file.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["plugin", "add", "register", "load", "signature"]
+        vec!["load", "register", "signature"]
     }
 
     fn examples(&self) -> Vec<Example> {

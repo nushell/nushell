@@ -51,7 +51,7 @@ fixed with `plugin add`.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["plugin", "rm", "remove", "delete", "signature"]
+        vec!["remove", "delete", "signature"]
     }
 
     fn examples(&self) -> Vec<Example> {

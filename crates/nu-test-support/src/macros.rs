@@ -235,7 +235,6 @@ macro_rules! nu_with_plugins {
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
 use std::ffi::OsStr;
-use std::fmt::Write;
 use std::{
     path::Path,
     process::{Command, Stdio},
@@ -340,17 +339,17 @@ where
 
     crate::commands::ensure_plugins_built();
 
-    let registrations: String = plugins
+    let plugin_paths_quoted: Vec<String> = plugins
         .iter()
-        .fold(String::new(), |mut output, plugin_name| {
+        .map(|plugin_name| {
             let plugin = with_exe(plugin_name);
             let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
                 .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
             let plugin_path = plugin_path.to_string_lossy();
-            let _ = write!(output, "register {plugin_path};");
-            output
-        });
-    let commands = format!("{registrations}{command}");
+            escape_quote_string(plugin_path.into_owned())
+        })
+        .collect();
+    let plugins_arg = format!("[{}]", plugin_paths_quoted.join(","));
 
     let target_cwd = crate::fs::in_directory(&cwd);
     // In plugin testing, we need to use installed nushell to drive
@@ -362,13 +361,15 @@ where
     let process = match setup_command(&executable_path, &target_cwd)
         .envs(envs)
         .arg("--commands")
-        .arg(commands)
+        .arg(command)
         .arg("--config")
         .arg(temp_config_file)
         .arg("--env-config")
         .arg(temp_env_config_file)
         .arg("--plugin-config")
         .arg(temp_plugin_file)
+        .arg("--plugins")
+        .arg(plugins_arg)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
