@@ -1,8 +1,7 @@
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use super::utils::chain_error_with_input;
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::engine::Closure;
 use rayon::prelude::*;
-
-use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct ParEach;
@@ -113,16 +112,13 @@ impl Command for ParEach {
             }
         }
 
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        let head = call.head;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
         let threads: Option<usize> = call.get_flag(engine_state, stack, "threads")?;
         let max_threads = threads.unwrap_or(0);
         let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
+
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
-        let outer_ctrlc = engine_state.ctrlc.clone();
-        let block_id = capture_block.block_id;
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let span = call.head;
 
         // A helper function sorts the output if needed
         let apply_order = |mut vec: Vec<(usize, Value)>| {
@@ -135,8 +131,6 @@ impl Command for ParEach {
             vec.into_iter().map(|(_, val)| val)
         };
 
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(value, ..) => {
@@ -144,74 +138,51 @@ impl Command for ParEach {
                 match value {
                     Value::List { vals, .. } => Ok(create_pool(max_threads)?.install(|| {
                         let vec = vals
-                            .par_iter()
+                            .into_par_iter()
                             .enumerate()
-                            .map(move |(index, x)| {
-                                let block = engine_state.get_block(block_id);
+                            .map(move |(index, value)| {
+                                let span = value.span();
+                                let is_error = value.is_error();
+                                let result =
+                                    ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                                        .run_with_value(value);
 
-                                let mut stack = stack.clone();
-
-                                if let Some(var) = block.signature.get_positional(0) {
-                                    if let Some(var_id) = &var.var_id {
-                                        stack.add_var(*var_id, x.clone());
-                                    }
-                                }
-
-                                let val_span = x.span();
-                                let x_is_error = x.is_error();
-
-                                let val = match eval_block_with_early_return(
-                                    engine_state,
-                                    &mut stack,
-                                    block,
-                                    x.clone().into_pipeline_data(),
-                                ) {
-                                    Ok(v) => v.into_value(span),
-                                    Err(error) => Value::error(
-                                        chain_error_with_input(error, x_is_error, val_span),
-                                        val_span,
+                                let value = match result {
+                                    Ok(data) => data.into_value(span),
+                                    Err(err) => Value::error(
+                                        chain_error_with_input(err, is_error, span),
+                                        span,
                                     ),
                                 };
 
-                                (index, val)
+                                (index, value)
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(ctrlc)
+                        apply_order(vec).into_pipeline_data(engine_state.ctrlc.clone())
                     })),
                     Value::Range { val, .. } => Ok(create_pool(max_threads)?.install(|| {
+                        let ctrlc = engine_state.ctrlc.clone();
                         let vec = val
                             .into_range_iter(span, ctrlc.clone())
                             .enumerate()
                             .par_bridge()
-                            .map(move |(index, x)| {
-                                let block = engine_state.get_block(block_id);
+                            .map(move |(index, value)| {
+                                let span = value.span();
+                                let is_error = value.is_error();
+                                let result =
+                                    ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                                        .run_with_value(value);
 
-                                let mut stack = stack.clone();
-
-                                if let Some(var) = block.signature.get_positional(0) {
-                                    if let Some(var_id) = &var.var_id {
-                                        stack.add_var(*var_id, x.clone());
-                                    }
-                                }
-
-                                let val_span = x.span();
-                                let x_is_error = x.is_error();
-
-                                let val = match eval_block_with_early_return(
-                                    engine_state,
-                                    &mut stack,
-                                    block,
-                                    x.into_pipeline_data(),
-                                ) {
-                                    Ok(v) => v.into_value(span),
-                                    Err(error) => Value::error(
-                                        chain_error_with_input(error, x_is_error, val_span),
-                                        val_span,
+                                let value = match result {
+                                    Ok(data) => data.into_value(span),
+                                    Err(err) => Value::error(
+                                        chain_error_with_input(err, is_error, span),
+                                        span,
                                     ),
                                 };
 
-                                (index, val)
+                                (index, value)
                             })
                             .collect::<Vec<_>>();
 
@@ -220,20 +191,7 @@ impl Command for ParEach {
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
                     value => {
-                        let block = engine_state.get_block(block_id);
-
-                        if let Some(var) = block.signature.get_positional(0) {
-                            if let Some(var_id) = &var.var_id {
-                                stack.add_var(*var_id, value.clone());
-                            }
-                        }
-
-                        eval_block_with_early_return(
-                            engine_state,
-                            &mut stack,
-                            block,
-                            value.into_pipeline_data(),
-                        )
+                        ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
                     }
                 }
             }
@@ -241,38 +199,24 @@ impl Command for ParEach {
                 let vec = stream
                     .enumerate()
                     .par_bridge()
-                    .map(move |(index, x)| {
-                        let block = engine_state.get_block(block_id);
+                    .map(move |(index, value)| {
+                        let span = value.span();
+                        let is_error = value.is_error();
+                        let result = ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                            .run_with_value(value);
 
-                        let mut stack = stack.clone();
-
-                        if let Some(var) = block.signature.get_positional(0) {
-                            if let Some(var_id) = &var.var_id {
-                                stack.add_var(*var_id, x.clone());
+                        let value = match result {
+                            Ok(data) => data.into_value(head),
+                            Err(err) => {
+                                Value::error(chain_error_with_input(err, is_error, span), span)
                             }
-                        }
-
-                        let val_span = x.span();
-                        let x_is_error = x.is_error();
-
-                        let val = match eval_block_with_early_return(
-                            engine_state,
-                            &mut stack,
-                            block,
-                            x.into_pipeline_data(),
-                        ) {
-                            Ok(v) => v.into_value(span),
-                            Err(error) => Value::error(
-                                chain_error_with_input(error, x_is_error, val_span),
-                                val_span,
-                            ),
                         };
 
-                        (index, val)
+                        (index, value)
                     })
                     .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(ctrlc)
+                apply_order(vec).into_pipeline_data(engine_state.ctrlc.clone())
             })),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
@@ -282,41 +226,26 @@ impl Command for ParEach {
                 let vec = stream
                     .enumerate()
                     .par_bridge()
-                    .map(move |(index, x)| {
-                        let x = match x {
-                            Ok(x) => x,
-                            Err(err) => return (index, Value::error(err, span)),
+                    .map(move |(index, value)| {
+                        let value = match value {
+                            Ok(value) => value,
+                            Err(err) => return (index, Value::error(err, head)),
                         };
 
-                        let block = engine_state.get_block(block_id);
+                        let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                            .run_with_value(value)
+                            .map(|data| data.into_value(head))
+                            .unwrap_or_else(|err| Value::error(err, head));
 
-                        let mut stack = stack.clone();
-
-                        if let Some(var) = block.signature.get_positional(0) {
-                            if let Some(var_id) = &var.var_id {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-
-                        let val = match eval_block_with_early_return(
-                            engine_state,
-                            &mut stack,
-                            block,
-                            x.into_pipeline_data(),
-                        ) {
-                            Ok(v) => v.into_value(span),
-                            Err(error) => Value::error(error, span),
-                        };
-
-                        (index, val)
+                        (index, value)
                     })
                     .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(ctrlc)
+                apply_order(vec).into_pipeline_data(engine_state.ctrlc.clone())
             })),
         }
-        .and_then(|x| x.filter(|v| !v.is_nothing(), outer_ctrlc))
-        .map(|res| res.set_metadata(metadata))
+        .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.ctrlc.clone()))
+        .map(|data| data.set_metadata(metadata))
     }
 }
 

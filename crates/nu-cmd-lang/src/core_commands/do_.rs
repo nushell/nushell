@@ -117,7 +117,7 @@ impl Command for Do {
                                     None,
                                 )
                             })
-                            .map_err(|e| e.into_spanned(call.head))
+                            .err_span(call.head)
                     })
                     .transpose()?;
 

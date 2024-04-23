@@ -3550,7 +3550,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
     use nu_protocol::{
-        engine::Stack, IntoSpanned, PluginIdentity, PluginSignature, RegisteredPlugin,
+        engine::Stack, ErrSpan, PluginCacheItem, PluginIdentity, PluginSignature, RegisteredPlugin,
     };
 
     let spans = &lite_command.parts;
@@ -3693,8 +3693,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         let path = path.path_buf();
 
         // Create the plugin identity. This validates that the plugin name starts with `nu_plugin_`
-        let identity =
-            PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
+        let identity = PluginIdentity::new(path, shell).err_span(path_span)?;
 
         // Find garbage collection config
         let gc_config = working_set
@@ -3743,10 +3742,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 });
 
-                if signatures.is_ok() {
-                    // mark plugins file as dirty only when the user is registering plugins
-                    // and not when we evaluate plugin.nu on shell startup
-                    working_set.mark_plugins_file_dirty();
+                if let Ok(ref signatures) = signatures {
+                    // Add the loaded plugin to the delta
+                    working_set
+                        .update_plugin_cache(PluginCacheItem::new(&identity, signatures.clone()));
                 }
 
                 signatures

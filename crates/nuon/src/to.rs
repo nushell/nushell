@@ -8,39 +8,54 @@ use nu_protocol::{Range, ShellError, Span, Value};
 
 use std::ops::Bound;
 
+/// control the way Nushell [`Value`] is converted to NUON data
+pub enum ToStyle {
+    /// no indentation at all
+    ///
+    /// `{ a: 1, b: 2 }` will be converted to `{a: 1, b: 2}`
+    Raw,
+    #[allow(clippy::tabs_in_doc_comments)]
+    /// tabulation-based indentation
+    ///
+    /// using 2 as the variant value, `{ a: 1, b: 2 }` will be converted to
+    /// ```text
+    /// {
+    /// 		a: 1,
+    /// 		b: 2
+    /// }
+    /// ```
+    Tabs(usize),
+    /// space-based indentation
+    ///
+    /// using 3 as the variant value, `{ a: 1, b: 2 }` will be converted to
+    /// ```text
+    /// {
+    ///    a: 1,
+    ///    b: 2
+    /// }
+    /// ```
+    Spaces(usize),
+}
+
 /// convert an actual Nushell [`Value`] to a raw string representation of the NUON data
 ///
-/// ## Arguments
-/// - `tabs` and `indent` control the level of indentation, expressed in _tabulations_ and _spaces_
-///   respectively. `tabs` has higher precedence over `indent`.
-/// - `raw` has the highest precedence and will for the output to be _raw_, i.e. the [`Value`] will
-///   be _serialized_ on a single line, without extra whitespaces.
-///
-/// > **Note**  
+/// > **Note**
 /// > a [`Span`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
 ///
 /// also see [`super::from_nuon`] for the inverse operation
-pub fn to_nuon(
-    input: &Value,
-    raw: bool,
-    tabs: Option<usize>,
-    indent: Option<usize>,
-    span: Option<Span>,
-) -> Result<String, ShellError> {
+pub fn to_nuon(input: &Value, style: ToStyle, span: Option<Span>) -> Result<String, ShellError> {
     let span = span.unwrap_or(Span::unknown());
 
-    let nuon_result = if raw {
-        value_to_string(input, span, 0, None)?
-    } else if let Some(tab_count) = tabs {
-        value_to_string(input, span, 0, Some(&"\t".repeat(tab_count)))?
-    } else if let Some(indent) = indent {
-        value_to_string(input, span, 0, Some(&" ".repeat(indent)))?
-    } else {
-        value_to_string(input, span, 0, None)?
+    let indentation = match style {
+        ToStyle::Raw => None,
+        ToStyle::Tabs(t) => Some("\t".repeat(t)),
+        ToStyle::Spaces(s) => Some(" ".repeat(s)),
     };
 
-    Ok(nuon_result)
+    let res = value_to_string(input, span, 0, indentation.as_deref())?;
+
+    Ok(res)
 }
 
 fn value_to_string(
@@ -69,12 +84,6 @@ fn value_to_string(
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Block { .. } => Err(ShellError::UnsupportedInput {
-            msg: "blocks are currently not nuon-compatible".into(),
-            input: "value originates from here".into(),
-            msg_span: span,
-            input_span: v.span(),
-        }),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput {
             msg: "closures are currently not nuon-compatible".into(),
             input: "value originates from here".into(),

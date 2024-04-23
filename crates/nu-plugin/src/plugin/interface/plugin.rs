@@ -750,15 +750,7 @@ impl PluginInterface {
                 help: Some(format!(
                     "the plugin may have experienced an error. Try registering the plugin again \
                         with `{}`",
-                    if let Some(shell) = self.state.source.shell() {
-                        format!(
-                            "register --shell '{}' '{}'",
-                            shell.display(),
-                            self.state.source.filename().display(),
-                        )
-                    } else {
-                        format!("register '{}'", self.state.source.filename().display())
-                    }
+                    self.state.source.identity.register_command(),
                 )),
                 inner: vec![],
             })?;

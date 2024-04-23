@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -49,54 +49,19 @@ not supported."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let span = call.head;
+        let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         let metadata = input.metadata();
-        let mut stack = stack.captures_to_stack(closure.captures);
-        let block = engine_state.get_block(closure.block_id).clone();
-
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-
-        let eval_block = get_eval_block(&engine_state);
-
         Ok(input
-            .into_iter_strict(span)?
-            .filter_map(move |value| {
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, value.clone());
-                    }
-                }
-
-                let result = eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    // clone() is used here because x is given to Ok() below.
-                    value.clone().into_pipeline_data(),
-                );
-
-                match result {
-                    Ok(result) => {
-                        let result = result.into_value(span);
-                        if result.is_true() {
-                            Some(value)
-                        } else {
-                            None
-                        }
-                    }
-                    Err(err) => Some(Value::error(err, span)),
-                }
+            .into_iter_strict(head)?
+            .filter_map(move |value| match closure.run_with_value(value.clone()) {
+                Ok(data) => data.into_value(head).is_true().then_some(value),
+                Err(err) => Some(Value::error(err, head)),
             })
-            .into_pipeline_data_with_metadata(metadata, ctrlc))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {

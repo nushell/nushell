@@ -5,6 +5,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
+use crate::engine::Closure;
 use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -48,7 +49,7 @@ impl Default for HistoryConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub external_completer: Option<usize>,
+    pub external_completer: Option<Closure>,
     pub filesize_metric: bool,
     pub table_mode: TableMode,
     pub table_move_header: bool,
@@ -334,13 +335,13 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.coerce_block() {
-                                                                config.external_completer = Some(v)
+                                                            if let Ok(v) = value.as_closure() {
+                                                                config.external_completer = Some(v.clone())
                                                             } else {
                                                                 match value {
                                                                     Value::Nothing { .. } => {}
                                                                     _ => {
-                                                                        report_invalid_value("should be a block or null", span, &mut errors);
+                                                                        report_invalid_value("should be a closure or null", span, &mut errors);
                                                                         // Reconstruct
                                                                         *value = reconstruct_external_completer(&config,
                                                                             span
