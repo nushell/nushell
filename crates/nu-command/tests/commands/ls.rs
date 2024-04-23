@@ -770,7 +770,7 @@ fn list_inside_glob_metachars_dir() {
 
         let actual = nu!(
             cwd: dirs.test().join(sub_dir),
-            "ls test_file.txt",
+            "ls test_file.txt | get name.0 | path basename",
         );
         assert!(actual.out.contains("test_file.txt"));
     });
