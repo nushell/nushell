@@ -1,4 +1,6 @@
-use crate::prompt_update::{POST_PROMPT_MARKER, PRE_PROMPT_MARKER};
+use crate::prompt_update::{
+    POST_PROMPT_MARKER, PRE_PROMPT_MARKER, VSCODE_POST_PROMPT_MARKER, VSCODE_PRE_PROMPT_MARKER,
+};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
@@ -10,7 +12,8 @@ use std::borrow::Cow;
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
-    shell_integration: bool,
+    shell_integration_osc133: bool,
+    shell_integration_osc633: bool,
     left_prompt_string: Option<String>,
     right_prompt_string: Option<String>,
     default_prompt_indicator: Option<String>,
@@ -21,9 +24,10 @@ pub struct NushellPrompt {
 }
 
 impl NushellPrompt {
-    pub fn new(shell_integration: bool) -> NushellPrompt {
+    pub fn new(shell_integration_osc133: bool, shell_integration_osc633: bool) -> NushellPrompt {
         NushellPrompt {
-            shell_integration,
+            shell_integration_osc133,
+            shell_integration_osc633,
             left_prompt_string: None,
             right_prompt_string: None,
             default_prompt_indicator: None,
@@ -106,8 +110,11 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            if self.shell_integration {
+            if self.shell_integration_osc133 {
                 format!("{PRE_PROMPT_MARKER}{prompt}{POST_PROMPT_MARKER}").into()
+            } else if self.shell_integration_osc633 {
+                // TODO: Check VSCODE env var too before doing this
+                format!("{VSCODE_PRE_PROMPT_MARKER}{prompt}{VSCODE_POST_PROMPT_MARKER}").into()
             } else {
                 prompt.into()
             }

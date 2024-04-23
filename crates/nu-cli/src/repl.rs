@@ -1,3 +1,7 @@
+use crate::prompt_update::{
+    POST_EXECUTE_MARKER_PREFIX, POST_EXECUTE_MARKER_SUFFIX, PRE_EXECUTE_MARKER,
+    RESET_APPLICATION_MODE, VSCODE_CWD_PROPERTY_MARKER_PREFIX, VSCODE_CWD_PROPERTY_MARKER_SUFFIX,
+};
 use crate::{
     completions::NuCompleter,
     nu_highlight::NoOpHighlighter,
@@ -42,16 +46,6 @@ use std::{
 };
 use sysinfo::System;
 
-// According to Daniel Imms @Tyriar, we need to do these this way:
-// <133 A><prompt><133 B><command><133 C><command output>
-// These first two have been moved to prompt_update to get as close as possible to the prompt.
-// const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
-// const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
-const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
-// This one is in get_command_finished_marker() now so we can capture the exit codes properly.
-// const CMD_FINISHED_MARKER: &str = "\x1b]133;D;{}\x1b\\";
-const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
-
 /// The main REPL loop, including spinning up the prompt itself.
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
@@ -74,8 +68,16 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let shell_integration = config.shell_integration;
-    let nu_prompt = NushellPrompt::new(shell_integration);
+    // let shell_integration = config.shell_integration;
+    let shell_integration_osc2 = config.shell_integration_osc2;
+    let shell_integration_osc7 = config.shell_integration_osc7;
+    // let shell_integration_osc8 = config.shell_integration_osc8;
+    let shell_integration_osc9_9 = config.shell_integration_osc9_9;
+    let shell_integration_osc133 = config.shell_integration_osc133;
+    let shell_integration_osc633 = config.shell_integration_osc633;
+    // let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
+
+    let nu_prompt = NushellPrompt::new(shell_integration_osc133, shell_integration_osc633);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -116,8 +118,24 @@ pub fn evaluate_repl(
     }
 
     let hostname = System::host_name();
-    if shell_integration {
-        shell_integration_osc_7_633_2(hostname.as_deref(), engine_state, &mut unique_stack);
+    // if shell_integration {
+    //     shell_integration_osc_7_633_2(hostname.as_deref(), engine_state, &mut unique_stack);
+    // }
+
+    if shell_integration_osc2 {
+        run_shell_integration_osc2(None, engine_state, &mut unique_stack);
+    }
+    if shell_integration_osc7 {
+        run_shell_integration_osc7(hostname.as_deref(), engine_state, &mut unique_stack);
+    }
+    // if shell_integration_osc8 {
+    //     run_shell_integration_osc8(hostname.as_deref(), engine_state, &mut unique_stack);
+    // }
+    if shell_integration_osc9_9 {
+        run_shell_integration_osc9_9(engine_state, &mut unique_stack);
+    }
+    if shell_integration_osc633 {
+        run_shell_integration_osc633(engine_state, &mut unique_stack);
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -513,7 +531,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_highlighter(Box::<NoOpHighlighter>::default())
         // CLEAR STACK-REFERENCE 2
         .with_completer(Box::<DefaultCompleter>::default());
-    let shell_integration = config.shell_integration;
+    // let shell_integration_osc133 = config.shell_integration_osc133;
+    // let shell_integration_osc2 = config.shell_integration_osc2;
+    let shell_integration_osc2 = config.shell_integration_osc2;
+    let shell_integration_osc7 = config.shell_integration_osc7;
+    // let shell_integration_osc8 = config.shell_integration_osc8;
+    let shell_integration_osc9_9 = config.shell_integration_osc9_9;
+    let shell_integration_osc133 = config.shell_integration_osc133;
+    let shell_integration_osc633 = config.shell_integration_osc633;
+    let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
 
     let mut stack = Stack::unwrap_unique(stack_arc);
 
@@ -575,7 +601,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             repl.buffer = line_editor.current_buffer_contents().to_string();
             drop(repl);
 
-            if shell_integration {
+            if shell_integration_osc133 {
                 start_time = Instant::now();
 
                 run_ansi_sequence(PRE_EXECUTE_MARKER);
@@ -598,7 +624,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                     ReplOperation::AutoCd { cwd, target, span } => {
                         do_auto_cd(target, cwd, &mut stack, engine_state, span);
 
-                        if shell_integration {
+                        if shell_integration_osc133 {
                             start_time = Instant::now();
 
                             run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
@@ -619,12 +645,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                             &mut stack,
                             engine_state,
                             line_editor,
-                            shell_integration,
+                            shell_integration_osc2,
                             *entry_num,
                             use_color,
                         );
 
-                        if shell_integration {
+                        if shell_integration_osc133 {
                             start_time = Instant::now();
 
                             run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
@@ -663,26 +689,45 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 }
             }
 
-            if shell_integration {
-                start_time = Instant::now();
+            // if shell_integration {
+            //     start_time = Instant::now();
 
-                shell_integration_osc_7_633_2(hostname, engine_state, &mut stack);
+            //     shell_integration_osc_7_633_2(hostname, engine_state, &mut stack);
 
-                perf(
-                    "shell_integration_finalize ansi escape sequences",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
+            //     perf(
+            //         "shell_integration_finalize ansi escape sequences",
+            //         start_time,
+            //         file!(),
+            //         line!(),
+            //         column!(),
+            //         use_color,
+            //     );
+            // }
+            if shell_integration_osc2 {
+                run_shell_integration_osc2(None, engine_state, &mut stack);
+            }
+            if shell_integration_osc7 {
+                run_shell_integration_osc7(hostname, engine_state, &mut stack);
+            }
+            // if shell_integration_osc8 {
+            //     run_shell_integration_osc8(hostname.as_deref(), engine_state, &mut stack);
+            // }
+            if shell_integration_osc9_9 {
+                run_shell_integration_osc9_9(engine_state, &mut stack);
+            }
+            if shell_integration_osc633 {
+                run_shell_integration_osc633(engine_state, &mut stack);
+            }
+
+            if shell_integration_reset_application_mode {
+                run_shell_integration_reset_application_mode();
             }
 
             flush_engine_state_repl_buffer(engine_state, &mut line_editor);
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
-            if shell_integration {
+            if shell_integration_osc133 {
                 start_time = Instant::now();
 
                 run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
@@ -699,7 +744,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         }
         Ok(Signal::CtrlD) => {
             // When exiting clear to a new line
-            if shell_integration {
+            if shell_integration_osc133 {
                 start_time = Instant::now();
 
                 run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
@@ -725,7 +770,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 // e.g. https://github.com/nushell/nushell/issues/6452
                 // Alternatively only allow that expected failures let the REPL loop
             }
-            if shell_integration {
+            if shell_integration_osc133 {
                 start_time = Instant::now();
 
                 run_ansi_sequence(&get_command_finished_marker(&stack, engine_state));
@@ -946,7 +991,7 @@ fn do_run_cmd(
     // we pass in the line editor so it can be dropped in the case of a process exit
     // (in the normal case we don't want to drop it so return it as-is otherwise)
     line_editor: Reedline,
-    shell_integration: bool,
+    shell_integration_osc2: bool,
     entry_num: usize,
     use_color: bool,
 ) -> Reedline {
@@ -973,30 +1018,9 @@ fn do_run_cmd(
         }
     }
 
-    if shell_integration {
+    if shell_integration_osc2 {
         let start_time = Instant::now();
-        if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-            match cwd.coerce_into_string() {
-                Ok(path) => {
-                    // Try to abbreviate string for windows title
-                    let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                        path.replace(&p.as_path().display().to_string(), "~")
-                    } else {
-                        path
-                    };
-                    let binary_name = s.split_whitespace().next();
-
-                    if let Some(binary_name) = binary_name {
-                        run_ansi_sequence(&format!(
-                            "\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"
-                        ));
-                    }
-                }
-                Err(e) => {
-                    warn!("Could not coerce working directory to string {e}");
-                }
-            }
-        }
+        run_shell_integration_osc2(Some(s), engine_state, stack);
 
         perf(
             "set title with command ansi escape sequence",
@@ -1025,11 +1049,92 @@ fn do_run_cmd(
 /// can have more information about what is going on (both on startup and after we have
 /// run a command)
 ///
-fn shell_integration_osc_7_633_2(
+fn run_shell_integration_osc2(
+    command_name: Option<&str>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) {
+    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+        match cwd.coerce_into_string() {
+            Ok(path) => {
+                // Try to abbreviate string for windows title
+                let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                    path.replace(&p.as_path().display().to_string(), "~")
+                } else {
+                    path
+                };
+
+                let title = match command_name {
+                    Some(binary_name) => {
+                        let split_binary_name = binary_name.split_whitespace().next();
+                        if let Some(binary_name) = split_binary_name {
+                            format!("{maybe_abbrev_path}> {binary_name}")
+                        } else {
+                            maybe_abbrev_path.to_string()
+                        }
+                    }
+                    None => maybe_abbrev_path.to_string(),
+                };
+
+                // Set window title too
+                // https://tldp.org/HOWTO/Xterm-Title-3.html
+                // ESC]0;stringBEL -- Set icon name and window title to string
+                // ESC]1;stringBEL -- Set icon name to string
+                // ESC]2;stringBEL -- Set window title to string
+                run_ansi_sequence(&format!("\x1b]2;{title}\x07"));
+            }
+            Err(e) => {
+                warn!("Could not coerce working directory to string {e}");
+            }
+        }
+    }
+}
+
+fn run_shell_integration_osc7(
     hostname: Option<&str>,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) {
+    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+        match cwd.coerce_into_string() {
+            Ok(path) => {
+                // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                run_ansi_sequence(&format!(
+                    "\x1b]7;file://{}{}{}\x1b\\",
+                    percent_encoding::utf8_percent_encode(
+                        hostname.unwrap_or("localhost"),
+                        percent_encoding::CONTROLS
+                    ),
+                    if path.starts_with('/') { "" } else { "/" },
+                    percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+                ));
+            }
+            Err(e) => {
+                warn!("Could not coerce working directory to string {e}");
+            }
+        }
+    }
+}
+
+fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack) {
+    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+        match cwd.coerce_into_string() {
+            Ok(path) => {
+                // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
+                run_ansi_sequence(&format!(
+                    "\x1b]9;9;{}{}\x1b\\",
+                    if path.starts_with('/') { "" } else { "/" },
+                    percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+                ));
+            }
+            Err(e) => {
+                warn!("Could not coerce working directory to string {e}");
+            }
+        }
+    }
+}
+
+fn run_shell_integration_osc633(engine_state: &EngineState, stack: &mut Stack) {
     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
         match cwd.coerce_into_string() {
             Ok(path) => {
@@ -1040,39 +1145,21 @@ fn shell_integration_osc_7_633_2(
                 {
                     // If we're in vscode, run their specific ansi escape sequence.
                     // This is helpful for ctrl+g to change directories in the terminal.
-                    run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path));
-                } else {
-                    // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                    // run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path));
                     run_ansi_sequence(&format!(
-                        "\x1b]7;file://{}{}{}\x1b\\",
-                        percent_encoding::utf8_percent_encode(
-                            hostname.unwrap_or("localhost"),
-                            percent_encoding::CONTROLS
-                        ),
-                        if path.starts_with('/') { "" } else { "/" },
-                        percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+                        "{}{}{}",
+                        VSCODE_CWD_PROPERTY_MARKER_PREFIX, path, VSCODE_CWD_PROPERTY_MARKER_SUFFIX
                     ));
                 }
-
-                // Try to abbreviate string for windows title
-                let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                    path.replace(&p.as_path().display().to_string(), "~")
-                } else {
-                    path
-                };
-
-                // Set window title too
-                // https://tldp.org/HOWTO/Xterm-Title-3.html
-                // ESC]0;stringBEL -- Set icon name and window title to string
-                // ESC]1;stringBEL -- Set icon name to string
-                // ESC]2;stringBEL -- Set window title to string
-                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"));
             }
             Err(e) => {
                 warn!("Could not coerce working directory to string {e}");
             }
         }
     }
+}
+
+fn run_shell_integration_reset_application_mode() {
     run_ansi_sequence(RESET_APPLICATION_MODE);
 }
 
@@ -1224,7 +1311,13 @@ fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> Str
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());
 
-    format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
+    // format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
+    format!(
+        "{}{}{}",
+        POST_EXECUTE_MARKER_PREFIX,
+        exit_code.unwrap_or(0),
+        POST_EXECUTE_MARKER_SUFFIX
+    )
 }
 
 fn run_ansi_sequence(seq: &str) {
