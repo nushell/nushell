@@ -304,8 +304,7 @@ fn ls_for_one_pattern(
                 // when not expend, we need to escape our glob pattern(but without the last extra
                 // start which may be added under given directory)
                 // so we can do ls for a file or directory like `a[123]b`
-                let p_escaped = Pattern::escape(&p);
-                p_escaped
+                Pattern::escape(&p)
             }
         };
         pattern.push(std::path::MAIN_SEPARATOR);
@@ -897,6 +896,7 @@ mod windows_helper {
 // It's also bad to add an extra argument to `nu_engine::glob_from`, because only `ls` has the issue.
 //
 // `ls` might converts input pattern from `NuGlob::NotExpand` to `NuGlob::Expand`.
+#[allow(clippy::type_complexity)]
 fn glob_from(
     pattern: &Spanned<NuGlob>,
     cwd: &Path,
