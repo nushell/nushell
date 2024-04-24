@@ -12,7 +12,7 @@ use crate::{
         PluginOutput, ProtocolInfo, StreamId, StreamMessage,
     },
     sequence::Sequence,
-    util::{with_custom_values_in, Waitable},
+    util::{with_custom_values_in, Waitable, WaitableMut},
 };
 use nu_protocol::{
     ast::Operator, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, ListStream,
@@ -138,6 +138,8 @@ impl Drop for PluginCallState {
 pub struct PluginInterfaceManager {
     /// Shared state
     state: Arc<PluginInterfaceState>,
+    /// The writer for protocol info
+    protocol_info_mut: WaitableMut<Arc<ProtocolInfo>>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
     /// State related to plugin calls
@@ -159,18 +161,20 @@ impl PluginInterfaceManager {
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
         let (subscription_tx, subscription_rx) = mpsc::channel();
+        let protocol_info_mut = WaitableMut::new();
 
         PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
                 source,
                 process: pid.map(PluginProcess::new),
-                protocol_info: Waitable::new(),
+                protocol_info: protocol_info_mut.reader(),
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
                 error: OnceLock::new(),
                 writer: Box::new(writer),
             }),
+            protocol_info_mut,
             stream_manager: StreamManager::new(),
             plugin_call_states: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
@@ -464,7 +468,7 @@ impl InterfaceManager for PluginInterfaceManager {
         match input {
             PluginOutput::Hello(info) => {
                 let info = Arc::new(info);
-                self.state.protocol_info.set(info.clone())?;
+                self.protocol_info_mut.set(info.clone())?;
 
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
@@ -631,7 +635,14 @@ impl PluginInterface {
 
     /// Get the protocol info for the plugin. Will block to receive `Hello` if not received yet.
     pub fn protocol_info(&self) -> Result<Arc<ProtocolInfo>, ShellError> {
-        self.state.protocol_info.get()
+        self.state.protocol_info.get().and_then(|info| {
+            info.ok_or_else(|| ShellError::PluginFailedToLoad {
+                msg: format!(
+                    "Failed to get protocol info (`Hello` message) from the `{}` plugin",
+                    self.state.source.identity.name()
+                ),
+            })
+        })
     }
 
     /// Write the protocol info. This should be done after initialization
